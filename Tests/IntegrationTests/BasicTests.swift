@@ -516,8 +516,11 @@ private struct BasicTests {
             Tag.Feature.Command.Package.Init,
             Tag.Feature.PackageType.Library,
         ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testSwiftPlayList() async throws {
+    func testSwiftPlayList(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         let packageName = "SwiftPlayList"
         try await withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: packageName)
@@ -525,7 +528,7 @@ private struct BasicTests {
             try await executeSwiftPackage(
                 packagePath,
                 extraArgs: ["init", "--type", "library", "--name", packageName],
-                buildSystem: .native
+                buildSystem: buildSystem
             )
             try localFileSystem.writeFileContents(
                 packagePath.appending(component: "Package.swift"),
@@ -585,7 +588,8 @@ private struct BasicTests {
                 packagePath,
                 extraArgs: [
                     "--list",
-                ]
+                ],
+                buildSystem: buildSystem
             )
 
             // Check the output.
@@ -600,15 +604,18 @@ private struct BasicTests {
             Tag.Feature.Command.Package.Init,
             Tag.Feature.PackageType.Library,
         ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testSwiftPlayExecute() async throws {
+    func testSwiftPlayExecute(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await withTemporaryDirectory { tempDir in
             let packagePath = tempDir.appending(component: "swiftPlayExecute")
             try localFileSystem.createDirectory(packagePath)
             try await executeSwiftPackage(
                 packagePath,
                 extraArgs: ["init", "--type", "library"],
-                buildSystem: .native
+                buildSystem: buildSystem
             )
             try localFileSystem.writeFileContents(
                 packagePath.appending(component: "Package.swift"),
@@ -667,11 +674,127 @@ private struct BasicTests {
                 extraArgs: [
                     "--one-shot", // immediately exit after execution
                     "Answer",     // run this named playground
-                ]
+                ],
+                buildSystem: buildSystem
             )
 
             // Check the output.
             #expect(result.stdout.contains("answer is 42"), "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
+        }
+    }
+
+    @Test(
+        .tags(
+            Tag.Feature.Command.Play,
+            Tag.Feature.Command.Package.Init,
+            Tag.Feature.PackageType.Executable,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testSwiftPlayReleaseStripsUnusedSymbols(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let packageName = "simple"
+        try await withTemporaryDirectory { tempDir in
+            let packagePath = tempDir.appending(component: packageName)
+            try localFileSystem.createDirectory(packagePath)
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["init", "--type", "executable", "--name", packageName],
+                buildSystem: buildSystem
+            )
+            try localFileSystem.writeFileContents(
+                packagePath.appending(component: "Package.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    // swift-tools-version: 6.2
+
+                    import PackageDescription
+
+                    let package = Package(
+                        name: "\(packageName)",
+                        platforms: [.macOS(.v14)],
+                        dependencies: [
+                            .package(url: "https://github.com/apple/swift-play-experimental", branch: "main"),
+                        ],
+                        targets: [
+                            .executableTarget(
+                                name: "\(packageName)",
+                                dependencies: [
+                                    .product(name: "Playgrounds", package: "swift-play-experimental"),
+                                ]
+                            ),
+                        ]
+                    )
+                    """
+                ),
+                atomically: true
+            )
+            let sourcesDir = packagePath.appending(components: ["Sources", "simple"])
+            try localFileSystem.writeFileContents(
+                sourcesDir.appending(component: "play.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    import Playgrounds
+
+                    fileprivate func redactMyPrivateThings(_ input: String) -> String {
+                        input.replacing(/(?i)private/, with: "<redacted>")
+                    }
+
+                    #Playground {
+                        print("Hello")
+                        let myPrivateThing = "My Private Thing"
+                        let redacted = redactMyPrivateThings(myPrivateThing)
+                        print(redacted)
+                    }
+                    """
+                ),
+                atomically: true
+            )
+
+            // Debug build: symbol should be present
+            let debugBuild = try await executeSwiftBuild(
+                packagePath,
+                configuration: .debug,
+                buildSystem: buildSystem
+            )
+            #expect(debugBuild.stdout.contains("Build complete"), "Debug build failed: stdout='\(debugBuild.stdout)' stderr='\(debugBuild.stderr)'")
+
+            let (debugBinPathOutput, _) = try await executeSwiftBuild(
+                packagePath,
+                configuration: .debug,
+                extraArgs: ["--show-bin-path"],
+                buildSystem: buildSystem
+            )
+            let debugBinPath = try AbsolutePath(validating: debugBinPathOutput.trimmingCharacters(in: .whitespacesAndNewlines))
+            let debugBinaryPath = debugBinPath.appending(component: packageName)
+            let nmDebugResult = try sh("nm", "-a", debugBinaryPath)
+            #expect(
+                nmDebugResult.stdout.contains("MyPrivateThing"),
+                "Expected MyPrivateThing symbol in debug binary. nm output: '\(nmDebugResult.stdout)'"
+            )
+
+            // Release build: symbol should be stripped
+            let releaseBuild = try await executeSwiftBuild(
+                packagePath,
+                configuration: .release,
+                buildSystem: buildSystem
+            )
+            #expect(releaseBuild.stdout.contains("Build complete"), "Release build failed: stdout='\(releaseBuild.stdout)' stderr='\(releaseBuild.stderr)'")
+
+            let (releaseBinPathOutput, _) = try await executeSwiftBuild(
+                packagePath,
+                configuration: .release,
+                extraArgs: ["--show-bin-path"],
+                buildSystem: buildSystem
+            )
+            let releaseBinPath = try AbsolutePath(validating: releaseBinPathOutput.trimmingCharacters(in: .whitespacesAndNewlines))
+            let releaseBinaryPath = releaseBinPath.appending(component: packageName)
+            let nmReleaseResult = try sh("nm", "-a", releaseBinaryPath)
+            #expect(
+                !nmReleaseResult.stdout.contains("MyPrivateThing"),
+                "Expected MyPrivateThing symbol to be stripped from release binary. nm output: '\(nmReleaseResult.stdout)'"
+            )
         }
     }
 
