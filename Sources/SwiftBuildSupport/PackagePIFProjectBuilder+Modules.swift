@@ -858,15 +858,15 @@ extension PackagePIFProjectBuilder {
         // An imparted build setting on C will propagate back to both B and A.
         // FIXME: -rpath should not be given if -static is
         var rpaths: [String] = impartedSettings[.LD_RUNPATH_SEARCH_PATHS] ?? []
-        if pifBuilder.addLocalRpaths {
+        if pifBuilder.addLocalRpaths != .never {
             rpaths.append("$(RPATH_ORIGIN)")
-            if pifBuilder.addLocalRpathsInReleaseConfiguration {
+            if pifBuilder.addLocalRpaths == .always {
                 impartedSettings[.LD_RUNPATH_SEARCH_PATHS] = rpaths + ["$(inherited)"]
             }
         }
 
         var impartedDebugSettings = impartedSettings
-        if pifBuilder.addLocalRpaths {
+        if pifBuilder.addLocalRpaths != .never {
             // FIXME: Why is this rpath only added to the debug config? We should investigate reworking this.
             rpaths.append("$(BUILT_PRODUCTS_DIR)/PackageFrameworks")
             impartedDebugSettings[.LD_RUNPATH_SEARCH_PATHS] = rpaths + ["$(inherited)"]

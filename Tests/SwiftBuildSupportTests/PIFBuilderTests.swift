@@ -28,8 +28,7 @@ import Workspace
 extension PIFBuilderParameters {
     static func constructDefaultParametersForTesting(
         temporaryDirectory: Basics.AbsolutePath,
-        addLocalRpaths: Bool,
-        addLocalRpathsInReleaseConfiguration: Bool = true,
+        addLocalRpaths: PackagePIFBuilder.AddLocalRpaths,
         shouldCreateDylibForDynamicProducts: Bool = false,
         pluginScriptRunner: PluginScriptRunner? = nil,
         hostBuildProductsPath: Basics.AbsolutePath? = nil
@@ -51,8 +50,7 @@ extension PIFBuilderParameters {
             disableSandbox: false,
             pluginWorkingDirectory: temporaryDirectory.appending(component: "plugin-working-dir"),
             additionalFileRules: [],
-            addLocalRPaths: addLocalRpaths,
-            addLocalRpathsInReleaseConfiguration: addLocalRpathsInReleaseConfiguration,
+            addLocalRpaths: addLocalRpaths,
             hostBuildProductsPath: hostBuildProductsPath ?? temporaryDirectory.appending(component: "host-build-products")
         )
     }
@@ -60,8 +58,7 @@ extension PIFBuilderParameters {
 
 fileprivate func withGeneratedPIF(
     fromFixture fixtureName: String,
-    addLocalRpaths: Bool = true,
-    addLocalRpathsInReleaseConfiguration: Bool = true,
+    addLocalRpaths: PackagePIFBuilder.AddLocalRpaths = .always,
     shouldCreateDylibForDynamicProducts: Bool = true,
     buildParameters: BuildParameters? = nil,
     hostBuildProductsPath: AbsolutePath? = nil,
@@ -94,7 +91,6 @@ fileprivate func withGeneratedPIF(
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: fixturePath,
                 addLocalRpaths: addLocalRpaths,
-                addLocalRpathsInReleaseConfiguration: addLocalRpathsInReleaseConfiguration,
                 shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
                 hostBuildProductsPath: hostBuildProductsPath
             ),
@@ -385,7 +381,7 @@ struct PIFBuilderTests {
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: AbsolutePath.root.appending("tmp"),
-                addLocalRpaths: true,
+                addLocalRpaths: .always,
             ),
             fileSystem: fs,
             observabilityScope: observabilityScope.topScope,
@@ -792,7 +788,7 @@ struct PIFBuilderTests {
             }
         }
 
-        try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple", addLocalRpaths: false) { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple", addLocalRpaths: .never) { pif, observabilitySystem in
             #expect(observabilitySystem.diagnostics.filter {
                 $0.severity == .error
             }.isEmpty)
@@ -817,10 +813,10 @@ struct PIFBuilderTests {
         }
     }
 
-    @Test func disablingLocalRpathsInReleaseConfiguration() async throws {
+    @Test func debugOnlyLocalRpaths() async throws {
         try await withGeneratedPIF(
             fromFixture: "Miscellaneous/Simple",
-            addLocalRpathsInReleaseConfiguration: false
+            addLocalRpaths: .debugOnly
         ) { pif, observabilitySystem in
             #expect(observabilitySystem.diagnostics.filter {
                 $0.severity == .error
@@ -833,34 +829,6 @@ struct PIFBuilderTests {
                     .buildConfig(named: .debug)
 
                 #expect(debugConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == ["$(RPATH_ORIGIN)", "$(BUILT_PRODUCTS_DIR)/PackageFrameworks", "$(inherited)"])
-            }
-
-            do {
-                let releaseConfig = try pif.workspace
-                    .project(named: "Foo")
-                    .target(named: "Foo")
-                    .buildConfig(named: .release)
-
-                #expect(releaseConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == nil)
-            }
-        }
-
-        try await withGeneratedPIF(
-            fromFixture: "Miscellaneous/Simple",
-            addLocalRpaths: false,
-            addLocalRpathsInReleaseConfiguration: false
-        ) { pif, observabilitySystem in
-            #expect(observabilitySystem.diagnostics.filter {
-                $0.severity == .error
-            }.isEmpty)
-
-            do {
-                let debugConfig = try pif.workspace
-                    .project(named: "Foo")
-                    .target(named: "Foo")
-                    .buildConfig(named: .debug)
-
-                #expect(debugConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == nil)
             }
 
             do {
@@ -975,7 +943,7 @@ struct PIFBuilderTests {
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: AbsolutePath.root,
-                addLocalRpaths: true
+                addLocalRpaths: .always
             ),
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1112,7 +1080,7 @@ struct PIFBuilderTests {
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: AbsolutePath.root.appending("tmp"),
-                addLocalRpaths: true
+                addLocalRpaths: .always
             ),
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1222,7 +1190,7 @@ struct PIFBuilderTests {
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: AbsolutePath.root.appending("tmp"),
-                addLocalRpaths: true
+                addLocalRpaths: .always
             ),
             fileSystem: fs,
             observabilityScope: observability.topScope
