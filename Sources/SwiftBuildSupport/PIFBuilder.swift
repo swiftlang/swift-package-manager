@@ -83,7 +83,11 @@ package struct PIFBuilderParameters {
     /// the build products to a different location.
     let addLocalRpaths: Bool
 
-    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRPaths: Bool) {
+    /// Allow for turning off local rpaths in the release builds. Defaults to `true` but can be set to
+    /// to `false` to prevent ld warnings and issues with performance, security and library relocation.
+    let addLocalRpathsInReleaseConfiguration: Bool
+
+    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRPaths: Bool, addLocalRpathsInReleaseConfiguration: Bool = true) {
         self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
         self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
@@ -97,6 +101,7 @@ package struct PIFBuilderParameters {
         self.pluginWorkingDirectory = pluginWorkingDirectory
         self.additionalFileRules = additionalFileRules
         self.addLocalRpaths = addLocalRPaths
+        self.addLocalRpathsInReleaseConfiguration = addLocalRpathsInReleaseConfiguration
     }
 }
 
@@ -438,6 +443,7 @@ public final class PIFBuilder {
                 materializeStaticArchiveProductsForRootPackages: self.parameters.materializeStaticArchiveProductsForRootPackages,
                 createDynamicVariantsForLibraryProducts: self.parameters.createDynamicVariantsForLibraryProducts,
                 addLocalRpaths: self.parameters.addLocalRpaths,
+                addLocalRpathsInReleaseConfiguration: self.parameters.addLocalRpathsInReleaseConfiguration,
                 packageDisplayVersion: package.manifest.displayName,
                 pkgConfigDirectories: self.parameters.pkgConfigDirectories,
                 fileSystem: self.fileSystem,
@@ -565,6 +571,7 @@ public final class PIFBuilder {
         pkgConfigDirectories: [Basics.AbsolutePath],
         additionalFileRules: [FileRuleDescription],
         addLocalRpaths: Bool,
+        addLocalRpathsInReleaseConfiguration: Bool = true,
         materializeStaticArchiveProductsForRootPackages: Bool,
         createDynamicVariantsForLibraryProducts: Bool
     ) async throws -> PIFGenerationResult {
@@ -576,6 +583,7 @@ public final class PIFBuilder {
             pluginWorkingDirectory: pluginWorkingDirectory,
             additionalFileRules: additionalFileRules,
             addLocalRpaths: addLocalRpaths,
+            addLocalRpathsInReleaseConfiguration: addLocalRpathsInReleaseConfiguration,
             materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
             createDynamicVariantsForLibraryProducts: createDynamicVariantsForLibraryProducts
 
@@ -847,6 +855,7 @@ extension PIFBuilderParameters {
         pluginWorkingDirectory: AbsolutePath,
         additionalFileRules: [FileRuleDescription],
         addLocalRpaths: Bool,
+        addLocalRpathsInReleaseConfiguration: Bool = true,
         materializeStaticArchiveProductsForRootPackages: Bool,
         createDynamicVariantsForLibraryProducts: Bool
     ) {
@@ -864,6 +873,7 @@ extension PIFBuilderParameters {
             pluginWorkingDirectory: pluginWorkingDirectory,
             additionalFileRules: additionalFileRules,
             addLocalRPaths: addLocalRpaths,
+            addLocalRpathsInReleaseConfiguration: addLocalRpathsInReleaseConfiguration,
         )
     }
 }

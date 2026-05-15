@@ -29,6 +29,7 @@ extension PIFBuilderParameters {
     static func constructDefaultParametersForTesting(
         temporaryDirectory: Basics.AbsolutePath,
         addLocalRpaths: Bool,
+        addLocalRpathsInReleaseConfiguration: Bool = true,
         shouldCreateDylibForDynamicProducts: Bool = false,
         pluginScriptRunner: PluginScriptRunner? = nil
     ) throws -> Self {
@@ -49,7 +50,8 @@ extension PIFBuilderParameters {
             disableSandbox: false,
             pluginWorkingDirectory: temporaryDirectory.appending(component: "plugin-working-dir"),
             additionalFileRules: [],
-            addLocalRPaths: addLocalRpaths
+            addLocalRPaths: addLocalRpaths,
+            addLocalRpathsInReleaseConfiguration: addLocalRpathsInReleaseConfiguration
         )
     }
 }
@@ -57,6 +59,7 @@ extension PIFBuilderParameters {
 fileprivate func withGeneratedPIF(
     fromFixture fixtureName: String,
     addLocalRpaths: Bool = true,
+    addLocalRpathsInReleaseConfiguration: Bool = true,
     shouldCreateDylibForDynamicProducts: Bool = true,
     buildParameters: BuildParameters? = nil,
     hostBuildParameters: BuildParameters? = nil,
@@ -94,6 +97,7 @@ fileprivate func withGeneratedPIF(
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: fixturePath,
                 addLocalRpaths: addLocalRpaths,
+                addLocalRpathsInReleaseConfiguration: addLocalRpathsInReleaseConfiguration,
                 shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts
             ),
             fileSystem: localFileSystem,
@@ -709,13 +713,68 @@ struct PIFBuilderTests {
                     .target(named: "Foo")
                     .buildConfig(named: .release)
 
-                // Release configuration should not inherit rpaths to prevent ambiguity, security, performance
-                // and relocation issues
-                #expect(releaseConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == nil)
+                #expect(releaseConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == ["$(RPATH_ORIGIN)", "$(inherited)"])
             }
         }
 
         try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple", addLocalRpaths: false) { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter {
+                $0.severity == .error
+            }.isEmpty)
+
+            do {
+                let debugConfig = try pif.workspace
+                    .project(named: "Foo")
+                    .target(named: "Foo")
+                    .buildConfig(named: .debug)
+
+                #expect(debugConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == nil)
+            }
+
+            do {
+                let releaseConfig = try pif.workspace
+                    .project(named: "Foo")
+                    .target(named: "Foo")
+                    .buildConfig(named: .release)
+
+                #expect(releaseConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == nil)
+            }
+        }
+    }
+
+    @Test func disablingLocalRpathsInReleaseConfiguration() async throws {
+        try await withGeneratedPIF(
+            fromFixture: "Miscellaneous/Simple",
+            addLocalRpathsInReleaseConfiguration: false
+        ) { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter {
+                $0.severity == .error
+            }.isEmpty)
+
+            do {
+                let debugConfig = try pif.workspace
+                    .project(named: "Foo")
+                    .target(named: "Foo")
+                    .buildConfig(named: .debug)
+
+                #expect(debugConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == ["$(RPATH_ORIGIN)", "$(BUILT_PRODUCTS_DIR)/PackageFrameworks", "$(inherited)"])
+            }
+
+            do {
+                let releaseConfig = try pif.workspace
+                    .project(named: "Foo")
+                    .target(named: "Foo")
+                    .buildConfig(named: .release)
+
+                #expect(releaseConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == nil)
+            }
+        }
+
+        try await withGeneratedPIF(
+            fromFixture: "Miscellaneous/Simple",
+            addLocalRpaths: false,
+            addLocalRpathsInReleaseConfiguration: false
+        ) { pif, observabilitySystem in
             #expect(observabilitySystem.diagnostics.filter {
                 $0.severity == .error
             }.isEmpty)

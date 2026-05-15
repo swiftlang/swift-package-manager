@@ -192,6 +192,11 @@ public final class PackagePIFBuilder {
     /// the build products to a different location.
     let addLocalRpaths: Bool
 
+    /// Whether to also impart local rpaths in the Release configuration. Defaults to `true` for
+    /// native-build-system parity. Hosts that may produce OS dylibs (`install_name` under
+    /// `/System/Library` or `/usr/lib`) should set this to `false`; ld rejects rpaths there.
+    let addLocalRpathsInReleaseConfiguration: Bool
+
     /// Package display version, if any (i.e., it can be a version, branch or a git ref).
     let packageDisplayVersion: String?
 
@@ -224,6 +229,7 @@ public final class PackagePIFBuilder {
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
         addLocalRpaths: Bool = true,
+        addLocalRpathsInReleaseConfiguration: Bool = true,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
@@ -242,6 +248,7 @@ public final class PackagePIFBuilder {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.addLocalRpaths = addLocalRpaths
+        self.addLocalRpathsInReleaseConfiguration = addLocalRpathsInReleaseConfiguration
     }
 
     public init(
@@ -254,6 +261,7 @@ public final class PackagePIFBuilder {
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
         addLocalRpaths: Bool = true,
+        addLocalRpathsInReleaseConfiguration: Bool = true,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
@@ -268,6 +276,7 @@ public final class PackagePIFBuilder {
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
         self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
         self.addLocalRpaths = addLocalRpaths
+        self.addLocalRpathsInReleaseConfiguration = addLocalRpathsInReleaseConfiguration
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
         self.fileSystem = fileSystem
