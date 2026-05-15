@@ -1115,47 +1115,53 @@ struct PIFBuilderTests {
             let project = try pif.workspace.project(named: "ModuleMapGenerationCases")
 
             // UmbrellaHeader has include/UmbrellaHeader/UmbrellaHeader.h — expect a headers build phase
-            let umbrellaTarget = try project.target(named: "UmbrellaHeader")
-            let umbrellaHeadersPhase: ProjectModel.HeadersBuildPhase = try #require(
-                umbrellaTarget.common.buildPhases.compactMap({
-                    guard case let .headers(phase) = $0 else { return nil }
-                    return phase
-                }).only,
-                "Expected exactly one headers build phase for UmbrellaHeader"
-            )
+            do {
+                let umbrellaTarget = try project.target(named: "UmbrellaHeader")
+                let umbrellaHeadersPhase: ProjectModel.HeadersBuildPhase = try #require(
+                    umbrellaTarget.common.buildPhases.compactMap({
+                        guard case let .headers(phase) = $0 else { return nil }
+                        return phase
+                    }).only,
+                    "Expected exactly one headers build phase for UmbrellaHeader"
+                )
 
-            let umbrellaHeaderPaths: [AbsolutePath] = umbrellaHeadersPhase.files.compactMap {
-                guard case .reference(id: let refId) = $0.ref else { return nil }
-                return try? project.underlying.mainGroup.findSource(ref: refId)
-            }.sorted()
-            #expect(umbrellaHeaderPaths.contains { $0.basename == "UmbrellaHeader.h" })
-            // nil headerVisibility means "project" visibility — what we set for symbol graph extraction
-            #expect(umbrellaHeadersPhase.files.allSatisfy { $0.headerVisibility == nil })
+                let umbrellaHeaderPaths: [AbsolutePath] = umbrellaHeadersPhase.files.compactMap {
+                    guard case .reference(id: let refId) = $0.ref else { return nil }
+                    return try? project.underlying.mainGroup.findSource(ref: refId)
+                }.sorted()
+                #expect(umbrellaHeaderPaths.contains { $0.basename == "UmbrellaHeader.h" })
+                // nil headerVisibility means "project" visibility — what we set for symbol graph extraction
+                #expect(umbrellaHeadersPhase.files.allSatisfy { $0.headerVisibility == nil })
+            }
 
             // FlatInclude has include/FlatIncludeHeader.h — expect a headers build phase
-            let flatIncludeTarget = try project.target(named: "FlatInclude")
-            let flatIncludeHeadersPhase: ProjectModel.HeadersBuildPhase = try #require(
-                flatIncludeTarget.common.buildPhases.compactMap({
-                    guard case let .headers(phase) = $0 else { return nil }
-                    return phase
-                }).only,
-                "Expected exactly one headers build phase for FlatInclude"
-            )
+            do {
+                let flatIncludeTarget = try project.target(named: "FlatInclude")
+                let flatIncludeHeadersPhase: ProjectModel.HeadersBuildPhase = try #require(
+                    flatIncludeTarget.common.buildPhases.compactMap({
+                        guard case let .headers(phase) = $0 else { return nil }
+                        return phase
+                    }).only,
+                    "Expected exactly one headers build phase for FlatInclude"
+                )
 
-            let flatIncludeHeaderPaths: [AbsolutePath] = flatIncludeHeadersPhase.files.compactMap {
-                guard case .reference(id: let refId) = $0.ref else { return nil }
-                return try? project.underlying.mainGroup.findSource(ref: refId)
-            }.sorted()
-            #expect(flatIncludeHeaderPaths.contains { $0.basename == "FlatIncludeHeader.h" })
-            #expect(flatIncludeHeadersPhase.files.allSatisfy { $0.headerVisibility == nil })
+                let flatIncludeHeaderPaths: [AbsolutePath] = flatIncludeHeadersPhase.files.compactMap {
+                    guard case .reference(id: let refId) = $0.ref else { return nil }
+                    return try? project.underlying.mainGroup.findSource(ref: refId)
+                }.sorted()
+                #expect(flatIncludeHeaderPaths.contains { $0.basename == "FlatIncludeHeader.h" })
+                #expect(flatIncludeHeadersPhase.files.allSatisfy { $0.headerVisibility == nil })
+            }
 
             // NoIncludeDir has no header files — should have no headers build phase
-            let noIncludeDirTarget = try project.target(named: "NoIncludeDir")
-            let noHeadersPhases = noIncludeDirTarget.common.buildPhases.filter {
-                guard case .headers = $0 else { return false }
-                return true
+            do {
+                let noIncludeDirTarget = try project.target(named: "NoIncludeDir")
+                let noHeadersPhases = noIncludeDirTarget.common.buildPhases.filter {
+                    guard case .headers = $0 else { return false }
+                    return true
+                }
+                #expect(noHeadersPhases.isEmpty)
             }
-            #expect(noHeadersPhases.isEmpty)
         }
     }
 }
