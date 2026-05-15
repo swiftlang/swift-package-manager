@@ -345,7 +345,8 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 ),
                 outputParameters: .init(
                     isVerbose: logLevel <= .info
-                )
+                ),
+                stripProducts: nil,
             )
         }
 

@@ -438,6 +438,15 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return result
         }
 
+        if let stripProduct = self.config.destinationBuildParameters.stripProducts {
+            self.observabilityScope.emit(
+                Basics.Diagnostic.unsupportedStripProductsConfigurationFlag(
+                    isEnabled: stripProduct,
+                    with: .native,
+                )
+            )
+        }
+
         let buildStartTime = DispatchTime.now()
 
         // Get the build description (either a cached one or newly created).

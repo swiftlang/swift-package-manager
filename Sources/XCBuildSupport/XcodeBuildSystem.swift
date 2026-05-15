@@ -13,6 +13,7 @@
 @_spi(SwiftPMInternal)
 import Basics
 import Dispatch
+import SPMBuildCore // for the Basics.Diagnostic extension
 import class Foundation.JSONEncoder
 import class Foundation.NSArray
 import class Foundation.NSDictionary
@@ -184,6 +185,15 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
         guard !buildParameters.shouldSkipBuilding else {
             return buildResult
+        }
+
+        if let stripProdduct = self.buildParameters.stripProducts {
+            self.observabilityScope.emit(
+                Basics.Diagnostic.unsupportedStripProductsConfigurationFlag(
+                    isEnabled: stripProdduct,
+                    with: .xcode,
+                )
+            )
         }
 
         let pifBuilder = try await getPIFBuilder()

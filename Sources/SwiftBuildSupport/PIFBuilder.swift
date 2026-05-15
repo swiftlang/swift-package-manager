@@ -442,7 +442,7 @@ public final class PIFBuilder {
                 packageDisplayVersion: package.manifest.displayName,
                 pkgConfigDirectories: self.parameters.pkgConfigDirectories,
                 fileSystem: self.fileSystem,
-                observabilityScope: self.observabilityScope
+                observabilityScope: self.observabilityScope,
             )
 
             packagesAndBuilders.append((package, packagePIFBuilder, packagePIFBuilderDelegate))
