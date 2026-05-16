@@ -918,8 +918,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue("Fails to find test executable") {
-            try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+        try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 let (stdout, stderr) = try await execute(
                     ["list"],
                     packagePath: fixturePath,
@@ -933,9 +932,6 @@ struct TestCommandTests {
                 #expect(stdout.contains("SimpleTests.SimpleTests/testExample1"))
                 #expect(stdout.contains("SimpleTests.SimpleTests/test_Example2"))
                 #expect(stdout.contains("SimpleTests.SimpleTests/testThrowing"))
-            }
-        } when: {
-            (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem)
         }
     }
 
