@@ -706,7 +706,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     switch operation.state {
                     case .succeeded:
                         guard !self.logLevel.isQuiet else { return }
-                        buildMessageHandler.progressAnimation.update(step: 100, total: 100, text: "")
                         buildMessageHandler.progressAnimation.complete(success: true)
                         let duration = ContinuousClock.Instant.now - buildStartTime
                         let formattedDuration = duration.formatted(.units(allowed: [.seconds], fractionalPart: .show(length: 2, rounded: .up)))
