@@ -689,6 +689,7 @@ private struct BasicTests {
             Tag.Feature.Command.Package.Init,
             Tag.Feature.PackageType.Executable,
         ),
+        .disabled(if: ProcessInfo.hostOperatingSystem == .windows, "nm is not available on Windows"),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testSwiftPlayReleaseStripsUnusedSymbols(
