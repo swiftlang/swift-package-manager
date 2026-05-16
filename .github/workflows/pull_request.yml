@@ -37,6 +37,10 @@ jobs:
       macos_build_command: 'swift run swift-build --build-tests'
       enable_ios_checks: false
       # ios_build_command: 'swift run swift-build --build-tests  --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
+      enable_freebsd_checks: true
+      freebsd_pre_build_command: ./.github/scripts/prebuild.sh
+      freebsd_build_command: 'set -x; swift --version; swift build --build-tests; set +x'
+      # freebsd_host_archs: '["aarch64", "x86_64"]' # Free BSD builds currently only support x86_64
 
   soundness:
     name: Soundness
