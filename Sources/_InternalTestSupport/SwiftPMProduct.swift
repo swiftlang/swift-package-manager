@@ -132,9 +132,6 @@ extension SwiftPM {
         environment["XCTestBundlePath"] = nil
         environment["NSUnbufferedIO"] = nil
 #endif
-        // FIXME: We use this private environment variable hack to be able to
-        // create special conditions in swift-build for swiftpm tests.
-        environment["SWIFTPM_TESTS_MODULECACHE"] = self.xctestBinaryPath.parentDirectory.pathString
 
         // Unset the internal env variable that allows skipping certain tests.
         environment["_SWIFTPM_SKIP_TESTS_LIST"] = nil
