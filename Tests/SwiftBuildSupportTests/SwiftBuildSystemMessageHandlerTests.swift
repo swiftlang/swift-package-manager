@@ -468,7 +468,8 @@ struct SwiftBuildSystemMessageHandlerTests {
             .progress(message: "Weird percent", percentComplete: -1),
             .progress(message: "12 / 32", percentComplete: 0),
             .progress(message: "Something useful", percentComplete: 12),
-            .progress(message: "Complete", percentComplete: 100)
+            .progress(targetName: "MyFunTarget", numActionsComplete: 123, numActions: 3241, condensedMessage: "Building things..."),
+            .progress(message: "Complete", percentComplete: 100, numActionsComplete: 12354, numActions: 12354, condensedMessage: "Done.")
         ]
 
         for event in events {
@@ -482,8 +483,9 @@ struct SwiftBuildSystemMessageHandlerTests {
         let output = self.outputStream.bytes.description
         #expect(output.contains("Weird percent"))
         #expect(!output.contains("12 / 32"))
+        #expect(output.contains("[123/3241] MyFunTarget: Building things..."))
         #expect(output.contains("Something useful"))
-        #expect(output.contains("Complete"))
+        #expect(output.contains("[12354/12354] Done."))
     }
 }
 
@@ -638,17 +640,23 @@ extension SwiftBuildMessage {
 
     /// SwiftBuildMessage.DidUpdateProgressInfo
     package static func progress(
-        message: String,
-        percentComplete: Double,
+        message: String = "",
+        percentComplete: Double = 0,
         showInLog: Bool = false,
-        targetName: String? = nil
+        targetName: String? = nil,
+        numActionsComplete: Int? = nil,
+        numActions: Int? = nil,
+        condensedMessage: String? = nil
     ) -> SwiftBuildMessage {
         .didUpdateProgress(
             .init(
                 message: message,
                 percentComplete: percentComplete,
                 showInLog: showInLog,
-                targetName: targetName
+                targetName: targetName,
+                numCommands: numActionsComplete,
+                numCommandsExpected: numActions,
+                condensedStatusMessage: condensedMessage
             )
         )
     }

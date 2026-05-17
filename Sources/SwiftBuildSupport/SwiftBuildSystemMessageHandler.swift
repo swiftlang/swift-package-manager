@@ -242,17 +242,35 @@ public final class SwiftBuildSystemMessageHandler {
                 }
             }
         case .didUpdateProgress(let progressInfo):
-            let step = Int(progressInfo.percentComplete)
-            let message = if let targetName = progressInfo.targetName {
-                "\(targetName) \(progressInfo.message)"
+            let targetName = progressInfo.targetName
+            let condensedMessage = progressInfo.condensedStatusMessage
+
+            var message = ""
+            if progressInfo.percentComplete < 0 {
+                message = if let targetName {
+                    "\(targetName): \(progressInfo.message)"
+                } else {
+                    progressInfo.message
+                }
             } else {
-                "\(progressInfo.message)"
+                if let targetName {
+                    message += targetName
+                }
+                if let condensedMessage {
+                    message += message.isEmpty ? condensedMessage : ": \(condensedMessage)"
+                }
+
+                // Default to old mechanism if no message has been derived
+                // from the above.
+                if message.isEmpty, progressInfo.message.contains(where: \.isLetter) {
+                    message += progressInfo.message
+                }
             }
 
-            // Skip if message doesn't contain anything useful to display.
-            // TODO: To file an issue for SwiftBuild here.
-            if message.contains(where: \.isLetter) {
-                progressAnimation.update(step: step, total: 100, text: message)
+            if let numerator = progressInfo.numCommands, let denominator = progressInfo.numCommandsExpected {
+                progressAnimation.update(step: numerator, total: denominator, text: message)
+            } else {
+                progressAnimation.update(step: Int(progressInfo.percentComplete), total: 100, text: message)
             }
 
             callback = { [weak self] buildSystem in
