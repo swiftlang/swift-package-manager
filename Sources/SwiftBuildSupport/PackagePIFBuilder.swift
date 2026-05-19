@@ -510,7 +510,7 @@ public final class PackagePIFBuilder {
                 // Check if this is a system library product.
                 if product.isSystemLibraryProduct {
                     try projectBuilder.makeSystemLibraryProduct(product)
-                } else if product.isPrebuiltProduct {
+                } else if product.isPrebuiltProduct, self.hostBuildEnvironment.supportsPrebuilts {
                     try projectBuilder.makePrebuiltProduct(product)
                 } else {
                     // Otherwise, it is a regular library product.
@@ -554,7 +554,10 @@ public final class PackagePIFBuilder {
                 break
 
             case .binary:
-                if let binaryModule = module.underlying as? BinaryModule, case let .prebuilt(prebuilt) = binaryModule.kind {
+                if let binaryModule = module.underlying as? BinaryModule,
+                   case let .prebuilt(prebuilt) = binaryModule.kind,
+                   self.hostBuildEnvironment.supportsPrebuilts
+                {
                     try projectBuilder.makePrebuiltModule(module, prebuilt: prebuilt)
                 }
                 break

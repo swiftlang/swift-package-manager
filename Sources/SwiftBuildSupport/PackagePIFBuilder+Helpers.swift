@@ -308,7 +308,7 @@ extension Sequence<PackageModel.PackageCondition> {
                 return []
             }
 
-            if hostBuildEnvironment.supportsPrebuilts == true,
+            if hostBuildEnvironment.supportsPrebuilts,
                 let include = platformsCondition.includeIfPrebuiltsSupported,
                 let hostPlatform = try? ProjectModel.BuildSettings.Platform(from: hostBuildEnvironment.platform)
             {

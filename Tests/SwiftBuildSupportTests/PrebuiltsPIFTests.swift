@@ -13,6 +13,7 @@
 import Basics
 import Foundation
 import PackageLoading
+import SwiftBuild
 import SPMBuildCore
 import SwiftBuildSupport
 import Testing
@@ -22,138 +23,148 @@ import _InternalTestSupport
 @_spi(SwiftPMInternal) @testable import PackageModel
 
 /// PIF version of the PrebuiltsBuildPlanTests
-@Suite
-struct PrebuiltsPIFTests {
-    @Test func testSuccessPath() async throws {
+@Suite struct PrebuiltsPIFTests {
+    let prebuiltLibrary = PrebuiltLibrary(
+        identity: .plain("swift-syntax"),
+        libraryName: "MacroSupport",
+        path: "/MyPackage/.build/prebuilts/swift-syntax/600.0.1/6.1-MacroSupport-macos_aarch64",
+        checkoutPath: "/MyPackage/.build/checkouts/swift-syntax",
+        products: [
+            "SwiftBasicFormat",
+            "SwiftCompilerPlugin",
+            "SwiftDiagnostics",
+            "SwiftIDEUtils",
+            "SwiftOperators",
+            "SwiftParser",
+            "SwiftParserDiagnostics",
+            "SwiftRefactor",
+            "SwiftSyntax",
+            "SwiftSyntaxBuilder",
+            "SwiftSyntaxMacros",
+            "SwiftSyntaxMacroExpansion",
+            "SwiftSyntaxMacrosTestSupport",
+            "SwiftSyntaxMacrosGenericTestSupport",
+            "_SwiftCompilerPluginMessageHandling",
+            "_SwiftLibraryPluginProvider",
+        ],
+        includePath: [
+            "Sources/_SwiftSyntaxCShims/include"
+        ]
+    )
+
+    let fs = InMemoryFileSystem(
+        emptyFiles: [
+            "/MyPackage/Sources/Base/Base.swift",
+            "/MyPackage/Sources/Intermediate/Intermediate.swift",
+            "/MyPackage/Sources/Macros/Macros.swift",
+            "/MyPackage/Sources/MacroLib/MacroLib.swift",
+            "/MyPackage/Sources/Generator/Generator.swift",
+            "/MyPackage/Plugins/Plugin/Plugin.swift",
+            "/MyRoot/Sources/MyApp/MyApp.swift",
+            "/swift-syntax/Sources/SwiftSyntaxMacros/SwiftSyntaxMacros.swift",
+        ]
+    )
+
+    func manifests() throws -> [Manifest] {
+        [
+            Manifest.createRootManifest(
+                displayName: "MyRoot",
+                path: "/MyRoot",
+                dependencies: [
+                    .remoteSourceControl(
+                        url: "https://github.com/swiftlang/swift-syntax",
+                        requirement: .exact("600.0.1")),
+                    .fileSystem(path: "/MyPackage"),
+                ],
+                products: [
+                    try ProductDescription(
+                        name: "MyApp",
+                        type: .executable,
+                        targets: ["MyApp"]
+                    )
+                ],
+                targets: [
+                    try TargetDescription(
+                        name: "MyApp",
+                        dependencies: [
+                            .product(name: "MacroLib", package: "MyPackage"),
+                            .product(name: "Base", package: "MyPackage"),
+                        ],
+                        type: .executable
+                    )
+                ],
+            ),
+            Manifest.createFileSystemManifest(
+                displayName: "MyPackage",
+                path: "/MyPackage",
+                dependencies: [
+                    .remoteSourceControl(
+                        url: "https://github.com/swiftlang/swift-syntax",
+                        requirement: .exact("600.0.1"))
+                ],
+                products: [
+                    try ProductDescription(
+                        name: "MacroLib",
+                        type: .library(.automatic),
+                        targets: [
+                            "MacroLib"
+                        ]
+                    ),
+                    try ProductDescription(
+                        name: "Base",
+                        type: .library(.automatic),
+                        targets: [
+                            "Base"
+                        ]
+                    ),
+                ],
+                targets: [
+                    try TargetDescription(
+                        name: "Base",
+                        dependencies: [
+                            .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
+                        ]
+                    ),
+                    try TargetDescription(
+                        name: "Macros",
+                        dependencies: [
+                            .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                            "Base",
+                        ],
+                        type: .macro
+                    ),
+                    try TargetDescription(
+                        name: "MacroLib",
+                        dependencies: [
+                            "Macros"
+                        ]
+                    ),
+                ],
+            ),
+            Manifest.createRemoteSourceControlManifest(
+                displayName: "swift-syntax",
+                url: "https://github.com/swiftlang/swift-syntax",
+                path: "/swift-syntax",
+                products: [
+                    try ProductDescription(
+                        name: "SwiftSyntaxMacros",
+                        type: .library(.automatic),
+                        targets: ["SwiftSyntaxMacros"]
+                    )
+                ],
+                targets: [
+                    try TargetDescription(name: "SwiftSyntaxMacros")
+                ]
+            ),
+        ]
+    }
+
+    @Test func successPath() async throws {
         let observability = ObservabilitySystem.makeForTesting()
-
-        let prebuiltLibrary = PrebuiltLibrary(
-            identity: .plain("swift-syntax"),
-            libraryName: "MacroSupport",
-            path: "/MyPackage/.build/prebuilts/swift-syntax/600.0.1/6.1-MacroSupport-macos_aarch64",
-            checkoutPath: "/MyPackage/.build/checkouts/swift-syntax",
-            products: [
-                "SwiftBasicFormat",
-                "SwiftCompilerPlugin",
-                "SwiftDiagnostics",
-                "SwiftIDEUtils",
-                "SwiftOperators",
-                "SwiftParser",
-                "SwiftParserDiagnostics",
-                "SwiftRefactor",
-                "SwiftSyntax",
-                "SwiftSyntaxBuilder",
-                "SwiftSyntaxMacros",
-                "SwiftSyntaxMacroExpansion",
-                "SwiftSyntaxMacrosTestSupport",
-                "SwiftSyntaxMacrosGenericTestSupport",
-                "_SwiftCompilerPluginMessageHandling",
-                "_SwiftLibraryPluginProvider",
-            ],
-            includePath: [
-                "Sources/_SwiftSyntaxCShims/include"
-            ]
-        )
-
-        let fs = InMemoryFileSystem(
-            emptyFiles: [
-                "/MyPackage/Sources/Base/Base.swift",
-                "/MyPackage/Sources/Intermediate/Intermediate.swift",
-                "/MyPackage/Sources/Macros/Macros.swift",
-                "/MyPackage/Sources/MacroLib/MacroLib.swift",
-                "/MyPackage/Sources/Generator/Generator.swift",
-                "/MyPackage/Plugins/Plugin/Plugin.swift",
-                "/MyRoot/Sources/MyApp/MyApp.swift",
-                "/swift-syntax/Sources/SwiftSyntaxMacros/SwiftSyntaxMacros.swift",
-            ]
-        )
 
         let graph = try loadModulesGraph(
             fileSystem: fs,
-            manifests: [
-                Manifest.createRootManifest(
-                    displayName: "MyRoot",
-                    path: "/MyRoot",
-                    dependencies: [
-                        .remoteSourceControl(
-                            url: "https://github.com/swiftlang/swift-syntax",
-                            requirement: .exact("600.0.1")),
-                        .fileSystem(path: "/MyPackage"),
-                    ],
-                    products: [
-                        ProductDescription(
-                            name: "MyApp",
-                            type: .executable,
-                            targets: ["MyApp"]
-                        )
-                    ],
-                    targets: [
-                        TargetDescription(
-                            name: "MyApp",
-                            dependencies: [
-                                .product(name: "MacroLib", package: "MyPackage"),
-                                .product(name: "Base", package: "MyPackage"),
-                            ],
-                            type: .executable
-                        )
-                    ],
-                ),
-                Manifest.createFileSystemManifest(
-                    displayName: "MyPackage",
-                    path: "/MyPackage",
-                    dependencies: [
-                        .remoteSourceControl(
-                            url: "https://github.com/swiftlang/swift-syntax",
-                            requirement: .exact("600.0.1"))
-                    ],
-                    products: [
-                        ProductDescription(
-                            name: "MacroLib",
-                            type: .library(.automatic),
-                            targets: [
-                                "MacroLib"
-                            ]
-                        ),
-                    ],
-                    targets: [
-                        TargetDescription(
-                            name: "Base",
-                            dependencies: [
-                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax")
-                            ]
-                        ),
-                        TargetDescription(
-                            name: "Macros",
-                            dependencies: [
-                                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
-                                "Base",
-                            ],
-                            type: .macro
-                        ),
-                        TargetDescription(
-                            name: "MacroLib",
-                            dependencies: [
-                                "Macros"
-                            ]
-                        ),
-                    ],
-                ),
-                Manifest.createRemoteSourceControlManifest(
-                    displayName: "swift-syntax",
-                    url: "https://github.com/swiftlang/swift-syntax",
-                    path: "/swift-syntax",
-                    products: [
-                        ProductDescription(
-                            name: "SwiftSyntaxMacros",
-                            type: .library(.automatic),
-                            targets: ["SwiftSyntaxMacros"]
-                        )
-                    ],
-                    targets: [
-                        TargetDescription(name: "SwiftSyntaxMacros")
-                    ]
-                ),
-            ],
+            manifests: manifests(),
             prebuilts: [prebuiltLibrary.identity: [prebuiltLibrary]],
             observabilityScope: observability.topScope
         )
@@ -169,9 +180,11 @@ struct PrebuiltsPIFTests {
             buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
             hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
+        #expect(!observability.hasErrorDiagnostics)
 
         let targetMap = pif.workspace.projects.flatMap(\.underlying.targets).reduce(into: [:]) { $0[$1.common.name] = $1 }
 
+        // Confirm the prebuilt got added
         let targetMacroSupport = try #require(targetMap["MacroSupport"])
         for config in targetMacroSupport.common.buildConfigs {
             let ldFlags = try #require(config.impartedBuildProperties.settings[.OTHER_LDFLAGS])
@@ -185,5 +198,57 @@ struct PrebuiltsPIFTests {
                 #expect(cFlags.contains(headerPath.pathString))
             }
         }
+
+        // Confirm the dependencies are added correctly
+        let productMacroSupportId: ProjectModel.GUID = "PACKAGE-PRODUCT:swift-syntax_MacroSupport.MacroSupport"
+        let productSwiftSyntaxMacrosId: ProjectModel.GUID = "PACKAGE-PRODUCT:swift-syntax_SwiftSyntaxMacros.SwiftSyntaxMacros"
+        for consumer in ["Base", "Macros"] {
+            let target = try #require(targetMap[consumer])
+            let depMacroSupport = try #require(target.common.dependencies.filter { $0.targetId == productMacroSupportId }.only)
+            #expect(depMacroSupport.platformFilters.allSatisfy({ !$0.exclude }))
+            let depSwiftSyntaxMacros = try #require(target.common.dependencies.filter { $0.targetId == productSwiftSyntaxMacrosId }.only)
+            #expect(depSwiftSyntaxMacros.platformFilters.allSatisfy({ $0.exclude }))
+        }
+    }
+
+    @Test func disabledWindowsDifferentArch() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: manifests(),
+            prebuilts: [prebuiltLibrary.identity: [prebuiltLibrary]],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder: PIFBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root, addLocalRpaths: true),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        // Set up parameters to mock being on Windows
+        // Even thought he arch's are different, both would be detected as host
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(
+                destination: .target,
+                buildSystemKind: .swiftbuild,
+                triple: .x86_64Windows,
+                isHostPlatform: true
+            ),
+            hostBuildParameters: mockBuildParameters(
+                destination: .host,
+                buildSystemKind: .swiftbuild,
+                triple: .arm64Windows,
+                isHostPlatform: true
+            )
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        // Confirm the prebuilt did not get added
+        let targets = pif.workspace.projects.flatMap(\.underlying.targets)
+        #expect(!targets.contains(where: { $0.common.name == "MacroSupport" }))
     }
 }

@@ -94,11 +94,13 @@ public struct BuildParameters: Encodable {
     /// Whether to create dylibs for dynamic library products.
     public var shouldCreateDylibForDynamicProducts: Bool
 
+    public var isHostPlatform: Bool?
+
     /// The current build environment.
     public var buildEnvironment: BuildEnvironment {
         let supportsPrebuilts: Bool
         let currentPlatform = self.currentPlatform
-        if currentPlatform == .host {
+        if isHostPlatform ?? (currentPlatform == .host) {
             if toolchain.swiftSDK.targetTriple != nil {
                 // We don't support prebuilts for Swift SDKs
                 supportsPrebuilts = false
@@ -181,6 +183,7 @@ public struct BuildParameters: Encodable {
         configuration: BuildConfiguration,
         toolchain: Toolchain,
         triple: Triple? = nil,
+        isHostPlatform: Bool? = nil,
         sdkRootOverride: Basics.AbsolutePath? = nil,
         flags: BuildFlags,
         buildSystemKind: BuildSystemProvider.Kind,
@@ -219,6 +222,7 @@ public struct BuildParameters: Encodable {
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.triple = triple
+        self.isHostPlatform = isHostPlatform
         self.sdkRootOverride = sdkRootOverride
         self.buildSystemKind = buildSystemKind
         switch self.debuggingParameters.debugInfoFormat {
