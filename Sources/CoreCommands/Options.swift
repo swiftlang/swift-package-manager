@@ -331,8 +331,7 @@ public struct ResolverOptions: ParsableArguments {
     public var skipDependencyUpdate: Bool = false
 
     @Flag(help: "Define automatic transformation of source control based dependencies to registry based ones.")
-    public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation =
-        .disabled
+    public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation?
 
     /// Enables pruning unused dependencies to omit redundant calculations during resolution, and each phase thereafter.
     /// Hidden from the generated help text as this feature is only currently being considered for traits.

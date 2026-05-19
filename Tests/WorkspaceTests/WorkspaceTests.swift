@@ -20,6 +20,7 @@ import PackageRegistry
 import PackageSigning
 import SourceControl
 import SPMBuildCore
+import Testing
 @testable import Workspace
 import XCTest
 
@@ -14198,6 +14199,139 @@ final class WorkspaceTests: XCTestCase {
 
             await workspace.checkManagedDependencies { result in
                 result.check(dependency: "org.foo", at: .registryDownload("1.2.0"))
+                result.check(dependency: "org.bar", at: .registryDownload("1.1.0"))
+            }
+        }
+    }
+
+    func testRegistriesJsonReplaceScmWithRegistryDrivesSwizzle() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                            .product(name: "BarProduct", package: "org.bar"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                        .registry(identity: "org.bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://git/org/foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "1.2.0"]
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    identity: "org.bar",
+                    targets: [
+                        MockTarget(name: "BarTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "BarProduct", modules: ["BarTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "1.2.0"]
+                ),
+            ]
+        )
+
+        // Write a registries.json containing replaceScmWithRegistry: true into the
+        // local configuration directory the workspace will read on init.
+        let registriesFile = Workspace.DefaultLocations.registriesConfigurationFile(forRootPackage: sandbox)
+        try fs.createDirectory(registriesFile.parentDirectory, recursive: true)
+        try fs.writeFileContents(registriesFile, string: #"""
+        {
+            "authentication": {},
+            "replaceScmWithRegistry": true,
+            "registries": {},
+            "version": 1
+        }
+        """#)
+
+        // Case 1: no CLI override → registries.json drives .swizzle.
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = nil
+
+            try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                XCTAssertNoDiagnostics(diagnostics)
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
+                }
+            }
+
+            await workspace.checkManagedDependencies { result in
+                result.check(dependency: "org.foo", at: .registryDownload("1.2.0"))
+                result.check(dependency: "org.bar", at: .registryDownload("1.1.0"))
+            }
+        }
+
+        // Case 2: explicit --disable-scm-to-registry-transformation overrides the file.
+        try await workspace.closeWorkspace()
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .disabled
+
+            try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                XCTAssertNoDiagnostics(diagnostics)
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "org.bar", "foo", "Root")
+                }
+            }
+
+            await workspace.checkManagedDependencies { result in
+                result.check(dependency: "foo", at: .checkout(.version("1.2.0")))
+                result.check(dependency: "org.bar", at: .registryDownload("1.1.0"))
+            }
+        }
+
+        // Case 3: explicit --use-registry-identity-for-scm overrides the file.
+        try await workspace.closeWorkspace()
+        do {
+            workspace.sourceControlToRegistryDependencyTransformation = .identity
+
+            try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+                XCTAssertNoDiagnostics(diagnostics)
+                PackageGraphTester(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "org.bar", "org.foo", "Root")
+                }
+            }
+
+            await workspace.checkManagedDependencies { result in
+                result.check(dependency: "org.foo", at: .checkout(.version("1.2.0")))
                 result.check(dependency: "org.bar", at: .registryDownload("1.1.0"))
             }
         }
