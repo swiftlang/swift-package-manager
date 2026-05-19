@@ -78,6 +78,9 @@ extension BuildPlan {
                         }
                         clangTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
+                case .prebuilt:
+                    // Skip since prebuilts are for Swift modules only at the moment
+                    break
                 }
 
             default: continue
