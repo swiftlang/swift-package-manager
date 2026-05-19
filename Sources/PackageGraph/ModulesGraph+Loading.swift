@@ -30,7 +30,7 @@ extension ModulesGraph {
         requiredDependencies: [PackageReference] = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
-        prebuilts: [PackageIdentity: [PrebuiltLibrary]], // Product name to library mapping
+        prebuilts: [PackageIdentity: [PrebuiltLibrary]],
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         customPlatformsRegistry: PlatformRegistry? = .none,
