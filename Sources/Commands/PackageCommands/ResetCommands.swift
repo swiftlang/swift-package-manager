@@ -52,7 +52,7 @@ extension SwiftPackageCommand {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        var addCacheDirTagFile: Bool { false }
+        var inclueAdditionalScratchPathFiles: Bool { false }
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             try await swiftCommandState.getActiveWorkspace().reset(observabilityScope: swiftCommandState.observabilityScope)
