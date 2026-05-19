@@ -1841,7 +1841,7 @@ final class WorkspaceTests: XCTestCase {
         }
         XCTAssertEqual(
             workspace.delegate.events.filter { $0.hasPrefix("updating repo:") },
-            ["updating repo: /tmp/ws/pkgs/Bar"]
+            ["updating repo: \(sandbox.appending(components: "pkgs", "Bar"))"]
         )
 
         // Try to update just Foo. This should update Foo but not Bar.
@@ -1855,7 +1855,7 @@ final class WorkspaceTests: XCTestCase {
         }
         XCTAssertEqual(
             workspace.delegate.events.filter { $0.hasPrefix("updating repo:") },
-            ["updating repo: /tmp/ws/pkgs/Foo"]
+            ["updating repo: \(sandbox.appending(components: "pkgs", "Foo"))"]
         )
 
         // Run full update.
@@ -1870,8 +1870,8 @@ final class WorkspaceTests: XCTestCase {
         XCTAssertEqual(
             Set(workspace.delegate.events.filter { $0.hasPrefix("updating repo:") }),
             Set([
-                "updating repo: /tmp/ws/pkgs/Foo",
-                "updating repo: /tmp/ws/pkgs/Bar",
+                "updating repo: \(sandbox.appending(components: "pkgs", "Foo"))",
+                "updating repo: \(sandbox.appending(components: "pkgs", "Bar"))",
             ])
         )
     }
