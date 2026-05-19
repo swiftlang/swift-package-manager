@@ -9,7 +9,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-
+import Foundation
 import TSCUtility
 import enum TSCBasic.JSON
 
@@ -112,6 +112,12 @@ extension Triple {
         do {
             parsedTargetInfo = try JSON(string: compilerOutput)
         } catch {
+            let trimmedOutput = compilerOutput.trimmingCharacters(in: .whitespacesAndNewlines)
+            if !trimmedOutput.hasPrefix("{") && !trimmedOutput.hasPrefix("[") {
+                // It's plain text, throw cleanly without the JSON error
+                throw StringError("Failed to parse target info: \(trimmedOutput)")
+            }
+
             throw InternalError(
                 "Failed to parse target info (\(error.interpolationDescription)).\nRaw compiler output: \(compilerOutput)"
             )
