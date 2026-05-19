@@ -56,7 +56,6 @@ test [--package-path=<package-path>]
   [--skip=<skip>...] [--xunit-output=<xunit-output>]
   [--enable-testable-imports|disable-testable-imports]
   [--enable-code-coverage|disable-code-coverage]
-  [--debugger]
   [--traits=<traits>] [--enable-all-traits]
   [--disable-default-traits] [--version] [--help]
 ```
@@ -361,11 +360,6 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 - term **--enable-code-coverage|disable-code-coverage**:
 
 *Enable code coverage.*
-
-
-- term **--debugger**:
-
-*Launch the tests in a debugger session.*
 
 
 - term **--traits=\<traits\>**:
