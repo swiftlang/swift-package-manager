@@ -485,20 +485,6 @@ public final class PackagePIFBuilder {
         // the structure of the client(s).
         //
 
-        // Treat test targets that are depended on by other test targets as shared and build them as
-        // static libraries so they can be linked against.
-        let testSupportModules: Set<PackageGraph.ResolvedModule.ID> = {
-            var ids = Set<PackageGraph.ResolvedModule.ID>()
-            for module in self.package.modules where module.type == .test {
-                for dependency in module.dependencies {
-                    if case .module(let dep, _) = dependency, dep.type == .test {
-                        ids.insert(dep.id)
-                    }
-                }
-            }
-            return ids
-        }()
-
         self.log(.debug, "Processing \(package.products.count) products:")
 
         // For each of the **products** in the package we create a corresponding `PIFTarget` of the appropriate type.
@@ -524,7 +510,9 @@ public final class PackagePIFBuilder {
 
             case .executable, .test, .snippet:
                 if product.type == .test, let mainTarget = product.mainModule,
-                   testSupportModules.contains(mainTarget.id) {
+                   mainTarget.isTestSupportModule {
+                    // Skip creating a test bundle product as this is a shared test helper library.
+                    // It will be built as a static library in the modules loop below.
                     break
                 }
                 try projectBuilder.makeMainModuleProduct(product)
@@ -557,7 +545,7 @@ public final class PackagePIFBuilder {
                 try projectBuilder.makeSystemLibraryModule(module)
 
             case .test:
-                if testSupportModules.contains(module.id) {
+                if module.isTestSupportModule {
                     try projectBuilder.makeTestSupportModule(module)
                 }
 

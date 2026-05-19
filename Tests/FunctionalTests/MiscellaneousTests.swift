@@ -1397,4 +1397,18 @@ struct MiscellaneousSwiftTestingTests {
             )
         }
     }
+
+    @Test(
+        .tags(.Feature.Command.Test),
+    )
+    func testTestTargetDependsOnTestTarget_EnsureBuilds() async throws {
+        try await fixture(name: "Miscellaneous/TestTargetDependsOnTestTarget") { fixturePath in
+            let (_, stderr) = try await executeSwiftTest(
+                fixturePath,
+                buildSystem: .swiftbuild,
+                throwIfCommandFails: true,
+            )
+            #expect(stderr.contains("Build complete!"))
+        }
+    }
 }

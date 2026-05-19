@@ -2,4 +2,4 @@
 import Testing
 
 // Shared test helpers used by FooTests and BarTests.
-func makeLib() -> MyLib { MyLib() }
+package func makeLib() -> MyLib { MyLib() }

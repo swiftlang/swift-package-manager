@@ -886,6 +886,9 @@ private func createResolvedPackages(
     // Adjust the package graph for any prebuilts, removing any that are no longer needed.
     handlePrebuilts(packageBuilders: packageBuilders, root: root)
 
+    // Mark test modules that are depended upon by other test modules in the same package.
+    markTestSupportModules(packageBuilders: packageBuilders)
+
     return try IdentifiableSet(packageBuilders.map { try $0.construct() })
 }
 
@@ -1057,6 +1060,23 @@ private func handlePrebuilts(packageBuilders: [ResolvedPackageBuilder], root: Pa
             }) {
                 nonPrebuilt.dependencies = nonPrebuilt.dependencies.filter {
                     $0.package.identity != packageBuilder.package.identity
+                }
+            }
+        }
+    }
+}
+
+private func markTestSupportModules(packageBuilders: [ResolvedPackageBuilder]) {
+    for packageBuilder in packageBuilders {
+        let testModuleBuilders = packageBuilder.modules.filter { $0.module.type == .test }
+        guard testModuleBuilders.count > 1 else { continue }
+        for moduleBuilder in testModuleBuilders {
+            for case .module(let dep, _) in moduleBuilder.dependencies where dep.module.type == .test {
+                if !dep.isTestSupportModule {
+                    dep.isTestSupportModule = true
+                    dep.observabilityScope.emit(
+                        debug: "Treating test module '\(dep.module.name)' as a static library as it is depended on by other test target(s)"
+                    )
                 }
             }
         }
@@ -1517,6 +1537,10 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
     /// A constraint on which platforms this module needs to build for.
     var platformConstraint: PlatformConstraint? = nil
 
+    /// Whether this is a test module that is directly depended upon by other test modules.
+    /// Set by `markTestSupportModules` during graph loading.
+    var isTestSupportModule: Bool = false
+
     var isHostOnly: Bool {
         module.type == .macro || (module.type == .test && dependencies.contains(where: {
                 switch $0 {
@@ -1576,7 +1600,8 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
             supportedPlatforms: self.supportedPlatforms,
             // maintain existing functionality and default to .all
             platformConstraint: self.platformConstraint ?? .all,
-            platformVersionProvider: self.platformVersionProvider
+            platformVersionProvider: self.platformVersionProvider,
+            isTestSupportModule: self.isTestSupportModule
         )
     }
 }

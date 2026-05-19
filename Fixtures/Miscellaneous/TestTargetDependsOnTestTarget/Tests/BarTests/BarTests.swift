@@ -1,3 +1,4 @@
+import TestUtils
 import Testing
 
 @Suite struct BarTests {
