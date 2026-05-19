@@ -34,16 +34,24 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.traits, [
-            TraitDescription(name: "Trait1"),
-            TraitDescription(name: "Trait2", description: "Trait 2 description"),
-            TraitDescription(name: "Trait3", description: "Trait 3 description", enabledTraits: ["Trait1"]),
-        ])
+            XCTAssertEqual(manifest.traits, [
+                TraitDescription(name: "Trait1"),
+                TraitDescription(name: "Trait2", description: "Trait 2 description"),
+                TraitDescription(name: "Trait3", description: "Trait 3 description", enabledTraits: ["Trait1"]),
+            ])
+            
+            return manifest
+        }
     }
 
     func testTraits_whenTooMany() async throws {
@@ -162,17 +170,25 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.traits, [
-            TraitDescription(name: "default", description: "The default traits of this package.", enabledTraits: ["Trait1", "Trait3"]),
-            TraitDescription(name: "Trait1"),
-            TraitDescription(name: "Trait2"),
-            TraitDescription(name: "Trait3", enabledTraits: ["Trait1"]),
-        ])
+            XCTAssertEqual(manifest.traits, [
+                TraitDescription(name: "default", description: "The default traits of this package.", enabledTraits: ["Trait1", "Trait3"]),
+                TraitDescription(name: "Trait1"),
+                TraitDescription(name: "Trait2"),
+                TraitDescription(name: "Trait3", enabledTraits: ["Trait1"]),
+            ])
+            
+            return manifest
+        }
     }
 
     func testDependencies() async throws {
@@ -241,78 +257,86 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
             )
             """
 
-        let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        XCTAssertNoDiagnostics(validationDiagnostics)
+        try await forEachManifestLoader { loader in
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+                content,
+                customManifestLoader: loader,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
 
-        XCTAssertEqual(manifest.traits, [
-            TraitDescription(name: "default", description: "The default traits of this package.", enabledTraits: ["Trait1", "Trait2"]),
-            TraitDescription(name: "Trait1"),
-            TraitDescription(name: "Trait2"),
-        ])
-        let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
-        XCTAssertEqual(
-            deps["x.foo"]?.traits,
-            [
-                .init(name: "FooTrait1"),
-                .init(name: "FooTrait2", condition: .init(traits: ["Trait1"])),
-                .init(name: "FooTrait3", condition: .init(traits: ["Trait2"])),
-                .init(name: "default"),
-            ]
-        )
-        XCTAssertEqual(
-            deps["bar"]?.traits,
-            [
-                .init(name: "BarTrait1"),
-                .init(name: "BarTrait2", condition: .init(traits: ["Trait1"])),
-                .init(name: "BarTrait3", condition: .init(traits: ["Trait2"])),
-                .init(name: "default"),
-            ]
-        )
-        XCTAssertEqual(
-            deps["foobar"]?.traits,
-            [
-                .init(name: "FooBarTrait1"),
-                .init(name: "FooBarTrait2", condition: .init(traits: ["Trait1"])),
-                .init(name: "FooBarTrait3", condition: .init(traits: ["Trait2"])),
-                .init(name: "default"),
-            ]
-        )
-        XCTAssertEqual(
-            manifest.targets.first,
-            try .init(
-                name: "Target",
-                dependencies: [
-                    .product(
-                        name: "Product1",
-                        package: "foobar",
-                        condition: .init(traits: ["Trait1"])
-                    ),
-                    .product(
-                        name: "Product2",
-                        package: "bar",
-                        condition: .init(traits: ["Trait2"])
-                    ),
-                ],
-                settings: [
-                    .init(
-                        tool: .swift,
-                        kind: .define("DEFINE1"),
-                        condition: .init(traits: ["Trait1"])
-                    ),
-                    .init(
-                        tool: .swift,
-                        kind: .define("DEFINE2"),
-                        condition: .init(traits: ["Trait2"])
-                    ),
-                    .init(
-                        tool: .swift,
-                        kind: .define("DEFINE3"),
-                        condition: .init(traits: ["Trait1", "Trait2"])
-                    ),
+            XCTAssertEqual(manifest.traits, [
+                TraitDescription(name: "default", description: "The default traits of this package.", enabledTraits: ["Trait1", "Trait2"]),
+                TraitDescription(name: "Trait1"),
+                TraitDescription(name: "Trait2"),
+            ])
+            let deps = Dictionary(uniqueKeysWithValues: manifest.dependencies.map{ ($0.identity.description, $0) })
+            XCTAssertEqual(
+                deps["x.foo"]?.traits,
+                [
+                    .init(name: "FooTrait1"),
+                    .init(name: "FooTrait2", condition: .init(traits: ["Trait1"])),
+                    .init(name: "FooTrait3", condition: .init(traits: ["Trait2"])),
+                    .init(name: "default"),
                 ]
             )
-        )
+            XCTAssertEqual(
+                deps["bar"]?.traits,
+                [
+                    .init(name: "BarTrait1"),
+                    .init(name: "BarTrait2", condition: .init(traits: ["Trait1"])),
+                    .init(name: "BarTrait3", condition: .init(traits: ["Trait2"])),
+                    .init(name: "default"),
+                ]
+            )
+            XCTAssertEqual(
+                deps["foobar"]?.traits,
+                [
+                    .init(name: "FooBarTrait1"),
+                    .init(name: "FooBarTrait2", condition: .init(traits: ["Trait1"])),
+                    .init(name: "FooBarTrait3", condition: .init(traits: ["Trait2"])),
+                    .init(name: "default"),
+                ]
+            )
+            XCTAssertEqual(
+                manifest.targets.first,
+                try .init(
+                    name: "Target",
+                    dependencies: [
+                        .product(
+                            name: "Product1",
+                            package: "foobar",
+                            condition: .init(traits: ["Trait1"])
+                        ),
+                        .product(
+                            name: "Product2",
+                            package: "bar",
+                            condition: .init(traits: ["Trait2"])
+                        ),
+                    ],
+                    settings: [
+                        .init(
+                            tool: .swift,
+                            kind: .define("DEFINE1"),
+                            condition: .init(traits: ["Trait1"])
+                        ),
+                        .init(
+                            tool: .swift,
+                            kind: .define("DEFINE2"),
+                            condition: .init(traits: ["Trait2"])
+                        ),
+                        .init(
+                            tool: .swift,
+                            kind: .define("DEFINE3"),
+                            condition: .init(traits: ["Trait1", "Trait2"])
+                        ),
+                    ]
+                )
+            )
+            
+            return manifest
+        }
     }
 }
