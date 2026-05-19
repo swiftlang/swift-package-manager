@@ -55,7 +55,6 @@ add_library(Commands
   Utilities/DOTManifestSerializer.swift
   Utilities/MermaidPackageSerializer.swift
   Utilities/MultiRootSupport.swift
-  Utilities/NonEmpty.swift
   Utilities/PlainTextEncoder.swift
   Utilities/PluginDelegate.swift
   Utilities/RefactoringSupport.swift
