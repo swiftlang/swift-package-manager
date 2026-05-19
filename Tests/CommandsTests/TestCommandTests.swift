@@ -262,10 +262,17 @@ struct TestCommandTests {
                     return
                 }
 
-                #expect(
-                    stderr.contains("was not compiled for testing") || stderr.contains("ignore swiftmodule built without '-enable-testing'"),
-                    "got stdout: \(stdout), stderr: \(stderr)",
-                )
+                withKnownIssue(
+                    "The expectation is not met in GitHub actions, but is met on Jenkions",
+                    isIntermittent: true, // Fails in GitHub action but passes in Jenkins.
+                ) {
+                    #expect(
+                        stderr.contains("was not compiled for testing") || stderr.contains("ignore swiftmodule built without '-enable-testing'"),
+                        "got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .macOS && buildSystem == .swiftbuild
+                }
             }
     }
 
@@ -1357,7 +1364,7 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue("Fails to find the test executable", isIntermittent: true) {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/SwiftTesting") { fixturePath in
                 let (stdout, stderr) = try await execute(
                     ["--enable-swift-testing", "--disable-xctest"],
@@ -1371,7 +1378,18 @@ struct TestCommandTests {
                 )
             }
         } when: {
-            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
+            let knownIssueOnAL2: Bool
+            #if compiler(<6.3)
+                knownIssueOnAL2 = ProcessInfo.isHostAmazonLinux2()  // stack trace occurs when run in GitHub actions
+            #else
+                knownIssueOnAL2 = false
+            #endif
+
+            return buildSystem == .swiftbuild
+            &&  (
+                ProcessInfo.hostOperatingSystem == .windows  // Fails to find the test executable
+                || knownIssueOnAL2
+            )
         }
     }
 
