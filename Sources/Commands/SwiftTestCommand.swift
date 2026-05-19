@@ -170,11 +170,11 @@ struct TestCommandOptions: ParsableArguments {
 
     /// The maximum number of times each test will repeat (Swift Testing only).
     @Option(help: .hidden)
-    var experimentalMaximumRepetitions: Int?
+    var maximumRepetitions: Int?
 
     /// The condition upon which to stop repeating (Swift Testing only).
     @Option(help: .hidden)
-    var experimentalRepeatUntil: String?
+    var repeatUntil: String?
 
     /// List the tests and exit.
     @Flag(name: [.customLong("list-tests"), .customShort("l")],
@@ -585,11 +585,11 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         // Pass through all arguments from the command line to Swift Testing.
         var additionalArguments = additionalArguments
         if library == .swiftTesting {
-            // Reconstruct the arguments list. If an xUnit path was specified, remove it.
+            // Reconstruct the arguments list. If an xUnit path or maximum-repetition value was specified, remove it.
             var commandLineArguments = [String]()
             var originalCommandLineArguments = CommandLine.arguments.dropFirst().makeIterator()
             while let arg = originalCommandLineArguments.next() {
-                if arg == "--xunit-output" || arg == "--experimental-maximum-repetitions" || arg == "--experimental-repeat-until" {
+                if arg == "--xunit-output" || arg == "--maximum-repetitions" {
                     _ = originalCommandLineArguments.next()
                 } else if arg.hasPrefix("--xunit-output=") {
                     // Drop the combined form so it is not passed through in addition to SPM's `--xunit-output`.
@@ -613,19 +613,9 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 additionalArguments += ["--xunit-output", xunitPath.pathString]
             }
 
-            var hasRepetitionArgument = false
-            if let maximumRepetitions = options.experimentalMaximumRepetitions {
+            // Forward along --maximum-repetitions as --repetitions
+            if let maximumRepetitions = options.maximumRepetitions {
                 additionalArguments += ["--repetitions", String(maximumRepetitions)]
-                hasRepetitionArgument = true
-            }
-
-            if let repeatUntil = options.experimentalRepeatUntil {
-                additionalArguments += ["--repeat-until", repeatUntil]
-                hasRepetitionArgument = true
-            }
-
-            if hasRepetitionArgument {
-                additionalArguments.append("--experimental-per-test-case-repetition")
             }
         }
 
