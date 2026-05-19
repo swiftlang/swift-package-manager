@@ -601,9 +601,6 @@ private func createResolvedPackages(
                     if moduleBuilder.module.type == .test && dependencyBuilder.module.type == .test
                         && !dependencyBuilder.isTestSupportModule {
                         dependencyBuilder.isTestSupportModule = true
-                        dependencyBuilder.observabilityScope.emit(
-                            debug: "Treating test module '\(dependencyBuilder.module.name)' as a static library as it is depended on by other test target(s)"
-                        )
                     }
                     return .module(dependencyBuilder, conditions: conditions)
                 case .product:

@@ -546,6 +546,7 @@ public final class PackagePIFBuilder {
 
             case .test:
                 if module.isTestSupportModule {
+                    self.log(.debug, "Building test module '\(module.name)' as a static library as it is depended on by other test target(s)")
                     try projectBuilder.makeTestSupportModule(module)
                 }
 
