@@ -111,6 +111,19 @@ fileprivate struct MirrorsConfigurationTests {
     }
 
     @Test
+    func throwsWhenBothLocalAndSharedAreNil() throws {
+        let fs = InMemoryFileSystem()
+
+        #expect(throws: StringError("No mirrors configuration provided")) {
+            try Workspace.Configuration.Mirrors(
+                fileSystem: fs,
+                localMirrorsFile: nil,
+                sharedMirrorsFile: nil
+            )
+        }
+    }
+
+    @Test
     func localAndShared() throws {
         let fs = InMemoryFileSystem()
         let localConfigFile = AbsolutePath("/config/local-mirrors.json")
@@ -151,5 +164,41 @@ fileprivate struct MirrorsConfigurationTests {
         // should not see the shared any longer
         #expect(config.mirrors.mirror(for: original1URL) == nil)
         #expect(config.mirrors.original(for: mirror1URL) == nil)
+    }
+
+    @Test
+    func onlyShared() throws {
+        let fs = InMemoryFileSystem()
+        let sharedConfigFile = AbsolutePath("/config/shared-mirrors.json")
+
+        let config = try Workspace.Configuration.Mirrors(
+            fileSystem: fs,
+            localMirrorsFile: nil,
+            sharedMirrorsFile: sharedConfigFile
+        )
+
+        // can write to shared location
+
+        let original1URL = "https://github.com/apple/swift-argument-parser.git"
+        let mirror1URL = "https://github.com/mona/swift-argument-parser.git"
+
+        try config.applyShared { mirrors in
+            try mirrors.set(mirror: mirror1URL, for: original1URL)
+        }
+
+        // cannot write to local location
+
+        let original2URL = "https://github.com/apple/swift-nio.git"
+        let mirror2URL = "https://github.com/mona/swift-nio.git"
+
+        #expect(throws: (any Error).self) {
+            try config.applyLocal { mirrors in
+                try mirrors.set(mirror: mirror2URL, for: original2URL)
+            }
+        }
+
+        #expect(config.mirrors.count == 1)
+        #expect(config.mirrors.mirror(for: original1URL) == mirror1URL)
+        #expect(config.mirrors.original(for: mirror1URL) == original1URL)
     }
 }
