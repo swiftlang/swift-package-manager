@@ -31,7 +31,7 @@ public func generateTestObservationCode(buildParameters: BuildParameters) -> Str
 
         extension SwiftPMXCTestObserver: XCTestObservation {
             var testOutputPath: String {
-                return "\(buildParameters.testOutputPath)"
+                return "\(BuildOperation.testOutputPath(for: buildParameters))"
             }
 
             private func write(record: any Encodable) {

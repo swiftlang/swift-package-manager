@@ -134,21 +134,23 @@ enum TestingSupport {
         enableCodeCoverage: Bool,
         shouldSkipBuilding: Bool,
         experimentalTestOutput: Bool,
-        sanitizers: [Sanitizer]
-    ) throws -> [BuiltTestProduct: [TestSuite]] {
-        let testSuitesByProduct = try testProducts
-            .map {(
-                $0,
-                try Self.getTestSuites(
-                    fromTestAt: $0.bundlePath,
-                    swiftCommandState: swiftCommandState,
-                    enableCodeCoverage: enableCodeCoverage,
-                    shouldSkipBuilding: shouldSkipBuilding,
-                    experimentalTestOutput: experimentalTestOutput,
-                    sanitizers: sanitizers
-                )
-            )}
-        return try Dictionary(throwingUniqueKeysWithValues: testSuitesByProduct)
+        sanitizers: [Sanitizer],
+        buildSystem: any BuildSystem
+    ) async throws -> [BuiltTestProduct: [TestSuite]] {
+        var result: [(BuiltTestProduct, [TestSuite])] = []
+        for product in testProducts {
+            let suites = try await Self.getTestSuites(
+                fromTestAt: product.bundlePath,
+                swiftCommandState: swiftCommandState,
+                enableCodeCoverage: enableCodeCoverage,
+                shouldSkipBuilding: shouldSkipBuilding,
+                experimentalTestOutput: experimentalTestOutput,
+                sanitizers: sanitizers,
+                buildSystem: buildSystem
+            )
+            result.append((product, suites))
+        }
+        return try Dictionary(throwingUniqueKeysWithValues: result)
     }
 
     /// Runs the corresponding tool to get tests JSON and create TestSuite array.
@@ -167,25 +169,28 @@ enum TestingSupport {
         enableCodeCoverage: Bool,
         shouldSkipBuilding: Bool,
         experimentalTestOutput: Bool,
-        sanitizers: [Sanitizer]
-    ) throws -> [TestSuite] {
+        sanitizers: [Sanitizer],
+        buildSystem: any BuildSystem
+    ) async throws -> [TestSuite] {
         // Run the correct tool.
         var args = [String]()
         #if os(macOS)
+        let env = try await Self.constructTestEnvironment(
+            toolchain: try swiftCommandState.getTargetToolchain(),
+            destinationBuildParameters: swiftCommandState.buildParametersForTest(
+                enableCodeCoverage: enableCodeCoverage,
+                shouldSkipBuilding: shouldSkipBuilding,
+                experimentalTestOutput: experimentalTestOutput
+            ).productsBuildParameters,
+            sanitizers: sanitizers,
+            library: .xctest,
+            testProductPaths: [path],
+            interopMode: nil, // Interop not required when listing tests
+            buildSystem: buildSystem
+        )
+        let helperPath = try Self.xctestHelperPath(swiftCommandState: swiftCommandState).pathString
         let data: String = try withTemporaryFile { tempFile in
-            args = [try Self.xctestHelperPath(swiftCommandState: swiftCommandState).pathString, path.pathString, tempFile.path.pathString]
-            let env = try Self.constructTestEnvironment(
-                toolchain: try swiftCommandState.getTargetToolchain(),
-                destinationBuildParameters: swiftCommandState.buildParametersForTest(
-                    enableCodeCoverage: enableCodeCoverage,
-                    shouldSkipBuilding: shouldSkipBuilding,
-                    experimentalTestOutput: experimentalTestOutput
-                ).productsBuildParameters,
-                sanitizers: sanitizers,
-                library: .xctest,
-                testProductPaths: [path],
-                interopMode: nil // Interop not required when listing tests
-            )
+            args = [helperPath, path.pathString, tempFile.path.pathString]
             try Self.runProcessWithExistenceCheck(
                 path: path,
                 fileSystem: swiftCommandState.fileSystem,
@@ -197,7 +202,7 @@ enum TestingSupport {
             return try swiftCommandState.fileSystem.readFileContents(AbsolutePath(tempFile.path))
         }
         #else
-        let env = try Self.constructTestEnvironment(
+        let env = try await Self.constructTestEnvironment(
             toolchain: try swiftCommandState.getTargetToolchain(),
             destinationBuildParameters: swiftCommandState.buildParametersForTest(
                 enableCodeCoverage: enableCodeCoverage,
@@ -206,7 +211,8 @@ enum TestingSupport {
             sanitizers: sanitizers,
             library: .xctest,
             testProductPaths: [path],
-            interopMode: nil // Interop not required when listing tests
+            interopMode: nil, // Interop not required when listing tests
+            buildSystem: buildSystem
         )
         args = [path.description, "--dump-tests-json"]
         let data = try Self.runProcessWithExistenceCheck(
@@ -224,19 +230,21 @@ enum TestingSupport {
         in testProducts: [BuiltTestProduct],
         swiftCommandState: SwiftCommandState,
         shouldSkipBuilding: Bool,
-        sanitizers: [Sanitizer]
-    ) throws -> [AbsolutePath: [String]] {
-        let suitesByProduct = try testProducts
-            .map {(
-                $0.binaryPath,
-                try Self.getSwiftTestingSuites(
-                    testProduct: $0,
-                    swiftCommandState: swiftCommandState,
-                    shouldSkipBuilding: shouldSkipBuilding,
-                    sanitizers: sanitizers
-                )
-            )}
-        return try Dictionary(throwingUniqueKeysWithValues: suitesByProduct)
+        sanitizers: [Sanitizer],
+        buildSystem: any BuildSystem
+    ) async throws -> [AbsolutePath: [String]] {
+        var result: [(AbsolutePath, [String])] = []
+        for product in testProducts {
+            let suites = try await Self.getSwiftTestingSuites(
+                testProduct: product,
+                swiftCommandState: swiftCommandState,
+                shouldSkipBuilding: shouldSkipBuilding,
+                sanitizers: sanitizers,
+                buildSystem: buildSystem
+            )
+            result.append((product.binaryPath, suites))
+        }
+        return try Dictionary(throwingUniqueKeysWithValues: result)
     }
 
     /// Runs the test binary to list Swift Testing tests and returns their identifiers.
@@ -253,10 +261,11 @@ enum TestingSupport {
         testProduct: BuiltTestProduct,
         swiftCommandState: SwiftCommandState,
         shouldSkipBuilding: Bool,
-        sanitizers: [Sanitizer]
-    ) throws -> [String] {
+        sanitizers: [Sanitizer],
+        buildSystem: any BuildSystem
+    ) async throws -> [String] {
         let toolchain = try swiftCommandState.getTargetToolchain()
-        let env = try Self.constructTestEnvironment(
+        let env = try await Self.constructTestEnvironment(
             toolchain: toolchain,
             destinationBuildParameters: swiftCommandState.buildParametersForTest(
                 // Unlike the XCTest helper tool, the Swift Testing runtime initialises LLVM
@@ -269,7 +278,8 @@ enum TestingSupport {
             sanitizers: sanitizers,
             library: .swiftTesting,
             testProductPaths: [testProduct.bundlePath],
-            interopMode: nil // Interop not required when listing tests
+            interopMode: nil, // Interop not required when listing tests
+            buildSystem: buildSystem
         )
 
         var args: [String]
@@ -356,8 +366,9 @@ enum TestingSupport {
         sanitizers: [Sanitizer],
         library: TestingLibrary,
         testProductPaths: [AbsolutePath],
-        interopMode: String?
-    ) throws -> Environment {
+        interopMode: String?,
+        buildSystem: any BuildSystem
+    ) async throws -> Environment {
         var env = Environment.current
 
         // If the standard output or error stream is NOT a TTY, set the NO_COLOR
@@ -397,7 +408,7 @@ enum TestingSupport {
             //
             // These are all merged using `llvm-profdata merge` once the outer test command has
             // completed.
-            let codecovProfile = buildParameters.buildPath.appending(components: "codecov", "\(library)%m.%p.profraw")
+            let codecovProfile = try await buildSystem.buildProductsPath(for: buildParameters).appending(components: "codecov", "\(library)%m.%p.profraw")
             env["LLVM_PROFILE_FILE"] = codecovProfile.pathString
         }
 

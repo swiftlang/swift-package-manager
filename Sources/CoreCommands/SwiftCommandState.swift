@@ -902,7 +902,7 @@ public final class SwiftCommandState {
         try self._manifestLoader.get()
     }
 
-    public func canUseCachedBuildManifest(_ traitConfiguration: TraitConfiguration = .default) async throws -> Bool {
+    public func canUseCachedBuildManifest(_ traitConfiguration: TraitConfiguration = .default, buildDescriptionPath: AbsolutePath) async throws -> Bool {
         if !self.options.caching.cacheBuildManifest {
             return false
         }
@@ -910,7 +910,7 @@ public final class SwiftCommandState {
         let buildParameters = try self.productsBuildParameters
         let haveBuildManifestAndDescription =
             self.fileSystem.exists(buildParameters.llbuildManifest) &&
-            self.fileSystem.exists(buildParameters.buildDescriptionPath)
+            self.fileSystem.exists(buildDescriptionPath)
 
         if !haveBuildManifestAndDescription {
             return false
@@ -1063,7 +1063,8 @@ public final class SwiftCommandState {
                 forceTestDiscovery: self.options.build.enableTestDiscovery,
                 // backwards compatibility, remove with --enable-test-discovery
                 testEntryPointPath: self.options.build.testEntryPointPath
-            )
+            ),
+            stripProducts: self.options.build.stripProducts,
         )
     }
 

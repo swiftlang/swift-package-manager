@@ -140,7 +140,8 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
 
     public func run(_ swiftCommandState: SwiftCommandState) async throws {
         if options.shouldPrintBinPath {
-            return try print(swiftCommandState.productsBuildParameters.buildPath.description)
+            let buildSystem = try await swiftCommandState.createBuildSystem()
+            return try await print(buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters).description)
         }
 
         if options.printManifestGraphviz {
@@ -256,7 +257,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
                 filter: try self.options.sbom.sbomFilter,
                 product: options.product,
                 specs: try self.options.sbom.sbomSpecs,
-                dir: await SBOMCreator.resolveSBOMDirectory(from: self.options.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath),
+                dir: await SBOMCreator.resolveSBOMDirectory(from: self.options.sbom.sbomDirectory, withDefault: try await buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)),
                 observabilityScope: swiftCommandState.observabilityScope
             )
 

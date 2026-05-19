@@ -142,6 +142,102 @@ struct BuildCommandTestCases {
     }
 
     @Test(
+        arguments: [
+            BuildData(buildSystem: .swiftbuild, config: .release),
+        ], ["enable", "disable"],
+    )
+    func testStripProductsGeneratedDoesNotEmitErrorsWhenSupportedBuildSystemAndConfiguration(
+        buildData: BuildData,
+        action: String,
+    ) async throws {
+        let buildSystem = buildData.buildSystem
+        let config = buildData.config
+        let argumentUT = "--\(action)-experimental-strip-products"
+
+        try await fixture(name: "ValidLayouts/SingleModule/Library") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: config,
+                extraArgs: [
+                    argumentUT,
+                    "--verbose",
+                ],
+                buildSystem: buildSystem,
+            )
+
+            let diag = Basics.Diagnostic.unsupportedStripProductsConfigurationFlag(
+                isEnabled: action.lowercased() == "enable",
+                with: buildSystem,
+            )
+
+            #expect(stdout.contains("Build complete!"))
+            #expect(!stderr.contains("\(diag.severity): \(diag.message)"))
+            #expect(!stdout.contains("\(diag.severity): \(diag.message)"))
+        }
+    }
+
+    @Test(
+        .requireHostOS(.macOS),
+        arguments: getBuildData(for: [.xcode]),  ["enable", "disable"],
+    )
+    func testStripProductsGeneratesErrorWhenUsedWithXcodeBuildSystemAndConfiguration(
+        buildData: BuildData,
+        action: String,
+    ) async throws {
+        try await __testImplementationStripProductsGeneratedErrorWhenUsedWithIncorrectBuildSystemAndConfiguration(
+            buildData: buildData,
+            action: action,
+        )
+    }
+
+    @Test(
+        arguments: getBuildData(for: [.native]) + [
+            BuildData(buildSystem: .swiftbuild, config: .debug),
+        ],  ["enable", "disable"],
+    )
+    func testStripProductsGeneratesErrorWhenUsedWithUnsupportedBuildSystemAndConfiguration(
+        buildData: BuildData,
+        action: String
+    ) async throws {
+        try await __testImplementationStripProductsGeneratedErrorWhenUsedWithIncorrectBuildSystemAndConfiguration(
+            buildData: buildData,
+            action: action,
+        )
+    }
+
+
+    private func __testImplementationStripProductsGeneratedErrorWhenUsedWithIncorrectBuildSystemAndConfiguration(
+        buildData: BuildData,
+        action: String,
+    ) async throws {
+        let buildSystem = buildData.buildSystem
+        let config = buildData.config
+
+        let argumentUT = "--\(action)-experimental-strip-products"
+
+        try await fixture(name: "ValidLayouts/SingleModule/Library") { fixturePath in
+
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: config,
+                    extraArgs: [
+                        argumentUT,
+                    ],
+                    buildSystem: buildSystem,
+                )
+            ) { error in
+                let diag = Basics.Diagnostic.unsupportedStripProductsConfigurationFlag(
+                    isEnabled: action.lowercased() == "enable",
+                    with: buildSystem,
+                )
+                #expect(error.stderr.contains("\(diag.severity): \(diag.message)"))
+            }
+        }
+    }
+
+
+    @Test(
         .tags(
             .Feature.CommandLineArguments.ShowBinPath,
         ),

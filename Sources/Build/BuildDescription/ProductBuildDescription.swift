@@ -67,10 +67,15 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
     /// Paths to tools shipped in binary dependencies
     var availableTools: [String: AbsolutePath] = [:]
 
+    /// Path to the build products directory.
+    public var productsPath: AbsolutePath {
+        BuildOperation.buildProductsPath(for: self.buildParameters)
+    }
+
     /// Path to the temporary directory for this product.
     var tempsPath: AbsolutePath {
         let suffix = buildParameters.suffix
-        return self.buildParameters.buildPath.appending(component: "\(self.product.name)\(suffix).product")
+        return self.productsPath.appending(component: "\(self.product.name)\(suffix).product")
     }
 
     /// Path to the link filelist file.
@@ -161,10 +166,10 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
 
         // Only add the build path to the framework search path if there are binary frameworks to link against.
         if !self.libraryBinaryPaths.isEmpty {
-            args += ["-F", self.buildParameters.buildPath.pathString]
+            args += ["-F", BuildOperation.buildProductsPath(for: self.buildParameters).pathString]
         }
 
-        args += ["-L", self.buildParameters.buildPath.pathString]
+        args += ["-L", BuildOperation.buildProductsPath(for: self.buildParameters).pathString]
         args += try ["-o", binaryPath.pathString]
         args += ["-module-name", self.product.name.spm_mangledToC99ExtendedIdentifier()]
         args += self.dylibs.map { "-l" + $0.product.name + $0.buildParameters.suffix }
