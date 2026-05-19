@@ -123,7 +123,6 @@ struct TestDiscoveryTests {
         }
     }
 
-    // FIXME: eliminate extraneous warnings with --build-system swiftbuild
     @Test(
         .tags(
             .Feature.Command.Test,
@@ -135,18 +134,17 @@ struct TestDiscoveryTests {
         .bug("https://github.com/swiftlang/swift-build/issues/573"),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func discovery_whenNoTests(_ buildSystem: BuildSystemProvider.Kind) async throws {
+    func testNoSpuriousEmptyTestExecLogs_whenPackageContainsNoTests(_ buildSystem: BuildSystemProvider.Kind) async throws {
             try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/NoTests") { fixturePath in
                 let (stdout, stderr) = try await executeSwiftTest(fixturePath, buildSystem: buildSystem)
                 // in "swift test" build output goes to stderr
                 #expect(stderr.contains("Build complete!"))
-                // we are expecting that no warning is produced
+                // we are expecting that a warning is produced that no test cases were run
                 let buidlSystemDeprecationDiag = Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem)
                 let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains(buidlSystemDeprecationDiag.message)}.joined(separator: "\n|")
-                #expect(!filteredStderr.contains("warning:"))
-                // in "swift test" test output goes to stdout
-                #expect(stdout.contains("Executed 0 tests"))
+                #expect(filteredStderr.contains("warning: No matching test cases were run"))
+                #expect(!stdout.contains("Executed 0 tests"))
             }
             } when: {
                 buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
