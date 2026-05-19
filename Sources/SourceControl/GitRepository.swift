@@ -367,6 +367,106 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         GitRepository(git: self.git, path: path)
     }
 
+    // MARK: - Source Archive Support
+
+    /// Performs a shallow clone of a repository at a specific tag.
+    ///
+    /// Uses `--depth 1 --branch <tag>` with optional submodule support.
+    /// Goes through the same `clone()` / `callGit` infrastructure as all
+    /// other git operations, getting git config flags, environment setup,
+    /// cancellation support, and proper error wrapping for free.
+    public func shallowClone(
+        repository: RepositorySpecifier,
+        tag: String,
+        to path: AbsolutePath,
+        recurseSubmodules: Bool = false,
+        progressHandler: FetchProgress.Handler? = nil
+    ) async throws {
+        guard !localFileSystem.exists(path) else {
+            throw InternalError("\(path) already exists")
+        }
+
+        var options = ["--depth", "1", "--branch", tag]
+        if recurseSubmodules {
+            options += ["--recurse-submodules", "--shallow-submodules"]
+        }
+
+        try self.clone(
+            repository,
+            repository.location.gitURL,
+            path.pathString,
+            options,
+            progress: progressHandler
+        )
+    }
+
+    /// Clones a repository from a remote URL for editing purposes.
+    ///
+    /// Unlike `createWorkingCopy` which clones from a local bare cache,
+    /// this clones directly from the remote — used for source archive
+    /// dependencies that have no local bare repo.
+    public func cloneForEditing(
+        repository: RepositorySpecifier,
+        tag: String,
+        to path: AbsolutePath,
+        revision: Revision? = nil,
+        newBranch: String? = nil,
+        shallow: Bool = false,
+        recurseSubmodules: Bool = false,
+        progressHandler: FetchProgress.Handler? = nil
+    ) async throws -> WorkingCheckout {
+        var options = ["--branch", tag]
+        if shallow {
+            options += ["--depth", "1"]
+        }
+        if recurseSubmodules {
+            options += ["--recurse-submodules"]
+            if shallow {
+                options += ["--shallow-submodules"]
+            }
+        }
+
+        try self.clone(
+            repository,
+            repository.location.gitURL,
+            path.pathString,
+            options,
+            progress: progressHandler
+        )
+
+        let workingCopy = try self.openWorkingCopy(at: path)
+
+        if let revision {
+            try workingCopy.checkout(revision: revision)
+        }
+        if let newBranch {
+            try workingCopy.checkout(newBranch: newBranch)
+        }
+
+        return workingCopy
+    }
+
+    /// Lists remote tags via `git ls-remote --tags`.
+    ///
+    /// Returns the raw stdout output for parsing by the caller.
+    public func lsRemoteTags(
+        for repository: RepositorySpecifier
+    ) async throws -> String {
+        let process = AsyncProcess(
+            arguments: ["git", "ls-remote", "--tags", repository.location.gitURL]
+        )
+        _ = try process.launch()
+        let result = try await process.waitUntilExit()
+        guard result.exitStatus == .terminated(code: 0) else {
+            throw GitCloneError(
+                repository: repository,
+                message: "Failed to list remote tags",
+                result: result
+            )
+        }
+        return try result.utf8Output()
+    }
+
     public func cancel(deadline: DispatchTime) throws {
         try self.cancellator.cancel(deadline: deadline)
     }
