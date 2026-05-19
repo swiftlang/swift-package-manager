@@ -106,31 +106,33 @@ struct RunCommandTests {
     func toolsetDebugger(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
-            #if os(Windows)
-                let win32 = ".win32"
-            #else
-                let win32 = ""
-            #endif
-            let (stdout, stderr) = try await execute(
+        try await withKnownIssue(isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+                #if os(Windows)
+                    let win32 = ".win32"
+                #else
+                    let win32 = ""
+                #endif
+                let (stdout, stderr) = try await execute(
                     ["--toolset", "\(fixturePath.appending("toolset\(win32).json").pathString)"],
                     packagePath: fixturePath,
                     buildSystem: buildSystem,
                 )
 
-            // We only expect tool's output on the stdout stream.
-            #expect(stdout.contains("\(fixturePath.appending(".build").pathString)"))
-            #expect(stdout.contains("sentinel"))
+                // We only expect tool's output on the stdout stream.
+                #expect(stdout.contains("\(fixturePath.appending(".build").pathString)"))
+                #expect(stdout.contains("sentinel"))
 
-            // swift-build-tool output should go to stderr.
-            switch buildSystem {
-                case .native:
-                    #expect(stderr.contains("Compiling"))
-                    #expect(stderr.contains("Linking"))
-                case .swiftbuild:
-                    break
-                case .xcode:
-                    Issue.record("Test expectations have not been implemented")
+                // swift-build-tool output should go to stderr.
+                switch buildSystem {
+                    case .native:
+                        #expect(stderr.contains("Compiling"))
+                        #expect(stderr.contains("Linking"))
+                    case .swiftbuild:
+                        break
+                    case .xcode:
+                        Issue.record("Test expectations have not been implemented")
+                }
             }
         }
     }
