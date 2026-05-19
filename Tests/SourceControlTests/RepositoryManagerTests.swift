@@ -350,11 +350,18 @@ final class RepositoryManagerTests: XCTestCase {
 
             let results = ThreadSafeKeyValueStore<Int, RepositoryManager.RepositoryHandle>()
             let concurrency = 10000
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                for index in 0 ..< concurrency {
+            // Pre-register the worst-case slot count. Actual update count is
+            // timing-dependent (callers that race past dedup re-enter
+            // performLookup), so we register the upper bound and drain the
+            // unused slots after asserting the bound.
+            delegate.prepare(fetchExpected: true, updateExpected: false)
+            for _ in 0 ..< (concurrency - 1) {
+                delegate.prepare(fetchExpected: false, updateExpected: true)
+            }
+            try await withThrowingTaskGroup(of: RepositoryManager.RepositoryHandle.self) { group in
+                for _ in 0 ..< concurrency {
                     group.addTask {
-                        delegate.prepare(fetchExpected: index == 0, updateExpected: index > 0)
-                        results[index] = try await manager.lookup(
+                        try await manager.lookup(
                             package: PackageIdentity(path: dummyRepoPath),
                             repository: dummyRepo,
                             updateStrategy: .always,
@@ -362,16 +369,26 @@ final class RepositoryManagerTests: XCTestCase {
                         )
                     }
                 }
-                try await group.waitForAll()
+                var index = 0
+                for try await handle in group {
+                    results[index] = handle
+                    index += 1
+                }
             }
 
             XCTAssertNoDiagnostics(observability.diagnostics)
 
+            // Drain unused update slots so `wait` can balance.
+            let unusedUpdateSlots = (concurrency - 1) - delegate.willUpdate.count
+            for _ in 0 ..< (unusedUpdateSlots * 2) {
+                delegate.drainUnusedSlot()
+            }
+
             try await delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
-            XCTAssertEqual(delegate.willUpdate.count, concurrency - 1)
-            XCTAssertEqual(delegate.didUpdate.count, concurrency - 1)
+            XCTAssertLessThanOrEqual(delegate.willUpdate.count, concurrency - 1)
+            XCTAssertEqual(delegate.willUpdate.count, delegate.didUpdate.count)
 
             XCTAssertEqual(results.count, concurrency)
             for index in 0 ..< concurrency {
@@ -884,6 +901,13 @@ fileprivate class DummyRepositoryManagerDelegate: RepositoryManager.Delegate, @u
                 continuation.resume()
             }
         }
+    }
+
+    /// Releases one previously-prepared slot that won't be filled by an
+    /// actual delegate event. Used by tests where the upper bound on event
+    /// counts is known but the exact count is timing-dependent.
+    public func drainUnusedSlot() {
+        self.group.leave()
     }
 
     var willFetch: [(repository: RepositorySpecifier, details: RepositoryManager.FetchDetails)] {

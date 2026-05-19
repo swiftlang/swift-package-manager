@@ -113,6 +113,9 @@ public struct PubGrubDependencyResolver {
     /// Should resolver prefetch the containers.
     private let prefetchBasedOnResolvedFile: Bool
 
+    /// Fallback set of packages to prefetch when `resolvedPackages` is empty.
+    private let prefetchPackages: [PackageReference]
+
     /// Update containers while fetching them.
     private let skipDependenciesUpdates: Bool
 
@@ -146,6 +149,8 @@ public struct PubGrubDependencyResolver {
     public init(
         provider: PackageContainerProvider,
         resolvedPackages: ResolvedPackagesStore.ResolvedPackages = [:],
+        prefetchPackages: [PackageReference] = [],
+        prefetchedContainers: [PackageReference: any PackageContainer] = [:],
         skipDependenciesUpdates: Bool = false,
         prefetchBasedOnResolvedFile: Bool = false,
         observabilityScope: ObservabilityScope,
@@ -153,12 +158,14 @@ public struct PubGrubDependencyResolver {
     ) {
         self.packageContainerProvider = provider
         self.resolvedPackages = resolvedPackages
+        self.prefetchPackages = prefetchPackages
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
         self.provider = ContainerProvider(
             provider: self.packageContainerProvider,
             skipUpdate: self.skipDependenciesUpdates,
             resolvedPackages: self.resolvedPackages,
+            prefetchedContainers: prefetchedContainers,
             observabilityScope: observabilityScope
         )
         self.delegate = delegate
@@ -213,15 +220,26 @@ public struct PubGrubDependencyResolver {
         // first process inputs
         let inputs = try await self.processInputs(root: root, with: constraints)
 
+        // Promote workspace-prefetched containers, filtering out overridden packages.
+        self.provider.promoteWarmContainers(excluding: inputs.overriddenPackages.keys)
+
         // Prefetch the containers if prefetching is enabled.
         if self.prefetchBasedOnResolvedFile {
             // We avoid prefetching packages that are overridden since
             // otherwise we'll end up creating a repository container
             // for them.
-            let resolvedPackageReferences = self.resolvedPackages.values
+            var prefetchSet = self.resolvedPackages.values
                 .map(\.packageRef)
                 .filter { !inputs.overriddenPackages.keys.contains($0) }
-            self.provider.prefetch(containers: resolvedPackageReferences)
+
+            // Empty during `swift package update` (pins cleared to force
+            // re-resolution) or fresh checkout (no Package.resolved yet).
+            // Fall back to packages the Workspace read from disk.
+            if prefetchSet.isEmpty {
+                prefetchSet = self.prefetchPackages
+                    .filter { !inputs.overriddenPackages.keys.contains($0) }
+            }
+            self.provider.prefetch(containers: prefetchSet)
         }
 
         let state = State(root: root, overriddenPackages: inputs.overriddenPackages)
