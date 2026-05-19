@@ -16,6 +16,7 @@ import CoreCommands
 import PackageGraph
 import PackageModel
 import SourceControl
+import Workspace
 
 extension SwiftPackageCommand {
     struct ArchiveSource: AsyncSwiftCommand {
@@ -50,7 +51,8 @@ extension SwiftPackageCommand {
                 at: packageDirectory,
                 to: archivePath,
                 fileSystem: localFileSystem,
-                cancellator: swiftCommandState.cancellator
+                cancellator: swiftCommandState.cancellator,
+                observabilityScope: swiftCommandState.observabilityScope
             )
 
             if archivePath.isDescendantOfOrEqual(to: packageDirectory) {
@@ -66,15 +68,19 @@ extension SwiftPackageCommand {
         at packageDirectory: AbsolutePath,
         to archivePath: AbsolutePath,
         fileSystem: FileSystem,
-        cancellator: Cancellator?
+        cancellator: Cancellator?,
+        observabilityScope: ObservabilityScope
     ) async throws {
-        let gitRepositoryProvider = GitRepositoryProvider()
-        if (try? gitRepositoryProvider.isValidDirectory(packageDirectory)) == true {
-            let repository = GitRepository(path: packageDirectory, cancellator: cancellator)
-            try repository.archive(to: archivePath)
-        } else {
-            let archiver = UniversalArchiver(fileSystem, cancellator)
-            try await archiver.compress(directory: packageDirectory, to: archivePath)
+        try await withTemporaryDirectory(removeTreeOnDeinit: true) { workingDirectory in
+            try await PackageArchiver.archive(
+                packageDirectory: packageDirectory,
+                archivePath: archivePath,
+                archivePrefix: archivePath.basenameWithoutExt,
+                workingDirectory: workingDirectory,
+                workingFilesToCopy: [],
+                cancellator: cancellator,
+                observabilityScope: observabilityScope
+            )
         }
     }
 }

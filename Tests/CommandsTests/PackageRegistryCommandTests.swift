@@ -19,6 +19,7 @@ import PackageRegistry
 @testable import PackageRegistryCommand
 import struct SPMBuildCore.BuildSystemProvider
 import PackageSigning
+import SourceControl
 import _InternalTestSupport
 import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 import Workspace
@@ -469,23 +470,47 @@ struct PackageRegistryCommandTests {
 
     // TODO: Test example with login and password
 
+    @discardableResult
+    private static func validateCanonicalArchive(at archivePath: AbsolutePath) async throws -> AbsolutePath {
+        expectFileExists(at: archivePath)
+        let archiver = UniversalArchiver(localFileSystem)
+        let extractPath = archivePath.parentDirectory.appending(component: UUID().uuidString)
+        try localFileSystem.createDirectory(extractPath)
+        try await archiver.extract(from: archivePath, to: extractPath)
+        try localFileSystem.stripFirstLevel(of: extractPath)
+        expectFileExists(at: extractPath.appending("Package.swift"))
+        return extractPath
+    }
+
+    struct CanonicalArchivingCase: Sendable, CustomStringConvertible {
+        let name: String
+        let isGit: Bool
+        let extraFiles: [String]
+        let mustBePresent: [String]
+
+        var description: String { self.name }
+    }
+
     @Test(
         .tags(
             .TestSize.large,
         ),
         .requiresWorkingDirectorySupport,
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: [
+            CanonicalArchivingCase(name: "git", isGit: true, extraFiles: [], mustBePresent: []),
+            CanonicalArchivingCase(name: "nongit", isGit: false, extraFiles: [], mustBePresent: []),
+            CanonicalArchivingCase(
+                name: "nongit+canonical-metadata",
+                isGit: false,
+                extraFiles: [PackageRegistryCommand.Publish.metadataFilename],
+                mustBePresent: [PackageRegistryCommand.Publish.metadataFilename]
+            ),
+        ],
     )
-    func archiving(
-        buildSystem: BuildSystemProvider.Kind,
-    ) async throws {
-        let config = BuildConfiguration.debug
+    func archivingProducesValidArchive(_ scenario: CanonicalArchivingCase) async throws {
         let observability = ObservabilitySystem.makeForTesting()
-
         let packageIdentity = PackageIdentity.plain("org.package")
-        let metadataFilename = PackageRegistryCommand.Publish.metadataFilename
 
-        // git repo
         try await withTemporaryDirectory { temporaryDirectory in
             let packageDirectory = temporaryDirectory.appending("MyPackage")
             try localFileSystem.createDirectory(packageDirectory)
@@ -497,80 +522,568 @@ struct PackageRegistryCommandTests {
                 fileSystem: localFileSystem
             )
             try initPackage.writePackageStructure()
-            expectFileExists(at: packageDirectory.appending("Package.swift"))
+
+            if scenario.isGit {
+                initGitRepo(packageDirectory)
+            }
+
+            for relativePath in scenario.extraFiles {
+                let target = packageDirectory.appending(components: relativePath.split(separator: "/").map(String.init))
+                try localFileSystem.createDirectory(target.parentDirectory, recursive: true)
+                try localFileSystem.writeFileContents(target, bytes: "")
+            }
+
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+
+            let archivePath = try await PackageArchiver.archive(
+                packageIdentity: packageIdentity,
+                packageVersion: "1.0.0",
+                packageDirectory: packageDirectory,
+                workingDirectory: workingDirectory,
+                workingFilesToCopy: [],
+                cancellator: .none,
+                observabilityScope: observability.topScope
+            )
+
+            let extractedPath = try await Self.validateCanonicalArchive(at: archivePath)
+            for relativePath in scenario.mustBePresent {
+                let path = extractedPath.appending(components: relativePath.split(separator: "/").map(String.init))
+                expectFileExists(at: path)
+            }
+            #expect(archivePath.isDescendant(of: workingDirectory))
+        }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.large,
+        ),
+        .requiresWorkingDirectorySupport,
+    )
+    func archivingRejectsRepoWithoutCommits() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let packageIdentity = PackageIdentity.plain("org.package")
+
+        try await withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+
+            initEmptyGitRepo(packageDirectory)
+
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+
+            await #expect(
+                performing: {
+                    try await PackageArchiver.archive(
+                        packageIdentity: packageIdentity,
+                        packageVersion: "1.6.0",
+                        packageDirectory: packageDirectory,
+                        workingDirectory: workingDirectory,
+                        workingFilesToCopy: [],
+                        cancellator: .none,
+                        observabilityScope: observability.topScope
+                    )
+                },
+                throws: { error in
+                    let message = "\(error)"
+                    return message.contains("no commits") && message.contains(packageDirectory.pathString)
+                }
+            )
+        }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.large,
+        ),
+        .requiresWorkingDirectorySupport,
+    )
+    func archivingHonorsGitattributesExportIgnore() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let packageIdentity = PackageIdentity.plain("org.package")
+
+        try await withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+            initGitRepo(packageDirectory)
+
+            try localFileSystem.writeFileContents(
+                packageDirectory.appending(component: ".gitattributes"),
+                bytes: "secret/** export-ignore\n"
+            )
+            try localFileSystem.createDirectory(packageDirectory.appending(component: "secret"))
+            try localFileSystem.writeFileContents(
+                packageDirectory.appending(components: "secret", "data.txt"),
+                bytes: "SECRET=leak"
+            )
+            let repo = GitRepository(path: packageDirectory)
+            try repo.stageEverything()
+            try repo.commit(message: "add secret dir with export-ignore")
+
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+
+            let archivePath = try await PackageArchiver.archive(
+                packageIdentity: packageIdentity,
+                packageVersion: "2.1.0",
+                packageDirectory: packageDirectory,
+                workingDirectory: workingDirectory,
+                workingFilesToCopy: [],
+                cancellator: .none,
+                observabilityScope: observability.topScope
+            )
+
+            let extractedPath = try await Self.validateCanonicalArchive(at: archivePath)
+            expectFileDoesNotExists(at: extractedPath.appending(components: "secret", "data.txt"))
+            expectFileDoesNotExists(at: extractedPath.appending(component: ".gitattributes"))
+        }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.large,
+        ),
+        .requiresWorkingDirectorySupport,
+    )
+    func archivingDoesNotMutateGitInfo() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let packageIdentity = PackageIdentity.plain("org.package")
+
+        try await withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+            initGitRepo(packageDirectory)
+
+            let attributesPath = packageDirectory.appending(components: ".git", "info", "attributes")
+
+            // sub-case 1: no .git/info/attributes file before or after archiving
+            #expect(!localFileSystem.exists(attributesPath))
+
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+            _ = try await PackageArchiver.archive(
+                packageIdentity: packageIdentity,
+                packageVersion: "2.3.0",
+                packageDirectory: packageDirectory,
+                workingDirectory: workingDirectory,
+                workingFilesToCopy: [],
+                cancellator: .none,
+                observabilityScope: observability.topScope
+            )
+
+            #expect(
+                !localFileSystem.exists(attributesPath),
+                "expected archiving not to create .git/info/attributes"
+            )
+
+            // sub-case 2: pre-existing .git/info/attributes content must be untouched
+            let originalAttributes = "# user attributes\n*.md text eol=lf\n"
+            try localFileSystem.createDirectory(attributesPath.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(attributesPath, string: originalAttributes)
+
+            let workingDirectory2 = temporaryDirectory.appending(component: UUID().uuidString)
+            _ = try await PackageArchiver.archive(
+                packageIdentity: packageIdentity,
+                packageVersion: "2.3.1",
+                packageDirectory: packageDirectory,
+                workingDirectory: workingDirectory2,
+                workingFilesToCopy: [],
+                cancellator: .none,
+                observabilityScope: observability.topScope
+            )
+
+            let contentsAfter = try localFileSystem.readFileContents(attributesPath).description
+            #expect(
+                contentsAfter == originalAttributes,
+                "expected .git/info/attributes to be unchanged; got \(contentsAfter.debugDescription)"
+            )
+        }
+    }
+
+    struct WorkingFilesArchivingCase: Sendable, CustomStringConvertible {
+        struct Manifest: Sendable {
+            let path: String
+            let original: String?
+            let replacement: String
+        }
+
+        let name: String
+        let isGit: Bool
+        let manifests: [Manifest]
+
+        var description: String { self.name }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.large,
+        ),
+        .requiresWorkingDirectorySupport,
+        arguments: [
+            WorkingFilesArchivingCase(
+                name: "git+default-only",
+                isGit: true,
+                manifests: [
+                    .init(path: "Package.swift", original: nil, replacement: "// signed default\n"),
+                ]
+            ),
+            WorkingFilesArchivingCase(
+                name: "git+multiple-manifests",
+                isGit: true,
+                manifests: [
+                    .init(path: "Package.swift", original: nil, replacement: "// signed default\n"),
+                    .init(path: "Package@swift-5.9.swift", original: "// original versioned\n", replacement: "// signed versioned\n"),
+                ]
+            ),
+            WorkingFilesArchivingCase(
+                name: "nongit+default-only",
+                isGit: false,
+                manifests: [
+                    .init(path: "Package.swift", original: nil, replacement: "// signed default\n"),
+                ]
+            ),
+        ],
+    )
+    func archivingInjectsWorkingFiles(_ scenario: WorkingFilesArchivingCase) async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let packageIdentity = PackageIdentity.plain("org.package")
+
+        try await withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+
+            for manifest in scenario.manifests {
+                if let original = manifest.original {
+                    try localFileSystem.writeFileContents(
+                        packageDirectory.appending(component: manifest.path),
+                        string: original
+                    )
+                }
+            }
+
+            if scenario.isGit {
+                initGitRepo(packageDirectory)
+            }
+
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+            try localFileSystem.createDirectory(workingDirectory, recursive: true)
+
+            for manifest in scenario.manifests {
+                try localFileSystem.writeFileContents(
+                    workingDirectory.appending(manifest.path),
+                    string: manifest.replacement
+                )
+            }
+
+            let archivePath = try await PackageArchiver.archive(
+                packageIdentity: packageIdentity,
+                packageVersion: "3.0.0",
+                packageDirectory: packageDirectory,
+                workingDirectory: workingDirectory,
+                workingFilesToCopy: scenario.manifests.map(\.path),
+                cancellator: .none,
+                observabilityScope: observability.topScope
+            )
+
+            let extractedPath = try await Self.validateCanonicalArchive(at: archivePath)
+            for manifest in scenario.manifests {
+                let archived = try localFileSystem.readFileContents(
+                    extractedPath.appending(manifest.path)
+                ).description
+                #expect(
+                    archived == manifest.replacement,
+                    "expected '\(manifest.path)' to contain replacement; got \(archived.debugDescription)"
+                )
+            }
+            expectFileExists(at: extractedPath.appending(components: "Sources", "MyPackage", "MyPackage.swift"))
+        }
+    }
+
+    struct SymlinkArchivingCase: Sendable, CustomStringConvertible {
+        let name: String
+        let isGit: Bool
+        let targetIsOutsidePackage: Bool
+        let errorContains: String?
+
+        var description: String { self.name }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.large,
+        ),
+        .requiresWorkingDirectorySupport,
+        arguments: [
+            SymlinkArchivingCase(name: "git+escaping",    isGit: true,  targetIsOutsidePackage: true,  errorContains: "escaping-link"),
+            SymlinkArchivingCase(name: "nongit+escaping", isGit: false, targetIsOutsidePackage: true,  errorContains: "escaping-link"),
+            SymlinkArchivingCase(name: "intree+relative", isGit: false, targetIsOutsidePackage: false, errorContains: nil),
+        ],
+    )
+    func archivingRejectsEscapingSymlinks(_ scenario: SymlinkArchivingCase) async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let packageIdentity = PackageIdentity.plain("org.package")
+
+        try await withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+
+            let symlinkName: String
+            let symlinkTarget: AbsolutePath
+            if scenario.targetIsOutsidePackage {
+                symlinkName = "escaping-link"
+                symlinkTarget = temporaryDirectory.appending("outside-target")
+                try localFileSystem.writeFileContents(symlinkTarget, bytes: "outside")
+            } else {
+                symlinkName = "internal-link"
+                symlinkTarget = packageDirectory.appending(components: "Sources", "MyPackage", "MyPackage.swift")
+            }
+            try localFileSystem.createSymbolicLink(
+                packageDirectory.appending(symlinkName),
+                pointingAt: symlinkTarget,
+                relative: !scenario.targetIsOutsidePackage
+            )
+
+            if scenario.isGit {
+                initGitRepo(packageDirectory)
+            }
+
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+
+            if let needle = scenario.errorContains {
+                await #expect(
+                    performing: {
+                        try await PackageArchiver.archive(
+                            packageIdentity: packageIdentity,
+                            packageVersion: "4.0.0",
+                            packageDirectory: packageDirectory,
+                            workingDirectory: workingDirectory,
+                            workingFilesToCopy: [],
+                            cancellator: .none,
+                            observabilityScope: observability.topScope
+                        )
+                    },
+                    throws: { "\($0)".contains(needle) }
+                )
+            } else {
+                _ = try await PackageArchiver.archive(
+                    packageIdentity: packageIdentity,
+                    packageVersion: "4.0.0",
+                    packageDirectory: packageDirectory,
+                    workingDirectory: workingDirectory,
+                    workingFilesToCopy: [],
+                    cancellator: .none,
+                    observabilityScope: observability.topScope
+                )
+            }
+        }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.large,
+        ),
+        .requiresWorkingDirectorySupport,
+    )
+    func archivingRejectsCommittedSymlinkReplacedInWorkingTree() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let packageIdentity = PackageIdentity.plain("org.package")
+
+        try await withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+
+            let outsideTarget = temporaryDirectory.appending("outside-target")
+            try localFileSystem.writeFileContents(outsideTarget, bytes: "secret")
+            let symlinkPath = packageDirectory.appending("evil-link")
+            try localFileSystem.createSymbolicLink(
+                symlinkPath,
+                pointingAt: outsideTarget,
+                relative: false
+            )
 
             initGitRepo(packageDirectory)
 
-            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
-
-            let archivePath = try await PackageArchiver.archive(
-                packageIdentity: packageIdentity,
-                packageVersion: "1.3.5",
-                packageDirectory: packageDirectory,
-                workingDirectory: workingDirectory,
-                workingFilesToCopy: [],
-                cancellator: .none,
-                observabilityScope: observability.topScope
-            )
-
-            try await validatePackageArchive(at: archivePath)
-            #expect(archivePath.isDescendant(of: workingDirectory))
-        }
-
-        // not a git repo
-        try await withTemporaryDirectory { temporaryDirectory in
-            let packageDirectory = temporaryDirectory.appending("MyPackage")
-            try localFileSystem.createDirectory(packageDirectory)
-
-            let initPackage = try InitPackage(
-                name: "MyPackage",
-                packageType: .executable,
-                destinationPath: packageDirectory,
-                fileSystem: localFileSystem
-            )
-            try initPackage.writePackageStructure()
-            expectFileExists(at: packageDirectory.appending("Package.swift"))
+            try localFileSystem.removeFileTree(symlinkPath)
+            try localFileSystem.writeFileContents(symlinkPath, bytes: "harmless")
 
             let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
-
-            let archivePath = try await PackageArchiver.archive(
-                packageIdentity: packageIdentity,
-                packageVersion: "1.5.4",
-                packageDirectory: packageDirectory,
-                workingDirectory: workingDirectory,
-                workingFilesToCopy: [],
-                cancellator: .none,
-                observabilityScope: observability.topScope
-            )
-
-            try await validatePackageArchive(at: archivePath)
-        }
-
-        // canonical metadata location
-        try await withTemporaryDirectory { temporaryDirectory in
-            let packageDirectory = temporaryDirectory.appending("MyPackage")
-            try localFileSystem.createDirectory(packageDirectory)
-
-            let initPackage = try InitPackage(
-                name: "MyPackage",
-                packageType: .executable,
-                destinationPath: packageDirectory,
-                fileSystem: localFileSystem
-            )
-            try initPackage.writePackageStructure()
-            expectFileExists(at: packageDirectory.appending("Package.swift"))
-
-            // metadata file
+            try localFileSystem.createDirectory(workingDirectory, recursive: true)
             try localFileSystem.writeFileContents(
-                packageDirectory.appending(component: metadataFilename),
-                bytes: ""
+                workingDirectory.appending("Package.swift"),
+                bytes: "// replacement manifest"
             )
+
+            await #expect(
+                performing: {
+                    try await PackageArchiver.archive(
+                        packageIdentity: packageIdentity,
+                        packageVersion: "4.0.0",
+                        packageDirectory: packageDirectory,
+                        workingDirectory: workingDirectory,
+                        workingFilesToCopy: ["Package.swift"],
+                        cancellator: .none,
+                        observabilityScope: observability.topScope
+                    )
+                },
+                throws: { "\($0)".contains("evil-link") }
+            )
+        }
+    }
+
+    struct FilteringArchivingCase: Sendable, CustomStringConvertible {
+        let name: String
+        let isGit: Bool
+        let filesToCreate: [String]
+        let mustBeAbsent: [String]
+
+        var description: String { self.name }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.large,
+        ),
+        .requiresWorkingDirectorySupport,
+        arguments: [
+            FilteringArchivingCase(
+                name: "git+core-secrets",
+                isGit: true,
+                filesToCreate: [".env", "id_rsa", "credentials.json", ".netrc", "Sources/api.key"],
+                mustBeAbsent: [".env", "id_rsa", "credentials.json", ".netrc", "Sources/api.key", ".gitignore"]
+            ),
+            FilteringArchivingCase(
+                name: "nongit+core-secrets",
+                isGit: false,
+                filesToCreate: [".env", "id_rsa", "credentials.json", ".netrc", "Sources/api.key", ".gitattributes"],
+                mustBeAbsent: [".env", "id_rsa", "credentials.json", ".netrc", "Sources/api.key", ".gitattributes", ".gitignore"]
+            ),
+            FilteringArchivingCase(
+                name: "nongit+env-prefix",
+                isGit: false,
+                filesToCreate: [".env.production", ".env.local"],
+                mustBeAbsent: [".env.production", ".env.local"]
+            ),
+            FilteringArchivingCase(
+                name: "nongit+ssh-keypairs",
+                isGit: false,
+                filesToCreate: ["id_rsa", "id_rsa.pub", "id_ed25519", "id_ed25519.pub", "id_ecdsa", "id_ecdsa.pub"],
+                mustBeAbsent: ["id_rsa", "id_rsa.pub", "id_ed25519", "id_ed25519.pub", "id_ecdsa", "id_ecdsa.pub"]
+            ),
+            FilteringArchivingCase(
+                name: "nongit+cert-extensions",
+                isGit: false,
+                filesToCreate: ["server.pem", "cert.p12", "backup.pfx", "auth.key"],
+                mustBeAbsent: ["server.pem", "cert.p12", "backup.pfx", "auth.key"]
+            ),
+            FilteringArchivingCase(
+                name: "nongit+other-creds",
+                isGit: false,
+                filesToCreate: ["secrets.json", ".npmrc", "credentials"],
+                mustBeAbsent: ["secrets.json", ".npmrc", "credentials"]
+            ),
+            FilteringArchivingCase(
+                name: "nongit+nested-depth",
+                isGit: false,
+                filesToCreate: ["Sources/MyPackage/.env", "Sources/MyPackage/id_rsa"],
+                mustBeAbsent: ["Sources/MyPackage/.env", "Sources/MyPackage/id_rsa"]
+            ),
+            FilteringArchivingCase(
+                name: "nongit+ignored-dirs",
+                isGit: false,
+                filesToCreate: [".hg/data", ".svn/data", ".swiftpm/configuration", ".build/marker"],
+                mustBeAbsent: [".hg/data", ".svn/data", ".swiftpm/configuration", ".build/marker", ".hg", ".svn", ".swiftpm", ".build"]
+            ),
+            FilteringArchivingCase(
+                name: "nongit+uppercase-ignored-dirs",
+                isGit: false,
+                filesToCreate: [".GIT/config", ".Build/marker", ".SwiftPM/configuration", ".HG/data"],
+                mustBeAbsent: [".GIT/config", ".Build/marker", ".SwiftPM/configuration", ".HG/data", ".GIT", ".Build", ".SwiftPM", ".HG"]
+            ),
+            FilteringArchivingCase(
+                name: "nongit+ds-store",
+                isGit: false,
+                filesToCreate: [".DS_Store", "Sources/.DS_Store"],
+                mustBeAbsent: [".DS_Store", "Sources/.DS_Store"]
+            ),
+        ],
+    )
+    func archivingFiltersSensitiveFiles(_ scenario: FilteringArchivingCase) async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let packageIdentity = PackageIdentity.plain("org.package")
+
+        try await withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+
+            for relativePath in scenario.filesToCreate {
+                let target = packageDirectory.appending(components: relativePath.split(separator: "/").map(String.init))
+                try localFileSystem.createDirectory(target.parentDirectory, recursive: true)
+                try localFileSystem.writeFileContents(target, bytes: "SECRET=leak")
+            }
+
+            if scenario.isGit {
+                initGitRepo(packageDirectory)
+            }
 
             let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
 
             let archivePath = try await PackageArchiver.archive(
                 packageIdentity: packageIdentity,
-                packageVersion: "0.3.1",
+                packageVersion: "5.0.0",
                 packageDirectory: packageDirectory,
                 workingDirectory: workingDirectory,
                 workingFilesToCopy: [],
@@ -578,20 +1091,18 @@ struct PackageRegistryCommandTests {
                 observabilityScope: observability.topScope
             )
 
-            let extractedPath = try await validatePackageArchive(at: archivePath)
-            expectFileExists(at: extractedPath.appending(component: metadataFilename))
-        }
-
-        @discardableResult
-        func validatePackageArchive(at archivePath: AbsolutePath) async throws -> AbsolutePath {
-            expectFileExists(at: archivePath)
             let archiver = UniversalArchiver(localFileSystem)
             let extractPath = archivePath.parentDirectory.appending(component: UUID().uuidString)
             try localFileSystem.createDirectory(extractPath)
             try await archiver.extract(from: archivePath, to: extractPath)
             try localFileSystem.stripFirstLevel(of: extractPath)
+
+            for relativePath in scenario.mustBeAbsent {
+                let path = extractPath.appending(components: relativePath.split(separator: "/").map(String.init))
+                expectFileDoesNotExists(at: path)
+            }
             expectFileExists(at: extractPath.appending("Package.swift"))
-            return extractPath
+            expectFileExists(at: extractPath.appending(components: "Sources", "MyPackage", "MyPackage.swift"))
         }
     }
 

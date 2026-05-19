@@ -19,6 +19,7 @@ import PackageModel
 import PackageFingerprint
 import PackageRegistry
 import PackageSigning
+import SourceControl
 import Workspace
 
 #if USE_IMPL_ONLY_IMPORTS
@@ -457,52 +458,5 @@ enum PackageArchiveSigner {
     struct SignedItem {
         let path: AbsolutePath
         let signature: [UInt8]
-    }
-}
-
-enum PackageArchiver {
-    static func archive(
-        packageIdentity: PackageIdentity,
-        packageVersion: Version,
-        packageDirectory: AbsolutePath,
-        workingDirectory: AbsolutePath,
-        workingFilesToCopy: [String],
-        cancellator: Cancellator?,
-        observabilityScope: ObservabilityScope
-    ) async throws -> AbsolutePath {
-        let archivePath = workingDirectory.appending("\(packageIdentity)-\(packageVersion).zip")
-
-        // create temp location for sources
-        let sourceDirectory = workingDirectory.appending(components: "source", "\(packageIdentity)")
-        try localFileSystem.createDirectory(sourceDirectory, recursive: true)
-
-        // TODO: filter other unnecessary files, and/or .swiftpmignore file
-        let ignoredContent = [".build", ".git", ".gitignore", ".swiftpm"]
-        let packageContent = try localFileSystem.getDirectoryContents(packageDirectory)
-        for item in (packageContent.filter { !ignoredContent.contains($0) }) {
-            try localFileSystem.copy(
-                from: packageDirectory.appending(component: item),
-                to: sourceDirectory.appending(component: item)
-            )
-        }
-
-        for item in workingFilesToCopy {
-            let replacementPath = workingDirectory.appending(item)
-            let replacement = try localFileSystem.readFileContents(replacementPath)
-
-            let toBeReplacedPath = sourceDirectory.appending(item)
-
-            observabilityScope.emit(info: "replacing '\(toBeReplacedPath)' with '\(replacementPath)'")
-            try localFileSystem.writeFileContents(toBeReplacedPath, bytes: replacement)
-        }
-
-        try await SwiftPackageCommand.archiveSource(
-            at: sourceDirectory,
-            to: archivePath,
-            fileSystem: localFileSystem,
-            cancellator: cancellator
-        )
-
-        return archivePath
     }
 }

@@ -410,26 +410,7 @@ public func initGitRepo(
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
     do {
-        // Create .git directory structure
-        let gitDir = dir.appending(".git")
-        try localFileSystem.createDirectory(gitDir, recursive: false)
-        try localFileSystem.createDirectory(gitDir.appending("objects"), recursive: false)
-        try localFileSystem.createDirectory(gitDir.appending("refs").appending("heads"), recursive: true)
-        try localFileSystem.createDirectory(gitDir.appending("refs").appending("tags"), recursive: true)
-
-        // Write minimal config file
-        let configContent = """
-            [core]
-            \trepositoryformatversion = 0
-            \tfilemode = true
-            \tbare = false
-            [user]
-            \temail = example@example.com
-            \tname = Example Example
-            [commit]
-            \tgpgsign = false
-            """
-        try localFileSystem.writeFileContents(gitDir.appending("config"), string: configContent)
+        try initBareGitDir(dir)
 
         // Create initial file if requested
         if addFile {
@@ -441,15 +422,13 @@ public func initGitRepo(
         // But we've eliminated config commands and init overhead
         let repo = GitRepository(path: dir)
 
-        // Write HEAD to point to main branch
-        try localFileSystem.writeFileContents(gitDir.appending("HEAD"), string: "ref: refs/heads/main\n")
-
         // Stage and commit
         try repo.stageEverything()
         try repo.commit(message: "msg")
 
         // Create tags directly by writing ref files
         let commitHash = try repo.getCurrentRevision().identifier
+        let gitDir = dir.appending(".git")
         for tag in tags {
             try localFileSystem.writeFileContents(
                 gitDir.appending("refs").appending("tags").appending(tag),
@@ -466,6 +445,53 @@ public func initGitRepo(
             XCTFail("\(error.interpolationDescription)", file: file, line: line)
         }
     }
+}
+
+/// Initialize a git repository at `dir` with no commits.
+/// HEAD points at `refs/heads/main` but that ref file does not exist, so the repository
+/// is recognized by `git rev-parse --git-dir` while having nothing to archive.
+public func initEmptyGitRepo(
+    _ dir: AbsolutePath,
+    file: StaticString = #file,
+    line: UInt = #line,
+    sourceLocation: SourceLocation = #_sourceLocation,
+) {
+    do {
+        try initBareGitDir(dir)
+    } catch {
+        if Test.current != nil {
+            Issue.record(
+                "\(error.interpolationDescription)",
+                sourceLocation: sourceLocation,
+            )
+        } else {
+            XCTFail("\(error.interpolationDescription)", file: file, line: line)
+        }
+    }
+}
+
+/// Create a minimal `.git` directory layout with a config and `HEAD` pointing at `main`.
+/// The result is a syntactically-valid git repository with no objects, refs, or commits.
+public func initBareGitDir(_ dir: AbsolutePath) throws {
+    let gitDir = dir.appending(".git")
+    try localFileSystem.createDirectory(gitDir, recursive: false)
+    try localFileSystem.createDirectory(gitDir.appending("objects"), recursive: false)
+    try localFileSystem.createDirectory(gitDir.appending("refs").appending("heads"), recursive: true)
+    try localFileSystem.createDirectory(gitDir.appending("refs").appending("tags"), recursive: true)
+
+    let configContent = """
+        [core]
+        \trepositoryformatversion = 0
+        \tfilemode = true
+        \tbare = false
+        [user]
+        \temail = example@example.com
+        \tname = Example Example
+        [commit]
+        \tgpgsign = false
+        """
+    try localFileSystem.writeFileContents(gitDir.appending("config"), string: configContent)
+    try localFileSystem.writeFileContents(gitDir.appending("HEAD"), string: "ref: refs/heads/main\n")
 }
 
 public func getBuildSystemArgs(for buildSystem: BuildSystemProvider.Kind?) -> [String] {

@@ -21,6 +21,7 @@ add_library(Workspace
   ManifestSigning/Signature.swift
   ManifestSigning/Utilities.swift
   ManifestSigning/X509Extensions.swift
+  PackageArchiver.swift
   PackageContainer/FileSystemPackageContainer.swift
   PackageContainer/RegistryPackageContainer.swift
   PackageContainer/SourceControlPackageContainer.swift
