@@ -18,6 +18,12 @@
 // Changes:
 // - Replaced usage of `\(_:or:)` string interpolation.
 // - Replaced usage of `self.isDarwin` with `self.os?.isDarwin ?? false`.
+// - Added `.emscripten` case to `platformName(conflatingDarwin:)` so
+//   `BuildParameters.buildPath` can derive the Products-dir suffix
+//   from the triple without hardcoding the platform name. Swift Build
+//   depends on the returned "emscripten" string matching its
+//   `EFFECTIVE_PLATFORM_NAME`. Re-vendor from swift-driver once the
+//   upstream file adopts the same case.
 //
 //===----------------------------------------------------------------------===//
 
@@ -329,6 +335,8 @@ extension Triple {
       return "haiku"
     case .wasi:
       return "wasi"
+    case .emscripten:
+      return "emscripten"
     case .noneOS:
       return nil
 
@@ -336,7 +344,7 @@ extension Triple {
     // Triple updates
     case .ananas, .cloudABI, .dragonFly, .fuchsia, .kfreebsd, .lv2, .netbsd,
          .solaris, .minix, .rtems, .nacl, .cnk, .aix, .cuda, .nvcl, .amdhsa,
-         .elfiamcu, .mesa3d, .contiki, .amdpal, .hermitcore, .hurd, .emscripten:
+         .elfiamcu, .mesa3d, .contiki, .amdpal, .hermitcore, .hurd:
       return nil
     }
   }

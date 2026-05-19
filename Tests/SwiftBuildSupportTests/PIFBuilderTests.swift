@@ -418,7 +418,7 @@ struct PIFBuilderTests {
             for platform in ProjectModel.BuildSettings.Platform.allCases {
                 let search_paths = releaseConfig.impartedBuildProperties.settings[.LIBRARY_SEARCH_PATHS, platform]
                 switch platform {
-                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd, .android, .linux, .wasi, .openbsd, ._iOSDevice:
+                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd, .android, .linux, .emscripten, .wasi, .openbsd, ._iOSDevice:
                          #expect(search_paths == nil, "for platform \(platform)")
                     case .windows:
                         #expect(search_paths == ["$(inherited)", "$(TARGET_BUILD_DIR)/ExecutableModules"], "for platform \(platform)")
@@ -456,9 +456,9 @@ struct PIFBuilderTests {
             for platform in ProjectModel.BuildSettings.Platform.allCases {
                 let ld_flags = releaseConfig.impartedBuildProperties.settings[.OTHER_LDFLAGS, platform]
                 switch platform {
-                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
+                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd, .emscripten, .wasi:
                          #expect(ld_flags == ["-lc++", "$(inherited)"], "for platform \(platform)")
-                    case .android, .linux, .wasi, .openbsd:
+                    case .android, .linux, .openbsd:
                         #expect(ld_flags == ["-lstdc++", "$(inherited)"], "for platform \(platform)")
                     case .windows, ._iOSDevice:
                         #expect(ld_flags == nil, "for platform \(platform)")
