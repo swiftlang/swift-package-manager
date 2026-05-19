@@ -595,10 +595,17 @@ private func createResolvedPackages(
                 switch dependency {
                 case .module(let moduleDependency, let conditions):
                     try moduleBuilder.module.validateDependency(module: moduleDependency)
-                    guard let moduleBuilder = modulesMap[moduleDependency] else {
+                    guard let dependencyBuilder = modulesMap[moduleDependency] else {
                         throw InternalError("unknown target \(moduleDependency.name)")
                     }
-                    return .module(moduleBuilder, conditions: conditions)
+                    if moduleBuilder.module.type == .test && dependencyBuilder.module.type == .test
+                        && !dependencyBuilder.isTestSupportModule {
+                        dependencyBuilder.isTestSupportModule = true
+                        dependencyBuilder.observabilityScope.emit(
+                            debug: "Treating test module '\(dependencyBuilder.module.name)' as a static library as it is depended on by other test target(s)"
+                        )
+                    }
+                    return .module(dependencyBuilder, conditions: conditions)
                 case .product:
                     return nil
                 }
@@ -886,9 +893,6 @@ private func createResolvedPackages(
     // Adjust the package graph for any prebuilts, removing any that are no longer needed.
     handlePrebuilts(packageBuilders: packageBuilders, root: root)
 
-    // Mark test modules that are depended upon by other test modules in the same package.
-    markTestSupportModules(packageBuilders: packageBuilders)
-
     return try IdentifiableSet(packageBuilders.map { try $0.construct() })
 }
 
@@ -1060,23 +1064,6 @@ private func handlePrebuilts(packageBuilders: [ResolvedPackageBuilder], root: Pa
             }) {
                 nonPrebuilt.dependencies = nonPrebuilt.dependencies.filter {
                     $0.package.identity != packageBuilder.package.identity
-                }
-            }
-        }
-    }
-}
-
-private func markTestSupportModules(packageBuilders: [ResolvedPackageBuilder]) {
-    for packageBuilder in packageBuilders {
-        let testModuleBuilders = packageBuilder.modules.filter { $0.module.type == .test }
-        guard testModuleBuilders.count > 1 else { continue }
-        for moduleBuilder in testModuleBuilders {
-            for case .module(let dep, _) in moduleBuilder.dependencies where dep.module.type == .test {
-                if !dep.isTestSupportModule {
-                    dep.isTestSupportModule = true
-                    dep.observabilityScope.emit(
-                        debug: "Treating test module '\(dep.module.name)' as a static library as it is depended on by other test target(s)"
-                    )
                 }
             }
         }
@@ -1538,7 +1525,6 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
     var platformConstraint: PlatformConstraint? = nil
 
     /// Whether this is a test module that is directly depended upon by other test modules.
-    /// Set by `markTestSupportModules` during graph loading.
     var isTestSupportModule: Bool = false
 
     var isHostOnly: Bool {
