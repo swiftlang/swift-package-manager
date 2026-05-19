@@ -428,10 +428,14 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         })
         flags += prebuiltLibPaths.flatMap({ ["-L", $0] }) + prebuiltLibraries.map({ "-l" + $0 })
 
-        // Other linker flags.
         for target in self.staticTargets {
             let scope = self.buildParameters.createScope(for: target)
-            flags += scope.evaluate(.OTHER_LDFLAGS)
+            let ldFlags = scope.evaluate(.OTHER_LDFLAGS)
+            if self.buildParameters.triple.isWindows() {
+                flags += ldFlags.asSwiftcLinkerFlags()
+            } else {
+                flags += ldFlags
+            }
         }
 
         return flags
