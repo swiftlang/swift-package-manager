@@ -145,6 +145,10 @@ public struct BuildParameters: Encodable {
     /// Support Experimental XCF on Linux
     public var enableXCFrameworksOnLinux: Bool
 
+    /// Whether to use the standard library from a package instead of the
+    /// standard library in the toolchain.
+    public var useStandardLibraryPackage: Bool
+
     /// Build parameters related to debugging.
     public var debuggingParameters: Debugging
 
@@ -182,6 +186,7 @@ public struct BuildParameters: Encodable {
         shouldSkipBuilding: Bool = false,
         prepareForIndexing: PrepareForIndexingMode = .off,
         enableXCFrameworksOnLinux: Bool = false,
+        useStandardLibraryPackage: Bool = false,
         debuggingParameters: Debugging? = nil,
         driverParameters: Driver = .init(),
         linkingParameters: Linking = .init(),
@@ -248,6 +253,7 @@ public struct BuildParameters: Encodable {
         self.shouldSkipBuilding = shouldSkipBuilding
         self.prepareForIndexing = prepareForIndexing
         self.enableXCFrameworksOnLinux = enableXCFrameworksOnLinux
+        self.useStandardLibraryPackage = useStandardLibraryPackage
         self.driverParameters = driverParameters
         self.linkingParameters = linkingParameters
         self.outputParameters = outputParameters

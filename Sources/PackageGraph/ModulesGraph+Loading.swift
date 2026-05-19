@@ -31,6 +31,7 @@ extension ModulesGraph {
         unsafeAllowedPackages: Set<PackageReference> = [],
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
         prebuilts: [PackageIdentity: [String: PrebuiltLibrary]], // Product name to library mapping
+        implicitDependencies: [ImplicitDependency],
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         customPlatformsRegistry: PlatformRegistry? = .none,
@@ -202,6 +203,7 @@ extension ModulesGraph {
             root: root,
             unsafeAllowedPackages: unsafeAllowedPackages,
             prebuilts: prebuilts,
+            implicitDependencies: implicitDependencies,
             platformRegistry: customPlatformsRegistry ?? .default,
             platformVersionProvider: platformVersionProvider,
             fileSystem: fileSystem,
@@ -380,6 +382,7 @@ private func createResolvedPackages(
     root: PackageGraphRoot,
     unsafeAllowedPackages: Set<PackageReference>,
     prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
+    implicitDependencies: [ImplicitDependency],
     platformRegistry: PlatformRegistry,
     platformVersionProvider: PlatformVersionProvider,
     fileSystem: FileSystem,
@@ -402,7 +405,8 @@ private func createResolvedPackages(
             isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts,
             allowedToOverride: allowedToOverride,
             platformVersionProvider: platformVersionProvider,
-            prebuilts: prebuilts[package.identity]
+            prebuilts: prebuilts[package.identity],
+            implicitDependencies: implicitDependencies
         )
     }
 
@@ -432,10 +436,18 @@ private func createResolvedPackages(
         var dependenciesByNameForModuleDependencyResolution = [String: ResolvedPackageBuilder]()
         var dependencyNamesForModuleDependencyResolutionOnly = [PackageIdentity: String]()
 
-        try package.manifest.dependenciesRequired(
+        var requiredDependencies = try package.manifest.dependenciesRequired(
             for: packageBuilder.productFilter,
             packageBuilder.enabledTraits
-        ).forEach { dependency in
+        )
+
+        addImplicitDependencies(
+            implicitDependencies,
+            in: package.identity,
+            to: &requiredDependencies
+        )
+
+        try requiredDependencies.forEach { dependency in
             let dependencyPackageRef = dependency.packageRef
 
             // Otherwise, look it up by its identity.
@@ -728,7 +740,14 @@ private func createResolvedPackages(
             moduleBuilder.dependencies += implicitSystemLibraryDeps.map { .module($0, conditions: []) }
 
             // Establish product dependencies.
-            for case .product(let productRef, let conditions) in moduleBuilder.module.dependencies {
+            var moduleDependencies = moduleBuilder.module.dependencies
+            moduleBuilder.module.addImplicitDependencies(
+                implicitDependencies,
+                in: moduleBuilder.packageIdentity,
+                to: &moduleDependencies
+            )
+
+            for case .product(let productRef, let conditions) in moduleDependencies {
                 // Find the product in this package's dependency products.
                 // Look it up by ID if module aliasing is used, otherwise by name.
                 let product = lookupByProductIDs ? productDependencyMap[productRef.identity] :
@@ -1634,6 +1653,9 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     /// The prebuilt libraries for this package
     var prebuilts: [String: PrebuiltLibrary]?
 
+    /// The implicit dependencies to inject into the package.
+    let implicitDependencies: [ImplicitDependency]
+
     /// Map from package identity to the local name for module dependency resolution that has been given to that package
     /// through the dependency declaration.
     var dependencyNamesForModuleDependencyResolutionOnly: [PackageIdentity: String] = [:]
@@ -1657,7 +1679,8 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         isAllowedToVendUnsafeProducts: Bool,
         allowedToOverride: Bool,
         platformVersionProvider: PlatformVersionProvider,
-        prebuilts: [String: PrebuiltLibrary]?
+        prebuilts: [String: PrebuiltLibrary]?,
+        implicitDependencies: [ImplicitDependency]
     ) {
         self.package = package
         self.productFilter = productFilter
@@ -1666,6 +1689,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         self.allowedToOverride = allowedToOverride
         self.platformVersionProvider = platformVersionProvider
         self.prebuilts = prebuilts
+        self.implicitDependencies = implicitDependencies
     }
 
     override func constructImpl() throws -> ResolvedPackage {
@@ -1673,11 +1697,23 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         var modules = products.reduce(into: IdentifiableSet()) { $0.formUnion($1.modules) }
         try modules.formUnion(self.modules.map { try $0.construct() })
 
+        var dependencies = self.dependencies.map(\.package.identity)
+
+    #if false
+        // Add implicit package dependencies.
+        lazy var knownDependencies: Set<PackageIdentity> = Set(dependencies)
+        for implicitDependency in implicitDependencies {
+            if knownDependencies.insert(implicitDependency.package.identity).inserted {
+                dependencies.append(implicitDependency.package.identity)
+            }
+        }
+        #endif
+
         return ResolvedPackage(
             underlying: self.package,
             defaultLocalization: self.defaultLocalization,
             supportedPlatforms: self.supportedPlatforms,
-            dependencies: self.dependencies.map(\.package.identity),
+            dependencies: dependencies,
             enabledTraits: self.enabledTraits.names,
             modules: modules,
             products: products,
@@ -1686,3 +1722,71 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         )
     }
 }
+
+extension Module {
+    /// Add implicit dependencies for this module to the given set of
+    /// module dependencies as appropriate.
+    func addImplicitDependencies(
+        _ implicitDependencies: [ImplicitDependency],
+        in packageIdentity: PackageIdentity,
+        to moduleDependencies: inout [Dependency]
+    ) {
+        // Common case: no implicit dependencies, so there is nothing to do.
+        if implicitDependencies.isEmpty {
+            return
+        }
+
+        // If this module can't have implicit dependencies at all, bail out.
+        switch type {
+        case .executable, .library, .test:
+            break
+        case .binary, .macro, .plugin, .systemModule, .snippet:
+            return
+        }
+
+        // Add implicit dependencies for this module.
+        for implicitDependency in implicitDependencies {
+            // If this is the same module as the implicit dependency,
+            // do nothing.
+            if implicitDependency.package.identity == packageIdentity {
+                continue
+            }
+
+            for product in implicitDependency.products {
+                moduleDependencies.append(
+                    .product(
+                        ProductReference(
+                            name: product,
+                            package: implicitDependency.package.identity.description
+                        ),
+                        conditions: []
+                    )
+                )
+            }
+        }
+    }
+}
+
+/// Add the given implicit dependencies to the set of required dependencies for
+/// the provided package, skipping any that already exist.
+private func addImplicitDependencies(
+    _ implicitDependencies: [ImplicitDependency],
+    in package: PackageIdentity,
+    to requiredDependencies: inout [PackageDependency]
+) {
+    if implicitDependencies.isEmpty {
+        return
+    }
+
+    var knownPackages = Set<PackageIdentity>()
+    knownPackages.insert(package)
+    requiredDependencies.forEach { knownPackages.insert($0.identity) }
+
+    for implicitDependency in implicitDependencies {
+        let implicitPackage = implicitDependency.package
+        if knownPackages.insert(implicitPackage.identity).inserted {
+            requiredDependencies.append(implicitPackage)
+        }
+    }
+}
+
