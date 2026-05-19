@@ -14,6 +14,7 @@
 @testable import PackageLoading
 import PackageModel
 import _InternalTestSupport
+import Testing
 import XCTest
 
 @available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
