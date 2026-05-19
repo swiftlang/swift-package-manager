@@ -1088,6 +1088,19 @@ struct PIFBuilderTests {
         #expect(sources == expected)
      }
 
+    @Test func noHeaderMaps() async throws {
+        try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+            let project = try pif.workspace.project(named: "Foo")
+            for configName in [BuildConfiguration.debug, .release] {
+                #expect(
+                    try project.buildConfig(named: configName).settings[.USE_HEADERMAP] == "NO",
+                    "config: \(configName)"
+                )
+            }
+        }
+    }
+
     @Test func symbolGraphExtractorBuildSettings() async throws {
         try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
             #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
