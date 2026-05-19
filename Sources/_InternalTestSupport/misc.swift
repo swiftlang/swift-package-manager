@@ -49,6 +49,13 @@ public let isSelfHostedCiEnvironment = CiEnvironment.runningInSelfHostedPipeline
 public struct CiEnvironmentStruct {
     public let runningInSmokeTestPipeline = ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil
     public let runningInSelfHostedPipeline = ProcessInfo.processInfo.environment["SWIFTCI_IS_SELF_HOSTED"] != nil
+
+    // Smoke-test CI runs an old lldb built without Python bindings, and the
+    // Windows Swift toolchain ships lldb without python310.dll on PATH, so
+    // `command script import` crashes lldb on both.
+    public var lldbLacksPythonBindings: Bool {
+        runningInSmokeTestPipeline || ProcessInfo.hostOperatingSystem == .windows
+    }
 }
 
 public let CiEnvironment = CiEnvironmentStruct()
@@ -594,14 +601,7 @@ private func swiftArgs(
     Xswiftc: [String],
     buildSystem: BuildSystemProvider.Kind?
 ) -> [String] {
-    var args = ["--configuration"]
-    switch configuration {
-    case .debug:
-        args.append("debug")
-    case .release:
-        args.append("release")
-    }
-
+    var args = configuration.buildArgs
     args += Xcc.flatMap { ["-Xcc", $0] }
     args += Xld.flatMap { ["-Xlinker", $0] }
     args += Xswiftc.flatMap { ["-Xswiftc", $0] }
@@ -609,6 +609,20 @@ private func swiftArgs(
     args += extraArgs
     return args
 }
+
+extension BuildConfiguration {
+    public var buildArgs: [String] {
+        var args = ["--configuration"]
+        switch self {
+        case .debug:
+            args.append("debug")
+        case .release:
+            args.append("release")
+        }
+        return args
+    }
+}
+
 
 public let emptyZipFile = ByteString([0x80, 0x75, 0x05, 0x06] + [UInt8](repeating: 0x00, count: 18))
 

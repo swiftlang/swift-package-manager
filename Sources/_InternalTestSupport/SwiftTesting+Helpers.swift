@@ -12,6 +12,8 @@
 
 import Basics
 import Testing
+import Foundation
+import class TSCBasic.BufferedOutputByteStream
 
 
 fileprivate func fileErrorMessage(
@@ -280,4 +282,30 @@ private func _expectThrowsCommandExecutionError<R, T>(
         return Optional<R>.none
     }
     return try errorHandler(CommandExecutionError(result: processResult, stdout: stdout, stderr: stderr))
+}
+
+/// Checks if an output stream contains a specific string, with retry logic for asynchronous writes.
+/// - Parameters:
+///   - outputStream: The output stream to check
+///   - needle: The string to search for in the output stream
+///   - timeout: Maximum time to wait for the string to appear (default: 3 seconds)
+///   - retryInterval: Time to wait between checks (default: 50 milliseconds)
+/// - Returns: True if the string was found within the timeout period
+public func waitForOutputStreamToContain(
+    _ outputStream: BufferedOutputByteStream,
+    _ needle: String,
+    timeout: Duration = .seconds(3),
+    retryInterval: Duration = .milliseconds(50)
+) async throws -> Bool {
+    let clock = ContinuousClock()
+    let startTime = clock.now
+    while clock.now - startTime < timeout {
+        if outputStream.bytes.description.contains(needle) {
+            return true
+        }
+
+        try await Task.sleep(for: retryInterval)
+    }
+
+    return outputStream.bytes.description.contains(needle)
 }

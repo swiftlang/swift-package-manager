@@ -19,7 +19,6 @@ import PackageModel
 import SPMBuildCore
 
 import enum TSCBasic.ProcessEnv
-import func TSCBasic.exec
 
 import enum TSCUtility.Diagnostics
 
@@ -153,7 +152,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                 fileSystem: swiftCommandState.fileSystem,
                 executablePath: interpreterPath,
                 originalWorkingDirectory: swiftCommandState.originalWorkingDirectory,
-                arguments: arguments
+                arguments: arguments,
+                observabilityScope: swiftCommandState.observabilityScope
             )
 
         case .debugger:
@@ -183,12 +183,17 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                         fileSystem: swiftCommandState.fileSystem,
                         executablePath: debuggerPath,
                         originalWorkingDirectory: swiftCommandState.originalWorkingDirectory,
-                        arguments: debugger.extraCLIOptions + [productAbsolutePath.pathString] + options.arguments
+                        arguments: debugger.extraCLIOptions + [productAbsolutePath.pathString] + options.arguments,
+                        observabilityScope: swiftCommandState.observabilityScope
                     )
                 } else {
                     let pathRelativeToWorkingDirectory = productAbsolutePath.relative(to: swiftCommandState.originalWorkingDirectory)
                     let lldbPath = try swiftCommandState.getTargetToolchain().getLLDB()
-                    try exec(path: lldbPath.pathString, args: ["--", pathRelativeToWorkingDirectory.pathString] + options.arguments)
+                    try safeExec(
+                        path: lldbPath.pathString,
+                        args: ["--", pathRelativeToWorkingDirectory.pathString] + options.arguments,
+                        observabilityScope: swiftCommandState.observabilityScope
+                    )
                 }
             } catch let error as RunError {
                 swiftCommandState.observabilityScope.emit(error)
@@ -207,7 +212,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                     fileSystem: swiftCommandState.fileSystem,
                     executablePath: swiftInterpreterPath,
                     originalWorkingDirectory: swiftCommandState.originalWorkingDirectory,
-                    arguments: arguments
+                    arguments: arguments,
+                    observabilityScope: swiftCommandState.observabilityScope
                 )
                 return
             }
@@ -245,7 +251,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                     fileSystem: swiftCommandState.fileSystem,
                     executablePath: runnerPath,
                     originalWorkingDirectory: swiftCommandState.originalWorkingDirectory,
-                    arguments: arguments
+                    arguments: arguments,
+                    observabilityScope: swiftCommandState.observabilityScope
                 )
             } catch Diagnostics.fatalError {
                 throw ExitCode.failure
@@ -294,7 +301,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         fileSystem: FileSystem,
         executablePath: AbsolutePath,
         originalWorkingDirectory: AbsolutePath,
-        arguments: [String]
+        arguments: [String],
+        observabilityScope: ObservabilityScope
     ) throws {
         // Make sure we are running from the original working directory.
         let cwd: AbsolutePath? = fileSystem.currentWorkingDirectory
@@ -303,7 +311,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
         }
 
         let pathRelativeToWorkingDirectory = executablePath.relative(to: originalWorkingDirectory)
-        try execute(path: executablePath.pathString, args: [pathRelativeToWorkingDirectory.pathString] + arguments)
+        try safeExec(path: executablePath.pathString, args: [pathRelativeToWorkingDirectory.pathString] + arguments, observabilityScope: observabilityScope)
     }
 
     /// Determines if a path points to a valid swift file.
@@ -324,41 +332,6 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             absolutePath = try AbsolutePath(cwd, validating: path)
         }
         return fileSystem.isFile(absolutePath)
-    }
-
-    /// A safe wrapper of TSCBasic.exec.
-    private func execute(path: String, args: [String]) throws -> Never {
-        #if !os(Windows)
-        // Dispatch will disable almost all asynchronous signals on its worker threads, and this is called from `async`
-        // context. To correctly `exec` a freshly built binary, we will need to:
-        // 1. reset the signal masks
-        for i in 1..<NSIG {
-            signal(i, SIG_DFL)
-        }
-        var sig_set_all = sigset_t()
-        sigfillset(&sig_set_all)
-        sigprocmask(SIG_UNBLOCK, &sig_set_all, nil)
-
-        #if os(FreeBSD) || os(OpenBSD)
-        #if os(FreeBSD)
-        pthread_suspend_all_np()
-        #endif
-        closefrom(3)
-        #else
-        #if os(Android)
-        let number_fds = Int32(sysconf(_SC_OPEN_MAX))
-        #else
-        let number_fds = getdtablesize()
-        #endif /* os(Android) */
-
-        // 2. set to close all file descriptors on exec
-        for i in 3..<number_fds {
-            _ = fcntl(i, F_SETFD, FD_CLOEXEC)
-        }
-        #endif /* os(FreeBSD) || os(OpenBSD) */
-        #endif
-
-        try TSCBasic.exec(path: path, args: args)
     }
 
     public init() {}
