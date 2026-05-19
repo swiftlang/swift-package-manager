@@ -96,6 +96,15 @@ extension PackageDependency.SourceControl.Requirement {
     public static func upToNextMinor(from version: Version) -> Self {
         return .range(.upToNextMinor(from: version))
     }
+    public static func upToNextMajor(from versionString: String) -> Self {
+        return .range(.upToNextMajor(from: Version(stringLiteral: versionString)))
+    }
+    public static func upToNextMinor(from versionString: String) -> Self {
+        return .range(.upToNextMinor(from: Version(stringLiteral: versionString)))
+    }
+    public static func exact(_ versionString: String) -> Self {
+        return .exact(Version(stringLiteral: versionString))
+    }
 }
 
 extension PackageDependency.Registry.Requirement {

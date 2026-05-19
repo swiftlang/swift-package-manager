@@ -384,7 +384,7 @@ private struct SourceFile {
 
         self.sourceLocationConverter = SwiftSyntax.SourceLocationConverter(
             fileName: path.pathString,
-            tree: self.syntax
+            tree: self.syntax.root
         )
     }
 
