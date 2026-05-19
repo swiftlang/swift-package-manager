@@ -1086,6 +1086,55 @@ public final class PackageBuilder {
         }
     }
 
+    private func resolvedSettings(for target: TargetDescription) throws -> [TargetBuildSettingDescription.Setting] {
+        var resolved: [TargetBuildSettingDescription.Setting] = []
+
+        // first, validate defaults
+        for setting in manifest.defaultSettings ?? [] {
+            if case .unsafeFlags = setting.kind {
+                throw ModuleError.invalidManifestConfig(
+                    self.identity.description, "default settings cannot contain unsafe flags"
+                )
+            }
+        }
+
+        // copy over all existing settings, substituting in defaults if inherited is encountered.
+        for setting in target.settings {
+            switch setting.kind {
+            case .inherited:
+                if setting.condition != nil {
+                    throw ModuleError.invalidManifestConfig(
+                        self.identity.description, "inherited settings cannot use conditions"
+                    )
+                }
+
+                let defaults = manifest.defaultSettings?.filter({ $0.tool == setting.tool }) ?? []
+                resolved.append(contentsOf: defaults)
+            default:
+                resolved.append(setting)
+            }
+        }
+
+        // Now, apply the defaults if nothing explicit is present.
+        if !target.explicitSettings.swift {
+            resolved.append(contentsOf: manifest.defaultSettings?.filter({ $0.tool == .swift }) ?? [])
+        }
+
+        if !target.explicitSettings.c {
+            resolved.append(contentsOf: manifest.defaultSettings?.filter({ $0.tool == .c }) ?? [])
+        }
+
+        if !target.explicitSettings.cxx {
+            resolved.append(contentsOf: manifest.defaultSettings?.filter({ $0.tool == .cxx }) ?? [])
+        }
+
+        if !target.explicitSettings.linker {
+            resolved.append(contentsOf: manifest.defaultSettings?.filter({ $0.tool == .linker }) ?? [])
+        }
+
+        return resolved
+    }
+
     /// Creates build setting assignment table for the given target.
     func buildSettings(
         for target: TargetDescription?,
@@ -1103,7 +1152,7 @@ public final class PackageBuilder {
         table.add(versionAssignment, for: .SWIFT_VERSION)
 
         // Process each setting.
-        for setting in target.settings {
+        for setting in try resolvedSettings(for: target) {
             if let traits = setting.condition?.traits, traits.intersection(self.enabledTraits.names).isEmpty {
                 // The setting is currently not enabled so we should skip it
                 continue
@@ -1341,6 +1390,8 @@ public final class PackageBuilder {
                 }
 
                 values = ["-default-isolation", isolation.rawValue]
+            case .inherited:
+                throw InternalError("inherited cannot be in resolved setttings")
             }
 
             // Create an assignment for this setting.
