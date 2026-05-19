@@ -840,7 +840,7 @@ extension PIFGenerationError: CustomStringConvertible {
             "Printed PIF manifest as graphviz"
 
         case .errorDiagnosticsReported:
-            "Errors reportes in PIF builder"
+            "PIF construction reported errors"
         }
     }
 }
