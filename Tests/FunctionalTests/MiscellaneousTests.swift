@@ -1399,13 +1399,14 @@ struct MiscellaneousSwiftTestingTests {
     }
 
     @Test(
-        .tags(.Feature.Command.Test),
+        .tags(.Feature.Command.Build),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testTestTargetDependsOnTestTarget_EnsureBuilds() async throws {
+    func testTestTargetDependsOnTestTarget_EnsureBuilds(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/TestTargetDependsOnTestTarget") { fixturePath in
             let (_, stderr) = try await executeSwiftTest(
                 fixturePath,
-                buildSystem: .swiftbuild,
+                buildSystem: buildSystem,
                 throwIfCommandFails: true,
             )
             #expect(stderr.contains("Build complete!"))
