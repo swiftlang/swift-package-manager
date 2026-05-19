@@ -193,7 +193,7 @@ import SwiftBuild
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: AbsolutePath.root,
-                addLocalRpaths: true,
+                addLocalRpaths: .always,
                 pluginScriptRunner: pluginScriptRunner
             ),
             fileSystem: fs,

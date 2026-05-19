@@ -135,7 +135,7 @@ extension PackagePIFProjectBuilder {
             settings[.BUILD_SERVER_PROTOCOL_TARGET_TAGS, default: ["$(inherited)"]].append("test")
 
             // FIXME: we shouldn't always include both the deep and shallow bundle paths here, but for that we'll need rdar://31867023
-            if pifBuilder.addLocalRpaths {
+            if pifBuilder.addLocalRpaths != .never {
                 settings[.LD_RUNPATH_SEARCH_PATHS] = [
                     "$(RPATH_ORIGIN)/Frameworks",
                     "$(RPATH_ORIGIN)/../Frameworks",
@@ -1102,7 +1102,7 @@ extension PackagePIFProjectBuilder {
 
         // A test-runner should always be adjacent to the dynamic library containing the tests,
         // so add the appropriate rpaths.
-        if pifBuilder.addLocalRpaths {
+        if pifBuilder.addLocalRpaths != .never {
             settings[.LD_RUNPATH_SEARCH_PATHS] = [
                 "$(inherited)",
                 "$(RPATH_ORIGIN)"

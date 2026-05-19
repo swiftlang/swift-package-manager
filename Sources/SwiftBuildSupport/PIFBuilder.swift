@@ -81,9 +81,9 @@ package struct PIFBuilderParameters {
     /// Add rpaths which allow loading libraries adjacent to the current image at runtime. This is desirable
     /// when launching build products from the build directory, but should often be disabled when deploying
     /// the build products to a different location.
-    let addLocalRpaths: Bool
+    let addLocalRpaths: PackagePIFBuilder.AddLocalRpaths
 
-    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRPaths: Bool) {
+    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRpaths: PackagePIFBuilder.AddLocalRpaths) {
         self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
         self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
@@ -96,7 +96,7 @@ package struct PIFBuilderParameters {
         self.disableSandbox = disableSandbox
         self.pluginWorkingDirectory = pluginWorkingDirectory
         self.additionalFileRules = additionalFileRules
-        self.addLocalRpaths = addLocalRPaths
+        self.addLocalRpaths = addLocalRpaths
     }
 }
 
@@ -564,7 +564,7 @@ public final class PIFBuilder {
         pluginWorkingDirectory: AbsolutePath,
         pkgConfigDirectories: [Basics.AbsolutePath],
         additionalFileRules: [FileRuleDescription],
-        addLocalRpaths: Bool,
+        addLocalRpaths: PackagePIFBuilder.AddLocalRpaths,
         materializeStaticArchiveProductsForRootPackages: Bool,
         createDynamicVariantsForLibraryProducts: Bool
     ) async throws -> PIFGenerationResult {
@@ -846,7 +846,7 @@ extension PIFBuilderParameters {
         disableSandbox: Bool,
         pluginWorkingDirectory: AbsolutePath,
         additionalFileRules: [FileRuleDescription],
-        addLocalRpaths: Bool,
+        addLocalRpaths: PackagePIFBuilder.AddLocalRpaths,
         materializeStaticArchiveProductsForRootPackages: Bool,
         createDynamicVariantsForLibraryProducts: Bool
     ) {
@@ -863,7 +863,7 @@ extension PIFBuilderParameters {
             disableSandbox: disableSandbox,
             pluginWorkingDirectory: pluginWorkingDirectory,
             additionalFileRules: additionalFileRules,
-            addLocalRPaths: addLocalRpaths,
+            addLocalRpaths: addLocalRpaths,
         )
     }
 }
