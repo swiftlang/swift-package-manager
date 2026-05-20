@@ -251,7 +251,7 @@ private struct SwiftPMTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
+        try await withKnownIssue {
         try await withTemporaryDirectory(removeTreeOnDeinit: false) { tmpDir in
             let packagePath = tmpDir.appending(component: "test-package-coverage")
             try localFileSystem.createDirectory(packagePath)
@@ -331,15 +331,11 @@ private struct SwiftPMTests {
             let coverage = try JSONDecoder().decode(Coverage.self, from: Data(coverageJSON.contents))
 
             // Check for 100% coverage for Subject.swift, which should happen because the per-PID files got merged.
-            try withKnownIssue(isIntermittent: true) {
                 let data = try #require(coverage.data.first, "coverage JSON = \(coverage)")
                 let subjectCoverage = try #require(data.files.first(where: { $0.filename.hasSuffix("Subject.swift") }), "coverage data files JSON = \(data.files)")
                 #expect(subjectCoverage.summary.functions.count == 2)
                 #expect(subjectCoverage.summary.functions.covered == 2)
                 #expect(subjectCoverage.summary.functions.percent == 100)
-            } when: {
-                [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
-            }
 
                 // Check the directory with the coverage path contains the profraw files.
                 let coverageDirectory = coveragePath.parentDirectory
@@ -370,7 +366,11 @@ private struct SwiftPMTests {
                 }
         }
         } when: {
+            #if compiler(>=6.3)
+            false
+            #else
             ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+            #endif
         }
     }
 }

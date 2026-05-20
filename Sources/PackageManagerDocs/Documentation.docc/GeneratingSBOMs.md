@@ -6,7 +6,7 @@ Create an inventory of components and dependencies using SBOM documents.
 
 Swift Package Manager generates Software Bill of Materials (SBOM) documents for Swift packages and products.
 
-Swift Package Manager currently supports two SBOM formats: CycloneDX and SPDX. 
+Swift Package Manager currently supports two SBOM formats: CycloneDX and SPDX.
 
 Generate SBOMs using either the [`swift build`](doc:SwiftBuild) command with SBOM flags or the dedicated [`swift package generate-sbom`](doc:PackageGenerateSBOM) subcommand.
 
@@ -26,9 +26,9 @@ swift build --build-system swiftbuild --sbom-spec cyclonedx --sbom-spec spdx
 The following examples generate SBOMs without using the Swift Build build backend. SBOMs generated without Swift Build may not be fully accurate, as build-time conditionals aren't applied to the SBOMs.
 
 ```bash
-swift build --sbom-spec cyclonedx
-swift build --sbom-spec spdx
-swift build --sbom-spec cyclonedx --sbom-spec spdx
+swift build --build-system native --sbom-spec cyclonedx
+swift build --build-system native --sbom-spec spdx
+swift build --build-system native --sbom-spec cyclonedx --sbom-spec spdx
 ```
 
 ### Use the package command to generates SBOMs

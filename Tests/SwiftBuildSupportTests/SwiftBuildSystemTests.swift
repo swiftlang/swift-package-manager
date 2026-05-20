@@ -37,13 +37,13 @@ func withInstantiatedSwiftBuildSystem(
 
     try await fixture(name: fixtureName) { fixturePath  in
         try await withTemporaryDirectory  { tmpDir in
+            let toolchain = try UserToolchain.default
             let buildParameters = if let buildParameters {
                 buildParameters
             } else {
-                mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+                mockBuildParameters(destination: .host, toolchain: toolchain, buildSystemKind: .swiftbuild)
             }
             let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting()
-            let toolchain = try UserToolchain.default
             let workspace = try Workspace(
                 fileSystem: fileSystem,
                 forRootPackage: fixturePath,
@@ -137,7 +137,7 @@ extension PackageModel.Sanitizer {
     .tags(
         .TestSize.medium,
     ),
-    .requireCompiledWith6_3OrLater("https://github.com/swiftlang/swift-corelibs-foundation/pull/5269")
+    .requireCompiledWith6_3OrLater(because: "https://github.com/swiftlang/swift-corelibs-foundation/pull/5269")
 )
 struct SwiftBuildSystemTests {
 
@@ -299,6 +299,7 @@ struct SwiftBuildSystemTests {
             fromFixture: "PIFBuilder/Simple",
             buildParameters: mockBuildParameters(
                 destination: .host,
+                toolchain: try UserToolchain.default,
                 buildSystemKind: .swiftbuild,
                 indexStoreMode: indexStoreSettingUT,
             ),
@@ -317,7 +318,7 @@ struct SwiftBuildSystemTests {
                 case .auto: nil
             }
             let expectedPathValue: AbsolutePath? = switch indexStoreSettingUT {
-                case .on: buildParameters.indexStore
+                case .on: try await swiftBuild.indexStore(for: buildParameters)
                 case .off: nil
                 case .auto: nil
             }
@@ -340,6 +341,43 @@ struct SwiftBuildSystemTests {
                 #expect(synthesizedArgs.table["CLANG_INDEX_STORE_PATH"] == nil)
             }
         }
+    }
+
+
+    @Test(
+        arguments: [
+            (stripProductsSettingUT: true, expectedValue: "YES"),
+            (stripProductsSettingUT: false, expectedValue: "NO"),
+            (stripProductsSettingUT: nil, expectedValue: "NO"),
+        ]
+    )
+    func validatestripProductsetting(
+        stripProductsSettingUT: Bool?,
+        expectedValue: String
+    ) async throws {
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: mockBuildParameters(
+                destination: .host,
+                buildSystemKind: .swiftbuild,
+                stripProducts: stripProductsSettingUT,
+            ),
+        ) { swiftBuild, service, session, observabilityScope, buildParameters in
+
+            let buildSettings = try await swiftBuild.makeBuildParameters(
+                service: service,
+                session: session,
+                symbolGraphOptions: nil,
+                setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+            )
+
+            let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
+            let actual = synthesizedArgs.table["STRIP_INSTALLED_PRODUCT"]
+            #expect(
+                actual == expectedValue,
+                "strip install products: \(String(describing: stripProductsSettingUT)) >>> Actual: '\(actual)' expected: '\(expectedValue)'",
+            )
+       }
     }
 
     @Test(
@@ -377,6 +415,7 @@ struct SwiftBuildSystemTests {
             )
        }
     }
+
 
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/issues/9321", relationship: .verifies),
@@ -516,7 +555,6 @@ struct SwiftBuildSystemTests {
             }
         }
 
-        #if os(Windows)
         @Test
         func debugInfoFormatCodeViewOnWindows() async throws {
             // Test CodeView format separately as it's only supported on Windows
@@ -540,7 +578,6 @@ struct SwiftBuildSystemTests {
                 #expect(synthesizedArgs.table["DEBUG_INFORMATION_FORMAT"] == "codeview")
             }
         }
-        #endif
 
         @Test(
             arguments: [

@@ -382,7 +382,7 @@ struct InitTests {
                 let manifestContents: String = try localFileSystem.readFileContents(manifest)
                 #expect(!manifestContents.contains(#".testTarget"#))
 
-                expectFileDoesNotExists(at: path.appending("Tests"))
+                expectFileDoesNotExist(at: path.appending("Tests"))
 
     #if canImport(TestingDisabled)
                 // Try building it

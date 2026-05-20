@@ -30,7 +30,8 @@ extension PIFBuilderParameters {
         temporaryDirectory: Basics.AbsolutePath,
         addLocalRpaths: Bool,
         shouldCreateDylibForDynamicProducts: Bool = false,
-        pluginScriptRunner: PluginScriptRunner? = nil
+        pluginScriptRunner: PluginScriptRunner? = nil,
+        hostBuildProductsPath: Basics.AbsolutePath? = nil
     ) throws -> Self {
         try self.init(
             isPackageAccessModifierSupported: true,
@@ -49,7 +50,8 @@ extension PIFBuilderParameters {
             disableSandbox: false,
             pluginWorkingDirectory: temporaryDirectory.appending(component: "plugin-working-dir"),
             additionalFileRules: [],
-            addLocalRPaths: addLocalRpaths
+            addLocalRPaths: addLocalRpaths,
+            hostBuildProductsPath: hostBuildProductsPath ?? temporaryDirectory.appending(component: "host-build-products")
         )
     }
 }
@@ -59,16 +61,11 @@ fileprivate func withGeneratedPIF(
     addLocalRpaths: Bool = true,
     shouldCreateDylibForDynamicProducts: Bool = true,
     buildParameters: BuildParameters? = nil,
-    hostBuildParameters: BuildParameters? = nil,
+    hostBuildProductsPath: AbsolutePath? = nil,
     do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> ()
 ) async throws {
     let buildParameters = if let buildParameters {
         buildParameters
-    } else {
-        mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
-    }
-    let hostBuildParameters = if let hostBuildParameters {
-        hostBuildParameters
     } else {
         mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
     }
@@ -94,14 +91,14 @@ fileprivate func withGeneratedPIF(
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: fixturePath,
                 addLocalRpaths: addLocalRpaths,
-                shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts
+                shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
+                hostBuildProductsPath: hostBuildProductsPath
             ),
             fileSystem: localFileSystem,
             observabilityScope: observabilitySystem.topScope
         )
         let (pif, _) = try await builder.constructPIF(
-            buildParameters: buildParameters,
-            hostBuildParameters: hostBuildParameters
+            buildParameters: buildParameters
         )
         try await doIt(pif, observabilitySystem)
     }
@@ -392,8 +389,7 @@ struct PIFBuilderTests {
 
         // Act
         let (pif, _) = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
-            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         // Assert
@@ -511,11 +507,6 @@ struct PIFBuilderTests {
     @Test func buildToolPluginCommandLineUsesHostBuildPath() async throws {
         let hostBuildPath = AbsolutePath("/path/to/host/build")
         let destBuildPath = AbsolutePath("/path/to/dest/build")
-        let hostBuildParams = mockBuildParameters(
-            destination: .host,
-            buildPath: hostBuildPath,
-            buildSystemKind: .swiftbuild
-        )
         let destBuildParams = mockBuildParameters(
             destination: .host,
             buildPath: destBuildPath,
@@ -525,7 +516,7 @@ struct PIFBuilderTests {
         try await withGeneratedPIF(
             fromFixture: "Miscellaneous/Plugins/MySourceGenPlugin",
             buildParameters: destBuildParams,
-            hostBuildParameters: hostBuildParams
+            hostBuildProductsPath: hostBuildPath
         ) { pif, observabilitySystem in
             let project = try pif.workspace.project(named: "MySourceGenPlugin")
             let target = try project.target(named: "MyLocalTool-product")
@@ -688,6 +679,90 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test func moduleMapPathAndContents() async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/Library") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+
+            let releaseConfig = try pif.workspace
+                .project(named: "Library")
+                .target(named: "Library")
+                .buildConfig(named: .release)
+
+            let expectedPath = try RelativePath(validating: "$(GENERATED_MODULEMAP_DIR)/Library.modulemap").pathString
+            #expect(releaseConfig.settings[.MODULEMAP_PATH] == expectedPath)
+            #expect(releaseConfig.settings[.MODULEMAP_FILE_CONTENTS] == """
+            module Library {
+            header "Library-Swift.h"
+            export *
+            }
+            """)
+        }
+
+        try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+
+            let project = try pif.workspace.project(named: "ModuleMapGenerationCases")
+
+            do {
+                let releaseConfig = try project
+                    .target(named: "NoIncludeDir")
+                    .buildConfig(named: .release)
+
+                #expect(releaseConfig.settings[.MODULEMAP_PATH] == nil)
+                #expect(releaseConfig.settings[.MODULEMAP_FILE_CONTENTS] == nil)
+            }
+
+            do {
+                let releaseConfig = try project
+                    .target(named: "CustomModuleMap")
+                    .buildConfig(named: .release)
+
+                let path = try #require(releaseConfig.settings[.MODULEMAP_PATH])
+                #expect(path.hasSuffix(RelativePath("CustomModuleMap")
+                    .appending(components: ["include", "module.modulemap"]).pathString))
+                #expect(!path.contains("$(GENERATED_MODULEMAP_DIR)"))
+                #expect(releaseConfig.settings[.MODULEMAP_FILE_CONTENTS] == nil)
+            }
+
+            do {
+                let releaseConfig = try project
+                    .target(named: "UmbrellaHeader")
+                    .buildConfig(named: .release)
+
+                let expectedPath = try RelativePath(
+                    validating: "$(GENERATED_MODULEMAP_DIR)/UmbrellaHeader.modulemap"
+                ).pathString
+                #expect(releaseConfig.settings[.MODULEMAP_PATH] == expectedPath)
+
+                let contents = try #require(releaseConfig.settings[.MODULEMAP_FILE_CONTENTS])
+                #expect(contents.hasPrefix("module UmbrellaHeader {"))
+                #expect(contents.contains("umbrella header \""))
+                #expect(contents.contains(RelativePath("UmbrellaHeader")
+                    .appending(components: ["include", "UmbrellaHeader", "UmbrellaHeader.h"]).escapedPathString))
+                #expect(contents.contains("export *"))
+            }
+
+            do {
+                let releaseConfig = try project
+                    .target(named: "UmbrellaDirectoryInclude")
+                    .buildConfig(named: .release)
+
+                let expectedPath = try RelativePath(
+                    validating: "$(GENERATED_MODULEMAP_DIR)/UmbrellaDirectoryInclude.modulemap"
+                ).pathString
+                #expect(releaseConfig.settings[.MODULEMAP_PATH] == expectedPath)
+
+                let contents = try #require(releaseConfig.settings[.MODULEMAP_FILE_CONTENTS])
+                #expect(contents.hasPrefix("module UmbrellaDirectoryInclude {"))
+                #expect(contents.contains("umbrella \""))
+                #expect(!contents.contains("umbrella header"))
+                #expect(contents.contains(RelativePath("UmbrellaDirectoryInclude")
+                    .appending(component: "include").escapedPathString))
+                #expect(contents.contains("export *"))
+            }
+        }
+    }
+
     @Test func disablingLocalRpaths() async throws {
         try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple") { pif, observabilitySystem in
             #expect(observabilitySystem.diagnostics.filter {
@@ -827,8 +902,7 @@ struct PIFBuilderTests {
             observabilityScope: observability.topScope
         )
         let (pif, _) = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
-            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let remoteProject = try pif.workspace.project(named: "remote-pkg")
@@ -966,8 +1040,7 @@ struct PIFBuilderTests {
         )
 
         let (pif, _) = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
-            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let project = try pif.workspace.project(named: "Root")
@@ -1026,6 +1099,23 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test
+    func errorEmittedWhenTestTargetDependsOnAnotherTestTarget() async throws {
+        try await withGeneratedPIF(fromFixture: "TestTargetDependOnTestTarget") { pif, observabilitySystem in
+            let expectedErrors: Set = [
+                "PIF: Test target 'myOtherTestTarget' cannot depend on another test target 'leafTestTarget'",
+                "PIF: Test target 'myTestTarget' cannot depend on another test target 'leafTestTarget'",
+                "PIF: Test target 'myOtherTestTarget' cannot depend on another test target 'myTestTarget'",
+            ]
+            let actualDiags = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            let diagMsgs = Set(actualDiags.map { $0.message })
+
+            #expect(actualDiags.count == expectedErrors.count)
+            #expect(actualDiags.count == diagMsgs.count)
+            #expect(diagMsgs == expectedErrors)
+        }
+    }
+
     @Test func mixedSourceTarget() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
@@ -1060,8 +1150,7 @@ struct PIFBuilderTests {
         )
 
         let (pif, _) = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
-            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let project = try pif.workspace.project(named: "Pkg")

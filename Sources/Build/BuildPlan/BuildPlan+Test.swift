@@ -77,7 +77,7 @@ extension BuildPlan {
             /// Generates test discovery modules, which contain derived sources listing the discovered tests.
             func generateDiscoveryTargets() throws -> (target: SwiftModule, resolved: ResolvedModule, buildDescription: SwiftModuleBuildDescription) {
                 let discoveryTargetName = "\(package.manifest.displayName)PackageDiscoveredTests"
-                let discoveryDerivedDir = destinationBuildParameters.buildPath.appending(components: "\(discoveryTargetName).derived")
+                let discoveryDerivedDir = BuildOperation.buildProductsPath(for: destinationBuildParameters).appending(components: "\(discoveryTargetName).derived")
                 let discoveryMainFile = discoveryDerivedDir.appending(component: TestDiscoveryTool.mainFileName)
 
                 var discoveryPaths: [AbsolutePath] = []
@@ -136,7 +136,7 @@ extension BuildPlan {
                 swiftTargetDependencies: [Module.Dependency],
                 resolvedTargetDependencies: [ResolvedModule.Dependency]
             ) throws -> SwiftModuleBuildDescription {
-                let entryPointDerivedDir = destinationBuildParameters.buildPath.appending(components: "\(testProduct.name).derived")
+                let entryPointDerivedDir = BuildOperation.buildProductsPath(for: destinationBuildParameters).appending(components: "\(testProduct.name).derived")
                 let entryPointMainFileName = TestEntryPointTool.mainFileName
                 let entryPointMainFile = entryPointDerivedDir.appending(component: entryPointMainFileName)
                 let entryPointSources = Sources(paths: [entryPointMainFile], root: entryPointDerivedDir)

@@ -9,6 +9,7 @@
 add_library(CoreCommands
   BuildSystemSupport.swift
   SwiftCommandState.swift
+  SwiftCommandState.swift
   SwiftCommandObservabilityHandler.swift
   Options.swift)
 target_link_libraries(CoreCommands PUBLIC

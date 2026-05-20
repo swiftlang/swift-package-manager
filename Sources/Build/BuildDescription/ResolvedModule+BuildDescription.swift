@@ -18,6 +18,6 @@ import SPMBuildCore
 extension ResolvedModule {
     func tempsPath(_ buildParameters: BuildParameters) -> AbsolutePath {
         let suffix = buildParameters.suffix
-        return buildParameters.buildPath.appending(component: "\(self.c99name)\(suffix).build")
+        return BuildOperation.buildProductsPath(for: buildParameters).appending(component: "\(self.c99name)\(suffix).build")
     }
 }

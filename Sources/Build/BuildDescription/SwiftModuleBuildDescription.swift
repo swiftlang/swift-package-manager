@@ -138,7 +138,7 @@ public final class SwiftModuleBuildDescription {
 
     var modulesPath: AbsolutePath {
         let suffix = self.buildParameters.suffix
-        return self.buildParameters.buildPath.appending(component: "Modules\(suffix)")
+        return BuildOperation.buildProductsPath(for: self.buildParameters).appending(component: "Modules\(suffix)")
     }
 
     /// The path to the swiftmodule file after compilation.
@@ -459,13 +459,13 @@ public final class SwiftModuleBuildDescription {
         try self.requiredMacros.forEach { macro in
             args += [
                 "-Xfrontend", "-load-plugin-library",
-                "-Xfrontend", macroBuildParameters.macroBinaryPath(macro).pathString
+                "-Xfrontend", BuildOperation.macroBinaryPath(for: macro, parameters: macroBuildParameters).pathString
             ]
         }
         #else
         let macroModules = try self.requiredMacros
         try macroModules.forEach { macro in
-            let executablePath = try macroBuildParameters.macroBinaryPath(macro).pathString
+            let executablePath = try BuildOperation.macroBinaryPath(for: macro, parameters: macroBuildParameters).pathString
             args += ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", "\(executablePath)#\(macro.c99name)"]
         }
         #endif
@@ -563,7 +563,7 @@ public final class SwiftModuleBuildDescription {
 
         // Only add the build path to the framework search path if there are binary frameworks to link against.
         if !self.libraryBinaryPaths.isEmpty {
-            args += ["-F", self.buildParameters.buildPath.pathString]
+            args += ["-F", BuildOperation.buildProductsPath(for: self.buildParameters).pathString]
         }
 
         // Emit the ObjC compatibility header if enabled.
