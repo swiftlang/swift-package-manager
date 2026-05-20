@@ -23,3 +23,5 @@ Package.resolved
 /stage/
 Utilities/InstalledSwiftPMConfiguration/config.json
 Fixtures/BinaryLibraries/Static/Package1/Simple.artifactbundle/build
+/Packages/
+

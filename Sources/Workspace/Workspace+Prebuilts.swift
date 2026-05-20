@@ -563,8 +563,6 @@ extension Workspace {
                 continue
             }
 
-            let hostPlatform = prebuiltsManager.hostPlatform
-
             for library in prebuiltManifest.libraries {
                 if let path = try await prebuiltsManager
                     .downloadPrebuilt(
@@ -585,8 +583,7 @@ extension Workspace {
                         path: path,
                         checkoutPath: checkoutPath,
                         products: library.products,
-                        includePath: try library.includePath?.map({ try RelativePath(validating: $0) }),
-                        cModules: []
+                        includePath: try library.includePath?.map({ try RelativePath(validating: $0) }) ?? []
                     )
                     addedPrebuilts.add(managedPrebuilt)
                     await self.state.prebuilts.add(managedPrebuilt)
