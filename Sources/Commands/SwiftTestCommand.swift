@@ -336,12 +336,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             if !self.options.shouldRunInParallel {
                 let (xctestArgs, testCount, testPaths) = try xctestArgs(for: testProducts, swiftCommandState: swiftCommandState)
 
-                // Tests have been filtered and/or skipped; assure that we only run test products
-                // of the tests we must run.
-                var filteredTestProducts = testProducts
-                if let testPaths, testProducts.count != testPaths.count {
-                    filteredTestProducts = testProducts.filter({ testPaths.contains($0.bundlePath) })
-                }
+                // Products with no XCTest cases are excluded by xctestArgs to avoid 'Executed 0 tests' logs.
+                let filteredTestProducts = testProducts.filter({ testPaths.contains($0.bundlePath) })
                 let productResults = try await runTestProducts(
                     filteredTestProducts,
                     additionalArguments: xctestArgs,
@@ -479,36 +475,25 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
     }
 
-    private func xctestArgs(for testProducts: [BuiltTestProduct], swiftCommandState: SwiftCommandState) throws -> (arguments: [String], testCount: Int?, testPaths: Set<AbsolutePath>?) {
-        switch options.testCaseSpecifier {
-        case .none:
-            if case .skip = options.skippedTests(fileSystem: swiftCommandState.fileSystem) {
-                fallthrough
-            } else {
-                return ([], nil, nil)
-            }
-
-        case .regex, .specific, .skip:
-            // If old specifier `-s` option was used, emit deprecation notice.
-            if case .specific = options.testCaseSpecifier {
-                swiftCommandState.observabilityScope.emit(warning: "'--specifier' option is deprecated; use '--filter' instead")
-            }
-
-            // Find the tests we need to run.
-            let testSuites = try TestingSupport.getTestSuites(
-                in: testProducts,
-                swiftCommandState: swiftCommandState,
-                enableCodeCoverage: options.enableCodeCoverage,
-                shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
-                experimentalTestOutput: options.enableExperimentalTestOutput,
-                sanitizers: globalOptions.build.sanitizers
-            )
-            let tests = try testSuites
-                .filteredTests(specifier: options.testCaseSpecifier)
-                .skippedTests(specifier: options.skippedTests(fileSystem: swiftCommandState.fileSystem))
-
-            return (TestRunner.xctestArguments(forTestSpecifiers: tests.map(\.specifier)), tests.count, Set(tests.map(\.testProduct.bundlePath)))
+    private func xctestArgs(for testProducts: [BuiltTestProduct], swiftCommandState: SwiftCommandState) throws -> (arguments: [String], testCount: Int, testPaths: Set<AbsolutePath>) {
+        // If old specifier `-s` option was used, emit deprecation notice.
+        if case .specific = options.testCaseSpecifier {
+            swiftCommandState.observabilityScope.emit(warning: "'--specifier' option is deprecated; use '--filter' instead")
         }
+
+        let testSuites = try TestingSupport.getTestSuites(
+            in: testProducts,
+            swiftCommandState: swiftCommandState,
+            enableCodeCoverage: options.enableCodeCoverage,
+            shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
+            experimentalTestOutput: options.enableExperimentalTestOutput,
+            sanitizers: globalOptions.build.sanitizers
+        )
+        let tests = try testSuites
+            .filteredTests(specifier: options.testCaseSpecifier)
+            .skippedTests(specifier: options.skippedTests(fileSystem: swiftCommandState.fileSystem))
+
+        return (TestRunner.xctestArguments(forTestSpecifiers: tests.map(\.specifier)), tests.count, Set(tests.map(\.testProduct.bundlePath)))
     }
 
     /// Generate xUnit file if requested.
