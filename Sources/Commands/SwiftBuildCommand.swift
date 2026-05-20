@@ -85,7 +85,7 @@ struct BuildCommandOptions: ParsableArguments {
           help: "Determines whether the build measures code coverage.")
     var enableCodeCoverage: Bool = false
 
-    /// If the binary output path should be printed.
+    /// Determines whether the build command prints the binary output path.
     @Flag(name: .customLong("show-bin-path"), help: "Print the binary output path.")
     var shouldPrintBinPath: Bool = false
 
@@ -114,7 +114,7 @@ struct BuildCommandOptions: ParsableArguments {
     @OptionGroup(visibility: .private)
     var testLibraryOptions: TestLibraryOptions
 
-    /// If should link the Swift stdlib statically.
+    /// Determines whether the binary should statically link the Swift stdlib.
     @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Determines whether Swift stdlib links statically.")
     public var shouldLinkStaticSwiftStdlib: Bool = false
 
