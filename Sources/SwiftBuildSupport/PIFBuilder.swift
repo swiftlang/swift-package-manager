@@ -642,7 +642,15 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     }
 
     func configureSourceModuleBuildSettings(sourceModule: ResolvedModule, settings: inout ProjectModel.BuildSettings) {
-        settings[.SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR] = "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/\(sourceModule.name).symbolgraphs"
+        let symbolGraphOutputDir = "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/\(sourceModule.name).symbolgraphs"
+        settings[.SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR] = symbolGraphOutputDir
+        // C/ObjC symbol graphs default to $(SYMBOL_GRAPH_EXTRACTOR_OUTPUT_BASE)/clang/$(triple) — a different
+        // base var — so override to match the Swift output directory.
+        settings[.TAPI_EXTRACT_API_OUTPUT_DIR] = symbolGraphOutputDir
+        // We currently put the C/ObjC headers under project documentation for the sole purpose of symbol graph generation.
+        // So, we instruct the documentation compiler to extract the project documentation for this purpose until such time
+        // that the public headers can be listed as public in the PIF.
+        settings[.DOCC_EXTRACT_PROJECT_HEADERS_DOCUMENTATION] = "YES"
     }
 
     func customInstallPath(product: PackageModel.Product) -> String? {

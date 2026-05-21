@@ -649,6 +649,24 @@ extension PackagePIFProjectBuilder {
 
         let headerFiles = Set(sourceModule.headerFileAbsolutePaths)
 
+        // Add the header files with project visibility for the purpose of exposing them
+        // for symbol graph generation. For non-swift API that will be done using TAPI and
+        // a build setting to instruct it to use project visible header files. In the future
+        // it may be possible to add public header files with public header visibility.
+        for headerPath in headerFiles {
+            let headerFileRef = self.project.mainGroup[keyPath: targetSourceFileGroupKeyPath]
+                .addFileReference { id in
+                    FileReference(id: id, path: headerPath.pathString, pathBase: .absolute)
+                }
+
+            self.project[keyPath: sourceModuleTargetKeyPath].common.withHeadersBuildPhase { phase in
+                phase.common.addBuildFile { id in
+                    BuildFile(id: id, fileRef: headerFileRef)
+                    // headerVisibility: nil (omitted) = "project" visibility
+                }
+            }
+        }
+
         let doccCatalogs = sourceModule.underlying.doccCatalogPaths
 
         // Add any additional source files emitted by custom build commands.
