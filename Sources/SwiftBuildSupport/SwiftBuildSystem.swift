@@ -275,6 +275,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                 for package in graph.rootPackages {
                     for product in package.products where product.type == .test {
+                        if let mainModule = product.mainModule, mainModule.isTestSupportModule {
+                            // This test target is built as a static library by the swiftbuild
+                            // system and has no xctest bundle to run.
+                            continue
+                        }
                         let binaryPath = try await self.binaryPath(for: product, parameters: buildParameters)
                         let coverageBinaryPath = try await self.buildProductsPath(for: buildParameters).appending(
                             buildParameters.testCoverageBinaryRelativePath(forTestProductName: product.name)
