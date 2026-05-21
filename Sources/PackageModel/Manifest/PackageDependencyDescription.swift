@@ -124,12 +124,16 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
     }
 
     public struct SourceControl: Equatable, Hashable, Encodable, Sendable {
-        public let identity: PackageIdentity
+        public var identity: PackageIdentity {
+            self.registryIdentity ?? self.canonicalIdentity
+        }
         public let nameForTargetDependencyResolutionOnly: String?
         public let location: Location
         public let requirement: Requirement
         public let productFilter: ProductFilter
         package let traits: Set<Trait>?
+        package let canonicalIdentity: PackageIdentity
+        package let registryIdentity: PackageIdentity?
 
         public enum Requirement: Equatable, Hashable, Sendable {
             case exact(Version)
@@ -144,18 +148,48 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         }
 
         private enum CodingKeys: CodingKey {
-            case identity, nameForTargetDependencyResolutionOnly, location, requirement, productFilter, traits
+            case identity, nameForTargetDependencyResolutionOnly, location, requirement, productFilter, traits, registryIdentity
+        }
+
+        public init(
+            identity: PackageIdentity,
+            nameForTargetDependencyResolutionOnly: String?,
+            location: Location,
+            requirement: Requirement,
+            productFilter: ProductFilter,
+            traits: Set<Trait>?,
+            registryIdentity: PackageIdentity?
+        ) {
+            self.canonicalIdentity = identity
+            self.nameForTargetDependencyResolutionOnly = nameForTargetDependencyResolutionOnly
+            self.location = location
+            self.requirement = requirement
+            self.productFilter = productFilter
+            self.traits = traits
+            self.registryIdentity = registryIdentity
         }
 
         public func encode(to encoder: Encoder) throws {
             var container = encoder.container(keyedBy: CodingKeys.self)
-            try container.encode(identity, forKey: .identity)
+            try container.encode(canonicalIdentity, forKey: .identity)
             try container.encodeIfPresent(nameForTargetDependencyResolutionOnly, forKey: .nameForTargetDependencyResolutionOnly)
             try container.encode(location, forKey: .location)
             try container.encode(requirement, forKey: .requirement)
             try container.encode(productFilter, forKey: .productFilter)
             try container.encodeIfPresent(traits?.sorted { $0.name < $1.name }, forKey: .traits)
+            try container.encodeIfPresent(registryIdentity, forKey: .registryIdentity)
         }
+
+//        public init(from decoder: Decoder) throws {
+//            var decodingContainer = try decoder.container(keyedBy: CodingKeys.self)
+//            try canonicalIdentity = decodingContainer.decode(PackageIdentity.self, forKey: .identity)
+//            try nameForTargetDependencyResolutionOnly = decodingContainer.decodeIfPresent(String.self, forKey: .nameForTargetDependencyResolutionOnly)
+//            try location = decodingContainer.decode(Location.self, forKey: .location)
+//            try requirement = decodingContainer.decode(Requirement.self, forKey: .requirement)
+//            try productFilter = decodingContainer.decode(ProductFilter.self, forKey: .productFilter)
+//            try traits = decodingContainer.decodeIfPresent([Trait].self, forKey: .traits)?.toSet()
+//            try registryIdentity = decodingContainer.decodeIfPresent(PackageIdentity.self, forKey: .registryIdentity)
+//        }
     }
 
     public struct Registry: Equatable, Hashable, Encodable, Sendable {
@@ -266,7 +300,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
                 location: settings.location,
                 requirement: settings.requirement,
                 productFilter: productFilter,
-                traits: settings.traits
+                traits: settings.traits,
+                registryIdentity: settings.registryIdentity
             )
         case .registry(let settings):
             return .registry(
@@ -324,7 +359,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             path: path,
             requirement: requirement,
             productFilter: productFilter,
-            traits: nil
+            traits: nil,
+            registryIdentity: nil
         )
     }
 
@@ -334,7 +370,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         path: AbsolutePath,
         requirement: SourceControl.Requirement,
         productFilter: ProductFilter,
-        traits: Set<Trait>?
+        traits: Set<Trait>?,
+        registryIdentity: PackageIdentity?
     ) -> Self {
         .sourceControl(
             identity: identity,
@@ -342,7 +379,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             location: .local(path),
             requirement: requirement,
             productFilter: productFilter,
-            traits: traits
+            traits: traits,
+            registryIdentity: registryIdentity
         )
     }
     
@@ -359,7 +397,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             url: url,
             requirement: requirement,
             productFilter: productFilter,
-            traits: nil
+            traits: nil,
+            registryIdentity: nil
         )
     }
 
@@ -369,7 +408,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         url: SourceControlURL,
         requirement: SourceControl.Requirement,
         productFilter: ProductFilter,
-        traits: Set<Trait>?
+        traits: Set<Trait>?,
+        registryIdentity: PackageIdentity?
     ) -> Self {
         .sourceControl(
             identity: identity,
@@ -377,7 +417,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             location: .remote(url),
             requirement: requirement,
             productFilter: productFilter,
-            traits: traits
+            traits: traits,
+            registryIdentity: registryIdentity
         )
     }
 
@@ -394,7 +435,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             location: location,
             requirement: requirement,
             productFilter: productFilter,
-            traits: nil
+            traits: nil,
+            registryIdentity: nil
         )
     }
 
@@ -404,7 +446,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         location: SourceControl.Location,
         requirement: SourceControl.Requirement,
         productFilter: ProductFilter,
-        traits: Set<Trait>?
+        traits: Set<Trait>?,
+        registryIdentity: PackageIdentity?
     ) -> Self {
         .sourceControl(
             .init(
@@ -413,7 +456,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
                 location: location,
                 requirement: requirement,
                 productFilter: productFilter,
-                traits: traits
+                traits: traits,
+                registryIdentity: registryIdentity
             )
         )
     }
