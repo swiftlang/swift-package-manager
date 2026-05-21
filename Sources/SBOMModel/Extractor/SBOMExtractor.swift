@@ -117,7 +117,7 @@ internal struct SBOMExtractor {
     private func extractComponentInfoFromGit(packagePath: AbsolutePath) async throws -> SBOMVersionInfo {
         let gitRepo = GitRepository(path: packagePath, isWorkingRepo: true)
 
-        let currentRevision = try? gitRepo.getCurrentRevision()
+        let currentRevision = try? await gitRepo.getCurrentRevision()
         guard let currentRevision else {
             return SBOMVersionInfo(
                 version: SBOMComponent.Version(revision: "unknown"),
@@ -125,8 +125,8 @@ internal struct SBOMExtractor {
             )
         }
 
-        let hasUncommittedChanges = gitRepo.hasUncommittedChanges()
-        let currentTag = gitRepo.getCurrentTag()
+        let hasUncommittedChanges = try await gitRepo.hasUncommittedChanges()
+        let currentTag = try await gitRepo.getCurrentTag()
         let revisionString: String = if let currentTag {
             hasUncommittedChanges ? "\(currentTag)-modified" : currentTag
         } else {
