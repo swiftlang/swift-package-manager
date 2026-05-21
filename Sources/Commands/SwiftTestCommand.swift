@@ -169,12 +169,16 @@ struct TestCommandOptions: ParsableArguments {
     var experimentalMaximumParallelizationWidth: Int? = nil
 
     /// The maximum number of times each test will repeat (Swift Testing only).
-    @Option(help: .hidden)
+    @Option(help: "The maximum number of times each test will repeat. Only supported for Swift Testing test suites.")
     var maximumRepetitions: Int?
 
-    /// The condition upon which repetition stops (Swift Testing only).
-    @Option(help: .hidden)
-    var repeatUntil: String?
+    enum RepeatCondition: String, ExpressibleByArgument {
+        case pass, fail
+    }
+
+    /// The condition upon which to stop repeating (Swift Testing only).
+    @Option(help: "The condition upon which to stop repeating a test. Must be either `pass` or `fail`. Only supported for Swift Testing test suites.")
+    var repeatUntil: RepeatCondition?
 
     /// List the tests and exit.
     @Flag(name: [.customLong("list-tests"), .customShort("l")],
