@@ -62,7 +62,7 @@ public struct DefaultDependencyMapper: DependencyMapper {
                 requirement: try dependency.sourceControlRequirement(for: mappedLocationString),
                 productFilter: dependency.productFilter,
                 traits: dependency.traits,
-                registryIdentity: nil // todo bp
+                registryIdentity: nil
             )
 
         } else {
@@ -76,7 +76,7 @@ public struct DefaultDependencyMapper: DependencyMapper {
                 requirement: try dependency.sourceControlRequirement(for: mappedLocationString),
                 productFilter: dependency.productFilter,
                 traits: dependency.traits,
-                registryIdentity: nil // todo bp
+                registryIdentity: nil
             )
         }
     }
@@ -321,7 +321,7 @@ extension PackageDependency {
                 requirement: requirement,
                 productFilter: seed.productFilter,
                 traits: seed.traits,
-                registryIdentity: nil // todo bp
+                registryIdentity: nil
             )
         case .registry(let id, let requirement):
             self = .registry(

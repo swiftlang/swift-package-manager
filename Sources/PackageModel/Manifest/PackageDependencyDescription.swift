@@ -179,17 +179,6 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             try container.encodeIfPresent(traits?.sorted { $0.name < $1.name }, forKey: .traits)
             try container.encodeIfPresent(registryIdentity, forKey: .registryIdentity)
         }
-
-//        public init(from decoder: Decoder) throws {
-//            var decodingContainer = try decoder.container(keyedBy: CodingKeys.self)
-//            try canonicalIdentity = decodingContainer.decode(PackageIdentity.self, forKey: .identity)
-//            try nameForTargetDependencyResolutionOnly = decodingContainer.decodeIfPresent(String.self, forKey: .nameForTargetDependencyResolutionOnly)
-//            try location = decodingContainer.decode(Location.self, forKey: .location)
-//            try requirement = decodingContainer.decode(Requirement.self, forKey: .requirement)
-//            try productFilter = decodingContainer.decode(ProductFilter.self, forKey: .productFilter)
-//            try traits = decodingContainer.decodeIfPresent([Trait].self, forKey: .traits)?.toSet()
-//            try registryIdentity = decodingContainer.decodeIfPresent(PackageIdentity.self, forKey: .registryIdentity)
-//        }
     }
 
     public struct Registry: Equatable, Hashable, Encodable, Sendable {
