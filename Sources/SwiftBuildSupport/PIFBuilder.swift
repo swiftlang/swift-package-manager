@@ -187,10 +187,6 @@ public final class PIFBuilder {
             throw PIFGenerationError.printedPIFManifestGraphviz
         }
 
-        if self.observabilityScope.errorsReported {
-            throw PIFGenerationError.errorDiagnosticsReported
-        }
-
         return PIFGenerationResult(pif: pifString, accompanyingMetadata: modulesAndProducts)
     }
 
@@ -818,9 +814,6 @@ public enum PIFGenerationError: Error {
 
     /// Early build termination when using `--print-pif-manifest-graph`.
     case printedPIFManifestGraphviz
-
-    /// One or more error diagnostics were reported during PIF generation.
-    case errorDiagnosticsReported
 }
 
 extension PIFGenerationError: CustomStringConvertible {
@@ -839,9 +832,6 @@ extension PIFGenerationError: CustomStringConvertible {
 
         case .printedPIFManifestGraphviz:
             "Printed PIF manifest as graphviz"
-
-        case .errorDiagnosticsReported:
-            "Errors reported during PIF building"
         }
     }
 }

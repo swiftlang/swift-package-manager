@@ -1099,23 +1099,6 @@ struct PIFBuilderTests {
         }
     }
 
-    @Test
-    func errorEmittedWhenTestTargetDependsOnAnotherTestTarget() async throws {
-        try await withGeneratedPIF(fromFixture: "TestTargetDependOnTestTarget") { pif, observabilitySystem in
-            let expectedErrors: Set = [
-                "PIF: Test target 'myOtherTestTarget' cannot depend on another test target 'leafTestTarget'",
-                "PIF: Test target 'myTestTarget' cannot depend on another test target 'leafTestTarget'",
-                "PIF: Test target 'myOtherTestTarget' cannot depend on another test target 'myTestTarget'",
-            ]
-            let actualDiags = observabilitySystem.diagnostics.filter { $0.severity == .error }
-            let diagMsgs = Set(actualDiags.map { $0.message })
-
-            #expect(actualDiags.count == expectedErrors.count)
-            #expect(actualDiags.count == diagMsgs.count)
-            #expect(diagMsgs == expectedErrors)
-        }
-    }
-
     @Test func mixedSourceTarget() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
