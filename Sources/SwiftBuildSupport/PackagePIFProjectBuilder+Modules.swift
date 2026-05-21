@@ -387,13 +387,12 @@ extension PackagePIFProjectBuilder {
         }
 
         // Generate a module map file, if needed.
-        var moduleMapFileContents = ""
-        let generatedModuleMapDir = "$(GENERATED_MODULEMAP_DIR)"
-        var generatedModuleMapPath = try RelativePath(validating:"\(generatedModuleMapDir)/\(sourceModule.name).modulemap").pathString
+        let moduleMapFileContents: String?
+        let moduleMapPath: String?
 
         if sourceModule.usesSwift && desiredModuleType != .macro {
             // Generate ObjC compatibility header for Swift library targets.
-            settings[.SWIFT_OBJC_INTERFACE_HEADER_DIR] = generatedModuleMapDir
+            settings[.SWIFT_OBJC_INTERFACE_HEADER_DIR] = "$(GENERATED_MODULEMAP_DIR)"
             settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME] = "\(sourceModule.name)-Swift.h"
 
             moduleMapFileContents = """
@@ -402,6 +401,8 @@ extension PackagePIFProjectBuilder {
             export *
             }
             """
+            let generatedModuleMapPath = try RelativePath(validating:"$(GENERATED_MODULEMAP_DIR)/\(sourceModule.name).modulemap").pathString
+            moduleMapPath = generatedModuleMapPath
             // We only need to impart this to C clients.
             impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
         } else {
@@ -418,13 +419,18 @@ extension PackagePIFProjectBuilder {
                 // The modulemap was already generated, we should explicitly impart it on dependents,
                 impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(pluginGeneratedModuleMapPath)", "$(inherited)"]
                 impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(pluginGeneratedModuleMapPath)", "$(inherited)"]
-                generatedModuleMapPath = pluginGeneratedModuleMapPath.pathString
+                moduleMapFileContents = nil
+                moduleMapPath = pluginGeneratedModuleMapPath.pathString
             } else {
                 switch sourceModule.moduleMapType {
                 case nil, .some(.none):
                     // No modulemap, no action required.
+                    moduleMapFileContents = nil
+                    moduleMapPath = nil
                     break
                 case .custom(let customModuleMapPath):
+                    moduleMapFileContents = nil
+                    moduleMapPath = customModuleMapPath.pathString
                     // We don't need to generate a modulemap, but we should explicitly impart it on dependents,
                     // even if it will appear in search paths. See: https://github.com/swiftlang/swift-package-manager/issues/9290
                     impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(customModuleMapPath)", "$(inherited)"]
@@ -437,6 +443,8 @@ extension PackagePIFProjectBuilder {
                     export *
                     }
                     """
+                    let generatedModuleMapPath = try RelativePath(validating:"$(GENERATED_MODULEMAP_DIR)/\(sourceModule.name).modulemap").pathString
+                    moduleMapPath = generatedModuleMapPath
                     // Pass the path of the module map up to all direct and indirect clients.
                     impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
                     impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
@@ -448,6 +456,8 @@ extension PackagePIFProjectBuilder {
                     export *
                     }
                     """
+                    let generatedModuleMapPath = try RelativePath(validating:"$(GENERATED_MODULEMAP_DIR)/\(sourceModule.name).modulemap").pathString
+                    moduleMapPath = generatedModuleMapPath
                     // Pass the path of the module map up to all direct and indirect clients.
                     impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
                     impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
@@ -524,8 +534,12 @@ extension PackagePIFProjectBuilder {
         }
 
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"
-        settings[.MODULEMAP_FILE_CONTENTS] = moduleMapFileContents
-        settings[.MODULEMAP_PATH] = generatedModuleMapPath
+        if let moduleMapFileContents {
+            settings[.MODULEMAP_FILE_CONTENTS] = moduleMapFileContents
+        }
+        if let moduleMapPath {
+            settings[.MODULEMAP_PATH] = moduleMapPath
+        }
         settings[.DEFINES_MODULE] = "YES"
 
         // Settings for text-based API.

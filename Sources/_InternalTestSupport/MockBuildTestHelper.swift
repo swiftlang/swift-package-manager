@@ -109,6 +109,7 @@ public func mockBuildParameters(
     prepareForIndexing: BuildParameters.PrepareForIndexingMode = .off,
     sanitizers: [Sanitizer] = [],
     numberOfWorkers: UInt32 = 3,
+    stripProducts: Bool? = nil,
 ) -> BuildParameters {
     try! BuildParameters(
         destination: destination,
@@ -140,6 +141,7 @@ public func mockBuildParameters(
             shouldDisableLocalRpath: shouldDisableLocalRpath,
             shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib
         ),
+        stripProducts: stripProducts,
     )
 }
 

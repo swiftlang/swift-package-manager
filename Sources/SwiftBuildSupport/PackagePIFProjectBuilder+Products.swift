@@ -488,6 +488,12 @@ extension PackagePIFProjectBuilder {
                     }
 
                 case .library, .systemModule, .test:
+                    if moduleDependency.type == .test && product.type == .test {
+                        log(
+                            .error,
+                            "Test target '\(product.name)' cannot depend on another test target '\(moduleDependency.name)'",
+                        )
+                    }
                     let shouldLinkProduct = moduleDependency.type != .systemModule
                     let dependencyGUID = moduleDependency.pifTargetGUID
                     self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(

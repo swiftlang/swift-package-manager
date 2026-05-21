@@ -650,6 +650,13 @@ public struct BuildOptions: ParsableArguments {
         /// See `BuildParameters.DebugInfoFormat.none` for details.
         case none
     }
+
+    @Flag(
+        name: .customLong("experimental-strip-products"),
+        inversion: .prefixedEnableDisable,
+        help: "Whether or not to strip debug symbols from the final binary.",
+    )
+    public var stripProducts: Bool?
 }
 
 public struct LinkerOptions: ParsableArguments {

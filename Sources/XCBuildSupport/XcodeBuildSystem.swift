@@ -13,6 +13,7 @@
 @_spi(SwiftPMInternal)
 import Basics
 import Dispatch
+import SPMBuildCore // for the Basics.Diagnostic extension
 import class Foundation.JSONEncoder
 import class Foundation.NSArray
 import class Foundation.NSDictionary
@@ -54,7 +55,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
                 for package in graph.rootPackages {
                     for product in package.products where product.type == .test {
-                        let binaryPath = try buildParameters.binaryPath(for: product)
+                        let binaryPath = try await self.binaryPath(for: product, parameters: buildParameters)
                         builtProducts.append(
                             BuiltTestProduct(
                                 productName: product.name,
@@ -82,6 +83,20 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public var hasIntegratedAPIDigesterSupport: Bool { false }
+
+    public func buildProductsPath(for parameters: BuildParameters) async throws -> AbsolutePath {
+        var configDir: String = parameters.configuration.dirname.capitalized
+        if parameters.triple.isMacOSX {
+            // no suffix
+        } else if parameters.triple.isAndroid() {
+            configDir += "-android"
+        } else if parameters.triple.isWasm {
+            configDir += "-webassembly"
+        } else {
+            configDir += "-" + (parameters.triple.darwinPlatform?.platformName ?? parameters.triple.osNameUnversioned)
+        }
+        return parameters.dataPath.appending(components: "Products", configDir)
+    }
 
     public init(
         buildParameters: BuildParameters,
@@ -170,6 +185,15 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
 
         guard !buildParameters.shouldSkipBuilding else {
             return buildResult
+        }
+
+        if let stripProdduct = self.buildParameters.stripProducts {
+            self.observabilityScope.emit(
+                Basics.Diagnostic.unsupportedStripProductsConfigurationFlag(
+                    isEnabled: stripProdduct,
+                    with: .xcode,
+                )
+            )
         }
 
         let pifBuilder = try await getPIFBuilder()
