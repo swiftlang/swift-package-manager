@@ -37,7 +37,7 @@ For documentation on developing the Swift Package Manager itself, see the [contr
 
 For detailed documentation on the package manifest API, see [PackageDescription API](https://docs.swift.org/swiftpm/documentation/packagedescription).
 
-For release notes with information about changes between versions, see the [release notes](Documentation/ReleaseNotes).
+For release notes with information about changes between versions, see the [release notes](https://docs.swift.org/swiftpm/documentation/packagemanagerdocs/releasenotes).
 
 ---
 
@@ -62,7 +62,7 @@ Apple Swift Package Manager - ...
 
 ## Contributing
 
-There are several ways to contribute to Swift Package Manager. To learn about the policies, best practices that govern contributions to the Swift project and instructions for setting up the development environment please read the [Contributor Guide](CONTRIBUTING.md).  
+There are several ways to contribute to Swift Package Manager. To learn about the policies, best practices that govern contributions to the Swift project and instructions for setting up the development environment please read the [Contributor Guide](CONTRIBUTING.md).
 
 The Swift package manager uses [llbuild](https://github.com/apple/swift-llbuild) as the underlying build system for compiling source files. It is also open source and part of the Swift project.
 
