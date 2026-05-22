@@ -8,6 +8,11 @@
 
 add_compile_definitions(USE_IMPL_ONLY_IMPORTS)
 
+# The CMake build does not support the parsing manifest loader due to
+# the bootstrap process intermingling host runtimes with the built
+# runtimes.
+add_compile_definitions(DISABLE_PARSING_MANIFEST_LOADER)
+
 add_subdirectory(_AsyncFileSystem)
 add_subdirectory(Basics)
 add_subdirectory(BinarySymbols)

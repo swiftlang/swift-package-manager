@@ -75,7 +75,7 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
     public func purgeCache(observabilityScope: ObservabilityScope) async {}
 }
 
-extension ManifestLoader {
+extension ManifestLoaderProtocol {
     public func load(
         manifestPath: AbsolutePath,
         packageKind: PackageReference.Kind,
