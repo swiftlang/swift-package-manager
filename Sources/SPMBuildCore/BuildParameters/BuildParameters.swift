@@ -418,7 +418,7 @@ private struct _Toolchain: Encodable {
 
 extension Triple {
     public var supportsTestSummary: Bool {
-        return !self.isWindows()
+        return !self.isWindows() && !self.isAndroid()
     }
 }
 
