@@ -53,6 +53,7 @@ struct EnvironmentKeyTests {
             ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_FILTER,
             ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_OUTPUT_DIR,
             ConfigurableEnvVar.SWIFTPM_BUILD_SBOM_WARNING_ONLY,
+            ConfigurableEnvVar.SWIFTPM_GIT_LOW_SPEED_TIMEOUTS_DISABLED,
         ],
     ) func nonCachableEnvVars(
         envVar: ConfigurableEnvVar,

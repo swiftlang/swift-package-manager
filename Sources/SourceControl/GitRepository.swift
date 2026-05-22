@@ -182,7 +182,7 @@ internal enum GitNetworkTimeoutDefaults {
 /// truthy value (`1`, `true`, `yes`, `on`), restoring the historical
 /// "wait forever" behaviour for users who explicitly opt out.
 internal func gitNetworkTimeoutOverrides(environment: Environment) -> [String] {
-    if let raw = environment["SWIFTPM_GIT_LOW_SPEED_TIMEOUTS_DISABLED"]?.lowercased(),
+    if let raw = environment[ConfigurableEnvVar.SWIFTPM_GIT_LOW_SPEED_TIMEOUTS_DISABLED]?.lowercased(),
        ["1", "true", "yes", "on"].contains(raw) {
         return []
     }
