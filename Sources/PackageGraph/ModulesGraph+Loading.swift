@@ -551,7 +551,7 @@ private func createResolvedPackages(
                 }
 
                 let nameForModuleDependencyResolution = dependency
-                    .explicitNameForModuleDependencyResolutionOnly ?? dependency.identity.description
+                    .nameForModuleDependencyResolutionOnly
                 dependenciesByNameForModuleDependencyResolution[nameForModuleDependencyResolution] = resolvedPackage
                 dependencyNamesForModuleDependencyResolutionOnly[resolvedPackage.package.identity] =
                     nameForModuleDependencyResolution
