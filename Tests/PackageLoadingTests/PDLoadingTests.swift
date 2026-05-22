@@ -18,7 +18,22 @@ import XCTest
 
 class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
     lazy var manifestLoader = ManifestLoader(toolchain: try! UserToolchain.default, delegate: self)
+    lazy var parsingManifestLoader = try? ParsingManifestLoader(
+        toolchain: try! UserToolchain.default,
+        extraManifestFlags: [],
+        environment: self.environment
+    )
     var parsedManifest = ThreadSafeBox<AbsolutePath>(.root)
+
+    /// The array of manifest loaders to test with for complete coverage.
+    var testManifestLoaders: [(any ManifestLoaderProtocol)?] {
+        var result = [(any ManifestLoaderProtocol)?]()
+        if let parsingManifestLoader {
+            result.append(parsingManifestLoader)
+        }
+        result.append(/*default manifest loader*/nil)
+        return result
+    }
 
     func willLoad(packageIdentity: PackageModel.PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
         // noop
@@ -56,11 +71,36 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         fatalError("implement in subclass")
     }
 
+    var environment: [String: String]? { nil }
+
+    /// Run the given closure for each manifest loader, comparing the
+    /// resulting manifests to ensure that they match.
+    func forEachManifestLoader(
+        _ body: ((any ManifestLoaderProtocol)?) async throws -> Manifest,
+        file: StaticString = #file, line: UInt = #line
+    ) async rethrows {
+        var currentManifest: Manifest? = nil
+        for loader in self.testManifestLoaders {
+            let newManifest = try await body(loader)
+
+            if let currentManifest {
+                XCTAssertEqual(
+                    try currentManifest.toJSON(),
+                    try newManifest.toJSON(),
+                    file: file,
+                    line: line
+                )
+            } else {
+                currentManifest = newManifest
+            }
+        }
+    }
+
     func loadAndValidateManifest(
         _ content: String,
         toolsVersion: ToolsVersion? = nil,
         packageKind: PackageReference.Kind? = nil,
-        customManifestLoader: ManifestLoader? = nil,
+        customManifestLoader: (any ManifestLoaderProtocol)? = nil,
         observabilityScope: ObservabilityScope,
         file: StaticString = #file,
         line: UInt = #line
@@ -80,7 +120,7 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
         _ content: String,
         toolsVersion: ToolsVersion,
         packageKind: PackageReference.Kind,
-        manifestLoader: ManifestLoader,
+        manifestLoader: any ManifestLoaderProtocol,
         observabilityScope: ObservabilityScope,
         file: StaticString = #file,
         line: UInt = #line
