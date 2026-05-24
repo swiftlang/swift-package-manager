@@ -63,8 +63,8 @@ final class ManifestLoaderCacheTests: XCTestCase {
                 ))
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
-                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
-                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, (expectCached ? 0 : 1))
+                await XCTAssertAsyncEqual(await delegate.loaded(), [manifestPath])
+                await XCTAssertAsyncEqual(await delegate.parsed().count, expectCached ? 0 : 1)
                 XCTAssertEqual(manifest.displayName, "Trivial")
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
@@ -156,8 +156,8 @@ final class ManifestLoaderCacheTests: XCTestCase {
             ))
 
             XCTAssertNoDiagnostics(observability.diagnostics)
-            try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
-            try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, expectCached ? 0 : 1)
+            await XCTAssertAsyncEqual(await delegate.loaded(), [manifestPath])
+            await XCTAssertAsyncEqual(await delegate.parsed().count, expectCached ? 0 : 1)
             XCTAssertEqual(manifest.displayName, "Trivial")
             XCTAssertEqual(manifest.targets[0].name, "foo")
         }
@@ -244,20 +244,20 @@ final class ManifestLoaderCacheTests: XCTestCase {
 
             do {
                 try await check(loader: manifestLoader, manifest: manifest)
-                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, 1)
-                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, 1)
+                await XCTAssertAsyncEqual(await delegate.loaded().count, 1)
+                await XCTAssertAsyncEqual(await delegate.parsed().count, 1)
             }
 
             do {
                 try await check(loader: manifestLoader, manifest: manifest)
-                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, 2)
-                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, 1)
+                await XCTAssertAsyncEqual(await delegate.loaded().count, 2)
+                await XCTAssertAsyncEqual(await delegate.parsed().count, 1)
             }
 
             do {
                 try await check(loader: manifestLoader, manifest: manifest + "\n\n")
-                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, 3)
-                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, 2)
+                await XCTAssertAsyncEqual(await delegate.loaded().count, 3)
+                await XCTAssertAsyncEqual(await delegate.parsed().count, 2)
             }
         }
     }
@@ -314,8 +314,8 @@ final class ManifestLoaderCacheTests: XCTestCase {
                 ))
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
-                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
-                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, expectCached ? 0 : 1)
+                await XCTAssertAsyncEqual(await delegate.loaded(), [manifestPath])
+                await XCTAssertAsyncEqual(await delegate.parsed().count, expectCached ? 0 : 1)
                 XCTAssertEqual(manifest.displayName, "Trivial")
                 XCTAssertEqual(manifest.targets[0].name, targetName)
             }
@@ -379,8 +379,8 @@ final class ManifestLoaderCacheTests: XCTestCase {
                 ))
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
-                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
-                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, expectCached ? 0 : 1)
+                await XCTAssertAsyncEqual(await delegate.loaded(), [manifestPath])
+                await XCTAssertAsyncEqual(await delegate.parsed().count, expectCached ? 0 : 1)
                 XCTAssertEqual(manifest.displayName, "Trivial")
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
@@ -429,8 +429,8 @@ final class ManifestLoaderCacheTests: XCTestCase {
                 ))
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
-                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
-                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, expectCached ? 0 : 1)
+                await XCTAssertAsyncEqual(await delegate.loaded(), [manifestPath])
+                await XCTAssertAsyncEqual(await delegate.parsed().count, expectCached ? 0 : 1)
                 XCTAssertEqual(manifest.displayName, "Trivial")
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
@@ -633,8 +633,8 @@ final class ManifestLoaderCacheTests: XCTestCase {
                 ))
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
-                try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)), [manifestPath])
-                try await XCTAssertAsyncEqual(try await delegate.parsed(timeout: .seconds(1)).count, (expectCached ? 0 : 1))
+                await XCTAssertAsyncEqual(await delegate.loaded(), [manifestPath])
+                await XCTAssertAsyncEqual(await delegate.parsed().count, expectCached ? 0 : 1)
                 XCTAssertEqual(manifest.displayName, "Trivial")
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
