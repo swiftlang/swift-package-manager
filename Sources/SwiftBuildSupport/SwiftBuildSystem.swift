@@ -1349,7 +1349,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     disableSandbox: self.pluginConfiguration.disableSandbox,
                     pluginWorkingDirectory: self.pluginConfiguration.workDirectory,
                     additionalFileRules: additionalFileRules,
-                    addLocalRpaths: !self.buildParameters.linkingParameters.shouldDisableLocalRpath,
+                    addLocalRpaths: self.buildParameters.linkingParameters.shouldDisableLocalRpath ? .never : .always,
                     materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
                     createDynamicVariantsForLibraryProducts: false,
                     hostBuildProductsPath: try await self.buildProductsPath(for: self.hostBuildParameters)

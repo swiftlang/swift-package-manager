@@ -171,7 +171,7 @@ struct PrebuiltsPIFTests {
         let pifBuilder: PIFBuilder = PIFBuilder(
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
-                temporaryDirectory: AbsolutePath.root, addLocalRpaths: true),
+                temporaryDirectory: AbsolutePath.root, addLocalRpaths: .always),
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
@@ -425,7 +425,7 @@ struct PrebuiltsPIFTests {
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: AbsolutePath.root,
-                addLocalRpaths: true,
+                addLocalRpaths: .always,
                 pluginScriptRunner: MockPluginScriptRunner()
             ),
             fileSystem: fs,
