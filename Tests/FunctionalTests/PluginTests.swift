@@ -24,7 +24,6 @@ import Testing
 import Foundation
 
 @Suite(
-    .serializedIfOnWindows,
     .tags(
         .TestSize.large,
         .Feature.Command.Package.Plugin,

@@ -24,7 +24,6 @@ import Testing
 import class Basics.AsyncProcess
 
 @Suite(
-    .serializedIfOnWindows,
     .tags(
         .TestSize.large,
         .Feature.CTargets,

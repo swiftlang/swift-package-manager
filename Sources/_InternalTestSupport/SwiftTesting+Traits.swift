@@ -13,12 +13,14 @@
 import Testing
 
 #if os(Windows)
+    @available(*, deprecated, message: "Use the standard `.serialized` trait instead")
     extension Trait where Self == ParallelizationTrait {
         public static var serializedIfOnWindows: Self {
             .serialized
         }
     }
 #else
+    @available(*, deprecated, message: "Use the standard `.serialized` trait instead")
     extension Trait where Self == ConditionTrait {
         public static var serializedIfOnWindows: Self {
             .enabled(if: true)

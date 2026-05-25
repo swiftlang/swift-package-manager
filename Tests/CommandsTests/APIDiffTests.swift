@@ -34,7 +34,6 @@ extension Trait where Self == Testing.ConditionTrait {
 }
 
 @Suite(
-    .serializedIfOnWindows,
     .tags(
         .FunctionalArea.APIDiff,
     ),

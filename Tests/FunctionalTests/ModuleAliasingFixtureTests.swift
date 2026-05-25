@@ -20,7 +20,6 @@ import Workspace
 import Testing
 
 @Suite(
-    .serializedIfOnWindows,
     .issue("https://github.com/swiftlang/swift-package-manager/issues/8987", relationship: .verifies),
     .tags(
         .TestSize.large,

@@ -19,7 +19,6 @@ import struct SPMBuildCore.BuildSystemProvider
 import enum PackageModel.BuildConfiguration
 
 @Suite(
-    .serializedIfOnWindows,
     .tags(
         .TestSize.large,
     ),

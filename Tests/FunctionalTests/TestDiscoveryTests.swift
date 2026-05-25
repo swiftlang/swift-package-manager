@@ -19,7 +19,6 @@ import struct Foundation.UUID
 import class Foundation.ProcessInfo
 
 @Suite(
-    .serializedIfOnWindows,
     .tags(
         .Feature.TestDiscovery,
     ),

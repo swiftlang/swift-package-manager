@@ -121,7 +121,6 @@ fileprivate func build(
 }
 
 @Suite(
-    .serializedIfOnWindows,
     .tags(
         Tag.TestSize.large,
         Tag.Feature.Command.Build,
