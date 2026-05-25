@@ -325,7 +325,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         for: module,
                         destination: destination,
                         configuration: pluginConfiguration,
-                        buildParameters: toolsBuildParameters,
+                        hostBuildParameters: toolsBuildParameters,
+                        targetBuildEnvironment: buildParameters.buildEnvironment,
                         modulesGraph: graph,
                         tools: pluginTools,
                         additionalFileRules: additionalFileRules,
@@ -741,7 +742,8 @@ extension BuildPlan {
         for module: ResolvedModule,
         destination: BuildParameters.Destination,
         configuration: PluginConfiguration,
-        buildParameters: BuildParameters,
+        hostBuildParameters: BuildParameters,
+        targetBuildEnvironment: BuildEnvironment,
         modulesGraph: ModulesGraph,
         tools: [ResolvedModule.ID: [String: PluginTool]],
         additionalFileRules: [FileRuleDescription],
@@ -757,10 +759,16 @@ extension BuildPlan {
             throw InternalError("could not determine package for module \(self)")
         }
 
+        let enabledTraits = package.enabledTraits ?? []
+
         // Apply each build tool plugin used by the target in order,
         // creating a list of results (one for each plugin usage).
         var buildToolPluginResults: [BuildToolPluginInvocationResult] = []
-        for plugin in module.pluginDependencies(satisfying: buildParameters.buildEnvironment) {
+        for plugin in module.pluginDependencies(
+            satisfying: hostBuildParameters.buildEnvironment,
+            targetEnvironment: targetBuildEnvironment,
+            enabledTraits: enabledTraits
+        ) {
             let pluginModule = plugin.underlying as! PluginModule
 
             // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
@@ -801,14 +809,14 @@ extension BuildPlan {
                     target: module,
                     toolsVersion: package.manifest.toolsVersion,
                     additionalFileRules: additionalFileRules,
-                    buildParameters: buildParameters,
+                    buildParameters: hostBuildParameters,
                     buildToolPluginInvocationResults: buildToolPluginResults,
                     prebuildCommandResults: [],
                     observabilityScope: observability.topScope
                 )
                 pluginDerivedSources = Sources(
                     paths: pluginGeneratedFiles.sources.map(\.self),
-                    root: buildParameters.dataPath
+                    root: hostBuildParameters.dataPath
                 )
                 pluginDerivedResources = pluginGeneratedFiles.resources.values.map(\.self)
             } else {
@@ -824,18 +832,18 @@ extension BuildPlan {
                     pluginGeneratedSources: pluginDerivedSources.paths,
                     pluginGeneratedResources: pluginDerivedResources.map(\.path)
                 ),
-                buildEnvironment: buildParameters.buildEnvironment,
-                workers: buildParameters.workers,
+                buildEnvironment: hostBuildParameters.buildEnvironment,
+                workers: hostBuildParameters.workers,
                 scriptRunner: configuration.scriptRunner,
                 workingDirectory: package.path,
                 outputDirectory: pluginOutputDir,
-                toolSearchDirectories: [buildParameters.toolchain.swiftCompilerPath.parentDirectory],
+                toolSearchDirectories: [hostBuildParameters.toolchain.swiftCompilerPath.parentDirectory],
                 accessibleTools: accessibleTools,
                 writableDirectories: writableDirectories,
                 readOnlyDirectories: readOnlyDirectories,
                 allowNetworkConnections: [],
                 pkgConfigDirectories: pkgConfigDirectories,
-                sdkRootPath: buildParameters.toolchain.sdkRootPath,
+                sdkRootPath: hostBuildParameters.toolchain.sdkRootPath,
                 fileSystem: fileSystem,
                 modulesGraph: modulesGraph,
                 observabilityScope: observabilityScope

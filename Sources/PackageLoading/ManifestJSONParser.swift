@@ -547,6 +547,17 @@ extension PackageConditionDescription {
     }
 }
 
+
+extension PluginUsageConditionDescription {
+    init(_ condition: Serialization.PluginUsageCondition) {
+        self.init(
+            hostPlatformNames: condition.hostPlatforms?.map { $0.name } ?? [],
+            targetPlatformNames: condition.targetPlatforms?.map { $0.name } ?? [],
+            traits: condition.traits.map { Set($0) }
+        )
+    }
+}
+
 extension TargetDescription.TargetKind {
     init(_ type: Serialization.TargetType) {
         switch type {
@@ -623,8 +634,8 @@ extension TargetDescription.PluginNetworkPermissionScope {
 extension TargetDescription.PluginUsage {
     init(_ usage: Serialization.PluginUsage) {
         switch usage {
-        case .plugin(let name, let package):
-            self = .plugin(name: name, package: package)
+        case .plugin(let name, let package, let condition):
+            self = .plugin(name: name, package: package, condition: condition.map { .init($0) })
         }
     }
 }

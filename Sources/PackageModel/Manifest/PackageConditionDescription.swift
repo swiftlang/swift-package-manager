@@ -31,6 +31,32 @@ public struct PackageConditionDescription: Codable, Hashable, Sendable {
     }
 }
 
+
+/// Represents a plug-in usage condition in a manifest.
+public struct PluginUsageConditionDescription: Codable, Hashable, Sendable {
+    public let hostPlatformNames: [String]
+    public let targetPlatformNames: [String]
+    public let traits: Set<String>?
+
+    public init(
+        hostPlatformNames: [String] = [],
+        targetPlatformNames: [String] = [],
+        traits: Set<String>? = nil
+    ) {
+        precondition(!(hostPlatformNames.isEmpty && targetPlatformNames.isEmpty && traits == nil))
+        self.hostPlatformNames = hostPlatformNames
+        self.targetPlatformNames = targetPlatformNames
+        self.traits = traits
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(hostPlatformNames, forKey: .hostPlatformNames)
+        try container.encode(targetPlatformNames, forKey: .targetPlatformNames)
+        try container.encodeIfPresent(traits?.sorted(), forKey: .traits)
+    }
+}
+
 /// One of possible conditions used in package manifests to restrict modules from being built for certain platforms or
 /// build configurations.
 public enum PackageCondition: Hashable, Sendable {

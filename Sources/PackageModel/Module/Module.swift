@@ -115,11 +115,90 @@ public class Module {
         }
     }
 
-    /// A usage of a plugin module or product. Implemented as a dependency
-    /// for now and added to the `dependencies` array, since they currently
-    /// have exactly the same characteristics and to avoid duplicating the
-    /// implementation for now.
-    public typealias PluginUsage = Dependency
+    /// A condition that limits the application of a plugin usage.
+    public struct PluginUsageCondition: Hashable, Sendable {
+
+        /// The host platforms on which the plugin may run.
+        public let hostPlatforms: [Platform]
+
+        /// The target platforms for which the plugin may produce output.
+        public let targetPlatforms: [Platform]
+
+        /// The traits that must be enabled for the plugin to apply.
+        public let traits: Set<String>?
+
+        public init(hostPlatforms: [Platform] = [], targetPlatforms: [Platform] = [], traits: Set<String>? = nil) {
+            precondition(!hostPlatforms.isEmpty || !targetPlatforms.isEmpty || traits != nil)
+            precondition(traits == nil || !traits!.isEmpty, "Use nil instead of empty traits set")
+            self.hostPlatforms = hostPlatforms
+            self.targetPlatforms = targetPlatforms
+            self.traits = traits
+        }
+
+        /// Returns true if the condition is satisfied by the given build environments and enabled traits.
+        ///
+        /// Each axis uses OR semantics internally (the condition passes if the actual value matches
+        /// ANY of the listed values). Across axes, AND semantics apply (all specified axes must pass).
+        /// For traits: the condition is satisfied if at least one listed trait is enabled.
+        public func satisfies(hostEnvironment: BuildEnvironment, targetEnvironment: BuildEnvironment, enabledTraits: Set<String>) -> Bool {
+            if !hostPlatforms.isEmpty, !hostPlatforms.contains(hostEnvironment.platform) {
+                return false
+            }
+            if !targetPlatforms.isEmpty, !targetPlatforms.contains(targetEnvironment.platform) {
+                return false
+            }
+            if let traits, traits.intersection(enabledTraits).isEmpty {
+                return false
+            }
+            return true
+        }
+    }
+
+    /// A usage of a plugin module or product.
+    public enum PluginUsage {
+
+        /// A plugin defined as a module in the same package, with an optional condition.
+        case module(_ module: Module, condition: PluginUsageCondition?)
+
+        /// A plugin defined as a product in a package dependency, with an optional condition.
+        case product(_ product: ProductReference, condition: PluginUsageCondition?)
+
+        /// The plugin module, if this is a module usage.
+        public var module: Module? {
+            if case .module(let module, _) = self {
+                return module
+            } else {
+                return nil
+            }
+        }
+
+        /// The product reference, if this is a product usage.
+        public var product: ProductReference? {
+            if case .product(let product, _) = self {
+                return product
+            } else {
+                return nil
+            }
+        }
+
+        /// The condition under which the plugin is applied, if any.
+        public var condition: PluginUsageCondition? {
+            switch self {
+            case .module(_, let condition), .product(_, let condition):
+                return condition
+            }
+        }
+
+        /// The name of the plugin module or product.
+        public var name: String {
+            switch self {
+            case .module(let module, _):
+                return module.name
+            case .product(let product, _):
+                return product.name
+            }
+        }
+    }
 
     /// The name of the module.
     ///

@@ -227,6 +227,14 @@ public final class Target {
         ///   - name: The name of the plug-in target.
         ///   - package: The name of the package that defines the plug-in target.
         case plugin(name: String, package: String?)
+
+        /// Specifies the use of a plug-in product in a package dependency.
+        ///
+        /// - Parameters:
+        ///   - name: The name of the plug-in target.
+        ///   - package: The name of the package that defines the plug-in target.
+        ///   - condition: The condition under which the plug-in is applied.
+        case pluginWithCondition(name: String, package: String?, condition: PluginUsageCondition?)
     }
 
     /// Construct a target.
@@ -1411,6 +1419,44 @@ public struct TargetDependencyCondition: Sendable {
     }
 }
 
+
+/// A condition that limits the application of a target's plug-in usage.
+@available(_PackageDescription, introduced: 6.5)
+public struct PluginUsageCondition: Sendable {
+    let hostPlatforms: [Platform]?
+    let targetPlatforms: [Platform]?
+    let traits: Set<String>?
+
+    private init(hostPlatforms: [Platform]?, targetPlatforms: [Platform]?, traits: Set<String>?) {
+        self.hostPlatforms = hostPlatforms
+        self.targetPlatforms = targetPlatforms
+        self.traits = traits
+    }
+
+    /// Creates a plug-in usage condition.
+    ///
+    /// - Parameter hostPlatforms: The applicable host platforms for this plug-in usage condition.
+    /// - Parameter targetPlatforms: The applicable target platforms for this plug-in usage condition.
+    /// - Parameter traits: The applicable traits for this plug-in usage condition.
+    public static func when(
+        hostPlatforms: [Platform]? = nil,
+        targetPlatforms: [Platform]? = nil,
+        traits: Set<String>? = nil
+    ) -> PluginUsageCondition? {
+        let hostPlatforms = hostPlatforms.flatMap { !$0.isEmpty ? $0 : nil }
+        let targetPlatforms = targetPlatforms.flatMap { !$0.isEmpty ? $0 : nil }
+        let traits = traits.flatMap { !$0.isEmpty ? $0 : nil }
+        if hostPlatforms == nil, targetPlatforms == nil, traits == nil {
+            return .none
+        }
+        return PluginUsageCondition(
+            hostPlatforms: hostPlatforms,
+            targetPlatforms: targetPlatforms,
+            traits: traits
+        )
+    }
+}
+
 extension Target.PluginCapability {
     
     /// The plug-in is a build tool.
@@ -1533,6 +1579,35 @@ extension Target.PluginUsage {
     public static func plugin(name: String) -> Target.PluginUsage {
         return .plugin(name: name, package: nil)
     }
+
+    /// Specifies use of a plugin target in the same or another package.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the plugin target.
+    ///   - condition: The condition under which the plugin is applied.
+    /// - Returns: A `PluginUsage` instance.
+    @available(_PackageDescription, introduced: 6.5)
+    public static func plugin(name: String, condition: PluginUsageCondition?) -> Target.PluginUsage {
+        guard let condition else {
+            return .plugin(name: name, package: nil)
+        }
+        return .pluginWithCondition(name: name, package: nil, condition: condition)
+    }
+
+    /// Specifies use of a plugin target in the same or another package.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the plugin target.
+    ///   - package: The name of the package containing the plugin target, or nil if it is in the same package.
+    ///   - condition: The condition under which the plugin is applied.
+    /// - Returns: A `PluginUsage` instance.
+    @available(_PackageDescription, introduced: 6.5)
+    public static func plugin(name: String, package: String?, condition: PluginUsageCondition?) -> Target.PluginUsage {
+        guard let condition else {
+            return .plugin(name: name, package: package)
+        }
+        return .pluginWithCondition(name: name, package: package, condition: condition)
+    }
 }
 
 
@@ -1561,4 +1636,3 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
         self = .plugin(name: value, package: nil)
     }
 }
-

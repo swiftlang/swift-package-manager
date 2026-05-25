@@ -711,9 +711,9 @@ public final class PackageBuilder {
             if let pluginUsages = target.pluginUsages {
                 successors += pluginUsages.compactMap {
                     switch $0 {
-                    case .plugin(_, .some(_)):
+                    case .plugin(_, .some(_), _):
                         nil
-                    case .plugin(let name, nil):
+                    case .plugin(let name, nil, _):
                         if let potentialModule = potentialModuleMap[name] {
                             potentialModule
                         } else if let targetName = pluginTargetName(for: name),
@@ -785,18 +785,19 @@ public final class PackageBuilder {
                 }
             } ?? []
 
-            // Get dependencies from the plugin usages of this target.
+            // Get plugin usages from the plugin usages of this target.
             let pluginUsages: [Module.PluginUsage] = manifestTarget?.pluginUsages.map {
                 $0.compactMap { usage in
                     switch usage {
-                    case .plugin(let name, let package):
+                    case .plugin(let name, let package, let condition):
+                        let condition = self.buildPluginUsageCondition(from: condition)
                         if let package {
-                            return .product(Module.ProductReference(name: name, package: package), conditions: [])
+                            return .product(Module.ProductReference(name: name, package: package), condition: condition)
                         } else {
                             if let target = targets[name] {
-                                return .module(target, conditions: [])
+                                return .module(target, condition: condition)
                             } else if let targetName = pluginTargetName(for: name), let target = targets[targetName] {
-                                return .module(target, conditions: [])
+                                return .module(target, condition: condition)
                             } else {
                                 self.observabilityScope.emit(.pluginNotFound(name: name))
                                 return nil
@@ -807,10 +808,19 @@ public final class PackageBuilder {
             } ?? []
 
             // Create the target, adding the inferred dependencies from plugin usages to the declared dependencies.
+            let pluginDependencies: [Module.Dependency] = pluginUsages.map { usage in
+                switch usage {
+                case .module(let module, _):
+                    return .module(module, conditions: [])
+                case .product(let product, _):
+                    return .product(product, conditions: [])
+                }
+            }
             let target = try createTarget(
                 potentialModule: potentialModule,
                 manifestTarget: manifestTarget,
-                dependencies: dependencies + pluginUsages
+                dependencies: dependencies + pluginDependencies,
+                pluginUsages: pluginUsages
             )
             // Add the created target to the map or print no sources warning.
             if let createdTarget = target {
@@ -860,7 +870,8 @@ public final class PackageBuilder {
     private func createTarget(
         potentialModule: PotentialModule,
         manifestTarget: TargetDescription?,
-        dependencies: [Module.Dependency]
+        dependencies: [Module.Dependency],
+        pluginUsages: [Module.PluginUsage]
     ) throws -> Module? {
         guard let manifestTarget else { return nil }
 
@@ -1032,6 +1043,7 @@ public final class PackageBuilder {
                 declaredSwiftVersions: self.declaredSwiftVersions(),
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
+                pluginUsages: pluginUsages,
                 // unsafe flags check disabled in 6.2
                 usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
                 implicit: false
@@ -1079,6 +1091,7 @@ public final class PackageBuilder {
                 dependencies: dependencies,
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
+                pluginUsages: pluginUsages,
                 // unsafe flags check disabled in 6.2
                 usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
                 implicit: false
@@ -1385,6 +1398,30 @@ public final class PackageBuilder {
         }
 
         return conditions
+    }
+
+
+    func buildPluginUsageCondition(from condition: PluginUsageConditionDescription?) -> Module.PluginUsageCondition? {
+        guard let condition else {
+            return nil
+        }
+
+        let hostPlatforms = condition.hostPlatformNames.map {
+            if let platform = platformRegistry.platformByName[$0] {
+                platform
+            } else {
+                PackageModel.Platform.custom(name: $0, oldestSupportedVersion: .unknown)
+            }
+        }
+        let targetPlatforms = condition.targetPlatformNames.map {
+            if let platform = platformRegistry.platformByName[$0] {
+                platform
+            } else {
+                PackageModel.Platform.custom(name: $0, oldestSupportedVersion: .unknown)
+            }
+        }
+
+        return .init(hostPlatforms: hostPlatforms, targetPlatforms: targetPlatforms, traits: condition.traits)
     }
 
     private func declaredSwiftVersions() throws -> [SwiftLanguageVersion] {

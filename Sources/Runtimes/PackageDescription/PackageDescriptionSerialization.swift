@@ -206,8 +206,14 @@ enum Serialization {
         case unixDomainSocket
     }
 
+    struct PluginUsageCondition: Codable {
+        let hostPlatforms: [Platform]?
+        let targetPlatforms: [Platform]?
+        let traits: [String]?
+    }
+
     enum PluginUsage: Codable {
-        case plugin(name: String, package: String?)
+        case plugin(name: String, package: String?, condition: PluginUsageCondition?)
     }
 
     struct Target: Codable {
