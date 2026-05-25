@@ -637,7 +637,9 @@ extension Workspace.Configuration {
             }
 
             let encoder = JSONEncoder.makeWithDefaults()
-            let mirrors = MirrorsStorage(version: 1, object: mirrors.map { .init(original: $0, mirror: $1) })
+            // Sort mirrors by original URL to ensure deterministic output
+            let sortedMirrors = mirrors.sorted { $0.key < $1.key }
+            let mirrors = MirrorsStorage(version: 1, object: sortedMirrors.map { .init(original: $0.key, mirror: $0.value) })
             let data = try encoder.encode(mirrors)
             if !fileSystem.exists(path.parentDirectory) {
                 try fileSystem.createDirectory(path.parentDirectory, recursive: true)
