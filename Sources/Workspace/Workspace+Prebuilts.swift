@@ -520,6 +520,28 @@ extension Workspace {
             try fileSystem.createDirectory(artifactDir, recursive: true)
             try await archiver.extract(from: destination, to: artifactDir)
 
+            // Reject any extracted entry whose symbolic link target escapes the
+            // artifact directory. The checksum only guarantees the archive
+            // matches the prebuilts manifest, not that its contents are safe to
+            // unpack: an archive containing a symlink such as
+            // `evil -> /Users/victim/.ssh` followed by a regular file at
+            // `evil/authorized_keys` would otherwise let the archiver write
+            // outside artifactDir. This mirrors the guard already applied after
+            // archiver.extract in Sources/Workspace/Workspace+BinaryArtifacts.swift
+            // and Sources/PackageRegistry/RegistryClient.swift. If validation
+            // fails we discard the extracted tree and fall back to building the
+            // dependency from source rather than using the prebuilt.
+            do {
+                try fileSystem.validateNoEscapingSymlinks(in: artifactDir)
+            } catch {
+                try? fileSystem.removeFileTree(artifactDir)
+                observabilityScope.emit(
+                    warning: "Prebuilt artifact \(artifactFile) rejected; falling back to source",
+                    underlyingError: error
+                )
+                return nil
+            }
+
             observabilityScope.emit(
                 info: "Prebuilt artifact \(artifactFile) downloaded"
             )

@@ -950,6 +950,74 @@ final class PrebuiltsTests: XCTestCase {
         }
     }
 
+    // Mirrors the post-extract symlink validation in PrebuiltsManager.downloadPrebuilt.
+    // The prebuilt extraction directory must not contain a symbolic link whose target
+    // escapes that directory, otherwise a malicious-but-correctly-checksummed archive
+    // could write outside the package's scratch area. This exercises the same
+    // FileSystem.validateNoEscapingSymlinks(in:) call against an archive whose contents
+    // are produced on a real file system, so symlink resolution actually runs (the
+    // in-memory file system used elsewhere in this file is a no-op for resolution).
+    func testExtractedPrebuiltRejectsEscapingSymlink() async throws {
+        try await withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDir in
+            let archivePath = tmpDir.appending("MacroSupport.zip")
+            let artifactDir = tmpDir.appending("MacroSupport")
+            try localFileSystem.writeFileContents(archivePath, bytes: [])
+
+            // An archiver whose extracted output contains a top-level symlink pointing
+            // outside the destination, e.g. `escape -> tmpDir`, which a later write
+            // through `escape/...` would follow out of the artifact directory.
+            let archiver = MockArchiver(handler: { _, _, destination, completion in
+                do {
+                    try localFileSystem.createDirectory(destination, recursive: true)
+                    try localFileSystem.createSymbolicLink(
+                        destination.appending("escape"),
+                        pointingAt: tmpDir,
+                        relative: false
+                    )
+                    completion(.success(()))
+                } catch {
+                    completion(.failure(error))
+                }
+            })
+
+            try await archiver.extract(from: archivePath, to: artifactDir)
+
+            XCTAssertThrowsError(try localFileSystem.validateNoEscapingSymlinks(in: artifactDir)) { error in
+                XCTAssertTrue(error is StringError, "expected a StringError, got \(error)")
+            }
+        }.value
+    }
+
+    // The complement of the above: a prebuilt whose extracted contents only reference
+    // files inside the artifact directory must be accepted.
+    func testExtractedPrebuiltAllowsInternalSymlink() async throws {
+        try await withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDir in
+            let archivePath = tmpDir.appending("MacroSupport.zip")
+            let artifactDir = tmpDir.appending("MacroSupport")
+            try localFileSystem.writeFileContents(archivePath, bytes: [])
+
+            let archiver = MockArchiver(handler: { _, _, destination, completion in
+                do {
+                    let lib = destination.appending("lib")
+                    try localFileSystem.createDirectory(lib, recursive: true)
+                    try localFileSystem.writeFileContents(lib.appending("libMacroSupport.a"), bytes: [])
+                    try localFileSystem.createSymbolicLink(
+                        destination.appending("libMacroSupport.a"),
+                        pointingAt: lib.appending("libMacroSupport.a"),
+                        relative: true
+                    )
+                    completion(.success(()))
+                } catch {
+                    completion(.failure(error))
+                }
+            })
+
+            try await archiver.extract(from: archivePath, to: artifactDir)
+
+            XCTAssertNoThrow(try localFileSystem.validateNoEscapingSymlinks(in: artifactDir))
+        }.value
+    }
+
     // Test a macro that uses a library that doesn't use prebuilts which then uses a library that does works.
     // Also test plugins work
     func testIndirectLibrary() async throws {
