@@ -81,13 +81,13 @@ package struct PIFBuilderParameters {
     /// Add rpaths which allow loading libraries adjacent to the current image at runtime. This is desirable
     /// when launching build products from the build directory, but should often be disabled when deploying
     /// the build products to a different location.
-    let addLocalRpaths: Bool
+    let addLocalRpaths: PackagePIFBuilder.AddLocalRpaths
 
     /// The directory in which host-destination build products (e.g. plugin tools) are placed, as
     /// reported by the build system for the host `BuildParameters`.
     let hostBuildProductsPath: AbsolutePath
 
-    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRPaths: Bool, hostBuildProductsPath: AbsolutePath) {
+    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRpaths: PackagePIFBuilder.AddLocalRpaths, hostBuildProductsPath: AbsolutePath) {
         self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
         self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
@@ -100,7 +100,7 @@ package struct PIFBuilderParameters {
         self.disableSandbox = disableSandbox
         self.pluginWorkingDirectory = pluginWorkingDirectory
         self.additionalFileRules = additionalFileRules
-        self.addLocalRpaths = addLocalRPaths
+        self.addLocalRpaths = addLocalRpaths
         self.hostBuildProductsPath = hostBuildProductsPath
     }
 }
@@ -563,7 +563,7 @@ public final class PIFBuilder {
         pluginWorkingDirectory: AbsolutePath,
         pkgConfigDirectories: [Basics.AbsolutePath],
         additionalFileRules: [FileRuleDescription],
-        addLocalRpaths: Bool,
+        addLocalRpaths: PackagePIFBuilder.AddLocalRpaths,
         materializeStaticArchiveProductsForRootPackages: Bool,
         createDynamicVariantsForLibraryProducts: Bool,
         hostBuildProductsPath: AbsolutePath
@@ -846,7 +846,7 @@ extension PIFBuilderParameters {
         disableSandbox: Bool,
         pluginWorkingDirectory: AbsolutePath,
         additionalFileRules: [FileRuleDescription],
-        addLocalRpaths: Bool,
+        addLocalRpaths: PackagePIFBuilder.AddLocalRpaths,
         materializeStaticArchiveProductsForRootPackages: Bool,
         createDynamicVariantsForLibraryProducts: Bool,
         hostBuildProductsPath: AbsolutePath
@@ -864,7 +864,7 @@ extension PIFBuilderParameters {
             disableSandbox: disableSandbox,
             pluginWorkingDirectory: pluginWorkingDirectory,
             additionalFileRules: additionalFileRules,
-            addLocalRPaths: addLocalRpaths,
+            addLocalRpaths: addLocalRpaths,
             hostBuildProductsPath: hostBuildProductsPath
         )
     }
