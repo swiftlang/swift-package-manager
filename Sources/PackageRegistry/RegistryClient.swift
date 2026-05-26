@@ -1193,7 +1193,6 @@ public final class RegistryClient: AsyncCancellable {
                     SearchResults.Result(
                         identity: r.identity,
                         summary: r.summary,
-                        versions: r.versions ?? [],
                         latestVersion: r.latestVersion,
                         author: r.author,
                         licenseURL: r.licenseURL.flatMap(URL.init(string:)),
@@ -1960,7 +1959,6 @@ extension RegistryClient {
         public struct Result: Sendable {
             public let identity: String
             public let summary: String?
-            public let versions: [String]
             public let latestVersion: String?
             public let author: String?
             public let licenseURL: URL?
@@ -1969,7 +1967,6 @@ extension RegistryClient {
             public init(
                 identity: String,
                 summary: String? = nil,
-                versions: [String] = [],
                 latestVersion: String? = nil,
                 author: String? = nil,
                 licenseURL: URL? = nil,
@@ -1977,7 +1974,6 @@ extension RegistryClient {
             ) {
                 self.identity = identity
                 self.summary = summary
-                self.versions = versions
                 self.latestVersion = latestVersion
                 self.author = author
                 self.licenseURL = licenseURL
@@ -2413,7 +2409,6 @@ extension RegistryClient {
         public struct SearchResult: Codable {
             public let identity: String
             public let summary: String?
-            public let versions: [String]?
             public let latestVersion: String?
             public let author: String?
             public let licenseURL: String?
@@ -2422,7 +2417,6 @@ extension RegistryClient {
             public init(
                 identity: String,
                 summary: String? = nil,
-                versions: [String]? = nil,
                 latestVersion: String? = nil,
                 author: String? = nil,
                 licenseURL: String? = nil,
@@ -2430,7 +2424,6 @@ extension RegistryClient {
             ) {
                 self.identity = identity
                 self.summary = summary
-                self.versions = versions
                 self.latestVersion = latestVersion
                 self.author = author
                 self.licenseURL = licenseURL

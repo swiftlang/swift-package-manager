@@ -4360,7 +4360,6 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
             {
                 "identity": "mona.LinkedList",
                 "summary": "One thing links to another.",
-                "versions": ["1.1.1", "1.0.0"],
                 "latestVersion": "1.1.1",
                 "author": "Mona Lisa Octocat",
                 "licenseURL": "https://example.com/LICENSE",
@@ -4419,7 +4418,6 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
         let first = try #require(results.results.first)
         #expect(first.identity == "mona.LinkedList")
         #expect(first.summary == "One thing links to another.")
-        #expect(first.versions == ["1.1.1", "1.0.0"])
         #expect(first.latestVersion == "1.1.1")
         #expect(first.author == "Mona Lisa Octocat")
         #expect(first.licenseURL?.absoluteString == "https://example.com/LICENSE")
