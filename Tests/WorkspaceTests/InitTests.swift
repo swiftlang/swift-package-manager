@@ -697,10 +697,39 @@ struct InitTests {
             )
             try initPackage.writePackageStructure()
 
-            // Verify the manifest includes Swift language mode
+            // swiftLanguageModes should be omitted when it matches the default for the current tools version
             let manifest = path.appending("Package.swift")
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
-            #expect(manifestContents.contains("swiftLanguageModes: [.v6]"))
+            #expect(!manifestContents.contains("swiftLanguageModes"))
+        }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.medium,
+        ),
+    )
+    func initPackageIncludesNonDefaultSwiftLanguageMode() throws {
+        try withTemporaryDirectory { tmpPath in
+            let path = tmpPath.appending("testInitPackageNonDefaultLanguageMode")
+            try localFileSystem.createDirectory(path)
+
+            let options = InitPackage.InitPackageOptions(
+                packageType: .library,
+                supportedTestingLibraries: [],
+                swiftLanguageModes: [.v5]
+            )
+            let initPackage = try InitPackage(
+                name: path.basename,
+                options: options,
+                destinationPath: path,
+                installedSwiftPMConfiguration: .default,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+
+            let manifestContents: String = try localFileSystem.readFileContents(path.appending("Package.swift"))
+            #expect(manifestContents.contains("swiftLanguageModes: [.v5]"))
         }
     }
 
