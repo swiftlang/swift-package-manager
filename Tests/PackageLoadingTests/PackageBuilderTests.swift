@@ -3595,6 +3595,31 @@ struct PackageBuilderTests {
             }
         }
     }
+
+    @Test
+    func testArtifactBundleAsNormalTargetError() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/foo.artifactbundle/info.json",
+            "/Sources/foo.artifactbundle/libfoo.a"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            targets: [
+                try TargetDescription(
+                    name: "foo",
+                    path: "Sources/foo.artifactbundle"
+                ),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+            diagnostics.check(
+                diagnostic: "target 'foo' cannot point to an artifact bundle; use '.binaryTarget' instead",
+                severity: .error
+            )
+        }
+    }
 }
 
 final class PackageBuilderTester {
