@@ -54,14 +54,12 @@ private struct StaticLinuxIntegrationTests {
             )
             #expect(buildOutput.stdout.contains("Build complete"))
 
-            let binPathOutput = try await executeSwiftBuild(
+            let binary = try await getBinPath(
                 fixturePath,
-                extraArgs: ["--swift-sdk", sdkID, "--triple", "\(arch)-swift-linux-musl", "--show-bin-path"],
+                extraArgs: ["--swift-sdk", sdkID, "--triple", "\(arch)-swift-linux-musl"],
                 env: env,
                 buildSystem: buildSystem,
-            )
-            let binPath = binPathOutput.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-            let binary = try AbsolutePath(validating: binPath).appending(component: "ExecutableNew")
+            ).appending(component: "ExecutableNew")
             #expect(localFileSystem.exists(binary), "Expected binary at \(binary)")
 
             #if os(Linux)

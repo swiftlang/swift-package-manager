@@ -121,7 +121,11 @@ struct InitTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                let binPath = try path.appending(components: buildSystem.binPath(for: configuration))
+                let binPath = try await getBinPath(
+                    path,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 expectFileExists(at: binPath.appending(executableName("Foo")))
                 let expectedOutput: [String]
                 switch buildSystem {
@@ -234,6 +238,11 @@ struct InitTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
+                let binPath = try await getBinPath(
+                    path,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 let expectedOutput: [String]
                 switch buildSystem {
                     case .native:
@@ -244,7 +253,7 @@ struct InitTests {
                     expectedOutput = ["Foo.swiftmodule"]
                     Issue.record("Test expectation is not implemented")
                 }
-                let expectedFile = try path.appending(components: buildSystem.binPath(for: configuration) + expectedOutput)
+                let expectedFile = binPath.appending(components: expectedOutput)
                 expectFileExists(at: expectedFile)
             }
         }
@@ -294,7 +303,12 @@ struct InitTests {
                     buildSystem: buildSystem,
                 )
                 let triple = try UserToolchain.default.targetTriple
-                expectFileExists(at: path.appending(components: buildSystem.binPath(for: configuration) + ["Modules", "Foo.swiftmodule"]))
+                let binPath = try await getBinPath(
+                    path,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                expectFileExists(at: binPath.appending(components: ["Modules", "Foo.swiftmodule"]))
     #endif
             }
         }
@@ -344,7 +358,12 @@ struct InitTests {
                     buildSystem: buildSystem,
                 )
                 let triple = try UserToolchain.default.targetTriple
-                expectFileExists(at: path.appending(components: buildSystem.binPath(for: configuration) + ["Modules", "Foo.swiftmodule"]))
+                let binPath = try await getBinPath(
+                    path,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                expectFileExists(at: binPath.appending(components: ["Modules", "Foo.swiftmodule"]))
     #endif
             }
         }
@@ -434,15 +453,20 @@ struct InitTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
+                let binPath = try await getBinPath(
+                    packageRoot,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
 
                 let expectedFile: AbsolutePath
                 switch buildSystem {
                     case .native:
-                    expectedFile = try packageRoot.appending(components: buildSystem.binPath(for: configuration) + ["Modules", "some_package.swiftmodule"])
+                    expectedFile = binPath.appending(components: ["Modules", "some_package.swiftmodule"])
                     case .swiftbuild:
-                    expectedFile = try packageRoot.appending(components: buildSystem.binPath(for: configuration) + [ "some_package.swiftmodule"])
+                    expectedFile = binPath.appending("some_package.swiftmodule")
                     case .xcode:
-                    expectedFile = try packageRoot.appending(components: buildSystem.binPath(for: configuration) + [ "some_package.swiftmodule"])
+                    expectedFile = binPath.appending("some_package.swiftmodule")
                     Issue.record("Test expectation is not implemented")
                 }
 
