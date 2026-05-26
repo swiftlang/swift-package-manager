@@ -556,7 +556,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             try await printCodeCovPath(swiftCommandState)
         } else if self.options._deprecated_shouldListTests {
             // Backward compatibility 6/2022 for deprecation of a flag into a subcommand.
-            let command = try List.parse()
+            let command = try await List.parse()
             try await command.run(swiftCommandState)
         } else {
             let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
