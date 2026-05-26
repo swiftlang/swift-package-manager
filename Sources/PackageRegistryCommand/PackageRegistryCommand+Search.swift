@@ -213,7 +213,6 @@ extension PackageRegistryCommand {
                     JSONOutput.Result(
                         identity: item.result.identity,
                         summary: item.result.summary,
-                        versions: item.result.versions.isEmpty ? nil : item.result.versions,
                         latestVersion: item.result.latestVersion,
                         author: item.result.author,
                         licenseURL: item.result.licenseURL?.absoluteString,
@@ -251,7 +250,6 @@ extension PackageRegistryCommand {
             struct Result: Encodable {
                 let identity: String
                 let summary: String?
-                let versions: [String]?
                 let latestVersion: String?
                 let author: String?
                 let licenseURL: String?
