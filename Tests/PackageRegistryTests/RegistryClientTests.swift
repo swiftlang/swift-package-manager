@@ -4262,7 +4262,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
 
         let capabilities = try await registryClient.withAvailabilityCheck(
             registry: registry,
-            requiring: "search",
+            requiring: .search,
             observabilityScope: ObservabilitySystem.NOOP
         )
         #expect(capabilities == ["search"])
@@ -4272,7 +4272,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
         let handler: HTTPClient.Implementation = { request, _ in
             switch (request.method, request.url) {
             case (.get, availabilityURL):
-                return Self.okJSON(#"{"capabilities":{"search":{}}}"#)
+                return Self.okJSON(#"{"capabilities":{"publish":{}}}"#)
             default:
                 throw StringError("method and url should match")
             }
@@ -4287,12 +4287,12 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
         await #expect {
             try await registryClient.withAvailabilityCheck(
                 registry: registry,
-                requiring: "publish",
+                requiring: .search,
                 observabilityScope: ObservabilitySystem.NOOP
             )
         } throws: { error in
             guard case RegistryError.capabilityNotSupported(_, let capability) = error else { return false }
-            return capability == "publish"
+            return capability == .search
         }
     }
 
@@ -4321,7 +4321,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
         await #expect {
             try await registryClient.withAvailabilityCheck(
                 registry: registry,
-                requiring: "search",
+                requiring: .search,
                 observabilityScope: ObservabilitySystem.NOOP
             )
         } throws: { error in
@@ -4343,7 +4343,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
         await #expect {
             try await registryClient.withAvailabilityCheck(
                 registry: registry,
-                requiring: "search",
+                requiring: .search,
                 observabilityScope: ObservabilitySystem.NOOP
             )
         } throws: { error in
@@ -4456,7 +4456,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
             )
         } throws: { error in
             if case RegistryError.capabilityNotSupported(_, let capability) = error {
-                return capability == "search"
+                return capability == .search
             }
             return false
         }

@@ -1145,7 +1145,7 @@ public final class RegistryClient: AsyncCancellable {
     ) async throws -> SearchResults {
         try await withAvailabilityCheck(
             registry: registry,
-            requiring: "search",
+            requiring: .search,
             observabilityScope: observabilityScope
         )
 
@@ -1205,7 +1205,7 @@ public final class RegistryClient: AsyncCancellable {
                 limit: decoded.limit
             )
         case 404:
-            throw RegistryError.capabilityNotSupported(registry: registry, capability: "search")
+            throw RegistryError.capabilityNotSupported(registry: registry, capability: .search)
         default:
             throw RegistryError.searchFailed(
                 registry: registry,
@@ -1536,7 +1536,7 @@ public final class RegistryClient: AsyncCancellable {
     @discardableResult
     func withAvailabilityCheck(
         registry: Registry,
-        requiring capability: String? = nil,
+        requiring capability: Capability? = nil,
         observabilityScope: ObservabilityScope
     ) async throws -> Set<String> {
         if !registry.supportsAvailability {
@@ -1551,7 +1551,7 @@ public final class RegistryClient: AsyncCancellable {
             case .success(let status):
                 switch status {
                 case .available(let capabilities):
-                    if let capability, !capabilities.contains(capability) {
+                    if let capability, !capabilities.contains(capability.rawValue) {
                         throw RegistryError.capabilityNotSupported(registry: registry, capability: capability)
                     }
                     return capabilities
@@ -1669,7 +1669,7 @@ public enum RegistryError: Error, CustomStringConvertible {
     case loginFailed(url: URL, error: Error)
     case availabilityCheckFailed(registry: Registry, error: Error)
     case registryNotAvailable(Registry)
-    case capabilityNotSupported(registry: Registry, capability: String)
+    case capabilityNotSupported(registry: Registry, capability: RegistryClient.Capability)
     case searchFailed(registry: Registry, error: Error)
     case packageNotFound
     case packageVersionNotFound
@@ -1776,7 +1776,7 @@ public enum RegistryError: Error, CustomStringConvertible {
         case .registryNotAvailable(let registry):
             return "registry at '\(registry.url)' is not available at this time, please try again later"
         case .capabilityNotSupported(let registry, let capability):
-            return "registry at '\(registry.url)' does not support the '\(capability)' capability"
+            return "registry at '\(registry.url)' does not support the '\(capability.rawValue)' capability"
         case .searchFailed(let registry, let error):
             return "failed searching registry at '\(registry.url)': \(error.interpolationDescription)"
         case .packageNotFound:
@@ -2007,6 +2007,10 @@ extension RegistryClient {
 
         // marked internal for testing
         static var unavailableStatusCodes = [404, 501]
+    }
+
+    public enum Capability: String, Hashable, Sendable, CaseIterable {
+        case search
     }
 }
 
