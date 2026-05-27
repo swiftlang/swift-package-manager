@@ -593,6 +593,34 @@ struct DebugTestRunner {
         return "script import shutil; lldb.debugger.SetDestroyCallback(lambda _id, d=\"\(escaped)\": shutil.rmtree(d, ignore_errors=True))"
     }
 
+    /// Probes the toolchain's lldb to discover whether `target create --label`
+    /// (`-l`) is supported. Cached per lldb path so we only spawn the probe
+    /// process once per swift-test invocation even though `setupTargets` may
+    /// be called for several testing libraries.
+    static func lldbSupportsTargetLabels(toolchain: UserToolchain) -> Bool {
+        let lldbPath: String
+        do {
+            lldbPath = try toolchain.getLLDB().pathString
+        } catch {
+            return false
+        }
+        var supported = false
+        Self.lldbTargetLabelSupportCache.mutate { (cache: inout [String: Bool]) in
+            if let cached = cache[lldbPath] {
+                supported = cached
+                return
+            }
+            let output = (try? AsyncProcess.checkNonZeroExit(
+                arguments: [lldbPath, "-b", "-o", "help target create"]
+            )) ?? ""
+            supported = output.contains("--label")
+            cache[lldbPath] = supported
+        }
+        return supported
+    }
+
+    private static let lldbTargetLabelSupportCache = ThreadSafeBox<[String: Bool]>([:])
+
     /// Creates an instance of debug test runner.
     init(
         target: DebuggableTestSession,
@@ -689,17 +717,22 @@ struct DebugTestRunner {
         var hasSwiftTesting = false
         var hasXCTest = false
 
+        // Probe the lldb we're about to exec to find out if `target create -l`
+        // is supported. Older lldbs (sometimes picked up on smoke-test CI when
+        // the toolchain's lldb isn't on PATH) predate the `--label` option and
+        // would fail to parse the command file. Gating on the actual lldb's
+        // capability is more reliable than inferring from environment vars,
+        // since the same env can be paired with either old or new lldb.
+        let supportsTargetLabels = Self.lldbSupportsTargetLabels(toolchain: toolchain)
+
         for testingLibrary in target.targets {
             let (executable, args) = try getExecutableAndArgs(for: testingLibrary)
             let escapedExecutable = Self.escapeForQuotedLLDBArgument(executable.pathString)
             let escapedProductName = Self.escapeForQuotedLLDBArgument(testingLibrary.productName)
-            // Smoke-test CI doesn't ship the toolchain's lldb alongside the in-development
-            // swiftc; it falls back to an older system lldb on PATH that doesn't support
-            // `target create -l`. Skip the label there so the command parses.
-            if Environment.current["SWIFTCI_USE_LOCAL_DEPS"] != nil {
-                lldbCommands.append("target create \"\(escapedExecutable)\"")
-            } else {
+            if supportsTargetLabels {
                 lldbCommands.append("target create -l \"\(escapedProductName) (\(testingLibrary.library))\" \"\(escapedExecutable)\"")
+            } else {
+                lldbCommands.append("target create \"\(escapedExecutable)\"")
             }
             lldbCommands.append("settings clear target.run-args")
 

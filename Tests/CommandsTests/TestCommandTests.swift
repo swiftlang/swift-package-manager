@@ -1932,7 +1932,7 @@ struct TestCommandTests {
         )
         func debuggerFlagWithBothTestingSuites(buildSystem: BuildSystemProvider.Kind) async throws {
             let configuration = BuildConfiguration.debug
-            try await withKnownIssue(isIntermittent: true) {
+            try await withKnownIssue {
                 try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
                     let (stdout, stderr) = try await execute(
                         ["--debugger", "--verbose"],
@@ -1978,6 +1978,11 @@ struct TestCommandTests {
                     )
                     #endif
                 }
+            } when: {
+                // Windows lldb ships without python310.dll on PATH, so it crashes
+                // with access violation when the failbreak `command script import`
+                // runs, and swift-test exits abnormally before producing any output.
+                ProcessInfo.hostOperatingSystem == .windows
             }
         }
 
