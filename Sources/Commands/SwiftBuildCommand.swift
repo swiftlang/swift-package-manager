@@ -85,7 +85,7 @@ struct BuildCommandOptions: ParsableArguments {
           help: "Determines whether the build measures code coverage.")
     var enableCodeCoverage: Bool = false
 
-    /// If the binary output path should be printed.
+    /// Determines whether the build command prints the binary output path.
     @Flag(name: .customLong("show-bin-path"), help: "Print the binary output path.")
     var shouldPrintBinPath: Bool = false
 
@@ -114,7 +114,7 @@ struct BuildCommandOptions: ParsableArguments {
     @OptionGroup(visibility: .private)
     var testLibraryOptions: TestLibraryOptions
 
-    /// If should link the Swift stdlib statically.
+    /// Determines whether the binary should statically link the Swift stdlib.
     @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Determines whether Swift stdlib links statically.")
     public var shouldLinkStaticSwiftStdlib: Bool = false
 
@@ -140,7 +140,8 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
 
     public func run(_ swiftCommandState: SwiftCommandState) async throws {
         if options.shouldPrintBinPath {
-            return try print(swiftCommandState.productsBuildParameters.buildPath.description)
+            let buildSystem = try await swiftCommandState.createBuildSystem()
+            return try await print(buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters).description)
         }
 
         if options.printManifestGraphviz {
@@ -256,7 +257,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
                 filter: try self.options.sbom.sbomFilter,
                 product: options.product,
                 specs: try self.options.sbom.sbomSpecs,
-                dir: await SBOMCreator.resolveSBOMDirectory(from: self.options.sbom.sbomDirectory, withDefault: try swiftCommandState.productsBuildParameters.buildPath),
+                dir: await SBOMCreator.resolveSBOMDirectory(from: self.options.sbom.sbomDirectory, withDefault: try await buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)),
                 observabilityScope: swiftCommandState.observabilityScope
             )
 

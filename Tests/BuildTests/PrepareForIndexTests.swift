@@ -32,8 +32,8 @@ class PrepareForIndexTests: XCTestCase {
         let (graph, fs, scope) = try macrosPackageGraph()
 
         let plan = try await BuildPlan(
-            destinationBuildParameters: mockBuildParameters(destination: .target, prepareForIndexing: .on),
-            toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
+            destinationBuildParameters: mockBuildParameters(destination: .target, buildSystemKind: .native, prepareForIndexing: .on),
+            toolsBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .native, prepareForIndexing: .off),
             graph: graph,
             fileSystem: fs,
             observabilityScope: scope
@@ -80,8 +80,8 @@ class PrepareForIndexTests: XCTestCase {
         let (graph, fs, scope) = try trivialPackageGraph()
 
         let plan = try await BuildPlan(
-            destinationBuildParameters: mockBuildParameters(destination: .target, prepareForIndexing: .on),
-            toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
+            destinationBuildParameters: mockBuildParameters(destination: .target, buildSystemKind: .native, prepareForIndexing: .on),
+            toolsBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .native, prepareForIndexing: .off),
             graph: graph,
             fileSystem: fs,
             observabilityScope: scope
@@ -130,8 +130,8 @@ class PrepareForIndexTests: XCTestCase {
 
         // Under debug, enable-testing is turned on by default. Make sure the flag is not added.
         let debugPlan = try await BuildPlan(
-            destinationBuildParameters: mockBuildParameters(destination: .target, config: .debug, prepareForIndexing: .on),
-            toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
+            destinationBuildParameters: mockBuildParameters(destination: .target, config: .debug, buildSystemKind: .native, prepareForIndexing: .on),
+            toolsBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .native, prepareForIndexing: .off),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -162,8 +162,8 @@ class PrepareForIndexTests: XCTestCase {
 
         // Under release, enable-testing is turned off by default so we should see our flag
         let releasePlan = try await BuildPlan(
-            destinationBuildParameters: mockBuildParameters(destination: .target, config: .release, prepareForIndexing: .on),
-            toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
+            destinationBuildParameters: mockBuildParameters(destination: .target, config: .release, buildSystemKind: .native, prepareForIndexing: .on),
+            toolsBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .native, prepareForIndexing: .off),
             graph: graph,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -188,8 +188,8 @@ class PrepareForIndexTests: XCTestCase {
         let (graph, fs, scope) = try macrosPackageGraph()
 
         let plan = try await BuildPlan(
-            destinationBuildParameters: mockBuildParameters(destination: .target, prepareForIndexing: .noLazy),
-            toolsBuildParameters: mockBuildParameters(destination: .host, prepareForIndexing: .off),
+            destinationBuildParameters: mockBuildParameters(destination: .target, buildSystemKind: .native, prepareForIndexing: .noLazy),
+            toolsBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .native, prepareForIndexing: .off),
             graph: graph,
             fileSystem: fs,
             observabilityScope: scope

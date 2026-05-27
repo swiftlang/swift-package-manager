@@ -66,6 +66,9 @@ public struct BuildParameters: Encodable {
     /// The triple for which the code is built using these build parameters.
     public var triple: Triple
 
+    /// If set, overrides the SDK root path.
+    public var sdkRootOverride: Basics.AbsolutePath?
+
     /// Extra build flags.
     public var flags: BuildFlags
 
@@ -90,6 +93,9 @@ public struct BuildParameters: Encodable {
 
     /// Whether to create dylibs for dynamic library products.
     public var shouldCreateDylibForDynamicProducts: Bool
+
+    /// Whether to strip debug symbols from the final binary
+    public var stripProducts: Bool?
 
     /// The current build environment.
     public var buildEnvironment: BuildEnvironment {
@@ -121,8 +127,12 @@ public struct BuildParameters: Encodable {
             return .openbsd
         } else if self.triple.isFreeBSD() {
             return .freebsd
-        } else {
+        } else if self.triple.isNoneOS() {
+            return .custom(name: self.triple.osNameUnversioned, oldestSupportedVersion: .unknown)
+        } else if self.triple.isLinux() {
             return .linux
+        } else {
+            return .custom(name: "unknown", oldestSupportedVersion: .unknown)
         }
     }
 
@@ -162,6 +172,7 @@ public struct BuildParameters: Encodable {
         configuration: BuildConfiguration,
         toolchain: Toolchain,
         triple: Triple? = nil,
+        sdkRootOverride: Basics.AbsolutePath? = nil,
         flags: BuildFlags,
         buildSystemKind: BuildSystemProvider.Kind,
         pkgConfigDirectories: [Basics.AbsolutePath] = [],
@@ -179,7 +190,8 @@ public struct BuildParameters: Encodable {
         linkingParameters: Linking = .init(),
         outputParameters: Output = .init(),
         testingParameters: Testing = .init(),
-        apiDigesterMode: APIDigesterMode? = nil
+        apiDigesterMode: APIDigesterMode? = nil,
+        stripProducts: Bool? = nil,
     ) throws {
         // Default to the unversioned triple if none is provided so that we defer to the package's requested deployment target, for Darwin platforms. For other platforms, continue to include the version since those don't have the concept of a package-specified version, and the version is meaningful for some platforms including Android and FreeBSD.
         let triple = try triple ?? {
@@ -199,6 +211,7 @@ public struct BuildParameters: Encodable {
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.triple = triple
+        self.sdkRootOverride = sdkRootOverride
         self.buildSystemKind = buildSystemKind
         switch self.debuggingParameters.debugInfoFormat {
         case .dwarf, nil:
@@ -244,9 +257,11 @@ public struct BuildParameters: Encodable {
         self.outputParameters = outputParameters
         self.testingParameters = testingParameters
         self.apiDigesterMode = apiDigesterMode
+        self.stripProducts = stripProducts
     }
 
     /// The path to the build directory (inside the data directory).
+    @available(*, deprecated, message: "Use BuildSystem.buildProductsPath(for:) instead. This is preserved temporarily to support sourcekit-lsp")
     public var buildPath: Basics.AbsolutePath {
         // TODO: query the build system for this.
         switch buildSystemKind {
@@ -268,19 +283,10 @@ public struct BuildParameters: Encodable {
     }
 
     /// The path to the index store directory.
+    @available(*, deprecated, message: "Use BuildSystem.indexStore(for:) instead. This is preserved temporarily to support sourcekit-lsp")
     public var indexStore: Basics.AbsolutePath {
         assert(indexStoreMode != .off, "index store is disabled")
         return buildPath.appending(components: "index", "store")
-    }
-
-    /// The path to the code coverage directory.
-    public var codeCovPath: Basics.AbsolutePath {
-        return buildPath.appending("codecov")
-    }
-
-    /// The path to the code coverage profdata file.
-    public var codeCovDataFile: Basics.AbsolutePath {
-        return codeCovPath.appending("default.profdata")
     }
 
     public var llbuildManifest: Basics.AbsolutePath {
@@ -295,30 +301,8 @@ public struct BuildParameters: Encodable {
         return dataPath.appending(components: "..", "manifest.pif")
     }
 
-    public var buildDescriptionPath: Basics.AbsolutePath {
-        // FIXME: this path isn't specific to `BuildParameters`, should be moved one directory level higher
-        return buildPath.appending(components: "description.json")
-    }
-
-    public var testOutputPath: Basics.AbsolutePath {
-        return buildPath.appending(component: "testOutput.txt")
-    }
-    /// Returns the path to the binary of a product for the current build parameters.
-    public func binaryPath(for product: ResolvedProduct) throws -> Basics.AbsolutePath {
-        return try buildPath.appending(binaryRelativePath(for: product))
-    }
-
-    public func macroBinaryPath(_ module: ResolvedModule) throws -> Basics.AbsolutePath {
-        assert(module.type == .macro)
-        #if BUILD_MACROS_AS_DYLIBS
-        return buildPath.appending(try dynamicLibraryPath(for: module.name))
-        #else
-        return buildPath.appending(try executablePath(for: module.name))
-        #endif
-    }
-
     /// Returns the path to the dynamic library of a product for the current build parameters.
-    private func dynamicLibraryPath(for name: String) throws -> Basics.RelativePath {
+    package func dynamicLibraryPath(for name: String) throws -> Basics.RelativePath {
         try RelativePath(validating: "\(self.triple.dynamicLibraryPrefix)\(name)\(self.suffix)\(self.triple.dynamicLibraryExtension)")
     }
 
@@ -339,33 +323,69 @@ public struct BuildParameters: Encodable {
         case .library(.automatic), .plugin:
             fatalError("\(#file):\(#line) - Illegal call of function \(#function) with automatica library and plugin")
         case .test:
-            switch buildSystemKind {
-            case .native, .xcode:
-                let base = "\(product.name).xctest"
-                if self.triple.isDarwin() {
-                    return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
-                } else {
-                    return try RelativePath(validating: base)
-                }
-            case .swiftbuild:
-                if self.triple.isDarwin() {
-                    let base = "\(product.name).xctest"
-                    return try RelativePath(validating: "\(base)/Contents/MacOS/\(product.name)")
-                } else {
-                    var base = "\(product.name)-test-runner"
-                    let ext = self.triple.executableExtension
-                    if !ext.isEmpty {
-                        base += ext
-                    }
-                    return try RelativePath(validating: base)
-                }
-            }
+            return try testBinaryRelativePath(forTestProductName: product.name)
         case .macro:
             #if BUILD_MACROS_AS_DYLIBS
             return try dynamicLibraryPath(for: product.name)
             #else
             return try executablePath(for: product.name)
             #endif
+        }
+    }
+
+    /// Returns the path (relative to the build directory) of the file you launch to run
+    /// the tests in a test product.
+    ///
+    /// For most build-system + platform combinations this is the single binary that
+    /// contains the compiled test code. On SwiftBuild + non-Darwin it's a thin launcher
+    /// that `dlopen`s the sibling shared library — in that case the test code (and its
+    /// coverage mapping) lives in ``testCoverageBinaryRelativePath(forTestProductName:)``.
+    public func testBinaryRelativePath(forTestProductName name: String) throws -> Basics.RelativePath {
+        switch buildSystemKind {
+        case .native, .xcode:
+            let base = "\(name).xctest"
+            if self.triple.isDarwin() {
+                return try RelativePath(validating: "\(base)/Contents/MacOS/\(name)")
+            } else {
+                return try RelativePath(validating: base)
+            }
+        case .swiftbuild:
+            if self.triple.isDarwin() {
+                let base = "\(name).xctest"
+                return try RelativePath(validating: "\(base)/Contents/MacOS/\(name)")
+            } else {
+                var base = "\(name)-test-runner"
+                let ext = self.triple.executableExtension
+                if !ext.isEmpty {
+                    base += ext
+                }
+                return try RelativePath(validating: base)
+            }
+        }
+    }
+
+    /// Returns the path (relative to the build directory) of the artifact whose coverage
+    /// mapping should be passed to `llvm-cov export`.
+    ///
+    /// For every build system + platform combination except SwiftBuild on non-Darwin this
+    /// is the same file returned by ``testBinaryRelativePath(forTestProductName:)``.
+    /// SwiftBuild on non-Darwin splits a test product into a `-test-runner` launcher plus
+    /// a sibling shared library (`<name>.so` / `<name>.dll`); the instrumented test code
+    /// lives in the shared library, so that's what `llvm-cov` needs to read. Pointing
+    /// `llvm-cov` at the launcher would report coverage only for the synthesized
+    /// `test_entry_point.swift` and hide every user source file (see rdar://168006617).
+    public func testCoverageBinaryRelativePath(forTestProductName name: String) throws -> Basics.RelativePath {
+        switch buildSystemKind {
+        case .native, .xcode:
+            return try testBinaryRelativePath(forTestProductName: name)
+        case .swiftbuild:
+            if self.triple.isDarwin() {
+                return try testBinaryRelativePath(forTestProductName: name)
+            } else {
+                // SwiftBuild's non-Darwin test product is `<name>{.so,.dll}` — no `lib` prefix,
+                // no platform suffix — sitting next to the `-test-runner` launcher.
+                return try RelativePath(validating: "\(name)\(self.triple.dynamicLibraryExtension)")
+            }
         }
     }
 }

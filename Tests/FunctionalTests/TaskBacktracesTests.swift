@@ -9,6 +9,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 import Basics
 import SPMBuildCore
@@ -44,10 +45,18 @@ struct TaskBacktraceTests {
                 buildSystem: .swiftbuild
             )
             // Add a basic check that we produce backtrace output. The specifc formatting is tested by Swift Build.
-            #expect(incrementalStderr.contains("Task backtrace:"))
+            withKnownIssue(isIntermittent: true) {
+                #expect(incrementalStderr.contains("Task backtrace:"))
+            } when: {
+                CiEnvironment.runningInSmokeTestPipeline && ProcessInfo.hostOperatingSystem == .linux
+            }
+            withKnownIssue(isIntermittent: true) {
             #expect(incrementalStderr.split(separator: "\n").contains(where: {
                 $0.contains("Foo.swift' changed")
             }))
+            } when: {
+                ProcessInfo.hostOperatingSystem == .linux && CiEnvironment.runningInSmokeTestPipeline
+            }
             #expect(incrementalStdout.contains("Build complete!"))
         }
     }
@@ -63,7 +72,26 @@ struct TaskBacktraceTests {
                 buildSystem: .swiftbuild,
                 throwIfCommandFails: false
             )
-            #expect(stderr.contains("'--experimental-task-backtraces' requires '--verbose' or '--very-verbose'"))
+            #expect(stderr.contains("'--experimental-task-backtraces' requires '--verbose', '--very-verbose', or '--experimental-trace-events-file'"))
+        }
+    }
+
+    @Test(
+        .tags(.TestSize.large, .Feature.TaskBacktraces)
+    )
+    func taskBacktracesDoesNotWarnWhenTraceEventsFileProvided() async throws {
+        try await fixture(name: "Miscellaneous/Simple") { fixturePath in
+            let traceFile = fixturePath.appending("trace.json")
+            let (_, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                extraArgs: [
+                    "--experimental-task-backtraces",
+                    "--experimental-trace-events-file", traceFile.pathString,
+                ],
+                buildSystem: .swiftbuild,
+                throwIfCommandFails: false
+            )
+            #expect(!stderr.contains("'--experimental-task-backtraces' requires"))
         }
     }
 

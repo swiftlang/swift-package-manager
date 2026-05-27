@@ -22,7 +22,6 @@ import class PackageModel.Manifest
 import struct PackageModel.TargetDescription
 import enum PackageModel.ProductType
 import struct SPMBuildCore.BuildParameters
-import func _InternalTestSupport.loadPackageGraph
 
 import func _InternalTestSupport.embeddedCxxInteropPackageGraph
 import func _InternalTestSupport.macrosPackageGraph
@@ -232,12 +231,14 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
+                buildSystemKind: .native,
                 shouldLinkStaticSwiftStdlib: true,
                 triple: destinationTriple
             ),
             toolsBuildParameters: mockBuildParameters(
                 destination: .host,
-                triple: toolsTriple
+                buildSystemKind: .native,
+                triple: toolsTriple,
             ),
             graph: graph,
             fileSystem: fs,
@@ -284,11 +285,13 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         let plan = try await BuildPlan(
             destinationBuildParameters: mockBuildParameters(
                 destination: .target,
+                buildSystemKind: .native,
                 shouldLinkStaticSwiftStdlib: true,
                 triple: destinationTriple
             ),
             toolsBuildParameters: mockBuildParameters(
                 destination: .host,
+                buildSystemKind: .native,
                 triple: toolsTriple
             ),
             graph: graph,
@@ -349,11 +352,13 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
             let plan = try await BuildPlan(
                 destinationBuildParameters: mockBuildParameters(
                     destination: .target,
+                    buildSystemKind: .native,
                     shouldLinkStaticSwiftStdlib: true,
                     triple: destinationTriple
                 ),
                 toolsBuildParameters: mockBuildParameters(
                     destination: .host,
+                    buildSystemKind: .native,
                     triple: toolsTriple
                 ),
                 graph: graph,

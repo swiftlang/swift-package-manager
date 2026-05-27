@@ -403,22 +403,52 @@ public func initGitRepo(
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
     do {
+        // Create .git directory structure
+        let gitDir = dir.appending(".git")
+        try localFileSystem.createDirectory(gitDir, recursive: false)
+        try localFileSystem.createDirectory(gitDir.appending("objects"), recursive: false)
+        try localFileSystem.createDirectory(gitDir.appending("refs").appending("heads"), recursive: true)
+        try localFileSystem.createDirectory(gitDir.appending("refs").appending("tags"), recursive: true)
+
+        // Write minimal config file
+        let configContent = """
+            [core]
+            \trepositoryformatversion = 0
+            \tfilemode = true
+            \tbare = false
+            [user]
+            \temail = example@example.com
+            \tname = Example Example
+            [commit]
+            \tgpgsign = false
+            """
+        try localFileSystem.writeFileContents(gitDir.appending("config"), string: configContent)
+
+        // Create initial file if requested
         if addFile {
             let file = dir.appending("file.swift")
             try localFileSystem.writeFileContents(file, bytes: "")
         }
 
-        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "init")
-        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "config", "user.email", "example@example.com")
-        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "config", "user.name", "Example Example")
-        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "config", "commit.gpgsign", "false")
+        // Use git to create initial commit (still need this for proper object creation)
+        // But we've eliminated config commands and init overhead
         let repo = GitRepository(path: dir)
+
+        // Write HEAD to point to main branch
+        try localFileSystem.writeFileContents(gitDir.appending("HEAD"), string: "ref: refs/heads/main\n")
+
+        // Stage and commit
         try repo.stageEverything()
         try repo.commit(message: "msg")
+
+        // Create tags directly by writing ref files
+        let commitHash = try repo.getCurrentRevision().identifier
         for tag in tags {
-            try repo.tag(name: tag)
+            try localFileSystem.writeFileContents(
+                gitDir.appending("refs").appending("tags").appending(tag),
+                string: "\(commitHash)\n"
+            )
         }
-        try Process.checkNonZeroExit(args: Git.tool, "-C", dir.pathString, "branch", "-m", "main")
     } catch {
         if Test.current != nil {
             Issue.record(
@@ -578,39 +608,6 @@ private func swiftArgs(
     args += getBuildSystemArgs(for: buildSystem)
     args += extraArgs
     return args
-}
-
-@available(*,
-    deprecated,
-    renamed: "loadModulesGraph",
-    message: "Rename for consistency: the type of this functions return value is named `ModulesGraph`."
-)
-public func loadPackageGraph(
-    identityResolver: IdentityResolver = DefaultIdentityResolver(),
-    fileSystem: FileSystem,
-    manifests: [Manifest],
-    binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]] = [:],
-    explicitProduct: String? = .none,
-    shouldCreateMultipleTestProducts: Bool = false,
-    createREPLProduct: Bool = false,
-    useXCBuildFileRules: Bool = false,
-    customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
-    observabilityScope: ObservabilityScope,
-    traitConfiguration: TraitConfiguration = .default
-) throws -> ModulesGraph {
-    try loadModulesGraph(
-        identityResolver: identityResolver,
-        fileSystem: fileSystem,
-        manifests: manifests,
-        binaryArtifacts: binaryArtifacts,
-        explicitProduct: explicitProduct,
-        shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
-        createREPLProduct: createREPLProduct,
-        useXCBuildFileRules: useXCBuildFileRules,
-        customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
-        observabilityScope: observabilityScope,
-        traitConfiguration: traitConfiguration
-    )
 }
 
 public let emptyZipFile = ByteString([0x80, 0x75, 0x05, 0x06] + [UInt8](repeating: 0x00, count: 18))

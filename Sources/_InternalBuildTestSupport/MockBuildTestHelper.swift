@@ -107,6 +107,7 @@ public func mockBuildPlan(
         config: config,
         toolchain: toolchain,
         flags: commonFlags,
+        buildSystemKind: .native,
         triple: inferredTriple,
         indexStoreMode: indexStoreMode,
         enableXCFrameworksOnLinux: enableXCFrameworksOnLinux
@@ -122,6 +123,7 @@ public func mockBuildPlan(
         config: config,
         toolchain: toolchain,
         flags: commonFlags,
+        buildSystemKind: .native,
         triple: inferredTriple,
         indexStoreMode: indexStoreMode,
         enableXCFrameworksOnLinux: enableXCFrameworksOnLinux
@@ -154,7 +156,7 @@ package func mockPluginTools(
             environment: buildParameters.buildEnvironment,
             for: hostTriple
         ) { name, path in
-            buildParameters.buildPath.appending(path)
+            BuildOperation.buildProductsPath(for: buildParameters).appending(path)
         }
 
         accessibleToolsPerPlugin[plugin.id] = accessibleTools

@@ -29,6 +29,7 @@ public final class SwiftBuildSystemMessageHandler {
     private var buildState: BuildState = .init()
     private let enableBacktraces: Bool
     private let buildDelegate: SPMBuildCore.BuildSystemDelegate?
+    private var traceEventsWriter: TraceEventsWriter?
 
     public typealias BuildSystemCallback = (SwiftBuildSystem) -> Void
 
@@ -56,7 +57,8 @@ public final class SwiftBuildSystemMessageHandler {
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         enableBacktraces: Bool = false,
-        buildDelegate: SPMBuildCore.BuildSystemDelegate? = nil
+        buildDelegate: SPMBuildCore.BuildSystemDelegate? = nil,
+        traceEventsFilePath: Basics.AbsolutePath? = nil
     )
     {
         self.observabilityScope = observabilityScope
@@ -69,6 +71,16 @@ public final class SwiftBuildSystemMessageHandler {
         )
         self.enableBacktraces = enableBacktraces
         self.buildDelegate = buildDelegate
+        if let traceEventsFilePath {
+            do {
+                self.traceEventsWriter = try TraceEventsWriter(path: traceEventsFilePath)
+            } catch {
+                observabilityScope.emit(warning: "Failed to open trace events file: \(error)")
+                self.traceEventsWriter = nil
+            }
+        } else {
+            self.traceEventsWriter = nil
+        }
     }
 
     private func emitInfoAsDiagnostic(info: SwiftBuildMessage.DiagnosticInfo) {
@@ -115,10 +127,23 @@ public final class SwiftBuildSystemMessageHandler {
         self.tasksEmitted.insert(info)
     }
 
+    private func renderTaskBacktrace(
+        for startedInfo: SwiftBuildMessage.TaskStartedInfo
+    ) -> String? {
+        guard
+            let id = SWBBuildOperationBacktraceFrame.Identifier(taskSignatureData: Data(startedInfo.taskSignature.utf8)),
+            let backtrace = SWBTaskBacktrace(from: id, collectedFrames: buildState.collectedBacktraceFrames)
+        else {
+            return nil
+        }
+        let rendered = backtrace.renderTextualRepresentation()
+        return rendered.isEmpty ? nil : rendered
+    }
+
     private func handleTaskOutput(
         _ info: SwiftBuildMessage.TaskCompleteInfo,
         _ startedInfo: SwiftBuildMessage.TaskStartedInfo,
-        _ enableTaskBacktraces: Bool
+        _ renderedBacktrace: String?
     ) throws {
         // Begin by emitting the text received by the task started event.
         if let started = self.buildState.startedInfo(for: startedInfo) {
@@ -130,7 +155,11 @@ public final class SwiftBuildSystemMessageHandler {
         }
 
         guard info.result == .success else {
-            emitFailedTaskOutput(info, startedInfo)
+            // Don't emit error output for tasks that were cancelled (e.g. collateral damage
+            // when another task failed and the build was aborted). These are not real errors.
+            if info.result != .cancelled {
+                emitFailedTaskOutput(info, startedInfo)
+            }
             return
         }
 
@@ -147,14 +176,8 @@ public final class SwiftBuildSystemMessageHandler {
         }
 
         // Handle task backtraces, if applicable.
-        if enableTaskBacktraces {
-            if let id = SWBBuildOperationBacktraceFrame.Identifier(taskSignatureData: Data(startedInfo.taskSignature.utf8)),
-               let backtrace = SWBTaskBacktrace(from: id, collectedFrames: buildState.collectedBacktraceFrames) {
-                let formattedBacktrace = backtrace.renderTextualRepresentation()
-                if !formattedBacktrace.isEmpty {
-                    self.observabilityScope.emit(info: "Task backtrace:\n\(formattedBacktrace)")
-                }
-            }
+        if let renderedBacktrace, !renderedBacktrace.isEmpty {
+            self.observabilityScope.emit(info: "Task backtrace:\n\(renderedBacktrace)")
         }
     }
 
@@ -207,6 +230,7 @@ public final class SwiftBuildSystemMessageHandler {
         guard !self.logLevel.isQuiet else { return callback }
         switch message {
         case .buildCompleted(let info):
+            self.traceEventsWriter?.close()
             progressAnimation.complete(success: info.result == .ok)
             if info.result == .cancelled {
                 callback = { [weak self] buildSystem in
@@ -218,17 +242,15 @@ public final class SwiftBuildSystemMessageHandler {
                 }
             }
         case .didUpdateProgress(let progressInfo):
-            let step = Int(progressInfo.percentComplete)
             let message = if let targetName = progressInfo.targetName {
-                "\(targetName) \(progressInfo.message)"
+                "[\(progressInfo.message)] \(targetName)"
             } else {
-                "\(progressInfo.message)"
+                "[\(progressInfo.message)]"
             }
 
             // Skip if message doesn't contain anything useful to display.
-            // TODO: To file an issue for SwiftBuild here.
-            if message.contains(where: \.isLetter) {
-                progressAnimation.update(step: step, total: 100, text: message)
+            if !message.isEmpty {
+                progressAnimation.update(step: -1, total: 100, text: message)
             }
 
             callback = { [weak self] buildSystem in
@@ -251,6 +273,7 @@ public final class SwiftBuildSystemMessageHandler {
             buildState.appendToBuffer(info)
         case .taskStarted(let info):
             try buildState.started(task: info, self.logLevel)
+            self.traceEventsWriter?.taskStarted(info)
 
             let targetInfo = try buildState.target(for: info)
             callback = { [weak self] buildSystem in
@@ -260,8 +283,18 @@ public final class SwiftBuildSystemMessageHandler {
         case .taskComplete(let info):
             let startedInfo = try buildState.completed(task: info)
 
+            let renderedBacktrace = self.enableBacktraces
+                ? self.renderTaskBacktrace(for: startedInfo)
+                : nil
+
+            traceEventsWriter?.taskCompleted(
+                info,
+                startedInfo: startedInfo,
+                backtrace: renderedBacktrace
+            )
+
             // Handler for task output, handling failures if applicable.
-            try self.handleTaskOutput(info, startedInfo, self.enableBacktraces)
+            try self.handleTaskOutput(info, startedInfo, renderedBacktrace)
 
             let targetInfo = try buildState.target(for: startedInfo)
             callback = { [weak self] buildSystem in

@@ -118,16 +118,21 @@ final class PluginDelegate: PluginInvocationDelegate {
     ) async throws -> PluginInvocationBuildResult {
         // Configure the build parameters.
         var buildParameters = try self.swiftCommandState.productsBuildParameters
+        var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
         switch parameters.configuration {
         case .debug:
             buildParameters.configuration = .debug
+            toolsBuildParameters.configuration = .debug
         case .release:
             buildParameters.configuration = .release
+            toolsBuildParameters.configuration = .release
         case .inherit:
             // The top level argument parser set buildParameters.configuration according to the
             // --configuration command line parameter.   We don't need to do anything to inherit it.
             break
         }
+        // FIXME: Not applying these to the toolsBuildParameters is inconsistent with the handling of
+        // -Xcc, -Xswiftc, etc. However, resolving that is known to break some existing plugins.
         buildParameters.flags.cCompilerFlags.append(contentsOf: parameters.otherCFlags.constructBuildFlags(source: .plugin))
         buildParameters.flags.cxxCompilerFlags.append(contentsOf: parameters.otherCxxFlags.constructBuildFlags(source: .plugin))
         buildParameters.flags.swiftCompilerFlags.append(contentsOf: parameters.otherSwiftcFlags.constructBuildFlags(source: .plugin))
@@ -173,6 +178,7 @@ final class PluginDelegate: PluginInvocationDelegate {
             explicitProduct: explicitProduct,
             cacheBuildManifest: false,
             productsBuildParameters: buildParameters,
+            toolsBuildParameters: toolsBuildParameters,
             outputStream: outputStream,
             logLevel: logLevel
         )
@@ -233,16 +239,19 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Clean out the code coverage directory that may contain stale `profraw` files from a previous run of
         // the code coverage tool.
         if parameters.enableCodeCoverage {
-            try swiftCommandState.fileSystem.removeFileTree(toolsBuildParameters.codeCovPath)
+            try swiftCommandState.fileSystem.removeFileTree(try await buildSystem.codeCovPath(for: toolsBuildParameters))
         }
 
         // Construct the environment we'll pass down to the tests.
+        let toolsVersion = try await swiftCommandState.getToolsVersion()
         let testEnvironment = try await TestingSupport.constructTestEnvironment(
             toolchain: toolchain,
             destinationBuildParameters: toolsBuildParameters,
             sanitizers: swiftCommandState.options.build.sanitizers,
             library: .xctest, // FIXME: support both libraries
-            testProductPaths: buildSystem.builtTestProducts.map(\.bundlePath)
+            testProductPaths: buildSystem.builtTestProducts.map(\.bundlePath),
+            interopMode: toolsVersion?.defaultInteropMode,
+            buildSystem: buildSystem
         )
 
         // Iterate over the tests and run those that match the filter.
@@ -250,13 +259,14 @@ final class PluginDelegate: PluginInvocationDelegate {
         var numFailedTests = 0
         for testProduct in await buildSystem.builtTestProducts {
             // Get the test suites in the bundle. Each is just a container for test cases.
-            let testSuites = try TestingSupport.getTestSuites(
+            let testSuites = try await TestingSupport.getTestSuites(
                 fromTestAt: testProduct.bundlePath,
                 swiftCommandState: swiftCommandState,
                 enableCodeCoverage: parameters.enableCodeCoverage,
                 shouldSkipBuilding: false,
                 experimentalTestOutput: false,
-                sanitizers: swiftCommandState.options.build.sanitizers
+                sanitizers: swiftCommandState.options.build.sanitizers,
+                buildSystem: buildSystem
             )
             for testSuite in testSuites {
                 // Each test suite is just a container for test cases (confusingly called "tests",
@@ -279,7 +289,7 @@ final class PluginDelegate: PluginInvocationDelegate {
                         // Configure a test runner.
                         let additionalArguments = TestRunner.xctestArguments(forTestSpecifiers: CollectionOfOne(testSpecifier))
                         let testRunner = TestRunner(
-                            bundlePaths: [testProduct.bundlePath],
+                            testProducts: [testProduct],
                             additionalArguments: additionalArguments,
                             cancellator: swiftCommandState.cancellator,
                             toolchain: toolchain,
@@ -326,12 +336,13 @@ final class PluginDelegate: PluginInvocationDelegate {
         let codeCoverageDataFile: AbsolutePath?
         if parameters.enableCodeCoverage {
             // Use `llvm-prof` to merge all the `.profraw` files into a single `.profdata` file.
-            let mergedCovFile = toolsBuildParameters.codeCovDataFile
-            let codeCovFileNames = try swiftCommandState.fileSystem.getDirectoryContents(toolsBuildParameters.codeCovPath)
+            let mergedCovFile = try await buildSystem.codeCovDataFile(for: toolsBuildParameters)
+            let codeCovPath = try await buildSystem.codeCovPath(for: toolsBuildParameters)
+            let codeCovFileNames = try swiftCommandState.fileSystem.getDirectoryContents(codeCovPath)
             var llvmProfCommand = [try toolchain.getLLVMProf().pathString]
             llvmProfCommand += ["merge", "-sparse"]
             for fileName in codeCovFileNames where fileName.hasSuffix(".profraw") {
-                let filePath = toolsBuildParameters.codeCovPath.appending(component: fileName)
+                let filePath = codeCovPath.appending(component: fileName)
                 llvmProfCommand.append(filePath.pathString)
             }
             llvmProfCommand += ["-o", mergedCovFile.pathString]
@@ -346,8 +357,8 @@ final class PluginDelegate: PluginInvocationDelegate {
             }
             // We get the output on stdout, and have to write it to a JSON ourselves.
             let jsonOutput = try await AsyncProcess.checkNonZeroExit(arguments: llvmCovCommand)
-            let jsonCovFile = toolsBuildParameters.codeCovDataFile.parentDirectory.appending(
-                component: toolsBuildParameters.codeCovDataFile.basenameWithoutExt + ".json"
+            let jsonCovFile = mergedCovFile.parentDirectory.appending(
+                component: mergedCovFile.basenameWithoutExt + ".json"
             )
             try swiftCommandState.fileSystem.writeFileContents(jsonCovFile, string: jsonOutput)
 
@@ -398,7 +409,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         let buildResult = try await buildSystem.build(subset: .target(targetName), buildOutputs: [.symbolGraph(options), .buildPlan])
 
         if let symbolGraph = buildResult.symbolGraph {
-            let path = (try swiftCommandState.productsBuildParameters.buildPath)
+            let path = try await buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)
             return PluginInvocationSymbolGraphResult(directoryPath: "\(path)/\(symbolGraph.outputLocationForTarget(targetName, try swiftCommandState.productsBuildParameters).joined(separator:"/"))")
         } else if let buildPlan = buildResult.buildPlan {
             func lookupDescription(

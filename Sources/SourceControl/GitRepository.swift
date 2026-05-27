@@ -14,6 +14,7 @@
 import Basics
 import Dispatch
 import class Foundation.NSLock
+import class Foundation.ProcessInfo
 
 import struct PackageModel.CanonicalPackageURL
 
@@ -48,8 +49,9 @@ private struct GitShellHelper {
         environment: Environment = .init(Git.environmentBlock),
         outputRedirection: AsyncProcess.OutputRedirection = .collect
     ) throws -> String {
+        let arguments = gitNetworkTimeoutOverrides(environment: environment) + args
         let process = AsyncProcess(
-            arguments: [Git.tool] + args,
+            arguments: [Git.tool] + arguments,
             environment: environment,
             outputRedirection: outputRedirection
         )
@@ -158,6 +160,37 @@ private struct GitShellHelper {
             throw GitLFSError.pullFailed(underlyingError: error)
         }
     }
+}
+
+/// HTTP transport timeouts that SwiftPM injects into every `git` invocation to
+/// time out connections to remotes that become unreachable during a checkout.
+/// Git defaults these values to 'unlimited', which means that without these overrides
+/// losing connection to a remote mid-checkout could cause the checkout to stall indefinitely.
+///
+/// Users who need different values should set `SWIFTPM_GIT_LOW_SPEED_TIMEOUTS_DISABLED=1`
+/// to suppress the injection entirely and then configure `http.lowSpeedLimit` / `http.lowSpeedTime`
+/// in their own `~/.gitconfig`, which `git` reads on every invocation.
+internal enum GitNetworkTimeoutDefaults {
+    static let lowSpeedLimitBytesPerSecond = 1024
+    static let lowSpeedTimeSeconds = 60
+}
+
+/// Returns `git -c key=value` argument pairs that bound the HTTP network
+/// operations of any subsequent `git` subcommand.
+///
+/// Returns an empty array when `SWIFTPM_GIT_LOW_SPEED_TIMEOUTS_DISABLED` is set to a
+/// truthy value (`1`, `true`, `yes`, `on`), restoring the historical
+/// "wait forever" behaviour for users who explicitly opt out.
+internal func gitNetworkTimeoutOverrides(environment: Environment) -> [String] {
+    if let raw = environment[ConfigurableEnvVar.SWIFTPM_GIT_LOW_SPEED_TIMEOUTS_DISABLED]?.lowercased(),
+       ["1", "true", "yes", "on"].contains(raw) {
+        return []
+    }
+
+    return [
+        "-c", "http.lowSpeedLimit=\(GitNetworkTimeoutDefaults.lowSpeedLimitBytesPerSecond)",
+        "-c", "http.lowSpeedTime=\(GitNetworkTimeoutDefaults.lowSpeedTimeSeconds)",
+    ]
 }
 
 // MARK: - GitRepositoryProvider

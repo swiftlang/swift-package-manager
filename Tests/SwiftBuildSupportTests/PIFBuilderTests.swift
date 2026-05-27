@@ -28,9 +28,10 @@ import Workspace
 extension PIFBuilderParameters {
     static func constructDefaultParametersForTesting(
         temporaryDirectory: Basics.AbsolutePath,
-        addLocalRpaths: Bool,
+        addLocalRpaths: PackagePIFBuilder.AddLocalRpaths,
         shouldCreateDylibForDynamicProducts: Bool = false,
-        pluginScriptRunner: PluginScriptRunner? = nil
+        pluginScriptRunner: PluginScriptRunner? = nil,
+        hostBuildProductsPath: Basics.AbsolutePath? = nil
     ) throws -> Self {
         try self.init(
             isPackageAccessModifierSupported: true,
@@ -49,16 +50,18 @@ extension PIFBuilderParameters {
             disableSandbox: false,
             pluginWorkingDirectory: temporaryDirectory.appending(component: "plugin-working-dir"),
             additionalFileRules: [],
-            addLocalRPaths: addLocalRpaths
+            addLocalRpaths: addLocalRpaths,
+            hostBuildProductsPath: hostBuildProductsPath ?? temporaryDirectory.appending(component: "host-build-products")
         )
     }
 }
 
 fileprivate func withGeneratedPIF(
     fromFixture fixtureName: String,
-    addLocalRpaths: Bool = true,
+    addLocalRpaths: PackagePIFBuilder.AddLocalRpaths = .always,
     shouldCreateDylibForDynamicProducts: Bool = true,
     buildParameters: BuildParameters? = nil,
+    hostBuildProductsPath: AbsolutePath? = nil,
     do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> ()
 ) async throws {
     let buildParameters = if let buildParameters {
@@ -88,13 +91,14 @@ fileprivate func withGeneratedPIF(
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: fixturePath,
                 addLocalRpaths: addLocalRpaths,
-                shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts
+                shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
+                hostBuildProductsPath: hostBuildProductsPath
             ),
             fileSystem: localFileSystem,
             observabilityScope: observabilitySystem.topScope
         )
-        let pif = try await builder.constructPIF(
-            buildParameters: buildParameters,
+        let (pif, _) = try await builder.constructPIF(
+            buildParameters: buildParameters
         )
         try await doIt(pif, observabilitySystem)
     }
@@ -377,15 +381,15 @@ struct PIFBuilderTests {
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: AbsolutePath.root.appending("tmp"),
-                addLocalRpaths: true,
+                addLocalRpaths: .always,
             ),
             fileSystem: fs,
             observabilityScope: observabilityScope.topScope,
         )
 
         // Act
-        let pif = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         // Assert
@@ -497,6 +501,30 @@ struct PIFBuilderTests {
                 $0.message.contains("found binary artifact")
             }
             #expect(binaryArtifactMessages.count > 0, "Expected to find binary artifact processing messages")
+        }
+    }
+
+    @Test func buildToolPluginCommandLineUsesHostBuildPath() async throws {
+        let hostBuildPath = AbsolutePath("/path/to/host/build")
+        let destBuildPath = AbsolutePath("/path/to/dest/build")
+        let destBuildParams = mockBuildParameters(
+            destination: .host,
+            buildPath: destBuildPath,
+            buildSystemKind: .swiftbuild
+        )
+
+        try await withGeneratedPIF(
+            fromFixture: "Miscellaneous/Plugins/MySourceGenPlugin",
+            buildParameters: destBuildParams,
+            hostBuildProductsPath: hostBuildPath
+        ) { pif, observabilitySystem in
+            let project = try pif.workspace.project(named: "MySourceGenPlugin")
+            let target = try project.target(named: "MyLocalTool-product")
+            for task in target.common.customTasks {
+                let commandLine = task.commandLine
+                #expect(commandLine.contains { $0.contains(hostBuildPath.pathString) })
+                #expect(!commandLine.contains { $0.contains(destBuildPath.pathString) })
+            }
         }
     }
 
@@ -651,11 +679,104 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test func moduleMapPathAndContents() async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/Library") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+
+            let releaseConfig = try pif.workspace
+                .project(named: "Library")
+                .target(named: "Library")
+                .buildConfig(named: .release)
+
+            let expectedPath = try RelativePath(validating: "$(GENERATED_MODULEMAP_DIR)/Library.modulemap").pathString
+            #expect(releaseConfig.settings[.MODULEMAP_PATH] == expectedPath)
+            #expect(releaseConfig.settings[.MODULEMAP_FILE_CONTENTS] == """
+            module Library {
+            header "Library-Swift.h"
+            export *
+            }
+            """)
+        }
+
+        try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+
+            let project = try pif.workspace.project(named: "ModuleMapGenerationCases")
+
+            do {
+                let releaseConfig = try project
+                    .target(named: "NoIncludeDir")
+                    .buildConfig(named: .release)
+
+                #expect(releaseConfig.settings[.MODULEMAP_PATH] == nil)
+                #expect(releaseConfig.settings[.MODULEMAP_FILE_CONTENTS] == nil)
+            }
+
+            do {
+                let releaseConfig = try project
+                    .target(named: "CustomModuleMap")
+                    .buildConfig(named: .release)
+
+                let path = try #require(releaseConfig.settings[.MODULEMAP_PATH])
+                #expect(path.hasSuffix(RelativePath("CustomModuleMap")
+                    .appending(components: ["include", "module.modulemap"]).pathString))
+                #expect(!path.contains("$(GENERATED_MODULEMAP_DIR)"))
+                #expect(releaseConfig.settings[.MODULEMAP_FILE_CONTENTS] == nil)
+            }
+
+            do {
+                let releaseConfig = try project
+                    .target(named: "UmbrellaHeader")
+                    .buildConfig(named: .release)
+
+                let expectedPath = try RelativePath(
+                    validating: "$(GENERATED_MODULEMAP_DIR)/UmbrellaHeader.modulemap"
+                ).pathString
+                #expect(releaseConfig.settings[.MODULEMAP_PATH] == expectedPath)
+
+                let contents = try #require(releaseConfig.settings[.MODULEMAP_FILE_CONTENTS])
+                #expect(contents.hasPrefix("module UmbrellaHeader {"))
+                #expect(contents.contains("umbrella header \""))
+                #expect(contents.contains(RelativePath("UmbrellaHeader")
+                    .appending(components: ["include", "UmbrellaHeader", "UmbrellaHeader.h"]).escapedPathString))
+                #expect(contents.contains("export *"))
+            }
+
+            do {
+                let releaseConfig = try project
+                    .target(named: "UmbrellaDirectoryInclude")
+                    .buildConfig(named: .release)
+
+                let expectedPath = try RelativePath(
+                    validating: "$(GENERATED_MODULEMAP_DIR)/UmbrellaDirectoryInclude.modulemap"
+                ).pathString
+                #expect(releaseConfig.settings[.MODULEMAP_PATH] == expectedPath)
+
+                let contents = try #require(releaseConfig.settings[.MODULEMAP_FILE_CONTENTS])
+                #expect(contents.hasPrefix("module UmbrellaDirectoryInclude {"))
+                #expect(contents.contains("umbrella \""))
+                #expect(!contents.contains("umbrella header"))
+                #expect(contents.contains(RelativePath("UmbrellaDirectoryInclude")
+                    .appending(component: "include").escapedPathString))
+                #expect(contents.contains("export *"))
+            }
+        }
+    }
+
     @Test func disablingLocalRpaths() async throws {
         try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple") { pif, observabilitySystem in
             #expect(observabilitySystem.diagnostics.filter {
                 $0.severity == .error
             }.isEmpty)
+
+            do {
+                let debugConfig = try pif.workspace
+                    .project(named: "Foo")
+                    .target(named: "Foo")
+                    .buildConfig(named: .debug)
+
+                #expect(debugConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == ["$(RPATH_ORIGIN)", "$(BUILT_PRODUCTS_DIR)/PackageFrameworks", "$(inherited)"])
+            }
 
             do {
                 let releaseConfig = try pif.workspace
@@ -667,10 +788,48 @@ struct PIFBuilderTests {
             }
         }
 
-        try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple", addLocalRpaths: false) { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple", addLocalRpaths: .never) { pif, observabilitySystem in
             #expect(observabilitySystem.diagnostics.filter {
                 $0.severity == .error
             }.isEmpty)
+
+            do {
+                let debugConfig = try pif.workspace
+                    .project(named: "Foo")
+                    .target(named: "Foo")
+                    .buildConfig(named: .debug)
+
+                #expect(debugConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == nil)
+            }
+
+            do {
+                let releaseConfig = try pif.workspace
+                    .project(named: "Foo")
+                    .target(named: "Foo")
+                    .buildConfig(named: .release)
+
+                #expect(releaseConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == nil)
+            }
+        }
+    }
+
+    @Test func debugOnlyLocalRpaths() async throws {
+        try await withGeneratedPIF(
+            fromFixture: "Miscellaneous/Simple",
+            addLocalRpaths: .debugOnly
+        ) { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter {
+                $0.severity == .error
+            }.isEmpty)
+
+            do {
+                let debugConfig = try pif.workspace
+                    .project(named: "Foo")
+                    .target(named: "Foo")
+                    .buildConfig(named: .debug)
+
+                #expect(debugConfig.impartedBuildProperties.settings[.LD_RUNPATH_SEARCH_PATHS] == ["$(RPATH_ORIGIN)", "$(BUILT_PRODUCTS_DIR)/PackageFrameworks", "$(inherited)"])
+            }
 
             do {
                 let releaseConfig = try pif.workspace
@@ -784,12 +943,12 @@ struct PIFBuilderTests {
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: AbsolutePath.root,
-                addLocalRpaths: true
+                addLocalRpaths: .always
             ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let pif = try await pifBuilder.constructPIF(
+        let (pif, _) = try await pifBuilder.constructPIF(
             buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
@@ -864,13 +1023,13 @@ struct PIFBuilderTests {
                     .buildConfig(named: configuration)
                 switch indexStoreSettingUT {
                     case .on, .off:
-                        #expect(targetConfig.settings[.SWIFT_INDEX_STORE_ENABLE] == nil)
+                        #expect(targetConfig.settings[.INDEX_ENABLE_DATA_STORE] == nil)
                     case .auto:
                         let expectedSwiftIndexStoreEnableValue: String? = switch configuration {
                             case .debug: "YES"
                             case .release: nil
                         }
-                        #expect(targetConfig.settings[.SWIFT_INDEX_STORE_ENABLE] == expectedSwiftIndexStoreEnableValue)
+                        #expect(targetConfig.settings[.INDEX_ENABLE_DATA_STORE] == expectedSwiftIndexStoreEnableValue)
                 }
 
                 let testTargetConfig = try pif.workspace
@@ -879,9 +1038,9 @@ struct PIFBuilderTests {
                     .buildConfig(named: configuration)
                 switch indexStoreSettingUT {
                     case .on, .off:
-                        #expect(testTargetConfig.settings[.SWIFT_INDEX_STORE_ENABLE] == nil)
+                        #expect(testTargetConfig.settings[.INDEX_ENABLE_DATA_STORE] == nil)
                     case .auto:
-                        #expect(testTargetConfig.settings[.SWIFT_INDEX_STORE_ENABLE] == "YES")
+                        #expect(testTargetConfig.settings[.INDEX_ENABLE_DATA_STORE] == "YES")
                 }
             }
         }
@@ -921,13 +1080,13 @@ struct PIFBuilderTests {
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: AbsolutePath.root.appending("tmp"),
-                addLocalRpaths: true
+                addLocalRpaths: .always
             ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
 
-        let pif = try await pifBuilder.constructPIF(
+        let (pif, _) = try await pifBuilder.constructPIF(
             buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
@@ -965,5 +1124,218 @@ struct PIFBuilderTests {
                 "Module ModuleC (not in dynamic library) should not have SWIFT_COMPILE_FOR_STATIC_LINKING on platform \(platform)"
             )
         }
+    }
+
+    @Test func macroPackageSupportedPlatforms() async throws {
+        try await withGeneratedPIF(fromFixture: "Macros/MinimalMacroPackage") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+            let project = try pif.workspace.project(named: "MinimalMacroPackage")
+            let projectPlatforms = try project.buildConfig(named: .debug).settings[.SUPPORTED_PLATFORMS]
+            #expect(projectPlatforms == ["$(AVAILABLE_PLATFORMS)"])
+            let targets = project.underlying.targets
+            for target in targets {
+                let id = target.common.id.value
+                let config = try target.buildConfig(named: .debug)
+                let platforms = config.settings[.SUPPORTED_PLATFORMS]
+                if id == "PACKAGE-TARGET:MacroImpl" {
+                    #expect(platforms == ["$(HOST_PLATFORM)"], "target \(id) did not have the expected supported platform setting")
+                } else {
+                    #expect(platforms == nil, "target \(id) has supported platforms set, unexpectedly")
+                }
+            }
+        }
+    }
+
+    @Test
+    func errorEmittedWhenTestTargetDependsOnAnotherTestTarget() async throws {
+        try await withGeneratedPIF(fromFixture: "TestTargetDependOnTestTarget") { pif, observabilitySystem in
+            let expectedErrors: Set = [
+                "PIF: Test target 'myOtherTestTarget' cannot depend on another test target 'leafTestTarget'",
+                "PIF: Test target 'myTestTarget' cannot depend on another test target 'leafTestTarget'",
+                "PIF: Test target 'myOtherTestTarget' cannot depend on another test target 'myTestTarget'",
+            ]
+            let actualDiags = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            let diagMsgs = Set(actualDiags.map { $0.message })
+
+            #expect(actualDiags.count == expectedErrors.count)
+            #expect(actualDiags.count == diagMsgs.count)
+            #expect(diagMsgs == expectedErrors)
+        }
+    }
+
+    @Test func mixedSourceTarget() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Pkg/Sources/lib/file1.swift",
+                "/Pkg/Sources/lib/file2.c"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    toolsVersion: try #require(ToolsVersion(string: "6.4.0", experimentalFeatures: [.experimentalMultiLang])),
+                    targets: [
+                        TargetDescription(name: "lib"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        #expect(observability.diagnostics.isEmpty)
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+
+        let project = try pif.workspace.project(named: "Pkg")
+        let lib = try project.target(named: "lib")
+
+        // Ensure both sources are included
+        let sourcesPhase: ProjectModel.SourcesBuildPhase = try #require(lib.common.buildPhases.compactMap({
+            guard case let .sources(sourcesBuildPhase) = $0 else {
+                return nil
+            }
+            return sourcesBuildPhase
+        }).only)
+
+        let sources: [Basics.AbsolutePath] = sourcesPhase.files.compactMap({
+            guard case .reference(id: let refId) = $0.ref else {
+                return nil
+            }
+            return try? project.underlying.mainGroup.findSource(ref: refId)
+        }).sorted()
+        let expected: [Basics.AbsolutePath] = [
+            "/Pkg/Sources/lib/file1.swift",
+            "/Pkg/Sources/lib/file2.c",
+        ]
+        #expect(sources == expected)
+     }
+
+    @Test func noHeaderMaps() async throws {
+        try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+            let project = try pif.workspace.project(named: "Foo")
+            for configName in [BuildConfiguration.debug, .release] {
+                #expect(
+                    try project.buildConfig(named: configName).settings[.USE_HEADERMAP] == "NO",
+                    "config: \(configName)"
+                )
+            }
+        }
+    }
+
+    @Test func symbolGraphExtractorBuildSettings() async throws {
+        try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+
+            // configureSourceModuleBuildSettings is called for every source module via the same
+            // delegate path, so verifying on representative C targets is sufficient coverage.
+            for targetName in ["UmbrellaHeader", "FlatInclude"] {
+                let config = try pif.workspace
+                    .project(named: "ModuleMapGenerationCases")
+                    .target(named: targetName)
+                    .buildConfig(named: .release)
+
+                let expectedDir = "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/\(targetName).symbolgraphs"
+                #expect(config.settings[.SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR] == expectedDir, "target: \(targetName)")
+                #expect(config.settings[.TAPI_EXTRACT_API_OUTPUT_DIR] == expectedDir, "target: \(targetName)")
+                #expect(config.settings[.DOCC_EXTRACT_PROJECT_HEADERS_DOCUMENTATION] == "YES", "target: \(targetName)")
+            }
+        }
+    }
+
+    @Test func cFamilyHeadersAddedToHeadersBuildPhase() async throws {
+        try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+
+            let project = try pif.workspace.project(named: "ModuleMapGenerationCases")
+
+            // UmbrellaHeader has include/UmbrellaHeader/UmbrellaHeader.h — expect a headers build phase
+            do {
+                let umbrellaTarget = try project.target(named: "UmbrellaHeader")
+                let umbrellaHeadersPhase: ProjectModel.HeadersBuildPhase = try #require(
+                    umbrellaTarget.common.buildPhases.compactMap({
+                        guard case let .headers(phase) = $0 else { return nil }
+                        return phase
+                    }).only,
+                    "Expected exactly one headers build phase for UmbrellaHeader"
+                )
+
+                let umbrellaHeaderPaths: [AbsolutePath] = umbrellaHeadersPhase.files.compactMap {
+                    guard case .reference(id: let refId) = $0.ref else { return nil }
+                    return try? project.underlying.mainGroup.findSource(ref: refId)
+                }.sorted()
+                #expect(umbrellaHeaderPaths.contains { $0.basename == "UmbrellaHeader.h" })
+                // nil headerVisibility means "project" visibility — what we set for symbol graph extraction
+                #expect(umbrellaHeadersPhase.files.allSatisfy { $0.headerVisibility == nil })
+            }
+
+            // FlatInclude has include/FlatIncludeHeader.h — expect a headers build phase
+            do {
+                let flatIncludeTarget = try project.target(named: "FlatInclude")
+                let flatIncludeHeadersPhase: ProjectModel.HeadersBuildPhase = try #require(
+                    flatIncludeTarget.common.buildPhases.compactMap({
+                        guard case let .headers(phase) = $0 else { return nil }
+                        return phase
+                    }).only,
+                    "Expected exactly one headers build phase for FlatInclude"
+                )
+
+                let flatIncludeHeaderPaths: [AbsolutePath] = flatIncludeHeadersPhase.files.compactMap {
+                    guard case .reference(id: let refId) = $0.ref else { return nil }
+                    return try? project.underlying.mainGroup.findSource(ref: refId)
+                }.sorted()
+                #expect(flatIncludeHeaderPaths.contains { $0.basename == "FlatIncludeHeader.h" })
+                #expect(flatIncludeHeadersPhase.files.allSatisfy { $0.headerVisibility == nil })
+            }
+
+            // NoIncludeDir has no header files — should have no headers build phase
+            do {
+                let noIncludeDirTarget = try project.target(named: "NoIncludeDir")
+                let noHeadersPhases = noIncludeDirTarget.common.buildPhases.filter {
+                    guard case .headers = $0 else { return false }
+                    return true
+                }
+                #expect(noHeadersPhases.isEmpty)
+            }
+        }
+    }
+}
+
+extension ProjectModel.Group {
+    func findSource(ref: GUID) throws -> Basics.AbsolutePath? {
+        for child in subitems {
+            switch child {
+            case .file(let file):
+                if file.id == ref {
+                    if let file = try? Basics.AbsolutePath(validating: file.path) {
+                        return file
+                    }
+                    guard self.pathBase == .absolute else {
+                        return nil
+                    }
+                    let groupPath = try Basics.AbsolutePath(validating: self.path)
+                    return groupPath.appending(file.path)
+                }
+            case .group(let group):
+                if let file = try group.findSource(ref: ref) {
+                    return file
+                }
+            }
+        }
+        return nil
     }
 }

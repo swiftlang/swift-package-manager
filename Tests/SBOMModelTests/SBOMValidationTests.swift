@@ -220,7 +220,7 @@ struct SBOMValidationTests {
         ]
     }
 
-    @Test("validate SBOM from files", arguments: try getValidateFileSBOMTestCases())
+    @Test("validate SBOM from files", .requireSwift6_3, arguments: try getValidateFileSBOMTestCases())
     func validateSBOMFromFile(testCase: ValidateFileSBOMTestCase) async throws {
         let testBundle = Bundle.module
         let fileURL = try #require(

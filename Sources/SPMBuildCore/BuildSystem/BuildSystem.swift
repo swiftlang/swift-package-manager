@@ -97,6 +97,9 @@ public protocol BuildSystem: Cancellable {
     var hasIntegratedAPIDigesterSupport: Bool { get }
 
     func generatePIF(preserveStructure: Bool) async throws -> String
+
+    /// The path to the build directory for the given build parameters.
+    func buildProductsPath(for parameters: BuildParameters) async throws -> AbsolutePath
 }
 
 extension BuildSystem {
@@ -104,6 +107,32 @@ extension BuildSystem {
     @discardableResult
     public func build() async throws -> BuildResult {
         try await build(subset: .allExcludingTests, buildOutputs: [])
+    }
+
+    /// The path to the index store directory for the given build parameters.
+    public func indexStore(for parameters: BuildParameters) async throws -> AbsolutePath {
+        assert(parameters.indexStoreMode != .off, "index store is disabled")
+        return try await buildProductsPath(for: parameters).appending(components: "index", "store")
+    }
+
+    /// The path to the code coverage directory for the given build parameters.
+    public func codeCovPath(for parameters: BuildParameters) async throws -> AbsolutePath {
+        try await buildProductsPath(for: parameters).appending("codecov")
+    }
+
+    /// The path to the code coverage profdata file for the given build parameters.
+    public func codeCovDataFile(for parameters: BuildParameters) async throws -> AbsolutePath {
+        try await codeCovPath(for: parameters).appending("default.profdata")
+    }
+
+    /// The path to the test output file for the given build parameters.
+    public func testOutputPath(for parameters: BuildParameters) async throws -> AbsolutePath {
+        try await buildProductsPath(for: parameters).appending(component: "testOutput.txt")
+    }
+
+    /// Returns the path to the binary of a product for the given build parameters.
+    public func binaryPath(for product: ResolvedProduct, parameters: BuildParameters) async throws -> AbsolutePath {
+        try await buildProductsPath(for: parameters).appending(parameters.binaryRelativePath(for: product))
     }
 }
 
@@ -156,13 +185,17 @@ public protocol ProductBuildDescription {
 
     /// The build parameters.
     var buildParameters: BuildParameters { get }
+
+    /// The build products directory — the path under which built binaries, libraries, and other
+    /// products are placed for the corresponding build system/parameters.
+    var productsPath: AbsolutePath { get }
 }
 
 extension ProductBuildDescription {
     /// The path to the product binary produced.
     public var binaryPath: AbsolutePath {
         get throws {
-            try self.buildParameters.binaryPath(for: product)
+            try self.productsPath.appending(self.buildParameters.binaryRelativePath(for: product))
         }
     }
 }
@@ -227,9 +260,9 @@ public struct BuildSystemProvider {
 
         public var defaultValueDescription: String {
             switch self {
-                case .native: "Native Build System"
-                case .swiftbuild: "Swift Build build engine (preview; recommended for feedback and testing.  Report issues at https://github.com/swiftlang/swift-package-manager/issues)"
-                case .xcode: "Xcode build system integration (discouraged)"
+                case .native: "Native Build System (deprecated)"
+                case .swiftbuild: "Swift Build build engine (default)"
+                case .xcode: "Xcode build system integration (deprecated)"
             }
         }
     }

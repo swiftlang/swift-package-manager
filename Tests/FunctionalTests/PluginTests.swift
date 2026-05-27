@@ -1682,4 +1682,25 @@ struct PluginTests {
             #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
+
+    @Test(
+        .IssueWindowsLongPath,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testCommandPluginBuildingPackageUsingBuildToolPlugin(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue("Windows builds encounter long path handling issues", isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/Plugins/CommandPluginBuildingBuildToolPlugin") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftPackage(
+                    fixturePath,
+                    extraArgs: ["plugin", "build-release"],
+                    buildSystem: buildSystem,
+                )
+                #expect(stdout.contains("Built successfully"))
+            }
+        } when: {
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
+        }
+    }
 }

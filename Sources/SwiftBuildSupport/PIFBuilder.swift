@@ -25,6 +25,11 @@ import var TSCBasic.stdoutStream
 
 import enum SwiftBuild.ProjectModel
 
+public struct PIFGenerationResult {
+    public var pif: String
+    public var accompanyingMetadata: [PackagePIFBuilder.ModuleOrProduct]
+}
+
 fileprivate func memoize<T>(to cache: inout T?, build: () async throws -> T) async rethrows -> T {
     if let value = cache {
         return value
@@ -76,9 +81,13 @@ package struct PIFBuilderParameters {
     /// Add rpaths which allow loading libraries adjacent to the current image at runtime. This is desirable
     /// when launching build products from the build directory, but should often be disabled when deploying
     /// the build products to a different location.
-    let addLocalRpaths: Bool
+    let addLocalRpaths: PackagePIFBuilder.AddLocalRpaths
 
-    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRPaths: Bool) {
+    /// The directory in which host-destination build products (e.g. plugin tools) are placed, as
+    /// reported by the build system for the host `BuildParameters`.
+    let hostBuildProductsPath: AbsolutePath
+
+    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRpaths: PackagePIFBuilder.AddLocalRpaths, hostBuildProductsPath: AbsolutePath) {
         self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
         self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
@@ -91,7 +100,8 @@ package struct PIFBuilderParameters {
         self.disableSandbox = disableSandbox
         self.pluginWorkingDirectory = pluginWorkingDirectory
         self.additionalFileRules = additionalFileRules
-        self.addLocalRpaths = addLocalRPaths
+        self.addLocalRpaths = addLocalRpaths
+        self.hostBuildProductsPath = hostBuildProductsPath
     }
 }
 
@@ -152,14 +162,14 @@ public final class PIFBuilder {
         preservePIFModelStructure: Bool = false,
         printPIFManifestGraphviz: Bool = false,
         buildParameters: BuildParameters
-    ) async throws -> String {
+    ) async throws -> PIFGenerationResult {
         let encoder = prettyPrint ? JSONEncoder.makeWithDefaults() : JSONEncoder()
 
         if !preservePIFModelStructure {
             encoder.userInfo[.encodeForSwiftBuild] = true
         }
 
-        let topLevelObject = try await self.constructPIF(buildParameters: buildParameters)
+        let (topLevelObject, modulesAndProducts) = try await self.constructPIF(buildParameters: buildParameters)
 
         // Sign the PIF objects before encoding it for Swift Build.
         try PIF.sign(workspace: topLevelObject.workspace)
@@ -177,10 +187,14 @@ public final class PIFBuilder {
             throw PIFGenerationError.printedPIFManifestGraphviz
         }
 
-        return pifString
+        if self.observabilityScope.errorsReported {
+            throw PIFGenerationError.errorDiagnosticsReported
+        }
+
+        return PIFGenerationResult(pif: pifString, accompanyingMetadata: modulesAndProducts)
     }
 
-    private var cachedPIF: PIF.TopLevelObject?
+    private var cachedPIF: (PIF.TopLevelObject, [PackagePIFBuilder.ModuleOrProduct])?
 
     /// Compute the available build tools, and their destination build path for host for each plugin.
     private func availableBuildPluginTools(
@@ -200,7 +214,7 @@ public final class PIFBuilder {
                     environment: buildParameters.buildEnvironment,
                     for: hostTriple
                 ) { name, path in
-                    return buildParameters.buildPath.appending(path)
+                    return self.parameters.hostBuildProductsPath.appending(path)
                 }
 
                 accessibleToolsPerPlugin[plugin.id] = accessibleTools
@@ -342,6 +356,11 @@ public final class PIFBuilder {
                         diagnosticsEmitter.emit(diag)
                     }
 
+                    guard result.succeeded else {
+                        observabilityScope.emit(error: "build planning stopped due to build-tool plugin failures")
+                        throw Diagnostics.fatalError
+                    }
+
                     prebuildCommands.append(contentsOf: result.prebuildCommands)
 
                     buildCommands.append(contentsOf: result.buildCommands.map( { buildCommand in
@@ -433,7 +452,7 @@ public final class PIFBuilder {
                 packageDisplayVersion: package.manifest.displayName,
                 pkgConfigDirectories: self.parameters.pkgConfigDirectories,
                 fileSystem: self.fileSystem,
-                observabilityScope: self.observabilityScope
+                observabilityScope: self.observabilityScope,
             )
 
             packagesAndBuilders.append((package, packagePIFBuilder, packagePIFBuilderDelegate))
@@ -445,7 +464,7 @@ public final class PIFBuilder {
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
     package func constructPIF(
         buildParameters: BuildParameters
-    ) async throws -> PIF.TopLevelObject {
+    ) async throws -> (PIF.TopLevelObject, [PackagePIFBuilder.ModuleOrProduct]) {
         return try await memoize(to: &self.cachedPIF) {
             let rootPackages = self.graph.rootPackages
             guard !rootPackages.isEmpty else {
@@ -454,8 +473,10 @@ public final class PIFBuilder {
 
             let packagesAndPIFBuilders = try await makePIFBuilders(buildParameters: buildParameters)
 
+            var modulesAndProducts: [PackagePIFBuilder.ModuleOrProduct] = []
             let packagesAndPIFProjects = try packagesAndPIFBuilders.map { (package, pifBuilder, _) in
-                try pifBuilder.build()
+                let builtModulesAndProducts = try pifBuilder.build()
+                modulesAndProducts.append(contentsOf: builtModulesAndProducts)
                 let pifProject: ProjectModel.Project = pifBuilder.pifProject
                 return (package, pifProject)
             }
@@ -480,7 +501,7 @@ public final class PIFBuilder {
                 path: try getCommonParentDirectory(paths: rootPackagesPaths),
                 projects: pifProjects
             )
-            return PIF.TopLevelObject(workspace: workspace)
+            return (PIF.TopLevelObject(workspace: workspace), modulesAndProducts)
         }
     }
 
@@ -552,10 +573,11 @@ public final class PIFBuilder {
         pluginWorkingDirectory: AbsolutePath,
         pkgConfigDirectories: [Basics.AbsolutePath],
         additionalFileRules: [FileRuleDescription],
-        addLocalRpaths: Bool,
+        addLocalRpaths: PackagePIFBuilder.AddLocalRpaths,
         materializeStaticArchiveProductsForRootPackages: Bool,
-        createDynamicVariantsForLibraryProducts: Bool
-    ) async throws -> String {
+        createDynamicVariantsForLibraryProducts: Bool,
+        hostBuildProductsPath: AbsolutePath
+    ) async throws -> PIFGenerationResult {
         let parameters = PIFBuilderParameters(
             buildParameters,
             supportedSwiftVersions: [],
@@ -565,8 +587,8 @@ public final class PIFBuilder {
             additionalFileRules: additionalFileRules,
             addLocalRpaths: addLocalRpaths,
             materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
-            createDynamicVariantsForLibraryProducts: createDynamicVariantsForLibraryProducts
-
+            createDynamicVariantsForLibraryProducts: createDynamicVariantsForLibraryProducts,
+            hostBuildProductsPath: hostBuildProductsPath
         )
         let builder = Self(
             graph: packageGraph,
@@ -662,14 +684,26 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     }
 
     func configureSourceModuleBuildSettings(sourceModule: ResolvedModule, settings: inout ProjectModel.BuildSettings) {
-        settings[.SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR] = "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/\(sourceModule.name).symbolgraphs"
+        let symbolGraphOutputDir = "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/\(sourceModule.name).symbolgraphs"
+        settings[.SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR] = symbolGraphOutputDir
+        // C/ObjC symbol graphs default to $(SYMBOL_GRAPH_EXTRACTOR_OUTPUT_BASE)/clang/$(triple) — a different
+        // base var — so override to match the Swift output directory.
+        settings[.TAPI_EXTRACT_API_OUTPUT_DIR] = symbolGraphOutputDir
+        // We currently put the C/ObjC headers under project documentation for the sole purpose of symbol graph generation.
+        // So, we instruct the documentation compiler to extract the project documentation for this purpose until such time
+        // that the public headers can be listed as public in the PIF.
+        settings[.DOCC_EXTRACT_PROJECT_HEADERS_DOCUMENTATION] = "YES"
     }
 
     func customInstallPath(product: PackageModel.Product) -> String? {
         nil
     }
 
-    func customExecutableName(product: PackageModel.Product) -> String? {
+    func customProductName(forFramework product: PackageModel.Product) -> String? {
+        nil
+    }
+
+    func customBundleIdentifierPrefix(forFramework product: PackageModel.Product) -> String? {
         nil
     }
 
@@ -834,6 +868,9 @@ public enum PIFGenerationError: Error {
 
     /// Early build termination when using `--print-pif-manifest-graph`.
     case printedPIFManifestGraphviz
+
+    /// One or more error diagnostics were reported during PIF generation.
+    case errorDiagnosticsReported
 }
 
 extension PIFGenerationError: CustomStringConvertible {
@@ -852,6 +889,9 @@ extension PIFGenerationError: CustomStringConvertible {
 
         case .printedPIFManifestGraphviz:
             "Printed PIF manifest as graphviz"
+
+        case .errorDiagnosticsReported:
+            "Errors reported during PIF building"
         }
     }
 }
@@ -866,9 +906,10 @@ extension PIFBuilderParameters {
         disableSandbox: Bool,
         pluginWorkingDirectory: AbsolutePath,
         additionalFileRules: [FileRuleDescription],
-        addLocalRpaths: Bool,
+        addLocalRpaths: PackagePIFBuilder.AddLocalRpaths,
         materializeStaticArchiveProductsForRootPackages: Bool,
-        createDynamicVariantsForLibraryProducts: Bool
+        createDynamicVariantsForLibraryProducts: Bool,
+        hostBuildProductsPath: AbsolutePath
     ) {
         self.init(
             isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
@@ -883,7 +924,8 @@ extension PIFBuilderParameters {
             disableSandbox: disableSandbox,
             pluginWorkingDirectory: pluginWorkingDirectory,
             additionalFileRules: additionalFileRules,
-            addLocalRPaths: addLocalRpaths,
+            addLocalRpaths: addLocalRpaths,
+            hostBuildProductsPath: hostBuildProductsPath
         )
     }
 }

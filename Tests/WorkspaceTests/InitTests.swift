@@ -382,7 +382,7 @@ struct InitTests {
                 let manifestContents: String = try localFileSystem.readFileContents(manifest)
                 #expect(!manifestContents.contains(#".testTarget"#))
 
-                expectFileDoesNotExists(at: path.appending("Tests"))
+                expectFileDoesNotExist(at: path.appending("Tests"))
 
     #if canImport(TestingDisabled)
                 // Try building it
@@ -455,17 +455,18 @@ struct InitTests {
                 .Feature.Command.Build,
             ),
             arguments: SupportedBuildSystemOnAllPlatforms,
+            // arguments: [BuildSystemProvider.Kind.swiftbuild],
         )
         func nonC99NameExecutablePackage(
             buildSystem: BuildSystemProvider.Kind,
         ) async throws {
             let configuration = BuildConfiguration.debug
             try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDirPath in
-                expectDirectoryExists(at: tempDirPath)
+                try requireDirectoryExists(at: tempDirPath)
 
-                let packageRoot = tempDirPath.appending("Foo")
+                let packageRoot = tempDirPath.appending("PackageDirectoryName")
                 try localFileSystem.createDirectory(packageRoot)
-                expectDirectoryExists(at: packageRoot)
+                try requireDirectoryExists(at: packageRoot)
 
                 // Create package with non c99name.
                 let initPackage = try InitPackage(

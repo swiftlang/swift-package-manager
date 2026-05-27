@@ -67,6 +67,10 @@ extension Triple {
         os == .freebsd
     }
 
+    public func isNoneOS() -> Bool {
+        os == .noneOS
+    }
+
     /// Returns the triple string for the given platform version.
     ///
     /// This is currently meant for Apple platforms only.

@@ -85,39 +85,14 @@ public final class SwiftSDKConfigurationStore {
         try encoder.encode(path: configurationPath, fileSystem: fileSystem, properties)
     }
 
-    private func swiftSDKs(for id: String) throws -> [SwiftSDK] {
-        for bundle in try self.swiftSDKBundleStore.allValidBundles {
-            for (artifactID, variants) in bundle.artifacts {
-                guard artifactID == id else {
-                    continue
-                }
-
-                for variant in variants {
-                    return variant.swiftSDKs
-                }
-            }
-        }
-
-        return []
-    }
-
     public func readConfiguration(
         sdkID: String,
-        targetTriple: Triple
-    ) throws -> SwiftSDK? {
+        sdk: inout SwiftSDK
+    ) throws -> SwiftSDK {
+        let targetTriple = sdk.targetTriple!
         let configurationPath = configurationDirectoryPath.appending(
             component: "\(sdkID)_\(targetTriple.tripleString).json"
         )
-
-        let swiftSDKs = try self.swiftSDKBundleStore.allValidBundles
-
-        guard var swiftSDK = swiftSDKs.selectSwiftSDK(
-            id: sdkID,
-            hostTriple: nil,
-            targetTriple: targetTriple
-        ) else {
-            return nil
-        }
 
         if fileSystem.isFile(configurationPath) {
             let properties = try decoder.decode(
@@ -126,7 +101,7 @@ public final class SwiftSDKConfigurationStore {
                 as: SwiftSDKMetadataV4.TripleProperties.self
             )
 
-            swiftSDK.pathsConfiguration.merge(
+            sdk.pathsConfiguration.merge(
                 with: try SwiftSDK(
                     targetTriple: targetTriple,
                     properties: properties
@@ -134,7 +109,7 @@ public final class SwiftSDKConfigurationStore {
             )
         }
 
-        return swiftSDK
+        return sdk
     }
 
     /// Resets configuration for identified target triple.
@@ -173,33 +148,34 @@ public final class SwiftSDKConfigurationStore {
         resetConfiguration: Bool,
         config: SwiftSDK.PathsConfiguration<String>
     ) throws -> Bool {
-        let targetTriples: [Triple]
-        if let targetTriple = targetTriple {
-            targetTriples = try [Triple(targetTriple)]
+        var sdks: [SwiftSDK] = []
+        var tripleForError: Triple?
+        let bundles = try self.swiftSDKBundleStore.allValidBundles
+        if let targetTripleString = targetTriple {
+            let target = try Triple(targetTripleString)
+            tripleForError = target
+            if let sdk = bundles.selectSwiftSDK(id: sdkID,
+                                                hostTriple: hostTriple,
+                                                targetTriple: target)
+            {
+                sdks = [sdk]
+            }
         } else {
             // when `targetTriple` is unspecified, configure every triple for the SDK
-            let validBundles = try self.swiftSDKs(for: sdkID)
-            targetTriples = validBundles.compactMap(\.targetTriple)
-            if targetTriples.isEmpty {
-                throw SwiftSDKError.swiftSDKNotFound(
-                    artifactID: sdkID,
-                    hostTriple: hostTriple,
-                    targetTriple: nil
-                )
-            }
+            sdks = bundles.selectSwiftSDK(matching: sdkID, hostTriple: hostTriple).idMatches
         }
 
-        for targetTriple in targetTriples {
-            guard let swiftSDK = try self.readConfiguration(
-                sdkID: sdkID,
-                targetTriple: targetTriple
-            ) else {
-                throw SwiftSDKError.swiftSDKNotFound(
-                    artifactID: sdkID,
-                    hostTriple: hostTriple,
-                    targetTriple: targetTriple
-                )
-            }
+        if sdks.isEmpty {
+            throw SwiftSDKError.swiftSDKNotFound(
+                artifactID: sdkID,
+                hostTriple: hostTriple,
+                targetTriple: tripleForError
+            )
+        }
+
+        for index in sdks.indices {
+            let swiftSDK = try self.readConfiguration(sdkID: sdkID, sdk: &sdks[index])
+            let targetTriple = swiftSDK.targetTriple!
 
             if showConfiguration {
                 print(swiftSDK.pathsConfiguration)

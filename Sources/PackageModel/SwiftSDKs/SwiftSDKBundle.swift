@@ -53,7 +53,7 @@ extension [SwiftSDKBundle] {
     ///   - hostTriple: triple of the machine on which the Swift SDK is building.
     ///   - targetTriple: triple of the machine for which the Swift SDK is building.
     /// - Returns: ``SwiftSDK`` value with a given artifact ID, `nil` if none found.
-    public func selectSwiftSDK(id: String, hostTriple: Triple?, targetTriple: Triple) -> SwiftSDK? {
+    public func selectSwiftSDK(id: String, hostTriple: Triple, targetTriple: Triple) -> SwiftSDK? {
         for bundle in self {
             for (artifactID, variants) in bundle.artifacts {
                 guard artifactID == id else {
@@ -61,13 +61,11 @@ extension [SwiftSDKBundle] {
                 }
 
                 for variant in variants {
-                    if let hostTriple {
-                        guard variant.isSupporting(hostTriple: hostTriple) else {
-                            continue
-                        }
+                    guard variant.isSupporting(hostTriple: hostTriple) else {
+                        continue
                     }
 
-                    return variant.swiftSDKs.first { $0.targetTriple == targetTriple }
+                    return variant.swiftSDKs.first { $0.targetTriple?.tripleString == targetTriple.tripleString }
                 }
             }
         }
@@ -79,15 +77,14 @@ extension [SwiftSDKBundle] {
     /// - Parameters:
     ///   - selector: either an artifact ID or target triple to filter with.
     ///   - hostTriple: triple of the host building with these Swift SDKs.
-    ///   - observabilityScope: observability scope to log warnings about multiple matches.
-    /// - Returns: ``SwiftSDK`` value matching `query` either by artifact ID or target triple, `nil` if none found.
+    /// - Returns: a tuple containing all `selector` matches to the artifact ID or target triple,
+    ///            including the corresponding artifact ID for each target triple matched
     func selectSwiftSDK(
         matching selector: String,
-        hostTriple: Triple,
-        observabilityScope: ObservabilityScope
-    ) -> SwiftSDK? {
-        var matchedByID: (path: AbsolutePath, variant: SwiftSDKBundle.Variant, swiftSDK: SwiftSDK)?
-        var matchedByTriple: (path: AbsolutePath, variant: SwiftSDKBundle.Variant, swiftSDK: SwiftSDK)?
+        hostTriple: Triple
+    ) -> (idMatches: [SwiftSDK], tripleMatches: [String: SwiftSDK]) {
+        var idHits: [SwiftSDK] = []
+        var tripleHits: [String: SwiftSDK] = [:]
 
         for bundle in self {
             for (artifactID, variants) in bundle.artifacts {
@@ -95,56 +92,22 @@ extension [SwiftSDKBundle] {
                     guard variant.isSupporting(hostTriple: hostTriple) else { continue }
 
                     for swiftSDK in variant.swiftSDKs {
+                        // All artifact IDs are checked by installIfValid() to be
+                        // unique, but the selected ID must only have one target triple,
+                        // in this method where no target triple is specified with the ID.
                         if artifactID == selector {
-                            if let matchedByID {
-                                observabilityScope.emit(
-                                    warning:
-                                    """
-                                    multiple Swift SDKs match ID `\(artifactID)` and host triple \(
-                                        hostTriple.tripleString
-                                    ), selected one at \(
-                                        matchedByID.path.appending(matchedByID.variant.metadata.path)
-                                    )
-                                    """
-                                )
-                            } else {
-                                matchedByID = (bundle.path, variant, swiftSDK)
-                            }
+                            idHits.append(swiftSDK)
                         }
-
+                        // Multiple SDKs can vend the same triple, so list them all and
+                        // return the corresponding artifact ID also.
                         if swiftSDK.targetTriple?.tripleString == selector {
-                            if let matchedByTriple {
-                                observabilityScope.emit(
-                                    warning:
-                                    """
-                                    multiple Swift SDKs match target triple `\(selector)` and host triple \(
-                                        hostTriple.tripleString
-                                    ), selected one at \(
-                                        matchedByTriple.path.appending(matchedByTriple.variant.metadata.path)
-                                    )
-                                    """
-                                )
-                            } else {
-                                matchedByTriple = (bundle.path, variant, swiftSDK)
-                            }
+                            tripleHits[artifactID] = swiftSDK
                         }
                     }
                 }
             }
         }
-
-        if let matchedByID, let matchedByTriple, matchedByID != matchedByTriple {
-            observabilityScope.emit(
-                warning:
-                """
-                multiple Swift SDKs match the query `\(selector)` and host triple \(
-                    hostTriple.tripleString
-                ), selected one at \(matchedByID.path.appending(matchedByID.variant.metadata.path))
-                """
-            )
-        }
-
-        return matchedByID?.swiftSDK ?? matchedByTriple?.swiftSDK
+        return (idMatches: idHits, tripleMatches: tripleHits)
     }
 
     public var sortedArtifactIDs: [String] {

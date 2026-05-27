@@ -24,7 +24,6 @@ import enum PackageModel.BuildConfiguration
 import class Basics.AsyncProcess
 
 @Suite(
-    .serialized, // to limit the number of swift executable running.
     .tags(
         Tag.TestSize.large,
         Tag.Feature.Command.Run,
@@ -47,7 +46,7 @@ struct RunCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func usage(
         buildSystem: BuildSystemProvider.Kind
@@ -58,7 +57,7 @@ struct RunCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func seeAlso(
         buildSystem: BuildSystemProvider.Kind
@@ -68,7 +67,7 @@ struct RunCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func commandDoesNotEmitDuplicateSymbols(
         buildSystem: BuildSystemProvider.Kind,
@@ -80,7 +79,7 @@ struct RunCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func version(
         buildSystem: BuildSystemProvider.Kind,
@@ -136,6 +135,48 @@ struct RunCommandTests {
     }
 
     @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms, [
+            (
+                fixtureNameUT: "ProductNameDifferentCase",
+                productUT: "myproduct",
+                expectedOutput: "Hello, world. with main.swift inline as a script",
+            ),
+            (
+                fixtureNameUT: "ProductNameDifferentCase",
+                productUT: "myProduct",
+                expectedOutput: "Hello, world with @main",
+            ),
+            (
+                fixtureNameUT: "ProductNameDifferentCase",
+                productUT: "Myproduct",
+                expectedOutput: "Hello, world with main function",
+            ),
+        ],
+    )
+    func testPackageHasMultipleProductsWithSameNameButDifferentCaseSensitivity(
+        buildSystem: BuildSystemProvider.Kind,
+        data: (fixtureNameUT: String, productUT: String, expectedOutput: String),
+    ) async throws {
+        try await withKnownIssue {
+            try await fixture(name: data.fixtureNameUT) { fixturePath in
+                let (stdout, _) = try await executeSwiftRun(
+                    fixturePath,
+                    data.productUT,
+                    buildSystem: buildSystem,
+                )
+
+                #expect(stdout.contains(data.expectedOutput))
+            }
+        } when: {
+            #if compiler(>=6.3)
+            false
+            #else
+            ProcessInfo.hostOperatingSystem == .windows
+            #endif
+        }
+    }
+
+    @Test(
          .tags(
             .Feature.TargetType.Executable,
         ),
@@ -173,7 +214,7 @@ struct RunCommandTests {
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8279"),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func unknownProductRaisesAnError(
         buildSystem: BuildSystemProvider.Kind,
@@ -202,7 +243,7 @@ struct RunCommandTests {
         ),
         .SWBINTTODO("Swift run using Swift Build does not output executable content to the terminal"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8279"),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func multipleExecutableAndExplicitExecutable(
         buildSystem: BuildSystemProvider.Kind,
@@ -241,7 +282,7 @@ struct RunCommandTests {
         ),
         .IssueWindowsPathTestsFailures,
         .IssueWindowsRelativePathAssert,
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func unreachableExecutable(
         buildSystem: BuildSystemProvider.Kind,
@@ -261,7 +302,7 @@ struct RunCommandTests {
         .tags(
             .Feature.TargetType.Executable,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func fileDeprecation(
         buildSystem: BuildSystemProvider.Kind,
@@ -285,7 +326,7 @@ struct RunCommandTests {
             .Feature.CommandLineArguments.BuildTests,
             .Feature.CommandLineArguments.SkipBuild
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func mutualExclusiveFlags(
         buildSystem: BuildSystemProvider.Kind,
@@ -310,7 +351,7 @@ struct RunCommandTests {
         .tags(
             .Feature.TargetType.Executable,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func swiftRunSIGINT(
         buildSystem: BuildSystemProvider.Kind,
@@ -417,7 +458,7 @@ struct RunCommandTests {
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8844", relationship: .verifies),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8911", relationship: .defect),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8912", relationship: .defect),
-        arguments: SupportedBuildSystemOnPlatform, BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func swiftRunQuietLogLevel(
         buildSystem: BuildSystemProvider.Kind,
@@ -446,7 +487,7 @@ struct RunCommandTests {
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8844"),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func swiftRunQuietLogLevelWithError(
         buildSystem: BuildSystemProvider.Kind,

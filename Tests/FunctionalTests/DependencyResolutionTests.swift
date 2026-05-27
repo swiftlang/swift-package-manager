@@ -61,27 +61,24 @@ struct DependencyResolutionTests {
     }
 
     @Test(
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/8984", relationship: .defect),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8984", relationship: .verifies),
         .tags(
             Tag.Feature.Command.Build,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func internalExecAsDep(
-        buildSystem: BuildSystemProvider.Kind,
+        buildData: BuildData,
     ) async throws {
-        let configuration = BuildConfiguration.debug
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await fixture(name: "DependencyResolution/Internal/InternalExecutableAsDependency") { fixturePath in
-            await withKnownIssue(isIntermittent: true) {
-                await #expect(throws: (any Error).self) {
-                    try await executeSwiftBuild(
-                        fixturePath,
-                        configuration: configuration,
-                        buildSystem: buildSystem,
-                    )
-                }
-            } when: {
-                configuration == .release && buildSystem == .swiftbuild // an error is not raised.
+            await #expect(throws: (any Error).self) {
+                try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
             }
         }
     }

@@ -41,6 +41,13 @@ public struct TraitDescription: Sendable, Hashable, Codable, ExpressibleByString
     public init(stringLiteral value: StringLiteralType) {
         self.init(name: value)
     }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(name, forKey: .name)
+        try container.encodeIfPresent(description, forKey: .description)
+        try container.encode(enabledTraits.sorted(), forKey: .enabledTraits)
+    }
 }
 
 extension TraitDescription {

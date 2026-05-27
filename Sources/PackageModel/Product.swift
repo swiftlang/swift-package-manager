@@ -110,7 +110,7 @@ public enum ProductType: Equatable, Hashable, Sendable {
     /// An executable code snippet.
     case snippet
 
-    /// An plugin product.
+    /// A plugin product.
     case plugin
 
     /// A test product.
