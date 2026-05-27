@@ -627,12 +627,8 @@ public final class PIFBuilder {
             metadata.moduleName = module.name
             return metadata
         }
-        var warning =
-            "found \(unhandledFiles.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
-        for file in unhandledFiles {
-            warning += "    " + file.pathString + "\n"
-        }
-        diagnosticsEmitter.emit(warning: warning)
+        
+        diagnosticsEmitter.emit(.unhandledFiles(unhandledFiles))
     }
 }
 
@@ -927,5 +923,16 @@ extension PIFBuilderParameters {
             addLocalRpaths: addLocalRpaths,
             hostBuildProductsPath: hostBuildProductsPath
         )
+    }
+}
+
+extension Basics.Diagnostic {
+    public static func unhandledFiles(_ files: Set<AbsolutePath>) -> Self {
+        var message =
+            "found \(files.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
+        for file in files {
+            message += "    " + file.pathString + "\n"
+        }
+        return .warning(message)
     }
 }

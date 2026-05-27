@@ -79,16 +79,12 @@ struct PluginTests {
     func testUseOfBuildToolPluginTargetNoPreBuildCommands(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue(isIntermittent: true) {
-            try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginNoPreBuildCommands") { fixturePath in
-                let (_, stderr) = try await executeSwiftTest(
-                    fixturePath,
-                    buildSystem: buildSystem,
-                )
-                #expect(stderr.contains("file(s) which are unhandled; explicitly declare them as resources or exclude from the target"), "expected warning not emitted")
-            }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && CiEnvironment.runningInSelfHostedPipeline && buildSystem == .native
+        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginNoPreBuildCommands") { fixturePath in
+            let (_, stderr) = try await executeSwiftTest(
+                fixturePath,
+                buildSystem: buildSystem,
+            )
+            #expect(stderr.contains("file(s) which are unhandled; explicitly declare them as resources or exclude from the target"), "expected warning not emitted")
         }
     }
 
