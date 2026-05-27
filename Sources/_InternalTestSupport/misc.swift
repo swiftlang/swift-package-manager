@@ -493,6 +493,29 @@ public func executeSwiftBuild(
     return try await SwiftPM.Build.execute(args, packagePath: packagePath, env: env, throwIfCommandFails: throwIfCommandFails)
 }
 
+public func getBinPath(
+    _ packagePath: AbsolutePath?,
+    configuration: BuildConfiguration = .debug,
+    extraArgs: [String] = [],
+    Xcc: [String] = [],
+    Xld: [String] = [],
+    Xswiftc: [String] = [],
+    env: Environment? = nil,
+    buildSystem: BuildSystemProvider.Kind,
+) async throws -> AbsolutePath {
+    let output = try await executeSwiftBuild(
+        packagePath,
+        configuration: configuration,
+        extraArgs: extraArgs + ["--show-bin-path"],
+        Xcc: Xcc,
+        Xld: Xld,
+        Xswiftc: Xswiftc,
+        env: env,
+        buildSystem: buildSystem,
+    )
+    return try AbsolutePath(validating: output.stdout.trimmingCharacters(in: .whitespacesAndNewlines))
+}
+
 @discardableResult
 public func executeSwiftRun(
     _ packagePath: AbsolutePath?,

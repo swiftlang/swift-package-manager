@@ -3169,7 +3169,11 @@ struct PackageCommandTests {
             )
 
             // Path to the executable.
-            let binPath = try fooPath.appending(components: buildSystem.binPath(for: config))
+            let binPath = try await getBinPath(
+                fooPath,
+                configuration: config,
+                buildSystem: buildSystem,
+            )
             let exec = [
                 binPath.appending("foo").pathString
             ]
@@ -3300,7 +3304,11 @@ struct PackageCommandTests {
                 buildSystem: buildSystem,
             )
             let buildPath = packageRoot.appending(".build")
-            let binPath = try buildPath.appending(components: buildSystem.binPath(for: config, scratchPath: []))
+            let binPath = try await getBinPath(
+                packageRoot,
+                configuration: config,
+                buildSystem: buildSystem,
+            )
             let binFile = binPath.appending(executableName("Bar"))
             expectFileExists(at: binFile)
             #expect(localFileSystem.isDirectory(buildPath))
@@ -3346,7 +3354,11 @@ struct PackageCommandTests {
                 buildSystem: buildSystem
             )
             let buildPath = packageRoot.appending(".build")
-            let binPath = try buildPath.appending(components: buildSystem.binPath(for: config, scratchPath: [], ))
+            let binPath = try await getBinPath(
+                packageRoot,
+                configuration: config,
+                buildSystem: buildSystem,
+            )
             let binFile = binPath.appending(executableName("Bar"))
             expectFileExists(at: binFile)
             #expect(localFileSystem.isDirectory(buildPath))
@@ -3569,10 +3581,6 @@ struct PackageCommandTests {
         let config = BuildConfiguration.debug
         try await fixture(name: "Miscellaneous/PackageEdit", createGitRepo: true) { fixturePath in
             let fooPath = fixturePath.appending("foo")
-            let binPath = try fooPath.appending(components: buildSystem.binPath(for: config))
-            let exec = [
-                binPath.appending("foo").pathString
-            ]
 
             // Build and check.
             _ = try await executeSwiftBuild(
@@ -3580,6 +3588,14 @@ struct PackageCommandTests {
                 configuration: config,
                 buildSystem: buildSystem,
             )
+            let binPath = try await getBinPath(
+                fooPath,
+                configuration: config,
+                buildSystem: buildSystem,
+            )
+            let exec = [
+                binPath.appending("foo").pathString
+            ]
             let value = try await AsyncProcess.checkNonZeroExit(arguments: exec).spm_chomp()
             #expect(value == "\(5)")
 
@@ -5836,8 +5852,6 @@ struct PackageCommandTests {
         func commandPluginTargetBuilds_BinaryIsBuildinDebugByDefault(
             buildData: BuildData,
         ) async throws {
-            let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
-            let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
             try await withKnownIssue(isIntermittent: true) {
                 // By default, a plugin-requested build produces a debug binary
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
@@ -5847,9 +5861,19 @@ struct PackageCommandTests {
                         configuration: buildData.config,
                         buildSystem: buildData.buildSystem,
                     )
-                    expectFileIsExecutable(at: fixturePath.appending(components: debugTarget), "build-target")
+                    let debugTarget = try await getBinPath(
+                        fixturePath,
+                        configuration: .debug,
+                        buildSystem: buildData.buildSystem,
+                    ).appending(executableName("placeholder"))
+                    let releaseTarget = try await getBinPath(
+                        fixturePath,
+                        configuration: .release,
+                        buildSystem: buildData.buildSystem,
+                    ).appending(executableName("placeholder"))
+                    expectFileIsExecutable(at: debugTarget, "build-target")
                     expectFileDoesNotExist(
-                        at: fixturePath.appending(components: releaseTarget),
+                        at: releaseTarget,
                         "build-target build-inherit"
                     )
                 }
@@ -5871,8 +5895,6 @@ struct PackageCommandTests {
         func commandPluginTargetBuilds_BinaryWillBeBuiltInDebugIfPluginSpecifiesDebugBuild(
             buildData: BuildData,
         ) async throws {
-            let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
-            let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
             try await withKnownIssue(isIntermittent: true) {
                 // If the plugin specifies a debug binary, that is what will be built, regardless of overall configuration
                 try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
@@ -5882,12 +5904,22 @@ struct PackageCommandTests {
                         configuration: buildData.config,
                         buildSystem: buildData.buildSystem,
                     )
+                    let debugTarget = try await getBinPath(
+                        fixturePath,
+                        configuration: .debug,
+                        buildSystem: buildData.buildSystem,
+                    ).appending(executableName("placeholder"))
+                    let releaseTarget = try await getBinPath(
+                        fixturePath,
+                        configuration: .release,
+                        buildSystem: buildData.buildSystem,
+                    ).appending(executableName("placeholder"))
                     expectFileIsExecutable(
-                        at: fixturePath.appending(components: debugTarget),
+                        at: debugTarget,
                         "build-target build-debug"
                     )
                     expectFileDoesNotExist(
-                        at: fixturePath.appending(components: releaseTarget),
+                        at: releaseTarget,
                         "build-target build-inherit"
                     )
                 }
@@ -5910,8 +5942,6 @@ struct PackageCommandTests {
         func commandPluginTargetBuilds_BinaryWillBeBuiltInReleaseIfPluginSpecifiesReleaseBuild(
             buildData: BuildData,
         ) async throws {
-            let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
-            let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
             // If the plugin requests a release binary, that is what will be built, regardless of overall configuration
             try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                 let _ = try await execute(
@@ -5920,12 +5950,22 @@ struct PackageCommandTests {
                     configuration: buildData.config,
                     buildSystem: buildData.buildSystem,
                 )
+                let debugTarget = try await getBinPath(
+                    fixturePath,
+                    configuration: .debug,
+                    buildSystem: buildData.buildSystem,
+                ).appending(executableName("placeholder"))
+                let releaseTarget = try await getBinPath(
+                    fixturePath,
+                    configuration: .release,
+                    buildSystem: buildData.buildSystem,
+                ).appending(executableName("placeholder"))
                 expectFileDoesNotExist(
-                    at: fixturePath.appending(components: debugTarget),
+                    at: debugTarget,
                     "build-target build-inherit"
                 )
                 expectFileIsExecutable(
-                    at: fixturePath.appending(components: releaseTarget),
+                    at: releaseTarget,
                     "build-target build-release"
                 )
             }
@@ -5944,8 +5984,6 @@ struct PackageCommandTests {
         func commandPluginTargetBuilds_BinaryWillBeBuiltCorrectlyIfPluginSpecifiesInheritBuild(
             buildData: BuildData,
         ) async throws {
-            let debugTarget = try buildData.buildSystem.binPath(for: .debug) + [executableName("placeholder")]
-            let releaseTarget = try buildData.buildSystem.binPath(for: .release) + [executableName("placeholder")]
             // If the plugin inherits the overall build configuration, that is what will be built
             try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
                 let _ = try await execute(
@@ -5954,15 +5992,25 @@ struct PackageCommandTests {
                     configuration: buildData.config,
                     buildSystem: buildData.buildSystem,
                 )
+                let debugTarget = try await getBinPath(
+                    fixturePath,
+                    configuration: .debug,
+                    buildSystem: buildData.buildSystem,
+                ).appending(executableName("placeholder"))
+                let releaseTarget = try await getBinPath(
+                    fixturePath,
+                    configuration: .release,
+                    buildSystem: buildData.buildSystem,
+                ).appending(executableName("placeholder"))
                 let fileShouldNotExist: AbsolutePath
                 let fileShouldExist: AbsolutePath
                 switch buildData.config {
                 case .debug:
-                    fileShouldExist = fixturePath.appending(components: debugTarget)
-                    fileShouldNotExist = fixturePath.appending(components: releaseTarget)
+                    fileShouldExist = debugTarget
+                    fileShouldNotExist = releaseTarget
                 case .release:
-                    fileShouldNotExist = fixturePath.appending(components: debugTarget)
-                    fileShouldExist = fixturePath.appending(components: releaseTarget)
+                    fileShouldNotExist = debugTarget
+                    fileShouldExist = releaseTarget
                 }
                 expectFileDoesNotExist(at: fileShouldNotExist, "build-target build-inherit")
                 expectFileIsExecutable(at: fileShouldExist, "build-target build-inherit")
