@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2024-2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -12,14 +12,14 @@
 
 import Basics
 @testable import PackageModel
-import XCTest
+import Testing
 
 import struct TSCBasic.AbsolutePath
 import struct TSCBasic.ByteString
 import enum TSCBasic.FileMode
 import struct TSCBasic.FileSystemError
 
-final class DependencyMapperTests: XCTestCase {
+struct DependencyMapperTests {
     private let parentPath = try! Basics.AbsolutePath(validating: "/parent")
 
     private func mappedFileSystemPath(
@@ -35,45 +35,48 @@ final class DependencyMapperTests: XCTestCase {
         )
         let mapped = try mapper.mappedDependency(dependency, fileSystem: fileSystem)
         guard case .fileSystem(let settings) = mapped else {
-            XCTFail("expected fileSystem-kind dependency, got \(mapped)")
+            Issue.record("expected fileSystem-kind dependency, got \(mapped)")
             throw FileSystemError(.unsupported)
         }
         return settings.path
     }
 
-    func testTildePathIsExpandedAgainstHomeDirectory() throws {
+    @Test
+    func tildePathIsExpandedAgainstHomeDirectory() throws {
         // InMemoryFileSystem provides a synthetic home at /home/user — the
         // happy path that should keep working after the regression fix.
         let resolved = try mappedFileSystemPath("~/Library/Stuff", fileSystem: InMemoryFileSystem())
-        XCTAssertEqual(resolved.pathString, "/home/user/Library/Stuff")
+        #expect(resolved.pathString == "/home/user/Library/Stuff")
     }
 
-    func testTildePathThrowsInsteadOfCrashingWhenHomeDirectoryUnsupported() {
+    @Test
+    func tildePathThrowsInsteadOfCrashingWhenHomeDirectoryUnsupported() {
         // Regression test for rdar://177668882: a remote source-control
         // package whose manifest contains `.package(path: "~/...")` previously
         // crashed Xcode because the underlying GitFileSystemView's
         // `homeDirectory` aborted with `fatalError` instead of throwing. Make
         // sure the dependency mapper now produces an actionable error.
-        XCTAssertThrowsError(
+        #expect {
             try mappedFileSystemPath(
                 "~/Documents/games/BoardGameKitHost",
                 fileSystem: ThrowingHomeDirectoryFileSystem()
             )
-        ) { error in
+        } throws: { error in
             let description = String(describing: error)
-            XCTAssertTrue(description.contains("~/"), "expected error to mention the offending '~/' prefix; got: \(description)")
-            XCTAssertTrue(description.contains("BoardGameKitHost"), "expected error to mention the offending dependency path; got: \(description)")
+            return description.contains("~/") && description.contains("BoardGameKitHost")
         }
     }
 
-    func testAbsolutePathIsLeftAlone() throws {
+    @Test
+    func absolutePathIsLeftAlone() throws {
         let resolved = try mappedFileSystemPath("/absolute/path", fileSystem: InMemoryFileSystem())
-        XCTAssertEqual(resolved.pathString, "/absolute/path")
+        #expect(resolved.pathString == "/absolute/path")
     }
 
-    func testRelativePathIsResolvedAgainstParent() throws {
+    @Test
+    func relativePathIsResolvedAgainstParent() throws {
         let resolved = try mappedFileSystemPath("Sibling", fileSystem: InMemoryFileSystem())
-        XCTAssertEqual(resolved.pathString, "/parent/Sibling")
+        #expect(resolved == parentPath.appending(component: "Sibling"))
     }
 }
 
@@ -116,7 +119,7 @@ private final class ThrowingHomeDirectoryFileSystem: FileSystem {
     func move(from sourcePath: TSCBasic.AbsolutePath, to destinationPath: TSCBasic.AbsolutePath) throws { unreachable() }
 
     private func unreachable(function: StaticString = #function) -> Never {
-        XCTFail("ThrowingHomeDirectoryFileSystem.\(function) was called unexpectedly")
+        Issue.record("ThrowingHomeDirectoryFileSystem.\(function) was called unexpectedly")
         fatalError("ThrowingHomeDirectoryFileSystem.\(function) was called unexpectedly")
     }
 }
