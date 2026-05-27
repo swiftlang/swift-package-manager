@@ -107,19 +107,24 @@ private final class ThrowingHomeDirectoryFileSystem: FileSystem {
     func isSymlink(_ path: TSCBasic.AbsolutePath) -> Bool { unreachable() }
     func isReadable(_ path: TSCBasic.AbsolutePath) -> Bool { unreachable() }
     func isWritable(_ path: TSCBasic.AbsolutePath) -> Bool { unreachable() }
-    func getDirectoryContents(_ path: TSCBasic.AbsolutePath) throws -> [String] { unreachable() }
-    func changeCurrentWorkingDirectory(to path: TSCBasic.AbsolutePath) throws { unreachable() }
-    func createDirectory(_ path: TSCBasic.AbsolutePath, recursive: Bool) throws { unreachable() }
-    func createSymbolicLink(_ path: TSCBasic.AbsolutePath, pointingAt destination: TSCBasic.AbsolutePath, relative: Bool) throws { unreachable() }
-    func readFileContents(_ path: TSCBasic.AbsolutePath) throws -> ByteString { unreachable() }
-    func writeFileContents(_ path: TSCBasic.AbsolutePath, bytes: ByteString) throws { unreachable() }
-    func removeFileTree(_ path: TSCBasic.AbsolutePath) throws { unreachable() }
-    func chmod(_ mode: FileMode, path: TSCBasic.AbsolutePath, options: Set<FileMode.Option>) throws { unreachable() }
-    func copy(from sourcePath: TSCBasic.AbsolutePath, to destinationPath: TSCBasic.AbsolutePath) throws { unreachable() }
-    func move(from sourcePath: TSCBasic.AbsolutePath, to destinationPath: TSCBasic.AbsolutePath) throws { unreachable() }
+    func getDirectoryContents(_ path: TSCBasic.AbsolutePath) throws -> [String] { try unreachableThrowing() }
+    func changeCurrentWorkingDirectory(to path: TSCBasic.AbsolutePath) throws { try unreachableThrowing() }
+    func createDirectory(_ path: TSCBasic.AbsolutePath, recursive: Bool) throws { try unreachableThrowing() }
+    func createSymbolicLink(_ path: TSCBasic.AbsolutePath, pointingAt destination: TSCBasic.AbsolutePath, relative: Bool) throws { try unreachableThrowing() }
+    func readFileContents(_ path: TSCBasic.AbsolutePath) throws -> ByteString { try unreachableThrowing() }
+    func writeFileContents(_ path: TSCBasic.AbsolutePath, bytes: ByteString) throws { try unreachableThrowing() }
+    func removeFileTree(_ path: TSCBasic.AbsolutePath) throws { try unreachableThrowing() }
+    func chmod(_ mode: FileMode, path: TSCBasic.AbsolutePath, options: Set<FileMode.Option>) throws { try unreachableThrowing() }
+    func copy(from sourcePath: TSCBasic.AbsolutePath, to destinationPath: TSCBasic.AbsolutePath) throws { try unreachableThrowing() }
+    func move(from sourcePath: TSCBasic.AbsolutePath, to destinationPath: TSCBasic.AbsolutePath) throws { try unreachableThrowing() }
 
-    private func unreachable(function: StaticString = #function) -> Never {
+    private func unreachable(function: StaticString = #function) -> Bool {
         Issue.record("ThrowingHomeDirectoryFileSystem.\(function) was called unexpectedly")
-        fatalError("ThrowingHomeDirectoryFileSystem.\(function) was called unexpectedly")
+        return false
+    }
+
+    private func unreachableThrowing(function: StaticString = #function) throws -> Never {
+        Issue.record("ThrowingHomeDirectoryFileSystem.\(function) was called unexpectedly")
+        throw FileSystemError(.unsupported)
     }
 }
