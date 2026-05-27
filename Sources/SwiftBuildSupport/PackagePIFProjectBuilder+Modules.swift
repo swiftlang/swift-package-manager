@@ -61,7 +61,7 @@ extension PackagePIFProjectBuilder {
         var buildSettings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
 
         // Add the dependencies.
-        pluginModule.recursivelyTraverseDependencies { dependency in
+        pluginModule.recursivelyTraverseTransitiveLinkageDependencies(includeMacroDependencies: false) { dependency in
             switch dependency {
             case .module(let moduleDependency, let packageConditions):
                 // This assertion is temporarily disabled since we may see targets from
@@ -731,7 +731,7 @@ extension PackagePIFProjectBuilder {
         // Handle the target's dependencies (but only link against them if needed).
         let shouldLinkProduct = (desiredModuleType == .dynamicLibrary) || (desiredModuleType == .macro)
         var moduleTarget = self.project[keyPath: sourceModuleTargetKeyPath]
-        sourceModule.recursivelyTraverseDependencies { dependency in
+        sourceModule.recursivelyTraverseTransitiveLinkageDependencies(includeMacroDependencies: false) { dependency in
             switch dependency {
             case .module(let moduleDependency, let packageConditions):
                 // This assertion is temporarily disabled since we may see targets from

@@ -1180,6 +1180,33 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test func macroPackageTestDependencies() async throws {
+        try await withGeneratedPIF(fromFixture: "Macros/MinimalMacroPackage") { pif, observabilitySystem, _ in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+
+            let project = try pif.workspace.project(named: "MinimalMacroPackage")
+
+            let testProduct = try project.target(named: "MinimalMacroPackageTests-product")
+            guard case .target(let testTarget) = testProduct else {
+                Issue.record("Expected MinimalMacroPackageTests-product to be a regular target")
+                return
+            }
+            #expect(testTarget.productType == .unitTest)
+
+            let depIDs = testTarget.common.dependencies.map(\.targetId.value)
+
+            // The test bundle should link both the testable variant of the macro target, and its transitive dependency.
+            #expect(
+                depIDs.contains { $0.hasPrefix("PACKAGE-TARGET:MacroImpl-") && $0.hasSuffix("-testable") },
+                "Expected test bundle to link testable variant of MacroImpl, found dependencies: \(depIDs)"
+            )
+            #expect(
+                depIDs.contains("PACKAGE-TARGET:MacroImplHelpers"),
+                "Expected test bundle to link MacroImplHelpers, found dependencies: \(depIDs)"
+            )
+        }
+    }
+
     @Test func mixedSourceTarget() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:

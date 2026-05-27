@@ -1,4 +1,5 @@
 import Foundation
+import MacroImplHelpers
 
 @main
 struct MacroPlugin {
@@ -40,7 +41,7 @@ struct MacroPlugin {
             } else if json.keys.contains("expandFreestandingMacro") {
                 let response: [String: Any] = [
                     "expandMacroResult": [
-                        "expandedSource": "\"expanded\"",
+                        "expandedSource": "\"\(macroImplHelper())\"",
                         "diagnostics": []
                     ]
                 ]

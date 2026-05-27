@@ -371,7 +371,8 @@ extension PackagePIFProjectBuilder {
 
         // Handle the main target's dependencies (and link against them).
         var mainModuleTarget = self.project[keyPath: mainModuleTargetKeyPath]
-        mainModule.recursivelyTraverseDependencies { dependency in
+        // If this is a test target, include dependencies of macros, as we will be linking their testable variant.
+        mainModule.recursivelyTraverseTransitiveLinkageDependencies(includeMacroDependencies: product.type == .test) { dependency in
             switch dependency {
             case .module(let moduleDependency, let packageConditions):
                 // This assertion is temporarily disabled since we may see targets from
@@ -432,23 +433,6 @@ extension PackagePIFProjectBuilder {
                             indent: 1,
                             "Added linked dependency on target '\(moduleDependency.pifTargetGUID(suffix: .testable))'"
                         )
-
-                        // FIXME: Manually propagate product dependencies of macros but the build system should really handle this.
-                        moduleDependency.recursivelyTraverseDependencies { dependency in
-                            switch dependency {
-                            case .product(let productDependency, let packageConditions):
-                                let isLinkable = productDependency.isLinkable
-                                self.handleProduct(
-                                    productDependency,
-                                    with: packageConditions,
-                                    isLinkable: isLinkable,
-                                    target: &mainModuleTarget,
-                                    settings: &settings
-                                )
-                            case .module:
-                                break
-                            }
-                        }
                     }
 
                 case .executable, .snippet:
@@ -785,7 +769,7 @@ extension PackagePIFProjectBuilder {
         // (and link against them, which in the case of a package product, really just means that clients should link
         // against them).
         var libraryUmbrellaTarget = self.project[keyPath: libraryUmbrellaTargetKeyPath]
-        product.modules.recursivelyTraverseDependencies { dependency in
+        product.modules.recursivelyTraverseTransitiveLinkageDependencies(includeMacroDependencies: false) { dependency in
             switch dependency {
             case .module(let moduleDependency, let packageConditions):
                 // This assertion is temporarily disabled since we may see targets from
