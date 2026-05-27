@@ -1373,7 +1373,7 @@ struct PIFBuilderTests {
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: AbsolutePath.root.appending("tmp"),
-                addLocalRpaths: true,
+                addLocalRpaths: .always,
                 pluginScriptRunner: NoOpPluginScriptRunner()
             ),
             fileSystem: fs,
@@ -1465,7 +1465,7 @@ struct PIFBuilderTests {
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: AbsolutePath.root.appending("tmp"),
-                addLocalRpaths: true,
+                addLocalRpaths: .always,
                 pluginScriptRunner: NoOpPluginScriptRunner()
             ),
             fileSystem: fs,
