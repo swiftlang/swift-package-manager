@@ -3641,7 +3641,7 @@ final class PackageBuilderTester {
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                 warnAboutImplicitExecutableTargets: true,
                 createREPLProduct: createREPLProduct,
-                createPlaygroundProduct: false,
+                playgroundProductConfiguration: nil,
                 fileSystem: fs,
                 observabilityScope: observability.topScope,
                 enabledTraits: []

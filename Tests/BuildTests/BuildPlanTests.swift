@@ -2205,7 +2205,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 ),
             ],
             createREPLProduct: true,
-            createPlaygroundProduct: false,
+            playgroundProductConfiguration: nil,
             observabilityScope: observability.topScope
         )
         XCTAssertNoDiagnostics(observability.diagnostics)

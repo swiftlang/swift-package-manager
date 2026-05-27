@@ -799,6 +799,159 @@ private struct BasicTests {
         }
     }
 
+    @Test(
+        .tags(
+            Tag.Feature.Command.Play,
+            Tag.Feature.Command.Package.Init,
+            Tag.Feature.PackageType.Library,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testSwiftPlayTarget(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let packageName = "TargetRepro"
+        try await withTemporaryDirectory { tempDir in
+            let packagePath = tempDir.appending(component: packageName)
+            try localFileSystem.createDirectory(packagePath)
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["init", "--type", "library", "--name", packageName],
+                buildSystem: buildSystem
+            )
+            try localFileSystem.writeFileContents(
+                packagePath.appending(component: "Package.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    // swift-tools-version: 6.2
+
+                    import PackageDescription
+
+                    let package = Package(
+                        name: "\(packageName)",
+                        platforms: [.macOS(.v14)], // min for playgrounds lib
+                        products: [
+                            // Only PublicLib is exposed as a product. InternalHelpers is a
+                            // private dep of PublicLib (so it gets transitively linked into
+                            // the runner today). Scratch is a true orphan: not in any product
+                            // and not depended on by anything that is, so it is the case
+                            // that --target unlocks.
+                            .library(
+                                name: "PublicLib",
+                                targets: ["PublicLib"]
+                            ),
+                        ],
+                        dependencies: [
+                            .package(url: "https://github.com/apple/swift-play-experimental", branch: "main"),
+                        ],
+                        targets: [
+                            .target(
+                                name: "PublicLib",
+                                dependencies: [
+                                    "InternalHelpers",
+                                    .product(name: "Playgrounds", package: "swift-play-experimental"),
+                                ]
+                            ),
+                            .target(
+                                name: "InternalHelpers",
+                                dependencies: [
+                                    .product(name: "Playgrounds", package: "swift-play-experimental"),
+                                ]
+                            ),
+                            .target(
+                                name: "Scratch",
+                                dependencies: [
+                                    .product(name: "Playgrounds", package: "swift-play-experimental"),
+                                ]
+                            ),
+                        ]
+                    )
+                    """
+                ),
+                atomically: true
+            )
+            // `swift package init --type library --name TargetRepro` creates
+            // `Sources/TargetRepro/`. Our overridden manifest declares three
+            // targets in different directories — create them explicitly.
+            try localFileSystem.createDirectory(packagePath.appending(components: "Sources", "PublicLib"), recursive: true)
+            try localFileSystem.createDirectory(packagePath.appending(components: "Sources", "InternalHelpers"), recursive: true)
+            try localFileSystem.createDirectory(packagePath.appending(components: "Sources", "Scratch"), recursive: true)
+            try localFileSystem.writeFileContents(
+                packagePath.appending(components: "Sources", "PublicLib", "PublicLib.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    import Playgrounds
+
+                    public struct PublicLib { public init() {} }
+
+                    #Playground("PublicGame") {
+                        print("PublicLib playground")
+                    }
+                    """
+                ),
+                atomically: true
+            )
+            try localFileSystem.writeFileContents(
+                packagePath.appending(components: "Sources", "InternalHelpers", "InternalHelpers.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    import Playgrounds
+
+                    public enum InternalHelpers {}
+
+                    #Playground("InternalGame") {
+                        print("InternalHelpers playground")
+                    }
+                    """
+                ),
+                atomically: true
+            )
+            try localFileSystem.writeFileContents(
+                packagePath.appending(components: "Sources", "Scratch", "Scratch.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    import Playgrounds
+
+                    public enum Scratch {}
+
+                    #Playground("ScratchGame") {
+                        print("Scratch playground")
+                    }
+                    """
+                ),
+                atomically: true
+            )
+
+            // Default behaviour: orphan target's playground is invisible.
+            let defaultResult = try await executeSwiftPlay(
+                packagePath,
+                extraArgs: ["--list"],
+                buildSystem: buildSystem
+            )
+            #expect(defaultResult.stdout.contains("PublicGame"), "stdout: '\(defaultResult.stdout)'\n stderr:'\(defaultResult.stderr)'")
+            #expect(defaultResult.stdout.contains("InternalGame"), "stdout: '\(defaultResult.stdout)'\n stderr:'\(defaultResult.stderr)'")
+            #expect(!defaultResult.stdout.contains("ScratchGame"), "stdout: '\(defaultResult.stdout)'\n stderr:'\(defaultResult.stderr)'")
+
+            // --target Scratch: only the orphan target's playground is visible.
+            let scratchResult = try await executeSwiftPlay(
+                packagePath,
+                extraArgs: ["--list", "--target", "Scratch"],
+                buildSystem: buildSystem
+            )
+            #expect(scratchResult.stdout.contains("ScratchGame"), "stdout: '\(scratchResult.stdout)'\n stderr:'\(scratchResult.stderr)'")
+            #expect(!scratchResult.stdout.contains("PublicGame"), "stdout: '\(scratchResult.stdout)'\n stderr:'\(scratchResult.stderr)'")
+            #expect(!scratchResult.stdout.contains("InternalGame"), "stdout: '\(scratchResult.stdout)'\n stderr:'\(scratchResult.stderr)'")
+
+            // --target NoSuchThing: clear error mentioning the requested name.
+            let unknownResult = try await executeSwiftPlay(
+                packagePath,
+                extraArgs: ["--list", "--target", "NoSuchThing"],
+                buildSystem: buildSystem
+            )
+            #expect(unknownResult.stderr.contains("NoSuchThing"), "stdout: '\(unknownResult.stdout)'\n stderr:'\(unknownResult.stderr)'")
+        }
+    }
+
 }
 
 extension Character {

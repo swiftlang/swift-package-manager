@@ -104,6 +104,12 @@ public enum ModuleError: Swift.Error {
         parentPackage: PackageIdentity,
         packageName: String
     )
+
+    /// The target named by `swift play --target` does not exist in the package.
+    case playgroundTargetNotFound(name: String, package: PackageIdentity)
+
+    /// The target named by `swift play --target` exists but is not a library.
+    case invalidPlaygroundTargetType(name: String, package: PackageIdentity, kind: String)
 }
 
 extension ModuleError: CustomStringConvertible {
@@ -190,6 +196,10 @@ extension ModuleError: CustomStringConvertible {
             return """
             Disabled default traits by package '\(parentPackage)' on package '\(packageName)' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
             """
+        case .playgroundTargetNotFound(let name, let package):
+            return "no target named '\(name)' in package '\(package)' for swift play --target"
+        case .invalidPlaygroundTargetType(let name, let package, let kind):
+            return "swift play --target requires a library target; '\(name)' in package '\(package)' has type '\(kind)'"
         }
     }
 }
@@ -320,8 +330,9 @@ public final class PackageBuilder {
     /// Create the special REPL product for this package.
     private let createREPLProduct: Bool
 
-    /// Create the special Playground product for this package.
-    private let createPlaygroundProduct: Bool
+    /// Configuration controlling synthesis of the special Playground product
+    /// for this package. `nil` means no playground product is synthesized.
+    private let playgroundProductConfiguration: PlaygroundProductConfiguration?
 
     /// The additional file detection rules.
     private let additionalFileRules: [FileRuleDescription]
@@ -369,7 +380,7 @@ public final class PackageBuilder {
         testEntryPointPath: AbsolutePath? = nil,
         warnAboutImplicitExecutableTargets: Bool = true,
         createREPLProduct: Bool = false,
-        createPlaygroundProduct: Bool = false,
+        playgroundProductConfiguration: PlaygroundProductConfiguration? = nil,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         enabledTraits: EnabledTraits
@@ -383,7 +394,7 @@ public final class PackageBuilder {
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
         self.testEntryPointPath = testEntryPointPath
         self.createREPLProduct = createREPLProduct
-        self.createPlaygroundProduct = createPlaygroundProduct
+        self.playgroundProductConfiguration = playgroundProductConfiguration
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
         self.observabilityScope = observabilityScope.makeChildScope(
             description: "PackageBuilder",
@@ -662,12 +673,30 @@ public final class PackageBuilder {
 
         var playgroundTargets: [Module] = []
 
-        if createPlaygroundProduct {
-            // Get list of original targets that the playground runner will depend on
-            let productTargetNames = Set(manifest.products.flatMap(\.targets))
-            let playgroundDependencies = targets
-                .filter { $0.type == .library && productTargetNames.contains($0.name) }
-                .map { Module.Dependency.module($0, conditions: []) }
+        if let playgroundConfig = playgroundProductConfiguration {
+            // Determine the targets the playground runner will depend on.
+            let playgroundDependencies: [Module.Dependency]
+            if let overrideName = playgroundConfig.targetOverride {
+                // Override: link only the named target. Its transitive
+                // dependencies are pulled in by the linker normally.
+                guard let overrideTarget = targets.first(where: { $0.name == overrideName }) else {
+                    throw ModuleError.playgroundTargetNotFound(name: overrideName, package: self.identity)
+                }
+                guard overrideTarget.type == .library else {
+                    throw ModuleError.invalidPlaygroundTargetType(
+                        name: overrideName,
+                        package: self.identity,
+                        kind: String(describing: overrideTarget.type)
+                    )
+                }
+                playgroundDependencies = [Module.Dependency.module(overrideTarget, conditions: [])]
+            } else {
+                // Default: link library targets that appear in some product.
+                let productTargetNames = Set(manifest.products.flatMap(\.targets))
+                playgroundDependencies = targets
+                    .filter { $0.type == .library && productTargetNames.contains($0.name) }
+                    .map { Module.Dependency.module($0, conditions: []) }
+            }
 
             // Create a new playground runner (executable) target
             let playgroundRunnerModule = try createPlaygroundRunnerModule(dependencies: playgroundDependencies)
