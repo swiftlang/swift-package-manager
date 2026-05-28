@@ -5522,6 +5522,131 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    /// Tests that `--force-resolved-versions` does not trigger repository fetches
+    /// when package checkouts are already present in the build directory.
+    ///
+    /// This is a regression test for a cross-platform migration scenario where
+    /// running `--force-resolved-versions` in a new environment (e.g., Docker) after
+    /// resolving on the host machine would attempt to re-fetch all dependencies from
+    /// the network, failing if network access is unavailable.
+    ///
+    /// Steps reproduced:
+    /// 1. Resolve on "machine A" (e.g., macOS host) — populates `.build` directory.
+    /// 2. Move project + `.build` to "machine B" (e.g., Linux container).
+    /// 3. On machine B, the local repository cache (`.build/repositories/`) may be
+    ///    inaccessible/have a different absolute path than what is stored while
+    ///    checkouts (`.build/checkouts/`) and `workspace-state.json`
+    ///    remain present.
+    /// 4. Run `swift package resolve --force-resolved-versions` on "machine B".
+    ///
+    /// Expected: resolves from the already-present checkouts, no network fetches.
+    func testForceResolvedVersionsDoesNotRefetchWithExistingCheckouts() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(path: "./Foo", requirement: .exact("1.0.0")),
+                        .sourceControl(path: "./Bar", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Bar",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", modules: ["Bar"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        // Step 1: Initial resolution on "machine A" — populates .build with
+        // workspace-state.json, .build/checkouts/, and .build/repositories/.
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+
+        // Step 2: Simulate cross-platform migration to "machine B".
+        //
+        // On the new machine the local repository cache (.build/repositories/)
+        // may not be accessible — e.g., only .build/checkouts/ and
+        // workspace-state.json were transferred, or the path to the cache
+        // changed between environments.
+        //
+        // Clearing fetchedMap simulates the repository cache being unavailable
+        // while leaving checkouts and workspace-state.json intact.
+        workspace.repositoryProvider.fetchedMap.clear()
+        workspace.delegate.clear()
+
+        // Close the workspace to simulate a fresh SPM process on "machine B".
+        // Setting the resetState to false ensures that the workspace's managed
+        // dependencies aren't cleared, which is reflected by the workspace-state.json
+        // The resetResolvedFile is similarly set to false to ensure that we keep
+        // the Package.resolved file, as one would here for a "machine A -> B" migration.
+        try await workspace.closeWorkspace(resetState: false, resetResolvedFile: false)
+
+        // Step 3: Run --force-resolved-versions on "machine B".
+        // Should resolve from existing .build/checkouts/ without any network access.
+        try await workspace.checkPackageGraph(roots: ["Root"], forceResolvedVersions: true) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // Verify no repository fetches were triggered.
+        // A "fetching package:" event here means --force-resolved-versions is
+        // hitting the network unnecessarily; in a real environment without
+        // network access (e.g., an air-gapped Docker build) this would fail.
+        XCTAssertFalse(
+            workspace.delegate.events.contains { $0.hasPrefix("fetching package:") },
+            "--force-resolved-versions triggered unexpected repository fetches; " +
+            "all packages should be resolved from existing checkouts. " +
+            "Events: \(workspace.delegate.events)"
+        )
+        XCTAssertFalse(
+            workspace.delegate.events.contains { $0.hasPrefix("creating working copy for:") },
+            "--force-resolved-versions unexpectedly created new working copies; " +
+            "checkouts should already exist. " +
+            "Events: \(workspace.delegate.events)"
+        )
+
+        // Verify the dependency graph is still correct after migration.
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+    }
+
     // This verifies that the simplest possible loading APIs are available for package clients.
     func testSimpleAPI() async throws {
         try await testWithTemporaryDirectory { path in
