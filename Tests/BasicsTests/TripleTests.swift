@@ -12,6 +12,7 @@
 import Foundation
 
 import Basics
+import _InternalTestSupport
 import Testing
 
 struct TripleTests {
@@ -357,5 +358,27 @@ struct TripleTests {
         let triple = try Triple(firstTripleName)
         let other = try Triple(secondTripleName)
         #expect(triple.isRuntimeCompatible(with: other) == isCompatible)
+    }
+
+    @Test
+    func testTargetInfoPlainTextError() throws {
+        try testWithTemporaryDirectory { tmpDir in
+            let fakeSwiftc = tmpDir.appending(component: "fake-swiftc")
+            try localFileSystem.writeFileContents(fakeSwiftc, string: """
+                #!/bin/sh
+                echo "error: permissionDenied"
+                """)
+            try localFileSystem.chmod(.executable, path: fakeSwiftc)
+
+            do {
+                _ = try Triple.getHostTriple(usingSwiftCompiler: fakeSwiftc)
+                Issue.record("Should have thrown InternalError")
+            } catch {
+                let errorDescription = error.interpolationDescription
+                #expect(errorDescription.contains("Failed to parse target info: error: permissionDenied"))
+                #expect(!errorDescription.contains("NSCocoaErrorDomain"))
+                #expect(!errorDescription.contains("JSON"))
+            }
+        }
     }
 }
