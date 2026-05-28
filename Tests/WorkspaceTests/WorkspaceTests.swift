@@ -5608,7 +5608,10 @@ final class WorkspaceTests: XCTestCase {
         // Clearing fetchedMap simulates the repository cache being unavailable
         // while leaving checkouts and workspace-state.json intact.
         workspace.repositoryProvider.fetchedMap.clear()
-        workspace.delegate.clear()
+
+        // Record how many working copies exist before the second resolve so we
+        // can assert that none were re-created.
+        let checkoutsCountBeforeResolve = workspace.repositoryProvider.checkoutsMap.count
 
         // Close the workspace to simulate a fresh SPM process on "machine B".
         // Setting the resetState to false ensures that the workspace's managed
@@ -5623,21 +5626,23 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertNoDiagnostics(diagnostics)
         }
 
-        // Verify no repository fetches were triggered.
-        // A "fetching package:" event here means --force-resolved-versions is
-        // hitting the network unnecessarily; in a real environment without
-        // network access (e.g., an air-gapped Docker build) this would fail.
-        XCTAssertFalse(
-            workspace.delegate.events.contains { $0.hasPrefix("fetching package:") },
+        // fetchedMap is written to by InMemoryGitRepositoryProvider.fetch(repository:to:),
+        // which is the single entry point for a bare-repo network clone. If it is still
+        // empty here, no network access occurred — the correct outcome for
+        // --force-resolved-versions when all checkouts are already present.
+        XCTAssertTrue(
+            workspace.repositoryProvider.fetchedMap.isEmpty,
             "--force-resolved-versions triggered unexpected repository fetches; " +
-            "all packages should be resolved from existing checkouts. " +
-            "Events: \(workspace.delegate.events)"
+            "all packages should be resolved from existing checkouts."
         )
-        XCTAssertFalse(
-            workspace.delegate.events.contains { $0.hasPrefix("creating working copy for:") },
+
+        // checkoutsMap is written to by InMemoryGitRepositoryProvider.createWorkingCopy.
+        // An unchanged count means no working copies were re-created.
+        XCTAssertEqual(
+            workspace.repositoryProvider.checkoutsMap.count,
+            checkoutsCountBeforeResolve,
             "--force-resolved-versions unexpectedly created new working copies; " +
-            "checkouts should already exist. " +
-            "Events: \(workspace.delegate.events)"
+            "checkouts should already exist."
         )
 
         // Verify the dependency graph is still correct after migration.
