@@ -46,7 +46,7 @@ struct DependencyMapperTests {
         // InMemoryFileSystem provides a synthetic home at /home/user — the
         // happy path that should keep working after the regression fix.
         let resolved = try mappedFileSystemPath("~/Library/Stuff", fileSystem: InMemoryFileSystem())
-        #expect(resolved.pathString == "/home/user/Library/Stuff")
+        #expect(resolved == (try Basics.AbsolutePath(validating: "/home/user/Library/Stuff")))
     }
 
     @Test
@@ -70,7 +70,7 @@ struct DependencyMapperTests {
     @Test
     func absolutePathIsLeftAlone() throws {
         let resolved = try mappedFileSystemPath("/absolute/path", fileSystem: InMemoryFileSystem())
-        #expect(resolved.pathString == "/absolute/path")
+        #expect(resolved == (try Basics.AbsolutePath(validating: "/absolute/path")))
     }
 
     @Test
