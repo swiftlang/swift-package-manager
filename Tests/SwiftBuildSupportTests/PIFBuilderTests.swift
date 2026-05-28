@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import Foundation
 import Testing
 import PackageGraph
 import PackageLoading
@@ -1334,6 +1335,231 @@ struct PIFBuilderTests {
                 #expect(noHeadersPhases.isEmpty)
             }
         }
+    }
+
+    /// Regression test: a build tool plugin and its executable tool live in the same dependency
+    /// package, but the executable product has a different name than its underlying target.
+    ///
+    /// Before the fix, SwiftPM auto-promotes an implicit product named after the target alongside
+    /// the explicit product. Both matched `productRepresentingDependencyOfBuildPlugin`, causing
+    /// `only` to return nil and no PIF dependency being added to the plugin target.
+    @Test func buildToolPluginWithExplicitProductNameSamePackage() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/PluginPkg/Plugins/MyPlugin/plugin.swift",
+            "/PluginPkg/Sources/PluginTool/main.swift",
+            "/Root/Sources/RootLib/RootLib.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v5_9,
+                    dependencies: [.fileSystem(path: "/PluginPkg")],
+                    products: [],
+                    targets: [
+                        TargetDescription(
+                            name: "RootLib",
+                            pluginUsages: [.plugin(name: "MyPlugin", package: "PluginPkg")]
+                        ),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "PluginPkg",
+                    path: "/PluginPkg",
+                    toolsVersion: .v5_9,
+                    products: [
+                        // Explicit product name differs from the underlying target name — this
+                        // is the exact case that triggered the bug.
+                        ProductDescription(name: "plugin-tool", type: .executable, targets: ["PluginTool"]),
+                        ProductDescription(name: "MyPlugin", type: .plugin, targets: ["MyPlugin"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "PluginTool", type: .executable),
+                        TargetDescription(
+                            name: "MyPlugin",
+                            dependencies: ["PluginTool"],
+                            type: .plugin,
+                            pluginCapability: .buildTool
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always,
+                pluginScriptRunner: NoOpPluginScriptRunner()
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+
+        let errors = observability.diagnostics.filter { $0.severity == .error }
+        #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+        let pluginPkgProject = try pif.workspace.project(named: "PluginPkg")
+        // The explicit product generates a PIF target named "<productName>-product".
+        let pluginToolProductTarget = try pluginPkgProject.target(named: "plugin-tool-product")
+        let pluginTarget = try pluginPkgProject.target(named: "MyPlugin")
+
+        #expect(
+            pluginTarget.common.dependencies.contains { $0.targetId == pluginToolProductTarget.common.id },
+            "Expected MyPlugin to depend on plugin-tool-product (the explicit product). Actual dependencies: \(pluginTarget.common.dependencies.map(\.targetId.value))"
+        )
+    }
+
+    /// Tests the cross-package case: the build tool plugin lives in one package and its
+    /// executable tool lives in a separate package. The plugin declares the dependency via
+    /// `.product(name:package:)`, which routes through a different code path than the
+    /// same-package case.
+    @Test func buildToolPluginWithExecutableProductCrossPackage() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/ToolPkg/Sources/MyTool/main.swift",
+            "/PluginPkg/Plugins/MyPlugin/plugin.swift",
+            "/Root/Sources/RootLib/RootLib.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v5_9,
+                    dependencies: [
+                        .fileSystem(path: "/ToolPkg"),
+                        .fileSystem(path: "/PluginPkg"),
+                    ],
+                    products: [],
+                    targets: [
+                        TargetDescription(
+                            name: "RootLib",
+                            pluginUsages: [.plugin(name: "MyPlugin", package: "PluginPkg")]
+                        ),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "ToolPkg",
+                    path: "/ToolPkg",
+                    toolsVersion: .v5_9,
+                    products: [
+                        // Explicit product name differs from the underlying target name.
+                        ProductDescription(name: "my-tool", type: .executable, targets: ["MyTool"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "MyTool", type: .executable),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "PluginPkg",
+                    path: "/PluginPkg",
+                    toolsVersion: .v5_9,
+                    dependencies: [.fileSystem(path: "/ToolPkg")],
+                    products: [
+                        ProductDescription(name: "MyPlugin", type: .plugin, targets: ["MyPlugin"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "MyPlugin",
+                            dependencies: [.product(name: "my-tool", package: "ToolPkg")],
+                            type: .plugin,
+                            pluginCapability: .buildTool
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always,
+                pluginScriptRunner: NoOpPluginScriptRunner()
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+
+        let errors = observability.diagnostics.filter { $0.severity == .error }
+        #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+        let toolPkgProject = try pif.workspace.project(named: "ToolPkg")
+        let pluginPkgProject = try pif.workspace.project(named: "PluginPkg")
+
+        let myToolProductTarget = try toolPkgProject.target(named: "my-tool-product")
+        let pluginTarget = try pluginPkgProject.target(named: "MyPlugin")
+
+        #expect(
+            pluginTarget.common.dependencies.contains { $0.targetId == myToolProductTarget.common.id },
+            "Expected MyPlugin to depend on my-tool-product from ToolPkg. Actual dependencies: \(pluginTarget.common.dependencies.map(\.targetId.value))"
+        )
+    }
+}
+
+/// A no-op plugin script runner for use in PIF builder tests that need a plugin in the graph
+/// but don't care about the plugin's build commands.
+private struct NoOpPluginScriptRunner: PluginScriptRunner {
+    func compilePluginScript(
+        sourceFiles: [AbsolutePath],
+        pluginName: String,
+        toolsVersion: ToolsVersion,
+        workers: UInt32,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        delegate: any PluginScriptCompilerDelegate,
+        completion: @escaping (Result<PluginCompilationResult, any Error>) -> Void
+    ) {
+        callbackQueue.sync { completion(.failure(StringError("unimplemented"))) }
+    }
+
+    func buildCommandLine(
+        sourceFiles: [AbsolutePath],
+        pluginName: String,
+        toolsVersion: ToolsVersion,
+        workers: UInt32,
+        observabilityScope: ObservabilityScope?
+    ) -> (commandLine: [String], execName: String, execFilePath: AbsolutePath, diagFilePath: AbsolutePath) {
+        fatalError("Not implemented")
+    }
+
+    func runPluginScript(
+        sourceFiles: [AbsolutePath],
+        pluginName: String,
+        initialMessage: Data,
+        toolsVersion: ToolsVersion,
+        workingDirectory: AbsolutePath,
+        writableDirectories: [AbsolutePath],
+        readOnlyDirectories: [AbsolutePath],
+        allowNetworkConnections: [SandboxNetworkPermission],
+        workers: UInt32,
+        fileSystem: any FileSystem,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        delegate: any PluginScriptCompilerDelegate & PluginScriptRunnerDelegate,
+        completion: @escaping (Result<Int32, any Error>) -> Void
+    ) {
+        callbackQueue.sync { completion(.success(0)) }
+    }
+
+    var hostTriple: Triple {
+        get throws { try UserToolchain.default.targetTriple }
     }
 }
 

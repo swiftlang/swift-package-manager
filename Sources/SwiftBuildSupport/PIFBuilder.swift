@@ -199,6 +199,20 @@ public final class PIFBuilder {
         pluginsPerModule: [ResolvedModule.ID: [ResolvedModule]],
         hostTriple: Basics.Triple
     ) async throws -> [ResolvedModule.ID: [String: PluginTool]] {
+        // SwiftBuild names executable binaries after their product name (TARGET_NAME = product.name),
+        // not the underlying target name. Build a map from target name → product name for cases where
+        // they differ, so we can resolve the correct binary path for both .product and .module
+        // plugin tool dependencies.
+        var targetNameToProductName: [String: String] = [:]
+        for package in graph.packages {
+            for product in package.products where product.type == .executable {
+                if let executableModule = product.modules.first(where: { $0.type == .executable }),
+                   executableModule.name != product.name {
+                    targetNameToProductName[executableModule.name] = product.name
+                }
+            }
+        }
+
         var accessibleToolsPerPlugin: [ResolvedModule.ID: [String: PluginTool]] = [:]
 
         for (_, plugins) in pluginsPerModule {
@@ -210,7 +224,14 @@ public final class PIFBuilder {
                     environment: buildParameters.buildEnvironment,
                     for: hostTriple
                 ) { name, path in
-                    return self.parameters.hostBuildProductsPath.appending(path)
+                    // `name` is the product name (for .product dependencies) or target name (for
+                    // .module dependencies). `path` is always derived from the underlying target name.
+                    // SwiftBuild produces the binary at the product name, so use targetNameToProductName
+                    // to find the correct name when a target is wrapped in a differently-named product.
+                    let binaryName = targetNameToProductName[name] ?? name
+                    return self.parameters.hostBuildProductsPath.appending(
+                        try RelativePath(validating: binaryName + hostTriple.executableExtension)
+                    )
                 }
 
                 accessibleToolsPerPlugin[plugin.id] = accessibleTools
