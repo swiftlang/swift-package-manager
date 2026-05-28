@@ -1365,9 +1365,14 @@ struct PluginTests {
                     buildSystem: buildSystem,
                 ).stdout.split(whereSeparator: \.isNewline)
 
+                let binPath = try await getBinPath(
+                    fixturePath,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
                 for snippet in snippets {
                     try expectFileExists(
-                        at: fixturePath.appending(components: buildSystem.binPath(for: config) + ["\(snippet)"])
+                        at: binPath.appending("\(snippet)")
                     )
                 }
             }

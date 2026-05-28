@@ -170,6 +170,10 @@ public struct ResolvedModule {
     /// Note: currently only set to .host if prebuilts are enabled.
     public let platformConstraint: PlatformConstraint
 
+    /// True if this is a test module that is directly depended upon by other test modules
+    /// in the same package.
+    package let isTestSupportModule: Bool
+
     @_spi(SwiftPMInternal)
     public let platformVersionProvider: PlatformVersionProvider
 
@@ -198,7 +202,8 @@ public struct ResolvedModule {
         defaultLocalization: String? = nil,
         supportedPlatforms: [SupportedPlatform],
         platformConstraint: PlatformConstraint,
-        platformVersionProvider: PlatformVersionProvider
+        platformVersionProvider: PlatformVersionProvider,
+        isTestSupportModule: Bool = false
     ) {
         self.packageIdentity = packageIdentity
         self.underlying = underlying
@@ -207,6 +212,7 @@ public struct ResolvedModule {
         self.supportedPlatforms = supportedPlatforms
         self.platformConstraint = platformConstraint
         self.platformVersionProvider = platformVersionProvider
+        self.isTestSupportModule = isTestSupportModule
     }
 
     public func getSupportedPlatform(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {

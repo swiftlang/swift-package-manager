@@ -14419,6 +14419,112 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    // Regression test for: registry identity substitution fails for packages using tools-version >= 5.8.
+    //
+    // Tools-version 5.8 switches product dependency lookup from name-based ("ProductName") to
+    // identity-based ("packagename_ProductName"). When --use-registry-identity-for-scm replaces an
+    // SCM dependency's identity with a registry identity (e.g., "org.foo"), but does NOT update the
+    // target dependency's `package:` parameter, the two keys diverge:
+    //   Map key (built from registry identity):    "org.foo_FooProduct"
+    //   productRef.identity (from package: "foo"): "foo_FooProduct"
+    // → product not found, "Did you mean 'FooProduct'?" error.
+    //
+    // The same scenario with tools-version < 5.8 uses name-based lookup so it never fails.
+    func testResolutionWithRegistryIdentitySubstitutionAndToolsVersionV58() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            // `package:` uses the URL-derived name "foo", not the registry identity "org.foo".
+                            // This is the standard pattern that fails under .identity mode + tools-version 5.8.
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_8
+                ),
+            ],
+            packages: [
+                // SCM entry needed for .identity mode (package stays as sourceControl, so the
+                // mock workspace must be able to resolve the URL directly).
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://git/org/foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "1.2.0"]
+                ),
+                // Registry entry needed for .swizzle mode (SCM dep is replaced with a registry dep).
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "1.2.0"]
+                ),
+            ]
+        )
+
+        // .identity mode (--use-registry-identity-for-scm): replaces SCM dependency identity with
+        // registry identity but does NOT rewrite target dependency package: names.
+        // With tools-version 5.8 product ID lookup this causes "product not found".
+        workspace.sourceControlToRegistryDependencyTransformation = .identity
+
+        try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "org.foo", "Root")
+                result.check(modules: "FooTarget", "RootTarget")
+                result.checkTarget("RootTarget") { result in result.check(dependencies: "FooProduct") }
+            }
+        }
+
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .checkout(.version("1.2.0")))
+        }
+
+        try await workspace.closeWorkspace()
+
+        // .swizzle mode (--replace-scm-with-registry): rewrites both the dependency AND the target
+        // dependency package: names, so 5.8 product ID lookup works correctly.
+        workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+
+        try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "org.foo", "Root")
+                result.check(modules: "FooTarget", "RootTarget")
+                result.checkTarget("RootTarget") { result in result.check(dependencies: "FooProduct") }
+            }
+        }
+
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .registryDownload("1.2.0"))
+        }
+    }
+
     // duplicate package at root level
     func testResolutionMixedRegistryAndSourceControl2() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
@@ -15044,14 +15150,6 @@ final class WorkspaceTests: XCTestCase {
                         """),
                         severity: .warning
                     )
-                    if ToolsVersion.current >= .v5_8 {
-                        result.check(
-                            diagnostic: .contains("""
-                            product 'FooProduct' required by package 'org.bar' target 'BarTarget' not found in package 'foo'.
-                            """),
-                            severity: .error
-                        )
-                    }
                 }
                 PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
@@ -15332,14 +15430,6 @@ final class WorkspaceTests: XCTestCase {
                         """),
                         severity: .warning
                     )
-                    if ToolsVersion.current >= .v5_8 {
-                        result.check(
-                            diagnostic: .contains("""
-                            product 'BazProduct' required by package 'org.foo' target 'FooTarget' not found in package 'baz'.
-                            """),
-                            severity: .error
-                        )
-                    }
                 }
                 PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")

@@ -199,6 +199,15 @@ extension PackagePIFProjectBuilder {
         }
     }
 
+    // MARK: - Test Support Modules
+
+    // Build a test module that is depended upon by other test modules as a static library.
+    mutating func makeTestSupportModule(_ testModule: PackageGraph.ResolvedModule) throws {
+        precondition(testModule.type == .test)
+        let (staticLibrary, _) = try buildSourceModule(testModule, type: .staticLibrary)
+        self.builtModulesAndProducts.append(staticLibrary)
+    }
+
     // MARK: - Executable Source Modules
 
     /// If we're building an *executable* and the tools version is new enough,
