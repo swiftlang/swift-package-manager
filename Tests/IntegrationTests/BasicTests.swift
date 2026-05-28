@@ -864,6 +864,9 @@ private struct BasicTests {
                                     .product(name: "Playgrounds", package: "swift-play-experimental"),
                                 ]
                             ),
+                            .executableTarget(
+                                name: "SomeExe"
+                            ),
                         ]
                     )
                     """
@@ -876,6 +879,7 @@ private struct BasicTests {
             try localFileSystem.createDirectory(packagePath.appending(components: "Sources", "PublicLib"), recursive: true)
             try localFileSystem.createDirectory(packagePath.appending(components: "Sources", "InternalHelpers"), recursive: true)
             try localFileSystem.createDirectory(packagePath.appending(components: "Sources", "Scratch"), recursive: true)
+            try localFileSystem.createDirectory(packagePath.appending(components: "Sources", "SomeExe"), recursive: true)
             try localFileSystem.writeFileContents(
                 packagePath.appending(components: "Sources", "PublicLib", "PublicLib.swift"),
                 bytes: ByteString(
@@ -921,6 +925,11 @@ private struct BasicTests {
                 ),
                 atomically: true
             )
+            try localFileSystem.writeFileContents(
+                packagePath.appending(components: "Sources", "SomeExe", "main.swift"),
+                bytes: ByteString(encodingAsUTF8: "print(\"hello from SomeExe\")\n"),
+                atomically: true
+            )
 
             // Default behaviour: orphan target's playground is invisible.
             let defaultResult = try await executeSwiftPlay(
@@ -949,6 +958,99 @@ private struct BasicTests {
                 buildSystem: buildSystem
             )
             #expect(unknownResult.stderr.contains("NoSuchThing"), "stdout: '\(unknownResult.stdout)'\n stderr:'\(unknownResult.stderr)'")
+
+            // --target on an executable target: rejected with a message that
+            // makes the kind mismatch explicit. Validates the
+            // invalidPlaygroundTargetType error path.
+            let exeResult = try await executeSwiftPlay(
+                packagePath,
+                extraArgs: ["--list", "--target", "SomeExe"],
+                buildSystem: buildSystem
+            )
+            #expect(exeResult.stderr.contains("SomeExe"), "stdout: '\(exeResult.stdout)'\n stderr:'\(exeResult.stderr)'")
+            #expect(exeResult.stderr.contains("library target"), "stdout: '\(exeResult.stdout)'\n stderr:'\(exeResult.stderr)'")
+        }
+    }
+
+    @Test(
+        .tags(
+            Tag.Feature.Command.Play,
+            Tag.Feature.Command.Package.Init,
+            Tag.Feature.PackageType.Library,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testSwiftPlayTargetWithoutProducts(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        // Verifies that --target produces a working swift play experience
+        // for packages that have library targets but no `.library` products
+        // declared. Without --target, the synthesized runner has an empty
+        // dependency list (no library is named in any product), so its
+        // playgrounds are unreachable. With --target the override path
+        // bypasses that.
+        let packageName = "NoProductsExample"
+        try await withTemporaryDirectory { tempDir in
+            let packagePath = tempDir.appending(component: packageName)
+            try localFileSystem.createDirectory(packagePath)
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["init", "--type", "library", "--name", packageName],
+                buildSystem: buildSystem
+            )
+            try localFileSystem.writeFileContents(
+                packagePath.appending(component: "Package.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    // swift-tools-version: 6.2
+
+                    import PackageDescription
+
+                    let package = Package(
+                        name: "\(packageName)",
+                        platforms: [.macOS(.v14)], // min for playgrounds lib
+                        // products: [] intentionally omitted
+                        dependencies: [
+                            .package(url: "https://github.com/apple/swift-play-experimental", branch: "main"),
+                        ],
+                        targets: [
+                            .target(
+                                name: "MyLib",
+                                dependencies: [
+                                    .product(name: "Playgrounds", package: "swift-play-experimental"),
+                                ]
+                            ),
+                        ]
+                    )
+                    """
+                ),
+                atomically: true
+            )
+            try localFileSystem.createDirectory(packagePath.appending(components: "Sources", "MyLib"), recursive: true)
+            try localFileSystem.writeFileContents(
+                packagePath.appending(components: "Sources", "MyLib", "MyLib.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    import Playgrounds
+
+                    public struct MyLib { public init() {} }
+
+                    #Playground("MyLib.demo") {
+                        print("hello from MyLib")
+                    }
+                    """
+                ),
+                atomically: true
+            )
+
+            // --target MyLib: override is the only way to get the library
+            // linked into the playground runner.
+            let targetedResult = try await executeSwiftPlay(
+                packagePath,
+                extraArgs: ["--list", "--target", "MyLib"],
+                buildSystem: buildSystem
+            )
+            #expect(targetedResult.stdout.contains("MyLib.demo"), "stdout: '\(targetedResult.stdout)'\n stderr:'\(targetedResult.stderr)'")
         }
     }
 

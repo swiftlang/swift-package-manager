@@ -3595,6 +3595,139 @@ struct PackageBuilderTests {
             }
         }
     }
+
+    // MARK: - Playground product synthesis (`swift play --target`)
+
+    @Test
+    func testPlaygroundRunnerDefaultsToProductLibraries() throws {
+        // Without an override, the synthesized runner depends on library
+        // targets that are named in some product. Internal helper targets
+        // and orphan targets are excluded from the runner's declared deps.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/PublicLib/PublicLib.swift",
+            "/Sources/Internal/Internal.swift",
+            "/Sources/Orphan/Orphan.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: .root,
+            toolsVersion: .v5_5,
+            products: [
+                try ProductDescription(name: "PublicLib", type: .library(.automatic), targets: ["PublicLib"]),
+            ],
+            targets: [
+                try TargetDescription(name: "PublicLib", dependencies: ["Internal"]),
+                try TargetDescription(name: "Internal"),
+                try TargetDescription(name: "Orphan"),
+            ]
+        )
+        try PackageBuilderTester(
+            manifest,
+            playgroundProductConfiguration: PlaygroundProductConfiguration(),
+            in: fs
+        ) { package, _ in
+            try package.checkModule("PublicLib")
+            try package.checkModule("Internal")
+            try package.checkModule("Orphan")
+            package.checkProduct("PublicLib") { _ in }
+            package.checkPlaygroundRunner(targetDependencies: ["PublicLib"])
+            package.checkProduct("pkg__Playgrounds") { _ in }
+        }
+    }
+
+    @Test
+    func testPlaygroundRunnerTargetOverrideReplacesDefaults() throws {
+        // With `targetOverride`, the runner's declared dependency list is
+        // exactly the named target — replacing the default product-library
+        // selection.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/PublicLib/PublicLib.swift",
+            "/Sources/Orphan/Orphan.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: .root,
+            toolsVersion: .v5_5,
+            products: [
+                try ProductDescription(name: "PublicLib", type: .library(.automatic), targets: ["PublicLib"]),
+            ],
+            targets: [
+                try TargetDescription(name: "PublicLib"),
+                try TargetDescription(name: "Orphan"),
+            ]
+        )
+        try PackageBuilderTester(
+            manifest,
+            playgroundProductConfiguration: PlaygroundProductConfiguration(targetOverride: "Orphan"),
+            in: fs
+        ) { package, _ in
+            try package.checkModule("PublicLib")
+            try package.checkModule("Orphan")
+            package.checkProduct("PublicLib") { _ in }
+            package.checkPlaygroundRunner(targetDependencies: ["Orphan"])
+            package.checkProduct("pkg__Playgrounds") { _ in }
+        }
+    }
+
+    @Test
+    func testPlaygroundRunnerTargetOverrideErrorsOnUnknownTarget() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/PublicLib/PublicLib.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: .root,
+            toolsVersion: .v5_5,
+            products: [
+                try ProductDescription(name: "PublicLib", type: .library(.automatic), targets: ["PublicLib"]),
+            ],
+            targets: [
+                try TargetDescription(name: "PublicLib"),
+            ]
+        )
+        try PackageBuilderTester(
+            manifest,
+            playgroundProductConfiguration: PlaygroundProductConfiguration(targetOverride: "NoSuchThing"),
+            in: fs
+        ) { _, diagnostics in
+            diagnostics.check(
+                diagnostic: .contains("no target named 'NoSuchThing'"),
+                severity: .error
+            )
+        }
+    }
+
+    @Test
+    func testPlaygroundRunnerTargetOverrideErrorsOnNonLibrary() throws {
+        // `--target` may only point at library targets; an executable is
+        // rejected with a kind-mismatch error.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/PublicLib/PublicLib.swift",
+            "/Sources/SomeExe/main.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: .root,
+            toolsVersion: .v5_5,
+            products: [
+                try ProductDescription(name: "PublicLib", type: .library(.automatic), targets: ["PublicLib"]),
+            ],
+            targets: [
+                try TargetDescription(name: "PublicLib"),
+                try TargetDescription(name: "SomeExe", type: .executable),
+            ]
+        )
+        try PackageBuilderTester(
+            manifest,
+            playgroundProductConfiguration: PlaygroundProductConfiguration(targetOverride: "SomeExe"),
+            in: fs
+        ) { _, diagnostics in
+            diagnostics.check(
+                diagnostic: .contains("requires a library target"),
+                severity: .error
+            )
+        }
+    }
 }
 
 final class PackageBuilderTester {
@@ -3622,6 +3755,7 @@ final class PackageBuilderTester {
         binaryArtifacts: [String: BinaryArtifact] = [:],
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
+        playgroundProductConfiguration: PlaygroundProductConfiguration? = nil,
         supportXCBuildTypes: Bool = false,
         in fs: FileSystem,
         sourceLocation: SourceLocation = #_sourceLocation,
@@ -3641,7 +3775,7 @@ final class PackageBuilderTester {
                 shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                 warnAboutImplicitExecutableTargets: true,
                 createREPLProduct: createREPLProduct,
-                playgroundProductConfiguration: nil,
+                playgroundProductConfiguration: playgroundProductConfiguration,
                 fileSystem: fs,
                 observabilityScope: observability.topScope,
                 enabledTraits: []
@@ -3693,6 +3827,27 @@ final class PackageBuilderTester {
         }
         uncheckedModules.remove(target)
         try body?(ModuleResult(target))
+    }
+
+    /// Finds the synthesized playground runner module (identified by its
+    /// `isPlaygroundRunner` flag) and asserts on its declared module
+    /// dependencies — the link list that determines which library targets'
+    /// `#Playgrounds` end up in the runner binary.
+    func checkPlaygroundRunner(targetDependencies depsToCheck: [String], sourceLocation: SourceLocation = #_sourceLocation) {
+        guard case .package(let package) = result else {
+            Issue.record("Expected package did not load \(self)", sourceLocation: sourceLocation)
+            return
+        }
+        guard let runner = package.modules.first(where: { $0.isPlaygroundRunner }) else {
+            Issue.record("Playground runner module not synthesized", sourceLocation: sourceLocation)
+            return
+        }
+        uncheckedModules.remove(runner)
+        #expect(
+            Set(depsToCheck) == Set(runner.dependencies.compactMap { $0.module?.name }),
+            "unexpected dependencies in playground runner",
+            sourceLocation: sourceLocation
+        )
     }
 
     func checkProduct(_ name: String, sourceLocation: SourceLocation = #_sourceLocation, _ body: ((ProductResult) -> Void)? = nil) {
