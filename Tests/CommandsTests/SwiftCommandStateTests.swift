@@ -15,6 +15,7 @@
 @testable import Commands
 @testable import CoreCommands
 
+import struct SPMBuildCore.BuildSystemProvider
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
 import func PackageGraph.loadModulesGraph
 
@@ -27,6 +28,73 @@ import class TSCBasic.BufferedOutputByteStream
 import protocol TSCBasic.OutputByteStream
 import enum TSCBasic.SystemError
 import var TSCBasic.stderrStream
+
+import Testing
+
+@Suite()
+struct SwiftCommandStateTestSuites {
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+        arguments: [
+            AbsolutePath.root,
+            AbsolutePath.root.appending(component: "cacheDir"),
+            AbsolutePath.root.appending(components: "foo", "bar", "baz"),
+        ]
+    )
+    func cacheDirTagFileContainsExpectedContents(
+        cacheDirectory: AbsolutePath,
+    ) async throws {
+        let fs = InMemoryFileSystem()
+        // let cacheDirectory = AbsolutePath.root.appending(components: components)
+
+        let actual = try #require(createCacheDirFile(inDirectory: cacheDirectory, fs))
+
+        let contents = try fs.readFileContents(actual).description
+        let contentArray = contents.split(whereSeparator: \.isNewline)
+        try #require(contentArray.isEmpty == false, "Content array is empty, when it shouldn't be. Content is: \(contents)")
+        #expect(contentArray[0] == "Signature: 8a477f597d28d172789f06886806bc55")
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+        arguments: getBuildData(for: BuildSystemProvider.Kind.allCases)
+    ) func createBuildSystemFileContainsExpectedContents(
+        buildData: BuildData,
+    ) async throws {
+        let fs = InMemoryFileSystem()
+        let dir = AbsolutePath.root.appending(components: "tmp", "output", "build")
+        let buildSystemDefinitionFile = dir.appending(".buildSystem_\(buildData.config)")
+
+        try requireFileDoesNotExist(
+            at: buildSystemDefinitionFile,
+            fileSystem: fs,
+        )
+        let actualBuildSystemDefinition = try #require(
+            createBuildSystemFile(
+                inDirectory: dir,
+                for: buildData.config,
+                buildSystem: buildData.buildSystem,
+                fileSystem: fs,
+            )
+        )
+
+        // Assert
+        try #require(actualBuildSystemDefinition == buildSystemDefinitionFile)
+        try requireFileExists(
+            at: actualBuildSystemDefinition,
+            fileSystem: fs
+        )
+        let contents = try fs.readFileContents(actualBuildSystemDefinition).description
+        #expect(
+            contents == "\(buildData.buildSystem)",
+            "Actual is not as expected",
+        )
+    }
+}
 
 final class SwiftCommandStateTests: XCTestCase {
     /// Original working directory before the test ran (if known).
@@ -549,6 +617,7 @@ final class SwiftCommandStateTests: XCTestCase {
             }
         }
     }
+
 }
 
 extension SwiftCommandState {

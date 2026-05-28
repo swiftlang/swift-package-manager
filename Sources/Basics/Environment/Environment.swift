@@ -59,6 +59,12 @@ extension Environment {
         _read { yield self.storage[key] }
         _modify { yield &self.storage[key] }
     }
+
+    package subscript(_ key: ConfigurableEnvVar) -> String? {
+        _read { yield self.storage[EnvironmentKey(key.rawValue)] }
+        _modify { yield &self.storage[EnvironmentKey(key.rawValue)] }
+    }
+
 }
 
 // MARK: - Conversions between Dictionary<String, String>

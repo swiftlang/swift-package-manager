@@ -10,17 +10,21 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
+
 extension BuildParameters {
     /// Build parameters related to output and logging grouped in a single type to aggregate those in one place.
     public struct Output: Encodable {
         public init(
             isColorized: Bool = false,
             isVerbose: Bool = false,
-            enableTaskBacktraces: Bool = false
+            enableTaskBacktraces: Bool = false,
+            traceEventsFilePath: AbsolutePath? = nil
         ) {
             self.isColorized = isColorized
             self.isVerbose = isVerbose
             self.enableTaskBacktraces = enableTaskBacktraces
+            self.traceEventsFilePath = traceEventsFilePath
         }
 
         public var isColorized: Bool
@@ -28,5 +32,7 @@ extension BuildParameters {
         public var isVerbose: Bool
 
         public var enableTaskBacktraces: Bool
+
+        public var traceEventsFilePath: AbsolutePath?
     }
 }

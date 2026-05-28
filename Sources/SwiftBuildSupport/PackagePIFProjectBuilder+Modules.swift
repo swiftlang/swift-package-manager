@@ -142,10 +142,12 @@ extension PackagePIFProjectBuilder {
             pifTarget: .target(self.project[keyPath: pluginTargetKeyPath]),
             indexableFileURLs: [],
             headerFiles: [],
+            pluginScriptSourcePaths: pluginModule.sources.paths,
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(pluginModuleMetadata)
     }
@@ -385,13 +387,12 @@ extension PackagePIFProjectBuilder {
         }
 
         // Generate a module map file, if needed.
-        var moduleMapFileContents = ""
-        let generatedModuleMapDir = "$(GENERATED_MODULEMAP_DIR)"
-        var generatedModuleMapPath = try RelativePath(validating:"\(generatedModuleMapDir)/\(sourceModule.name).modulemap").pathString
+        let moduleMapFileContents: String?
+        let moduleMapPath: String?
 
         if sourceModule.usesSwift && desiredModuleType != .macro {
             // Generate ObjC compatibility header for Swift library targets.
-            settings[.SWIFT_OBJC_INTERFACE_HEADER_DIR] = generatedModuleMapDir
+            settings[.SWIFT_OBJC_INTERFACE_HEADER_DIR] = "$(GENERATED_MODULEMAP_DIR)"
             settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME] = "\(sourceModule.name)-Swift.h"
 
             moduleMapFileContents = """
@@ -400,6 +401,8 @@ extension PackagePIFProjectBuilder {
             export *
             }
             """
+            let generatedModuleMapPath = try RelativePath(validating:"$(GENERATED_MODULEMAP_DIR)/\(sourceModule.name).modulemap").pathString
+            moduleMapPath = generatedModuleMapPath
             // We only need to impart this to C clients.
             impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
         } else {
@@ -416,13 +419,18 @@ extension PackagePIFProjectBuilder {
                 // The modulemap was already generated, we should explicitly impart it on dependents,
                 impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(pluginGeneratedModuleMapPath)", "$(inherited)"]
                 impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(pluginGeneratedModuleMapPath)", "$(inherited)"]
-                generatedModuleMapPath = pluginGeneratedModuleMapPath.pathString
+                moduleMapFileContents = nil
+                moduleMapPath = pluginGeneratedModuleMapPath.pathString
             } else {
                 switch sourceModule.moduleMapType {
                 case nil, .some(.none):
                     // No modulemap, no action required.
+                    moduleMapFileContents = nil
+                    moduleMapPath = nil
                     break
                 case .custom(let customModuleMapPath):
+                    moduleMapFileContents = nil
+                    moduleMapPath = customModuleMapPath.pathString
                     // We don't need to generate a modulemap, but we should explicitly impart it on dependents,
                     // even if it will appear in search paths. See: https://github.com/swiftlang/swift-package-manager/issues/9290
                     impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(customModuleMapPath)", "$(inherited)"]
@@ -435,6 +443,8 @@ extension PackagePIFProjectBuilder {
                     export *
                     }
                     """
+                    let generatedModuleMapPath = try RelativePath(validating:"$(GENERATED_MODULEMAP_DIR)/\(sourceModule.name).modulemap").pathString
+                    moduleMapPath = generatedModuleMapPath
                     // Pass the path of the module map up to all direct and indirect clients.
                     impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
                     impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
@@ -446,6 +456,8 @@ extension PackagePIFProjectBuilder {
                     export *
                     }
                     """
+                    let generatedModuleMapPath = try RelativePath(validating:"$(GENERATED_MODULEMAP_DIR)/\(sourceModule.name).modulemap").pathString
+                    moduleMapPath = generatedModuleMapPath
                     // Pass the path of the module map up to all direct and indirect clients.
                     impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
                     impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
@@ -522,8 +534,12 @@ extension PackagePIFProjectBuilder {
         }
 
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"
-        settings[.MODULEMAP_FILE_CONTENTS] = moduleMapFileContents
-        settings[.MODULEMAP_PATH] = generatedModuleMapPath
+        if let moduleMapFileContents {
+            settings[.MODULEMAP_FILE_CONTENTS] = moduleMapFileContents
+        }
+        if let moduleMapPath {
+            settings[.MODULEMAP_PATH] = moduleMapPath
+        }
         settings[.DEFINES_MODULE] = "YES"
 
         // Settings for text-based API.
@@ -633,6 +649,26 @@ extension PackagePIFProjectBuilder {
 
         let headerFiles = Set(sourceModule.headerFileAbsolutePaths)
 
+        // Add the header files with project visibility for the purpose of exposing them
+        // for symbol graph generation. For non-swift API that will be done using TAPI and
+        // a build setting to instruct it to use project visible header files. In the future
+        // it may be possible to add public header files with public header visibility.
+        for headerPath in headerFiles {
+            let headerFileRef = self.project.mainGroup[keyPath: targetSourceFileGroupKeyPath]
+                .addFileReference { id in
+                    FileReference(id: id, path: headerPath.pathString, pathBase: .absolute)
+                }
+
+            self.project[keyPath: sourceModuleTargetKeyPath].common.withHeadersBuildPhase { phase in
+                phase.common.addBuildFile { id in
+                    BuildFile(id: id, fileRef: headerFileRef)
+                    // headerVisibility: nil (omitted) = "project" visibility
+                }
+            }
+        }
+
+        let doccCatalogs = sourceModule.underlying.doccCatalogPaths
+
         // Add any additional source files emitted by custom build commands.
         for path in generatedFiles.sources {
             let sourceFileRef = self.project.mainGroup[keyPath: targetSourceFileGroupKeyPath].addFileReference { id in
@@ -667,6 +703,7 @@ extension PackagePIFProjectBuilder {
 
         if desiredModuleType == .macro {
             settings[.SWIFT_IMPLEMENTS_MACROS_FOR_MODULE_NAMES] = [sourceModule.c99name]
+            settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
 
             // Don't install the Swift module when building the macro executable, lest it conflict with the testable variant.
             // The contents of the testable variant's module will exactly match the binary linked by dependencies (test targets).
@@ -820,17 +857,16 @@ extension PackagePIFProjectBuilder {
         //
         // An imparted build setting on C will propagate back to both B and A.
         // FIXME: -rpath should not be given if -static is
-        var rpaths: [String] = []
-        if let existingRpaths = impartedSettings[.LD_RUNPATH_SEARCH_PATHS] {
-            rpaths.append(contentsOf: existingRpaths)
-        }
-        if pifBuilder.addLocalRpaths {
+        var rpaths: [String] = impartedSettings[.LD_RUNPATH_SEARCH_PATHS] ?? []
+        if pifBuilder.addLocalRpaths != .never {
             rpaths.append("$(RPATH_ORIGIN)")
-            impartedSettings[.LD_RUNPATH_SEARCH_PATHS] = rpaths + ["$(inherited)"]
+            if pifBuilder.addLocalRpaths == .always {
+                impartedSettings[.LD_RUNPATH_SEARCH_PATHS] = rpaths + ["$(inherited)"]
+            }
         }
 
         var impartedDebugSettings = impartedSettings
-        if pifBuilder.addLocalRpaths {
+        if pifBuilder.addLocalRpaths != .never {
             // FIXME: Why is this rpath only added to the debug config? We should investigate reworking this.
             rpaths.append("$(BUILT_PRODUCTS_DIR)/PackageFrameworks")
             impartedDebugSettings[.LD_RUNPATH_SEARCH_PATHS] = rpaths + ["$(inherited)"]
@@ -873,10 +909,12 @@ extension PackagePIFProjectBuilder {
             pifTarget: .target(self.project[keyPath: sourceModuleTargetKeyPath]),
             indexableFileURLs: indexableFileURLs,
             headerFiles: headerFiles,
+            doccCatalogs: doccCatalogs,
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: sourceModule.packageSwiftLanguageVersion(manifest: packageManifest),
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
 
         return (moduleOrProduct, resourceBundleName)
@@ -962,7 +1000,8 @@ extension PackagePIFProjectBuilder {
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: self.declaredPlatforms,
-            deploymentTargets: self.deploymentTargets
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(systemModule)
     }

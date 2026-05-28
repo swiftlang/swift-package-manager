@@ -13,22 +13,32 @@
 import Foundation
 
 import Basics
+import Build
 import PackageGraph
 internal import PackageLoading
 import PackageModel
+import SPMBuildCore
 
 struct PluginTargetBuildDescription: BuildTarget {
     private let target: ResolvedModule
+    private let toolsBuildParameters: BuildParameters
     private let toolsVersion: ToolsVersion
-    private let toolchain: any Toolchain
+    private let pluginConfiguration: PluginConfiguration
     let isPartOfRootPackage: Bool
     var isTestTarget: Bool { false }
 
-    init(target: ResolvedModule, toolsVersion: ToolsVersion, toolchain: any Toolchain, isPartOfRootPackage: Bool) {
+    init(
+      target: ResolvedModule,
+      toolsBuildParameters: BuildParameters,
+      toolsVersion: ToolsVersion,
+      pluginConfiguration: PluginConfiguration,
+      isPartOfRootPackage: Bool
+  ) {
         assert(target.type == .plugin)
         self.target = target
+        self.toolsBuildParameters = toolsBuildParameters
         self.toolsVersion = toolsVersion
-        self.toolchain = toolchain
+        self.pluginConfiguration = pluginConfiguration
         self.isPartOfRootPackage = isPartOfRootPackage
     }
 
@@ -73,11 +83,13 @@ struct PluginTargetBuildDescription: BuildTarget {
     }
 
     func compileArguments(for fileURL: URL) throws -> [String] {
-        // FIXME: This is very odd and we should clean this up by merging `ManifestLoader` and `DefaultPluginScriptRunner` again.
-        var args = ManifestLoader.interpreterFlags(for: self.toolsVersion, toolchain: toolchain)
-        // Note: we ignore the `fileURL` here as the expectation is that we get a commandline for the entire target in case of Swift. Plugins are always assumed to only consist of Swift files.
-        args += try sources.map { try $0.sourceFile.filePath }
-        return args
+        return pluginConfiguration.scriptRunner.buildCommandLine(
+            sourceFiles: target.sources.paths,
+            pluginName: target.name,
+            toolsVersion: toolsVersion,
+            workers: toolsBuildParameters.workers,
+            observabilityScope: nil
+        ).commandLine
     }
 }
 

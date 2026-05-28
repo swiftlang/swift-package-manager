@@ -29,6 +29,7 @@ import enum PackageModel.PrebuiltsPlatform
 import struct PackageModel.Resource
 import struct PackageModel.PackageIdentity
 import enum PackageModel.ProductType
+import struct PackageModel.ToolsVersion
 
 import struct PackageGraph.ModulesGraph
 import struct PackageGraph.ResolvedModule
@@ -186,10 +187,20 @@ public final class PackagePIFBuilder {
     /// Create dynamic library variants for automatic library products, for use by development-time features such as Previews and Swift Playgrounds.
     let createDynamicVariantsForLibraryProducts: Bool
 
+    /// Controls whether local rpaths are imparted to package consumers and in which configurations.
+    public enum AddLocalRpaths: Sendable {
+        /// Do not add local rpaths.
+        case never
+        /// Add rpaths only in the Debug configuration.
+        case debugOnly
+        /// Add rpaths in both Debug and Release configurations.
+        case always
+    }
+
     /// Add rpaths which allow loading libraries adjacent to the current image at runtime. This is desirable
     /// when launching build products from the build directory, but should often be disabled when deploying
-    /// the build products to a different location.
-    let addLocalRpaths: Bool
+    /// the build products to a different location or building the release configuration.
+    let addLocalRpaths: AddLocalRpaths
 
     /// Package display version, if any (i.e., it can be a version, branch or a git ref).
     let packageDisplayVersion: String?
@@ -222,7 +233,7 @@ public final class PackagePIFBuilder {
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
-        addLocalRpaths: Bool = true,
+        addLocalRpaths: AddLocalRpaths = .always,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
@@ -252,7 +263,7 @@ public final class PackagePIFBuilder {
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
-        addLocalRpaths: Bool = true,
+        addLocalRpaths: AddLocalRpaths = .always,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
@@ -350,7 +361,8 @@ public final class PackagePIFBuilder {
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: nil,
-            deploymentTargets: nil
+            deploymentTargets: nil,
+            toolsVersion: nil
         )
         return placeholderModule
     }
@@ -369,12 +381,18 @@ public final class PackagePIFBuilder {
 
         public var indexableFileURLs: [SourceControlURL]
         public var headerFiles: Set<AbsolutePath>
+        public var doccCatalogs: Set<AbsolutePath>
+        /// Source files implementing the plugin represented by this target, which
+        /// are compiled during build planning as opposed to participating in the
+        /// build itself.
+        public var pluginScriptSourcePaths: [AbsolutePath]
         public var linkedPackageBinaries: [LinkedPackageBinary]
 
         public var swiftLanguageVersion: String?
 
         public var declaredPlatforms: [PackageModel.Platform]?
         public var deploymentTargets: [PackageModel.Platform: String?]?
+        public var toolsVersion: ToolsVersion?
     }
 
     public struct LinkedPackageBinary {
@@ -450,7 +468,7 @@ public final class PackagePIFBuilder {
     @discardableResult
     public func build() throws -> [ModuleOrProduct] {
         self.log(
-            .info,
+            .debug,
             "Building PIF project for package '\(self.package.identity)' " +
             "(\(package.products.count) products, \(package.modules.count) modules)"
         )
@@ -586,6 +604,10 @@ public final class PackagePIFBuilder {
         // (If we want to be extra careful with differences to the existing PIF in the SwiftPM.)
         settings[.OTHER_CFLAGS] = ["$(inherited)", "-DXcode"]
 
+        if !self.delegate.isRootPackage {
+            settings[.BUILD_SERVER_PROTOCOL_TARGET_TAGS, default: ["$(inherited)"]].append("dependency")
+        }
+
         if self.delegate.isRemote {
             if self.suppressWarningsForPackageDependencies {
                 settings[.SUPPRESS_WARNINGS] = "YES"
@@ -658,6 +680,7 @@ public final class PackagePIFBuilder {
         // Add the build settings that are specific to debug builds, and set those as the "Debug" configuration.
         var debugSettings = settings
         debugSettings[.COPY_PHASE_STRIP] = "NO"
+        //TODO would be nice to have this defaulted by the build systems as we may want different default based on platform (ie codeview for windows)
         debugSettings[.DEBUG_INFORMATION_FORMAT] = "dwarf"
         debugSettings[.ENABLE_NS_ASSERTIONS] = "YES"
         debugSettings[.GCC_OPTIMIZATION_LEVEL] = "0"
@@ -666,12 +689,13 @@ public final class PackagePIFBuilder {
         debugSettings[.ENABLE_TESTABILITY] = "YES"
         debugSettings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, default: []].append(contentsOf: ["DEBUG"])
         debugSettings[.GCC_PREPROCESSOR_DEFINITIONS, default: ["$(inherited)"]].append(contentsOf: ["DEBUG=1"])
-        debugSettings[.SWIFT_INDEX_STORE_ENABLE] = "YES"
+        debugSettings[.INDEX_ENABLE_DATA_STORE] = "YES"
         builder.project.addBuildConfig { id in BuildConfig(id: id, name: "Debug", settings: debugSettings) }
 
         // Add the build settings that are specific to release builds, and set those as the "Release" configuration.
         var releaseSettings = settings
         releaseSettings[.COPY_PHASE_STRIP] = "YES"
+        //TODO would be nice to have this defaulted by the build systems as we may want different default based on platform (ie codeview for windows)
         releaseSettings[.DEBUG_INFORMATION_FORMAT] = "dwarf-with-dsym"
         releaseSettings[.GCC_OPTIMIZATION_LEVEL] = "s"
         releaseSettings[.SWIFT_OPTIMIZATION_LEVEL] = "-Owholemodule"
@@ -718,21 +742,27 @@ extension PackagePIFBuilder.ModuleOrProduct {
         pifTarget: ProjectModel.BaseTarget?,
         indexableFileURLs: [SourceControlURL] = [],
         headerFiles: Set<AbsolutePath> = [],
+        doccCatalogs: Set<AbsolutePath> = [],
+        pluginScriptSourcePaths: [AbsolutePath] = [],
         linkedPackageBinaries: [PackagePIFBuilder.LinkedPackageBinary] = [],
         swiftLanguageVersion: String? = nil,
         declaredPlatforms: [PackageModel.Platform]? = [],
-        deploymentTargets: [PackageModel.Platform: String?]? = [:]
+        deploymentTargets: [PackageModel.Platform: String?]? = [:],
+        toolsVersion: ToolsVersion?
     ) {
         self.type = moduleOrProductType
         self.name = name
         self.moduleName = moduleName
         self.pifTarget = pifTarget
         self.indexableFileURLs = indexableFileURLs
+        self.pluginScriptSourcePaths = pluginScriptSourcePaths
         self.headerFiles = headerFiles
+        self.doccCatalogs = doccCatalogs
         self.linkedPackageBinaries = linkedPackageBinaries
         self.swiftLanguageVersion = swiftLanguageVersion
         self.declaredPlatforms = declaredPlatforms
         self.deploymentTargets = deploymentTargets
+        self.toolsVersion = toolsVersion
     }
 }
 

@@ -37,6 +37,16 @@ public final class RegistryClient: AsyncCancellable {
     private static let availabilityCacheTTL: DispatchTimeInterval = .seconds(5 * 60)
     private static let metadataCacheTTL: DispatchTimeInterval = .seconds(60 * 60)
 
+    /// A value below Foundation's `httpMaximumConnectionsPerHost` default of 6. 
+    /// Without this limit the RegistryClient may fetch too many resources in parallel
+    /// from the same registry, which can lead to starvation of other requests due to
+    /// libcurl's pending queue. If pending requests don't start receiving bytes within
+    /// 60s requests will fail with a timeout (NSURLError -1001). By ensuring we're below
+    /// the Foundation default we ensure requests aren't started by blocked behind the 6
+    /// active connections, waiting for bytes and potentially timing out if the requests in
+    /// flight take a long time to complete.
+    private static let defaultMaxConcurrentRequestsPerHost: Int = 4
+
     private var configuration: RegistryConfiguration
     private let archiverProvider: (FileSystem) -> Archiver
     private let httpClient: HTTPClient
@@ -77,28 +87,39 @@ public final class RegistryClient: AsyncCancellable {
 
         if let authorizationProvider {
             self.authorizationProvider = { url in
-                guard let registryAuthentication = try? configuration.authentication(for: url) else {
-                    return .none
-                }
                 guard let (user, password) = authorizationProvider.authentication(for: url) else {
                     return .none
                 }
 
-                switch registryAuthentication.type {
+                // authentication(for:) throws only for hostless URLs, which environment
+                // variable providers may still return credentials for. In that case, fall
+                // through to type inference below.
+                let authType = (try? configuration.authentication(for: url))?.type
+
+                switch authType {
                 case .basic:
                     let authorizationString = "\(user):\(password)"
                     let authorizationData = Data(authorizationString.utf8)
                     return "Basic \(authorizationData.base64EncodedString())"
                 case .token: // `user` value is irrelevant in this case
                     return "Bearer \(password)"
+                case nil:
+                    if user == "token" {
+                        return "Bearer \(password)"
+                    }
+                    let authorizationString = "\(user):\(password)"
+                    let authorizationData = Data(authorizationString.utf8)
+                    return "Basic \(authorizationData.base64EncodedString())"
                 }
             }
         } else {
             self.authorizationProvider = .none
         }
 
-        self.httpClient = customHTTPClient ?? HTTPClient()
-        self.archiverProvider = customArchiverProvider ?? { fileSystem in ZipArchiver(fileSystem: fileSystem) }
+        self.httpClient = customHTTPClient ?? HTTPClient(
+            configuration: .init(maxConcurrentRequestsPerHost: Self.defaultMaxConcurrentRequestsPerHost)
+        )
+        self.archiverProvider = customArchiverProvider ?? { fileSystem in UniversalArchiver(fileSystem) }
         self.fingerprintStorage = fingerprintStorage
         self.fingerprintCheckingMode = fingerprintCheckingMode
         self.skipSignatureValidation = skipSignatureValidation
@@ -640,7 +661,6 @@ public final class RegistryClient: AsyncCancellable {
         observabilityScope: ObservabilityScope
     ) async throws -> String {
         let (registryIdentity, registry) = try self.unwrapRegistry(from: package)
-
         try await withAvailabilityCheck(
             registry: registry,
             observabilityScope: observabilityScope
@@ -930,11 +950,31 @@ public final class RegistryClient: AsyncCancellable {
                         debug: "extracting \(package) \(version) source archive to '\(destinationPath)'"
                     )
                 let archiver = self.archiverProvider(fileSystem)
-                // TODO: Bail if archive contains relative paths or overlapping files
                 do {
                     try await archiver.extract(from: downloadPath, to: destinationPath)
                     defer {
                         try? fileSystem.removeFileTree(downloadPath)
+                    }
+                    // Reject any extracted entry whose symbolic link target
+                    // escapes the destination directory. Without this guard a
+                    // registry-hosted source archive containing a symlink such
+                    // as `evil -> /Users/victim/.ssh` followed by a regular
+                    // file at `evil/authorized_keys` would let the archiver
+                    // write outside the package's destination directory.
+                    // Mirrors the existing guard in
+                    // Sources/Workspace/Workspace+BinaryArtifacts.swift after
+                    // every archiver.extract call.
+                    //
+                    // If validation fails the archive has already been written
+                    // to disk under destinationPath; remove it before re-throwing
+                    // so that a subsequent `swift build` cannot pick up the
+                    // unsafe contents (the throw alone only stops `swift package
+                    // resolve`, not later build steps reading the same path).
+                    do {
+                        try fileSystem.validateNoEscapingSymlinks(in: destinationPath)
+                    } catch {
+                        try? fileSystem.removeFileTree(destinationPath)
+                        throw error
                     }
                     observabilityScope
                         .emit(
@@ -1254,7 +1294,6 @@ public final class RegistryClient: AsyncCancellable {
             --\(boundary)\r
             Content-Disposition: form-data; name=\"metadata\"\r
             Content-Type: application/json\r
-            Content-Transfer-Encoding: quoted-printable\r
             \r
             \(metadataContent)
             """.utf8)

@@ -219,7 +219,20 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                     shouldDisableLocalRpath: self.shouldDisableLocalRpath,
                     logLevel: self.logLevel
                 )
-                return print(parameters.buildPath.description)
+                let buildSystem = try builder.createBuildSystem(
+                    packagePath: packagePath,
+                    scratchDirectory: scratchDirectory,
+                    buildSystem: self.buildSystem,
+                    configuration: self.configuration,
+                    architectures: self.architectures,
+                    buildFlags: self.buildFlags,
+                    manifestBuildFlags: self.manifestFlags,
+                    useIntegratedSwiftDriver: self.useIntegratedSwiftDriver,
+                    explicitTargetDependencyImportCheck: self.explicitTargetDependencyImportCheck,
+                    shouldDisableLocalRpath: self.shouldDisableLocalRpath,
+                    logLevel: self.logLevel
+                )
+                return try await print(buildSystem.buildProductsPath(for: parameters).description)
             }
 
             try await builder.build(
@@ -332,7 +345,8 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 ),
                 outputParameters: .init(
                     isVerbose: logLevel <= .info
-                )
+                ),
+                stripProducts: nil,
             )
         }
 
@@ -423,6 +437,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
 
                 return try SwiftBuildSystem(
                     buildParameters: buildParameters,
+                    hostBuildParameters: buildParameters,
                     packageGraphLoader: asyncUnsafePackageGraphLoader,
                     packageManagerResourcesDirectory: nil,
                     additionalFileRules: [],
@@ -436,6 +451,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                         disableSandbox: false
                     ),
                     delegate: nil,
+                    scratchDirectory: scratchDirectory,
                 )
             }
         }

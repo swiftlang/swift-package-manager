@@ -224,7 +224,6 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue("fails to build the package", isIntermittent: true) {
             // default should run with testability
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 let result = try await execute(
@@ -233,11 +232,8 @@ struct TestCommandTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                #expect(result.stderr.contains("-enable-testing"))
+                #expect(result.stderr.contains("-enable-testing") == true)
             }
-        } when: {
-            buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem
-        }
     }
 
     @Test(
@@ -252,7 +248,6 @@ struct TestCommandTests {
     ) async throws {
         let configuration = BuildConfiguration.debug
         // disabled
-        try await withKnownIssue("fails to build", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 let error = await #expect(throws: SwiftPMError.self) {
                     try await execute(
@@ -272,9 +267,6 @@ struct TestCommandTests {
                     "got stdout: \(stdout), stderr: \(stderr)",
                 )
             }
-        } when: {
-            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
-        }
     }
 
     @Test(
@@ -287,7 +279,6 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue("failes to build the package", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 let result = try await execute(
                     ["--enable-testable-imports", "--vv"],
@@ -295,11 +286,8 @@ struct TestCommandTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                #expect(result.stderr.contains("-enable-testing"))
+                #expect(result.stderr.contains("-enable-testing") == true)
             }
-        } when: {
-            (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem)
-        }
     }
 
     @Test(
@@ -551,6 +539,66 @@ struct TestCommandTests {
         }
     }
 
+    /// Regression: `--xunit-output=PATH` must be stripped when forwarding argv to Swift Testing so only
+    /// SPM's suffixed path is passed; otherwise the helper receives duplicate `--xunit-output` flags and
+    /// overwrites the XCTest JUnit file. See discussion in swift-package-manager around combined forms.
+    @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.TestParallel,
+            .Feature.CommandLineArguments.TestOutputXunit,
+            .Feature.CommandLineArguments.TestEnableXCTest,
+            .Feature.CommandLineArguments.TestEnableSwiftTesting,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9960", relationship: .verifies),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9982", relationship: .defect),
+        arguments: SupportedBuildSystemOnAllPlatforms.filter { $0 != .xcode },
+    )
+    func swiftTestParallelXunitOutputCombinedEqualsForm(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await withKnownIssue(isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/DefaultInteropMode") { fixturePath in
+                let xUnitOutput = fixturePath.appending("output.xml")
+                let swiftTestingXUnitOutput = fixturePath.appending("output-swift-testing.xml")
+                _ = try await execute(
+                    [
+                        "--parallel",
+                        "--enable-xctest",
+                        "--enable-swift-testing",
+                        "--xunit-output=\(xUnitOutput.pathString)",
+                    ],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+
+                expectFileExists(at: xUnitOutput, "\(xUnitOutput) does not exist")
+                expectFileExists(at: swiftTestingXUnitOutput, "\(swiftTestingXUnitOutput) does not exist")
+
+                let xctestContents: String = try localFileSystem.readFileContents(xUnitOutput)
+                #expect(
+                    xctestContents.contains(#"<testsuite name="TestResults""#),
+                    "XCTest JUnit should be generated at the base path; got:\n\(xctestContents)",
+                )
+                #expect(
+                    xctestContents.contains(#"name="testInteropSetToComplete""#),
+                    "Expected XCTest case in base xUnit file; got:\n\(xctestContents)",
+                )
+
+                let swiftTestingContents: String = try localFileSystem.readFileContents(swiftTestingXUnitOutput)
+                #expect(
+                    swiftTestingContents.contains("DefaultInteropModeSwiftTestingTests")
+                        || swiftTestingContents.contains("Interop mode should be set to complete"),
+                    "Expected Swift Testing output in suffixed xUnit file; got:\n\(swiftTestingContents)",
+                )
+            }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
+    }
+
     enum TestRunner {
         case XCTest
         case SwiftTesting
@@ -742,8 +790,8 @@ struct TestCommandTests {
         }
     }
 
-    /// An argument to the test function `noteXCTestFailures()`.
-    struct XCTestFailureNoteTestArgument: CustomStringConvertible {
+    /// An argument to the test function `noteTestFailures()`.
+    struct TestFailureNoteTestArgument: CustomStringConvertible {
         /// The relative path to a test fixture in this project.
         var fixturePath: String
 
@@ -763,8 +811,14 @@ struct TestCommandTests {
         /// to having Swift Testing enabled.
         var isSwiftTestingEnabled: Bool? = nil
 
+        /// Whether `--parallel` or `--no-parallel` is passed to the test command
+        var parallel: Bool? = nil
+
+        /// The build system to use when building tests
+        var buildSystem: BuildSystemProvider.Kind
+
         /// Whether the test command output is expected to include the note.
-        var expectNote: Bool
+        var expectedNote: String? = nil
 
         var description: String {
             var description = "fixture: '\((fixturePath as NSString).lastPathComponent)'"
@@ -774,13 +828,16 @@ struct TestCommandTests {
             if let isSwiftTestingEnabled {
                 description.append(", Swift Testing enabled: \(isSwiftTestingEnabled)")
             }
-            description.append(", expectNote: \(expectNote)")
+            if let parallel {
+                description.append(", parallel testing enabled: \(parallel)")
+            }
+            description.append(", buildSystem: \(buildSystem)")
+            description.append(", expectedNote: \(expectedNote ?? "<none>")")
             return description
         }
     }
 
-    /// Test whether a note is emitted to stdout indicating that XCTests failed
-    /// after Swift Testing tests finish running.
+    /// Test whether a note is emitted summarizing the failed test runs.
     @Test(
         .tags(
             .Feature.TargetType.Test,
@@ -792,57 +849,169 @@ struct TestCommandTests {
         arguments: [
             .init(
                 fixturePath: "Miscellaneous/TestDiscovery/Simple",
-                expectNote: false,
+                buildSystem: .native,
             ),
             .init(
                 fixturePath: "Miscellaneous/TestSingleFailureXCTest",
-                expectNote: true,
+                buildSystem: .native,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - TestFailuresPackageTests (XCTest)
+                """,
             ),
             .init(
                 fixturePath: "Miscellaneous/TestSingleFailureSwiftTesting",
-                expectNote: false,
-            ),
-            .init(
-                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
-                isXCTestEnabled: false,
-                expectNote: false,
-            ),
-            .init(
-                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
-                isSwiftTestingEnabled: false,
-                expectNote: false,
-            ),
-            .init(
-                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
-                isXCTestEnabled: false,
-                isSwiftTestingEnabled: false,
-                expectNote: false,
-            ),
-        ] as [XCTestFailureNoteTestArgument]
-    )
-    func noteXCTestFailures(noteArgument arg: XCTestFailureNoteTestArgument) async throws {
-        try await fixture(name: arg.fixturePath) { fixturePath in
-            var args: [String] = []
-
-            switch arg.isXCTestEnabled {
-            case .none: break
-            case .some(true): args.append("--enable-xctest")
-            case .some(false): args.append("--disable-xctest")
-            }
-
-            switch arg.isSwiftTestingEnabled {
-            case .none: break
-            case .some(true): args.append("--enable-swift-testing")
-            case .some(false): args.append("--disable-swift-testing")
-            }
-
-            let (stdout, stderr) = try await execute(
-                args,
-                packagePath: fixturePath,
                 buildSystem: .native,
-                throwIfCommandFails: false,
-            )
-            #expect(stdout.contains(SwiftTestCommand.xctestFailedNote) == arg.expectNote, "stdout: \(stdout), stderr: \(stderr)")
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - TestFailuresSwiftTestingPackageTests (Swift Testing)
+                """,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                isXCTestEnabled: false,
+                buildSystem: .native,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                isSwiftTestingEnabled: false,
+                buildSystem: .native,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - TestFailuresPackageTests (XCTest)
+                """,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                isXCTestEnabled: false,
+                isSwiftTestingEnabled: false,
+                buildSystem: .native,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestDiscovery/Simple",
+                buildSystem: .swiftbuild,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                buildSystem: .swiftbuild,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - TestFailuresTests (XCTest)
+                """,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureSwiftTesting",
+                buildSystem: .swiftbuild,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - TestFailuresSwiftTestingTests (Swift Testing)
+                """,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                isXCTestEnabled: false,
+                buildSystem: .swiftbuild,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                isSwiftTestingEnabled: false,
+                buildSystem: .swiftbuild,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - TestFailuresTests (XCTest)
+                """,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                isXCTestEnabled: false,
+                isSwiftTestingEnabled: false,
+                buildSystem: .swiftbuild,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestMixedFailuresAcrossTargets",
+                buildSystem: .native,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - TestMixedFailuresAcrossTargetsPackageTests (XCTest)
+                  - TestMixedFailuresAcrossTargetsPackageTests (Swift Testing)
+                """
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestMixedFailuresAcrossTargets",
+                buildSystem: .swiftbuild,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - XCTestFailingTests (XCTest)
+                  - SwiftTestingFailingTests (Swift Testing)
+                """
+            ),
+            .init(
+                fixturePath: "Miscellaneous/MultipleXCTestSuitesWithFailures",
+                parallel: false,
+                buildSystem: .native,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - MultipleXCTestSuitesWithFailuresPackageTests (XCTest)
+                """
+            ),
+            .init(
+                fixturePath: "Miscellaneous/MultipleXCTestSuitesWithFailures",
+                parallel: true,
+                buildSystem: .native,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - MultipleXCTestSuitesWithFailuresPackageTests (XCTest)
+                """
+            ),
+            .init(
+                fixturePath: "Miscellaneous/MultipleXCTestSuitesWithFailures",
+                parallel: false,
+                buildSystem: .swiftbuild,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - MultipleXCTestSuitesWithFailuresTests (XCTest)
+                """
+            ),
+            .init(
+                fixturePath: "Miscellaneous/MultipleXCTestSuitesWithFailures",
+                parallel: true,
+                buildSystem: .swiftbuild,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - MultipleXCTestSuitesWithFailuresTests (XCTest)
+                """
+            ),
+        ] as [TestFailureNoteTestArgument]
+    )
+    func noteTestFailures(noteArgument arg: TestFailureNoteTestArgument) async throws {
+        try await withKnownIssue(isIntermittent: true) {
+            try await fixture(name: arg.fixturePath) { fixturePath in
+                var args: [String] = []
+
+                switch arg.isXCTestEnabled {
+                case .none: break
+                case .some(true): args.append("--enable-xctest")
+                case .some(false): args.append("--disable-xctest")
+                }
+
+                switch arg.isSwiftTestingEnabled {
+                case .none: break
+                case .some(true): args.append("--enable-swift-testing")
+                case .some(false): args.append("--disable-swift-testing")
+                }
+
+                let (stdout, stderr) = try await execute(
+                    args,
+                    packagePath: fixturePath,
+                    buildSystem: arg.buildSystem,
+                    throwIfCommandFails: false,
+                )
+                if let expectedNote = arg.expectedNote {
+                    #expect(stdout.contains(expectedNote), "did not find expected note '\(expectedNote)' - stdout: \(stdout), stderr: \(stderr)")
+                }
+            }
+        } when: {
+            arg.buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
@@ -1325,6 +1494,95 @@ struct TestCommandTests {
     }
 
     @Test(
+        .IssueWindowsPathNoEntry,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func defaultInteropMode(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/DefaultInteropMode") { fixturePath in
+            try await withKnownIssue(isIntermittent: true) {
+                try await executeSwiftTest(
+                    fixturePath,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true,
+                )
+            } when: {
+                // Swift Build on Windows sometimes fails to generate LinkFileList files.
+                // https://github.com/swiftlang/swift-package-manager/issues/9420
+                ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+            }
+        }
+    }
+
+    @Test(
+        .IssueWindowsPathNoEntry,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func noDefaultInteropMode(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/NoDefaultInteropMode") { fixturePath in
+            try await withKnownIssue(isIntermittent: true) {
+                try await executeSwiftTest(
+                    fixturePath,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true,
+                )
+            } when: {
+                // Swift Build on Windows sometimes fails to generate LinkFileList files.
+                // https://github.com/swiftlang/swift-package-manager/issues/9420
+                ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+            }
+        }
+    }
+
+    @Test(
+        .IssueWindowsPathNoEntry,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func respectUserOverrideInteropMode(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/RespectUserInteropMode") { fixturePath in
+            try await withKnownIssue(isIntermittent: true) {
+                try await executeSwiftTest(
+                    fixturePath,
+                    env: ["SWIFT_TESTING_XCTEST_INTEROP_MODE": "none"],
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true,
+                )
+            } when: {
+                // Swift Build on Windows sometimes fails to generate LinkFileList files.
+                // https://github.com/swiftlang/swift-package-manager/issues/9420
+                ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+            }
+        }
+    }
+
+    /// This is a rare scenario: if you have a workspace with multiple packages
+    /// and conflicting tools-version, we base the interop mode on the lowest
+    /// found tools version.
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func multiRootWorkspaceChoosesLowestToolsVersionInteropMode(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/MultiRootInteropMode") { fixturePath in
+            let workspacePath = fixturePath.appending(
+                components: "Workspace.xcworkspace"
+            ).pathString
+            try await executeSwiftTest(
+                fixturePath,
+                extraArgs: ["--multiroot-data-file", workspacePath],
+                buildSystem: buildSystem,
+                throwIfCommandFails: true,
+            )
+        }
+    }
+
+    @Test(
         .tags(
             .Feature.TargetType.Executable,
             .Feature.CommandLineArguments.TestDisableSwiftTesting,
@@ -1432,4 +1690,31 @@ struct TestCommandTests {
             }
          }
 
+    // Regression test for https://github.com/swiftlang/swift-package-manager/issues/9986. Ensure
+    // environment is computed correctly throughout the testing pipeline.
+    @Test(
+        .tags(
+            .Feature.TargetType.Test,
+            .Feature.ProductType.DynamicLibrary,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testTargetWithDynamicLibraryProductDependency(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await withKnownIssue("Windows path issue", isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/TestWithDynamicDep") { fixturePath in
+                _ = try await execute(
+                    [],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true
+                )
+            }
+        } when: {
+            .windows == ProcessInfo.hostOperatingSystem
+        }
+    }
 }

@@ -30,6 +30,11 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
                 self.traits = traits
             }
 
+            public func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                try container.encodeIfPresent(traits?.sorted(), forKey: .traits)
+            }
+
             public func isSatisfied(by enabledTraits: Set<String>) -> Bool {
                 // If there are no traits in this condition, default to true.
                 guard let traits else { return true }
@@ -103,6 +108,19 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         public let path: AbsolutePath
         public let productFilter: ProductFilter
         package let traits: Set<Trait>?
+
+        private enum CodingKeys: CodingKey {
+            case identity, nameForTargetDependencyResolutionOnly, path, productFilter, traits
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(identity, forKey: .identity)
+            try container.encodeIfPresent(nameForTargetDependencyResolutionOnly, forKey: .nameForTargetDependencyResolutionOnly)
+            try container.encode(path, forKey: .path)
+            try container.encode(productFilter, forKey: .productFilter)
+            try container.encodeIfPresent(traits?.sorted { $0.name < $1.name }, forKey: .traits)
+        }
     }
 
     public struct SourceControl: Equatable, Hashable, Encodable, Sendable {
@@ -124,6 +142,20 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             case local(AbsolutePath)
             case remote(SourceControlURL)
         }
+
+        private enum CodingKeys: CodingKey {
+            case identity, nameForTargetDependencyResolutionOnly, location, requirement, productFilter, traits
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(identity, forKey: .identity)
+            try container.encodeIfPresent(nameForTargetDependencyResolutionOnly, forKey: .nameForTargetDependencyResolutionOnly)
+            try container.encode(location, forKey: .location)
+            try container.encode(requirement, forKey: .requirement)
+            try container.encode(productFilter, forKey: .productFilter)
+            try container.encodeIfPresent(traits?.sorted { $0.name < $1.name }, forKey: .traits)
+        }
     }
 
     public struct Registry: Equatable, Hashable, Encodable, Sendable {
@@ -136,6 +168,18 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         public enum Requirement: Equatable, Hashable, Sendable {
             case exact(Version)
             case range(Range<Version>)
+        }
+
+        private enum CodingKeys: CodingKey {
+            case identity, requirement, productFilter, traits
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(identity, forKey: .identity)
+            try container.encode(requirement, forKey: .requirement)
+            try container.encode(productFilter, forKey: .productFilter)
+            try container.encodeIfPresent(traits?.sorted { $0.name < $1.name }, forKey: .traits)
         }
     }
 

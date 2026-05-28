@@ -13,6 +13,7 @@
 import Basics
 import CoreCommands
 import Dispatch
+import class Foundation.ByteCountFormatter
 import class Foundation.NSLock
 import struct Foundation.URL
 import OrderedCollections
@@ -66,7 +67,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
-        guard case .success = result, !self.observabilityScope.errorsReported else {
+        guard case .success(let fetchDetails) = result, !self.observabilityScope.errorsReported else {
             return
         }
 
@@ -81,7 +82,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
             }
         }
 
-        self.outputHandler("Fetched \(packageLocation ?? package.description) from cache (\(duration.descriptionInSeconds))", .always)
+        self.outputHandler("Fetched \(packageLocation ?? package.description)\(fetchDetails.fromCache ? " from cache" : "") (\(duration.descriptionInSeconds))", .always)
     }
 
     func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
@@ -167,19 +168,23 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
-        let (step, total, artifacts) = self.binaryDownloadProgressLock.withLock { () -> (Int64, Int64, String) in
+        let (step, total, text) = self.binaryDownloadProgressLock.withLock { () -> (Int64, Int64, String) in
             self.binaryDownloadProgress[url] = DownloadProgress(
                 bytesDownloaded: bytesDownloaded,
                 totalBytesToDownload: totalBytesToDownload ?? bytesDownloaded
             )
 
-            let step = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded })
-            let total = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload })
+            let stepBytes = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded })
+            let totalBytes = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload })
             let artifacts = self.binaryDownloadProgress.keys.joined(separator: ", ")
-            return (step, total, artifacts)
+
+            let formattedStep = ByteCountFormatter.string(fromByteCount: stepBytes, countStyle: .file)
+            let formattedTotal = ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)
+            let percentage = totalBytes > 0 ? (stepBytes * 100) / totalBytes : 0
+            return (percentage, 100, "Downloading \(artifacts) (\(formattedStep) / \(formattedTotal))")
         }
 
-        self.progressHandler(step, total, "Downloading \(artifacts)")
+        self.progressHandler(step, total, text)
     }
 
     /// The workspace has started downloading a binary artifact.

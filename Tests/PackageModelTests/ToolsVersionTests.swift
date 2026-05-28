@@ -9,7 +9,9 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+
 import Foundation
+import PackageLoading
 import PackageModel
 import Testing
 

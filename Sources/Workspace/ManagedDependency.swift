@@ -33,7 +33,10 @@ extension Workspace {
             case sourceControlCheckout(CheckoutState)
 
             /// The dependency is downloaded from a registry.
-            case registryDownload(version: Version)
+            ///
+            /// If the scmUrl is non-nil, the dependency has been mapped from
+            /// a source control dependency.
+            case registryDownload(version: Version, scmUrl: SourceControlURL?)
 
             /// The dependency is in edited state.
             ///
@@ -50,8 +53,12 @@ extension Workspace {
                     return "fileSystem (\(path))"
                 case .sourceControlCheckout(let checkoutState):
                     return "sourceControlCheckout (\(checkoutState))"
-                case .registryDownload(let version):
-                    return "registryDownload (\(version))"
+                case .registryDownload(let version, let scm):
+                    var result = "registry download (\(version))"
+                    if let scm {
+                        result += " mapped from scm \(scm.absoluteString)"
+                    }
+                    return result
                 case .edited:
                     return "edited"
                 case .custom:
@@ -135,14 +142,15 @@ extension Workspace {
         public static func registryDownload(
             packageRef: PackageReference,
             version: Version,
-            subpath: Basics.RelativePath
+            subpath: Basics.RelativePath,
+            scmUrl: SourceControlURL? = nil
         ) throws -> ManagedDependency {
             guard case .registry = packageRef.kind else {
                 throw InternalError("invalid package type: \(packageRef.kind)")
             }
             return ManagedDependency(
                 packageRef: packageRef,
-                state: .registryDownload(version: version),
+                state: .registryDownload(version: version, scmUrl: scmUrl),
                 subpath: subpath
             )
         }

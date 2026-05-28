@@ -230,7 +230,7 @@ struct MiscellaneousTestCase {
         try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Miscellaneous/DependencyEdges/Internal") { fixturePath in
             let binPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration))
-            let executable = binPath.appending(components: "Foo")
+            let executable = binPath.appending(components: executableName("Foo"))
             let execPath = executable.pathString
 
             try await executeSwiftBuild(
@@ -276,11 +276,10 @@ struct MiscellaneousTestCase {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue {
         try await fixture(name: "DependencyResolution/External/Complex", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending(component: "app")
             let binPath = try packageRoot.appending(components: buildSystem.binPath(for: configuration))
-            let executable = binPath.appending(component: "Dealer")
+            let executable = binPath.appending(component: executableName("Dealer"))
             let execPath = executable.pathString
 
             try await executeSwiftBuild(
@@ -309,10 +308,6 @@ struct MiscellaneousTestCase {
             let output2 = try await AsyncProcess.checkNonZeroExit(args: execPath).withSwiftLineEnding
             #expect(output2 == "♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n♠︎A\n")
         }
-        } when: {
-            (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .native && configuration == .debug)
-            || (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)
-        }
     }
 
     /**
@@ -333,7 +328,7 @@ struct MiscellaneousTestCase {
         try await fixture(name: "Miscellaneous/DependencyEdges/External", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending("root")
             let binPath = try packageRoot.appending(components: buildSystem.binPath(for: configuration))
-            let executable = binPath.appending(component: "dep2")
+            let executable = binPath.appending(component: executableName("dep2"))
             let execpath = [executable.pathString]
 
             try await executeSwiftBuild(
@@ -341,7 +336,6 @@ struct MiscellaneousTestCase {
                 configuration: configuration,
                 buildSystem: buildSystem,
             )
-            try await withKnownIssue {
                 try requireFileExists(at: executable)
                 let output = try await AsyncProcess.checkNonZeroExit(arguments: execpath)
                 #expect(output == "Hello\(ProcessInfo.EOL)")
@@ -362,9 +356,6 @@ struct MiscellaneousTestCase {
                 try requireFileExists(at: executable)
                 let output2 = try await AsyncProcess.checkNonZeroExit(arguments: execpath)
                 #expect(output2 == "Goodbye\(ProcessInfo.EOL)")
-            } when: {
-                (ProcessInfo.hostOperatingSystem == .windows)
-            }
         }
     }
 
@@ -772,7 +763,6 @@ struct MiscellaneousTestCase {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
             do {
                 let (stdout, stderr) = try await executeSwiftTest(
@@ -816,9 +806,6 @@ struct MiscellaneousTestCase {
 #endif
             }
         }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
-        }
     }
 
     @Test(
@@ -860,8 +847,12 @@ struct MiscellaneousTestCase {
             #expect(stdout.contains("Hello, async universe"), "stderr: \(stderr)")
         }
         } when: {
+            #if compiler(>=6.3)
+            false
+            #else
             // error: FileSystemError(kind: TSCBasic.FileSystemError.Kind.noEntry, path: Optional(<AbsolutePath:"C:\Users\ContainerAdministrator\AppData\Local\Temp\Miscellaneous_TestableAsyncExe.74Koc7\Miscellaneous_TestableAsyncExe\.build\out\Intermediates.noindex\TestableAsyncExe.build\Debug-windows\TestableAsyncExe4.build\Objects-normal\x86_64\TestableAsyncExe4.LinkFileList">))
             ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+            #endif
         }
     }
 
@@ -996,7 +987,7 @@ struct MiscellaneousTestCase {
                 )
                 // package resolution output goes to stderr
                 #expect(output.stderr.contains("Creating working copy for \(prefix.appending("Foo"))"))
-                expectFileDoesNotExists(at: appPath.appending(components: ["Packages", "Foo"]))
+                expectFileDoesNotExist(at: appPath.appending(components: ["Packages", "Foo"]))
             }
 
             // build again in edit mode
@@ -1026,7 +1017,7 @@ struct MiscellaneousTestCase {
         let configuration = BuildConfiguration.debug
         try await fixture(name: "Miscellaneous/Simple") { path in
             let customPath = path.appending(components: "custom", pathOption)
-            expectFileDoesNotExists(at: customPath)
+            expectFileDoesNotExist(at: customPath)
             expectDirectoryDoesNotExist(at: customPath)
             try await executeSwiftBuild(
                 path,
@@ -1063,7 +1054,7 @@ struct MiscellaneousTestCase {
                 }
             }
             let customPath = path.appending(components: "custom", pathOption)
-            expectFileDoesNotExists(at: customPath)
+            expectFileDoesNotExist(at: customPath)
             expectDirectoryDoesNotExist(at: customPath)
             try await withKnownIssue(isIntermittent: true) {
                 await expectThrowsCommandExecutionError(
@@ -1077,7 +1068,7 @@ struct MiscellaneousTestCase {
                     let stderr = error.stderr
                     #expect(stderr.contains("error: invalid access to"), "expected permissions error. stderr: '\(stderr)', stdout '\(error.stdout)'")
                 }
-                expectFileDoesNotExists(at: customPath)
+                expectFileDoesNotExist(at: customPath)
                 expectDirectoryDoesNotExist(at: customPath)
             } when: {
                 ProcessInfo.hostOperatingSystem != .macOS // `FileSystem` many not support `chmod` on this host OS
@@ -1300,13 +1291,41 @@ struct MiscellaneousTestCase {
                     case .native:
                         let errors = stderr.components(separatedBy: .newlines).filter { !$0.contains("[logging] misuse") && !$0.isEmpty }
                                                                         .filter { !$0.contains("Unable to locate libSwiftScan") }
-                        #expect(errors == [])
-                    case .swiftbuild, .xcode:
+                        #expect(errors == ["warning: \(Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem).message)"])
+                    case  .xcode:
+                        let errors = stderr.components(separatedBy: .newlines)
+                        #expect(errors == ["warning: \(Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem).message)"])
+                    case .swiftbuild:
                         break
                 }
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Build,
+        ),
+        .skipHostOS(.windows, "libFuzzer is not included in the Windows distribution"),
+    )
+    func libFuzzerSupport() async throws {
+        try await withKnownIssue(isIntermittent: true) {
+            let configuration = BuildConfiguration.debug
+            try await fixture(name: "Miscellaneous/Fuzzer") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftRun(
+                    fixturePath,
+                    nil,
+                    configuration: configuration,
+                    extraArgs: ["--sanitize", "fuzzer", "Fuzzer", "--", "-runs=10"],
+                    buildSystem: .swiftbuild
+                )
+                #expect(stderr.contains("Done 10 runs"))
+                #expect(!stdout.contains("regular main called"))
+            }
+        } when: {
+            ProcessInfo.isHostAmazonLinux2() // libFuzzer link issues occur on AL2
         }
     }
 }

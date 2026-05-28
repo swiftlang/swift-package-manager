@@ -309,6 +309,22 @@ extension Workspace.Configuration {
         ) throws -> AuthorizationProvider? {
             var providers = [AuthorizationProvider]()
 
+            let env = Environment.current
+            if let token = ConfigurableEnvVar.SWIFTPM_SOURCE_CONTROL_TOKEN.value(from: env), !token.isEmpty {
+                providers.append(EnvironmentAuthorizationProvider(kind: .sourceControl))
+            }
+
+            if let netrcData = ConfigurableEnvVar.SWIFTPM_NETRC_DATA.value(from: env), !netrcData.isEmpty {
+                do {
+                    providers.append(try InMemoryNetrcAuthorizationProvider(content: netrcData))
+                } catch {
+                    observabilityScope.emit(
+                        warning: "Failed to parse SWIFTPM_NETRC_DATA environment variable",
+                        underlyingError: error
+                    )
+                }
+            }
+
             switch self.netrc {
             case .custom(let path):
                 guard fileSystem.exists(path) else {
@@ -354,6 +370,33 @@ extension Workspace.Configuration {
             fileSystem: FileSystem,
             observabilityScope: ObservabilityScope
         ) throws -> AuthorizationProvider? {
+            let env = Environment.current
+            if let token = ConfigurableEnvVar.SWIFTPM_REGISTRY_TOKEN.value(from: env), !token.isEmpty {
+                return EnvironmentAuthorizationProvider(kind: .registry)
+            }
+            if let login = ConfigurableEnvVar.SWIFTPM_REGISTRY_LOGIN.value(from: env), !login.isEmpty,
+               let password = ConfigurableEnvVar.SWIFTPM_REGISTRY_PASSWORD.value(from: env), !password.isEmpty {
+                return EnvironmentAuthorizationProvider(kind: .registry)
+            } else if let login = ConfigurableEnvVar.SWIFTPM_REGISTRY_LOGIN.value(from: env), !login.isEmpty {
+                observabilityScope.emit(
+                    warning: "SWIFTPM_REGISTRY_LOGIN is set but SWIFTPM_REGISTRY_PASSWORD is not; both are required for login/password authentication"
+                )
+            } else if let password = ConfigurableEnvVar.SWIFTPM_REGISTRY_PASSWORD.value(from: env), !password.isEmpty {
+                observabilityScope.emit(
+                    warning: "SWIFTPM_REGISTRY_PASSWORD is set but SWIFTPM_REGISTRY_LOGIN is not; both are required for login/password authentication"
+                )
+            }
+            if let netrcData = ConfigurableEnvVar.SWIFTPM_NETRC_DATA.value(from: env), !netrcData.isEmpty {
+                do {
+                    return try InMemoryNetrcAuthorizationProvider(content: netrcData)
+                } catch {
+                    observabilityScope.emit(
+                        warning: "Failed to parse SWIFTPM_NETRC_DATA environment variable",
+                        underlyingError: error
+                    )
+                }
+            }
+
             var providers = [AuthorizationProvider]()
 
             // OS-specific AuthorizationProvider has higher precedence
@@ -775,7 +818,7 @@ public struct WorkspaceConfiguration {
     public var skipSignatureValidation: Bool
 
     ///  Attempt to transform source control based dependencies to registry ones
-    public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation
+    public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation?
 
     /// URL of the implicitly configured, default registry
     public var defaultRegistry: Registry?
@@ -814,7 +857,7 @@ public struct WorkspaceConfiguration {
         fingerprintCheckingMode: CheckingMode,
         signingEntityCheckingMode: CheckingMode,
         skipSignatureValidation: Bool,
-        sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation,
+        sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation?,
         defaultRegistry: Registry?,
         manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?,
         usePrebuilts: Bool,
@@ -854,7 +897,7 @@ public struct WorkspaceConfiguration {
             fingerprintCheckingMode: .strict,
             signingEntityCheckingMode: .warn,
             skipSignatureValidation: false,
-            sourceControlToRegistryDependencyTransformation: .disabled,
+            sourceControlToRegistryDependencyTransformation: nil,
             defaultRegistry: .none,
             manifestImportRestrictions: .none,
             usePrebuilts: false,
@@ -869,6 +912,8 @@ public struct WorkspaceConfiguration {
         case disabled
         case identity
         case swizzle
+
+        public static var `default`: Self { .disabled }
     }
 
     public enum CheckingMode: String {
