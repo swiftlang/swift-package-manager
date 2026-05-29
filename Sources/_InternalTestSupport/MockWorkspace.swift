@@ -105,6 +105,7 @@ public final class MockWorkspace {
     public let traitConfiguration: TraitConfiguration
     public var enabledTraitsMap: EnabledTraitsMap
     public let pruneDependencies: Bool
+    public let useStandardLibraryPackage: Bool
 
     public init(
         sandbox: AbsolutePath,
@@ -127,6 +128,7 @@ public final class MockWorkspace {
         customHostTriple: Triple = hostTriple,
         traitConfiguration: TraitConfiguration = .default,
         pruneDependencies: Bool = false,
+        useStandardLibraryPackage: Bool = false,
         enabledTraitsMap: EnabledTraitsMap = .init()
     ) async throws {
         try fileSystem.createMockToolchain()
@@ -166,6 +168,7 @@ public final class MockWorkspace {
         self.customHostToolchain = try UserToolchain.mockHostToolchain(fileSystem, hostTriple: customHostTriple)
         self.traitConfiguration = traitConfiguration
         self.pruneDependencies = pruneDependencies
+        self.useStandardLibraryPackage = useStandardLibraryPackage
         self.enabledTraitsMap = enabledTraitsMap
         try await self.create()
     }
@@ -412,7 +415,8 @@ public final class MockWorkspace {
                 prebuiltsDownloadURL: nil,
                 prebuiltsRootCertPath: nil,
                 pruneDependencies: self.pruneDependencies,
-                traitConfiguration: self.traitConfiguration
+                traitConfiguration: self.traitConfiguration,
+                implicitDependencies: self._implicitDependencies
             ),
             customFingerprints: self.fingerprints,
             customMirrors: self.mirrors,
@@ -693,6 +697,7 @@ public final class MockWorkspace {
             input: rootInput,
             manifests: rootManifests,
             observabilityScope: observability.topScope,
+            implicitDependencies: self._implicitDependencies,
             enabledTraitsMap: workspace.enabledTraitsMap
         )
 
@@ -961,6 +966,7 @@ public final class MockWorkspace {
             input: rootInput,
             manifests: rootManifests,
             observabilityScope: observability.topScope,
+            implicitDependencies: self._implicitDependencies,
             enabledTraitsMap: workspace.enabledTraitsMap
         )
         let manifests = try await workspace.loadDependencyManifests(
@@ -1060,6 +1066,15 @@ public final class MockWorkspace {
         } catch {
             XCTFail("Failed with error \(error.interpolationDescription)", file: file, line: line)
         }
+    }
+
+    /// Implicit dependencies.
+    var _implicitDependencies: [ImplicitDependency] {
+        if useStandardLibraryPackage {
+            return [ Workspace.standardLibraryPackageImplicitDependencies ]
+        }
+
+        return []
     }
 }
 

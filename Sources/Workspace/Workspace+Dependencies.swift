@@ -88,6 +88,7 @@ extension Workspace {
             manifests: rootManifests,
             dependencyMapper: self.dependencyMapper,
             observabilityScope: observabilityScope,
+            implicitDependencies: self.configuration.implicitDependencies,
             enabledTraitsMap: self.enabledTraitsMap
         )
         let currentManifests = try await self.loadDependencyManifests(
@@ -431,6 +432,7 @@ extension Workspace {
             explicitProduct: explicitProduct,
             dependencyMapper: self.dependencyMapper,
             observabilityScope: observabilityScope,
+            implicitDependencies: self.configuration.implicitDependencies,
             enabledTraitsMap: self.enabledTraitsMap
         )
 
@@ -611,6 +613,7 @@ extension Workspace {
             explicitProduct: explicitProduct,
             dependencyMapper: self.dependencyMapper,
             observabilityScope: observabilityScope,
+            implicitDependencies: self.configuration.implicitDependencies,
             enabledTraitsMap: self.enabledTraitsMap
         )
 
