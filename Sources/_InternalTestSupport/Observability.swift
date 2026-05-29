@@ -235,11 +235,36 @@ public class DiagnosticsTestResult {
         self.uncheckedDiagnostics = diagnostics
     }
 
+    /// Record a check failure so that it is reported regardless of whether the
+    /// surrounding test is an `XCTestCase` or a swift-testing `@Test`.
+    ///
+    /// `XCTFail` is a silent no-op when invoked outside of an `XCTestCase`, so
+    /// when running under swift-testing we instead record an `Issue`. This
+    /// mirrors the approach used by `swiftTestingTestCalledAnXCTestAPI()` in
+    /// `XCTAssertHelpers.swift`.
+    private func recordFailure(
+        _ message: @autoclosure () -> String,
+        file: StaticString,
+        line: UInt
+    ) {
+        if Test.current != nil {
+            Issue.record(Comment(rawValue: message()))
+        } else {
+            XCTFail(message(), file: file, line: line)
+        }
+    }
+
     package func checkIsEmpty(
         file: StaticString = #file,
         line: UInt = #line
     ) {
-        XCTAssertTrue(self.uncheckedDiagnostics.isEmpty, file: file, line: line)
+        if !self.uncheckedDiagnostics.isEmpty {
+            self.recordFailure(
+                "expected no diagnostics, but found: \(self.uncheckedDiagnostics)",
+                file: file,
+                line: line
+            )
+        }
     }
 
     @discardableResult
@@ -251,14 +276,26 @@ public class DiagnosticsTestResult {
         line: UInt = #line
     ) -> Basics.Diagnostic? {
         guard !self.uncheckedDiagnostics.isEmpty else {
-            XCTFail("No diagnostics left to check", file: file, line: line)
+            self.recordFailure("No diagnostics left to check", file: file, line: line)
             return nil
         }
 
         let diagnostic: Basics.Diagnostic = self.uncheckedDiagnostics.removeFirst()
 
-        XCTAssertMatch(diagnostic.message, message, file: file, line: line)
-        XCTAssertEqual(diagnostic.severity, severity, file: file, line: line)
+        if !(message ~= diagnostic.message) {
+            self.recordFailure(
+                "diagnostic message \(diagnostic.message.debugDescription) does not match pattern \(message)",
+                file: file,
+                line: line
+            )
+        }
+        if diagnostic.severity != severity {
+            self.recordFailure(
+                "diagnostic severity \(diagnostic.severity) does not match expected \(severity)",
+                file: file,
+                line: line
+            )
+        }
         // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
         //XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
         //XCTAssertEqual(diagnostic.metadata?.droppingLegacyKeys(), metadata?.droppingLegacyKeys(), file: file, line: line)
@@ -275,18 +312,28 @@ public class DiagnosticsTestResult {
         line: UInt = #line
     ) -> Basics.Diagnostic? {
         guard !self.uncheckedDiagnostics.isEmpty else {
-            XCTFail("No diagnostics left to check", file: file, line: line)
+            self.recordFailure("No diagnostics left to check", file: file, line: line)
             return nil
         }
 
         let matching = self.uncheckedDiagnostics.indices
             .filter { diagnosticPattern ~= self.uncheckedDiagnostics[$0].message }
         if matching.isEmpty {
-            XCTFail("No diagnostics match \(diagnosticPattern)", file: file, line: line)
+            self.recordFailure(
+                "No diagnostics match \(diagnosticPattern)",
+                file: file,
+                line: line
+            )
             return nil
         } else if matching.count == 1, let index = matching.first {
             let diagnostic = self.uncheckedDiagnostics[index]
-            XCTAssertEqual(diagnostic.severity, severity, file: file, line: line)
+            if diagnostic.severity != severity {
+                self.recordFailure(
+                    "diagnostic severity \(diagnostic.severity) does not match expected \(severity)",
+                    file: file,
+                    line: line
+                )
+            }
             // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
             //XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
             //XCTAssertEqual(diagnostic.metadata?.droppingLegacyKeys(), metadata?.droppingLegacyKeys(), file: file, line: line)

@@ -178,7 +178,7 @@ struct ObservabilitySystemTest {
                 #expect(diagnostic_metadata.testKey1 == metadata.testKey1)
             }
             do {
-                let diagnostic = try #require(result.check(diagnostic: "debug", severity: .error))
+                let diagnostic = try #require(result.check(diagnostic: "debug", severity: .debug))
                 let diagnostic_metadata = try #require(diagnostic.metadata)
                 #expect(diagnostic_metadata.testKey1 == metadata.testKey1)
             }
@@ -289,6 +289,51 @@ struct ObservabilitySystemTest {
                 #expect(diagnostic_metadata.testKey1 == diagnosticMergedMetadata.testKey1)
                 #expect(diagnostic_metadata.testKey2 == diagnosticMergedMetadata.testKey2)
                 #expect(diagnostic_metadata.testKey3 == diagnosticMergedMetadata.testKey3)
+            }
+        }
+    }
+
+    // Regression tests for https://github.com/swiftlang/swift-package-manager/issues/10061
+    // `DiagnosticsTestResult.check` previously validated the diagnostic message
+    // and severity using XCTest primitives only, which are silent no-ops when
+    // the surrounding test is a swift-testing `@Test`. As a result a wrong
+    // expected message or severity passed silently under swift-testing.
+
+    @Test
+    func diagnosticsCheckReportsMismatchedMessage() throws {
+        let collector = Collector()
+        let observabilitySystem = ObservabilitySystem(collector)
+        observabilitySystem.topScope.emit(error: "actual error message")
+
+        withKnownIssue("a mismatched diagnostic message must be reported") {
+            try expectDiagnostics(collector.diagnostics) { result in
+                result.check(diagnostic: "this message does not match", severity: .error)
+            }
+        }
+    }
+
+    @Test
+    func diagnosticsCheckReportsMismatchedSeverity() throws {
+        let collector = Collector()
+        let observabilitySystem = ObservabilitySystem(collector)
+        observabilitySystem.topScope.emit(error: "actual error message")
+
+        withKnownIssue("a mismatched diagnostic severity must be reported") {
+            try expectDiagnostics(collector.diagnostics, problemsOnly: false) { result in
+                result.check(diagnostic: "actual error message", severity: .warning)
+            }
+        }
+    }
+
+    @Test
+    func diagnosticsCheckUnorderedReportsMismatchedSeverity() throws {
+        let collector = Collector()
+        let observabilitySystem = ObservabilitySystem(collector)
+        observabilitySystem.topScope.emit(error: "actual error message")
+
+        withKnownIssue("a mismatched diagnostic severity must be reported") {
+            try expectDiagnostics(collector.diagnostics, problemsOnly: false) { result in
+                result.checkUnordered(diagnostic: "actual error message", severity: .warning)
             }
         }
     }
