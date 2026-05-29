@@ -448,12 +448,45 @@ extension Workspace {
             )
         }
 
-        // Request all the containers to fetch them in parallel.
+        // Determine which packages actually need to be cloned or re-checked-out before
+        // touching the network. A package is "required" when workspace-state.json has no
+        // record of it, or when its recorded checkout state does not match the resolved pin
+        // in the Package.resolved.
         //
-        // We just request the packages here, repository manager will
-        // automatically manage the parallelism.
+        // Computing this set first is important for --force-resolved-versions:
+        // 1) If all checkouts are already correct then the set of required dependencies is empty
+        //    and we skip both the prefetch and the checkout loops below
+        // 2) This avoids any network access even when .build/repositories/ is absent (e.g. after
+        //    moving the project to a different machine or container).
+        //
+        // Previously the prefetch loop ran over every resolved package unconditionally,
+        // which caused RepositoryManager.performLookup to call fetchAndPopulateCache for
+        // each one whenever the bare-repo cache (.build/repositories) was missing.
+        let dependencies = await state.dependencies
+        let requiredResolvedPackages = resolvedPackagesStore.resolvedPackages.values.filter { pin in
+            // also compare the location in case it has changed
+            guard let dependency = dependencies[comparingLocation: pin.packageRef] else {
+                return true
+            }
+            switch dependency.state {
+            case .sourceControlCheckout(let checkoutState):
+                return !pin.state.equals(checkoutState)
+            case .registryDownload(let version, _):
+                return !pin.state.equals(version)
+            case .edited, .fileSystem, .custom:
+                return true
+            }
+        }
+
+        // Prefetch containers for packages that need work, in parallel.
+        //
+        // RepositoryManager will deduplicate concurrent lookups for the same specifier,
+        // so it is safe to fire these without additional coordination. We limit the set to
+        // requiredResolvedPackages so that packages with valid existing checkouts never
+        // trigger a bare-repo lookup (and therefore never trigger a network fetch when the
+        // .build/repositories/ cache is unavailable).
         await withThrowingTaskGroup(of: Void.self) { taskGroup in
-            for resolvedPackage in resolvedPackagesStore.resolvedPackages.values {
+            for resolvedPackage in requiredResolvedPackages {
                 let observabilityScope = observabilityScope.makeChildScope(
                     description: "requesting package containers",
                     metadata: resolvedPackage.packageRef.diagnosticsMetadata
@@ -486,27 +519,7 @@ extension Workspace {
             }
         }
 
-        // Compute resolved packages that we need to actually clone.
-        //
-        // We require cloning if there is no checkout or if the checkout doesn't
-        // match with the pin.
-        let dependencies = await state.dependencies
-        let requiredResolvedPackages = resolvedPackagesStore.resolvedPackages.values.filter { pin in
-            // also compare the location in case it has changed
-            guard let dependency = dependencies[comparingLocation: pin.packageRef] else {
-                return true
-            }
-            switch dependency.state {
-            case .sourceControlCheckout(let checkoutState):
-                return !pin.state.equals(checkoutState)
-            case .registryDownload(let version, _):
-                return !pin.state.equals(version)
-            case .edited, .fileSystem, .custom:
-                return true
-            }
-        }
-
-        // Retrieve the required resolved packages.
+        // Check out only the packages that are actually needed.
         await withThrowingTaskGroup(of: Void.self) { taskGroup in
             for resolvedPackage in requiredResolvedPackages {
                 let observabilityScope = observabilityScope.makeChildScope(
