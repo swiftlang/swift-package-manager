@@ -185,12 +185,13 @@ extension Workspace {
                                 info: "adjusting '\(dependency.locationString)' identity to registry identity of '\(registryIdentity)'."
                             )
                         modifiedDependency = .sourceControl(
-                            identity: registryIdentity,
+                            identity: settings.identity,
                             nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
                             location: settings.location,
                             requirement: settings.requirement,
                             productFilter: settings.productFilter,
-                            traits: settings.traits
+                            traits: settings.traits,
+                            registryIdentity: registryIdentity
                         )
                     case .swizzle:
                         // we replace the *entire* source control dependency with a registry one
@@ -221,12 +222,13 @@ extension Workspace {
                                     info: "adjusting '\(dependency.locationString)' identity to registry identity of '\(registryIdentity)'."
                                 )
                             modifiedDependency = .sourceControl(
-                                identity: registryIdentity,
+                                identity: settings.identity,
                                 nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
                                 location: settings.location,
                                 requirement: settings.requirement,
                                 productFilter: settings.productFilter,
-                                traits: settings.traits
+                                traits: settings.traits,
+                                registryIdentity: registryIdentity
                             )
                         }
                     }

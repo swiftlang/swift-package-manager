@@ -1147,23 +1147,6 @@ struct PIFBuilderTests {
         }
     }
 
-    @Test
-    func errorEmittedWhenTestTargetDependsOnAnotherTestTarget() async throws {
-        try await withGeneratedPIF(fromFixture: "TestTargetDependOnTestTarget") { pif, observabilitySystem in
-            let expectedErrors: Set = [
-                "PIF: Test target 'myOtherTestTarget' cannot depend on another test target 'leafTestTarget'",
-                "PIF: Test target 'myTestTarget' cannot depend on another test target 'leafTestTarget'",
-                "PIF: Test target 'myOtherTestTarget' cannot depend on another test target 'myTestTarget'",
-            ]
-            let actualDiags = observabilitySystem.diagnostics.filter { $0.severity == .error }
-            let diagMsgs = Set(actualDiags.map { $0.message })
-
-            #expect(actualDiags.count == expectedErrors.count)
-            #expect(actualDiags.count == diagMsgs.count)
-            #expect(diagMsgs == expectedErrors)
-        }
-    }
-
     @Test func mixedSourceTarget() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
@@ -1224,6 +1207,45 @@ struct PIFBuilderTests {
         ]
         #expect(sources == expected)
      }
+
+    @Test func testTargetDependsOnTestTarget() async throws {
+        try await withGeneratedPIF(fromFixture: "Miscellaneous/TestTargetDependsOnTestTarget") { pif, observabilitySystem in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+
+            let project = try pif.workspace.project(named: "TestTargetDependsOnTestTarget")
+
+            // TestUtils is depended upon by other test targets, so it must be built as a static
+            // library — not a test bundle — so dependents can link against it.
+            let testUtils = try project.target(named: "TestUtils")
+            guard case .target(let testUtilsTarget) = testUtils else {
+                Issue.record("Expected TestUtils to be a regular target")
+                return
+            }
+            #expect(testUtilsTarget.productType == .commonStaticArchive)
+
+            // There must be no test bundle product for TestUtils.
+            #expect(throws: (any Error).self) {
+                try project.target(named: "TestUtils-product")
+            }
+
+            // Both consuming test targets are still unit test bundles.
+            let fooTests = try project.target(named: "FooTests-product")
+            guard case .target(let fooTestsTarget) = fooTests else {
+                Issue.record("Expected FooTests-product to be a regular target")
+                return
+            }
+            #expect(fooTestsTarget.productType == .unitTest)
+            #expect(fooTestsTarget.common.dependencies.map(\.targetId).contains("PACKAGE-TARGET:TestUtils"))
+
+            let barTests = try project.target(named: "BarTests-product")
+            guard case .target(let barTestsTarget) = barTests else {
+                Issue.record("Expected BarTests-product to be a regular target")
+                return
+            }
+            #expect(barTestsTarget.productType == .unitTest)
+            #expect(barTestsTarget.common.dependencies.map(\.targetId).contains("PACKAGE-TARGET:TestUtils"))
+        }
+    }
 
     @Test func noHeaderMaps() async throws {
         try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple") { pif, observabilitySystem in
