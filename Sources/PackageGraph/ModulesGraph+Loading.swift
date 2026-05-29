@@ -223,7 +223,8 @@ extension ModulesGraph {
             rootDependencies: resolvedPackages.filter { rootDependencies.contains($0.manifest) },
             packages: resolvedPackages,
             dependencies: requiredDependencies,
-            binaryArtifacts: binaryArtifacts
+            binaryArtifacts: binaryArtifacts,
+            enabledTraitsMap: enabledTraitsMap
         )
     }
 }
@@ -273,7 +274,7 @@ private func checkAllDependenciesAreUsed(
             let pluginProducts = module.pluginUsages.compactMap { pluginUsage in
                 switch pluginUsage {
                 case .product(let product, let condition):
-                    if condition?.traits != nil {
+                    if let condition, !condition.traits.isEmpty {
                         return product.name
                     }
                     return nil

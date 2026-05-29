@@ -553,7 +553,7 @@ extension PluginUsageConditionDescription {
         self.init(
             hostPlatformNames: condition.hostPlatforms?.map { $0.name } ?? [],
             targetPlatformNames: condition.targetPlatforms?.map { $0.name } ?? [],
-            traits: condition.traits.map { Set($0) }
+            traits: condition.traits.map { Set($0) } ?? EnabledTraits.defaults.names
         )
     }
 }

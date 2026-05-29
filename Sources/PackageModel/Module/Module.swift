@@ -125,11 +125,10 @@ public class Module {
         public let targetPlatforms: [Platform]
 
         /// The traits that must be enabled for the plugin to apply.
-        public let traits: Set<String>?
+        public let traits: Set<String>
 
-        public init(hostPlatforms: [Platform] = [], targetPlatforms: [Platform] = [], traits: Set<String>? = nil) {
-            precondition(!hostPlatforms.isEmpty || !targetPlatforms.isEmpty || traits != nil)
-            precondition(traits == nil || !traits!.isEmpty, "Use nil instead of empty traits set")
+        public init(hostPlatforms: [Platform] = [], targetPlatforms: [Platform] = [], traits: Set<String> = EnabledTraits.defaults.names) {
+            precondition(!hostPlatforms.isEmpty || !targetPlatforms.isEmpty || !traits.isEmpty)
             self.hostPlatforms = hostPlatforms
             self.targetPlatforms = targetPlatforms
             self.traits = traits
@@ -140,15 +139,23 @@ public class Module {
         /// Each axis uses OR semantics internally (the condition passes if the actual value matches
         /// ANY of the listed values). Across axes, AND semantics apply (all specified axes must pass).
         /// For traits: the condition is satisfied if at least one listed trait is enabled.
-        public func satisfies(hostEnvironment: BuildEnvironment, targetEnvironment: BuildEnvironment, enabledTraits: Set<String>) -> Bool {
+        public func satisfies(hostEnvironment: BuildEnvironment, targetEnvironment: BuildEnvironment, enabledTraits: EnabledTraits) -> Bool {
             if !hostPlatforms.isEmpty, !hostPlatforms.contains(hostEnvironment.platform) {
                 return false
             }
             if !targetPlatforms.isEmpty, !targetPlatforms.contains(targetEnvironment.platform) {
                 return false
             }
-            if let traits, traits.intersection(enabledTraits).isEmpty {
-                return false
+            if !traits.isEmpty {
+                // After trait resolution, .names contains resolved trait names (e.g., {"Logging"})
+                // without the "default" sentinel. Re-insert "default" when areDefaultsEnabled
+                // so that a condition requiring ["default"] matches correctly.
+                let effectiveNames: Set<String> = enabledTraits.areDefaultsEnabled
+                    ? enabledTraits.names.union(EnabledTraits.defaults.names)
+                    : enabledTraits.names
+                if traits.intersection(effectiveNames).isEmpty {
+                    return false
+                }
             }
             return true
         }

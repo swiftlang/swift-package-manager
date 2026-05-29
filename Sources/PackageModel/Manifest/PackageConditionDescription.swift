@@ -36,14 +36,14 @@ public struct PackageConditionDescription: Codable, Hashable, Sendable {
 public struct PluginUsageConditionDescription: Codable, Hashable, Sendable {
     public let hostPlatformNames: [String]
     public let targetPlatformNames: [String]
-    public let traits: Set<String>?
+    public let traits: Set<String>
 
     public init(
         hostPlatformNames: [String] = [],
         targetPlatformNames: [String] = [],
-        traits: Set<String>? = nil
+        traits: Set<String> = EnabledTraits.defaults.names
     ) {
-        precondition(!(hostPlatformNames.isEmpty && targetPlatformNames.isEmpty && traits == nil))
+        precondition(!(hostPlatformNames.isEmpty && targetPlatformNames.isEmpty && traits.isEmpty))
         self.hostPlatformNames = hostPlatformNames
         self.targetPlatformNames = targetPlatformNames
         self.traits = traits
@@ -53,7 +53,7 @@ public struct PluginUsageConditionDescription: Codable, Hashable, Sendable {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(hostPlatformNames, forKey: .hostPlatformNames)
         try container.encode(targetPlatformNames, forKey: .targetPlatformNames)
-        try container.encodeIfPresent(traits?.sorted(), forKey: .traits)
+        try container.encode(traits.sorted(), forKey: .traits)
     }
 }
 

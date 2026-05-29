@@ -102,7 +102,7 @@ public struct ResolvedModule {
         }
 
         /// Returns true if the condition is satisfied by the given build environments and enabled traits.
-        public func satisfies(hostEnvironment: BuildEnvironment, targetEnvironment: BuildEnvironment, enabledTraits: Set<String>) -> Bool {
+        public func satisfies(hostEnvironment: BuildEnvironment, targetEnvironment: BuildEnvironment, enabledTraits: EnabledTraits) -> Bool {
             guard let condition else {
                 return true
             }
@@ -150,7 +150,7 @@ public struct ResolvedModule {
     package func pluginDependencies(
         satisfying hostEnvironment: BuildEnvironment,
         targetEnvironment: BuildEnvironment,
-        enabledTraits: Set<String>
+        enabledTraits: EnabledTraits
     ) -> [ResolvedModule] {
         var plugins = IdentifiableSet<ResolvedModule>()
         for usage in self.pluginUsages where usage.satisfies(

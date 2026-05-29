@@ -278,7 +278,7 @@ public final class PIFBuilder {
                 var buildCommands: [PackagePIFBuilder.CustomBuildCommand] = []
                 var prebuildCommands: [BuildToolPluginInvocationResult.PrebuildCommand] = []
 
-                let enabledTraits = package.enabledTraits ?? []
+                let enabledTraits = self.graph.enabledTraitsMap[package.identity]
                 for plugin in module.pluginDependencies(
                     satisfying: hostBuildParameters.buildEnvironment,
                     targetEnvironment: targetBuildParameters.buildEnvironment,

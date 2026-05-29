@@ -759,7 +759,7 @@ extension BuildPlan {
             throw InternalError("could not determine package for module \(self)")
         }
 
-        let enabledTraits = package.enabledTraits ?? []
+        let enabledTraits = modulesGraph.enabledTraitsMap[package.identity]
 
         // Apply each build tool plugin used by the target in order,
         // creating a list of results (one for each plugin usage).

@@ -602,7 +602,7 @@ extension ModulesGraph {
     ) -> [ResolvedModule.ID: [ResolvedModule]] {
         var pluginsPerModule = [ResolvedModule.ID: [ResolvedModule]]()
         for module in self.allModules.sorted(by: { $0.name < $1.name }) {
-            let enabledTraits = self.package(for: module)?.enabledTraits ?? []
+            let enabledTraits = self.enabledTraitsMap[module.packageIdentity]
             let pluginDependencies = module.pluginDependencies(
                 satisfying: hostEnvironment,
                 targetEnvironment: targetEnvironment,
