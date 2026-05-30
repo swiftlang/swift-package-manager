@@ -193,7 +193,7 @@ import SwiftBuild
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: AbsolutePath.root,
-                addLocalRpaths: true,
+                addLocalRpaths: .always,
                 pluginScriptRunner: pluginScriptRunner
             ),
             fileSystem: fs,
@@ -204,15 +204,13 @@ import SwiftBuild
             buildParameters: mockBuildParameters(
                 destination: .host,
                 buildSystemKind: .swiftbuild,
-            ),
-            hostBuildParameters: mockBuildParameters(
-                destination: .host,
-                buildSystemKind: .swiftbuild,
             )
         ).0
     }
 
-    /// This is more to test out that the setup routines provide a good test environment
+    /// This is more to test out that the setup routines provide a good test environment.
+    /// The `data.in` file in the module directory is not listed as an input by the mock plugin,
+    /// so it is correctly flagged as an unhandled file.
     @Test func testSwift() async throws {
         let observability = ObservabilitySystem.makeForTesting()
         _ = try await setup(
@@ -220,7 +218,14 @@ import SwiftBuild
             gened: ["Gened.swift"],
             observability: observability.topScope
         )
-        #expect(!observability.hasErrorDiagnostics && !observability.hasWarningDiagnostics)
+        #expect(!observability.hasErrorDiagnostics)
+
+        // Check unused file warning.
+        let warnings = observability.warnings
+        #expect(warnings.count == 1)
+        let warning = try #require(warnings.first)
+        let dataInPath: AbsolutePath = "/MyPkg/Sources/MyModule/data.in"
+        #expect(warning.message == Diagnostic.unhandledFiles([dataInPath]).message)
     }
 
     @Test func testSuccessPath() async throws {

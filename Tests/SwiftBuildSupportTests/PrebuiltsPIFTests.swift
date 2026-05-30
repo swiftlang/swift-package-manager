@@ -171,13 +171,12 @@ struct PrebuiltsPIFTests {
         let pifBuilder: PIFBuilder = PIFBuilder(
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
-                temporaryDirectory: AbsolutePath.root, addLocalRpaths: true),
+                temporaryDirectory: AbsolutePath.root, addLocalRpaths: .always),
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
         let (pif, _) = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
-            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let hostTargets = Set([
@@ -426,15 +425,14 @@ struct PrebuiltsPIFTests {
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: AbsolutePath.root,
-                addLocalRpaths: true,
+                addLocalRpaths: .always,
                 pluginScriptRunner: MockPluginScriptRunner()
             ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
         let (pif, _) = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
-            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let targets = pif.workspace.projects.flatMap({ $0.underlying.targets })

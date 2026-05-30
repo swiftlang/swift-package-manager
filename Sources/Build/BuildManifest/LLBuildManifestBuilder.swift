@@ -365,7 +365,7 @@ extension LLBuildManifestBuilder {
 
 extension BuildParameters {
     func destinationPath(forBinaryAt path: AbsolutePath) -> AbsolutePath {
-        self.buildPath.appending(component: path.basename)
+        BuildOperation.buildProductsPath(for: self).appending(component: path.basename)
     }
 
     var buildConfig: String { self.configuration.dirname }

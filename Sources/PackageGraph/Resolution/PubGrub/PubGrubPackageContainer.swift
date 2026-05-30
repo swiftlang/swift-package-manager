@@ -25,10 +25,16 @@ final class PubGrubPackageContainer {
 
     /// `Package.resolved` in-memory representation.
     private let resolvedPackages: ResolvedPackagesStore.ResolvedPackages
+    private let trustPinnedVersions: Bool
 
-    init(underlying: PackageContainer, resolvedPackages: ResolvedPackagesStore.ResolvedPackages) {
+    init(
+        underlying: PackageContainer,
+        resolvedPackages: ResolvedPackagesStore.ResolvedPackages,
+        trustPinnedVersions: Bool = false
+    ) {
         self.underlying = underlying
         self.resolvedPackages = resolvedPackages
+        self.trustPinnedVersions = trustPinnedVersions
     }
 
     var package: PackageReference {
@@ -78,13 +84,13 @@ final class PubGrubPackageContainer {
     /// Returns the best available version for a given term.
     func getBestAvailableVersion(for term: Term) async throws -> Version? {
         assert(term.isPositive, "Expected term to be positive")
-        var versionSet = term.requirement
+        let versionSet = term.requirement
 
         // Restrict the selection to the pinned version if is allowed by the current requirements.
         if let pinnedVersion = self.pinnedVersion {
             if versionSet.contains(pinnedVersion) {
-                if !self.underlying.shouldInvalidatePinnedVersions {
-                    versionSet = .exact(pinnedVersion)
+                if self.trustPinnedVersions || !self.underlying.shouldInvalidatePinnedVersions {
+                    return pinnedVersion
                 } else {
                     // Make sure the pinned version is still available
                     let version = try await self.underlying.versionsDescending().first { pinnedVersion == $0 }

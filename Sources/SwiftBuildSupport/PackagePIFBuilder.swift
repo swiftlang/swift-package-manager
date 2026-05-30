@@ -187,10 +187,20 @@ public final class PackagePIFBuilder {
     /// Create dynamic library variants for automatic library products, for use by development-time features such as Previews and Swift Playgrounds.
     let createDynamicVariantsForLibraryProducts: Bool
 
+    /// Controls whether local rpaths are imparted to package consumers and in which configurations.
+    public enum AddLocalRpaths: Sendable {
+        /// Do not add local rpaths.
+        case never
+        /// Add rpaths only in the Debug configuration.
+        case debugOnly
+        /// Add rpaths in both Debug and Release configurations.
+        case always
+    }
+
     /// Add rpaths which allow loading libraries adjacent to the current image at runtime. This is desirable
     /// when launching build products from the build directory, but should often be disabled when deploying
-    /// the build products to a different location.
-    let addLocalRpaths: Bool
+    /// the build products to a different location or building the release configuration.
+    let addLocalRpaths: AddLocalRpaths
 
     /// Package display version, if any (i.e., it can be a version, branch or a git ref).
     let packageDisplayVersion: String?
@@ -223,7 +233,7 @@ public final class PackagePIFBuilder {
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
-        addLocalRpaths: Bool = true,
+        addLocalRpaths: AddLocalRpaths = .always,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
@@ -253,7 +263,7 @@ public final class PackagePIFBuilder {
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
-        addLocalRpaths: Bool = true,
+        addLocalRpaths: AddLocalRpaths = .always,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
@@ -459,7 +469,7 @@ public final class PackagePIFBuilder {
     @discardableResult
     public func build() throws -> [ModuleOrProduct] {
         self.log(
-            .info,
+            .debug,
             "Building PIF project for package '\(self.package.identity)' " +
             "(\(package.products.count) products, \(package.modules.count) modules)"
         )
@@ -510,6 +520,12 @@ public final class PackagePIFBuilder {
                 }
 
             case .executable, .test, .snippet:
+                if product.type == .test, let mainTarget = product.mainModule,
+                   mainTarget.isTestSupportModule {
+                    // Skip creating a test bundle product as this is a shared test helper library.
+                    // It will be built as a static library in the modules loop below.
+                    break
+                }
                 try projectBuilder.makeMainModuleProduct(product)
 
             case .plugin:
@@ -542,9 +558,10 @@ public final class PackagePIFBuilder {
                 try projectBuilder.makeSystemLibraryModule(module)
 
             case .test:
-                // Skip test module targets.
-                // They will have been dealt with as part of the *products* to which they belong.
-                break
+                if module.isTestSupportModule {
+                    self.log(.debug, "Building test module '\(module.name)' as a static library as it is depended on by other test target(s)")
+                    try projectBuilder.makeTestSupportModule(module)
+                }
 
             case .binary:
                 // Skip binary module targets.

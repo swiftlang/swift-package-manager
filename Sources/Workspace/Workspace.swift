@@ -559,10 +559,20 @@ public class Workspace {
         // register the registry dependencies downloader with the cancellation handler
         cancellator?.register(name: "registry downloads", handler: registryDownloadsManager)
 
+        // registries.json acts as a default; an explicit CLI flag overrides.
+        let effectiveTransformation: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation = {
+            if let cliValue = configuration.sourceControlToRegistryDependencyTransformation {
+                return cliValue
+            }
+            if registriesConfiguration.replaceScmWithRegistry == true {
+                return .swizzle
+            }
+            return .disabled
+        }()
         let identityLookupCache: IdentityLookupCache = .init()
 
         if let transformationMode = RegistryAwareManifestLoader
-            .TransformationMode(configuration.sourceControlToRegistryDependencyTransformation)
+            .TransformationMode(effectiveTransformation)
         {
             manifestLoader = RegistryAwareManifestLoader(
                 underlying: manifestLoader,

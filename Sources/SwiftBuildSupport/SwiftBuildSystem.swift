@@ -12,6 +12,7 @@
 
 @_spi(SwiftPMInternal)
 import Basics
+import SPMBuildCore // for the Basics.Diagnostic extension
 import Dispatch
 import class Foundation.FileManager
 import class Foundation.JSONEncoder
@@ -37,8 +38,7 @@ import Foundation
 import SWBBuildService
 import SwiftBuild
 import enum SWBCore.SwiftAPIDigesterMode
-import struct SWBUtil.XcodeVersionInfo
-import struct SWBUtil.Path
+import SWBUtil
 
 struct SessionFailedError: Error {
     var error: Error
@@ -250,6 +250,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     private let logLevel: Basics.Diagnostic.Severity
     private var packageGraph: AsyncThrowingValueMemoizer<ModulesGraph> = .init()
     private var pifBuilder: AsyncThrowingValueMemoizer<PIFBuilder> = .init()
+    private let buildProductsDirectorySuffixCache = AsyncCache<String, String>()
     private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
 
@@ -274,8 +275,13 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                 for package in graph.rootPackages {
                     for product in package.products where product.type == .test {
-                        let binaryPath = try buildParameters.binaryPath(for: product)
-                        let coverageBinaryPath = try buildParameters.buildPath.appending(
+                        if let mainModule = product.mainModule, mainModule.isTestSupportModule {
+                            // This test target is built as a static library by the swiftbuild
+                            // system and has no xctest bundle to run.
+                            continue
+                        }
+                        let binaryPath = try await self.binaryPath(for: product, parameters: buildParameters)
+                        let coverageBinaryPath = try await self.buildProductsPath(for: buildParameters).appending(
                             buildParameters.testCoverageBinaryRelativePath(forTestProductName: product.name)
                         )
                         builtProducts.append(
@@ -306,6 +312,24 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public var hasIntegratedAPIDigesterSupport: Bool { true }
+
+    public func buildProductsPath(for parameters: BuildParameters) async throws -> Basics.AbsolutePath {
+        let suffix = try await buildProductsDirectorySuffixCache.value(forKey: parameters.triple.tripleString) {
+            try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
+                var suffix: String?
+                try await withSession(service: service, name: "swiftpm-build-products-path", toolchain: parameters.toolchain, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
+                    let info = try await session.buildTargetInfo(triple: parameters.triple.tripleString)
+                    suffix = info.buildProductsDirectorySuffix
+                }
+                guard let suffix else {
+                    throw StringError("Failed to query build system for build products path suffix")
+                }
+                return suffix
+            }
+        }
+        let configDir = parameters.configuration.dirname.capitalized + suffix
+        return parameters.dataPath.appending(components: "Products", configDir)
+    }
 
     public var enableTaskBacktraces: Bool {
         self.buildParameters.outputParameters.enableTaskBacktraces
@@ -413,11 +437,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             replArguments: nil,
         )
 
+        let productsPath = try await self.buildProductsPath(for: self.buildParameters)
         defer {
-            if self.fileSystem.exists(self.buildParameters.buildPath, followSymlink: true) {
+            if self.fileSystem.exists(productsPath, followSymlink: true) {
                 createBuildSymbolicLinks(
                     self.scratchDirectory.appending(component: self.buildParameters.configuration.dirname),
-                    pointingAt: self.buildParameters.buildPath,
+                    pointingAt: productsPath,
                     fileSystem: self.fileSystem,
                     observabilityScope: self.observabilityScope,
                 )
@@ -427,6 +452,15 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         guard !buildParameters.shouldSkipBuilding else {
             result.serializedDiagnosticPathsByTargetName = .failure(StringError("Building was skipped"))
             return result
+        }
+
+        if let stripProdduct = self.buildParameters.stripProducts, self.buildParameters.configuration != .release {
+            self.observabilityScope.emit(
+                Basics.Diagnostic.unsupportedStripProductsConfigurationFlag(
+                    isEnabled: stripProdduct,
+                    with: .swiftbuild,
+                )
+            )
         }
 
         guard try await self.compilePlugins(in: subset) else {
@@ -677,7 +711,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     switch operation.state {
                     case .succeeded:
                         guard !self.logLevel.isQuiet else { return }
-                        buildMessageHandler.progressAnimation.update(step: 100, total: 100, text: "")
                         buildMessageHandler.progressAnimation.complete(success: true)
                         let duration = ContinuousClock.Instant.now - buildStartTime
                         let formattedDuration = duration.formatted(.units(allowed: [.seconds], fractionalPart: .show(length: 2, rounded: .up)))
@@ -779,8 +812,23 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     private func makeRunDestination(session: SWBBuildServiceSession) async throws -> SwiftBuild.SWBRunDestinationInfo {
         if let sdkManifestPath = self.buildParameters.toolchain.swiftSDK.swiftSDKManifest {
+            let swiftSDK = self.buildParameters.toolchain.swiftSDK
+            let triple = self.buildParameters.triple.tripleString
+            let paths = swiftSDK.pathsConfiguration
+            let tripleProperties = SwiftBuild.SWBSwiftSDK.TripleProperties(
+                sdkRootPath: paths.sdkRootPath?.pathString,
+                swiftResourcesPath: paths.swiftResourcesPath?.pathString,
+                swiftStaticResourcesPath: paths.swiftStaticResourcesPath?.pathString,
+                includeSearchPaths: paths.includeSearchPaths?.map(\.pathString),
+                librarySearchPaths: paths.librarySearchPaths?.map(\.pathString),
+                toolsetPaths: paths.toolsetPaths?.map(\.pathString)
+            )
+            let inMemorySDK = SwiftBuild.SWBSwiftSDK(
+                manifestPath: sdkManifestPath.pathString,
+                targetTriples: [triple: tripleProperties]
+            )
             return SwiftBuild.SWBRunDestinationInfo(
-                buildTarget: .swiftSDK(sdkManifestPath: sdkManifestPath.pathString, triple: self.buildParameters.triple.tripleString),
+                buildTarget: .swiftSDK(swiftSDK: inMemorySDK, triple: triple),
                 targetArchitecture: buildParameters.triple.archName,
                 supportedArchitectures: [],
                 disableOnlyActiveArch: (buildParameters.architectures?.count ?? 1) > 1,
@@ -852,6 +900,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 case .fuzzer:
                     settings["ENABLE_LIBFUZZER"] = "YES"
             }
+        }
+
+        settings["STRIP_INSTALLED_PRODUCT"] = if let stripInstalledProducts = self.buildParameters.stripProducts {
+            stripInstalledProducts ? "YES" : "NO"
+        } else {
+            "NO"
         }
 
         // FIXME: workaround for old Xcode installations such as what is in CI
@@ -982,7 +1036,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         case .on:
             for setting in indexStoreSettingNames {
                 settings[setting.enableVariableName] = "YES"
-                settings[setting.pathVariable] = self.buildParameters.indexStore.pathStringWithPosixSlashes
+                settings[setting.pathVariable] = try await self.indexStore(for: self.buildParameters).pathStringWithPosixSlashes
             }
         case .off:
             for setting in indexStoreSettingNames {
@@ -1300,9 +1354,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     disableSandbox: self.pluginConfiguration.disableSandbox,
                     pluginWorkingDirectory: self.pluginConfiguration.workDirectory,
                     additionalFileRules: additionalFileRules,
-                    addLocalRpaths: !self.buildParameters.linkingParameters.shouldDisableLocalRpath,
+                    addLocalRpaths: self.buildParameters.linkingParameters.shouldDisableLocalRpath ? .never : .always,
                     materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
                     createDynamicVariantsForLibraryProducts: false,
+                    hostBuildProductsPath: try await self.buildProductsPath(for: self.hostBuildParameters)
                 ),
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,
@@ -1318,8 +1373,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return try await pifBuilder.generatePIF(
             preservePIFModelStructure: preserveStructure,
             printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
-            buildParameters: buildParameters,
-            hostBuildParameters: hostBuildParameters
+            buildParameters: buildParameters
         )
     }
 

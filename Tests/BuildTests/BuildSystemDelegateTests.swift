@@ -81,9 +81,11 @@ struct BuildSystemDelegateTests {
                     configuration: config,
                     buildSystem: buildSystem,
                 )
-                let execPath = try fixturePath.appending(
-                    components: buildSystem.binPath(for: config) + [executableName("TestableExe1")]
-                )
+                let execPath = try await getBinPath(
+                    fixturePath,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                ).appending(executableName("TestableExe1"))
                 expectFileExists(at: execPath)
                 try localFileSystem.removeFileTree(execPath)
                 let (stdout, stderr) = try await executeSwiftBuild(

@@ -133,6 +133,11 @@ extension SwiftCommand {
         )
         defer {
             _ = createCacheDirFile(inDirectory: swiftCommandState.scratchDirectory)
+            _ = createBuildSystemFile(
+                inDirectory: swiftCommandState.scratchDirectory,
+                for: swiftCommandState.options.build.configuration ?? swiftCommandState.preferredBuildConfiguration,
+                buildSystem: swiftCommandState.options.build.buildSystem,
+            )
         }
 
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
@@ -167,7 +172,8 @@ extension SwiftCommand {
 
 package func createCacheDirFile(
     inDirectory directory: AbsolutePath,
-    _ fileSystem: FileSystem = localFileSystem) -> AbsolutePath? {
+    _ fileSystem: FileSystem = localFileSystem,
+) -> AbsolutePath? {
     // https://bford.info/cachedir/
     let path = directory.appending("CACHEDIR.TAG")
     do {
@@ -184,17 +190,35 @@ package func createCacheDirFile(
         // Don't error out if we fail to create the CACHEDIR.TAG file, as this is not critical to the functioning of the tool.
         return nil
     }
-
 }
+
+package func createBuildSystemFile(
+    inDirectory directory: AbsolutePath,
+    for configuration: BuildConfiguration,
+    buildSystem: BuildSystemProvider.Kind,
+    fileSystem fs: FileSystem = localFileSystem,
+) -> AbsolutePath? {
+    let path = directory.appending(".buildSystem_\(configuration)")
+    do {
+        try fs.createDirectory(path.parentDirectory, recursive: true)
+        try fs.writeFileContents(path, string: "\(buildSystem)")
+        return path
+    } catch {
+        // Don't error out if we fail to create the file, as this is not critical to the functioning of the tool.
+        return nil
+    }
+}
+
 public protocol AsyncSwiftCommand: AsyncParsableCommand, _SwiftCommand {
     func run(_ swiftCommandState: SwiftCommandState) async throws
-    var addCacheDirTagFile: Bool { get }
+    var inclueAdditionalScratchPathFiles: Bool { get }
+
 }
 
 extension AsyncSwiftCommand {
     public static var _errorLabel: String { "error" }
 
-    public var addCacheDirTagFile: Bool { true }
+    public var inclueAdditionalScratchPathFiles: Bool { true }
 
     // FIXME: It doesn't seem great to have this be duplicated with `SwiftCommand`.
     public func run() async throws {
@@ -206,8 +230,13 @@ extension AsyncSwiftCommand {
             createPackagePath: self.createPackagePath
         )
         defer {
-            if self.addCacheDirTagFile {
+            if self.inclueAdditionalScratchPathFiles {
                 _ = createCacheDirFile(inDirectory: swiftCommandState.scratchDirectory)
+                _ = createBuildSystemFile(
+                    inDirectory: swiftCommandState.scratchDirectory,
+                    for: swiftCommandState.options.build.configuration ?? swiftCommandState.preferredBuildConfiguration,
+                    buildSystem: swiftCommandState.options.build.buildSystem,
+                )
             }
         }
 
@@ -588,7 +617,7 @@ public final class SwiftCommandState {
                 signingEntityCheckingMode: self.options.security.signingEntityCheckingMode,
                 skipSignatureValidation: !self.options.security.signatureValidation,
                 sourceControlToRegistryDependencyTransformation: self.options.resolver
-                    .sourceControlToRegistryDependencyTransformation.workspaceConfiguration,
+                    .sourceControlToRegistryDependencyTransformation?.workspaceConfiguration,
                 defaultRegistry: self.options.resolver.defaultRegistryURL.flatMap {
                     // TODO: should supportsAvailability be a flag as well?
                     .init(url: $0, supportsAvailability: true)
@@ -906,7 +935,7 @@ public final class SwiftCommandState {
         try self._manifestLoader.get()
     }
 
-    public func canUseCachedBuildManifest(_ traitConfiguration: TraitConfiguration = .default) async throws -> Bool {
+    public func canUseCachedBuildManifest(_ traitConfiguration: TraitConfiguration = .default, buildDescriptionPath: AbsolutePath) async throws -> Bool {
         if !self.options.caching.cacheBuildManifest {
             return false
         }
@@ -914,7 +943,7 @@ public final class SwiftCommandState {
         let buildParameters = try self.productsBuildParameters
         let haveBuildManifestAndDescription =
             self.fileSystem.exists(buildParameters.llbuildManifest) &&
-            self.fileSystem.exists(buildParameters.buildDescriptionPath)
+            self.fileSystem.exists(buildDescriptionPath)
 
         if !haveBuildManifestAndDescription {
             return false
@@ -1067,7 +1096,8 @@ public final class SwiftCommandState {
                 forceTestDiscovery: self.options.build.enableTestDiscovery,
                 // backwards compatibility, remove with --enable-test-discovery
                 testEntryPointPath: self.options.build.testEntryPointPath
-            )
+            ),
+            stripProducts: self.options.build.stripProducts,
         )
     }
 

@@ -20,6 +20,7 @@ add_library(SPMBuildCore
   BuildSystem/BuildSystemDelegate.swift
   BuildSystem/DiagnosticsCapturingBuildSystemDelegate.swift
   BuiltTestProduct.swift
+  Diagnostics+Extensions.swift
   Plugins/DefaultPluginScriptRunner.swift
   Plugins/PluginContextSerializer.swift
   Plugins/PluginInvocation.swift

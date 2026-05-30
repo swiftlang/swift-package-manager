@@ -381,7 +381,7 @@ extension LLBuildManifestBuilder {
 
         // Otherwise, come up with a path for the new file and generate a command to populate it.
         let swiftCompilerPathHash = String(swiftCompilerPath.pathString.hash, radix: 16, uppercase: true)
-        let swiftVersionFilePath = buildParameters.buildPath.appending(component: "swift-version-\(swiftCompilerPathHash).txt")
+        let swiftVersionFilePath = BuildOperation.buildProductsPath(for: buildParameters).appending(component: "swift-version-\(swiftCompilerPathHash).txt")
         self.manifest.addSwiftGetVersionCommand(swiftCompilerPath: swiftCompilerPath, swiftVersionFilePath: swiftVersionFilePath)
         swiftGetVersionFiles[swiftCompilerPath] = swiftVersionFilePath
         return swiftVersionFilePath

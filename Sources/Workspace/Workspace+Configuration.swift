@@ -818,7 +818,7 @@ public struct WorkspaceConfiguration {
     public var skipSignatureValidation: Bool
 
     ///  Attempt to transform source control based dependencies to registry ones
-    public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation
+    public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation?
 
     /// URL of the implicitly configured, default registry
     public var defaultRegistry: Registry?
@@ -862,7 +862,7 @@ public struct WorkspaceConfiguration {
         fingerprintCheckingMode: CheckingMode,
         signingEntityCheckingMode: CheckingMode,
         skipSignatureValidation: Bool,
-        sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation,
+        sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation?,
         defaultRegistry: Registry?,
         manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?,
         usePrebuilts: Bool,
@@ -904,7 +904,7 @@ public struct WorkspaceConfiguration {
             fingerprintCheckingMode: .strict,
             signingEntityCheckingMode: .warn,
             skipSignatureValidation: false,
-            sourceControlToRegistryDependencyTransformation: .disabled,
+            sourceControlToRegistryDependencyTransformation: nil,
             defaultRegistry: .none,
             manifestImportRestrictions: .none,
             usePrebuilts: false,
@@ -919,6 +919,8 @@ public struct WorkspaceConfiguration {
         case disabled
         case identity
         case swizzle
+
+        public static var `default`: Self { .disabled }
     }
 
     public enum CheckingMode: String {

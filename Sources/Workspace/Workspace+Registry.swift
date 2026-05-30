@@ -19,6 +19,7 @@ import class Basics.ObservabilityScope
 import struct Basics.SourceControlURL
 import class Basics.ThreadSafeKeyValueStore
 import class PackageGraph.ResolvedPackagesStore
+import class PackageGraph.DependencyMirrors
 import protocol PackageLoading.ManifestLoaderProtocol
 import protocol PackageModel.DependencyMapper
 import protocol PackageModel.IdentityResolver
@@ -184,12 +185,13 @@ extension Workspace {
                                 info: "adjusting '\(dependency.locationString)' identity to registry identity of '\(registryIdentity)'."
                             )
                         modifiedDependency = .sourceControl(
-                            identity: registryIdentity,
+                            identity: settings.identity,
                             nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
                             location: settings.location,
                             requirement: settings.requirement,
                             productFilter: settings.productFilter,
-                            traits: settings.traits
+                            traits: settings.traits,
+                            registryIdentity: registryIdentity
                         )
                     case .swizzle:
                         // we replace the *entire* source control dependency with a registry one
@@ -220,12 +222,13 @@ extension Workspace {
                                     info: "adjusting '\(dependency.locationString)' identity to registry identity of '\(registryIdentity)'."
                                 )
                             modifiedDependency = .sourceControl(
-                                identity: registryIdentity,
+                                identity: settings.identity,
                                 nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
                                 location: settings.location,
                                 requirement: settings.requirement,
                                 productFilter: settings.productFilter,
-                                traits: settings.traits
+                                traits: settings.traits,
+                                registryIdentity: registryIdentity
                             )
                         }
                     }
@@ -500,7 +503,11 @@ extension Workspace {
         /// Derives an identity lookup cache from the Package.resolved file if applicable.
         /// Asserts against the transformation mode set in the Workspace to determine how to store
         /// source control packages and their identity mappings.
-        public func deriveCache(from resolvedPackages: ResolvedPackagesStore.ResolvedPackages, _ transformationMode: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation) {
+        public func deriveCache(
+            from resolvedPackages: ResolvedPackagesStore.ResolvedPackages,
+            _ transformationMode: WorkspaceConfiguration.SourceControlToRegistryDependencyTransformation,
+            mirrors: DependencyMirrors
+        ) {
             guard transformationMode != .disabled else {
                 return
             }
@@ -518,11 +525,14 @@ extension Workspace {
             // Track SCM packages that don't have a mapped registry equivalent,
             // only if the transformation mode is `.swizzle`; this will avoid
             // having to make any unnecessary calls to registry endpoints.
+            // Assure that we check against mirrored URLs.
             if transformationMode == .swizzle {
                 for resolvedPackage in resolvedPackages.values {
-                    if case .remoteSourceControl(let url) = resolvedPackage.packageRef.kind,
-                        self.cache[url] == nil {
-                        self[storing: url] = .notApplicable
+                    if case .remoteSourceControl(let url) = resolvedPackage.packageRef.kind {
+                        let originalUrl = SourceControlURL(mirrors.original(for: url.absoluteString) ?? url.absoluteString)
+                        if self.cache[originalUrl] == nil {
+                            self[storing: originalUrl] = .notApplicable
+                        }
                     }
                 }
             }
