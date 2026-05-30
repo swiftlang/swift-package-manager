@@ -865,7 +865,10 @@ private struct BasicTests {
                                 ]
                             ),
                             .executableTarget(
-                                name: "SomeExe"
+                                name: "SomeExe",
+                                dependencies: [
+                                    .product(name: "Playgrounds", package: "swift-play-experimental"),
+                                ]
                             ),
                         ]
                     )
@@ -930,8 +933,24 @@ private struct BasicTests {
                 bytes: ByteString(encodingAsUTF8: "print(\"hello from SomeExe\")\n"),
                 atomically: true
             )
+            try localFileSystem.writeFileContents(
+                packagePath.appending(components: "Sources", "SomeExe", "play.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    import Playgrounds
 
-            // Default behaviour: orphan target's playground is invisible.
+                    #Playground("ExeGame") {
+                        print("SomeExe playground")
+                    }
+                    """
+                ),
+                atomically: true
+            )
+
+            // Default behaviour: orphan target's playground is invisible, and
+            // the executable target's playground is also invisible (default
+            // mode only auto-includes library targets when the package has
+            // library products).
             let defaultResult = try await executeSwiftPlay(
                 packagePath,
                 extraArgs: ["--list"],
@@ -940,6 +959,7 @@ private struct BasicTests {
             #expect(defaultResult.stdout.contains("PublicGame"), "stdout: '\(defaultResult.stdout)'\n stderr:'\(defaultResult.stderr)'")
             #expect(defaultResult.stdout.contains("InternalGame"), "stdout: '\(defaultResult.stdout)'\n stderr:'\(defaultResult.stderr)'")
             #expect(!defaultResult.stdout.contains("ScratchGame"), "stdout: '\(defaultResult.stdout)'\n stderr:'\(defaultResult.stderr)'")
+            #expect(!defaultResult.stdout.contains("ExeGame"), "stdout: '\(defaultResult.stdout)'\n stderr:'\(defaultResult.stderr)'")
 
             // --target Scratch: only the orphan target's playground is visible.
             let scratchResult = try await executeSwiftPlay(
@@ -958,17 +978,120 @@ private struct BasicTests {
                 buildSystem: buildSystem
             )
             #expect(unknownResult.stderr.contains("NoSuchThing"), "stdout: '\(unknownResult.stdout)'\n stderr:'\(unknownResult.stderr)'")
+        }
+    }
 
-            // --target on an executable target: rejected with a message that
-            // makes the kind mismatch explicit. Validates the
-            // invalidPlaygroundTargetType error path.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Play,
+            Tag.Feature.Command.Package.Init,
+            Tag.Feature.PackageType.Executable,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testSwiftPlayTargetExecutable(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        // Verifies `swift play --target <ExeName>` against an executable
+        // target. The executable's compiled objects are linked into the
+        // synthesized playground runner (its `_main` symbol is renamed to
+        // `_<Module>_main` at compile time so it doesn't collide with the
+        // runner's own entry point). The executable's `#Playground` block is
+        // then reachable, and the user's top-level code is *not* executed.
+        let packageName = "ExeTargetExample"
+        try await withTemporaryDirectory { tempDir in
+            let packagePath = tempDir.appending(component: packageName)
+            try localFileSystem.createDirectory(packagePath)
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["init", "--type", "library", "--name", packageName],
+                buildSystem: buildSystem
+            )
+            try localFileSystem.writeFileContents(
+                packagePath.appending(component: "Package.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    // swift-tools-version: 6.2
+
+                    import PackageDescription
+
+                    let package = Package(
+                        name: "\(packageName)",
+                        platforms: [.macOS(.v14)], // min for playgrounds lib
+                        products: [
+                            // A library product so default mode has something to
+                            // link, ensuring the override path is what unlocks
+                            // the executable target's playgrounds.
+                            .library(name: "SomeLib", targets: ["SomeLib"]),
+                        ],
+                        dependencies: [
+                            .package(url: "https://github.com/apple/swift-play-experimental", branch: "main"),
+                        ],
+                        targets: [
+                            .target(
+                                name: "SomeLib",
+                                dependencies: [
+                                    .product(name: "Playgrounds", package: "swift-play-experimental"),
+                                ]
+                            ),
+                            .executableTarget(
+                                name: "SomeExe",
+                                dependencies: [
+                                    .product(name: "Playgrounds", package: "swift-play-experimental"),
+                                ]
+                            ),
+                        ]
+                    )
+                    """
+                ),
+                atomically: true
+            )
+            try localFileSystem.createDirectory(packagePath.appending(components: "Sources", "SomeLib"), recursive: true)
+            try localFileSystem.createDirectory(packagePath.appending(components: "Sources", "SomeExe"), recursive: true)
+            try localFileSystem.writeFileContents(
+                packagePath.appending(components: "Sources", "SomeLib", "SomeLib.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    import Playgrounds
+
+                    public struct SomeLib { public init() {} }
+
+                    #Playground("LibGame") {
+                        print("SomeLib playground")
+                    }
+                    """
+                ),
+                atomically: true
+            )
+            try localFileSystem.writeFileContents(
+                packagePath.appending(components: "Sources", "SomeExe", "main.swift"),
+                bytes: ByteString(encodingAsUTF8: "print(\"hello from SomeExe\")\n"),
+                atomically: true
+            )
+            try localFileSystem.writeFileContents(
+                packagePath.appending(components: "Sources", "SomeExe", "play.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    import Playgrounds
+
+                    #Playground("ExeGame") {
+                        print("SomeExe playground")
+                    }
+                    """
+                ),
+                atomically: true
+            )
+
+            // --target SomeExe: only the executable's playground is reachable.
             let exeResult = try await executeSwiftPlay(
                 packagePath,
                 extraArgs: ["--list", "--target", "SomeExe"],
                 buildSystem: buildSystem
             )
-            #expect(exeResult.stderr.contains("SomeExe"), "stdout: '\(exeResult.stdout)'\n stderr:'\(exeResult.stderr)'")
-            #expect(exeResult.stderr.contains("library target"), "stdout: '\(exeResult.stdout)'\n stderr:'\(exeResult.stderr)'")
+            #expect(exeResult.stdout.contains("ExeGame"), "stdout: '\(exeResult.stdout)'\n stderr:'\(exeResult.stderr)'")
+            #expect(!exeResult.stdout.contains("LibGame"), "stdout: '\(exeResult.stdout)'\n stderr:'\(exeResult.stderr)'")
+            // Top-level code in main.swift must NOT run during enumeration.
+            #expect(!exeResult.stdout.contains("hello from SomeExe"), "stdout: '\(exeResult.stdout)'\n stderr:'\(exeResult.stderr)'")
         }
     }
 
@@ -1051,6 +1174,82 @@ private struct BasicTests {
                 buildSystem: buildSystem
             )
             #expect(targetedResult.stdout.contains("MyLib.demo"), "stdout: '\(targetedResult.stdout)'\n stderr:'\(targetedResult.stderr)'")
+        }
+    }
+
+    @Test(
+        .tags(
+            Tag.Feature.Command.Play,
+            Tag.Feature.Command.Package.Init,
+            Tag.Feature.PackageType.Executable,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testSwiftPlaySingleExecutableDefaultMode(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        // For small CLI/tool packages with no library products and exactly one
+        // executable target, default-mode `swift play` (no --target) auto-links
+        // the executable so its `#Playground` blocks are reachable.
+        let packageName = "ExeOnlyExample"
+        try await withTemporaryDirectory { tempDir in
+            let packagePath = tempDir.appending(component: packageName)
+            try localFileSystem.createDirectory(packagePath)
+            try await executeSwiftPackage(
+                packagePath,
+                extraArgs: ["init", "--type", "executable", "--name", packageName],
+                buildSystem: buildSystem
+            )
+            try localFileSystem.writeFileContents(
+                packagePath.appending(component: "Package.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    // swift-tools-version: 6.2
+
+                    import PackageDescription
+
+                    let package = Package(
+                        name: "\(packageName)",
+                        platforms: [.macOS(.v14)], // min for playgrounds lib
+                        dependencies: [
+                            .package(url: "https://github.com/apple/swift-play-experimental", branch: "main"),
+                        ],
+                        targets: [
+                            .executableTarget(
+                                name: "\(packageName)",
+                                dependencies: [
+                                    .product(name: "Playgrounds", package: "swift-play-experimental"),
+                                ]
+                            ),
+                        ]
+                    )
+                    """
+                ),
+                atomically: true
+            )
+            // Add a #Playground alongside the file `swift package init` created.
+            let sourcesDir = packagePath.appending(components: ["Sources", packageName])
+            try localFileSystem.writeFileContents(
+                sourcesDir.appending(component: "play.swift"),
+                bytes: ByteString(
+                    encodingAsUTF8: """
+                    import Playgrounds
+
+                    #Playground("ExeDefault") {
+                        print("playground in single-executable package")
+                    }
+                    """
+                ),
+                atomically: true
+            )
+
+            // No --target: the package's sole executable target is auto-linked.
+            let result = try await executeSwiftPlay(
+                packagePath,
+                extraArgs: ["--list"],
+                buildSystem: buildSystem
+            )
+            #expect(result.stdout.contains("ExeDefault"), "stdout: '\(result.stdout)'\n stderr:'\(result.stderr)'")
         }
     }
 

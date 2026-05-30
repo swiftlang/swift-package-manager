@@ -482,8 +482,13 @@ extension PackagePIFProjectBuilder {
                     }
 
                     // If we're linking against an executable and the tools version is new enough,
-                    // we also link against a testable version of the executable.
-                    if product.type == .test, self.package.manifest.toolsVersion >= .v5_5 {
+                    // we also link against a testable version of the executable. The synthesized
+                    // playground runner needs the same treatment so its `#Playground` records
+                    // (placed in the executable's compiled objects via the section-record macro
+                    // expansion) are reachable at runtime.
+                    if (product.type == .test || product.underlying.isPlaygroundRunner),
+                       self.package.manifest.toolsVersion >= .v5_5
+                    {
                         let moduleDependencyGUID = moduleDependency.pifTargetGUID(suffix: .testable)
                         self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                             on: moduleDependencyGUID,

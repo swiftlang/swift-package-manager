@@ -108,8 +108,14 @@ public enum ModuleError: Swift.Error {
     /// The target named by `swift play --target` does not exist in the package.
     case playgroundTargetNotFound(name: String, package: PackageIdentity)
 
-    /// The target named by `swift play --target` exists but is not a library.
-    case invalidPlaygroundTargetType(name: String, package: PackageIdentity, kind: String)
+    /// The target named by `swift play --target` exists but is not a kind that
+    /// can host playgrounds (i.e. not a library or executable).
+    case unsupportedPlaygroundTargetKind(name: String, package: PackageIdentity, kind: String)
+
+    /// The target named by `swift play --target` is an executable but the
+    /// package's tools version is too old to support linking executable
+    /// targets into the playground runner.
+    case executablePlaygroundTargetRequiresToolsVersion(name: String, package: PackageIdentity, requiredVersion: String)
 }
 
 extension ModuleError: CustomStringConvertible {
@@ -198,8 +204,10 @@ extension ModuleError: CustomStringConvertible {
             """
         case .playgroundTargetNotFound(let name, let package):
             return "no target named '\(name)' in package '\(package)' for swift play --target"
-        case .invalidPlaygroundTargetType(let name, let package, let kind):
-            return "swift play --target requires a library target; '\(name)' in package '\(package)' has type '\(kind)'"
+        case .unsupportedPlaygroundTargetKind(let name, let package, let kind):
+            return "swift play --target does not support targets of kind '\(kind)'; '\(name)' in package '\(package)' must be a library or executable target"
+        case .executablePlaygroundTargetRequiresToolsVersion(let name, let package, let requiredVersion):
+            return "swift play --target on the executable target '\(name)' in package '\(package)' requires Swift tools version \(requiredVersion) or later"
         }
     }
 }
@@ -682,8 +690,24 @@ public final class PackageBuilder {
                 guard let overrideTarget = targets.first(where: { $0.name == overrideName }) else {
                     throw ModuleError.playgroundTargetNotFound(name: overrideName, package: self.identity)
                 }
-                guard overrideTarget.type == .library else {
-                    throw ModuleError.invalidPlaygroundTargetType(
+                switch overrideTarget.type {
+                case .library:
+                    break
+                case .executable:
+                    // Linking an executable target's objects into the playground
+                    // runner relies on the entry-point renaming mechanism (the
+                    // `_main` symbol is renamed to `_<Module>_main` at compile
+                    // time so it doesn't collide with the runner's own `_main`).
+                    // That mechanism is gated on tools version 5.5+.
+                    guard self.manifest.toolsVersion >= .v5_5 else {
+                        throw ModuleError.executablePlaygroundTargetRequiresToolsVersion(
+                            name: overrideName,
+                            package: self.identity,
+                            requiredVersion: ToolsVersion.v5_5.description
+                        )
+                    }
+                case .test, .systemModule, .binary, .plugin, .macro, .snippet:
+                    throw ModuleError.unsupportedPlaygroundTargetKind(
                         name: overrideName,
                         package: self.identity,
                         kind: String(describing: overrideTarget.type)
@@ -691,11 +715,24 @@ public final class PackageBuilder {
                 }
                 playgroundDependencies = [Module.Dependency.module(overrideTarget, conditions: [])]
             } else {
-                // Default: link library targets that appear in some product.
+                // Default: link library targets that appear in some product. If
+                // no library targets appear in any product but the package has
+                // exactly one executable target, fall back to depending on that
+                // executable so small CLI/tool packages get a usable swift play
+                // experience without needing to pass --target.
                 let productTargetNames = Set(manifest.products.flatMap(\.targets))
-                playgroundDependencies = targets
+                let libraryDeps = targets
                     .filter { $0.type == .library && productTargetNames.contains($0.name) }
-                    .map { Module.Dependency.module($0, conditions: []) }
+                if !libraryDeps.isEmpty {
+                    playgroundDependencies = libraryDeps.map { Module.Dependency.module($0, conditions: []) }
+                } else {
+                    let executableTargets = targets.filter { $0.type == .executable }
+                    if executableTargets.count == 1, self.manifest.toolsVersion >= .v5_5 {
+                        playgroundDependencies = [Module.Dependency.module(executableTargets[0], conditions: [])]
+                    } else {
+                        playgroundDependencies = []
+                    }
+                }
             }
 
             // Create a new playground runner (executable) target

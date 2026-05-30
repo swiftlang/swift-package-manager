@@ -3698,9 +3698,11 @@ struct PackageBuilderTests {
     }
 
     @Test
-    func testPlaygroundRunnerTargetOverrideErrorsOnNonLibrary() throws {
-        // `--target` may only point at library targets; an executable is
-        // rejected with a kind-mismatch error.
+    func testPlaygroundRunnerTargetOverrideAcceptsExecutable() throws {
+        // `--target` may point at an executable target. The runner statically
+        // links the executable's compiled objects (its `_main` is renamed to
+        // `_<Module>_main` at compile time so it doesn't conflict with the
+        // runner's own entry point).
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/PublicLib/PublicLib.swift",
             "/Sources/SomeExe/main.swift")
@@ -3721,11 +3723,137 @@ struct PackageBuilderTests {
             manifest,
             playgroundProductConfiguration: PlaygroundProductConfiguration(targetOverride: "SomeExe"),
             in: fs
+        ) { package, _ in
+            try package.checkModule("PublicLib")
+            try package.checkModule("SomeExe")
+            package.checkProduct("PublicLib") { _ in }
+            package.checkProduct("SomeExe") { _ in }
+            package.checkPlaygroundRunner(targetDependencies: ["SomeExe"])
+            package.checkProduct("pkg__Playgrounds") { _ in }
+        }
+    }
+
+    @Test
+    func testPlaygroundRunnerTargetOverrideErrorsOnExecutableForOldToolsVersion() throws {
+        // Linking an executable target into the playground runner depends on
+        // the entry-point renaming feature, which requires tools version 5.5+.
+        // For older tools versions, surface a clean diagnostic instead of a
+        // raw linker error later in the build.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/SomeExe/main.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: .root,
+            toolsVersion: .v5_4,
+            targets: [
+                try TargetDescription(name: "SomeExe", type: .executable),
+            ]
+        )
+        try PackageBuilderTester(
+            manifest,
+            playgroundProductConfiguration: PlaygroundProductConfiguration(targetOverride: "SomeExe"),
+            in: fs
         ) { _, diagnostics in
             diagnostics.check(
-                diagnostic: .contains("requires a library target"),
+                diagnostic: .contains("requires Swift tools version 5.5"),
                 severity: .error
             )
+        }
+    }
+
+    @Test
+    func testPlaygroundRunnerTargetOverrideErrorsOnUnsupportedKind() throws {
+        // `--target` only supports library and executable targets. Other kinds
+        // (here: a plugin) must be rejected with a kind-mismatch error.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Plugins/SomePlugin/plugin.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: .root,
+            toolsVersion: .v5_5,
+            targets: [
+                try TargetDescription(name: "SomePlugin", type: .plugin, pluginCapability: .buildTool),
+            ]
+        )
+        try PackageBuilderTester(
+            manifest,
+            playgroundProductConfiguration: PlaygroundProductConfiguration(targetOverride: "SomePlugin"),
+            in: fs
+        ) { _, diagnostics in
+            diagnostics.check(
+                diagnostic: .contains("does not support targets of kind"),
+                severity: .error
+            )
+        }
+    }
+
+    @Test
+    func testPlaygroundRunnerDefaultsToSingleExecutableWhenNoLibraryProducts() throws {
+        // When no library targets appear in any product but the package has
+        // exactly one executable target, the default-mode runner depends on
+        // that executable. This makes `swift play` usable for small CLI/tool
+        // packages without requiring `--target`.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/MyTool/main.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: .root,
+            toolsVersion: .v5_5,
+            products: [
+                try ProductDescription(name: "MyTool", type: .executable, targets: ["MyTool"]),
+            ],
+            targets: [
+                try TargetDescription(name: "MyTool", type: .executable),
+            ]
+        )
+        try PackageBuilderTester(
+            manifest,
+            playgroundProductConfiguration: PlaygroundProductConfiguration(),
+            in: fs
+        ) { package, _ in
+            try package.checkModule("MyTool")
+            package.checkProduct("MyTool") { _ in }
+            package.checkPlaygroundRunner(targetDependencies: ["MyTool"])
+            package.checkProduct("pkg__Playgrounds") { _ in }
+        }
+    }
+
+    @Test
+    func testPlaygroundRunnerDefaultsRemainEmptyWithMultipleExecutables() throws {
+        // The single-executable fallback is intentionally narrow: with two or
+        // more executables (and no library products), the default-mode runner
+        // has no dependencies so users must opt into one with `--target`.
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/ToolA/main.swift",
+            "/Sources/ToolB/main.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            path: .root,
+            toolsVersion: .v5_5,
+            products: [
+                try ProductDescription(name: "ToolA", type: .executable, targets: ["ToolA"]),
+                try ProductDescription(name: "ToolB", type: .executable, targets: ["ToolB"]),
+            ],
+            targets: [
+                try TargetDescription(name: "ToolA", type: .executable),
+                try TargetDescription(name: "ToolB", type: .executable),
+            ]
+        )
+        try PackageBuilderTester(
+            manifest,
+            playgroundProductConfiguration: PlaygroundProductConfiguration(),
+            in: fs
+        ) { package, _ in
+            try package.checkModule("ToolA")
+            try package.checkModule("ToolB")
+            package.checkProduct("ToolA") { _ in }
+            package.checkProduct("ToolB") { _ in }
+            package.checkPlaygroundRunner(targetDependencies: [])
+            package.checkProduct("pkg__Playgrounds") { _ in }
         }
     }
 }
