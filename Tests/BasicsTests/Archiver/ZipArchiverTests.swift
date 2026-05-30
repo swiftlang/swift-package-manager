@@ -174,4 +174,36 @@ final class ZipArchiverTests: XCTestCase {
              )
          }
      }
+
+    func testCompressWithSpacesInPaths() async throws {
+        #if !os(Windows)
+        guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
+            throw XCTSkip("working directory not supported on this platform")
+        }
+        #endif
+
+        try await testWithTemporaryDirectory { tmpdir in
+            let archiver = ZipArchiver(fileSystem: localFileSystem)
+
+            let rootDir = tmpdir.appending(components: "parent dir", "root dir")
+            try localFileSystem.createDirectory(rootDir, recursive: true)
+            try localFileSystem.writeFileContents(rootDir.appending("file1.txt"), string: "Hello World!")
+
+            let archivePath = tmpdir.appending(components: "output dir", "archive path.zip")
+            try localFileSystem.createDirectory(archivePath.parentDirectory, recursive: true)
+            try await archiver.compress(directory: rootDir, to: archivePath)
+            XCTAssertFileExists(archivePath)
+
+            let extractRootDir = tmpdir.appending(component: "extract dir")
+            try localFileSystem.createDirectory(extractRootDir)
+            try await archiver.extract(from: archivePath, to: extractRootDir)
+            try localFileSystem.stripFirstLevel(of: extractRootDir)
+
+            XCTAssertFileExists(extractRootDir.appending("file1.txt"))
+            XCTAssertEqual(
+                try? localFileSystem.readFileContents(extractRootDir.appending("file1.txt")),
+                "Hello World!"
+            )
+        }
+    }
 }

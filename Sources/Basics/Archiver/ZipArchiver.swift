@@ -100,18 +100,11 @@ public struct ZipArchiver: Archiver, Cancellable {
           workingDirectory: directory.parentDirectory
         )
         #else
-        // This is to work around `swift package-registry publish` tool failing on
-        // Amazon Linux 2 due to it having an earlier Glibc version (rdar://116370323)
-        // and therefore posix_spawn_file_actions_addchdir_np is unavailable.
-        // Instead of passing `workingDirectory` param to TSC.Process, which will trigger
-        // SPM_posix_spawn_file_actions_addchdir_np_supported check, we shell out and
-        // do `cd` explicitly before `zip`.
         let process = AsyncProcess(
             arguments: [
-                "/bin/sh",
-                "-c",
-                    "cd \(directory.parentDirectory.underlying.pathString) && \(self.zip) -ry \(destinationPath.pathString) \(directory.basename)"
-            ]
+                self.zip, "-ry", destinationPath.pathString, directory.basename,
+            ],
+            workingDirectory: directory.parentDirectory
         )
         #endif
 

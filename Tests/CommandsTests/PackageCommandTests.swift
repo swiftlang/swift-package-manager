@@ -5021,6 +5021,34 @@ struct PackageCommandTests {
         @Test(
             arguments: [BuildSystemProvider.Kind.swiftbuild],
         )
+        func archiveSourceRunningWithPackagePathContainingSpaces(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            let config = BuildConfiguration.debug
+            try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+                let sourcePackageRoot = fixturePath.appending("Bar")
+
+                try await withTemporaryDirectory { tempDirectory in
+                    let packageRoot = tempDirectory.appending(components: "package path", "Bar Package")
+                    try localFileSystem.createDirectory(packageRoot.parentDirectory, recursive: true)
+                    try localFileSystem.copy(from: sourcePackageRoot, to: packageRoot)
+
+                    let destination = tempDirectory.appending("Bar Package.zip")
+                    let (stdout, _) = try await execute(
+                        ["archive-source", "--output", destination.pathString],
+                        packagePath: packageRoot,
+                        configuration: config,
+                        buildSystem: buildSystem,
+                    )
+                    #expect(stdout.contains("Created Bar Package.zip"), #"actual: "\#(stdout)""#)
+                    expectFileExists(at: destination)
+                }
+            }
+        }
+
+        @Test(
+            arguments: [BuildSystemProvider.Kind.swiftbuild],
+        )
         func archiveSourceRunningWithoutArgumentsOutsideThePackageRoot(
             buildSystem: BuildSystemProvider.Kind,
         ) async throws {
