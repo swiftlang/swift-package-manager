@@ -44,7 +44,7 @@ private func readpassword(_ prompt: String) throws -> String {
 
     print(prompt, terminator: "")
 
-    guard SetConsoleMode(hStdIn, DWORD(ENABLE_LINE_INPUT)) else {
+    guard SetConsoleMode(hStdIn, ENABLE_LINE_INPUT) else {
         throw StringError("unable to read input: SetConsoleMode failed")
     }
     defer { SetConsoleMode(hStdIn, dwMode) }
