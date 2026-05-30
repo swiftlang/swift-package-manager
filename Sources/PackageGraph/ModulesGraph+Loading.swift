@@ -895,14 +895,9 @@ private func createResolvedPackages(
 
 // Adjust the graph to integrate prebuilts
 private func handlePrebuilts(packageBuilders: [ResolvedPackageBuilder], root: PackageGraphRoot) {
-    // Skip this if there are no prebuilts. Modules are unconstrained by default.
-    guard packageBuilders.contains(where: { $0.prebuilts != nil }) else {
-        return
-    }
-
     // First decorate the platform constraints from products in the root packages
     for packageBuilder in packageBuilders where root.isExporting(packageBuilder.package.identity) {
-        for productBuilder in packageBuilder.products {
+        for productBuilder in packageBuilder.products where !productBuilder.product.isImplicit {
             for moduleBuilder in productBuilder.moduleBuilders {
                 func markExternal(_ depModule: ResolvedModuleBuilder) {
                     guard depModule.platformConstraint != .all else {
@@ -958,6 +953,10 @@ private func handlePrebuilts(packageBuilders: [ResolvedPackageBuilder], root: Pa
             }
             _ = markHost(moduleBuilder)
         }
+    }
+
+    guard packageBuilders.contains(where: { $0.prebuilts != nil }) else {
+        return
     }
 
     // Also for now, to ensure we're not mixing prebuilts and not prebuilts in the build graph,
@@ -1525,7 +1524,7 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
     var isTestSupportModule: Bool = false
 
     var isHostOnly: Bool {
-        module.type == .macro || (module.type == .test && dependencies.contains(where: {
+        module.type == .macro || module.type == .plugin || (module.type == .test && dependencies.contains(where: {
                 switch $0 {
                 case .product(let productDependency, _):
                     productDependency.product.type == .macro
