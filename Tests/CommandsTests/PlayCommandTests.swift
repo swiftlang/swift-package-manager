@@ -66,8 +66,7 @@ struct PlayCommandTests {
         .tags(
             Tag.Feature.Command.Play,
         ),
-        // TODO: SupportedBuildSystemOnAllPlatforms
-        arguments: [BuildSystemProvider.Kind.native], BuildConfiguration.allCases,
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func swiftPlayList(
         buildSystem: BuildSystemProvider.Kind,
@@ -81,7 +80,7 @@ struct PlayCommandTests {
                 buildSystem: buildSystem,
             )
             // build was run
-            #expect(stderr.contains("Build of product 'Simple__Playgrounds' complete!"))
+            #expect(stderr.contains(#/Build .*complete!/#))
 
             // getting the lists
             #expect(stdout.contains("* Simple/Simple.swift:11 (unnamed)"))

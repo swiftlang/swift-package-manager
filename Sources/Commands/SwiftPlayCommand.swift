@@ -15,6 +15,7 @@ import Basics
 import CoreCommands
 import Foundation
 import PackageGraph
+import PackageLoading
 import PackageModel
 import SPMBuildCore
 
@@ -52,6 +53,12 @@ struct PlayCommandOptions: ParsableArguments {
     /// List found playgrounds instead of running them
     @Flag(name: .customLong("list"), help: "List all Playgrounds")
     var list: Bool = false
+
+    /// The target whose playgrounds to build the runner against. When supplied,
+    /// the synthesized playground runner is linked against this target instead
+    /// of the default set of library product targets.
+    @Option(help: "Build the playground runner against the named target instead of the default set of library product targets.")
+    var target: String?
 }
 
 /// swift-play command namespace
@@ -73,7 +80,7 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
     public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
         // Enabling the Playground product ensures a playground runner executable
         // is synthesized for `swift play` to access and run playground macro code.
-        return .init(wantsPlaygroundProduct: true)
+        return .init(playgroundProduct: PlaygroundProductConfiguration(targetOverride: options.target))
     }
 
     public func run(_ swiftCommandState: SwiftCommandState) async throws {
@@ -172,9 +179,14 @@ public struct SwiftPlayCommand: AsyncSwiftCommand {
             throw ExitCode.failure
         }
         verboseLog("Choosing product \"\(playgroundExecutableProduct.name)\", type: \(playgroundExecutableProduct.type)")
+        verboseLog("Product's module dependencies:")
+        for moduleDependency in try playgroundExecutableProduct.recursiveModuleDependencies() {
+            verboseLog("- \(moduleDependency)")
+        }
 
         // Build the playground runner executable product
         do {
+            verboseLog("Building product named \"\(playgroundExecutableProduct.name)\"...")
             try await buildSystem.build(subset: .product(playgroundExecutableProduct.name), buildOutputs: [])
             return Result.success(playgroundExecutableProduct.name)
         } catch {

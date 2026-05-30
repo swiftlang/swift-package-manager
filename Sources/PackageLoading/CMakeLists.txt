@@ -18,6 +18,7 @@ add_library(PackageLoading
   PackageDescriptionSerialization.swift
   Platform.swift
   PkgConfig.swift
+  PlaygroundProductConfiguration.swift
   RegistryReleaseMetadataSerialization.swift
   Target+PkgConfig.swift
   TargetSourcesBuilder.swift

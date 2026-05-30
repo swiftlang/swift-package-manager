@@ -1058,7 +1058,7 @@ extension Workspace {
             prebuilts: prebuilts,
             shouldCreateMultipleTestProducts: self.configuration.shouldCreateMultipleTestProducts,
             createREPLProduct: self.configuration.createREPLProduct,
-            createPlaygroundProduct: self.configuration.createPlaygroundProduct,
+            playgroundProductConfiguration: self.configuration.playgroundProductConfiguration,
             customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
             testEntryPointPath: testEntryPointPath,
             fileSystem: self.fileSystem,
@@ -1343,7 +1343,7 @@ extension Workspace {
             binaryArtifacts: packageGraph.binaryArtifacts[identity] ?? [:],
             shouldCreateMultipleTestProducts: self.configuration.shouldCreateMultipleTestProducts,
             createREPLProduct: self.configuration.createREPLProduct,
-            createPlaygroundProduct: self.configuration.createPlaygroundProduct,
+            playgroundProductConfiguration: self.configuration.playgroundProductConfiguration,
             fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
             enabledTraits: try manifest.enabledTraits(using: self.traitConfiguration)

@@ -454,6 +454,7 @@ public final class PackagePIFBuilder {
             case .framework: .framework
             case .executable: .executable
             case .unitTest: .unitTest
+            case .swiftpmPlaygroundRunner: .executable
             case .swiftpmTestRunner: .unitTestRunner
             case .bundle: .bundle
             case .packageProduct: .packageProduct
@@ -542,7 +543,9 @@ public final class PackagePIFBuilder {
         for module in self.package.modules {
             switch module.type {
             case .executable:
-                try projectBuilder.makeTestableExecutableSourceModule(module)
+                if !module.underlying.isPlaygroundRunner {
+                    try projectBuilder.makeTestableExecutableSourceModule(module)
+                }
 
             case .snippet:
                 // Already handled as a product. Note that snippets don't need testable modules.
