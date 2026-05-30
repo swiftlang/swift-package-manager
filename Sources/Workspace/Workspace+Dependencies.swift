@@ -18,6 +18,7 @@ import class Basics.ObservabilityScope
 import func Basics.os_signpost
 import struct Basics.RelativePath
 import enum Basics.SignpostName
+import struct Basics.SourceControlURL
 import class Basics.ThreadSafeKeyValueStore
 import class Dispatch.DispatchGroup
 import struct Dispatch.DispatchTime
@@ -32,6 +33,7 @@ import struct PackageGraph.Incompatibility
 import struct PackageGraph.MultiplexResolverDelegate
 import struct PackageGraph.ObservabilityDependencyResolverDelegate
 import struct PackageGraph.PackageContainerConstraint
+import protocol PackageGraph.PackageContainerProvider
 import struct PackageGraph.PackageGraphRoot
 import struct PackageGraph.PackageGraphRootInput
 import class PackageGraph.ResolvedPackagesStore
@@ -94,7 +96,11 @@ extension Workspace {
         )
 
         // Abort if we're unable to load the `Package.resolved` store or have any diagnostics.
-        guard let resolvedPackagesStore = observabilityScope.trap({ try self.resolvedPackagesStore.load() }) else { return nil }
+        guard let resolvedPackagesStore = observabilityScope.trap({
+            try self.resolvedPackagesStore.load()
+        }) else {
+            return nil
+        }
 
         // Ensure we don't have any error at this point.
         guard !observabilityScope.errorsReported else {
@@ -108,6 +114,7 @@ extension Workspace {
         updateConstraints += try graphRoot.constraints(self.enabledTraitsMap)
 
         let resolvedPackages: ResolvedPackagesStore.ResolvedPackages
+        let skipUpdateForResolvedPackages = !packages.isEmpty
         if packages.isEmpty {
             // No input packages so we have to do a full update. Set resolved packages map to empty.
             resolvedPackages = [:]
@@ -121,18 +128,73 @@ extension Workspace {
                 }
         }
 
-        // Resolve the dependencies.
-        let resolver = try self.createResolver(resolvedPackages: resolvedPackages, observabilityScope: observabilityScope)
-        self.activeResolver = resolver
+        let updateResults: [DependencyResolverBinding]
+        if skipUpdateForResolvedPackages && !self.configuration.skipDependenciesUpdates {
+            let localProvider = ResolverPrecomputationProvider(
+                root: graphRoot,
+                dependencyManifests: currentManifests,
+                currentToolsVersion: self.currentToolsVersion,
+                allowedLocalPackageIdentities: Set(resolvedPackages.keys),
+                fallbackProvider: self.packageContainerProvider
+            )
+            let resolver = try self.createResolver(
+                provider: localProvider,
+                resolvedPackages: resolvedPackages,
+                skipUpdateForResolvedPackages: true,
+                observabilityScope: observabilityScope
+            )
+            self.activeResolver = resolver
 
-        let updateResults = await self.resolveDependencies(
-            resolver: resolver,
-            constraints: updateConstraints,
-            observabilityScope: observabilityScope
-        )
+            os_signpost(.begin, name: SignpostName.pubgrub)
+            let initialResult = await resolver.solve(constraints: updateConstraints)
+            os_signpost(.end, name: SignpostName.pubgrub)
 
-        // Reset the active resolver.
-        self.activeResolver = nil
+            self.activeResolver = nil
+
+            guard !observabilityScope.errorsReported else {
+                return nil
+            }
+
+            switch initialResult {
+            case .success(let bindings):
+                updateResults = bindings
+            case .failure(let error) where Self.canRetryPartialUpdateWithRefreshedContainers(error):
+                observabilityScope.emit(
+                    debug: "partial update could not be resolved using pinned dependency metadata alone; retrying with refreshed package containers"
+                )
+
+                let retryResolver = try self.createResolver(
+                    resolvedPackages: resolvedPackages,
+                    observabilityScope: observabilityScope
+                )
+                self.activeResolver = retryResolver
+                updateResults = await self.resolveDependencies(
+                    resolver: retryResolver,
+                    constraints: updateConstraints,
+                    observabilityScope: observabilityScope
+                )
+                self.activeResolver = nil
+            case .failure(let error):
+                observabilityScope.emit(error)
+                return nil
+            }
+        } else {
+            // Resolve the dependencies.
+            let resolver = try self.createResolver(
+                resolvedPackages: resolvedPackages,
+                observabilityScope: observabilityScope
+            )
+            self.activeResolver = resolver
+
+            updateResults = await self.resolveDependencies(
+                resolver: resolver,
+                constraints: updateConstraints,
+                observabilityScope: observabilityScope
+            )
+
+            // Reset the active resolver.
+            self.activeResolver = nil
+        }
 
         guard !observabilityScope.errorsReported else {
             return nil
@@ -345,6 +407,20 @@ extension Workspace {
         // Ensure the cache path exists.
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
+        // Populate the identity lookup cache via the Package.resolved.
+        // This will only ever be done if the user has passed in `--force-resolved-versions`
+        do {
+            self.identityLookupCache.deriveCache(
+                from: try self.resolvedPackagesStore.load().resolvedPackages,
+                self.configuration.sourceControlToRegistryDependencyTransformation ?? .default,
+                mirrors: self.mirrors
+            )
+        } catch {
+            // If we cannot load the resolved file, send log to user and
+            // continue.
+            observabilityScope.emit(debug: "Unable to prepopulate identity lookup cache", underlyingError: error)
+        }
+
         let rootManifests = try await self.loadRootManifests(
             packages: root.packages,
             observabilityScope: observabilityScope
@@ -372,12 +448,45 @@ extension Workspace {
             )
         }
 
-        // Request all the containers to fetch them in parallel.
+        // Determine which packages actually need to be cloned or re-checked-out before
+        // touching the network. A package is "required" when workspace-state.json has no
+        // record of it, or when its recorded checkout state does not match the resolved pin
+        // in the Package.resolved.
         //
-        // We just request the packages here, repository manager will
-        // automatically manage the parallelism.
+        // Computing this set first is important for --force-resolved-versions:
+        // 1) If all checkouts are already correct then the set of required dependencies is empty
+        //    and we skip both the prefetch and the checkout loops below
+        // 2) This avoids any network access even when .build/repositories/ is absent (e.g. after
+        //    moving the project to a different machine or container).
+        //
+        // Previously the prefetch loop ran over every resolved package unconditionally,
+        // which caused RepositoryManager.performLookup to call fetchAndPopulateCache for
+        // each one whenever the bare-repo cache (.build/repositories) was missing.
+        let dependencies = await state.dependencies
+        let requiredResolvedPackages = resolvedPackagesStore.resolvedPackages.values.filter { pin in
+            // also compare the location in case it has changed
+            guard let dependency = dependencies[comparingLocation: pin.packageRef] else {
+                return true
+            }
+            switch dependency.state {
+            case .sourceControlCheckout(let checkoutState):
+                return !pin.state.equals(checkoutState)
+            case .registryDownload(let version, _):
+                return !pin.state.equals(version)
+            case .edited, .fileSystem, .custom:
+                return true
+            }
+        }
+
+        // Prefetch containers for packages that need work, in parallel.
+        //
+        // RepositoryManager will deduplicate concurrent lookups for the same specifier,
+        // so it is safe to fire these without additional coordination. We limit the set to
+        // requiredResolvedPackages so that packages with valid existing checkouts never
+        // trigger a bare-repo lookup (and therefore never trigger a network fetch when the
+        // .build/repositories/ cache is unavailable).
         await withThrowingTaskGroup(of: Void.self) { taskGroup in
-            for resolvedPackage in resolvedPackagesStore.resolvedPackages.values {
+            for resolvedPackage in requiredResolvedPackages {
                 let observabilityScope = observabilityScope.makeChildScope(
                     description: "requesting package containers",
                     metadata: resolvedPackage.packageRef.diagnosticsMetadata
@@ -410,27 +519,7 @@ extension Workspace {
             }
         }
 
-        // Compute resolved packages that we need to actually clone.
-        //
-        // We require cloning if there is no checkout or if the checkout doesn't
-        // match with the pin.
-        let dependencies = await state.dependencies
-        let requiredResolvedPackages = resolvedPackagesStore.resolvedPackages.values.filter { pin in
-            // also compare the location in case it has changed
-            guard let dependency = dependencies[comparingLocation: pin.packageRef] else {
-                return true
-            }
-            switch dependency.state {
-            case .sourceControlCheckout(let checkoutState):
-                return !pin.state.equals(checkoutState)
-            case .registryDownload(let version):
-                return !pin.state.equals(version)
-            case .edited, .fileSystem, .custom:
-                return true
-            }
-        }
-
-        // Retrieve the required resolved packages.
+        // Check out only the packages that are actually needed.
         await withThrowingTaskGroup(of: Void.self) { taskGroup in
             for resolvedPackage in requiredResolvedPackages {
                 let observabilityScope = observabilityScope.makeChildScope(
@@ -1119,7 +1208,7 @@ extension Workspace {
             case .version(let version):
                 let stateChange: PackageStateChange
                 switch currentDependency?.state {
-                case .sourceControlCheckout(.version(version, _)), .registryDownload(version), .custom(version, _):
+                case .sourceControlCheckout(.version(version, _)), .registryDownload(version, _), .custom(version, _):
                     stateChange = .unchanged
                 case .edited, .fileSystem, .sourceControlCheckout, .registryDownload, .custom:
                     stateChange = .updated(.init(requirement: .version(version), products: binding.products))
@@ -1141,11 +1230,15 @@ extension Workspace {
 
     /// Creates resolver for the workspace.
     fileprivate func createResolver(
+        provider: PackageContainerProvider? = nil,
         resolvedPackages: ResolvedPackagesStore.ResolvedPackages,
+        skipUpdateForResolvedPackages: Bool = false,
         observabilityScope: ObservabilityScope
     ) throws -> PubGrubDependencyResolver {
         var delegate: DependencyResolverDelegate
-        let observabilityDelegate = ObservabilityDependencyResolverDelegate(observabilityScope: observabilityScope)
+        let observabilityDelegate = ObservabilityDependencyResolverDelegate(
+            observabilityScope: observabilityScope
+        )
         if let workspaceDelegate = self.delegate {
             delegate = MultiplexResolverDelegate([
                 observabilityDelegate,
@@ -1156,9 +1249,10 @@ extension Workspace {
         }
 
         return PubGrubDependencyResolver(
-            provider: packageContainerProvider,
+            provider: provider ?? packageContainerProvider,
             resolvedPackages: resolvedPackages,
             skipDependenciesUpdates: self.configuration.skipDependenciesUpdates,
+            skipUpdateForResolvedPackages: skipUpdateForResolvedPackages,
             prefetchBasedOnResolvedFile: self.configuration.prefetchBasedOnResolvedFile,
             observabilityScope: observabilityScope,
             delegate: delegate
@@ -1183,6 +1277,14 @@ extension Workspace {
             observabilityScope.emit(error)
             return []
         }
+    }
+
+    // Only retry partial-update failures caused by the local-precomputation shortcut
+    // itself (missing or mismatched local manifests). Other errors — manifest parsing,
+    // registry, tools-version, PubGrub unresolvable — will fail again with refreshed
+    // containers, so they are surfaced directly.
+    private static func canRetryPartialUpdateWithRefreshedContainers(_ error: Error) -> Bool {
+        error is ResolverPrecomputationError
     }
 
     /// Create the cache directories.

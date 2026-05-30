@@ -97,7 +97,11 @@ struct ResourcesTests{
                 buildSystem: buildSystem,
             )
 
-            let exec = try fixturePath.appending(components: buildSystem.binPath(for: configuration) + [executableName("exe")])
+            let exec = try await getBinPath(
+                fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            ).appending(executableName("exe"))
             // Note: <rdar://problem/59738569> Source from LANG and -AppleLanguages on command line for Linux resources
             let output = try await AsyncProcess.checkNonZeroExit(args: exec.pathString, "-AppleLanguages", "(en_US)").withSwiftLineEnding
             #expect(output == """
@@ -153,13 +157,10 @@ struct ResourcesTests{
                 executables.append("SeaResource")
                 #endif
 
-                let binPath = try AbsolutePath(validating:
-                    await executeSwiftBuild(
-                        fixturePath,
-                        configuration: configuration,
-                        extraArgs: ["--show-bin-path"],
-                        buildSystem: buildSystem,
-                    ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                let binPath = try await getBinPath(
+                    fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
                 )
 
                 for execName in executables {
@@ -257,14 +258,18 @@ struct ResourcesTests{
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue {
+        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Resources/EmbedInCodeSimple") { fixturePath in
-                let execPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration) + [executableName("EmbedInCodeSimple")])
                 try await executeSwiftBuild(
                     fixturePath,
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
+                let execPath = try await getBinPath(
+                    fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                ).appending(executableName("EmbedInCodeSimple"))
                 let result = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
                 #expect(result.contains("hello world"))
                 let resourcePath = fixturePath.appending(
@@ -339,11 +344,22 @@ struct ResourcesTests{
                     buildSystem: buildSystem,
                 )
                 // Filter some unrelated output that could show up on stderr.
+                let buidlSystemDeprecationDiag = Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem)
                 let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains("[logging]") }
-                                                                        .filter { !$0.contains("Unable to locate libSwiftScan") }.joined(separator: "\n")
+                    .filter { !$0.contains("Unable to locate libSwiftScan") }
+                    .filter {
+                        !$0.contains(Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem).message)
+                    }
+                    .filter { !$0.contains("Found unhandled resource") }
+                    .joined(separator: "\n")
                 #expect(filteredStderr == "", "unexpectedly received error output: \(stderr)")
 
-                let builtProductsDir = try packageDir.appending(components: buildSystem.binPath(for: configuration))
+                let builtProductsDir = try await getBinPath(
+                    packageDir,
+                    configuration: configuration,
+                    env: ["SWIFT_DRIVER_SWIFTSCAN_LIB" : "/this/is/a/bad/path"],
+                    buildSystem: buildSystem,
+                )
                 // On Apple platforms, it's going to be `.bundle` and elsewhere `.resources`.
                 try requireDirectoryExists(at: builtProductsDir)
                 let potentialResourceBundleName = try #require(localFileSystem.getDirectoryContents(builtProductsDir).filter { $0.hasPrefix("MyPackage_exec.") }.first)

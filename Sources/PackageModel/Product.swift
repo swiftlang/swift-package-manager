@@ -58,7 +58,8 @@ public class Product: Identifiable {
             throw InternalError("Targets cannot be empty")
         }
         if type == .executable {
-            guard modules.executables.count == 1 else {
+            let isSingleBinaryModule = modules.count == 1 && modules[0].type == .binary
+            guard modules.executables.count == 1 || isSingleBinaryModule else {
                 throw InternalError("Executable products should have exactly one executable target.")
             }
         }
@@ -118,7 +119,7 @@ public enum ProductType: Equatable, Hashable, Sendable {
     /// An executable code snippet.
     case snippet
 
-    /// An plugin product.
+    /// A plugin product.
     case plugin
 
     /// A test product.

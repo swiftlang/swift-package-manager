@@ -75,7 +75,18 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
     public func purgeCache(observabilityScope: ObservabilityScope) async {}
 }
 
+/// A `ManifestLoaderDelegate` that owns the dispatch queue on which it expects to receive
+/// callbacks.
+public protocol TestManifestLoaderDelegate: ManifestLoaderDelegate {
+    var queue: DispatchQueue { get }
+}
+
 extension ManifestLoader {
+    /// Returns the delegate's queue if it provides one, falling back to `.sharedConcurrent`.
+    fileprivate var resolvedDelegateQueue: DispatchQueue {
+        (self.delegate as? TestManifestLoaderDelegate)?.queue ?? .sharedConcurrent
+    }
+
     public func load(
         manifestPath: AbsolutePath,
         packageKind: PackageReference.Kind,
@@ -116,7 +127,7 @@ extension ManifestLoader {
             dependencyMapper: dependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver),
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent
+            delegateQueue: self.resolvedDelegateQueue
         )
     }
 }
@@ -162,7 +173,7 @@ extension ManifestLoader {
             dependencyMapper: dependencyMapper ?? DefaultDependencyMapper(identityResolver: identityResolver),
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
-            delegateQueue: .sharedConcurrent
+            delegateQueue: self.resolvedDelegateQueue
         )
     }
 }

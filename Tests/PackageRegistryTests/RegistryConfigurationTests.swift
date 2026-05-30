@@ -255,6 +255,61 @@ final class RegistryConfigurationTests: XCTestCase {
         )
     }
 
+    func testDecodeConfigurationWithReplaceScmWithRegistry() throws {
+        let json = #"""
+        {
+            "authentication": {},
+            "replaceScmWithRegistry": true,
+            "registries": {
+                "[default]": {
+                    "supportsAvailability": false,
+                    "url": "https://artifacts.apple.com/api/swift/bspe-swift-local"
+                }
+            },
+            "version": 1
+        }
+        """#
+
+        let configuration = try self.decoder.decode(RegistryConfiguration.self, from: json)
+        XCTAssertEqual(configuration.replaceScmWithRegistry, true)
+    }
+
+    func testDecodeConfigurationWithInvalidReplaceScmWithRegistry() throws {
+        let json = #"""
+        {
+            "authentication": {},
+            "replaceScmWithRegistry": "Bob, I don't think this is valid",
+            "registries": {
+                "[default]": {
+                    "supportsAvailability": false,
+                    "url": "https://artifacts.apple.com/api/swift/bspe-swift-local"
+                }
+            },
+            "version": 1
+        }
+        """#
+
+        XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
+    }
+
+    func testDecodeConfigurationWithMissingReplaceScmWithRegistry() throws {
+        let json = #"""
+        {
+            "authentication": {},
+            "registries": {
+                "[default]": {
+                    "supportsAvailability": false,
+                    "url": "https://artifacts.apple.com/api/swift/bspe-swift-local"
+                }
+            },
+            "version": 1
+        }
+        """#
+
+        let configuration = try self.decoder.decode(RegistryConfiguration.self, from: json)
+        XCTAssertEqual(configuration.replaceScmWithRegistry, nil)        
+    }
+
     func testDecodeConfigurationWithInvalidRegistryKey() throws {
         let json = #"""
         {

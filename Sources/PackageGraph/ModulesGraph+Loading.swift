@@ -553,7 +553,7 @@ private func createResolvedPackages(
                 }
 
                 let nameForModuleDependencyResolution = dependency
-                    .explicitNameForModuleDependencyResolutionOnly ?? dependency.identity.description
+                    .nameForModuleDependencyResolutionOnly
                 dependenciesByNameForModuleDependencyResolution[nameForModuleDependencyResolution] = resolvedPackage
                 dependencyNamesForModuleDependencyResolutionOnly[resolvedPackage.package.identity] =
                     nameForModuleDependencyResolution
@@ -597,10 +597,14 @@ private func createResolvedPackages(
                 switch dependency {
                 case .module(let moduleDependency, let conditions):
                     try moduleBuilder.module.validateDependency(module: moduleDependency)
-                    guard let moduleBuilder = modulesMap[moduleDependency] else {
+                    guard let dependencyBuilder = modulesMap[moduleDependency] else {
                         throw InternalError("unknown target \(moduleDependency.name)")
                     }
-                    return .module(moduleBuilder, conditions: conditions)
+                    if moduleBuilder.module.type == .test && dependencyBuilder.module.type == .test
+                        && !dependencyBuilder.isTestSupportModule {
+                        dependencyBuilder.isTestSupportModule = true
+                    }
+                    return .module(dependencyBuilder, conditions: conditions)
                 case .product:
                     return nil
                 }
@@ -1519,6 +1523,9 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
     /// A constraint on which platforms this module needs to build for.
     var platformConstraint: PlatformConstraint? = nil
 
+    /// Whether this is a test module that is directly depended upon by other test modules.
+    var isTestSupportModule: Bool = false
+
     var isHostOnly: Bool {
         module.type == .macro || (module.type == .test && dependencies.contains(where: {
                 switch $0 {
@@ -1578,7 +1585,8 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
             supportedPlatforms: self.supportedPlatforms,
             // maintain existing functionality and default to .all
             platformConstraint: self.platformConstraint ?? .all,
-            platformVersionProvider: self.platformVersionProvider
+            platformVersionProvider: self.platformVersionProvider,
+            isTestSupportModule: self.isTestSupportModule
         )
     }
 }

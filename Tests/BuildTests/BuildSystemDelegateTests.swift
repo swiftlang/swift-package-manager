@@ -74,7 +74,6 @@ struct BuildSystemDelegateTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
             // Note: we can re-use the `TestableExe` fixture here since we just need an executable.
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 _ = try await executeSwiftBuild(
@@ -82,9 +81,11 @@ struct BuildSystemDelegateTests {
                     configuration: config,
                     buildSystem: buildSystem,
                 )
-                let execPath = try fixturePath.appending(
-                    components: buildSystem.binPath(for: config) + [executableName("TestableExe1")]
-                )
+                let execPath = try await getBinPath(
+                    fixturePath,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                ).appending(executableName("TestableExe1"))
                 expectFileExists(at: execPath)
                 try localFileSystem.removeFileTree(execPath)
                 let (stdout, stderr) = try await executeSwiftBuild(
@@ -92,11 +93,14 @@ struct BuildSystemDelegateTests {
                     configuration: config,
                     buildSystem: buildSystem,
                 )
-                #expect(!stdout.contains("replacing existing signature"), "log contained non-fatal codesigning messages stderr: '\(stderr)'")
-                #expect(!stderr.contains("replacing existing signature"), "log contained non-fatal codesigning messages. stdout: '\(stdout)'")
+                #expect(
+                    stdout.contains("replacing existing signature") == false,
+                    "log contained non-fatal codesigning messages stderr: '\(stderr)'",
+                )
+                #expect(
+                    stderr.contains("replacing existing signature") == false,
+                    "log contained non-fatal codesigning messages. stdout: '\(stdout)'",
+                )
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows
-        }
     }
 }

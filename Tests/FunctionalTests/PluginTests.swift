@@ -66,7 +66,7 @@ struct PluginTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8786"),
+        .IssueWindowsRelativePathAssert,
         .requiresSwiftConcurrencySupport,
         .disabled(if: CiEnvironment.runningInSelfHostedPipeline && ProcessInfo.hostOperatingSystem == .windows),
         .tags(
@@ -79,16 +79,12 @@ struct PluginTests {
     func testUseOfBuildToolPluginTargetNoPreBuildCommands(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue(isIntermittent: true) {
-            try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginNoPreBuildCommands") { fixturePath in
-                let (_, stderr) = try await executeSwiftTest(
-                    fixturePath,
-                    buildSystem: buildSystem,
-                )
-                #expect(stderr.contains("file(s) which are unhandled; explicitly declare them as resources or exclude from the target"), "expected warning not emitted")
-            }
-        } when: {
-            buildSystem == .swiftbuild
+        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPluginNoPreBuildCommands") { fixturePath in
+            let (_, stderr) = try await executeSwiftTest(
+                fixturePath,
+                buildSystem: buildSystem,
+            )
+            #expect(stderr.contains("file(s) which are unhandled; explicitly declare them as resources or exclude from the target"), "expected warning not emitted")
         }
     }
 
@@ -1365,9 +1361,14 @@ struct PluginTests {
                     buildSystem: buildSystem,
                 ).stdout.split(whereSeparator: \.isNewline)
 
+                let binPath = try await getBinPath(
+                    fixturePath,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
                 for snippet in snippets {
                     try expectFileExists(
-                        at: fixturePath.appending(components: buildSystem.binPath(for: config) + ["\(snippet)"])
+                        at: binPath.appending("\(snippet)")
                     )
                 }
             }
@@ -1680,6 +1681,27 @@ struct PluginTests {
                 buildSystem: buildSystem,
             )
             #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+    }
+
+    @Test(
+        .IssueWindowsLongPath,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testCommandPluginBuildingPackageUsingBuildToolPlugin(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withKnownIssue("Windows builds encounter long path handling issues", isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/Plugins/CommandPluginBuildingBuildToolPlugin") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftPackage(
+                    fixturePath,
+                    extraArgs: ["plugin", "build-release"],
+                    buildSystem: buildSystem,
+                )
+                #expect(stdout.contains("Built successfully"))
+            }
+        } when: {
+            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
         }
     }
 }

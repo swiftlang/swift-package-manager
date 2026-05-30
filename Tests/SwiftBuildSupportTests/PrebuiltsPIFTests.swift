@@ -11,7 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import Foundation
 import PackageLoading
+import SPMBuildCore
 import SwiftBuildSupport
 import Testing
 import _InternalTestSupport
@@ -169,11 +171,11 @@ struct PrebuiltsPIFTests {
         let pifBuilder: PIFBuilder = PIFBuilder(
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
-                temporaryDirectory: AbsolutePath.root, addLocalRpaths: true),
+                temporaryDirectory: AbsolutePath.root, addLocalRpaths: .always),
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let pif = try await pifBuilder.constructPIF(
+        let (pif, _) = try await pifBuilder.constructPIF(
             buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
@@ -365,20 +367,77 @@ struct PrebuiltsPIFTests {
             observabilityScope: observability.topScope
         )
 
+        struct MockPluginScriptRunner: PluginScriptRunner {
+            func compilePluginScript(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                toolsVersion: ToolsVersion,
+                workers: UInt32,
+                observabilityScope: ObservabilityScope,
+                callbackQueue: DispatchQueue,
+                delegate: any PluginScriptCompilerDelegate,
+                completion: @escaping (Result<PluginCompilationResult, any Error>) -> Void
+            ) {
+                callbackQueue.sync {
+                    completion(.failure(StringError("unimplemented")))
+                }
+            }
+
+            func buildCommandLine(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                toolsVersion: ToolsVersion,
+                workers: UInt32,
+                observabilityScope: ObservabilityScope?
+            ) -> (commandLine: [String], execName: String, execFilePath: AbsolutePath, diagFilePath: AbsolutePath) {
+                fatalError("Not implemented")
+            }
+
+            func runPluginScript(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                initialMessage: Data,
+                toolsVersion: ToolsVersion,
+                workingDirectory: AbsolutePath,
+                writableDirectories: [AbsolutePath],
+                readOnlyDirectories: [AbsolutePath],
+                allowNetworkConnections: [SandboxNetworkPermission],
+                workers: UInt32,
+                fileSystem: any FileSystem,
+                observabilityScope: ObservabilityScope,
+                callbackQueue: DispatchQueue,
+                delegate: any PluginScriptCompilerDelegate & PluginScriptRunnerDelegate,
+                completion: @escaping (Result<Int32, any Error>) -> Void
+            ) {
+                callbackQueue.sync {
+                    completion(.success(0))
+                }
+            }
+
+            var hostTriple: Triple {
+                get throws {
+                    return try UserToolchain.default.targetTriple
+                }
+            }
+        }
+
         let pifBuilder: PIFBuilder = PIFBuilder(
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
-                temporaryDirectory: AbsolutePath.root, addLocalRpaths: true),
+                temporaryDirectory: AbsolutePath.root,
+                addLocalRpaths: .always,
+                pluginScriptRunner: MockPluginScriptRunner()
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
-        let pif = try await pifBuilder.constructPIF(
+        let (pif, _) = try await pifBuilder.constructPIF(
             buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         let targets = pif.workspace.projects.flatMap({ $0.underlying.targets })
         for target in targets {
-            guard target.common.name != "Plugin" else {
+            guard !["Plugin", "Macros"].contains(target.common.name) else {
                 // The Plugin target does have HOST_PLATFORM test
                 continue
             }

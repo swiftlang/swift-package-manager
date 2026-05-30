@@ -92,6 +92,16 @@ extension PackageModel.Module {
     func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
         PackagePIFBuilder.targetGUID(forModuleName: self.name, suffix: suffix)
     }
+
+    var doccCatalogPaths: Set<AbsolutePath> {
+        var result: Set<AbsolutePath> = []
+        for path in self.resources.map(\.path) + self.ignored + self.others {
+            if path.extension == "docc" {
+                result.insert(path)
+            }
+        }
+        return result
+    }
 }
 
 extension PackageGraph.ResolvedModule {
@@ -564,7 +574,12 @@ extension PackageGraph.ResolvedModule {
     }
 
     func productRepresentingDependencyOfBuildPlugin(in mainModuleProducts: [ResolvedProduct]) -> ResolvedProduct? {
-        mainModuleProducts.only { (mainModuleProduct: ResolvedProduct) -> Bool in
+        // When a dependency package has an explicit product with a different name than the
+        // executable target (e.g. product "PluginExecutable2" wrapping target "PluginExecutable"),
+        // SwiftPM also auto-promotes an implicit product with the target's name for plugin use.
+        // Both match the predicate below, causing `only` to return nil. Prefer explicit products
+        // to resolve this ambiguity correctly.
+        func matchesDependency(_ mainModuleProduct: ResolvedProduct) -> Bool {
             // Handle binary-only executable products that don't have a main module, i.e. binaryTarget
             guard let mainModule = mainModuleProduct.mainModule else {
                 return mainModuleProduct.type == .executable &&
@@ -579,6 +594,14 @@ extension PackageGraph.ResolvedModule {
                 mainModule.name == self.name
             // Intentionally ignore the build triple!
         }
+
+        let explicitMatch = mainModuleProducts
+            .filter { !$0.underlying.isImplicit }
+            .only(where: matchesDependency)
+        if let explicitMatch {
+            return explicitMatch
+        }
+        return mainModuleProducts.only(where: matchesDependency)
     }
 
     struct AllBuildSettings {

@@ -99,7 +99,7 @@ public enum ModuleError: Swift.Error {
         package: PackageIdentity,
         trait: String
     )
-    
+
     case disablingDefaultTraitsOnEmptyTraits(
         parentPackage: PackageIdentity,
         packageName: String
@@ -1003,7 +1003,7 @@ public final class PackageBuilder {
                 throw ModuleError.pluginCapabilityNotDeclared(target: manifestTarget.name)
             }
 
-            // Create and return an PluginTarget configured with the information from the manifest.
+            // Create and return a PluginTarget configured with the information from the manifest.
             return PluginModule(
                 name: potentialModule.name,
                 sources: sources,
@@ -1127,7 +1127,7 @@ public final class PackageBuilder {
                 // The setting is currently not enabled so we should skip it
                 continue
             }
-        
+
             let decl: BuildSettings.Declaration
             let values: [String]
 
@@ -1269,7 +1269,7 @@ public final class PackageBuilder {
                     case .warning: "-Wno-error"
                     }
                     values = [flag]
-                    
+
                 case .cxx:
                     decl = .OTHER_CPLUSPLUSFLAGS
                     let flag = switch level {
@@ -1277,7 +1277,7 @@ public final class PackageBuilder {
                     case .warning: "-Wno-error"
                     }
                     values = [flag]
-                    
+
                 case .linker:
                     throw InternalError("linker does not support treatAllWarnings")
 
@@ -1302,7 +1302,7 @@ public final class PackageBuilder {
                     case .warning: "-Wno-error=\(name)"
                     }
                     values = [flag]
-                    
+
                 case .cxx:
                     decl = .OTHER_CPLUSPLUSFLAGS
                     let flag = switch level {
@@ -1310,7 +1310,7 @@ public final class PackageBuilder {
                     case .warning: "-Wno-error=\(name)"
                     }
                     values = [flag]
-                    
+
                 case .linker:
                     throw InternalError("linker does not support treatWarning")
 
@@ -1757,7 +1757,8 @@ public final class PackageBuilder {
 
     private func validateExecutableProduct(_ product: ProductDescription, with targets: [Module]) -> Bool {
         let executableTargetCount = targets.executables.count
-        guard executableTargetCount == 1 else {
+        let isSingleBinaryModule = targets.count == 1 && targets[0].type == .binary
+        guard executableTargetCount == 1 || isSingleBinaryModule else {
             if executableTargetCount == 0 {
                 if let target = targets.spm_only {
                     self.observabilityScope
@@ -1867,7 +1868,7 @@ extension Manifest {
 }
 
 extension Sources {
-    var hasSwiftSources: Bool {
+    public var hasSwiftSources: Bool {
         paths.contains { path in
             guard let ext = path.extension else { return false }
 
@@ -1875,7 +1876,7 @@ extension Sources {
         }
     }
 
-    var hasClangSources: Bool {
+    public var hasClangSources: Bool {
         let supportedClangFileExtensions = FileRuleDescription.clang.fileTypes.union(FileRuleDescription.asm.fileTypes)
 
         return paths.contains { path in
@@ -1885,7 +1886,7 @@ extension Sources {
         }
     }
 
-    var containsMixedLanguage: Bool {
+    public var containsMixedLanguage: Bool {
         self.hasSwiftSources && self.hasClangSources
     }
 

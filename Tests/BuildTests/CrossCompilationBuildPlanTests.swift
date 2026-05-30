@@ -22,7 +22,6 @@ import class PackageModel.Manifest
 import struct PackageModel.TargetDescription
 import enum PackageModel.ProductType
 import struct SPMBuildCore.BuildParameters
-import func _InternalTestSupport.loadPackageGraph
 
 import func _InternalTestSupport.embeddedCxxInteropPackageGraph
 import func _InternalTestSupport.macrosPackageGraph

@@ -101,9 +101,15 @@ extension Triple {
     public static func getHostTriple(usingSwiftCompiler swiftCompiler: AbsolutePath) throws -> (versionedTriple: Triple, unversionedTriple: Triple) {
         // Call the compiler to get the target info JSON.
         let compilerOutput: String
+        var result: AsyncProcessResult? = nil
+        let command: [String]  = [swiftCompiler.pathString, "-print-target-info"]
         do {
-            let result = try AsyncProcess.popen(args: swiftCompiler.pathString, "-print-target-info")
-            compilerOutput = try result.utf8Output().spm_chomp()
+            result = try AsyncProcess.popen(arguments: command)
+            compilerOutput = if let result {
+                try result.utf8Output().spm_chomp()
+            } else {
+                "<frontend failed>"
+            }
         } catch {
             throw InternalError("Failed to get target info (\(error.interpolationDescription))")
         }
@@ -112,8 +118,13 @@ extension Triple {
         do {
             parsedTargetInfo = try JSON(string: compilerOutput)
         } catch {
+            let errorMsg = [
+                "Failed to parse target info from frontend while executing command '\(command.joined(separator: " "))'.",
+                "Raw compiler output: \(compilerOutput)",
+                "Error: \(error.interpolationDescription)",
+            ]
             throw InternalError(
-                "Failed to parse target info (\(error.interpolationDescription)).\nRaw compiler output: \(compilerOutput)"
+                errorMsg.joined(separator: "\n")
             )
         }
         // Get the triple string from the parsed JSON.

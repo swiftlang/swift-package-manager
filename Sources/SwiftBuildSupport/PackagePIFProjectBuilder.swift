@@ -251,7 +251,8 @@ struct PackagePIFProjectBuilder {
             linkedPackageBinaries: [],
             swiftLanguageVersion: nil,
             declaredPlatforms: [],
-            deploymentTargets: [:]
+            deploymentTargets: [:],
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
 
         return (result, resourceBundle)

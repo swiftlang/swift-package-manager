@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Workspace version="1.0">
+  <FileRef location="group:Pkg6_3"/>
+  <FileRef location="group:Pkg6_4"/>
+  <!-- Doubly represent 6.4 so if we had randomly picked a tools-version we're
+  more likely to select a later one -->
+  <FileRef location="group:PkgAlso6_4"/>
+</Workspace>

@@ -133,8 +133,6 @@ def log_environment() -> None:
 
 
 BUILD_OVERRIDES: t.List[str] = [
-    "--build-system",
-    "native",
 ]
 
 

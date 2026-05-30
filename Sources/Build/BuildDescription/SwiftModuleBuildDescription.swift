@@ -138,7 +138,7 @@ public final class SwiftModuleBuildDescription {
 
     var modulesPath: AbsolutePath {
         let suffix = self.buildParameters.suffix
-        return self.buildParameters.buildPath.appending(component: "Modules\(suffix)")
+        return BuildOperation.buildProductsPath(for: self.buildParameters).appending(component: "Modules\(suffix)")
     }
 
     /// The path to the swiftmodule file after compilation.
@@ -282,6 +282,11 @@ public final class SwiftModuleBuildDescription {
         observabilityScope: ObservabilityScope,
         isPlaygroundRunnerTarget: Bool = false
     ) throws {
+        // It's an error to contain mixed language source files.
+        if target.sources.containsMixedLanguage {
+            throw StringError("\(target.name): mixed language source files in Swift targets are not supported by the native build system.")
+        }
+
         guard let swiftTarget = target.underlying as? SwiftModule else {
             throw InternalError("underlying target type mismatch \(target)")
         }
@@ -328,9 +333,9 @@ public final class SwiftModuleBuildDescription {
         )
         self.pluginDerivedResources = pluginGeneratedFiles.resources.values.map(\.self)
 
-        let nonSwiftSources = pluginDerivedSources.relativePaths.filter({ $0.extension != "swift" })
-        if !nonSwiftSources.isEmpty {
-            for source in nonSwiftSources {
+        let nonSwiftDerivedSources = pluginDerivedSources.relativePaths.filter({ $0.extension != "swift" })
+        if !nonSwiftDerivedSources.isEmpty {
+            for source in nonSwiftDerivedSources {
                 let absPath = pluginDerivedSources.root.appending(source)
                 observabilityScope.emit(warning: "Only Swift is supported for generated plugin source files: \(absPath)")
             }
@@ -430,7 +435,7 @@ public final class SwiftModuleBuildDescription {
             import Foundation
 
             extension Foundation.Bundle {
-                static let module: Bundle = {
+                static nonisolated let module: Bundle = {
                     let mainPath = \(mainPathSubstitution)
                     let buildPath = "\(bundlePath.pathString.asSwiftStringLiteralConstant)"
 
@@ -464,13 +469,13 @@ public final class SwiftModuleBuildDescription {
         try self.requiredMacros.forEach { macro in
             args += [
                 "-Xfrontend", "-load-plugin-library",
-                "-Xfrontend", macroBuildParameters.macroBinaryPath(macro).pathString
+                "-Xfrontend", BuildOperation.macroBinaryPath(for: macro, parameters: macroBuildParameters).pathString
             ]
         }
         #else
         let macroModules = try self.requiredMacros
         try macroModules.forEach { macro in
-            let executablePath = try macroBuildParameters.macroBinaryPath(macro).pathString
+            let executablePath = try BuildOperation.macroBinaryPath(for: macro, parameters: macroBuildParameters).pathString
             args += ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", "\(executablePath)#\(macro.c99name)"]
         }
         #endif
@@ -568,7 +573,7 @@ public final class SwiftModuleBuildDescription {
 
         // Only add the build path to the framework search path if there are binary frameworks to link against.
         if !self.libraryBinaryPaths.isEmpty {
-            args += ["-F", self.buildParameters.buildPath.pathString]
+            args += ["-F", BuildOperation.buildProductsPath(for: self.buildParameters).pathString]
         }
 
         // Emit the ObjC compatibility header if enabled.

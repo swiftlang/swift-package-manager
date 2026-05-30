@@ -100,7 +100,7 @@ public final class MockWorkspace {
     public let delegate = MockWorkspaceDelegate()
     let skipDependenciesUpdates: Bool
     public var sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration
-        .SourceControlToRegistryDependencyTransformation
+        .SourceControlToRegistryDependencyTransformation?
     var defaultRegistry: Registry?
     public let traitConfiguration: TraitConfiguration
     public var enabledTraitsMap: EnabledTraitsMap
@@ -122,7 +122,7 @@ public final class MockWorkspace {
         customPackageContainerProvider: MockPackageContainerProvider? = .none,
         skipDependenciesUpdates: Bool = false,
         sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration
-            .SourceControlToRegistryDependencyTransformation = .disabled,
+            .SourceControlToRegistryDependencyTransformation? = nil,
         defaultRegistry: Registry? = .none,
         customHostTriple: Triple = hostTriple,
         traitConfiguration: TraitConfiguration = .default,
@@ -744,7 +744,7 @@ public final class MockWorkspace {
         let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
 
         for (ref, state) in resolvedPackages {
-            resolvedPackagesStore.track(packageRef: ref, state: state)
+            resolvedPackagesStore.track(packageRef: ref, state: state, scm: nil)
         }
 
         for dependency in managedDependencies {
@@ -839,7 +839,7 @@ public final class MockWorkspace {
                     XCTAssertEqual(dependencyCheckoutState.branch, branch, file: file, line: line)
                 }
             case .registryDownload(let downloadVersion):
-                guard case .registryDownload(let dependencyVersion) = dependency.state else {
+                guard case .registryDownload(let dependencyVersion, _) = dependency.state else {
                     return XCTFail("invalid dependency state \(dependency.state)", file: file, line: line)
                 }
                 XCTAssertEqual(dependencyVersion, downloadVersion, file: file, line: line)
