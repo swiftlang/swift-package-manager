@@ -235,7 +235,8 @@ def main() -> None:
 
             event_stream_path = pathlib.Path.cwd() / "swift-testing-event-stream.json"
             # Delete any lingering event stream JSON file
-            event_stream_path.unlink(missing_ok=True)
+            if event_stream_path.exists():
+                os.remove(event_stream_path)
 
             def dispaly_event_stream_json_file_contents() -> None:
                 logging.info("Event stream path: %s", event_stream_path.name)
@@ -316,7 +317,8 @@ def main() -> None:
                 )
             except:
                 dispaly_event_stream_json_file_contents()
-                event_stream_path.unlink(missing_ok=True)
+                if event_stream_path.exists():
+                    os.remove(event_stream_path)
 
 
         if is_on_darwin() and not args.skip_bootstrap:
