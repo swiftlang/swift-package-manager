@@ -519,6 +519,12 @@ public final class PackagePIFBuilder {
                 }
 
             case .executable, .test, .snippet:
+                if product.type == .test, let mainTarget = product.mainModule,
+                   mainTarget.isTestSupportModule {
+                    // Skip creating a test bundle product as this is a shared test helper library.
+                    // It will be built as a static library in the modules loop below.
+                    break
+                }
                 try projectBuilder.makeMainModuleProduct(product)
 
             case .plugin:
@@ -549,9 +555,10 @@ public final class PackagePIFBuilder {
                 try projectBuilder.makeSystemLibraryModule(module)
 
             case .test:
-                // Skip test module targets.
-                // They will have been dealt with as part of the *products* to which they belong.
-                break
+                if module.isTestSupportModule {
+                    self.log(.debug, "Building test module '\(module.name)' as a static library as it is depended on by other test target(s)")
+                    try projectBuilder.makeTestSupportModule(module)
+                }
 
             case .binary:
                 // Skip binary module targets.

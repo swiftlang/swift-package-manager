@@ -66,18 +66,20 @@ struct PluginsBuildPlanTests {
         )
         let hostTriple = try! hostToolchain.targetTriple.withoutVersion().tripleString
 
-        let hostBinPathSegments = try buildSystem.binPath(
-            for: config,
-            triple: hostTriple,
-        )
-        let hostDebugBinPathSegments = try buildSystem.binPath(
-            for: .debug,
-            triple: hostTriple,
-        )
         // By default, plugin dependencies are built for the host platform
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            let hostBinPath: AbsolutePath = fixturePath.appending(components: hostBinPathSegments)
-            let hostDebugBinPath: AbsolutePath = fixturePath.appending(components: hostDebugBinPathSegments)
+            let hostBinPath = try await getBinPath(
+                fixturePath,
+                configuration: config,
+                extraArgs: ["--triple", hostTriple],
+                buildSystem: buildSystem,
+            )
+            let hostDebugBinPath = try await getBinPath(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["--triple", hostTriple],
+                buildSystem: buildSystem,
+            )
             let (stdout, stderr) = try await executeSwiftPackage(
                 fixturePath,
                 configuration: config,
@@ -125,28 +127,24 @@ struct PluginsBuildPlanTests {
         let armTriple = "arm64-apple-macosx"
         let targetTriple = hostToolchain.targetTriple.arch == .aarch64 ? x86Triple : armTriple
 
-        let hostBinPathSegments = try buildSystem.binPath(
-            for: config,
-        )
-        let targetDebugBinPathSegments = try buildSystem.binPath(
-            for: .debug,
-            triple: targetTriple,
-        )
-
         // When cross compiling the final product, plugin dependencies should still be built for the host
         try await fixture(name: "Miscellaneous/Plugins/CommandPluginTestStub") { fixturePath in
-            // let hostBinPath: AbsolutePath = fixturePath.appending(components: hostBinPathSegments)
-            let targetDebugBinPath: AbsolutePath = fixturePath.appending(components: targetDebugBinPathSegments)
-            let hostBinPath = try fixturePath.appending(
-                components: buildSystem.binPath(
-                    for: config,
-                )
+            let targetDebugBinPath = try await getBinPath(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["--triple", targetTriple],
+                buildSystem: buildSystem,
             )
-            let targetBinPath = try fixturePath.appending(
-                components: buildSystem.binPath(
-                    for: config,
-                    triple: targetTriple,
-                )
+            let hostBinPath = try await getBinPath(
+                fixturePath,
+                configuration: config,
+                buildSystem: buildSystem,
+            )
+            let targetBinPath = try await getBinPath(
+                fixturePath,
+                configuration: config,
+                extraArgs: ["--triple", targetTriple],
+                buildSystem: buildSystem,
             )
             let (stdout, stderr) = try await executeSwiftPackage(
                 fixturePath,

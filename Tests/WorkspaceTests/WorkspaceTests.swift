@@ -5523,6 +5523,136 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    /// Tests that `--force-resolved-versions` does not trigger repository fetches
+    /// when package checkouts are already present in the build directory.
+    ///
+    /// This is a regression test for a cross-platform migration scenario where
+    /// running `--force-resolved-versions` in a new environment (e.g., Docker) after
+    /// resolving on the host machine would attempt to re-fetch all dependencies from
+    /// the network, failing if network access is unavailable.
+    ///
+    /// Steps reproduced:
+    /// 1. Resolve on "machine A" (e.g., macOS host) — populates `.build` directory.
+    /// 2. Move project + `.build` to "machine B" (e.g., Linux container).
+    /// 3. On machine B, the local repository cache (`.build/repositories/`) may be
+    ///    inaccessible/have a different absolute path than what is stored while
+    ///    checkouts (`.build/checkouts/`) and `workspace-state.json`
+    ///    remain present.
+    /// 4. Run `swift package resolve --force-resolved-versions` on "machine B".
+    ///
+    /// Expected: resolves from the already-present checkouts, no network fetches.
+    func testForceResolvedVersionsDoesNotRefetchWithExistingCheckouts() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "Root", dependencies: ["Foo", "Bar"]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(path: "./Foo", requirement: .exact("1.0.0")),
+                        .sourceControl(path: "./Bar", requirement: .exact("1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Bar",
+                    targets: [
+                        MockTarget(name: "Bar"),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", modules: ["Bar"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        // Step 1: Initial resolution on "machine A" — populates .build with
+        // workspace-state.json, .build/checkouts/, and .build/repositories/.
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+
+        // Step 2: Simulate cross-platform migration to "machine B".
+        //
+        // On the new machine the local repository cache (.build/repositories/)
+        // may not be accessible — e.g., only .build/checkouts/ and
+        // workspace-state.json were transferred, or the path to the cache
+        // changed between environments.
+        //
+        // Clearing fetchedMap simulates the repository cache being unavailable
+        // while leaving checkouts and workspace-state.json intact.
+        workspace.repositoryProvider.fetchedMap.clear()
+
+        // Record how many working copies exist before the second resolve so we
+        // can assert that none were re-created.
+        let checkoutsCountBeforeResolve = workspace.repositoryProvider.checkoutsMap.count
+
+        // Close the workspace to simulate a fresh SPM process on "machine B".
+        // Setting the resetState to false ensures that the workspace's managed
+        // dependencies aren't cleared, which is reflected by the workspace-state.json
+        // The resetResolvedFile is similarly set to false to ensure that we keep
+        // the Package.resolved file, as one would here for a "machine A -> B" migration.
+        try await workspace.closeWorkspace(resetState: false, resetResolvedFile: false)
+
+        // Step 3: Run --force-resolved-versions on "machine B".
+        // Should resolve from existing .build/checkouts/ without any network access.
+        try await workspace.checkPackageGraph(roots: ["Root"], forceResolvedVersions: true) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        // fetchedMap is written to by InMemoryGitRepositoryProvider.fetch(repository:to:),
+        // which is the single entry point for a bare-repo network clone. If it is still
+        // empty here, no network access occurred — the correct outcome for
+        // --force-resolved-versions when all checkouts are already present.
+        XCTAssertTrue(
+            workspace.repositoryProvider.fetchedMap.isEmpty,
+            "--force-resolved-versions triggered unexpected repository fetches; " +
+            "all packages should be resolved from existing checkouts."
+        )
+
+        // checkoutsMap is written to by InMemoryGitRepositoryProvider.createWorkingCopy.
+        // An unchanged count means no working copies were re-created.
+        XCTAssertEqual(
+            workspace.repositoryProvider.checkoutsMap.count,
+            checkoutsCountBeforeResolve,
+            "--force-resolved-versions unexpectedly created new working copies; " +
+            "checkouts should already exist."
+        )
+
+        // Verify the dependency graph is still correct after migration.
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "bar", at: .checkout(.version("1.0.0")))
+        }
+    }
+
     // This verifies that the simplest possible loading APIs are available for package clients.
     func testSimpleAPI() async throws {
         try await testWithTemporaryDirectory { path in
@@ -14419,6 +14549,112 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    // Regression test for: registry identity substitution fails for packages using tools-version >= 5.8.
+    //
+    // Tools-version 5.8 switches product dependency lookup from name-based ("ProductName") to
+    // identity-based ("packagename_ProductName"). When --use-registry-identity-for-scm replaces an
+    // SCM dependency's identity with a registry identity (e.g., "org.foo"), but does NOT update the
+    // target dependency's `package:` parameter, the two keys diverge:
+    //   Map key (built from registry identity):    "org.foo_FooProduct"
+    //   productRef.identity (from package: "foo"): "foo_FooProduct"
+    // → product not found, "Did you mean 'FooProduct'?" error.
+    //
+    // The same scenario with tools-version < 5.8 uses name-based lookup so it never fails.
+    func testResolutionWithRegistryIdentitySubstitutionAndToolsVersionV58() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            // `package:` uses the URL-derived name "foo", not the registry identity "org.foo".
+                            // This is the standard pattern that fails under .identity mode + tools-version 5.8.
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_8
+                ),
+            ],
+            packages: [
+                // SCM entry needed for .identity mode (package stays as sourceControl, so the
+                // mock workspace must be able to resolve the URL directly).
+                MockPackage(
+                    name: "FooPackage",
+                    url: "https://git/org/foo",
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "1.2.0"]
+                ),
+                // Registry entry needed for .swizzle mode (SCM dep is replaced with a registry dep).
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [
+                        MockTarget(name: "FooTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "1.2.0"]
+                ),
+            ]
+        )
+
+        // .identity mode (--use-registry-identity-for-scm): replaces SCM dependency identity with
+        // registry identity but does NOT rewrite target dependency package: names.
+        // With tools-version 5.8 product ID lookup this causes "product not found".
+        workspace.sourceControlToRegistryDependencyTransformation = .identity
+
+        try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "org.foo", "Root")
+                result.check(modules: "FooTarget", "RootTarget")
+                result.checkTarget("RootTarget") { result in result.check(dependencies: "FooProduct") }
+            }
+        }
+
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .checkout(.version("1.2.0")))
+        }
+
+        try await workspace.closeWorkspace()
+
+        // .swizzle mode (--replace-scm-with-registry): rewrites both the dependency AND the target
+        // dependency package: names, so 5.8 product ID lookup works correctly.
+        workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+
+        try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "org.foo", "Root")
+                result.check(modules: "FooTarget", "RootTarget")
+                result.checkTarget("RootTarget") { result in result.check(dependencies: "FooProduct") }
+            }
+        }
+
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .registryDownload("1.2.0"))
+        }
+    }
+
     // duplicate package at root level
     func testResolutionMixedRegistryAndSourceControl2() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
@@ -15044,14 +15280,6 @@ final class WorkspaceTests: XCTestCase {
                         """),
                         severity: .warning
                     )
-                    if ToolsVersion.current >= .v5_8 {
-                        result.check(
-                            diagnostic: .contains("""
-                            product 'FooProduct' required by package 'org.bar' target 'BarTarget' not found in package 'foo'.
-                            """),
-                            severity: .error
-                        )
-                    }
                 }
                 PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")
@@ -15332,14 +15560,6 @@ final class WorkspaceTests: XCTestCase {
                         """),
                         severity: .warning
                     )
-                    if ToolsVersion.current >= .v5_8 {
-                        result.check(
-                            diagnostic: .contains("""
-                            product 'BazProduct' required by package 'org.foo' target 'FooTarget' not found in package 'baz'.
-                            """),
-                            severity: .error
-                        )
-                    }
                 }
                 PackageGraphTesterXCTest(graph) { result in
                     result.check(roots: "Root")

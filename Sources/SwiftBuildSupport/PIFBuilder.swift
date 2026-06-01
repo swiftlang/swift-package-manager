@@ -187,10 +187,6 @@ public final class PIFBuilder {
             throw PIFGenerationError.printedPIFManifestGraphviz
         }
 
-        if self.observabilityScope.errorsReported {
-            throw PIFGenerationError.errorDiagnosticsReported
-        }
-
         return PIFGenerationResult(pif: pifString, accompanyingMetadata: modulesAndProducts)
     }
 
@@ -438,6 +434,12 @@ public final class PIFBuilder {
                     observabilityScope: observabilityScope
                 )
 
+                self.diagnoseUnhandledFiles(
+                    package: package,
+                    module: module,
+                    buildToolPluginInvocationResults: buildToolPluginResults
+                )
+
                 let result = PackagePIFBuilder.BuildToolPluginInvocationResult(
                     prebuildCommandOutputPaths: runResults.flatMap( { $0.derivedFiles }),
                     buildCommands: buildCommands
@@ -612,6 +614,38 @@ public final class PIFBuilder {
             observabilityScope: observabilityScope
         )
         return try await builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure, buildParameters: buildParameters)
+    }
+
+    private func diagnoseUnhandledFiles(
+        package: ResolvedPackage,
+        module: ResolvedModule,
+        buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
+    ) {
+        guard package.manifest.toolsVersion >= .v5_3 else {
+            return
+        }
+
+        var unhandledFiles = Set(module.underlying.others)
+        if unhandledFiles.isEmpty {
+            return
+        }
+
+        let handledFiles = buildToolPluginInvocationResults.flatMap { $0.buildCommands.flatMap(\.inputFiles) }
+        unhandledFiles.subtract(handledFiles)
+
+        if unhandledFiles.isEmpty {
+            return
+        }
+
+        let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
+            var metadata = ObservabilityMetadata()
+            metadata.packageIdentity = package.identity
+            metadata.packageKind = package.manifest.packageKind
+            metadata.moduleName = module.name
+            return metadata
+        }
+        
+        diagnosticsEmitter.emit(.unhandledFiles(unhandledFiles))
     }
 }
 
@@ -847,9 +881,6 @@ public enum PIFGenerationError: Error {
 
     /// Early build termination when using `--print-pif-manifest-graph`.
     case printedPIFManifestGraphviz
-
-    /// One or more error diagnostics were reported during PIF generation.
-    case errorDiagnosticsReported
 }
 
 extension PIFGenerationError: CustomStringConvertible {
@@ -868,9 +899,6 @@ extension PIFGenerationError: CustomStringConvertible {
 
         case .printedPIFManifestGraphviz:
             "Printed PIF manifest as graphviz"
-
-        case .errorDiagnosticsReported:
-            "Errors reported during PIF building"
         }
     }
 }
@@ -906,5 +934,16 @@ extension PIFBuilderParameters {
             addLocalRpaths: addLocalRpaths,
             hostBuildProductsPath: hostBuildProductsPath
         )
+    }
+}
+
+extension Basics.Diagnostic {
+    public static func unhandledFiles(_ files: Set<AbsolutePath>) -> Self {
+        var message =
+            "found \(files.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
+        for file in files {
+            message += "    " + file.pathString + "\n"
+        }
+        return .warning(message)
     }
 }

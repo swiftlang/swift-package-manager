@@ -50,7 +50,11 @@ struct DependencyResolutionTests {
                     buildSystem: buildSystem,
                 )
 
-                let binPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration))
+                let binPath = try await getBinPath(
+                    fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 let executablePath = binPath.appending(components: "Foo")
                 let output = try await AsyncProcess.checkNonZeroExit(args: executablePath.pathString).withSwiftLineEnding
                 #expect(output == "Foo\nBar\n")
@@ -103,7 +107,11 @@ struct DependencyResolutionTests {
                     buildSystem: buildSystem,
                 )
 
-                let binPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration))
+                let binPath = try await getBinPath(
+                    fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 let executablePath = binPath.appending(components: "Foo")
                 let output = try await AsyncProcess.checkNonZeroExit(args: executablePath.pathString)
                     .withSwiftLineEnding
@@ -140,7 +148,11 @@ struct DependencyResolutionTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                let binPath = try packageRoot.appending(components: buildSystem.binPath(for: configuration))
+                let binPath = try await getBinPath(
+                    packageRoot,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 let executablePath = binPath.appending(components: executableName("Bar"))
                 #expect(
                     localFileSystem.exists(executablePath),
@@ -179,7 +191,11 @@ struct DependencyResolutionTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                let binPath = try packageRoot.appending(components: buildSystem.binPath(for: configuration))
+                let binPath = try await getBinPath(
+                    packageRoot,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 let executablePath = binPath.appending(components: "Dealer")
                 expectFileExists(at: executablePath)
                 let output = try await AsyncProcess.checkNonZeroExit(args: executablePath.pathString)

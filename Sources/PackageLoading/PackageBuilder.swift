@@ -1089,7 +1089,7 @@ public final class PackageBuilder {
                 // The setting is currently not enabled so we should skip it
                 continue
             }
-        
+
             let decl: BuildSettings.Declaration
             let values: [String]
 
@@ -1231,7 +1231,7 @@ public final class PackageBuilder {
                     case .warning: "-Wno-error"
                     }
                     values = [flag]
-                    
+
                 case .cxx:
                     decl = .OTHER_CPLUSPLUSFLAGS
                     let flag = switch level {
@@ -1239,7 +1239,7 @@ public final class PackageBuilder {
                     case .warning: "-Wno-error"
                     }
                     values = [flag]
-                    
+
                 case .linker:
                     throw InternalError("linker does not support treatAllWarnings")
 
@@ -1264,7 +1264,7 @@ public final class PackageBuilder {
                     case .warning: "-Wno-error=\(name)"
                     }
                     values = [flag]
-                    
+
                 case .cxx:
                     decl = .OTHER_CPLUSPLUSFLAGS
                     let flag = switch level {
@@ -1272,7 +1272,7 @@ public final class PackageBuilder {
                     case .warning: "-Wno-error=\(name)"
                     }
                     values = [flag]
-                    
+
                 case .linker:
                     throw InternalError("linker does not support treatWarning")
 
@@ -1704,7 +1704,8 @@ public final class PackageBuilder {
 
     private func validateExecutableProduct(_ product: ProductDescription, with targets: [Module]) -> Bool {
         let executableTargetCount = targets.executables.count
-        guard executableTargetCount == 1 else {
+        let isSingleBinaryModule = targets.count == 1 && targets[0].type == .binary
+        guard executableTargetCount == 1 || isSingleBinaryModule else {
             if executableTargetCount == 0 {
                 if let target = targets.spm_only {
                     self.observabilityScope

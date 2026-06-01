@@ -79,14 +79,12 @@ private struct WebAssemblyIntegrationTests {
             )
             #expect(buildOutput.stdout.contains("Build complete"))
 
-            let binPathOutput = try await executeSwiftBuild(
+            let wasmBinary = try await getBinPath(
                 fixturePath,
-                extraArgs: ["--swift-sdk", sdkID, "--show-bin-path"],
+                extraArgs: ["--swift-sdk", sdkID],
                 env: env,
                 buildSystem: .swiftbuild
-            )
-            let binPath = binPathOutput.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-            let wasmBinary = try AbsolutePath(validating: binPath).appending(component: "WasmSwiftExe.wasm")
+            ).appending(component: "WasmSwiftExe.wasm")
             #expect(localFileSystem.exists(wasmBinary), "Expected .wasm binary at \(wasmBinary)")
 
             let wasmkitPath = try #require(try findWasmKit(sdkID: sdkID), "wasmkit not found in Swift SDK \(sdkID)")
@@ -172,14 +170,11 @@ private struct WebAssemblyIntegrationTests {
                 env: env,
                 buildSystem: .swiftbuild,
             )
-            let libBinPathOutput = try await executeSwiftBuild(
+            let libBinPath = try await getBinPath(
                 externalDependencyPath,
-                extraArgs: ["--swift-sdk", sdkID, "--show-bin-path"],
+                extraArgs: ["--swift-sdk", sdkID],
                 env: env,
                 buildSystem: .swiftbuild,
-            )
-            let libBinPath = try AbsolutePath(
-                validating: libBinPathOutput.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
             )
             let staticArchive = libBinPath.appending(component: "libGreeter.a")
             let swiftModule = libBinPath.appending(component: "Greeter.swiftmodule")
@@ -212,14 +207,11 @@ private struct WebAssemblyIntegrationTests {
                     buildSystem: .swiftbuild,
                 )
                 #expect(buildOutput.stdout.contains("Build complete"))
-                let consumerBinPathOutput = try await executeSwiftBuild(
+                let consumerBinPath = try await getBinPath(
                     consumerPath,
-                    extraArgs: ["--swift-sdk", sdkID, "--show-bin-path"],
+                    extraArgs: ["--swift-sdk", sdkID],
                     env: env,
                     buildSystem: .swiftbuild,
-                )
-                let consumerBinPath = try AbsolutePath(
-                    validating: consumerBinPathOutput.stdout.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
                 let wasmBinary = consumerBinPath.appending(component: "GreeterUser.wasm")
                 #expect(localFileSystem.exists(wasmBinary), "Expected .wasm binary at \(wasmBinary)")

@@ -82,7 +82,11 @@ struct MiscellaneousTestCase {
                 configuration: config,
                 buildSystem: buildSystem,
             )
-            let buildDir = try packagePath.appending(components: buildSystem.binPath(for: config))
+            let buildDir = try await getBinPath(
+                packagePath,
+                configuration: config,
+                buildSystem: buildSystem,
+            )
             expectFileExists(at: buildDir.appending(executableName("FooExec")))
             if buildSystem == .native {
                 expectFileExists(at: buildDir.appending(components: "Modules", "FooLib1.swiftmodule"))
@@ -229,15 +233,19 @@ struct MiscellaneousTestCase {
         let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Miscellaneous/DependencyEdges/Internal") { fixturePath in
-            let binPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration))
-            let executable = binPath.appending(components: executableName("Foo"))
-            let execPath = executable.pathString
-
             try await executeSwiftBuild(
                 fixturePath,
                 configuration: configuration,
                 buildSystem: buildSystem,
             )
+            let binPath = try await getBinPath(
+                fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+            let executable = binPath.appending(components: executableName("Foo"))
+            let execPath = executable.pathString
+
             try requireFileExists(at: executable)
             let output = try await AsyncProcess.checkNonZeroExit(args: execPath)
             #expect(output == "Hello\(ProcessInfo.EOL)")
@@ -278,15 +286,19 @@ struct MiscellaneousTestCase {
         let configuration = BuildConfiguration.debug
         try await fixture(name: "DependencyResolution/External/Complex", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending(component: "app")
-            let binPath = try packageRoot.appending(components: buildSystem.binPath(for: configuration))
-            let executable = binPath.appending(component: executableName("Dealer"))
-            let execPath = executable.pathString
-
             try await executeSwiftBuild(
                 packageRoot,
                 configuration: configuration,
                 buildSystem: buildSystem,
             )
+            let binPath = try await getBinPath(
+                packageRoot,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+            let executable = binPath.appending(component: executableName("Dealer"))
+            let execPath = executable.pathString
+
             try requireFileExists(at: executable)
             let output = try await AsyncProcess.checkNonZeroExit(args: execPath).withSwiftLineEnding
             #expect(output == "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
@@ -327,15 +339,19 @@ struct MiscellaneousTestCase {
         let configuration = BuildConfiguration.debug
         try await fixture(name: "Miscellaneous/DependencyEdges/External", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending("root")
-            let binPath = try packageRoot.appending(components: buildSystem.binPath(for: configuration))
-            let executable = binPath.appending(component: executableName("dep2"))
-            let execpath = [executable.pathString]
-
             try await executeSwiftBuild(
                 packageRoot,
                 configuration: configuration,
                 buildSystem: buildSystem,
             )
+            let binPath = try await getBinPath(
+                packageRoot,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+            let executable = binPath.appending(component: executableName("dep2"))
+            let execpath = [executable.pathString]
+
                 try requireFileExists(at: executable)
                 let output = try await AsyncProcess.checkNonZeroExit(arguments: execpath)
                 #expect(output == "Hello\(ProcessInfo.EOL)")
@@ -378,7 +394,11 @@ struct MiscellaneousTestCase {
                         buildSystem: buildSystem,
                     )
                 }
-                let binPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration))
+                let binPath = try await getBinPath(
+                    fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 switch buildSystem {
                     case .native:
                         expectFileExists(at: binPath.appending(components: "Module_Name_1.build", "Foo.swift.o"))
@@ -489,8 +509,7 @@ struct MiscellaneousTestCase {
 
             let moduleUser = fixturePath.appending("SystemModuleUserClang")
             let env: Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
-            let binPath = try moduleUser.appending(components: buildSystem.binPath(for: configuration))
-            await withKnownIssue(isIntermittent: true) {
+            try await withKnownIssue(isIntermittent: true) {
                 await #expect(throws: Never.self) {
                     _ = try await executeSwiftBuild(
                         moduleUser,
@@ -499,6 +518,12 @@ struct MiscellaneousTestCase {
                         buildSystem: buildSystem,
                     )
                 }
+                let binPath = try await getBinPath(
+                    moduleUser,
+                    configuration: configuration,
+                    env: env,
+                    buildSystem: buildSystem,
+                )
                 expectFileExists(at: binPath.appending(component: "SystemModuleUserClang"))
             } when:{
                 buildSystem == .swiftbuild && configuration == .release && ProcessInfo.hostOperatingSystem != .linux
@@ -513,7 +538,7 @@ struct MiscellaneousTestCase {
                 buildSystem: buildSystem,
             )
 
-            await withKnownIssue(isIntermittent: true) {
+            try await withKnownIssue(isIntermittent: true) {
                 await #expect(throws: Never.self) {
                     _ = try await executeSwiftBuild(
                         moduleUser,
@@ -523,6 +548,12 @@ struct MiscellaneousTestCase {
                     )
                 }
 
+                let binPath = try await getBinPath(
+                    moduleUser,
+                    configuration: configuration,
+                    extraArgs: ["--pkg-config-path", fixturePath.pathString],
+                    buildSystem: buildSystem,
+                )
                 expectFileExists(at: binPath.appending(component: "SystemModuleUserClang"))
             } when: {
                 buildSystem == .swiftbuild
@@ -1153,7 +1184,11 @@ struct MiscellaneousTestCase {
                 configuration: configuration,
                 buildSystem: buildSystem,
             )
-            let buildOutput = try packagePath.appending(components: buildSystem.binPath(for: configuration))
+            let buildOutput = try await getBinPath(
+                packagePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
             expectDirectoryExists(at: buildOutput)
             #expect(!stdout1.contains("command_arguments"))
             #expect(!stderr1.contains("command_arguments"))
@@ -1164,7 +1199,11 @@ struct MiscellaneousTestCase {
                 configuration: configuration,
                 buildSystem: buildSystem,
             )
-            let testOutput = try packagePath.appending(components: buildSystem.binPath(for: configuration))
+            let testOutput = try await getBinPath(
+                packagePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
             expectDirectoryExists(at: testOutput)
             #expect(!stdout2.contains("command_arguments"))
             #expect(!stderr2.contains("command_arguments"))
@@ -1190,7 +1229,11 @@ struct MiscellaneousTestCase {
                 configuration: configuration,
                 buildSystem: buildSystem,
             )
-            let buildOutput = try path.appending(components: buildSystem.binPath(for: configuration))
+            let buildOutput = try await getBinPath(
+                path,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
             expectDirectoryExists(at: buildOutput)
             #expect((stdout + stderr).contains("initialization of variable 'myvariable' was never used"))
         }
@@ -1221,7 +1264,11 @@ struct MiscellaneousTestCase {
                 configuration: configuration,
                 buildSystem: buildSystem,
             )
-            let buildOutput = try appPath.appending(components: buildSystem.binPath(for: configuration))
+            let buildOutput = try await getBinPath(
+                appPath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
             expectDirectoryExists(at: buildOutput)
             #expect((stdout + stderr).contains("'DeprecatedApp' is deprecated"))
             #expect(!(stdout + stderr).contains("'Deprecated1' is deprecated"))
@@ -1258,7 +1305,12 @@ struct MiscellaneousTestCase {
                     Xswiftc: ["-warnings-as-errors"],
                     buildSystem: buildSystem,
                 )
-                let buildOutput = try appPath.appending(components: buildSystem.binPath(for: configuration))
+                let buildOutput = try await getBinPath(
+                    appPath,
+                    configuration: configuration,
+                    Xswiftc: ["-warnings-as-errors"],
+                    buildSystem: buildSystem,
+                )
                 expectDirectoryExists(at: buildOutput)
                 #expect(!(stdout + stderr).contains("'Deprecated1' is deprecated"))
                 #expect(!(stdout + stderr).contains("'Deprecated2' is deprecated"))
@@ -1395,6 +1447,21 @@ struct MiscellaneousSwiftTestingTests {
                 fixturePath,
                 buildSystem: buildSystem,
             )
+        }
+    }
+
+    @Test(
+        .tags(.Feature.Command.Build),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testTestTargetDependsOnTestTarget_EnsureBuilds(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await fixture(name: "Miscellaneous/TestTargetDependsOnTestTarget") { fixturePath in
+            let (_, stderr) = try await executeSwiftTest(
+                fixturePath,
+                buildSystem: buildSystem,
+                throwIfCommandFails: true,
+            )
+            #expect(stderr.contains("Build complete!"))
         }
     }
 }
