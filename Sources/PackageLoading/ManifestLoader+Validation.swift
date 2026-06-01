@@ -152,6 +152,11 @@ public struct ManifestValidator {
         var diagnostics = [Basics.Diagnostic]()
 
         // validate dependency requirements
+        let duplicateIdentities = self.manifest.dependencies.map({ $0.identity }).spm_findDuplicates()
+        for identity in duplicateIdentities {
+            diagnostics.append(.duplicatePackageDependency(identity: identity))
+        }
+
         for dependency in self.manifest.dependencies {
             switch dependency {
             case .sourceControl(let sourceControl):
@@ -298,6 +303,10 @@ public protocol ManifestSourceControlValidator {
 }
 
 extension Basics.Diagnostic {
+    static func duplicatePackageDependency(identity: PackageIdentity) -> Self {
+        .warning("duplicate dependency '\(identity)'")
+    }
+
     static func duplicateTargetName(targetName: String) -> Self {
         .error("duplicate target named '\(targetName)'")
     }
