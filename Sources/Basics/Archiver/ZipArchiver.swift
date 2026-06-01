@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Dispatch
-import struct TSCBasic.FileSystemError
+import TSCBasic
 
 /// An `Archiver` that handles ZIP archives using the command-line `zip` and `unzip` tools.
 public struct ZipArchiver: Archiver, Cancellable {
@@ -89,35 +89,35 @@ public struct ZipArchiver: Archiver, Cancellable {
             throw FileSystemError(.notDirectory, directory.underlying)
         }
 
-        #if os(FreeBSD)
-        // On FreeBSD, the unzip command is available in base but not the zip command.
-        // Therefore; we use libarchive(bsdtar) to produce the ZIP archive instead.
-        let process = AsyncProcess(
-                arguments: [
-                    self.tar, "-c", "--format", "zip", "-f", destinationPath.pathString,
-                    directory.basename,
-                ],
-          workingDirectory: directory.parentDirectory
-        )
-        #else
-        let process = AsyncProcess(
-            arguments: [
-                self.zip, "-ry", destinationPath.pathString, directory.basename,
-            ],
-            workingDirectory: directory.parentDirectory
-        )
-        #endif
-
-        guard let registrationKey = self.cancellator.register(process) else {
-            throw CancellationError.failedToRegisterProcess(process)
-        }
-
-        defer { self.cancellator.deregister(registrationKey) }
-
-        try process.launch()
-        let processResult = try await process.waitUntilExit()
-        guard processResult.exitStatus == .terminated(code: 0) else {
-            throw try StringError(processResult.utf8stderrOutput())
+        do {
+            try await self.runCompressionProcess(
+                AsyncProcess(
+                    arguments: self.compressionArguments(
+                        directory: directory,
+                        destinationPath: destinationPath
+                    ),
+                    workingDirectory: directory.parentDirectory
+                )
+            )
+        } catch AsyncProcess.Error.workingDirectoryNotSupported {
+            #if os(Windows)
+            throw AsyncProcess.Error.workingDirectoryNotSupported
+            #else
+            // Fall back to a quoted shell command when spawning with a working
+            // directory is unavailable on the current platform.
+            try await self.runCompressionProcess(
+                AsyncProcess(
+                    arguments: [
+                        "/bin/sh",
+                        "-c",
+                        self.shellCompressionCommand(
+                            directory: directory,
+                            destinationPath: destinationPath
+                        ),
+                    ]
+                )
+            )
+            #endif
         }
     }
 
@@ -147,5 +147,58 @@ public struct ZipArchiver: Archiver, Cancellable {
 
     public func cancel(deadline: DispatchTime) throws {
         try self.cancellator.cancel(deadline: deadline)
+    }
+}
+
+extension ZipArchiver {
+    private func compressionArguments(
+        directory: AbsolutePath,
+        destinationPath: AbsolutePath
+    ) -> [String] {
+        #if os(Windows)
+        [
+            // FIXME: are these the right arguments?
+            windowsTar, "-a", "-c", "-f", destinationPath.pathString, directory.basename,
+        ]
+        #elseif os(FreeBSD)
+        // On FreeBSD, the unzip command is available in base but not the zip command.
+        // Therefore; we use libarchive(bsdtar) to produce the ZIP archive instead.
+        [
+            self.tar, "-c", "--format", "zip", "-f", destinationPath.pathString,
+            directory.basename,
+        ]
+        #else
+        [
+            self.zip, "-ry", destinationPath.pathString, directory.basename,
+        ]
+        #endif
+    }
+
+    #if !os(Windows)
+    private func shellCompressionCommand(
+        directory: AbsolutePath,
+        destinationPath: AbsolutePath
+    ) -> String {
+        let command = self.compressionArguments(
+            directory: directory,
+            destinationPath: destinationPath
+        ).map { $0.spm_shellEscaped() }.joined(separator: " ")
+
+        return "cd \(directory.parentDirectory.pathString.spm_shellEscaped()) && \(command)"
+    }
+    #endif
+
+    private func runCompressionProcess(_ process: AsyncProcess) async throws {
+        guard let registrationKey = self.cancellator.register(process) else {
+            throw CancellationError.failedToRegisterProcess(process)
+        }
+
+        defer { self.cancellator.deregister(registrationKey) }
+
+        try process.launch()
+        let processResult = try await process.waitUntilExit()
+        guard processResult.exitStatus == .terminated(code: 0) else {
+            throw try StringError(processResult.utf8stderrOutput())
+        }
     }
 }

@@ -5040,7 +5040,8 @@ struct PackageCommandTests {
                         configuration: config,
                         buildSystem: buildSystem,
                     )
-                    #expect(stdout.contains("Created Bar Package.zip"), #"actual: "\#(stdout)""#)
+                    #expect(stdout.hasPrefix("Created "), #"actual: "\#(stdout)""#)
+                    #expect(stdout.contains("Bar Package.zip"), #"actual: "\#(stdout)""#)
                     expectFileExists(at: destination)
                 }
             }

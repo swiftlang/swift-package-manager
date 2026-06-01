@@ -173,15 +173,9 @@ final class ZipArchiverTests: XCTestCase {
                  try? localFileSystem.readFileContents(extractedDir1.appending("file2.txt"))
              )
          }
-     }
+    }
 
     func testCompressWithSpacesInPaths() async throws {
-        #if !os(Windows)
-        guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
-            throw XCTSkip("working directory not supported on this platform")
-        }
-        #endif
-
         try await testWithTemporaryDirectory { tmpdir in
             let archiver = ZipArchiver(fileSystem: localFileSystem)
 
