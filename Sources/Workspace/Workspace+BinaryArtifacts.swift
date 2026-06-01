@@ -92,6 +92,15 @@ extension Workspace {
                         // TODO: find a better way to get the base path (not via the manifest)
                         let absolutePath = try manifest.path.parentDirectory.appending(RelativePath(validating: path))
                         if absolutePath.extension?.lowercased() == "zip" {
+                            guard self.fileSystem.exists(absolutePath) else {
+                                observabilityScope.emit(
+                                    BinaryArtifactsManagerError.localArchiveNotFound(
+                                        archivePath: absolutePath,
+                                        targetName: target.name
+                                    )
+                                )
+                                continue
+                            }
                             localArtifacts.append(
                                 .local(
                                     packageRef: packageReference,
@@ -541,7 +550,7 @@ extension Workspace {
                                 )
                             }
                         } catch {
-                            let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                            let reason = error.interpolationDescription
 
                             observabilityScope.emit(BinaryArtifactsManagerError.localArtifactFailedExtraction(
                                 artifactPath: artifact.path,

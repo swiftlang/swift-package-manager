@@ -182,6 +182,10 @@ struct BinaryArtifactsManagerError: Error, CustomStringConvertible {
         .init(description: "local archive of binary target '\(targetName)' at '\(archivePath)' does not contain a binary artifact.")
     }
 
+    static func localArchiveNotFound(archivePath: AbsolutePath, targetName: String) -> Self {
+        .init(description: "local archive of binary target '\(targetName)' at '\(archivePath)' does not exist.")
+    }
+
     static func localArtifactNotFound(artifactPath: AbsolutePath, targetName: String) -> Self {
         .init(description: "local binary target '\(targetName)' at '\(artifactPath)' does not contain a binary artifact.")
     }
