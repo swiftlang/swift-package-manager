@@ -18,7 +18,14 @@ import enum PackageModel.PackageDependency
 import struct PackageModel.EnabledTrait
 import struct PackageModel.EnabledTraits
 import class Basics.ObservabilityScope
+import Basics
 
+extension Workspace {
+//    public struct EnabledTraitsManager: Cancellable {
+//
+//        // todo to fill in stubs?
+//    }
+}
 extension Workspace {
     /// Given a loaded `Manifest`, determine the traits that are enabled for it and
     /// calculate whichever traits are enabled transitively from this, if possible, and update the
@@ -54,7 +61,7 @@ extension Workspace {
             }
         }
 
-        self.enabledTraitsMap[manifest.packageIdentity] = enabledTraits
+        self.enabledTraitsMap[manifest] = enabledTraits
 
         // Check enabled traits for the dependencies
         for dep in manifest.dependencies {
@@ -90,6 +97,7 @@ extension Workspace {
                 ["default"],
                 setBy: .package(.init(parent))
             )
+            // todo bp dependency.packageRef may be relevant here.
             self.enabledTraitsMap[dependency.identity] = defaultTraits
         }
     }
@@ -101,13 +109,29 @@ extension Workspace {
         addedOrUpdatedPackages: [PackageReference],
         observabilityScope: ObservabilityScope
     ) async throws {
-        let packages = manifests.dependencies.filter({ addedOrUpdatedPackages.map(\.identity).contains($0.manifest.packageIdentity) })
+        let packages = manifests.dependencies.filter({
+            addedOrUpdatedPackages.map(\.identity).contains($0.manifest.packageIdentity) })
 
         for package in packages {
             let manifest = package.manifest
-            let enabledTraits = self.enabledTraitsMap[manifest.packageIdentity]
+            // TODO bp: not clearing out old traits; need to reset this somehow..
+            // since we have the updated packages, reconcile how we can identify
+            // "stale" enabled trait entries in the map vs whichever "new" ones
+            // were added in this new run. perhaps when an update is being initiated,
+            // keep track of the enabled traits by parents...?
+            let enabledTraits = self.enabledTraitsMap[manifest]
+            // Find outdated trait enablement from previous state.
+
             // Validate traits on update.
             try manifest.validateEnabledTraits(enabledTraits)
+
+            // Validate dependency manifest traits?
+            let dependencies = manifest.dependencies.filter({ dep in
+                guard let traits = dep.traits else {
+                    return false
+                }
+                return !traits.isEmpty
+            })
         }
     }
 }

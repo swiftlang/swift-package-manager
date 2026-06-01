@@ -63,7 +63,7 @@ extension ModulesGraph {
                 identity: identity,
                 manifest: package.manifest,
                 productFilter: .everything,
-                enabledTraits: enabledTraitsMap[identity]
+                enabledTraits: enabledTraitsMap[package.manifest]
             )
         }
         let rootDependencyNodes = try root.dependencies.lazy.filter { requiredDependencies.contains($0.packageRef) }
@@ -73,7 +73,7 @@ extension ModulesGraph {
                         identity: dependency.identity,
                         manifest: $0.manifest,
                         productFilter: dependency.productFilter,
-                        enabledTraits: enabledTraitsMap[dependency.identity]
+                        enabledTraits: enabledTraitsMap[$0.manifest]
                     )
                 }
             }
@@ -101,7 +101,7 @@ extension ModulesGraph {
                                 identity: dependency.identity,
                                 manifest: manifest,
                                 productFilter: dependency.productFilter,
-                                enabledTraits: enabledTraitsMap[manifest.packageIdentity]
+                                enabledTraits: enabledTraitsMap[manifest]
                             ),
                             key: dependency.identity
                         )

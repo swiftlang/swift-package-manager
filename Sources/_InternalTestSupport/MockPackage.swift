@@ -23,10 +23,38 @@ public struct MockPackage {
     public let dependencies: [MockDependency]
     public let versions: [String?]
     package let traits: Set<TraitDescription>
+    package let traitsPerVersion: [String: Set<TraitDescription>]
     /// Provides revision identifier for the given version. A random identifier might be assigned if this is nil.
     public let revisionProvider: ((String) -> String)?
     // FIXME: This should be per-version.
     public let toolsVersion: ToolsVersion?
+
+    public init(
+        name: String,
+        platforms: [PlatformDescription] = [],
+        path: String? = nil,
+        targets: [MockTarget],
+        products: [MockProduct] = [],
+        dependencies: [MockDependency] = [],
+        traitsPerVersion: [String: Set<TraitDescription>],
+        versions: [String?] = [],
+        revisionProvider: ((String) -> String)? = nil,
+        toolsVersion: ToolsVersion? = nil
+    ) {
+        let path = try! RelativePath(validating: path ?? name)
+        self.name = name
+        self.platforms = platforms
+        self.location = .fileSystem(path: path)
+        self.targets = targets
+        self.products = products
+        self.dependencies = dependencies
+        self.traitsPerVersion = traitsPerVersion
+        self.traits = []
+        self.versions = versions
+        self.revisionProvider = revisionProvider
+        self.toolsVersion = toolsVersion
+    }
+
 
     public init(
         name: String,
@@ -48,6 +76,7 @@ public struct MockPackage {
         self.products = products
         self.dependencies = dependencies
         self.traits = traits
+        self.traitsPerVersion = [:]
         self.versions = versions
         self.revisionProvider = revisionProvider
         self.toolsVersion = toolsVersion
@@ -60,7 +89,7 @@ public struct MockPackage {
         targets: [MockTarget],
         products: [MockProduct],
         dependencies: [MockDependency] = [],
-        traits: Set<TraitDescription> = [.init(name: "default")],
+        traits: Set<TraitDescription> = [],
         versions: [String?] = [],
         revisionProvider: ((String) -> String)? = nil,
         toolsVersion: ToolsVersion? = nil
@@ -72,6 +101,7 @@ public struct MockPackage {
         self.products = products
         self.dependencies = dependencies
         self.traits = traits
+        self.traitsPerVersion = [:]
         self.versions = versions
         self.revisionProvider = revisionProvider
         self.toolsVersion = toolsVersion
@@ -86,7 +116,7 @@ public struct MockPackage {
         targets: [MockTarget],
         products: [MockProduct],
         dependencies: [MockDependency] = [],
-        traits: Set<TraitDescription> = [.init(name: "default")],
+        traits: Set<TraitDescription> = [],
         versions: [String?] = [],
         revisionProvider: ((String) -> String)? = nil,
         toolsVersion: ToolsVersion? = nil
@@ -102,6 +132,7 @@ public struct MockPackage {
         self.products = products
         self.dependencies = dependencies
         self.traits = traits
+        self.traitsPerVersion = [:]
         self.versions = versions
         self.revisionProvider = revisionProvider
         self.toolsVersion = toolsVersion
