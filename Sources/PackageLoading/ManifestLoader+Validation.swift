@@ -95,7 +95,6 @@ public struct ManifestValidator {
     }
 
     private func validateTraits() -> [Basics.Diagnostic] {
-        // TODO bp add trait validation here.
         var diagnostics = [Basics.Diagnostic]()
 
         if self.manifest.traits.count > 300 {
@@ -145,6 +144,15 @@ public struct ManifestValidator {
                 }
             }
         }
+
+        // TODO bp
+//        do {
+//            try self.manifest.validateTargetDependencyTraitConditions()
+//        } catch let error as TraitError {
+//            diagnostics.append(.error(error.description))
+//        } catch {
+//            diagnostics.append(.error(error.localizedDescription))
+//        }
 
         return diagnostics
     }

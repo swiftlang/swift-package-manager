@@ -71,6 +71,8 @@ extension Workspace {
             self.delegate?.didUpdateDependencies(duration: start.distance(to: .now()))
         }
 
+//        self.enabledTraitsMap = [:]
+
         // Create cache directories.
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
@@ -222,6 +224,10 @@ extension Workspace {
             return nil
         }
 
+        // Reset traits map so updated manifests (potentially new versions with different traits)
+        // rebuild it from scratch rather than accumulating stale entries from previous versions.
+        self.enabledTraitsMap = .init()
+
         // Load the updated manifests.
         let updatedDependencyManifests = try await self.loadDependencyManifests(
             root: graphRoot,
@@ -337,6 +343,8 @@ extension Workspace {
                     .emit(
                         debug: "resolution based on '\(self.location.resolvedVersionsFile.basename)' could not be completed because \(reasonString). resolving and updating accordingly"
                     )
+                // TODO bp test whether this fixes the update of stale traits problem
+//                self.enabledTraitsMap = .init()
                 return try await resolveAndUpdateResolvedFile(forceResolution: false)
             }
         }
@@ -784,7 +792,6 @@ extension Workspace {
     ) async -> [(PackageReference, PackageStateChange)] {
         // Get the update package states from resolved results.
 
-        // TODO bp should traits be included in the package state changes?
         guard let packageStateChanges = await observabilityScope.trap({
             try await self.computePackageStateChanges(
                 root: root,
@@ -810,6 +817,10 @@ extension Workspace {
                 }
             }
         }
+
+        // TODO bp check updated dependencies, determine which traits map
+        // to update here? will this affect the computation of transitively enabled
+        // traits? should we do this before we get to this point?
 
         // Update or clone new packages.
         for (packageRef, state) in packageStateChanges {
@@ -966,7 +977,7 @@ extension Workspace {
         let computedConstraints =
         try root.constraints(self.enabledTraitsMap) +
             // Include constraints from the manifests in the graph root.
-        root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything, self.enabledTraitsMap[$0.packageIdentity]) } +
+        root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything, self.enabledTraitsMap[$0]) } +
             dependencyManifests.dependencyConstraints +
             constraints
 

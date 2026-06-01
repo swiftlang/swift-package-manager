@@ -1777,6 +1777,9 @@ final class PubGrubTests: XCTestCase {
                 []
             }
             func loadPackageReference(at boundVersion: BoundVersion) async throws -> PackageReference { self.package }
+            func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<PackageModel.TraitDescription> {
+                []
+            }
         }
 
         let path = AbsolutePath("/Package")
