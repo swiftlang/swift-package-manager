@@ -14,31 +14,34 @@ import struct Foundation.Data
 import class TSCBasic.BufferedOutputByteStream
 import protocol TSCBasic.OutputByteStream
 
-struct PlainTextEncoder {
+package struct PlainTextEncoder {
     /// The formatting of the output plain-text data.
-    struct FormattingOptions: OptionSet {
-        let rawValue: UInt
+    package struct FormattingOptions: OptionSet {
+        package let rawValue: UInt
 
-        init(rawValue: UInt) {
+        package init(rawValue: UInt) {
             self.rawValue = rawValue
         }
 
         /// Produce plain-text format with indented output.
-        static let prettyPrinted = FormattingOptions(rawValue: 1 << 0)
+        package static let prettyPrinted = FormattingOptions(rawValue: 1 << 0)
     }
 
     /// The output format to produce. Defaults to `[]`.
-    var formattingOptions: FormattingOptions = []
+    package var formattingOptions: FormattingOptions = []
 
     /// Contextual user-provided information for use during encoding.
-    var userInfo: [CodingUserInfoKey: Any] = [:]
+    package var userInfo: [CodingUserInfoKey: Any] = [:]
+
+    /// Initializes a new PlainTextEncoder.
+    package init() {}
 
     /// Encodes the given top-level value and returns its plain text representation.
     ///
     /// - parameter value: The value to encode.
     /// - returns: A new `Data` value containing the encoded plan-text data.
     /// - throws: An error if any value throws an error during encoding.
-    func encode<T: Encodable>(_ value: T) throws -> Data {
+    package func encode<T: Encodable>(_ value: T) throws -> Data {
         let outputStream = BufferedOutputByteStream()
         let encoder = _PlainTextEncoder(
             outputStream: outputStream,
