@@ -304,9 +304,9 @@ struct DependencyResolutionTests {
                     extraArgs: [
                         "config",
                         "set-mirror",
-                        "--original-url",
+                        "--original",
                         prefix.appending("Bar").pathString,
-                        "--mirror-url",
+                        "--mirror",
                         prefix.appending("BarMirror").pathString,
                     ],
                     buildSystem: buildSystem,
