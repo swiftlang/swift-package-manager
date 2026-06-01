@@ -145,6 +145,15 @@ public struct ManifestValidator {
             }
         }
 
+        // TODO bp
+//        do {
+//            try self.manifest.validateTargetDependencyTraitConditions()
+//        } catch let error as TraitError {
+//            diagnostics.append(.error(error.description))
+//        } catch {
+//            diagnostics.append(.error(error.localizedDescription))
+//        }
+
         return diagnostics
     }
 

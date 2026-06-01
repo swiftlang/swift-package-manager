@@ -1241,7 +1241,7 @@ extension WorkspaceTests {
                     versions: ["1.0.0"]
                 )
             ],
-            traitConfiguration: .disableAllTraits,  // DisabledTrait is OFF
+            traitConfiguration: .disableAllTraits,  // DisabledTrait is off
             pruneDependencies: true
         )
 
@@ -1249,13 +1249,13 @@ extension WorkspaceTests {
         try await workspace.checkPackageGraph(roots: ["Root"], deps: []) { graph, diagnostics in
             PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
-                result.check(packages: "Root")  // GuardedPackage should NOT be here
-                result.check(modules: "RootTarget")  // GuardedTarget should NOT be here
+                result.check(packages: "Root")  // GuardedPackage should not be here
+                result.check(modules: "RootTarget")  // GuardedTarget should not be here
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
 
-        // CRITICAL: Verify GuardedPackage is NOT in managed dependencies
+        // Verify GuardedPackage is NOT in managed dependencies
         await workspace.checkManagedDependencies { result in
             // Should be empty - guarded package should not be downloaded
             result.checkEmpty()
@@ -1370,7 +1370,7 @@ extension WorkspaceTests {
                 )
             ],
             traitConfiguration: .disableAllTraits,
-            pruneDependencies: false  // DISABLED
+            pruneDependencies: false
         )
 
         let deps: [MockDependency] = [
@@ -1381,7 +1381,7 @@ extension WorkspaceTests {
             PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
                 result.check(packages: "Root")
-                result.check(modules: "RootTarget")  // GuardedTarget should NOT be a module
+                result.check(modules: "RootTarget")  // GuardedTarget should not be a module
             }
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -1454,7 +1454,7 @@ extension WorkspaceTests {
         try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
             PackageGraphTesterXCTest(graph) { result in
                 result.check(roots: "Root")
-                result.check(packages: "Root", "Intermediate")  // GuardedPackage should NOT be here
+                result.check(packages: "Root", "Intermediate")  // GuardedPackage should not be here
                 result.check(modules: "RootTarget", "IntermediateTarget")  // No GuardedTarget
             }
             XCTAssertNoDiagnostics(diagnostics)
@@ -1463,6 +1463,139 @@ extension WorkspaceTests {
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "intermediate", at: .checkout(.version("1.0.0")))
             // GuardedPackage should NOT be in managed dependencies
+        }
+    }
+
+    func testUpdatePackageNewTrait() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [.product(name: "IntermediateProduct", package: "Intermediate")]
+                        )
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Intermediate", requirement: .range("1.0.0"..<"3.0.0")),
+                    ],
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "Intermediate",
+                    targets: [
+                        MockTarget(
+                            name: "IntermediateTarget",
+                            dependencies: [
+                                .product(
+                                    name: "LoggingProduct",
+                                    package: "LoggingTraitPackage",
+                                )
+                            ]
+                        )
+                    ],
+                    products: [MockProduct(name: "IntermediateProduct", modules: ["IntermediateTarget"])],
+                    dependencies: [
+                        .sourceControl(path: "./LoggingTraitPackage", requirement: .upToNextMajor(from: "1.0.0"), traits: ["LoggingSupport"])
+                    ],
+                    versions: ["1.0.0", "1.0.1"]
+                ),
+                MockPackage(
+                    name: "Intermediate",
+                    targets: [
+                        MockTarget(
+                            name: "IntermediateTarget",
+                            dependencies: [
+                                .product(
+                                    name: "LoggingProduct",
+                                    package: "LoggingTraitPackage",
+                                )
+                            ]
+                        )
+                    ],
+                    products: [MockProduct(name: "IntermediateProduct", modules: ["IntermediateTarget"])],
+                    dependencies: [
+                        .sourceControl(path: "./LoggingTraitPackage", requirement: .range("1.0.1"..<"3.0.0"), traits: ["Logging"])
+                    ],
+                    versions: ["2.0.0"]
+                ),
+                MockPackage(
+                    name: "LoggingTraitPackage",
+                    targets: [
+                        MockTarget(
+                            name: "LoggingTarget",
+                            dependencies: [
+                                .product(name: "GuardedProduct", package: "GuardedPackage", condition: .init(traits: ["LoggingSupport"]))
+                            ]
+                        )
+                    ],
+                    products: [MockProduct(name: "LoggingProduct", modules: ["LoggingTarget"])],
+                    dependencies: [
+                        .sourceControl(path: "./GuardedPackage", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    traits: ["LoggingSupport"],
+                    versions: ["1.0.0", "1.0.1"]
+                ),
+                MockPackage(
+                    name: "LoggingTraitPackage",
+                    targets: [
+                        MockTarget(
+                            name: "LoggingTarget",
+                            dependencies: [
+                                .product(name: "GuardedProduct", package: "GuardedPackage", condition: .init(traits: ["Logging"]))
+                            ]
+                        )
+                    ],
+                    products: [MockProduct(name: "LoggingProduct", modules: ["LoggingTarget"])],
+                    dependencies: [
+                        .sourceControl(path: "./GuardedPackage", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    traits: ["Logging"],
+                    versions: ["2.0.0", "2.1.0"]
+                ),
+                MockPackage(
+                    name: "GuardedPackage",
+                    targets: [MockTarget(name: "GuardedTarget")],
+                    products: [MockProduct(name: "GuardedProduct", modules: ["GuardedTarget"])],
+                    versions: ["1.0.0", "1.1.0"]
+                )
+            ],
+        )
+
+        // Use this dep reference to perform a fake update; unblocks guardedpackage
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./Intermediate", requirement: .upToNextMajor(from: "1.0.0"))
+        ]
+
+        try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Root", "Intermediate", "LoggingTraitPackage", "GuardedPackage")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "intermediate", at: .checkout(.version("1.0.1")))
+            result.check(dependency: "loggingtraitpackage", at: .checkout(.version("1.0.1")))
+            result.check(dependency: "guardedpackage", at: .checkout(.version("1.1.0")))
+        }
+
+        try await workspace.checkUpdate(roots: ["Root"]) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "intermediate", at: .checkout(.version("2.0.0")))
+            result.check(dependency: "loggingtraitpackage", at: .checkout(.version("2.1.0")))
+            result.check(dependency: "guardedpackage", at: .checkout(.version("1.1.0")))
         }
     }
 }

@@ -18,4 +18,5 @@ public struct DependencyResolverBinding {
     public let boundVersion: BoundVersion
     public let products: ProductFilter
     public let traits: Set<String>
+//    public let dependencyTraits: [PackageReference: [String]]
 }
