@@ -87,7 +87,11 @@ package struct PIFBuilderParameters {
     /// reported by the build system for the host `BuildParameters`.
     let hostBuildProductsPath: AbsolutePath
 
-    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRpaths: PackagePIFBuilder.AddLocalRpaths, hostBuildProductsPath: AbsolutePath) {
+    /// Whether this PIF generation can drive multiple configured targets at different
+    /// platforms. See ``PIFConfiguredTargetMode``.
+    let configuredTargetMode: PIFConfiguredTargetMode
+
+    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRPaths: Bool, hostBuildProductsPath: AbsolutePath, configuredTargetMode: PIFConfiguredTargetMode) {
         self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
         self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
@@ -102,6 +106,7 @@ package struct PIFBuilderParameters {
         self.additionalFileRules = additionalFileRules
         self.addLocalRpaths = addLocalRpaths
         self.hostBuildProductsPath = hostBuildProductsPath
+        self.configuredTargetMode = configuredTargetMode
     }
 }
 
@@ -250,11 +255,23 @@ public final class PIFBuilder {
     ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] {
         let pluginScriptRunner = self.parameters.pluginScriptRunner
         let outputDir = self.parameters.pluginWorkingDirectory.appending("outputs")
+        let isMultiCT = self.parameters.configuredTargetMode == .multiple
 
-        let pluginsPerModule = graph.pluginsPerModule(
+        // Per-(module, plugin, platform?) entries. A `nil` platform means "match every
+        // platform" — the plugin usage has no `targetPlatforms` axis. Under .single, the
+        // fan-out collapses each tagged entry to either the build platform (if it's in the
+        // explicit `targetPlatforms` list) or drops it; untagged entries stay untagged.
+        let pluginsPerModulePerPlatform = graph.pluginsPerModulePerPlatform(
             satisfyingHost: hostBuildParameters.buildEnvironment,
-            targetEnvironment: targetBuildParameters.buildEnvironment
+            forceSinglePlatform: isMultiCT ? nil : targetBuildParameters.buildEnvironment.platform
         )
+
+        // For tool preparation we still need a per-(module, plugin) view (the host-side
+        // tooling is platform-invariant). Collapse the per-platform entries.
+        let pluginsPerModule: [ResolvedModule.ID: [ResolvedModule]]
+            = pluginsPerModulePerPlatform.mapValues { entries in
+                Array(IdentifiableSet(entries.map(\.plugin)))
+            }
 
         let availablePluginTools = try await availableBuildPluginTools(
             graph: graph,
@@ -272,18 +289,24 @@ public final class PIFBuilder {
             var buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]] = [:]
 
             for module in package.modules {
-                // Apply each build tool plugin used by the target in order,
-                // creating a list of results (one for each plugin usage).
-                var buildToolPluginResults: [BuildToolPluginInvocationResult] = []
-                var buildCommands: [PackagePIFBuilder.CustomBuildCommand] = []
-                var prebuildCommands: [BuildToolPluginInvocationResult.PrebuildCommand] = []
+                // Per-(module, plugin, platform?) entries from the graph walk above. A
+                // `nil` platform = "match every platform" (no `targetPlatforms` axis).
+                let entries = pluginsPerModulePerPlatform[module.id] ?? []
 
-                let enabledTraits = self.graph.enabledTraitsMap[package.identity]
-                for plugin in module.pluginDependencies(
-                    satisfying: hostBuildParameters.buildEnvironment,
-                    targetEnvironment: targetBuildParameters.buildEnvironment,
-                    enabledTraits: enabledTraits
-                ) {
+                // Plugin invocation results paired with the platform tag that drove
+                // each invocation. The tag is needed for two things:
+                //   1. The next iteration's plugin asks for a view of "previously
+                //      generated sources" — only same-tag and untagged priors are
+                //      visible, so a watchOS plugin doesn't see iOS-only outputs.
+                //   2. Tagging emitted commands and prebuild outputs so SwiftBuild's
+                //      `CustomTaskProducer` and `BuildFile.platformFilters` route them
+                //      to the matching `ConfiguredTarget`.
+                var taggedResults: [(result: BuildToolPluginInvocationResult, platform: PackageModel.Platform?)] = []
+                // Build commands and prebuild outputs accumulate as parallel arrays.
+                var buildCommands: [PackagePIFBuilder.CustomBuildCommand] = []
+                var buildCommandPlatforms: [PackageModel.Platform?] = []
+
+                for (plugin, platform) in entries {
                     let pluginModule = plugin.underlying as! PluginModule
 
                     // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
@@ -292,15 +315,21 @@ public final class PIFBuilder {
                         throw InternalError("No tools found for plugin \(plugin.name)")
                     }
 
-                    // Assign a plugin working directory based on the package, target, and plugin.
-                    let pluginOutputDir = outputDir.appending(
-                        components: [
-                            package.identity.description,
-                            module.name,
-                            targetBuildParameters.destination == .host ? "tools" : "destination",
-                            plugin.name,
-                        ]
-                    )
+                    // Output directory layout. Tagged entries append the platform name
+                    // so prebuild outputs from different platforms can't clobber each other.
+                    // Untagged entries
+                    // preserve today's layout `[package, module, tools|destination, plugin]`
+                    // so existing tests and tooling that read these paths keep working.
+                    var pluginOutputDirComponents = [
+                        package.identity.description,
+                        module.name,
+                        targetBuildParameters.destination == .host ? "tools" : "destination",
+                        plugin.name,
+                    ]
+                    if let platform {
+                        pluginOutputDirComponents.append(platform.name)
+                    }
+                    let pluginOutputDir = outputDir.appending(components: pluginOutputDirComponents)
 
                     // Determine the set of directories under which plugins are allowed to write.
                     // We always include just the output directory, and for now there is no possibility
@@ -312,27 +341,38 @@ public final class PIFBuilder {
                     // to the temporary directory).
                     let readOnlyDirectories = [package.path]
 
-                    // In tools version 6.0 and newer, we vend the list of files generated by previous plugins.
+                    // In tools version 6.0 and newer, we vend the list of files generated
+                    // by previous plugin invocations to this plugin invocation. Restrict
+                    // the view so a watchOS-tagged plugin doesn't see iOS-only generated
+                    // sources from an earlier iOS-tagged plugin: only same-tag and
+                    // untagged priors are visible (untagged outputs reach every CT, so
+                    // they're in scope regardless of this plugin's tag).
                     let pluginDerivedSources: Sources
                     let pluginDerivedResources: [Resource]
                     if package.manifest.toolsVersion >= .v6_0 {
+                        let priorSamePlatform = taggedResults
+                            .filter { $0.platform == nil || $0.platform == platform }
+                            .map(\.result)
+
                         // Set up dummy observability because we don't want to emit diagnostics for this before the actual
                         // build.
                         let observability = ObservabilitySystem { _, _ in }
+
                         // Compute the generated files based on all results we have computed so far.
                         let pluginGeneratedFiles = ModulesGraph.computePluginGeneratedFiles(
                             target: module,
                             toolsVersion: package.manifest.toolsVersion,
                             additionalFileRules: self.parameters.additionalFileRules,
                             buildParameters: targetBuildParameters,
-                            buildToolPluginInvocationResults: buildToolPluginResults,
+                            buildToolPluginInvocationResults: priorSamePlatform,
                             prebuildCommandResults: [],
                             observabilityScope: observability.topScope
                         )
+
                         pluginDerivedSources = Sources(
-                                paths: pluginGeneratedFiles.sources.map(\.self),
-                                root: targetBuildParameters.dataPath
-                            )
+                            paths: pluginGeneratedFiles.sources.map(\.self),
+                            root: targetBuildParameters.dataPath
+                        )
                         pluginDerivedResources = pluginGeneratedFiles.resources.values.map(\.self)
                     } else {
                         pluginDerivedSources = .init(paths: [], root: package.path)
@@ -364,31 +404,26 @@ public final class PIFBuilder {
                         observabilityScope: observabilityScope
                     )
 
-                    buildToolPluginResults.append(result)
-
                     let diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter {
                         var metadata = ObservabilityMetadata()
                         metadata.moduleName = module.name
                         metadata.pluginName = result.plugin.name
                         return metadata
                     }
-
                     for line in result.textOutput.split(whereSeparator: { $0.isNewline }) {
                         diagnosticsEmitter.emit(info: line)
                     }
-
                     for diag in result.diagnostics {
                         diagnosticsEmitter.emit(diag)
                     }
-
                     guard result.succeeded else {
                         observabilityScope.emit(error: "build planning stopped due to build-tool plugin failures")
                         throw Diagnostics.fatalError
                     }
 
-                    prebuildCommands.append(contentsOf: result.prebuildCommands)
+                    taggedResults.append((result, platform))
 
-                    buildCommands.append(contentsOf: result.buildCommands.map( { buildCommand in
+                    for buildCommand in result.buildCommands {
                         var newEnv: Environment = buildCommand.configuration.environment
 
                         // FIXME: This is largely a workaround for improper rpath setup on Linux. It should be
@@ -412,7 +447,7 @@ public final class PIFBuilder {
 
                         let writableDirectories: [AbsolutePath] = [pluginOutputDir]
 
-                        return PackagePIFBuilder.CustomBuildCommand(
+                        buildCommands.append(PackagePIFBuilder.CustomBuildCommand(
                             displayName: buildCommand.configuration.displayName,
                             executable: buildCommand.configuration.executable.pathString,
                             arguments: buildCommand.configuration.arguments,
@@ -424,20 +459,26 @@ public final class PIFBuilder {
                             sandboxProfile:
                                 self.parameters.disableSandbox ?
                             nil :
-                                    .init(
-                                        strictness: .writableTemporaryDirectory,
-                                        writableDirectories: writableDirectories,
-                                        readOnlyDirectories: buildCommand.inputFiles
-                                    )
-                        )
-                    }))
+                                .init(
+                                    strictness: .writableTemporaryDirectory,
+                                    writableDirectories: writableDirectories,
+                                    readOnlyDirectories: buildCommand.inputFiles
+                                )
+                        ))
+                        buildCommandPlatforms.append(platform)
+                    }
                 }
 
-                // Run the prebuild commands generated from the plugin invocation now for this module. This will
-                // also give use the derived source code files needed for PIF generation.
+                let buildToolPluginInvocationResults = taggedResults.map(\.result)
+
+                // Run the prebuild commands generated from the plugin invocation now for this module.
+                // This will also give use the derived source code files needed for PIF generation.
+                // Per-platform output dirs (when `isMultiCT`) prevent cross-platform
+                // on-disk collisions; the per-output platform tag attached below ensures
+                // the resulting derived sources only flow into the matching CT.
                 let runResults = try Self.runPluginCommands(
                     using: self.pluginConfiguration,
-                    for: buildToolPluginResults,
+                    for: buildToolPluginInvocationResults,
                     fileSystem: fileSystem,
                     observabilityScope: observabilityScope
                 )
@@ -445,20 +486,30 @@ public final class PIFBuilder {
                 self.diagnoseUnhandledFiles(
                     package: package,
                     module: module,
-                    buildToolPluginInvocationResults: buildToolPluginResults
+                    buildToolPluginInvocationResults: buildToolPluginInvocationResults
                 )
 
+                // Tag prebuild-command outputs with the source platform, parallel to the
+                // path list. `runResults[i]` came from `taggedResults[i]`.
+                var prebuildOutputPaths: [AbsolutePath] = []
+                var prebuildOutputPlatforms: [PackageModel.Platform?] = []
+                for (index, runResult) in runResults.enumerated() {
+                    let platform = taggedResults[index].platform
+                    for path in runResult.derivedFiles {
+                        prebuildOutputPaths.append(path)
+                        prebuildOutputPlatforms.append(platform)
+                    }
+                }
+
                 let result = PackagePIFBuilder.BuildToolPluginInvocationResult(
-                    prebuildCommandOutputPaths: runResults.flatMap( { $0.derivedFiles }),
-                    buildCommands: buildCommands
+                    prebuildCommandOutputPaths: prebuildOutputPaths,
+                    buildCommands: buildCommands,
+                    prebuildCommandOutputPlatforms: prebuildOutputPlatforms,
+                    buildCommandPlatforms: buildCommandPlatforms
                 )
 
                 // Add a BuildToolPluginInvocationResult to the mapping.
-                if var existingResults = buildToolPluginResultsByTargetName[module.name] {
-                    existingResults.append(result)
-                } else {
-                    buildToolPluginResultsByTargetName[module.name] = [result]
-                }
+                buildToolPluginResultsByTargetName[module.name, default: []].append(result)
             }
 
             let packagePIFBuilderDelegate = PackagePIFBuilderDelegate(
@@ -603,7 +654,8 @@ public final class PIFBuilder {
         addLocalRpaths: PackagePIFBuilder.AddLocalRpaths,
         materializeStaticArchiveProductsForRootPackages: Bool,
         createDynamicVariantsForLibraryProducts: Bool,
-        hostBuildProductsPath: AbsolutePath
+        hostBuildProductsPath: AbsolutePath,
+        configuredTargetMode: PIFConfiguredTargetMode
     ) async throws -> PIFGenerationResult {
         let parameters = PIFBuilderParameters(
             targetBuildParameters,
@@ -615,7 +667,8 @@ public final class PIFBuilder {
             addLocalRpaths: addLocalRpaths,
             materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
             createDynamicVariantsForLibraryProducts: createDynamicVariantsForLibraryProducts,
-            hostBuildProductsPath: hostBuildProductsPath
+            hostBuildProductsPath: hostBuildProductsPath,
+            configuredTargetMode: configuredTargetMode
         )
         let builder = Self(
             graph: packageGraph,
@@ -926,7 +979,8 @@ extension PIFBuilderParameters {
         addLocalRpaths: PackagePIFBuilder.AddLocalRpaths,
         materializeStaticArchiveProductsForRootPackages: Bool,
         createDynamicVariantsForLibraryProducts: Bool,
-        hostBuildProductsPath: AbsolutePath
+        hostBuildProductsPath: AbsolutePath,
+        configuredTargetMode: PIFConfiguredTargetMode
     ) {
         self.init(
             isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
@@ -941,8 +995,9 @@ extension PIFBuilderParameters {
             disableSandbox: disableSandbox,
             pluginWorkingDirectory: pluginWorkingDirectory,
             additionalFileRules: additionalFileRules,
-            addLocalRpaths: addLocalRpaths,
-            hostBuildProductsPath: hostBuildProductsPath
+            addLocalRPaths: addLocalRpaths,
+            hostBuildProductsPath: hostBuildProductsPath,
+            configuredTargetMode: configuredTargetMode
         )
     }
 }

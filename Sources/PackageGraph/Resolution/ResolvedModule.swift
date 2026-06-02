@@ -101,6 +101,23 @@ public struct ResolvedModule {
             }
         }
 
+        /// The build-tool plugin module(s) referenced by this usage. A direct `.module`
+        /// usage yields at most one module (the empty array if the referenced module isn't
+        /// a build-tool plugin); a `.product` usage yields every plugin module reachable
+        /// through the product. Used everywhere a caller needs to enumerate plugins from
+        /// a `PluginUsage` without re-implementing the dispatch.
+        public var buildToolPluginModules: [ResolvedModule] {
+            switch self {
+            case .module(let module, _):
+                if (module.underlying as? PluginModule)?.capability == .buildTool {
+                    return [module]
+                }
+                return []
+            case .product(let product, _):
+                return product.modules.filter { $0.underlying is PluginModule }
+            }
+        }
+
         /// Returns true if the condition is satisfied by the given build environments and enabled traits.
         public func satisfies(hostEnvironment: BuildEnvironment, targetEnvironment: BuildEnvironment, enabledTraits: EnabledTraits) -> Bool {
             guard let condition else {

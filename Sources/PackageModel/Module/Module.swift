@@ -134,30 +134,40 @@ public class Module {
             self.traits = traits
         }
 
+        /// Returns true if the host axis is satisfied by the given host build environment.
+        public func hostAxisSatisfied(hostEnv: BuildEnvironment) -> Bool {
+            return hostPlatforms.isEmpty || hostPlatforms.contains(hostEnv.platform)
+        }
+
+        /// Returns true if the target axis is satisfied by the given target build environment.
+        public func targetAxisSatisfied(targetEnv: BuildEnvironment) -> Bool {
+            return targetPlatforms.isEmpty || targetPlatforms.contains(targetEnv.platform)
+        }
+
+        /// Returns true if the trait axis is satisfied by the given enabled-trait set.
+        ///
+        /// After trait resolution, `enabledTraits.names` contains the resolved trait names
+        /// (e.g. `{"Logging"}`) without the `"default"` sentinel. We re-insert it when the
+        /// build has defaults enabled so that a condition requiring `["default"]` matches.
+        public func traitsAxisSatisfied(enabledTraits: EnabledTraits) -> Bool {
+            if traits.isEmpty {
+                return true
+            }
+            let effectiveNames: Set<String> = enabledTraits.areDefaultsEnabled
+                ? enabledTraits.names.union(EnabledTraits.defaults.names)
+                : enabledTraits.names
+            return !traits.intersection(effectiveNames).isEmpty
+        }
+
         /// Returns true if the condition is satisfied by the given build environments and enabled traits.
         ///
         /// Each axis uses OR semantics internally (the condition passes if the actual value matches
         /// ANY of the listed values). Across axes, AND semantics apply (all specified axes must pass).
         /// For traits: the condition is satisfied if at least one listed trait is enabled.
         public func satisfies(hostEnvironment: BuildEnvironment, targetEnvironment: BuildEnvironment, enabledTraits: EnabledTraits) -> Bool {
-            if !hostPlatforms.isEmpty, !hostPlatforms.contains(hostEnvironment.platform) {
-                return false
-            }
-            if !targetPlatforms.isEmpty, !targetPlatforms.contains(targetEnvironment.platform) {
-                return false
-            }
-            if !traits.isEmpty {
-                // After trait resolution, .names contains resolved trait names (e.g., {"Logging"})
-                // without the "default" sentinel. Re-insert "default" when areDefaultsEnabled
-                // so that a condition requiring ["default"] matches correctly.
-                let effectiveNames: Set<String> = enabledTraits.areDefaultsEnabled
-                    ? enabledTraits.names.union(EnabledTraits.defaults.names)
-                    : enabledTraits.names
-                if traits.intersection(effectiveNames).isEmpty {
-                    return false
-                }
-            }
-            return true
+            return hostAxisSatisfied(hostEnv: hostEnvironment)
+                && targetAxisSatisfied(targetEnv: targetEnvironment)
+                && traitsAxisSatisfied(enabledTraits: enabledTraits)
         }
     }
 

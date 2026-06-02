@@ -51,7 +51,13 @@ struct BuildServer: AsyncSwiftCommand {
             sendMirrorFile: nil
         )
 
-        let buildSystem = try await swiftCommandState.createBuildSystem(explicitBuildSystem: .swiftbuild)
+        // BSP / SourceKit-LSP feeds workspaces that can declare multiple ConfiguredTargets
+        // across platforms — this is the only context where one PIF generation can drive a
+        // multi-CT build.
+        let buildSystem = try await swiftCommandState.createBuildSystem(
+            explicitBuildSystem: .swiftbuild,
+            configuredTargetMode: .multiple
+        )
         guard let swiftBuildSystem = buildSystem as? SwiftBuildSystem else {
             throw ArgumentParser.ValidationError("Failed to initialize the '--build-system swiftbuild' backend; expected a 'SwiftBuildSystem' but got '\(buildSystem)'")
         }

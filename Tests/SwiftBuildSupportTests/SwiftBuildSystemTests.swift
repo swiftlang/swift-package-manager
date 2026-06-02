@@ -80,6 +80,7 @@ func withInstantiatedSwiftBuildSystem(
                 ),
                 delegate: nil,
                 scratchDirectory: tmpDir.appending("scratchDirectory"),
+                configuredTargetMode: .single,
             )
 
             try await SwiftBuildSupport.withService(

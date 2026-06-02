@@ -167,7 +167,7 @@ struct PackagePIFProjectBuilder {
     mutating func addResourceBundle(
         for module: PackageGraph.ResolvedModule,
         targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
-        generatedResourceFiles: [String]
+        generatedResourceFiles: [(path: String, platformFilters: Set<ProjectModel.PlatformFilter>)]
     ) throws -> (PackagePIFBuilder.EmbedResourcesResult, PackagePIFBuilder.ModuleOrProduct?) {
         if module.resources.isEmpty && generatedResourceFiles.isEmpty {
             return (PackagePIFBuilder.EmbedResourcesResult(
@@ -262,7 +262,7 @@ struct PackagePIFProjectBuilder {
         for module: PackageGraph.ResolvedModule,
         sourceModuleTargetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
         resourceBundleTargetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>?,
-        generatedResourceFiles: [String]
+        generatedResourceFiles: [(path: String, platformFilters: Set<ProjectModel.PlatformFilter>)]
     ) -> PackagePIFBuilder.EmbedResourcesResult {
         if module.resources.isEmpty && generatedResourceFiles.isEmpty {
             return PackagePIFBuilder.EmbedResourcesResult(
@@ -275,9 +275,12 @@ struct PackagePIFProjectBuilder {
         let targetForResourcesKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target> =
             resourceBundleTargetKeyPath ?? sourceModuleTargetKeyPath
 
-        // Generated resources get a default treatment for rule and localization.
-        let generatedResources = generatedResourceFiles.compactMap {
-            PackagePIFBuilder.Resource(path: $0, rule: .process(localization: nil))
+        // Generated resources get a default treatment for rule and localization. The
+        // platform filter from the originating plugin invocation flows through to every
+        // BuildFile we create for this resource, so a watchOS-tagged plugin's resource
+        // only lands in the watchOS configured target.
+        let generatedResources = generatedResourceFiles.map {
+            PackagePIFBuilder.Resource(path: $0.path, rule: .process(localization: nil), platformFilters: $0.platformFilters)
         }
 
         let resources = module.resources.map { PackagePIFBuilder.Resource($0) } + generatedResources
@@ -286,6 +289,7 @@ struct PackagePIFProjectBuilder {
 
         for resource in resources {
             let resourcePath = resource.path
+            let filters = resource.platformFilters
             // Add a file reference for the resource. We use an absolute path, as for all the other files,
             // but we should be able to optimize this later by making it group-relative.
             let ref = self.project.mainGroup.addFileReference { id in
@@ -300,7 +304,7 @@ struct PackagePIFProjectBuilder {
 
             if isCoreDataFile {
                 self.project[keyPath: sourceModuleTargetKeyPath].addSourceFile { id in
-                    BuildFile(id: id, fileRef: ref)
+                    BuildFile(id: id, fileRef: ref, platformFilters: filters)
                 }
                 self.log(.debug, indent: 2, "Added core data resource as source file '\(resourcePath)'")
             }
@@ -311,7 +315,7 @@ struct PackagePIFProjectBuilder {
 
             if isCoreMLFile {
                 self.project[keyPath: sourceModuleTargetKeyPath].addSourceFile { id in
-                    BuildFile(id: id, fileRef: ref, generatedCodeVisibility: .public)
+                    BuildFile(id: id, fileRef: ref, generatedCodeVisibility: .public, platformFilters: filters)
                 }
                 self.log(.debug, indent: 2, "Added coreml resource as source file '\(resourcePath)'")
             }
@@ -321,7 +325,7 @@ struct PackagePIFProjectBuilder {
 
             if isMetalFile, case .process = resource.rule {
                 self.project[keyPath: targetForResourcesKeyPath].addSourceFile { id in
-                    BuildFile(id: id, fileRef: ref)
+                    BuildFile(id: id, fileRef: ref, platformFilters: filters)
                 }
             } else {
                 let swiftBuildResourceRule: BuildFile.ResourceRule
@@ -337,7 +341,7 @@ struct PackagePIFProjectBuilder {
                     BuildFile(
                         id: id,
                         fileRef: ref,
-                        platformFilters: [],
+                        platformFilters: filters,
                         resourceRule: swiftBuildResourceRule
                     )
                 }
@@ -347,7 +351,7 @@ struct PackagePIFProjectBuilder {
             let isAssetCatalog = resourcePath.pathExtension == "xcassets"
             if isAssetCatalog {
                 self.project[keyPath: sourceModuleTargetKeyPath].addSourceFile { id in
-                    BuildFile(id: id, fileRef: ref)
+                    BuildFile(id: id, fileRef: ref, platformFilters: filters)
                 }
                 self.log(.debug, indent: 2, "Added asset catalog as source file '\(resourcePath)'")
             }
@@ -355,7 +359,7 @@ struct PackagePIFProjectBuilder {
             // String Catalogs can also generate symbols.
             if SwiftBuild.SwiftBuildFileType.xcstrings.fileTypes.contains(resourcePath.pathExtension) {
                 self.project[keyPath: sourceModuleTargetKeyPath].addSourceFile { id in
-                    BuildFile(id: id, fileRef: ref)
+                    BuildFile(id: id, fileRef: ref, platformFilters: filters)
                 }
                 self.log(.debug, indent: 2, "Added string catalog as source file '\(resourcePath)'")
             }
@@ -412,12 +416,16 @@ struct PackagePIFProjectBuilder {
             return generatedFiles
         }
 
+        let toolsVersion = self.package.manifest.toolsVersion
         for pluginResult in pluginResults {
             // Process the results of applying any build tool plugins on the target.
-            // If we've been asked to add build tool commands for the result, we do so now.
+            // If we've been asked to add build tool commands for the result, we do so now,
+            // tagging each command with its source platform so SwiftBuild's
+            // `CustomTaskProducer` only emits it for matching configured targets.
             if addBuildToolPluginCommands {
-                for command in pluginResult.buildCommands {
-                    self.addBuildToolCommand(command, to: targetKeyPath)
+                for (index, command) in pluginResult.buildCommands.enumerated() {
+                    let filters = pluginResult.buildCommandPlatforms[index]?.toPlatformFilter(toolsVersion: toolsVersion) ?? []
+                    self.addBuildToolCommand(command, to: targetKeyPath, platformFilters: filters)
                 }
             }
 
@@ -426,7 +434,7 @@ struct PackagePIFProjectBuilder {
                 let files = self.process(
                     pluginGeneratedFilePaths: command.absoluteOutputPaths,
                     forModule: module,
-                    toolsVersion: self.package.manifest.toolsVersion
+                    toolsVersion: toolsVersion
                 )
 
                 generatedFiles.add(files)
@@ -443,7 +451,7 @@ struct PackagePIFProjectBuilder {
             let files = self.process(
                 pluginGeneratedFilePaths: pluginResult.prebuildCommandOutputPaths,
                 forModule: module,
-                toolsVersion: self.package.manifest.toolsVersion)
+                toolsVersion: toolsVersion)
             generatedFiles.add(files)
         }
 
@@ -463,14 +471,16 @@ struct PackagePIFProjectBuilder {
             return
         }
 
+        let toolsVersion = self.package.manifest.toolsVersion
         for pluginResult in pluginResults {
-            for command in pluginResult.buildCommands {
+            for (index, command) in pluginResult.buildCommands.enumerated() {
                 let producesResources = Set(command.outputPaths).intersection(resourceFilePaths).hasContent
+                let filters = pluginResult.buildCommandPlatforms[index]?.toPlatformFilter(toolsVersion: toolsVersion) ?? []
 
                 if producesResources {
-                    self.addBuildToolCommand(command, to: resourceBundleTargetKeyPath)
+                    self.addBuildToolCommand(command, to: resourceBundleTargetKeyPath, platformFilters: filters)
                 } else {
-                    self.addBuildToolCommand(command, to: sourceModuleTargetKeyPath)
+                    self.addBuildToolCommand(command, to: sourceModuleTargetKeyPath, platformFilters: filters)
                 }
             }
         }
@@ -478,30 +488,83 @@ struct PackagePIFProjectBuilder {
 
     /// Adds build rules to `pifTarget` for any build tool   commands from invocation results.
     /// Returns the absolute paths of any generated source files that should be added to the sources build phase of the
-    /// PIF target.
+    /// PIF target, paired with the platform filter the originating plugin invocation
+    /// produced (empty filter = match every platform).
     mutating func addBuildToolCommands(
         from pluginInvocationResults: [PackagePIFBuilder.BuildToolPluginInvocationResult],
         targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
         addBuildToolPluginCommands: Bool
-    ) -> [String] {
-        var generatedSourceFileAbsPaths: [String] = []
+    ) -> [(path: String, platformFilters: Set<ProjectModel.PlatformFilter>)] {
+        var generatedSourceFileAbsPaths: [(path: String, platformFilters: Set<ProjectModel.PlatformFilter>)] = []
+        let toolsVersion = self.package.manifest.toolsVersion
         for result in pluginInvocationResults {
-            // Create build rules for all the commands in the result.
-            if addBuildToolPluginCommands {
-                for command in result.buildCommands {
-                    self.addBuildToolCommand(command, to: targetKeyPath)
+            for (index, command) in result.buildCommands.enumerated() {
+                let filters = result.buildCommandPlatforms[index]?.toPlatformFilter(toolsVersion: toolsVersion) ?? []
+                if addBuildToolPluginCommands {
+                    self.addBuildToolCommand(command, to: targetKeyPath, platformFilters: filters)
+                }
+                for path in command.absoluteOutputPaths {
+                    generatedSourceFileAbsPaths.append((path.pathString, filters))
                 }
             }
-            // Add the paths of the generated source files, so that they can be added to the Sources build phase.
-            generatedSourceFileAbsPaths.append(contentsOf: result.allDerivedOutputPaths.map(\.pathString))
+            for (index, path) in result.prebuildCommandOutputPaths.enumerated() {
+                let filters = result.prebuildCommandOutputPlatforms[index]?.toPlatformFilter(toolsVersion: toolsVersion) ?? []
+                generatedSourceFileAbsPaths.append((path.pathString, filters))
+            }
         }
         return generatedSourceFileAbsPaths
     }
 
+    /// Builds a side-table mapping each derived-source path emitted by build-tool plugins
+    /// for `module` to the `Set<PlatformFilter>` it should be tagged with.
+    ///
+    /// Generated sources are added to the target's `SourcesBuildPhase` as `BuildFile`s;
+    /// without per-source platform filters, every configured target compiles every derived
+    /// source, which is wrong under multi-CT (an iOS-only plugin's outputs would land in
+    /// the watchOS configured target and vice versa). This helper lets call sites that add
+    /// generated sources look up the right filter set per path.
+    ///
+    /// Paths produced under non-multi-CT drivers (or by legacy callers that don't tag) map
+    /// to `[]` (no entry); the `BuildFile` then has empty `platformFilters`, which matches
+    /// every platform — preserving today's behavior.
+    func platformFiltersByGeneratedSourcePath(forModule moduleName: String)
+        -> [AbsolutePath: Set<ProjectModel.PlatformFilter>]
+    {
+        guard let pluginResults = pifBuilder.buildToolPluginResultsByTargetName[moduleName] else {
+            return [:]
+        }
+        let toolsVersion = self.package.manifest.toolsVersion
+        var map: [AbsolutePath: Set<ProjectModel.PlatformFilter>] = [:]
+        for result in pluginResults {
+            for (index, path) in result.prebuildCommandOutputPaths.enumerated() {
+                if let platform = result.prebuildCommandOutputPlatforms[index] {
+                    map[path] = platform.toPlatformFilter(toolsVersion: toolsVersion)
+                }
+            }
+            for (index, command) in result.buildCommands.enumerated() {
+                guard let platform = result.buildCommandPlatforms[index] else { continue }
+                let filters = platform.toPlatformFilter(toolsVersion: toolsVersion)
+                for path in command.absoluteOutputPaths {
+                    map[path] = filters
+                }
+            }
+        }
+        return map
+    }
+
     /// Adds a single plugin-created build command to a PIF target.
+    ///
+    /// - Parameters:
+    ///   - command: The plugin-emitted build command.
+    ///   - targetKeyPath: The PIF target receiving the `CustomTask`.
+    ///   - platformFilters: Filters used by `swift-build`'s `CustomTaskProducer` to gate the
+    ///     task per-`ConfiguredTarget`. Empty (default) matches every platform — preserves
+    ///     legacy behavior. Non-empty is set by the per-platform fan-out under multi-CT
+    ///     drivers so a watchOS-tagged command only runs in the watchOS CT, etc.
     mutating func addBuildToolCommand(
         _ command: PackagePIFBuilder.CustomBuildCommand,
-        to targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>
+        to targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
+        platformFilters: Set<ProjectModel.PlatformFilter> = []
     ) {
         var commandLine = [command.executable] + command.arguments
         if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
@@ -517,7 +580,8 @@ struct PackagePIFProjectBuilder {
                 inputFilePaths: [command.executable] + command.inputPaths.map(\.pathString),
                 outputFilePaths: command.outputPaths,
                 enableSandboxing: false,
-                preparesForIndexing: true
+                preparesForIndexing: true,
+                platformFilters: platformFilters
             )
         )
     }

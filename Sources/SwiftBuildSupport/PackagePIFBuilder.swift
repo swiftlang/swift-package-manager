@@ -726,15 +726,21 @@ public final class PackagePIFBuilder {
     struct Resource {
         let path: String
         let rule: PackageModel.Resource.Rule
+        /// Platform filters applied to this resource's `BuildFile`. Empty = match every CT.
+        /// Plugin-emitted resources tagged with `condition: .when(targetPlatforms: [...])`
+        /// carry a non-empty set so they only land in the matching configured target.
+        let platformFilters: Set<ProjectModel.PlatformFilter>
 
-        init(path: String, rule: PackageModel.Resource.Rule) {
+        init(path: String, rule: PackageModel.Resource.Rule, platformFilters: Set<ProjectModel.PlatformFilter> = []) {
             self.path = path
             self.rule = rule
+            self.platformFilters = platformFilters
         }
 
         init(_ resource: PackageModel.Resource) {
             self.path = resource.path.pathString
             self.rule = resource.rule
+            self.platformFilters = []
         }
     }
 }
