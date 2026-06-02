@@ -613,6 +613,9 @@ let package = Package(
                 "PackageCollections",
                 "PackageModel",
             ],
+            exclude: [
+                "CMakeLists.txt",
+            ],
             swiftSettings: commonExperimentalFeatures
         ),
 
@@ -705,7 +708,10 @@ let package = Package(
         .executableTarget(
             /** Interacts with package collections */
             name: "swift-package-collection",
-            dependencies: ["PackageCollectionsCommand"]
+            dependencies: ["PackageCollectionsCommand"],
+            exclude: [
+                "CMakeLists.txt",
+            ],
         ),
         .executableTarget(
             /** Multi-command entry point for SwiftPM. */
@@ -722,7 +728,10 @@ let package = Package(
         .executableTarget(
             /** Interact with package registry */
             name: "swift-package-registry",
-            dependencies: ["PackageRegistryCommand"]
+            dependencies: ["PackageRegistryCommand"],
+            exclude: [
+                "CMakeLists.txt",
+            ],
         ),
         .executableTarget(
             /** Utility to produce the artifacts for prebuilts */
