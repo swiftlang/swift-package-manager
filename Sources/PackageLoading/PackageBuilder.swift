@@ -104,6 +104,18 @@ public enum ModuleError: Swift.Error {
         parentPackage: PackageIdentity,
         packageName: String
     )
+
+    /// The target named by `swift play --target` does not exist in the package.
+    case playgroundTargetNotFound(name: String, package: PackageIdentity)
+
+    /// The target named by `swift play --target` exists but is not a kind that
+    /// can host playgrounds (i.e. not a library or executable).
+    case unsupportedPlaygroundTargetKind(name: String, package: PackageIdentity, kind: String)
+
+    /// The target named by `swift play --target` is an executable but the
+    /// package's tools version is too old to support linking executable
+    /// targets into the playground runner.
+    case executablePlaygroundTargetRequiresToolsVersion(name: String, package: PackageIdentity, requiredVersion: String)
 }
 
 extension ModuleError: CustomStringConvertible {
@@ -190,6 +202,12 @@ extension ModuleError: CustomStringConvertible {
             return """
             Disabled default traits by package '\(parentPackage)' on package '\(packageName)' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
             """
+        case .playgroundTargetNotFound(let name, let package):
+            return "no target named '\(name)' in package '\(package)' for swift play --target"
+        case .unsupportedPlaygroundTargetKind(let name, let package, let kind):
+            return "swift play --target does not support targets of kind '\(kind)'; '\(name)' in package '\(package)' must be a library or executable target"
+        case .executablePlaygroundTargetRequiresToolsVersion(let name, let package, let requiredVersion):
+            return "swift play --target on the executable target '\(name)' in package '\(package)' requires Swift tools version \(requiredVersion) or later"
         }
     }
 }
@@ -320,6 +338,10 @@ public final class PackageBuilder {
     /// Create the special REPL product for this package.
     private let createREPLProduct: Bool
 
+    /// Configuration controlling synthesis of the special Playground product
+    /// for this package. `nil` means no playground product is synthesized.
+    private let playgroundProductConfiguration: PlaygroundProductConfiguration?
+
     /// The additional file detection rules.
     private let additionalFileRules: [FileRuleDescription]
 
@@ -366,6 +388,7 @@ public final class PackageBuilder {
         testEntryPointPath: AbsolutePath? = nil,
         warnAboutImplicitExecutableTargets: Bool = true,
         createREPLProduct: Bool = false,
+        playgroundProductConfiguration: PlaygroundProductConfiguration? = nil,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         enabledTraits: EnabledTraits
@@ -379,6 +402,7 @@ public final class PackageBuilder {
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
         self.testEntryPointPath = testEntryPointPath
         self.createREPLProduct = createREPLProduct
+        self.playgroundProductConfiguration = playgroundProductConfiguration
         self.warnAboutImplicitExecutableTargets = warnAboutImplicitExecutableTargets
         self.observabilityScope = observabilityScope.makeChildScope(
             description: "PackageBuilder",
@@ -655,7 +679,68 @@ public final class PackageBuilder {
             snippetTargets = []
         }
 
-        return targets + snippetTargets
+        var playgroundTargets: [Module] = []
+
+        if let playgroundConfig = playgroundProductConfiguration {
+            // Determine the targets the playground runner will depend on.
+            let playgroundDependencies: [Module.Dependency]
+            if let overrideName = playgroundConfig.targetOverride {
+                // Override: link only the named target. Its transitive
+                // dependencies are pulled in by the linker normally.
+                guard let overrideTarget = targets.first(where: { $0.name == overrideName }) else {
+                    throw ModuleError.playgroundTargetNotFound(name: overrideName, package: self.identity)
+                }
+                switch overrideTarget.type {
+                case .library:
+                    break
+                case .executable:
+                    // Linking an executable target's objects into the playground
+                    // runner relies on the entry-point renaming mechanism (the
+                    // `_main` symbol is renamed to `_<Module>_main` at compile
+                    // time so it doesn't collide with the runner's own `_main`).
+                    // That mechanism is gated on tools version 5.5+.
+                    guard self.manifest.toolsVersion >= .v5_5 else {
+                        throw ModuleError.executablePlaygroundTargetRequiresToolsVersion(
+                            name: overrideName,
+                            package: self.identity,
+                            requiredVersion: ToolsVersion.v5_5.description
+                        )
+                    }
+                case .test, .systemModule, .binary, .plugin, .macro, .snippet:
+                    throw ModuleError.unsupportedPlaygroundTargetKind(
+                        name: overrideName,
+                        package: self.identity,
+                        kind: String(describing: overrideTarget.type)
+                    )
+                }
+                playgroundDependencies = [Module.Dependency.module(overrideTarget, conditions: [])]
+            } else {
+                // Default: link library targets that appear in some product. If
+                // no library targets appear in any product but the package has
+                // exactly one executable target, fall back to depending on that
+                // executable so small CLI/tool packages get a usable swift play
+                // experience without needing to pass --target.
+                let productTargetNames = Set(manifest.products.flatMap(\.targets))
+                let libraryDeps = targets
+                    .filter { $0.type == .library && productTargetNames.contains($0.name) }
+                if !libraryDeps.isEmpty {
+                    playgroundDependencies = libraryDeps.map { Module.Dependency.module($0, conditions: []) }
+                } else {
+                    let executableTargets = targets.filter { $0.type == .executable }
+                    if executableTargets.count == 1, self.manifest.toolsVersion >= .v5_5 {
+                        playgroundDependencies = [Module.Dependency.module(executableTargets[0], conditions: [])]
+                    } else {
+                        playgroundDependencies = []
+                    }
+                }
+            }
+
+            // Create a new playground runner (executable) target
+            let playgroundRunnerModule = try createPlaygroundRunnerModule(dependencies: playgroundDependencies)
+            playgroundTargets.append(playgroundRunnerModule)
+        }
+
+        return targets + snippetTargets + playgroundTargets
     }
 
     // Create targets from the provided potential targets.
@@ -1653,12 +1738,27 @@ public final class PackageBuilder {
             } else {
                 if self.manifest.packageKind.isRoot || implicitPlugInExecutables.contains(module.name) {
                     // Generate an implicit product for the executable target
+                    let productName: String
+
+                    // Custom product name for playground runner
+                    if module.isPlaygroundRunner {
+                        guard module.type == .executable else {
+                            self.observabilityScope.emit(.invalidModuleTypeForPlaygroundRunner(moduleType: String(describing: module.type)))
+                            continue
+                        }
+                        productName = self.manifest.displayName + Product.playgroundRunnerProductSuffix
+                    }
+                    else {
+                        productName = module.name
+                    }
+
                     let product = try Product(
                         package: self.identity,
-                        name: module.name,
+                        name: productName,
                         type: .executable,
                         modules: [module],
-                        isImplicit: true
+                        isImplicit: true,
+                        isPlaygroundRunner: module.isPlaygroundRunner
                     )
                     append(product)
                 }
@@ -1924,6 +2024,48 @@ extension PackageBuilder {
                     implicit: true
                 )
             }
+    }
+}
+
+// MARK: - Playgrounds
+
+extension PackageBuilder {
+    private func createPlaygroundRunnerModule(dependencies: [Module.Dependency]) throws -> Module {
+        let moduleName = self.identity.description + Product.playgroundRunnerProductSuffix
+
+        let targetDescriptionDependencies = dependencies
+            .map {
+                TargetDescription.Dependency.target(name: $0.name)
+            }
+
+        let targetDescription = try TargetDescription(
+            name: moduleName,
+            dependencies: targetDescriptionDependencies,
+            path: nil,
+            sources: [],
+            type: .executable,
+            packageAccess: true
+        )
+
+        let buildSettings = try self.buildSettings(
+            for: targetDescription,
+            targetRoot: self.packagePath,
+            toolsSwiftVersion: self.toolsSwiftVersion()
+        )
+
+        return SwiftModule(
+            name: moduleName,
+            type: .executable,
+            path: .root,
+            sources: Sources(paths: [], root: self.packagePath),
+            dependencies: dependencies,
+            packageAccess: false,
+            buildSettings: buildSettings,
+            buildSettingsDescription: targetDescription.settings,
+            usesUnsafeFlags: false,
+            implicit: true,
+            isPlaygroundRunner: true
+        )
     }
 }
 

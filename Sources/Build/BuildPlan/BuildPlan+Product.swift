@@ -133,8 +133,9 @@ extension BuildPlan {
         let shouldExcludePlugins = productDescription.package.manifest.toolsVersion >= .v5_9
 
         // For test targets, we need to consider the first level of transitive dependencies since the first level is
-        // always test targets.
-        let topLevelDependencies: [PackageModel.Module] = if product.type == .test {
+        // always test targets. The same applies to the synthesized playground runner, which links its
+        // (executable or library) dependency targets statically.
+        let topLevelDependencies: [PackageModel.Module] = if product.type == .test || product.underlying.isPlaygroundRunner {
             product.modules.flatMap(\.underlying.dependencies).compactMap {
                 switch $0 {
                 case .product:
@@ -253,14 +254,17 @@ extension BuildPlan {
                 // In tool version .v5_5 or greater, we also include executable modules implemented in Swift in
                 // any test products... this is to allow testing of executables.  Note that they are also still
                 // built as separate products that the test can invoke as subprocesses.
+                // The same treatment applies to the synthesized playground runner, which needs the
+                // executable target's compiled objects (with the `_<Module>_main` renamed entry point) so
+                // its `#Playground` records are reachable at runtime.
                 case .executable, .snippet, .macro:
                     if product.modules.contains(id: module.id) {
                         guard let description else {
                             throw InternalError("Could not find a description for module: \(module)")
                         }
                         staticTargets.append(description)
-                    } else if product.type == .test && (module.underlying as? SwiftModule)?
-                        .supportsTestableExecutablesFeature == true
+                    } else if (product.type == .test || product.underlying.isPlaygroundRunner)
+                        && (module.underlying as? SwiftModule)?.supportsTestableExecutablesFeature == true
                     {
                         // Only "top-level" targets should really be considered here, not transitive ones.
                         let isTopLevel = topLevelDependencies.contains(module.underlying) || product.modules

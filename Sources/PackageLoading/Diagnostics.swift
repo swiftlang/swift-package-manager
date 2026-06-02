@@ -107,6 +107,14 @@ extension Basics.Diagnostic {
         .error("unable to synthesize a REPL product as there are no library targets in the package")
     }
 
+    static var noLibraryTargetsForPlayground: Self {
+        .error("unable to synthesize a Playground product as there are no library targets in the package")
+    }
+
+    static func invalidModuleTypeForPlaygroundRunner(moduleType: String) -> Self {
+        .error("invalid playground runner module type \(moduleType) as they must be executable")
+    }
+
     static func brokenSymlink(_ path: AbsolutePath) -> Self {
         .warning("ignoring broken symlink \(path)")
     }

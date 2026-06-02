@@ -69,15 +69,18 @@ public struct ToolWorkspaceConfiguration {
     let shouldInstallSignalHandlers: Bool
     let wantsMultipleTestProducts: Bool
     let wantsREPLProduct: Bool
+    let playgroundProduct: PlaygroundProductConfiguration?
 
     public init(
         shouldInstallSignalHandlers: Bool = true,
         wantsMultipleTestProducts: Bool = false,
-        wantsREPLProduct: Bool = false
+        wantsREPLProduct: Bool = false,
+        playgroundProduct: PlaygroundProductConfiguration? = nil
     ) {
         self.shouldInstallSignalHandlers = shouldInstallSignalHandlers
         self.wantsMultipleTestProducts = wantsMultipleTestProducts
         self.wantsREPLProduct = wantsREPLProduct
+        self.playgroundProduct = playgroundProduct
     }
 }
 
@@ -607,6 +610,7 @@ public final class SwiftCommandState {
                 prefetchBasedOnResolvedFile: options.resolver.shouldEnableResolverPrefetching,
                 shouldCreateMultipleTestProducts: toolWorkspaceConfiguration.wantsMultipleTestProducts || options.build.buildSystem.shouldCreateMultipleTestProducts,
                 createREPLProduct: toolWorkspaceConfiguration.wantsREPLProduct,
+                playgroundProductConfiguration: toolWorkspaceConfiguration.playgroundProduct,
                 additionalFileRules: options.build.buildSystem.additionalFileRules,
                 sharedDependenciesCacheEnabled: self.options.caching.useDependenciesCache,
                 fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,

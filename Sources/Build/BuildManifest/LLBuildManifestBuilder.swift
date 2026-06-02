@@ -108,10 +108,11 @@ public class LLBuildManifestBuilder {
             }
         }
 
-        // Skip test discovery if preparing for indexing
+        // Skip test & playground discovery if preparing for indexing
         if self.plan.destinationBuildParameters.prepareForIndexing == .off {
             try self.addTestDiscoveryGenerationCommand()
             try self.addTestEntryPointGenerationCommand()
+            try self.addPlaygroundRunnerMainGenerationCommand()
         }
 
         // Create command for all products in the plan.
@@ -287,6 +288,28 @@ extension LLBuildManifestBuilder {
             }
             let cmdName = mainOutput.pathString
             self.manifest.addTestEntryPointCmd(
+                name: cmdName,
+                inputs: inputs.map(Node.file),
+                outputs: outputs.map(Node.file)
+            )
+        }
+    }
+    
+    private func addPlaygroundRunnerMainGenerationCommand() throws {
+        for module in self.plan.targets {
+            guard case .swift(let playgroundRunnerTarget) = module,
+                  playgroundRunnerTarget.isPlaygroundRunnerTarget
+            else { continue }
+
+            let inputs: [AbsolutePath: Bool] = [:]
+            let outputs = playgroundRunnerTarget.target.sources.paths
+
+            let mainFileName = PlaygroundRunnerTool.mainFileName
+            guard let mainOutput = (outputs.first { $0.basename == mainFileName }) else {
+                throw InternalError("main output (\(mainFileName)) not found")
+            }
+            let cmdName = mainOutput.pathString
+            self.manifest.addPlaygroundRunnerCmd(
                 name: cmdName,
                 inputs: inputs.map(Node.file),
                 outputs: outputs.map(Node.file)

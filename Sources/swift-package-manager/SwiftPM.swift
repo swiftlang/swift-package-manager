@@ -54,6 +54,8 @@ struct SwiftPM {
             await PackageCollectionsCommand.main()
         case "swift-package-registry":
             await PackageRegistryCommand.main()
+        case "swift-play":
+            await SwiftPlayCommand.main()
         default:
             fatalError("swift-package-manager launched with unexpected name: \(execName ?? "(unknown)")")
         }

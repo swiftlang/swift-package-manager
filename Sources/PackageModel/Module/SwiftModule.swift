@@ -71,7 +71,8 @@ public final class SwiftModule: Module {
         buildSettingsDescription: [TargetBuildSettingDescription.Setting] = [],
         pluginUsages: [PluginUsage] = [],
         usesUnsafeFlags: Bool,
-        implicit: Bool
+        implicit: Bool,
+        isPlaygroundRunner: Bool = false
     ) {
         self.declaredSwiftVersions = declaredSwiftVersions
         super.init(
@@ -89,7 +90,8 @@ public final class SwiftModule: Module {
             buildSettingsDescription: buildSettingsDescription,
             pluginUsages: pluginUsages,
             usesUnsafeFlags: usesUnsafeFlags,
-            implicit: implicit
+            implicit: implicit,
+            isPlaygroundRunner: isPlaygroundRunner
         )
     }
 

@@ -176,7 +176,15 @@ extension PackagePIFProjectBuilder {
             settings[multiple: "OTHER_SWIFT_FLAGS_ENABLE_LIBFUZZER_YES"] = ["-Xfrontend", "-entry-point-function-name", "-Xfrontend", "\(mainModule.c99name)_main"]
         }
 
-        mainModule.addParseAsLibrarySettings(to: &settings, toolsVersion: package.manifest.toolsVersion, fileSystem: pifBuilder.fileSystem)
+        // Configure parse-as-library settings for the target
+        if mainModule.underlying.isPlaygroundRunner {
+            // Playground runners use @main in the generated entry point, so always parse as library
+            settings[.SWIFT_LIBRARIES_ONLY] = "YES"
+            settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] = "NO"
+        } else {
+            // For other targets, use the standard logic
+            mainModule.addParseAsLibrarySettings(to: &settings, toolsVersion: package.manifest.toolsVersion, fileSystem: pifBuilder.fileSystem)
+        }
 
         let mainTargetDeploymentTargets = mainModule.deploymentTargets(using: pifBuilder.delegate)
 
@@ -474,8 +482,13 @@ extension PackagePIFProjectBuilder {
                     }
 
                     // If we're linking against an executable and the tools version is new enough,
-                    // we also link against a testable version of the executable.
-                    if product.type == .test, self.package.manifest.toolsVersion >= .v5_5 {
+                    // we also link against a testable version of the executable. The synthesized
+                    // playground runner needs the same treatment so its `#Playground` records
+                    // (placed in the executable's compiled objects via the section-record macro
+                    // expansion) are reachable at runtime.
+                    if (product.type == .test || product.underlying.isPlaygroundRunner),
+                       self.package.manifest.toolsVersion >= .v5_5
+                    {
                         let moduleDependencyGUID = moduleDependency.pifTargetGUID(suffix: .testable)
                         self.project[keyPath: mainModuleTargetKeyPath].common.addDependency(
                             on: moduleDependencyGUID,
@@ -530,6 +543,14 @@ extension PackagePIFProjectBuilder {
         // Apply settings using the convenience methods
         allBuildSettings.apply(to: &debugSettings, for: .debug)
         allBuildSettings.apply(to: &releaseSettings, for: .release)
+        
+        // For playground runners, add an empty sources phase so the generated entry point is compiled
+        if mainModule.underlying.isPlaygroundRunner {
+            self.project[keyPath: mainModuleTargetKeyPath].common.addSourcesBuildPhase { id in
+                ProjectModel.SourcesBuildPhase(id: id)
+            }
+        }
+        
         self.project[keyPath: mainModuleTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(id: id, name: "Debug", settings: debugSettings)
         }
@@ -1200,6 +1221,91 @@ extension PackagePIFProjectBuilder {
                 break
             }
         }
+    }
+
+    // MARK: - Playground Runner
+    mutating func makePlaygroundRunnerProduct(
+        withProduct product: ResolvedProduct,
+        mainModule: ResolvedModule
+    ) throws -> PackagePIFBuilder.ModuleOrProduct {
+        let playgroundRunnerModuleName = product.c99name
+
+        let name = "\(product.name)"
+        let moduleName = "\(playgroundRunnerModuleName)_playground_runner"
+        let guid = PackagePIFBuilder.targetGUID(forModuleName: moduleName)
+
+        let playgroundRunnerTargetKeyPath = try self.project.addTarget { _ in
+            ProjectModel.Target (
+                id: guid,
+                productType: .swiftpmPlaygroundRunner,
+                name: name,
+                productName: name
+            )
+        }
+
+        var settings: BuildSettings = self.package.underlying.packageBaseBuildSettings
+        let impartedSettings = BuildSettings()
+
+        settings[.TARGET_NAME] = name
+        settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"
+        settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
+        settings[.PRODUCT_MODULE_NAME] = moduleName
+        settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(name)"
+            .spm_mangledToBundleIdentifier()
+        settings[.SKIP_INSTALL] = "NO"
+        settings[.SWIFT_VERSION] = "5.0"
+        // This should eventually be set universally for all package targets/products.
+        settings[.LINKER_DRIVER] = "swiftc"
+
+        let deploymentTargets = mainModule.deploymentTargets(using: pifBuilder.delegate)
+        settings[.MACOSX_DEPLOYMENT_TARGET] = deploymentTargets[.macOS]
+        settings[.IPHONEOS_DEPLOYMENT_TARGET] = deploymentTargets[.iOS]
+        if let deploymentTarget_macCatalyst = deploymentTargets[.macCatalyst] {
+            settings[.IPHONEOS_DEPLOYMENT_TARGET, .macCatalyst] = deploymentTarget_macCatalyst
+        }
+        settings[.TVOS_DEPLOYMENT_TARGET] = deploymentTargets[.tvOS]
+        settings[.WATCHOS_DEPLOYMENT_TARGET] = deploymentTargets[.watchOS]
+        settings[.DRIVERKIT_DEPLOYMENT_TARGET] = deploymentTargets[.driverKit]
+        settings[.XROS_DEPLOYMENT_TARGET] = deploymentTargets[.visionOS]
+
+        // Add an empty sources phase so derived sources are compiled
+        self.project[keyPath: playgroundRunnerTargetKeyPath].common.addSourcesBuildPhase { id in
+            ProjectModel.SourcesBuildPhase(id: id)
+        }
+
+        self.project[keyPath: playgroundRunnerTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(
+                id: id,
+                name: "Debug",
+                settings: settings,
+                impartedBuildSettings: impartedSettings
+            )
+        }
+        self.project[keyPath: playgroundRunnerTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(
+                id: id,
+                name: "Release",
+                settings: settings,
+                impartedBuildSettings: impartedSettings
+            )
+        }
+
+        let playgroundRunner = PackagePIFBuilder.ModuleOrProduct(
+            type: .executable,
+            name: name,
+            moduleName: moduleName,
+            pifTarget: .target(self.project[keyPath: playgroundRunnerTargetKeyPath]),
+            indexableFileURLs: [],
+            headerFiles: [],
+            linkedPackageBinaries: [],
+            swiftLanguageVersion: nil,
+            declaredPlatforms: self.declaredPlatforms,
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
+        )
+        self.builtModulesAndProducts.append(playgroundRunner)
+
+        return playgroundRunner
     }
 }
 

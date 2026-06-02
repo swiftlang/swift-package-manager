@@ -33,6 +33,7 @@ extension ModulesGraph {
         prebuilts: [PackageIdentity: [String: PrebuiltLibrary]], // Product name to library mapping
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
+        playgroundProductConfiguration: PlaygroundProductConfiguration? = nil,
         customPlatformsRegistry: PlatformRegistry? = .none,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
@@ -170,6 +171,7 @@ extension ModulesGraph {
                     shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                     testEntryPointPath: testEntryPointPath,
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
+                    playgroundProductConfiguration: manifest.packageKind.isRoot ? playgroundProductConfiguration : nil,
                     fileSystem: fileSystem,
                     observabilityScope: nodeObservabilityScope,
                     enabledTraits: enabledTraits
