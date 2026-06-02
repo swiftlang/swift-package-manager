@@ -958,6 +958,7 @@ final class PrebuiltsTests: XCTestCase {
     // are produced on a real file system, so symlink resolution actually runs (the
     // in-memory file system used elsewhere in this file is a no-op for resolution).
     func testExtractedPrebuiltRejectsEscapingSymlink() async throws {
+        try XCTSkipOnWindows(because: "creating symbolic links requires elevated privileges on Windows, so the symlink fixture cannot be created there")
         try await withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDir in
             let archivePath = tmpDir.appending("MacroSupport.zip")
             let artifactDir = tmpDir.appending("MacroSupport")
@@ -991,6 +992,7 @@ final class PrebuiltsTests: XCTestCase {
     // The complement of the above: a prebuilt whose extracted contents only reference
     // files inside the artifact directory must be accepted.
     func testExtractedPrebuiltAllowsInternalSymlink() async throws {
+        try XCTSkipOnWindows(because: "creating symbolic links requires elevated privileges on Windows, so the symlink fixture cannot be created there")
         try await withTemporaryDirectory(removeTreeOnDeinit: true) { tmpDir in
             let archivePath = tmpDir.appending("MacroSupport.zip")
             let artifactDir = tmpDir.appending("MacroSupport")
