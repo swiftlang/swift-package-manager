@@ -890,7 +890,12 @@ extension Workspace {
         }
 
         // Upon loading a new manifest, update enabled traits.
-        try await self.updateEnabledTraits(for: manifest, observabilityScope: observabilityScope)
+        do {
+            try await self.updateEnabledTraits(for: manifest, observabilityScope: observabilityScope)
+        } catch {
+            observabilityScope.emit(error)
+            throw Diagnostics.fatalError
+        }
 
         self.delegate?.didLoadManifest(
             packageIdentity: packageIdentity,
