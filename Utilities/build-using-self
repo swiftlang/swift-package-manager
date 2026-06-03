@@ -19,6 +19,7 @@ import os
 import pathlib
 import platform
 import shlex
+import signal
 import sys
 from datetime import datetime
 
@@ -102,12 +103,6 @@ def get_arguments() -> argparse.Namespace:
         "--additional-build-args",
         type=str,
         dest="additional_build_args",
-        default=""
-    )
-    parser.add_argument(
-        "--additional-run-args",
-        type=str,
-        dest="additional_run_args",
         default=""
     )
     parser.add_argument(
@@ -235,86 +230,105 @@ def main() -> None:
     )
     logging.debug("Global Args: %r", global_args)
     start_time = datetime.now()
-    with change_directory(REPO_ROOT_PATH) as dir:
-        swiftpm_bin_dir = get_swiftpm_bin_dir(global_args=global_args)
-        set_environment()
+    try:
+        with change_directory(REPO_ROOT_PATH) as dir:
 
-        call(
-            filterIsTruthy(
-                [
-                    "swift",
-                    "--version",
-                ]
-            )
-        )
+            event_stream_path = pathlib.Path.cwd() / "swift-testing-event-stream.json"
+            # Delete any lingering event stream JSON file
+            if event_stream_path.exists():
+                os.remove(event_stream_path)
 
-        if args.should_clean:
+            def dispaly_event_stream_json_file_contents() -> None:
+                logging.info("Event stream path: %s", event_stream_path.name)
+                if event_stream_path.exists():
+                    line = "*" * 80
+                    logging.info("Event stream contents:\n%s[START]\n%s\n%s[END]", line, event_stream_path.read_text(), line)
+                else:
+                    logging.info("Event file does not exists")
+
+            def signal_handler(sig, frame):
+                logging.info("Received signal %s", sig)
+                dispaly_event_stream_json_file_contents()
+                logging.info("after displaying Swift Testing event stream JSON")
+                sys.exit(sig)
+
+            signal.signal(signal.SIGINT, signal_handler)
+            signal.signal(signal.SIGABRT, signal_handler)
+            signal.signal(signal.SIGTERM, signal_handler)
+            if sys.platform == "win32":
+                signal.signal(signal.SIGBREAK, signal_handler)
+                # signal.signal(signal.CTRL_C_EVENT, signal_handler)
+                # signal.signal(signal.CTRL_BREAK_EVENT, signal_handler)
+            else:
+                signal.signal(signal.SIGQUIT, signal_handler)
+
+            set_environment()
+
             call(
                 filterIsTruthy(
                     [
                         "swift",
-                        "package",
-                        *global_args,
-                        *BUILD_OVERRIDES,
-                        "clean",
+                        "--version",
                     ]
                 )
             )
 
-        if args.should_update:
-            call(
-                filterIsTruthy(
-                    [
-                        "swift",
-                        "package",
-                        *global_args,
-                        *BUILD_OVERRIDES,
-                        "update",
-                    ]
+            if args.should_clean:
+                call(
+                    filterIsTruthy(
+                        [
+                            "swift",
+                            "package",
+                            *global_args,
+                            *BUILD_OVERRIDES,
+                            "clean",
+                        ]
+                    )
                 )
-            )
 
-        call(
-            filterIsTruthy(
-                [
-                    "swift",
-                    "build",
-                    *global_args,
-                    *BUILD_OVERRIDES,
-                    *ignore_args,
-                    *args.additional_build_args.split(" ")
-                ]
-            )
-        )
+            if args.should_update:
+                call(
+                    filterIsTruthy(
+                        [
+                            "swift",
+                            "package",
+                            *global_args,
+                            *BUILD_OVERRIDES,
+                            "update",
+                        ]
+                    )
+                )
 
-        call(
-            filterIsTruthy(
-                [
-                    "swift",
-                    "run",
-                    *global_args,
-                    *BUILD_OVERRIDES,
-                    *ignore_args,
-                    *args.additional_run_args.split(" "),
-                    "swift-test",
-                    *global_args,
-                    "--force-resolved-versions",
-                    "--parallel",
-                    "--scratch-path",
-                    ".test",
-                    *ignore_args,
-                    *args.additional_test_args.split(" ")
-                ]
-            )
-        )
+            try:
+                call(
+                    filterIsTruthy(
+                        [
+                            "swift",
+                            "test",
+                            *global_args,
+                            *BUILD_OVERRIDES,
+                            "--parallel",
+                            *ignore_args,
+                            *args.additional_test_args.split(" "),
+                            "--event-stream-output-path",
+                            event_stream_path,
+                        ]
+                    )
+                )
+            except:
+                dispaly_event_stream_json_file_contents()
+                if event_stream_path.exists():
+                    os.remove(event_stream_path)
 
-    if is_on_darwin() and not args.skip_bootstrap:
-        run_bootstrap(swiftpm_bin_dir=swiftpm_bin_dir)
 
-    end_time = datetime.now()
-    elapsed_time = end_time - start_time
+        if is_on_darwin() and not args.skip_bootstrap:
+            swiftpm_bin_dir = get_swiftpm_bin_dir(global_args=global_args)
+            run_bootstrap(swiftpm_bin_dir=swiftpm_bin_dir)
+    finally:
+        end_time = datetime.now()
+        elapsed_time = end_time - start_time
 
-    logging.info("Done (%s)", str(elapsed_time))
+        logging.info("Done (%s)", str(elapsed_time))
 
 
 if __name__ == "__main__":
