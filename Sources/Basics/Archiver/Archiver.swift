@@ -34,10 +34,22 @@ public protocol Archiver: Sendable {
     /// Asynchronously compress the contents of a directory to a destination archive.
     ///
     /// - Parameters:
-    ///   - directory: The `AbsolutePath` to the archive to extract.
-    ///   - destinationPath: The `AbsolutePath` to the directory to extract to.
+    ///   - directory: The `AbsolutePath` to the directory to add to the archive
+    ///   - destinationPath: The `AbsolutePath` to the archive
     func compress(
         directory: AbsolutePath,
+        to destinationPath: AbsolutePath
+    ) async throws
+
+    /// Asynchronously compress the contents of a list of directories to a destination archive.
+    ///
+    /// - Parameters:
+    ///   - paths: The `RelativePath`s to the files or directories to archive
+    ///   - parent: The `AbsolutePath` to the parent directory to archive from
+    ///   - destinationPath: The `AbsolutePath` to the archive
+    func compress(
+        paths: [RelativePath],
+        from parent: AbsolutePath,
         to destinationPath: AbsolutePath
     ) async throws
 
@@ -66,6 +78,22 @@ extension Archiver {
         try await withCheckedThrowingContinuation { continuation in
             self.extract(from: archivePath, to: destinationPath, completion: { continuation.resume(with: $0) })
         }
+    }
+
+    /// Asynchronously compress the contents of a directory to a destination archive.
+    ///
+    /// - Parameters:
+    ///   - directory: The `AbsolutePath` to the directory to add to the archive
+    ///   - destinationPath: The `AbsolutePath` to the archive
+    public func compress(
+        directory: AbsolutePath,
+        to destinationPath: AbsolutePath
+    ) async throws {
+        try await self.compress(
+            paths: [RelativePath(validating: directory.basename)],
+            from: directory.parentDirectory,
+            to: destinationPath
+        )
     }
 
     /// Asynchronously validates if a file is an archive.

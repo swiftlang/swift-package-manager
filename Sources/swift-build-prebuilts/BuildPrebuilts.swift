@@ -96,21 +96,19 @@ struct BuildPrebuilts: AsyncParsableCommand {
         )
 
         let srcDir = stageDir.appending("src")
-        let libDir = stageDir.appending("lib")
-        let modulesDir = stageDir.appending("Modules")
+        let contentDir = stageDir.appending("content")
+        let libDir = contentDir.appending("lib")
+        let modulesDir = contentDir.appending("Modules")
 
         if fileSystem.exists(srcDir) {
             try fileSystem.removeFileTree(srcDir)
         }
         try fileSystem.createDirectory(srcDir, recursive: true)
 
-        if fileSystem.exists(libDir) {
-            try fileSystem.removeFileTree(libDir)
+        if fileSystem.exists(contentDir) {
+            try fileSystem.removeFileTree(contentDir)
         }
-
-        if fileSystem.exists(modulesDir) {
-            try fileSystem.removeFileTree(modulesDir)
-        }
+        try fileSystem.createDirectory(contentDir, recursive: true)
 
         // For now, hardcode what we're building prebuilts for
         let id = "swift-syntax"
@@ -198,22 +196,20 @@ struct BuildPrebuilts: AsyncParsableCommand {
                 let prebuiltName = try platform.prebuiltName(hostToolchain: hostToolchain)
 
                 // Zip it up
-                let contentDirs = ["lib", "Modules"]
                 let contents: ByteString
+                let archiver = UniversalArchiver(fileSystem)
+                let archive: AbsolutePath
                 switch platform.os {
-                case .macos:
-                    let zipFile = versionDir.appending("\(prebuiltName)-\(libraryName).zip")
-                    try await shell("zip -r \(zipFile.pathString) \(contentDirs.joined(separator: " "))", cwd: stageDir)
-                    contents = try ByteString(fileSystem.readFileContents(zipFile))
-                case .windows:
-                    let zipFile = versionDir.appending("\(prebuiltName)-\(libraryName).zip")
-                    try await shell("tar -acf \(zipFile.pathString) \(contentDirs.joined(separator: " "))", cwd: stageDir)
-                    contents = try ByteString(fileSystem.readFileContents(zipFile))
+                case .macos, .windows:
+                    archive = versionDir.appending("\(prebuiltName)-\(libraryName).zip")
                 case .linux:
-                    let tarFile = versionDir.appending("\(prebuiltName)-\(libraryName).tar.gz")
-                    try await shell("tar -zcf \(tarFile.pathString) \(contentDirs.joined(separator: " "))", cwd: stageDir)
-                    contents = try ByteString(fileSystem.readFileContents(tarFile))
+                    archive = versionDir.appending("\(prebuiltName)-\(libraryName).tar.gz")
                 }
+                try await archiver.compress(
+                    paths: [libDir, modulesDir].map({ $0.relative(to: contentDir) }),
+                    from: contentDir,
+                    to: archive)
+                contents = try ByteString(fileSystem.readFileContents(archive))
 
                 // Manifest fragment for the zip file
                 let checksum = SHA256().hash(contents).hexadecimalRepresentation
@@ -229,8 +225,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                 try fileSystem.writeFileContents(unsignedJsonFile, data: encoder.encode(manifest))
 
                 // Clean up
-                try fileSystem.removeFileTree(libDir)
-                try fileSystem.removeFileTree(modulesDir)
+                try fileSystem.removeFileTree(contentDir)
             }
 
             try await shell("git restore .", cwd: repoDir)
