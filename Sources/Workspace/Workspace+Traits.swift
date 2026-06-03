@@ -42,6 +42,14 @@ extension Workspace {
         try manifest.enabledTraits(using: self.traitConfiguration) :
         self.enabledTraitsMap[manifest.packageIdentity]
 
+        // Validate before expanding: this is the only point where the original EnabledTraits
+        // (including the disabledBy setter) is still available. Once enabledTraits(using:) runs
+        // for a no-trait package it discards that information and returns ["default"].
+        // Root packages are validated separately through the trait configuration path.
+        if !manifest.packageKind.isRoot {
+            try manifest.validateEnabledTraits(explicitlyEnabledTraits)
+        }
+
         var enabledTraits = try manifest.enabledTraits(using: explicitlyEnabledTraits)
 
         // Check if any parents requested default traits for this package
