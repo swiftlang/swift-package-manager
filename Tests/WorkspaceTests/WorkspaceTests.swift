@@ -7942,6 +7942,75 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testDownloadedArtifactInvalidArchiveDoesNotPoisonCache() async throws {
+        let fs = InMemoryFileSystem()
+        let sandbox = AbsolutePath("/tmp/ws/")
+        try fs.createDirectory(sandbox, recursive: true)
+        let artifactUrl = "https://artifactory.example.com/a.zip"
+
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
+            }
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: "<html>403 Forbidden</html>",
+                atomically: true
+            )
+            return .okay()
+        }
+
+        let archiver = MockArchiver(
+            validationHandler: { _, _, completion in
+                completion(.success(false))
+            }
+        )
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "A",
+                            type: .binary,
+                            url: artifactUrl,
+                            checksum: "a"
+                        ),
+                    ]
+                ),
+            ],
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver,
+                useCache: true
+            )
+        )
+
+        await workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(
+                    diagnostic: .contains(
+                        "invalid archive returned from '\(artifactUrl)' which is required by binary target 'A'"
+                    ),
+                    severity: .error
+                )
+            }
+        }
+
+        let artifactCacheKey = artifactUrl.spm_mangledToC99ExtendedIdentifier()
+        guard let cachePath = workspace.workspaceLocation?
+            .sharedBinaryArtifactsCacheDirectory?
+            .appending(artifactCacheKey)
+        else {
+            XCTFail("Required workspace location wasn't found")
+            return
+        }
+        XCTAssertFalse(fs.exists(cachePath))
+    }
+
     func testDownloadedArtifactInvalid() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
