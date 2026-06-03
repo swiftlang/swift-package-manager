@@ -215,6 +215,21 @@ struct SwiftPMBuildServerTests {
     }
 
     @Test
+    func underlyingBuildServerNotificationsAreForwarded() async throws {
+        try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple") { connection, notificationCollector, fixturePath in
+            let initialChangeCount = notificationCollector.notifications(of: OnBuildTargetDidChangeNotification.self).count
+            try localFileSystem.writeFileContents(fixturePath.appending(component: "Bar.swift"), body: {
+                $0.write("public let baz = \"hello\"")
+            })
+            connection.send(OnWatchedFilesDidChangeNotification(changes: [
+                .init(uri: .init(.init(filePath: fixturePath.appending(component: "Bar.swift").pathString)), type: .created)
+            ]))
+            _ = try await connection.send(WorkspaceWaitForBuildSystemUpdatesRequest())
+            #expect(notificationCollector.notifications(of: OnBuildTargetDidChangeNotification.self).count > initialChangeCount)
+        }
+    }
+
+    @Test
     func compilerArgsFromUserInitiatedBuild() async throws {
         try await withSwiftPMBSP(
             fixtureName: "Miscellaneous/Simple",
