@@ -512,6 +512,59 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    func testResolvesRevisionWhenSafeBareRepositoryIsExplicit() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
+        try await testWithTemporaryDirectory { path in
+            // Create a repo with a tag, then make the bare mirror that SwiftPM caches.
+            let testRepoPath = path.appending("test-repo")
+            try makeDirectories(testRepoPath)
+            initGitRepo(testRepoPath, tag: "1.0.0")
+
+            let bareRepoPath = path.appending("test-repo-bare")
+            let provider = GitRepositoryProvider()
+            let repoSpec = RepositorySpecifier(path: testRepoPath)
+            try await provider.fetch(repository: repoSpec, to: bareRepoPath)
+
+            // Point git at a global config that opts into the `explicit` bare-repository
+            // protection, mirroring a user who has set `safe.bareRepository=explicit`.
+            let globalConfigPath = path.appending("gitconfig")
+            try localFileSystem.writeFileContents(
+                globalConfigPath,
+                string: "[safe]\n\tbareRepository = explicit\n"
+            )
+            var environment = Git.environmentBlock
+            environment["GIT_CONFIG_GLOBAL"] = globalConfigPath.pathString
+            environment["GIT_CONFIG_SYSTEM"] = "/dev/null"
+            environment["GIT_ALLOW_PROTOCOL"] = "file"
+            Git.environmentBlock = environment
+
+            // Confirm the bug is reproducible in this environment: a discovery-based
+            // invocation without the override is rejected by `explicit`. Older git
+            // versions that predate `safe.bareRepository` ignore the setting, in which
+            // case the bug cannot be reproduced and the assertion below is skipped.
+            let unguarded = try await AsyncProcess.popen(
+                arguments: [Git.tool, "-C", bareRepoPath.pathString, "rev-parse", "--verify", "1.0.0^{commit}"],
+                environment: .init(environment)
+            )
+            try XCTSkipUnless(
+                unguarded.exitStatus != .terminated(code: 0),
+                "git does not honor safe.bareRepository here; cannot reproduce the bug"
+            )
+
+            // SwiftPM addresses its bare cache repositories explicitly via `--git-dir`
+            // instead of relying on discovery, so resolving against the bare cache
+            // repository succeeds despite the user's `explicit` setting.
+            let repository = provider.open(repository: repoSpec, at: bareRepoPath)
+            let revision = try repository.resolveRevision(tag: "1.0.0")
+            XCTAssertFalse(revision.identifier.isEmpty)
+
+            // The resolution cache fast-path validates the bare cache repository via
+            // `isValidDirectory`; both variants must also keep working under `explicit`.
+            XCTAssertTrue(try provider.isValidDirectory(bareRepoPath))
+            XCTAssertTrue(try provider.isValidDirectory(bareRepoPath, for: repoSpec))
+        }
+    }
+
     func testSetRemote() async throws {
         try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
         try await testWithTemporaryDirectory { path in
@@ -1144,6 +1197,69 @@ class GitRepositoryTests: XCTestCase {
                 editable: false
             )
 
+            try workingCopy.checkout(tag: "1.0.0")
+
+            let binaryFilePath = checkoutPath.appending("test.bin")
+            XCTAssertFileExists(binaryFilePath)
+            try self.assertFileMatchesBinaryData(binaryFilePath, expected: binaryData)
+        }
+    }
+
+    /// Test that fetching an LFS repository into the bare cache still populates LFS
+    /// objects when the user has set `safe.bareRepository=explicit`. The bare-cache
+    /// `git lfs fetch` is addressed via `--git-dir`; if that failed under `explicit`,
+    /// the objects would be missing and the checkout below could not materialize the
+    /// binary file once the source repository is removed.
+    func testGitLFSFetchIntoBareCacheUnderSafeBareRepositoryExplicit() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
+        try await self.requireGitLFS()
+        try await testWithTemporaryDirectory { path in
+            let testRepoPath = path.appending("test-repo")
+            let binaryData = try await self.createLFSRepository(at: testRepoPath)
+            let provider = GitRepositoryProvider()
+            let testClonePath = path.appending("clone")
+            let repoSpec = RepositorySpecifier(path: testRepoPath)
+
+            // Opt into the `explicit` bare-repository protection for all of SwiftPM's git
+            // invocations, mirroring a user who has it set globally. Because GIT_CONFIG_GLOBAL
+            // replaces the user's global config wholesale, the file must also carry the
+            // `filter.lfs.*` registration that `git lfs install` normally writes there, plus
+            // the file-protocol allowance that requireGitLFS()/setUp rely on.
+            let globalConfigPath = path.appending("gitconfig")
+            try localFileSystem.writeFileContents(
+                globalConfigPath,
+                string: """
+                [safe]
+                \tbareRepository = explicit
+                [filter "lfs"]
+                \tclean = git-lfs clean -- %f
+                \tsmudge = git-lfs smudge -- %f
+                \tprocess = git-lfs filter-process
+                \trequired = true
+
+                """
+            )
+            var environment = Git.environmentBlock
+            environment["GIT_CONFIG_GLOBAL"] = globalConfigPath.pathString
+            environment["GIT_CONFIG_SYSTEM"] = "/dev/null"
+            environment["GIT_ALLOW_PROTOCOL"] = "file"
+            Git.environmentBlock = environment
+
+            // Fetches into the bare cache and, since the repo uses LFS, runs
+            // `git --git-dir=<bare> lfs fetch` against it.
+            try await provider.fetch(repository: repoSpec, to: testClonePath)
+
+            // If the bare cache did not fetch LFS objects, checkout can no longer
+            // materialize the file once the original repository disappears.
+            try localFileSystem.removeFileTree(testRepoPath)
+
+            let checkoutPath = path.appending("checkout")
+            let workingCopy = try await provider.createWorkingCopy(
+                repository: repoSpec,
+                sourcePath: testClonePath,
+                at: checkoutPath,
+                editable: false
+            )
             try workingCopy.checkout(tag: "1.0.0")
 
             let binaryFilePath = checkoutPath.appending("test.bin")
