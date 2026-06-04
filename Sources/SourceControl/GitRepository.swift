@@ -136,7 +136,7 @@ private struct GitShellHelper {
             // DO NOT add --all here. See documentation above for why.
             // Address the bare repository explicitly via `--git-dir` (rather than discovery
             // with `-C`) so this keeps working under `safe.bareRepository=explicit`.
-            return try self.run(["-C", path.pathString, "--git-dir", path.pathString, "lfs", "fetch"])
+            return try self.run(gitLocationArguments(path.pathString, bare: true) + ["lfs", "fetch"])
         } catch let error as CancellationError {
             throw error
         } catch {
@@ -193,6 +193,16 @@ internal func gitNetworkTimeoutOverrides(environment: Environment) -> [String] {
         "-c", "http.lowSpeedLimit=\(GitNetworkTimeoutDefaults.lowSpeedLimitBytesPerSecond)",
         "-c", "http.lowSpeedTime=\(GitNetworkTimeoutDefaults.lowSpeedTimeSeconds)",
     ]
+}
+
+/// Builds the leading `git` arguments that point at a repository on disk.
+///
+/// A working tree is addressed with `-C`, letting git discover the working tree and its `.git`
+/// directory. A bare repository keeps the same `-C` working directory but *also* names the git
+/// directory explicitly via `--git-dir` rather than relying on discovery. This keeps SwiftPM
+/// working under `safe.bareRepository=explicit`.
+internal func gitLocationArguments(_ path: String, bare: Bool) -> [String] {
+    bare ? ["-C", path, "--git-dir", path] : ["-C", path]
 }
 
 // MARK: - GitRepositoryProvider
@@ -330,7 +340,15 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             let result = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
             return result == ".git" || result == "." || result == directory.pathString
         } catch let error as GitShellError {
-            if (try? self.git.run(["-C", directory.pathString, "--git-dir", directory.pathString, "rev-parse", "--is-bare-repository"])) == "true" {
+            let isBareRepository: String
+            do {
+                isBareRepository = try self.git.run(
+                    gitLocationArguments(directory.pathString, bare: true) + ["rev-parse", "--is-bare-repository"]
+                )
+            } catch is GitShellError {
+                throw error
+            }
+            if isBareRepository == "true" {
                 return true
             }
             throw error
@@ -342,13 +360,16 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         do {
             remoteURL = try self.git.run(["-C", directory.pathString, "config", "--get", "remote.origin.url"])
         } catch let error as GitShellError {
-            // A bare repository under `safe.bareRepository=explicit` must be addressed explicitly.
-            guard let url = try? self.git.run(
-                ["-C", directory.pathString, "--git-dir", directory.pathString, "config", "--get", "remote.origin.url"]
-            ) else {
+            // Discovery is refused for a bare repository under `safe.bareRepository=explicit`,
+            // so git exits non-zero without reading the config; re-read it with the directory
+            // named as an explicit git directory.
+            do {
+                remoteURL = try self.git.run(
+                    gitLocationArguments(directory.pathString, bare: true) + ["config", "--get", "remote.origin.url"]
+                )
+            } catch is GitShellError {
                 throw error
             }
-            remoteURL = url
         }
         return CanonicalPackageURL(remoteURL) == CanonicalPackageURL(repository.url)
     }
@@ -573,16 +594,9 @@ public final class GitRepository: Repository, WorkingCheckout {
         }())
     }
 
-    /// The arguments that point `git` at this repository.
-    ///
-    /// Bare repositories additionally name the git directory via `--git-dir` instead of relying
-    /// on discovery, so SwiftPM keeps working under `safe.bareRepository=explicit` (which forbids
-    /// *discovering* a bare repository but permits one named explicitly). `-C` is retained in both
-    /// cases so the only change versus the historical invocation is repository selection, not cwd.
+    /// The arguments that point `git` at this repository. See `gitLocationArguments`.
     private var repositoryLocationArguments: [String] {
-        self.isWorkingRepo
-            ? ["-C", self.path.pathString]
-            : ["-C", self.path.pathString, "--git-dir", self.path.pathString]
+        gitLocationArguments(self.path.pathString, bare: !self.isWorkingRepo)
     }
 
     /// Private function to invoke the Git tool with its default environment and given set of arguments, specifying the

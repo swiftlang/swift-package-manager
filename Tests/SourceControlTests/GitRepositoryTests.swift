@@ -35,6 +35,26 @@ class GitRepositoryTests: XCTestCase {
         Git.environmentBlock = .init(Environment.current)
     }
 
+    /// Points git at a temporary global config that sets `safe.bareRepository=explicit`, mirroring
+    /// a user who has opted into the bare-repository protection globally. `additionalGlobalConfig`
+    /// is appended because `GIT_CONFIG_GLOBAL` replaces the user's global config wholesale (e.g. the
+    /// `filter.lfs.*` registration must be re-added for LFS tests). Restored by `tearDown`.
+    private func enableSafeBareRepositoryExplicit(
+        in directory: AbsolutePath,
+        additionalGlobalConfig: String = ""
+    ) throws {
+        let globalConfigPath = directory.appending("gitconfig")
+        try localFileSystem.writeFileContents(
+            globalConfigPath,
+            string: "[safe]\n\tbareRepository = explicit\n" + additionalGlobalConfig
+        )
+        var environment = Git.environmentBlock
+        environment["GIT_CONFIG_GLOBAL"] = globalConfigPath.pathString
+        environment["GIT_CONFIG_SYSTEM"] = "/dev/null"
+        environment["GIT_ALLOW_PROTOCOL"] = "file"
+        Git.environmentBlock = environment
+    }
+
     private func requireGitLFS() async throws {
         Git.environmentBlock = .init(Environment.current)
         var environment = Git.environmentBlock
@@ -525,18 +545,9 @@ class GitRepositoryTests: XCTestCase {
             let repoSpec = RepositorySpecifier(path: testRepoPath)
             try await provider.fetch(repository: repoSpec, to: bareRepoPath)
 
-            // Point git at a global config that opts into the `explicit` bare-repository
-            // protection, mirroring a user who has set `safe.bareRepository=explicit`.
-            let globalConfigPath = path.appending("gitconfig")
-            try localFileSystem.writeFileContents(
-                globalConfigPath,
-                string: "[safe]\n\tbareRepository = explicit\n"
-            )
-            var environment = Git.environmentBlock
-            environment["GIT_CONFIG_GLOBAL"] = globalConfigPath.pathString
-            environment["GIT_CONFIG_SYSTEM"] = "/dev/null"
-            environment["GIT_ALLOW_PROTOCOL"] = "file"
-            Git.environmentBlock = environment
+            // Opt into the `explicit` bare-repository protection, mirroring a user who has set
+            // `safe.bareRepository=explicit` globally.
+            try self.enableSafeBareRepositoryExplicit(in: path)
 
             // Confirm the bug is reproducible in this environment: a discovery-based
             // invocation without the override is rejected by `explicit`. Older git
@@ -544,7 +555,7 @@ class GitRepositoryTests: XCTestCase {
             // case the bug cannot be reproduced and the assertion below is skipped.
             let unguarded = try await AsyncProcess.popen(
                 arguments: [Git.tool, "-C", bareRepoPath.pathString, "rev-parse", "--verify", "1.0.0^{commit}"],
-                environment: .init(environment)
+                environment: .init(Git.environmentBlock)
             )
             try XCTSkipUnless(
                 unguarded.exitStatus != .terminated(code: 0),
@@ -1221,29 +1232,17 @@ class GitRepositoryTests: XCTestCase {
             let repoSpec = RepositorySpecifier(path: testRepoPath)
 
             // Opt into the `explicit` bare-repository protection for all of SwiftPM's git
-            // invocations, mirroring a user who has it set globally. Because GIT_CONFIG_GLOBAL
-            // replaces the user's global config wholesale, the file must also carry the
-            // `filter.lfs.*` registration that `git lfs install` normally writes there, plus
-            // the file-protocol allowance that requireGitLFS()/setUp rely on.
-            let globalConfigPath = path.appending("gitconfig")
-            try localFileSystem.writeFileContents(
-                globalConfigPath,
-                string: """
-                [safe]
-                \tbareRepository = explicit
+            // invocations. Because GIT_CONFIG_GLOBAL replaces the user's global config wholesale,
+            // also carry the `filter.lfs.*` registration that `git lfs install` normally writes
+            // there, otherwise the smudge filter would not run on checkout.
+            try self.enableSafeBareRepositoryExplicit(in: path, additionalGlobalConfig: """
                 [filter "lfs"]
                 \tclean = git-lfs clean -- %f
                 \tsmudge = git-lfs smudge -- %f
                 \tprocess = git-lfs filter-process
                 \trequired = true
 
-                """
-            )
-            var environment = Git.environmentBlock
-            environment["GIT_CONFIG_GLOBAL"] = globalConfigPath.pathString
-            environment["GIT_CONFIG_SYSTEM"] = "/dev/null"
-            environment["GIT_ALLOW_PROTOCOL"] = "file"
-            Git.environmentBlock = environment
+                """)
 
             // Fetches into the bare cache and, since the repo uses LFS, runs
             // `git --git-dir=<bare> lfs fetch` against it.
