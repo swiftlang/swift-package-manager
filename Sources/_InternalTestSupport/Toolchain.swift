@@ -40,6 +40,7 @@ package func resolveBinDir() throws -> AbsolutePath {
     guard let cwd = localFileSystem.currentWorkingDirectory else {
         fatalError("Current working directory unavailable!")
     }
+    print("cli: \(CommandLine.arguments[0]), cwd: \(cwd.pathString)")
     return try AbsolutePath(validating: CommandLine.arguments[0], relativeTo: cwd).parentDirectory
 #endif
 }

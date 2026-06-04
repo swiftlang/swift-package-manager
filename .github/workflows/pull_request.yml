@@ -64,7 +64,7 @@ jobs:
       # This is a hack - replace the build command with a test command and drop the --swift-sdk arg the workflow appends.
       wasm_sdk_build_command: "swift test --parallel --experimental-xunit-message-failure --xunit-output wasm-xunit.xml --filter WebAssemblyIntegrationTests #"
       enable_linux_static_sdk_build: true
-      linux_static_sdk_versions: '["nightly-main"]'
+      linux_static_sdk_versions: '["nightly-6.3", "6.3"]'
       linux_static_sdk_pre_build_command: ./.github/scripts/prebuild.sh
       # This is a hack - replace the build command with a test command and drop the --swift-sdk arg the workflow appends.
       linux_static_sdk_build_command: "swift test --parallel --experimental-xunit-message-failure --xunit-output static-linux-xunit.xml --filter StaticLinuxIntegrationTests #"

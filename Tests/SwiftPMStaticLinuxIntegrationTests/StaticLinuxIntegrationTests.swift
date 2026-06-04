@@ -48,11 +48,12 @@ private struct StaticLinuxIntegrationTests {
 
             let buildOutput = try await executeSwiftBuild(
                 fixturePath,
-                extraArgs: ["--swift-sdk", sdkID, "--triple", "\(arch)-swift-linux-musl"],
+                extraArgs: ["--version", "--swift-sdk", sdkID, "--triple", "\(arch)-swift-linux-musl"],
                 env: env,
                 buildSystem: buildSystem,
             )
-            #expect(buildOutput.stdout.contains("Build complete"))
+            print(buildOutput.stdout)
+            #expect(buildOutput.stdout.contains("Buila complete"))
 
             let binary = try await getBinPath(
                 fixturePath,
