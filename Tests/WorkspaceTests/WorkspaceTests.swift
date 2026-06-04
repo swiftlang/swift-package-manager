@@ -5049,6 +5049,90 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    // Regression test for: a registry package (fetched via a registry identifier)
+    // has a URL-based sub-dependency whose URL is mirrored to a registry identity.
+    // The target inside that registry package references the sub-dep by its
+    // URL-derived short name (e.g. "SwiftUI-Hooks"). The mirror must be applied
+    // consistently to both the package dependency declaration and the target's
+    // package reference so resolution succeeds without an "unknown package" error.
+    func testPackageMirrorURLToRegistryTransitiveDependency() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let mirrors = try DependencyMirrors()
+        // Map the URL-based transitive dep to its registry identity.
+        try mirrors.set(mirror: "hollyoops.swiftui-hooks", for: "https://github.com/hollyoops/SwiftUI-Hooks")
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "Root", dependencies: [
+                            .product(name: "RecoilSwift", package: "hollyoops.recoilswift"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .registry(identity: "hollyoops.recoilswift", requirement: .upToNextMajor(from: "0.2.1")),
+                    ]
+                ),
+            ],
+            packages: [
+                // Registry package that declares a URL-based sub-dependency.
+                // Its target references the sub-dep by the URL-derived short name
+                // "SwiftUI-Hooks", not the full registry identity.
+                MockPackage(
+                    name: "RecoilSwift",
+                    identity: "hollyoops.recoilswift",
+                    targets: [
+                        MockTarget(name: "RecoilSwift", dependencies: [
+                            .product(name: "Hooks", package: "SwiftUI-Hooks"),
+                        ]),
+                    ],
+                    products: [
+                        MockProduct(name: "RecoilSwift", modules: ["RecoilSwift"]),
+                    ],
+                    dependencies: [
+                        // URL dep that the mirror maps to hollyoops.swiftui-hooks.
+                        .sourceControl(url: "https://github.com/hollyoops/SwiftUI-Hooks", requirement: .upToNextMajor(from: "0.0.3")),
+                    ],
+                    versions: ["0.2.1", "0.3.0"]
+                ),
+                // The registry package that the SwiftUI-Hooks URL resolves to via mirror.
+                MockPackage(
+                    name: "SwiftUI-Hooks",
+                    identity: "hollyoops.swiftui-hooks",
+                    targets: [
+                        MockTarget(name: "Hooks"),
+                    ],
+                    products: [
+                        MockProduct(name: "Hooks", modules: ["Hooks"]),
+                    ],
+                    versions: ["0.0.3", "0.1.0"]
+                ),
+            ],
+            mirrors: mirrors
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "hollyoops.recoilswift", "hollyoops.swiftui-hooks", "root")
+                result.check(modules: "Hooks", "RecoilSwift", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "hollyoops.recoilswift", at: .registryDownload("0.3.0"))
+            result.check(dependency: "hollyoops.swiftui-hooks", at: .registryDownload("0.1.0"))
+            // The URL-derived identity must not appear as a separate checkout.
+            result.check(notPresent: "swiftui-hooks")
+        }
+    }
+
     // In this test, we get into a state where an entry in the resolved
     // file for a transitive dependency whose URL is later changed to
     // something else, while keeping the same package identity.
