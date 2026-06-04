@@ -46,6 +46,9 @@ extension SwiftPackageCommand.Config {
         @Option(name: .customLong("mirror-url"), help: .hidden)
         var _deprecate_mirrorURL: String?
 
+        @Flag(help: "Apply settings to all projects for this user.")
+        var global: Bool = false
+
         @Option(help: "The original url or identity.")
         var original: String?
 
@@ -53,8 +56,6 @@ extension SwiftPackageCommand.Config {
         var mirror: String?
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
-            let config = try getMirrorsConfig(swiftCommandState)
-
             if self._deprecate_packageURL != nil {
                 swiftCommandState.observabilityScope.emit(
                     warning: "'--package-url' option is deprecated; use '--original' instead"
@@ -81,8 +82,15 @@ extension SwiftPackageCommand.Config {
                 throw ExitCode.failure
             }
 
-            try config.applyLocal { mirrors in
-                try mirrors.set(mirror: mirror, for: original)
+            let config = try getMirrorsConfig(swiftCommandState, global: self.global)
+            if self.global {
+                try config.applyShared { mirrors in
+                    try mirrors.set(mirror: mirror, for: original)
+                }
+            } else {
+                try config.applyLocal { mirrors in
+                    try mirrors.set(mirror: mirror, for: original)
+                }
             }
         }
     }
@@ -104,6 +112,9 @@ extension SwiftPackageCommand.Config {
         @Option(name: .customLong("mirror-url"), help: .hidden)
         var _deprecate_mirrorURL: String?
 
+        @Flag(help: "Apply settings to all projects for this user.")
+        var global: Bool = false
+
         @Option(help: "The original url or identity.")
         var original: String?
 
@@ -111,8 +122,6 @@ extension SwiftPackageCommand.Config {
         var mirror: String?
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
-            let config = try getMirrorsConfig(swiftCommandState)
-
             if self._deprecate_packageURL != nil {
                 swiftCommandState.observabilityScope.emit(
                     warning: "'--package-url' option is deprecated; use '--original' instead"
@@ -136,8 +145,15 @@ extension SwiftPackageCommand.Config {
                 throw ExitCode.failure
             }
 
-            try config.applyLocal { mirrors in
-                try mirrors.unset(originalOrMirror: originalOrMirror)
+            let config = try getMirrorsConfig(swiftCommandState, global: self.global)
+            if self.global {
+                try config.applyShared { mirrors in
+                    try mirrors.unset(originalOrMirror: originalOrMirror)
+                }
+            } else {
+                try config.applyLocal { mirrors in
+                    try mirrors.unset(originalOrMirror: originalOrMirror)
+                }
             }
         }
     }
@@ -155,12 +171,13 @@ extension SwiftPackageCommand.Config {
         @Option(name: .customLong("original-url"), help: .hidden)
         var _deprecate_originalURL: String?
 
+        @Flag(help: "Read only settings applied to all projects for this user.")
+        var global: Bool = false
+
         @Option(help: "The original url or identity.")
         var original: String?
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
-            let config = try getMirrorsConfig(swiftCommandState)
-
             if self._deprecate_packageURL != nil {
                 swiftCommandState.observabilityScope.emit(
                     warning: "'--package-url' option is deprecated; use '--original' instead"
@@ -177,6 +194,7 @@ extension SwiftPackageCommand.Config {
                 throw ExitCode.failure
             }
 
+            let config = try getMirrorsConfig(swiftCommandState, global: self.global)
             if let mirror = config.mirrors.mirror(for: original) {
                 print(mirror)
             } else {
@@ -187,7 +205,18 @@ extension SwiftPackageCommand.Config {
         }
     }
 
-    static func getMirrorsConfig(_ swiftCommandState: SwiftCommandState) throws -> Workspace.Configuration.Mirrors {
+    static func getMirrorsConfig(_ swiftCommandState: SwiftCommandState, global: Bool) throws -> Workspace.Configuration.Mirrors {
+        if global {
+            let sharedMirrorsFile = Workspace.DefaultLocations.mirrorsConfigurationFile(
+                at: swiftCommandState.sharedConfigurationDirectory
+            )
+            // Workspace not needed when working with user-level mirrors config
+            return try .init(
+                fileSystem: swiftCommandState.fileSystem,
+                localMirrorsFile: .none,
+                sharedMirrorsFile: sharedMirrorsFile
+            )
+        }
         let workspace = try swiftCommandState.getActiveWorkspace()
         return try .init(
             fileSystem: swiftCommandState.fileSystem,
