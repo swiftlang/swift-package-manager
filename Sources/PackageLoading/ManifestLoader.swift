@@ -99,10 +99,10 @@ extension ManifestParseError: CustomStringConvertible {
 
 /// Protocol for the manifest loader interface.
 public protocol ManifestLoaderProtocol {
-    /// Load the manifest for the package at `path`.
+    /// Load the manifest at `path`.
     ///
     /// - Parameters:
-    ///   - manifestPath: The root path of the package.
+    ///   - manifestPath: The path of the manifest file to load.
     ///   - manifestToolsVersion: The version of the tools the manifest supports.
     ///   - packageIdentity: the identity of the package
     ///   - packageKind: The kind of package the manifest is from.
@@ -112,6 +112,7 @@ public protocol ManifestLoaderProtocol {
     ///   - dependencyMapper: A helper to map dependencies.
     ///   - fileSystem: File system to load from.
     ///   - observabilityScope: Observability scope to emit diagnostics.
+    ///   - delegateQueue: The dispatch queue to perform the delegate callbacks on.
     ///   - callbackQueue: The dispatch queue to perform completion handler on.
     ///   - completion: The completion handler .
     func load(
@@ -127,6 +128,38 @@ public protocol ManifestLoaderProtocol {
         observabilityScope: ObservabilityScope,
         delegateQueue: DispatchQueue
     ) async throws -> Manifest
+
+    /// Load the manifest for the package at `path`.
+    ///
+    /// - Parameters:
+    ///   - packagePath: The root path of the package.
+    ///   - packageIdentity: the identity of the package
+    ///   - packageKind: The kind of package the manifest is from.
+    ///   - packageLocation: The location the package the manifest was loaded from.
+    ///   - packageVersion: Optional. The version and revision of the package.
+    ///   - currentToolsVersion The current tools version.
+    ///   - identityResolver: A helper to resolve identities based on configuration.
+    ///   - dependencyMapper: A helper to map dependencies.
+    ///   - fileSystem: File system to load from.
+    ///   - observabilityScope: Observability scope to emit diagnostics.
+    ///   - delegateQueue: The dispatch queue to perform the delegate callbacks on.
+    ///   - callbackQueue: The dispatch queue to perform completion handler on.
+    ///   - completion: The completion handler .
+    func load(
+        packagePath: AbsolutePath,
+        packageIdentity: PackageIdentity,
+        packageKind: PackageReference.Kind,
+        packageLocation: String,
+        packageVersion: (version: Version?, revision: String?)?,
+        currentToolsVersion: ToolsVersion,
+        identityResolver: IdentityResolver,
+        dependencyMapper: DependencyMapper,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        delegateQueue: DispatchQueue,
+        callbackQueue: DispatchQueue,
+        completion: @escaping (Result<Manifest, Error>) -> Void
+    )
 
     /// Reset any internal cache held by the manifest loader.
     func resetCache(observabilityScope: ObservabilityScope) async
