@@ -668,8 +668,13 @@ struct PackageRegistryCommandTests {
             )
 
             let extractedPath = try await validatePackageArchive(at: archivePath)
+            // `git archive` honors `export-ignore` for the file contents but still emits an
+            // empty directory entry for `secret/`, so only its contents must be excluded.
             expectFileDoesNotExists(at: extractedPath.appending(components: "secret", "data.txt"))
-            expectFileDoesNotExists(at: extractedPath.appending(component: "secret"))
+            let secretDirectory = extractedPath.appending(component: "secret")
+            if localFileSystem.isDirectory(secretDirectory) {
+                #expect(try localFileSystem.getDirectoryContents(secretDirectory).isEmpty)
+            }
         }
 
         // non-git package: common secret filenames must be filtered (top-level + nested)
