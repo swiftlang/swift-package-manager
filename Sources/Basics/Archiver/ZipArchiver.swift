@@ -82,11 +82,12 @@ public struct ZipArchiver: Archiver, Cancellable {
     }
 
     public func compress(
-        directory: AbsolutePath,
+        paths: [RelativePath],
+        from parent: AbsolutePath,
         to destinationPath: AbsolutePath
     ) async throws {
-        guard self.fileSystem.isDirectory(directory) else {
-            throw FileSystemError(.notDirectory, directory.underlying)
+        guard self.fileSystem.isDirectory(parent) else {
+            throw FileSystemError(.notDirectory, parent.underlying)
         }
 
         #if os(FreeBSD)
@@ -95,9 +96,8 @@ public struct ZipArchiver: Archiver, Cancellable {
         let process = AsyncProcess(
                 arguments: [
                     self.tar, "-c", "--format", "zip", "-f", destinationPath.pathString,
-                    directory.basename,
-                ],
-          workingDirectory: directory.parentDirectory
+                ] + directories.map(\.pathString),
+          workingDirectory: parent
         )
         #else
         // This is to work around `swift package-registry publish` tool failing on
@@ -110,7 +110,7 @@ public struct ZipArchiver: Archiver, Cancellable {
             arguments: [
                 "/bin/sh",
                 "-c",
-                    "cd \(directory.parentDirectory.underlying.pathString) && \(self.zip) -ry \(destinationPath.pathString) \(directory.basename)"
+                "cd \(parent.underlying.pathString) && \(self.zip) -ry \(destinationPath.pathString) \(paths.map(\.pathString).joined(separator: " "))"
             ]
         )
         #endif
