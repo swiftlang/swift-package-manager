@@ -959,7 +959,16 @@ public final class UserToolchain: Toolchain {
             )
         }
 
-        let metalToolchain = try? Self.deriveMetalToolchainPath(fileSystem: fileSystem, triple: triple, environment: environment)
+        let metalToolchain: (path: AbsolutePath, identifier: String)?
+        if case .custom(_, let useXcrun) = searchStrategy, !useXcrun {
+            metalToolchain = nil
+        } else {
+            metalToolchain = try? Self.deriveMetalToolchainPath(
+                fileSystem: fileSystem,
+                triple: triple,
+                environment: environment
+            )
+        }
 
         self.configuration = .init(
             librarianPath: librarianPath,
