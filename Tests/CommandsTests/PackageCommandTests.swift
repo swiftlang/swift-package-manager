@@ -4002,39 +4002,6 @@ struct PackageCommandTests {
         @Test(
             arguments: SupportedBuildSystemOnAllPlatforms,
         )
-        func mirrorConfigDeprecation(
-            buildSystem: BuildSystemProvider.Kind,
-        ) async throws {
-            let config = BuildConfiguration.debug
-            try await testWithTemporaryDirectory { fixturePath in
-                localFileSystem.createEmptyFiles(
-                    at: fixturePath,
-                    files:
-                        "/Sources/Foo/Foo.swift",
-                    "/Package.swift"
-                )
-
-                let (_, stderr) = try await execute(
-                    [
-                        "config", "set-mirror", "--package-url", "https://github.com/foo/bar", "--mirror-url",
-                        "https://mygithub.com/foo/bar",
-                    ],
-                    packagePath: fixturePath,
-                    configuration: config,
-                    buildSystem: buildSystem,
-                )
-                #expect(
-                    stderr.contains("warning: '--package-url' option is deprecated; use '--original' instead")
-                )
-                #expect(
-                    stderr.contains("warning: '--mirror-url' option is deprecated; use '--mirror' instead")
-                )
-            }
-        }
-
-        @Test(
-            arguments: SupportedBuildSystemOnAllPlatforms,
-        )
         func mirrorConfig(
             buildSystem: BuildSystemProvider.Kind,
         ) async throws {

@@ -21,14 +21,16 @@ import class Basics.AsyncProcess
 
 @Suite(
     .tags(
-        Tag.Feature.Command.Build,
+        .TestSize.large,
+        .Feature.Command.Build,
+        .Feature.SDK.StaticLinux,
     )
 )
 private struct StaticLinuxIntegrationTests {
     @Test(.requiresStaticLinuxSwiftSDK, arguments: SupportedBuildSystemOnAllPlatforms)
     func basicSwiftExecutable(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
-            let (compilerPath, sdkID) = try #require(try await findCompilerAndStaticLinuxSDKIDForTesting())
+            let (compilerPath, sdkID) = try #require(try await findCompilerAndSDKIDForTesting(for: .staticLinux))
 
             var env = Environment()
             env["SWIFT_EXEC"] = compilerPath.pathString

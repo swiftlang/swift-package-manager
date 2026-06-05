@@ -28,6 +28,9 @@ jobs:
       windows_swift_versions: '["nightly-main", "nightly-6.2"]'
       windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
       windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --configuration release swift-build --build-tests --scratch-path .tests'
+      # enable_android_sdk_build: true
+      # android_sdk_build_command: "swift run swift-build --build-tests --build-system swiftbuild"
+      # android_ndk_versions: '["r27d", "r29"]'
       enable_windows_checks: true
       enable_macos_checks: true
       macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.4\"}]"
@@ -68,3 +71,13 @@ jobs:
       linux_static_sdk_pre_build_command: ./.github/scripts/prebuild.sh
       # This is a hack - replace the build command with a test command and drop the --swift-sdk arg the workflow appends.
       linux_static_sdk_build_command: "swift test --parallel --experimental-xunit-message-failure --xunit-output static-linux-xunit.xml --filter StaticLinuxIntegrationTests #"
+      enable_android_sdk_build: true
+      android_sdk_build_command: "swift test  --parallel --experimental-xunit-message-failure --xunit-output android-xunit.xml --filter AndroidSDKIntegrationTests #"
+
+  required:
+    name: Required
+    runs-on: ubuntu-latest
+    needs: [build, soundness, integration-tests]
+    steps:
+      - name: Success
+        run: echo "All required jobs succeeded."

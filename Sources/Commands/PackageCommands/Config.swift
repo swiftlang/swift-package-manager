@@ -37,52 +37,18 @@ extension SwiftPackageCommand.Config {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Option(name: .customLong("package-url"), help: .hidden)
-        var _deprecate_packageURL: String?
-
-        @Option(name: .customLong("original-url"), help: .hidden)
-        var _deprecate_originalURL: String?
-
-        @Option(name: .customLong("mirror-url"), help: .hidden)
-        var _deprecate_mirrorURL: String?
-
         @Option(help: "The original url or identity.")
-        var original: String?
+        var original: String
 
         @Option(help: "The mirror url or identity.")
-        var mirror: String?
+        var mirror: String
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
             let config = try getMirrorsConfig(swiftCommandState)
 
-            if self._deprecate_packageURL != nil {
-                swiftCommandState.observabilityScope.emit(
-                    warning: "'--package-url' option is deprecated; use '--original' instead"
-                )
-            }
-            if self._deprecate_originalURL != nil {
-                swiftCommandState.observabilityScope.emit(
-                    warning: "'--original-url' option is deprecated; use '--original' instead"
-                )
-            }
-            if self._deprecate_mirrorURL != nil {
-                swiftCommandState.observabilityScope.emit(
-                    warning: "'--mirror-url' option is deprecated; use '--mirror' instead"
-                )
-            }
-
-            guard let original = self._deprecate_packageURL ?? self._deprecate_originalURL ?? self.original else {
-                swiftCommandState.observabilityScope.emit(.missingRequiredArg("--original"))
-                throw ExitCode.failure
-            }
-
-            guard let mirror = self._deprecate_mirrorURL ?? self.mirror else {
-                swiftCommandState.observabilityScope.emit(.missingRequiredArg("--mirror"))
-                throw ExitCode.failure
-            }
 
             try config.applyLocal { mirrors in
-                try mirrors.set(mirror: mirror, for: original)
+                try mirrors.set(mirror: self.mirror, for: self.original)
             }
         }
     }
@@ -95,15 +61,6 @@ extension SwiftPackageCommand.Config {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Option(name: .customLong("package-url"), help: .hidden)
-        var _deprecate_packageURL: String?
-
-        @Option(name: .customLong("original-url"), help: .hidden)
-        var _deprecate_originalURL: String?
-
-        @Option(name: .customLong("mirror-url"), help: .hidden)
-        var _deprecate_mirrorURL: String?
-
         @Option(help: "The original url or identity.")
         var original: String?
 
@@ -113,24 +70,7 @@ extension SwiftPackageCommand.Config {
         func run(_ swiftCommandState: SwiftCommandState) throws {
             let config = try getMirrorsConfig(swiftCommandState)
 
-            if self._deprecate_packageURL != nil {
-                swiftCommandState.observabilityScope.emit(
-                    warning: "'--package-url' option is deprecated; use '--original' instead"
-                )
-            }
-            if self._deprecate_originalURL != nil {
-                swiftCommandState.observabilityScope.emit(
-                    warning: "'--original-url' option is deprecated; use '--original' instead"
-                )
-            }
-            if self._deprecate_mirrorURL != nil {
-                swiftCommandState.observabilityScope.emit(
-                    warning: "'--mirror-url' option is deprecated; use '--mirror' instead"
-                )
-            }
-
-            guard let originalOrMirror = self._deprecate_packageURL ?? self._deprecate_originalURL ?? self
-                .original ?? self._deprecate_mirrorURL ?? self.mirror
+            guard let originalOrMirror = self.original ?? self.mirror
             else {
                 swiftCommandState.observabilityScope.emit(.missingRequiredArg("--original or --mirror"))
                 throw ExitCode.failure
@@ -149,35 +89,14 @@ extension SwiftPackageCommand.Config {
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
-        @Option(name: .customLong("package-url"), help: .hidden)
-        var _deprecate_packageURL: String?
-
-        @Option(name: .customLong("original-url"), help: .hidden)
-        var _deprecate_originalURL: String?
 
         @Option(help: "The original url or identity.")
-        var original: String?
+        var original: String
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
             let config = try getMirrorsConfig(swiftCommandState)
 
-            if self._deprecate_packageURL != nil {
-                swiftCommandState.observabilityScope.emit(
-                    warning: "'--package-url' option is deprecated; use '--original' instead"
-                )
-            }
-            if self._deprecate_originalURL != nil {
-                swiftCommandState.observabilityScope.emit(
-                    warning: "'--original-url' option is deprecated; use '--original' instead"
-                )
-            }
-
-            guard let original = self._deprecate_packageURL ?? self._deprecate_originalURL ?? self.original else {
-                swiftCommandState.observabilityScope.emit(.missingRequiredArg("--original"))
-                throw ExitCode.failure
-            }
-
-            if let mirror = config.mirrors.mirror(for: original) {
+            if let mirror = config.mirrors.mirror(for: self.original) {
                 print(mirror)
             } else {
                 stderrStream.send("not found\n")

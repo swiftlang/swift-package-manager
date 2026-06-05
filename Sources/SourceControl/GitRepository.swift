@@ -1343,15 +1343,19 @@ private class GitFileSystemView: FileSystem {
     // MARK: Unsupported methods.
 
     public var homeDirectory: TSCAbsolutePath {
-        fatalError("unsupported")
+        get throws {
+            throw FileSystemError(.unsupported)
+        }
     }
 
     public var cachesDirectory: TSCAbsolutePath? {
-        fatalError("unsupported")
+        nil
     }
 
     public var tempDirectory: TSCAbsolutePath {
-        fatalError("unsupported")
+        get throws {
+            throw FileSystemError(.unsupported)
+        }
     }
 
     func createDirectory(_ path: TSCAbsolutePath) throws {
@@ -1379,11 +1383,11 @@ private class GitFileSystemView: FileSystem {
     }
 
     func copy(from sourcePath: TSCAbsolutePath, to destinationPath: TSCAbsolutePath) throws {
-        fatalError("will never be supported")
+        throw FileSystemError(.unsupported, sourcePath)
     }
 
     func move(from sourcePath: TSCAbsolutePath, to destinationPath: TSCAbsolutePath) throws {
-        fatalError("will never be supported")
+        throw FileSystemError(.unsupported, sourcePath)
     }
 }
 

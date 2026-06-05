@@ -356,16 +356,9 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             }
 
             if !self.options.shouldRunInParallel {
-                let (xctestArgs, testCount, testPaths) = try await xctestArgs(for: testProducts, swiftCommandState: swiftCommandState, buildSystem: buildSystem)
-
-                // Tests have been filtered or skipped; assure you only run test products
-                // of the tests you must run.
-                var filteredTestProducts = testProducts
-                if let testPaths, testProducts.count != testPaths.count {
-                    filteredTestProducts = testProducts.filter({ testPaths.contains($0.bundlePath) })
-                }
+                let (xctestArgs, testCount) = try await xctestArgs(for: testProducts, swiftCommandState: swiftCommandState, buildSystem: buildSystem)
                 let productResults = try await runTestProducts(
-                    filteredTestProducts,
+                    testProducts,
                     additionalArguments: xctestArgs,
                     productsBuildParameters: buildParameters,
                     swiftCommandState: swiftCommandState,
@@ -442,41 +435,16 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         if !options.shouldLaunchInLLDB && options.testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) {
             lazy var testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first
             if options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) || testEntryPointPath == nil {
-                // Filter test products to Swift testing suites.
-                let testSuites = try await TestingSupport.getSwiftTestingSuites(
-                    in: testProducts,
-                    swiftCommandState: swiftCommandState,
-                    shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
-                    sanitizers: globalOptions.build.sanitizers,
-                    buildSystem: buildSystem
-                )
-
-                // Filter test cases based on specifiers.
-                let tests = try testSuites
-                    .filteredTests(specifier: options.testCaseSpecifier)
-                    .skippedTests(specifier: options.skippedTests(fileSystem: swiftCommandState.fileSystem))
-
-                let filteredTestProducts = testProducts.filter { tests[$0.binaryPath] != nil }
-
-                if !filteredTestProducts.isEmpty {
-                    results.append(contentsOf:
-                        try await runTestProducts(
-                            filteredTestProducts,
-                            additionalArguments: [],
-                            productsBuildParameters: buildParameters,
-                            swiftCommandState: swiftCommandState,
-                            library: .swiftTesting,
-                            buildSystem: buildSystem
-                        )
-                    )
-                } else {
-                    results.append(TestProductResult(
-                        productName: "",
+                results.append(contentsOf:
+                    try await runTestProducts(
+                        testProducts,
+                        additionalArguments: [],
+                        productsBuildParameters: buildParameters,
+                        swiftCommandState: swiftCommandState,
                         library: .swiftTesting,
-                        result: .noMatchingTests
-                    ))
-                }
-
+                        buildSystem: buildSystem
+                    )
+                )
             } else if let testEntryPointPath {
                 // Can't run Swift Testing because an entry point file was used and the developer
                 // didn't explicitly enable Swift Testing.
@@ -506,13 +474,13 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         }
     }
 
-    private func xctestArgs(for testProducts: [BuiltTestProduct], swiftCommandState: SwiftCommandState, buildSystem: any BuildSystem) async throws -> (arguments: [String], testCount: Int?, testPaths: Set<AbsolutePath>?) {
+    private func xctestArgs(for testProducts: [BuiltTestProduct], swiftCommandState: SwiftCommandState, buildSystem: any BuildSystem) async throws -> (arguments: [String], testCount: Int?) {
         switch options.testCaseSpecifier {
         case .none:
             if case .skip = options.skippedTests(fileSystem: swiftCommandState.fileSystem) {
                 fallthrough
             } else {
-                return ([], nil, nil)
+                return ([], nil)
             }
 
         case .regex, .specific, .skip:
@@ -535,7 +503,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 .filteredTests(specifier: options.testCaseSpecifier)
                 .skippedTests(specifier: options.skippedTests(fileSystem: swiftCommandState.fileSystem))
 
-            return (TestRunner.xctestArguments(forTestSpecifiers: tests.map(\.specifier)), tests.count, Set(tests.map(\.testProduct.bundlePath)))
+            return (TestRunner.xctestArguments(forTestSpecifiers: tests.map(\.specifier)), tests.count)
         }
     }
 
@@ -636,19 +604,9 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
         var productsWithSwiftTests = Set<AbsolutePath>()
         if swiftTestingEnabled {
-            let swiftTestingSuites = try await TestingSupport.getSwiftTestingSuites(
-                in: testProducts,
-                swiftCommandState: swiftCommandState,
-                shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
-                sanitizers: globalOptions.build.sanitizers,
-                buildSystem: buildSystem
-            )
-            let matchingTests = try swiftTestingSuites
-                .filteredTests(specifier: options.testCaseSpecifier)
-                .skippedTests(specifier: skipSpecifier)
-            for (binaryPath, tests) in matchingTests where !tests.isEmpty {
-                productsWithSwiftTests.insert(binaryPath)
-            }
+            // Swift Testing handles filtering at runtime, so attach an LLDB target
+            // for every product that has Swift Testing enabled.
+            productsWithSwiftTests = Set(testProducts.map(\.binaryPath))
         }
 
         var targets = [DebuggableTestSession.Target]()
@@ -701,7 +659,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     ) async throws -> [String] {
         switch library {
         case .xctest:
-            let (xctestArgs, _, _) = try await xctestArgs(
+            let (xctestArgs, _) = try await xctestArgs(
                 for: [testProduct],
                 swiftCommandState: swiftCommandState,
                 buildSystem: buildSystem
@@ -1753,49 +1711,6 @@ fileprivate extension Array where Element == UnitTest {
                 }
             }
             return result
-        case .regex, .specific:
-            throw InternalError("Tests to filter should never have been passed here.")
-        }
-    }
-}
-
-fileprivate extension Dictionary where Key == AbsolutePath, Value == [String] {
-    /// Return Swift Testing test IDs matching the provided specifier.
-    func filteredTests(specifier: TestCaseSpecifier) throws -> [AbsolutePath: [String]] {
-        switch specifier {
-        case .none:
-            return self
-        case .regex(let patterns):
-            return self.mapValues { testIDs in
-                testIDs.filter { testID in
-                    patterns.contains { pattern in
-                        testID.range(of: pattern, options: .regularExpression) != nil
-                    }
-                }
-            }.filter { !$0.value.isEmpty }
-        case .specific(let name):
-            return self.mapValues { $0.filter { $0 == name } }
-                .filter { !$0.value.isEmpty }
-        case .skip:
-            throw InternalError("Tests to skip should never have been passed here.")
-        }
-    }
-
-    /// Skip Swift Testing test IDs matching the provided specifier.
-    func skippedTests(specifier: TestCaseSpecifier) throws -> [AbsolutePath: [String]] {
-        switch specifier {
-        case .none:
-            return self
-        case .skip(let skippedTests):
-            return self.mapValues { testIDs in
-                var result = testIDs
-                for skippedTest in skippedTests {
-                    result = result.filter {
-                        $0.range(of: skippedTest, options: .regularExpression) == nil
-                    }
-                }
-                return result
-            }.filter { !$0.value.isEmpty }
         case .regex, .specific:
             throw InternalError("Tests to filter should never have been passed here.")
         }

@@ -44,29 +44,28 @@ private func findWasmKit(sdkID: String) throws -> AbsolutePath? {
     return swiftSDK.toolset.knownTools[.debugger]?.path
 }
 
+@available(*, deprecated, message: "Use 'findCompilerAndSDKIDForTesting(for: .webassembly)' instead")
 private func findCompilerAndWebAssemblySDKIDForTesting() async throws -> (AbsolutePath, String)? {
-    try await findCompilerAndSDKIDForTesting { $0 == "wasm" }
-}
-
-extension Trait where Self == Testing.ConditionTrait {
-    static var requiresWebAssemblySwiftSDK: Self {
-        enabled("WebAssembly Swift SDK is not installed") {
-            try await findCompilerAndWebAssemblySDKIDForTesting() != nil
-        }
-    }
+    try await findCompilerAndSDKIDForTesting(for: .webassembly)
 }
 
 @Suite(
     .serialized,
     .tags(
-        Tag.Feature.Command.Build,
+        .TestSize.large,
+        .Feature.SDK.WebAssembly,
     )
 )
 private struct WebAssemblyIntegrationTests {
-    @Test(.requiresWebAssemblySwiftSDK)
+    @Test(
+        .requiresWebAssemblySwiftSDK,
+        .tags(
+            .Feature.Command.Build,
+        ),
+    )
     func basicSwiftExecutable() async throws {
         try await fixture(name: "WebAssembly/SwiftExecutable") { fixturePath in
-            let (compilerPath, sdkID) = try #require(try await findCompilerAndWebAssemblySDKIDForTesting())
+            let (compilerPath, sdkID) = try #require(try await findCompilerAndSDKIDForTesting(for: .webassembly))
 
             var env = Environment()
             env["SWIFT_EXEC"] = compilerPath.pathString
@@ -97,10 +96,16 @@ private struct WebAssemblyIntegrationTests {
         }
     }
 
-    @Test(.requiresWebAssemblySwiftSDK, arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .requiresWebAssemblySwiftSDK,
+        .tags(
+            .Feature.Command.Run,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func flagOverrides(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/FlagOverrides") { fixturePath in
-            let (compilerPath, sdkID) = try #require(try await findCompilerAndWebAssemblySDKIDForTesting())
+            let (compilerPath, sdkID) = try #require(try await findCompilerAndSDKIDForTesting(for: .webassembly))
 
             var env = Environment()
             env["SWIFT_EXEC"] = compilerPath.pathString
@@ -120,10 +125,16 @@ private struct WebAssemblyIntegrationTests {
         }
     }
 
-    @Test(.requiresWebAssemblySwiftSDK, arguments: SupportedBuildSystemOnAllPlatforms)
+    @Test(
+        .requiresWebAssemblySwiftSDK,
+        .tags(
+            .Feature.Command.Package.Plugin,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func flagOverridesCommandPlugin(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/FlagOverrides") { fixturePath in
-            let (compilerPath, sdkID) = try #require(try await findCompilerAndWebAssemblySDKIDForTesting())
+            let (compilerPath, sdkID) = try #require(try await findCompilerAndSDKIDForTesting(for: .webassembly))
 
             var env = Environment()
             env["SWIFT_EXEC"] = compilerPath.pathString
@@ -152,10 +163,15 @@ private struct WebAssemblyIntegrationTests {
         }
     }
 
-    @Test(.requiresWebAssemblySwiftSDK)
+    @Test(
+        .requiresWebAssemblySwiftSDK,
+        .tags(
+            .Feature.Command.Build,
+        ),
+    )
     func configuredSwiftSDKSearchPaths() async throws {
         try await fixture(name: "WebAssembly/ConfiguredSDKSearchPaths") { fixturePath in
-            let (compilerPath, sdkID) = try #require(try await findCompilerAndWebAssemblySDKIDForTesting())
+            let (compilerPath, sdkID) = try #require(try await findCompilerAndSDKIDForTesting(for: .webassembly))
 
             var env = Environment()
             env["SWIFT_EXEC"] = compilerPath.pathString

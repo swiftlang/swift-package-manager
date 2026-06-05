@@ -387,6 +387,46 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    /// Verifies that operations that the git-backed `FileSystem` view cannot
+    /// support throw rather than crashing the process. Regression test for the
+    /// `fatalError` chain inside `GitFileSystemView` — see rdar://177668882,
+    /// where a remote package manifest containing `.package(path: "~/...")`
+    /// crashed Xcode because `homeDirectory` aborted instead of throwing.
+    func testGitFileViewUnsupportedOperationsThrow() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
+        try await testWithTemporaryDirectory { path in
+            let testRepoPath = path.appending("test-repo")
+            try localFileSystem.createDirectory(testRepoPath)
+            initGitRepo(testRepoPath, tag: "test-tag")
+
+            let testClonePath = path.appending("clone")
+            let provider = GitRepositoryProvider()
+            let repoSpec = RepositorySpecifier(path: testRepoPath)
+            try await provider.fetch(repository: repoSpec, to: testClonePath)
+            let repository = provider.open(repository: repoSpec, at: testClonePath)
+            let view = try repository.openFileView(revision: repository.resolveRevision(tag: "test-tag"))
+
+            // `homeDirectory` and `tempDirectory` are now `get throws`.
+            XCTAssertThrowsError(try view.homeDirectory) { error in
+                XCTAssertEqual((error as? FileSystemError)?.kind, .unsupported)
+            }
+            XCTAssertThrowsError(try view.tempDirectory) { error in
+                XCTAssertEqual((error as? FileSystemError)?.kind, .unsupported)
+            }
+
+            // `cachesDirectory` is optional; absence is signalled with `nil`.
+            XCTAssertNil(view.cachesDirectory)
+
+            // `copy` and `move` previously fatal-errored; they now throw.
+            XCTAssertThrowsError(try view.copy(from: AbsolutePath("/a"), to: AbsolutePath("/b"))) { error in
+                XCTAssertEqual((error as? FileSystemError)?.kind, .unsupported)
+            }
+            XCTAssertThrowsError(try view.move(from: AbsolutePath("/a"), to: AbsolutePath("/b"))) { error in
+                XCTAssertEqual((error as? FileSystemError)?.kind, .unsupported)
+            }
+        }
+    }
+
     /// Test the handling of local checkouts.
     func testCheckouts() async throws {
         try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)

@@ -13,6 +13,14 @@
 
 set -e
 
+
+# This script is not necessarily always run in a Docker container; add sudo if needed
+if command -v sudo &> /dev/null && [ "$EUID" -ne 0 ] ; then
+    sudo=sudo
+else
+    sudo=
+fi
+
 if [[ $(uname) == Darwin ]] ; then
     if [[ "$INSTALL_CMAKE" == "1" ]] ; then
         mkdir -p "$RUNNER_TOOL_CACHE"
@@ -35,16 +43,16 @@ if [[ $(uname) == Darwin ]] ; then
 elif command -v apt-get >/dev/null 2>&1 ; then # bookworm, noble, jammy
     export DEBIAN_FRONTEND=noninteractive
 
-    apt-get update -y
+    $sudo apt-get update -y
 
     # Build dependencies
-    apt-get install -y libsqlite3-dev libncurses-dev
+    $sudo apt-get install -y libsqlite3-dev libncurses-dev
 
     # Debug symbols
-    apt-get install -y libc6-dbg
+    $sudo apt-get install -y libc6-dbg
 
     if [[ "$INSTALL_CMAKE" == "1" ]] ; then
-        apt-get install -y cmake ninja-build
+        $sudo apt-get install -y cmake ninja-build
     fi
 
     # Android NDK
@@ -56,7 +64,7 @@ elif command -v apt-get >/dev/null 2>&1 ; then # bookworm, noble, jammy
                 : # Not available
                 ;;
             noble)
-                apt-get install -y google-android-ndk-r26c-installer
+                $sudo apt-get install -y google-android-ndk-r26c-installer
                 ;;
             *)
                 echo "Unable to fetch Android NDK for unknown Linux distribution: $VERSION_CODENAME" >&2
@@ -66,20 +74,20 @@ elif command -v apt-get >/dev/null 2>&1 ; then # bookworm, noble, jammy
         echo "Skipping Android NDK installation on $dpkg_architecture" >&2
     fi
 elif command -v dnf >/dev/null 2>&1 ; then # rhel-ubi9
-    dnf update -y
+    $sudo dnf update -y
 
     # Build dependencies
-    dnf install -y sqlite-devel ncurses-devel
+    $sudo dnf install -y sqlite-devel ncurses-devel
 
     # Debug symbols
-    dnf debuginfo-install -y glibc
+    $sudo dnf debuginfo-install -y glibc
 elif command -v yum >/dev/null 2>&1 ; then # amazonlinux2
-    yum update -y
+    $sudo yum update -y
 
     # Build dependencies
-    yum install -y sqlite-devel ncurses-devel
+    $sudo yum install -y sqlite-devel ncurses-devel
 
     # Debug symbols
-    yum install -y yum-utils
-    debuginfo-install -y glibc
+    $sudo yum install -y yum-utils
+    $sudo debuginfo-install -y glibc
 fi

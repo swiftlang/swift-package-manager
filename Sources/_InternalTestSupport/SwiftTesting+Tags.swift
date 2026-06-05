@@ -51,6 +51,7 @@ extension Tag.Feature {
     public enum ProductType {}
     public enum TargetType {}
     public enum Product {}
+    public enum SDK {}
 
     @Tag public static var BuildCache: Tag
     @Tag public static var CodeCoverage: Tag
@@ -72,6 +73,11 @@ extension Tag.Feature {
     @Tag public static var TaskBacktraces: Tag
 }
 
+extension Tag.Feature.SDK {
+    @Tag public static var StaticLinux: Tag
+    @Tag public static var Android: Tag
+    @Tag public static var WebAssembly: Tag
+}
 extension Tag.Feature.Command {
     public enum Package {}
     public enum PackageRegistry {}

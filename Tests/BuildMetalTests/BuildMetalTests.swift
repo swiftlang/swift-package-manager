@@ -28,7 +28,7 @@ import Metal
 struct BuildMetalTests {
 
     @Test(
-        .disabled("Require downloadable Metal toolchain"),
+        .disabled("https://github.com/swiftlang/swift-package-manager/issues/9443: Require downloadable Metal toolchain"),
         .tags(
             .TestSize.large,
         ),
