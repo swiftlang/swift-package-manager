@@ -719,10 +719,14 @@ extension PackageGraph.ResolvedModule {
                     singleValueSetting = nil
                     multipleValueSetting = .OTHER_LDFLAGS
                     values = settingAssignment.values.map { "-l\($0)" }
-                case .HEADER_SEARCH_PATHS:
+                case .HEADER_SEARCH_PATHS, .PUBLIC_HEADER_PATHS:
                     singleValueSetting = nil
                     multipleValueSetting = .HEADER_SEARCH_PATHS
                     values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
+                case .SWIFT_BRIDGING_HEADER:
+                    singleValueSetting = .SWIFT_OBJC_BRIDGING_HEADER
+                    multipleValueSetting = nil
+                    values = [self.sourceDirAbsolutePath.pathString + "/" + settingAssignment.values[0]]
                 case .PREBUILT_INCLUDE_PATHS:
                     singleValueSetting = nil
                     multipleValueSetting = .OTHER_SWIFT_FLAGS
@@ -782,7 +786,7 @@ extension PackageGraph.ResolvedModule {
                     // TODO: Doing that for the PREBUILT_LIBRARIES was causing duplicate library warnings.
                     if let multipleValueSetting = multipleValueSetting,
                         declaration != .PREBUILT_LIBRARIES,
-                        (multipleValueSetting == .OTHER_LDFLAGS || declaration == .PREBUILT_INCLUDE_PATHS) {
+                        (multipleValueSetting == .OTHER_LDFLAGS || declaration == .PUBLIC_HEADER_PATHS || declaration == .PREBUILT_INCLUDE_PATHS) {
                         allSettings.impartedMultipleValueSettings[pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
                     }
 
@@ -793,6 +797,18 @@ extension PackageGraph.ResolvedModule {
                         } else if let singleValueSetting = singleValueSetting, let singleValue = values.only {
                             // Handle single value settings
                             allSettings.targetSingleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][singleValueSetting] = singleValue
+
+                            if declaration == .SWIFT_BRIDGING_HEADER {
+                                // public or internal
+                                switch settingAssignment.values[1] {
+                                case "public":
+                                    allSettings.targetSingleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][.SWIFT_BRIDGING_HEADER_IS_INTERNAL] = "NO"
+                                case "internal":
+                                    allSettings.targetSingleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][.SWIFT_BRIDGING_HEADER_IS_INTERNAL] = "YES"
+                                default:
+                                    break
+                                }
+                            }
                         }
                     }
                 }
@@ -1409,3 +1425,12 @@ extension UserDefaults {
     }
 }
 
+extension PluginModule {
+    func outputDirectory(pluginWorkingDirectory: AbsolutePath, package: ResolvedPackage) -> AbsolutePath {
+        pluginWorkingDirectory.appending(components: [
+            "packages",
+            package.identity.description,
+            self.name
+        ])
+    }
+}

@@ -1681,6 +1681,21 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         var modules = products.reduce(into: IdentifiableSet()) { $0.formUnion($1.modules) }
         try modules.formUnion(self.modules.map { try $0.construct() })
 
+        let pluginUsages = try self.package.pluginUsages.map { dependency -> ResolvedModule.Dependency in
+            switch dependency {
+            case .module(let module, let conditions):
+                guard let moduleBuilder = self.modules.first(where: { $0.module.name == module.name }), moduleBuilder.module.type == .plugin else {
+                    throw InternalError("module builder for plugin \(module.name) not found")
+                }
+                return try .module(moduleBuilder.construct(), conditions: conditions)
+            case .product(let product, let conditions):
+                guard let productBuilder = self.products.first(where: { $0.product.name == product.name }), productBuilder.product.type == .plugin else {
+                    throw InternalError("product builder for plugin \(product.name) not found")
+                }
+                return try .product(productBuilder.construct(), conditions: conditions)
+            }
+        }
+
         return ResolvedPackage(
             underlying: self.package,
             defaultLocalization: self.defaultLocalization,
@@ -1689,6 +1704,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
             enabledTraits: self.enabledTraits.names,
             modules: modules,
             products: products,
+            pluginUsages: pluginUsages,
             registryMetadata: self.registryMetadata,
             platformVersionProvider: self.platformVersionProvider
         )

@@ -48,7 +48,6 @@ public final class BinaryModule: Module {
             packageAccess: false,
             buildSettings: .init(),
             buildSettingsDescription: [],
-            pluginUsages: [],
             usesUnsafeFlags: false,
             implicit: false
         )

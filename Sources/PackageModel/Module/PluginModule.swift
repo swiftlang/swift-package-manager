@@ -44,7 +44,6 @@ public final class PluginModule: Module {
             packageAccess: packageAccess,
             buildSettings: .init(),
             buildSettingsDescription: [],
-            pluginUsages: [],
             usesUnsafeFlags: false,
             implicit: false
         )
@@ -53,12 +52,15 @@ public final class PluginModule: Module {
 
 public enum PluginCapability: Hashable {
     case buildTool
+    case externalBuilder
     case command(intent: PluginCommandIntent, permissions: [PluginPermission])
 
     public init(from desc: TargetDescription.PluginCapability) {
         switch desc {
         case .buildTool:
             self = .buildTool
+        case .externalBuilder:
+            self = .externalBuilder
         case .command(let intent, let permissions):
             self = .command(intent: .init(from: intent), permissions: permissions.map{ .init(from: $0) })
         }

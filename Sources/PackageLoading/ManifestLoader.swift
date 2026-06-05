@@ -381,6 +381,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             products: products,
             targets: targets,
             traits: parsedManifest.traits,
+            pluginUsages: parsedManifest.pluginUsages,
             pruneDependencies: self.pruneDependencies
         )
 
@@ -726,6 +727,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 "-Xlinker", "-rpath", "-Xlinker", runtimePath.parentDirectory.pathString,
             ]
 
+            // If not in the PackageFrameworks directory, need the swiftmodule that's in the same directory
+            if runtimePath.parentDirectory.basename != "PackageFrameworks" {
+                cmd += ["-I", runtimePath.parentDirectory.pathString]
+            }
+
             // Explicitly link `AppleProductTypes` since auto-linking won't work here.
 #if ENABLE_APPLE_PRODUCT_TYPES
             cmd += ["-framework", "AppleProductTypes"]
@@ -957,7 +963,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
         if modulesPath.extension == "framework" {
-            cmd += ["-I", modulesPath.parentDirectory.parentDirectory.pathString]
+            cmd += ["-F", modulesPath.parentDirectory.parentDirectory.pathString]
+
+            // If not in the PackageFrameworks directory, need the swiftmodule that's in the same directory
+            if modulesPath.parentDirectory.basename != "PackageFrameworks" {
+                cmd += ["-I", modulesPath.parentDirectory.pathString]
+            }
         } else {
             cmd += ["-I", modulesPath.pathString]
         }

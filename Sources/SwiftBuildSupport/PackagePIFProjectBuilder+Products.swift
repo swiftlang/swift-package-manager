@@ -1026,6 +1026,8 @@ extension PackagePIFProjectBuilder {
                 switch pluginTarget.capability {
                 case .buildTool:
                     return .buildToolPlugin
+                case .externalBuilder:
+                    return .externalBuilderPlugin
                 case .command:
                     return .commandPlugin
                 }

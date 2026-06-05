@@ -577,6 +577,7 @@ extension Workspace {
                 products: manifest.products,
                 targets: manifest.targets,
                 traits: manifest.traits,
+                pluginUsages: manifest.pluginUsages,
                 pruneDependencies: manifest.pruneDependencies
             )
         }

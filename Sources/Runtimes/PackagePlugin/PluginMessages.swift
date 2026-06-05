@@ -39,6 +39,14 @@ enum HostToPluginMessage: Codable {
     /// The host requests that the plugin perform a user command (corresponding to a `.command` capability) on a package in the graph.
     case performXcodeProjectCommand(context: InputContext, rootProjectId: InputContext.XcodeProject.Id, arguments: [String])
 
+    case externalBuild(
+        context: InputContext,
+        rootPackageId: InputContext.Package.Id,
+        arguments: [String],
+        triple: String,
+        sdkPath: URL?
+    )
+
         struct InputContext: Codable {
             let paths: [URL]
             let targets: [Target]

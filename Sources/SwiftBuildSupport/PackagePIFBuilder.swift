@@ -207,6 +207,8 @@ public final class PackagePIFBuilder {
 
     let pkgConfigDirectories: [AbsolutePath]
 
+    let pluginWorkingDirectory: AbsolutePath
+
     /// The file system to read from.
     let fileSystem: FileSystem
 
@@ -236,6 +238,7 @@ public final class PackagePIFBuilder {
         addLocalRpaths: AddLocalRpaths = .always,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
+        pluginWorkingDirectory: AbsolutePath,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -249,6 +252,7 @@ public final class PackagePIFBuilder {
         self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.pluginWorkingDirectory = pluginWorkingDirectory
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.addLocalRpaths = addLocalRpaths
@@ -266,6 +270,7 @@ public final class PackagePIFBuilder {
         addLocalRpaths: AddLocalRpaths = .always,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
+        pluginWorkingDirectory: AbsolutePath,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -280,6 +285,7 @@ public final class PackagePIFBuilder {
         self.addLocalRpaths = addLocalRpaths
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.pluginWorkingDirectory = pluginWorkingDirectory
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
     }
@@ -435,6 +441,7 @@ public final class PackagePIFBuilder {
         case packageProduct
         case commandPlugin
         case buildToolPlugin
+        case externalBuilderPlugin
 
         // Modules.
         case module

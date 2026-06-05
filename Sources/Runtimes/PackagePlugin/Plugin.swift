@@ -397,6 +397,50 @@ extension Plugin {
             // Exit with a zero exit code to indicate success.
             exit(0)
 
+        case .externalBuild(let wireInput, let rootPackageId, let arguments, let triple, let sdkPath):
+            // Deserialize the context from the wire input structures. The root
+            // package is the one we'll set the context's `package` property to.
+            let context: PluginContext
+            do {
+                var deserializer = PluginContextDeserializer(wireInput)
+                let package = try deserializer.package(for: rootPackageId)
+                let pluginWorkDirectory = try deserializer.url(for: wireInput.pluginWorkDirId)
+                let toolSearchDirectories = try wireInput.toolSearchDirIds.map {
+                    try deserializer.url(for: $0)
+                }
+                let accessibleTools = try wireInput.accessibleTools.mapValues { (tool: HostToPluginMessage.InputContext.Tool) -> (URL, [String]?) in
+                    let path = try deserializer.url(for: tool.path)
+                    return (path, tool.triples)
+                }
+                context = try PluginContext(
+                    package: package,
+                    pluginWorkDirectory: Path(url: pluginWorkDirectory),
+                    pluginWorkDirectoryURL: pluginWorkDirectory,
+                    accessibleTools: accessibleTools,
+                    toolSearchDirectories: toolSearchDirectories.map { try Path(url: $0) },
+                    toolSearchDirectoryURLs: toolSearchDirectories)
+            }
+            catch {
+                internalError("Couldn’t deserialize input from host: \(error).")
+            }
+
+            let plugin = self.init()
+
+            guard let plugin = plugin as? ExternalBuilderPlugin else {
+                internalError("Wrong plugin type")
+            }
+
+            try await plugin.build(
+                context: context,
+                arguments: arguments,
+                buildContext: .init(
+                    triple: triple,
+                    sdkPath: sdkPath
+                )
+            )
+
+            exit(0)
+
         default:
             internalError("unexpected top-level message \(message)")
         }
