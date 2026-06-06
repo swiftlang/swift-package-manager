@@ -420,9 +420,17 @@ public final class SwiftModuleBuildDescription {
                 #"Bundle.main.bundleURL.appendingPathComponent("\#(bundlePath.basename.asSwiftStringLiteralConstant)").path"#
         }
 
+        // Emit an explicit access level on the Foundation import if
+        // access-level-on-import is part of the language mode (>= 6.0).
+        //
+        // Without this, targets that use access levels on imports will fail to compile.
+        let foundationImport = self.toolsVersion >= .v6_0
+            ? "public import Foundation"
+            : "import Foundation"
+
         let content =
             """
-            import Foundation
+            \(foundationImport)
 
             extension Foundation.Bundle {
                 static nonisolated let module: Bundle = {
