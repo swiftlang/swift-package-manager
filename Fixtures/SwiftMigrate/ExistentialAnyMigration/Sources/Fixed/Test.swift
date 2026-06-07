@@ -10,7 +10,7 @@ func test2(_: (any P).Protocol) {
 }
 
 func test3() {
-    let _: [(any P)?] = []
+    let _: [any P?] = []
 }
 
 func test4() {
