@@ -134,7 +134,9 @@ private struct GitShellHelper {
         }
         do {
             // DO NOT add --all here. See documentation above for why.
-            return try self.run(["-C", path.pathString, "lfs", "fetch"])
+            // Address the bare repository explicitly via `--git-dir` (rather than discovery
+            // with `-C`) so this keeps working under `safe.bareRepository=explicit`.
+            return try self.run(gitLocationArguments(path.pathString, bare: true) + ["lfs", "fetch"])
         } catch let error as CancellationError {
             throw error
         } catch {
@@ -191,6 +193,16 @@ internal func gitNetworkTimeoutOverrides(environment: Environment) -> [String] {
         "-c", "http.lowSpeedLimit=\(GitNetworkTimeoutDefaults.lowSpeedLimitBytesPerSecond)",
         "-c", "http.lowSpeedTime=\(GitNetworkTimeoutDefaults.lowSpeedTimeSeconds)",
     ]
+}
+
+/// Builds the leading `git` arguments that point at a repository on disk.
+///
+/// A working tree is addressed with `-C`, letting git discover the working tree and its `.git`
+/// directory. A bare repository keeps the same `-C` working directory but *also* names the git
+/// directory explicitly via `--git-dir` rather than relying on discovery. This keeps SwiftPM
+/// working under `safe.bareRepository=explicit`.
+internal func gitLocationArguments(_ path: String, bare: Bool) -> [String] {
+    bare ? ["-C", path, "--git-dir", path] : ["-C", path]
 }
 
 // MARK: - GitRepositoryProvider
@@ -321,12 +333,44 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     }
 
     public func isValidDirectory(_ directory: Basics.AbsolutePath) throws -> Bool {
-        let result = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
-        return result == ".git" || result == "." || result == directory.pathString
+        // A working tree is found via discovery (`-C`). A bare repository is refused by
+        // discovery when the user sets `safe.bareRepository=explicit`, so fall back to
+        // addressing the directory as an explicit git directory, which that setting permits.
+        do {
+            let result = try self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
+            return result == ".git" || result == "." || result == directory.pathString
+        } catch let error as GitShellError {
+            let isBareRepository: String
+            do {
+                isBareRepository = try self.git.run(
+                    gitLocationArguments(directory.pathString, bare: true) + ["rev-parse", "--is-bare-repository"]
+                )
+            } catch is GitShellError {
+                throw error
+            }
+            if isBareRepository == "true" {
+                return true
+            }
+            throw error
+        }
     }
 
     public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
-        let remoteURL = try self.git.run(["-C", directory.pathString, "config", "--get", "remote.origin.url"])
+        let remoteURL: String
+        do {
+            remoteURL = try self.git.run(["-C", directory.pathString, "config", "--get", "remote.origin.url"])
+        } catch let error as GitShellError {
+            // Discovery is refused for a bare repository under `safe.bareRepository=explicit`,
+            // so git exits non-zero without reading the config; re-read it with the directory
+            // named as an explicit git directory.
+            do {
+                remoteURL = try self.git.run(
+                    gitLocationArguments(directory.pathString, bare: true) + ["config", "--get", "remote.origin.url"]
+                )
+            } catch is GitShellError {
+                throw error
+            }
+        }
         return CanonicalPackageURL(remoteURL) == CanonicalPackageURL(repository.url)
     }
 
@@ -550,6 +594,11 @@ public final class GitRepository: Repository, WorkingCheckout {
         }())
     }
 
+    /// The arguments that point `git` at this repository. See `gitLocationArguments`.
+    private var repositoryLocationArguments: [String] {
+        gitLocationArguments(self.path.pathString, bare: !self.isWorkingRepo)
+    }
+
     /// Private function to invoke the Git tool with its default environment and given set of arguments, specifying the
     /// path of the repository as the one to operate on.  The specified failure message is used only in case of error.
     /// This function waits for the invocation to finish and returns the output as a string.
@@ -570,7 +619,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                     gitFetchStatusFilter($0, progress: progress)
                 })
                 return try self.git.run(
-                    ["-C", self.path.pathString] + args,
+                    self.repositoryLocationArguments + args,
                     environment: environment,
                     outputRedirection: outputHandler
                 )
@@ -585,7 +634,7 @@ public final class GitRepository: Repository, WorkingCheckout {
             }
         } else {
             do {
-                return try self.git.run(["-C", self.path.pathString] + args, environment: environment)
+                return try self.git.run(self.repositoryLocationArguments + args, environment: environment)
             } catch let error as GitShellError {
                 throw GitRepositoryError(path: self.path, message: failureMessage, result: error.result)
             }
@@ -996,7 +1045,7 @@ public final class GitRepository: Repository, WorkingCheckout {
 
             let output: String
             do {
-                output = try self.git.run(["-C", self.path.pathString, "check-ignore"] + stringPaths)
+                output = try self.git.run(self.repositoryLocationArguments + ["check-ignore"] + stringPaths)
             } catch let error as GitShellError {
                 guard error.result.exitStatus == .terminated(code: 1) else {
                     throw GitRepositoryError(
