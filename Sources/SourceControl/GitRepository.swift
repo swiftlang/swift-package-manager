@@ -859,8 +859,14 @@ public final class GitRepository: Repository, WorkingCheckout {
         // may need to take a little more care here.
         // use barrier for write operations
         try self.lock.withLock {
+            // `-q` suppresses git's detached-HEAD "orphaned commit" advisory. Beyond silencing
+            // noise, that advisory walks every ref to compute reachability, which aborts the
+            // checkout with `fatal: bad object <ref>` if any remote-tracking ref is left dangling
+            // (e.g. an upstream branch was deleted and its tip was pruned from the shared object
+            // store).
             try callGit(
                 "checkout",
+                "-q",
                 "-f",
                 revision.identifier,
                 failureMessage: "Couldn’t check out revision ‘\(revision.identifier)’"

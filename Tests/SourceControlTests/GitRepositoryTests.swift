@@ -535,6 +535,65 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    func testCheckoutToleratesDanglingRemoteTrackingRef() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
+        try await testWithTemporaryDirectory { path in
+            // Build an upstream repo with two release tags plus a "feature" branch whose tip
+            // commit is unique to that branch, so the tip becomes unreachable once the branch
+            // is deleted.
+            let originPath = path.appending("origin")
+            try makeDirectories(originPath)
+            initGitRepo(originPath, tag: "1.0.0")
+            let origin = GitRepository(path: originPath)
+            let defaultBranch = try origin.currentBranch()
+
+            try localFileSystem.writeFileContents(originPath.appending("release.txt"), bytes: "release")
+            try origin.stage(file: "release.txt")
+            try origin.commit()
+            try origin.tag(name: "1.1.0")
+
+            try await AsyncProcess.checkNonZeroExit(args: Git.tool, "-C", originPath.pathString, "checkout", "-b", "feature")
+            try localFileSystem.writeFileContents(originPath.appending("feature.txt"), bytes: "feature")
+            try origin.stage(file: "feature.txt")
+            try origin.commit()
+            let featureTip = try origin.getCurrentRevision()
+            try await AsyncProcess.checkNonZeroExit(args: Git.tool, "-C", originPath.pathString, "checkout", defaultBranch)
+
+            // Fetch into the cache as a bare mirror, exactly as SwiftPM does.
+            let provider = GitRepositoryProvider()
+            let repoSpec = RepositorySpecifier(path: originPath)
+            let mirrorPath = path.appending("mirror")
+            try await provider.fetch(repository: repoSpec, to: mirrorPath)
+
+            // Create a working copy that shares the mirror's object store while the feature
+            // branch still exists, then resolve it to a tag so HEAD is detached. This mirrors a
+            // working copy that has already been resolved to a version.
+            let checkoutPath = path.appending("checkout")
+            let workingCopy = try await provider.createWorkingCopy(
+                repository: repoSpec,
+                sourcePath: mirrorPath,
+                at: checkoutPath,
+                editable: false
+            )
+            try workingCopy.checkout(revision: try origin.resolveRevision(tag: "1.1.0"))
+
+            // Upstream deletes the feature branch; the mirror prunes the ref and garbage
+            // collects the now-unreachable tip commit. The working copy is left holding a
+            // dangling refs/remotes/origin/feature that points at a missing object.
+            try await AsyncProcess.checkNonZeroExit(args: Git.tool, "-C", mirrorPath.pathString, "update-ref", "-d", "refs/heads/feature")
+            try await AsyncProcess.checkNonZeroExit(args: Git.tool, "-C", mirrorPath.pathString, "reflog", "expire", "--all", "--expire=now")
+            try await AsyncProcess.checkNonZeroExit(args: Git.tool, "-C", mirrorPath.pathString, "gc", "--prune=now")
+            XCTAssertFalse(workingCopy.exists(revision: featureTip), "test setup: feature tip should be unreachable")
+
+            // Re-resolving to a different tag must still succeed. Previously this failed with
+            // "fatal: bad object refs/remotes/origin/feature" because git's detached-HEAD
+            // orphan-commit check walks every ref, including the dangling one.
+            let v100 = try origin.resolveRevision(tag: "1.0.0")
+            try workingCopy.checkout(revision: v100)
+            XCTAssertEqual(try workingCopy.getCurrentRevision(), v100)
+        }
+    }
+
     func testHasUnpushedCommits() async throws {
         try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
         try await testWithTemporaryDirectory { path in
