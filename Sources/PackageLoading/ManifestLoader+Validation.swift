@@ -151,8 +151,15 @@ public struct ManifestValidator {
     private func validateDependencies() -> [Basics.Diagnostic] {
         var diagnostics = [Basics.Diagnostic]()
 
-        // validate dependency requirements
-        let duplicateIdentities = self.manifest.dependencies.map({ $0.identity }).spm_findDuplicates()
+        // Warn about dependencies declared more than once with the same location. Dependencies that
+        // share an identity but point to different locations are a conflict reported during graph
+        // loading, not a duplicate, so they are keyed by location to avoid a misleading warning.
+        let duplicateIdentities = Set(
+            self.manifest.dependencies
+                .map { DependencyLocationKey(identity: $0.identity, location: $0.locationStringForValidation) }
+                .spm_findDuplicates()
+                .map(\.identity)
+        )
         for identity in duplicateIdentities {
             diagnostics.append(.duplicatePackageDependency(identity: identity))
         }
@@ -413,7 +420,28 @@ extension TargetDescription {
     fileprivate var isLocal: Bool { path != nil }
 }
 
+private struct DependencyLocationKey: Hashable {
+    let identity: PackageIdentity
+    let location: String
+}
+
 extension PackageDependency {
+    fileprivate var locationStringForValidation: String {
+        switch self {
+        case .fileSystem(let settings):
+            return settings.path.pathString
+        case .sourceControl(let settings):
+            switch settings.location {
+            case .local(let path):
+                return path.pathString
+            case .remote(let url):
+                return url.absoluteString
+            }
+        case .registry(let settings):
+            return settings.identity.description
+        }
+    }
+
     fileprivate var descriptionForValidation: String {
         var description = "'\(self.nameForModuleDependencyResolutionOnly)'"
 
