@@ -19,6 +19,7 @@ import struct Dispatch.DispatchTime
 import enum PackageGraph.PackageRequirement
 import class PackageGraph.ResolvedPackagesStore
 import struct PackageModel.PackageReference
+import struct SourceControl.RepositorySpecifier
 import struct SourceControl.Revision
 import struct TSCUtility.Version
 
@@ -42,6 +43,34 @@ extension Workspace {
     ) async throws -> AbsolutePath {
         let repository = try package.makeRepositorySpecifier()
 
+        // If the checkout fails because the local object store is incomplete or corrupt, 
+        // `withObjectStoreRecovery` purges the repository and re-fetches from its origin;
+        // `beforeRetry` discards the now-stale working copy so the retry re-clones it from
+        // the re-fetched repository.
+        return try await self.repositoryManager.withObjectStoreRecovery(
+            repository: repository,
+            observabilityScope: observabilityScope,
+            beforeRetry: {
+                let checkoutPath = self.location.repositoriesCheckoutsDirectory.appending(component: repository.basename)
+                try? self.fileSystem.chmod(.userWritable, path: checkoutPath, options: [.recursive, .onlyFiles])
+                try self.fileSystem.removeFileTree(checkoutPath)
+            }
+        ) {
+            try await self.fetchAndCheckoutRepository(
+                package: package,
+                repository: repository,
+                at: checkoutState,
+                observabilityScope: observabilityScope
+            )
+        }
+    }
+
+    private func fetchAndCheckoutRepository(
+        package: PackageReference,
+        repository: SourceControl.RepositorySpecifier,
+        at checkoutState: CheckoutState,
+        observabilityScope: ObservabilityScope
+    ) async throws -> AbsolutePath {
         // first fetch the repository
         let checkoutPath = try await self.fetchRepository(
             package: package,
