@@ -38,6 +38,7 @@ import struct PackageModel.Platform
 import struct PackageModel.PlatformDescription
 import struct PackageModel.PlatformRegistry
 import struct PackageModel.PlatformsCondition
+import struct PackageModel.PlatformVersion
 import class PackageModel.PluginModule
 import class PackageModel.Product
 import enum PackageModel.ProductType
@@ -460,7 +461,7 @@ extension PackageGraph.ResolvedModule {
                 iOSVersion: iOSDeploymentTarget
             )
 
-            if let mappedVersion {
+            if let mappedVersion, PlatformVersion(mappedVersion) >= targetPlatform.oldestSupportedVersion {
                 deploymentTargets[targetPlatform] = mappedVersion
             }
         }
