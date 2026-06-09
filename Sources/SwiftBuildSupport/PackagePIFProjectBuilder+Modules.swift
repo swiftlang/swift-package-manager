@@ -639,11 +639,13 @@ extension PackagePIFProjectBuilder {
         //
         // Symlinks should be resolved externally.
         var indexableFileURLs: [SourceControlURL] = []
+        var sourceFileGroup = self.project.mainGroup[keyPath: targetSourceFileGroupKeyPath]
+        var moduleTargetForSources = self.project[keyPath: sourceModuleTargetKeyPath]
         for sourcePath in sourceModule.sourceFileRelativePaths {
-            let sourceFileRef = self.project.mainGroup[keyPath: targetSourceFileGroupKeyPath].addFileReference { id in
+            let sourceFileRef = sourceFileGroup.addFileReference { id in
                 FileReference(id: id, path: sourcePath.pathString, pathBase: .groupDir)
             }
-            self.project[keyPath: sourceModuleTargetKeyPath].addSourceFile { id in
+            moduleTargetForSources.addSourceFile { id in
                 BuildFile(id: id, fileRef: sourceFileRef)
             }
             indexableFileURLs.append(
@@ -663,12 +665,12 @@ extension PackagePIFProjectBuilder {
         // a build setting to instruct it to use project visible header files. In the future
         // it may be possible to add public header files with public header visibility.
         for headerPath in headerFiles {
-            let headerFileRef = self.project.mainGroup[keyPath: targetSourceFileGroupKeyPath]
+            let headerFileRef = sourceFileGroup
                 .addFileReference { id in
                     FileReference(id: id, path: headerPath.pathString, pathBase: .absolute)
                 }
 
-            self.project[keyPath: sourceModuleTargetKeyPath].common.withHeadersBuildPhase { phase in
+            moduleTargetForSources.common.withHeadersBuildPhase { phase in
                 phase.common.addBuildFile { id in
                     BuildFile(id: id, fileRef: headerFileRef)
                     // headerVisibility: nil (omitted) = "project" visibility
@@ -680,14 +682,16 @@ extension PackagePIFProjectBuilder {
 
         // Add any additional source files emitted by custom build commands.
         for path in generatedFiles.sources {
-            let sourceFileRef = self.project.mainGroup[keyPath: targetSourceFileGroupKeyPath].addFileReference { id in
+            let sourceFileRef = sourceFileGroup.addFileReference { id in
                 FileReference(id: id, path: path.pathString, pathBase: .absolute)
             }
-            self.project[keyPath: sourceModuleTargetKeyPath].addSourceFile { id in
+            moduleTargetForSources.addSourceFile { id in
                 BuildFile(id: id, fileRef: sourceFileRef)
             }
             log(.debug, indent: 2, "Added generated source file '\(path)'")
         }
+        self.project.mainGroup[keyPath: targetSourceFileGroupKeyPath] = sourceFileGroup
+        self.project[keyPath: sourceModuleTargetKeyPath] = moduleTargetForSources
 
         if let resourceBundle = resourceBundleName {
             impartedSettings[.EMBED_PACKAGE_RESOURCE_BUNDLE_NAMES] = ["$(inherited)", resourceBundle]
@@ -726,6 +730,7 @@ extension PackagePIFProjectBuilder {
 
         // Handle the target's dependencies (but only link against them if needed).
         let shouldLinkProduct = (desiredModuleType == .dynamicLibrary) || (desiredModuleType == .macro)
+        var moduleTarget = self.project[keyPath: sourceModuleTargetKeyPath]
         sourceModule.recursivelyTraverseDependencies { dependency in
             switch dependency {
             case .module(let moduleDependency, let packageConditions):
@@ -744,7 +749,7 @@ extension PackagePIFProjectBuilder {
                     if let product = moduleDependency
                         .productRepresentingDependencyOfBuildPlugin(in: moduleMainProducts)
                     {
-                        self.project[keyPath: sourceModuleTargetKeyPath].common.addDependency(
+                        moduleTarget.common.addDependency(
                             on: product.pifTargetGUID,
                             platformFilters: dependencyPlatformFilters,
                             linkProduct: false
@@ -767,7 +772,7 @@ extension PackagePIFProjectBuilder {
                         return Self.createBinaryModuleFileReference(binaryModule, id: id)
                     }
                     if shouldLinkProduct {
-                        self.project[keyPath: sourceModuleTargetKeyPath].addLibrary { id in
+                        moduleTarget.addLibrary { id in
                             BuildFile(
                                 id: id,
                                 fileRef: binaryReference,
@@ -779,7 +784,7 @@ extension PackagePIFProjectBuilder {
                     } else {
                         // If we are producing a single ".o", don't link binaries since they
                         // could be static which would cause them to become part of the ".o".
-                        self.project[keyPath: sourceModuleTargetKeyPath].addResourceFile { id in
+                        moduleTarget.addResourceFile { id in
                             BuildFile(
                                 id: id,
                                 fileRef: binaryReference,
@@ -791,7 +796,7 @@ extension PackagePIFProjectBuilder {
 
                 case .plugin:
                     let dependencyGUID = moduleDependency.pifTargetGUID
-                    self.project[keyPath: sourceModuleTargetKeyPath].common.addDependency(
+                    moduleTarget.common.addDependency(
                         on: dependencyGUID,
                         platformFilters: dependencyPlatformFilters,
                         linkProduct: false
@@ -799,7 +804,7 @@ extension PackagePIFProjectBuilder {
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyGUID)'")
 
                 case .library, .test, .macro, .systemModule:
-                    self.project[keyPath: sourceModuleTargetKeyPath].common.addDependency(
+                    moduleTarget.common.addDependency(
                         on: moduleDependency.pifTargetGUID,
                         platformFilters: dependencyPlatformFilters,
                         linkProduct: shouldLinkProduct
@@ -825,7 +830,7 @@ extension PackagePIFProjectBuilder {
                         .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
                     let shouldLinkProduct = shouldLinkProduct && productDependency.isLinkable
 
-                    self.project[keyPath: sourceModuleTargetKeyPath].common.addDependency(
+                    moduleTarget.common.addDependency(
                         on: productDependency.pifTargetGUID,
                         platformFilters: dependencyPlatformFilters,
                         linkProduct: shouldLinkProduct
@@ -838,6 +843,7 @@ extension PackagePIFProjectBuilder {
                 }
             }
         }
+        self.project[keyPath: sourceModuleTargetKeyPath] = moduleTarget
 
         // Custom source module build settings, if any.
         pifBuilder.delegate.configureSourceModuleBuildSettings(sourceModule: sourceModule, settings: &settings)
@@ -881,7 +887,8 @@ extension PackagePIFProjectBuilder {
             impartedDebugSettings[.LD_RUNPATH_SEARCH_PATHS] = rpaths + ["$(inherited)"]
         }
 
-        self.project[keyPath: sourceModuleTargetKeyPath].common.addBuildConfig { id in
+        var moduleTargetForConfigs = self.project[keyPath: sourceModuleTargetKeyPath]
+        moduleTargetForConfigs.common.addBuildConfig { id in
             BuildConfig(
                 id: id,
                 name: "Debug",
@@ -889,7 +896,7 @@ extension PackagePIFProjectBuilder {
                 impartedBuildSettings: impartedDebugSettings
             )
         }
-        self.project[keyPath: sourceModuleTargetKeyPath].common.addBuildConfig { id in
+        moduleTargetForConfigs.common.addBuildConfig { id in
             BuildConfig(
                 id: id,
                 name: "Release",
@@ -897,6 +904,7 @@ extension PackagePIFProjectBuilder {
                 impartedBuildSettings: impartedSettings
             )
         }
+        self.project[keyPath: sourceModuleTargetKeyPath] = moduleTargetForConfigs
 
         // Collect linked binaries.
         let linkedPackageBinaries: [PackagePIFBuilder.LinkedPackageBinary] = sourceModule.dependencies.compactMap {
