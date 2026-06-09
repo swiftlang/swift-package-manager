@@ -353,7 +353,10 @@ struct BuildCommandTestCases {
             let fullPath = try resolveSymlinks(path)
             let error = await #expect(throws: SwiftPMError.self ) {
                 try await build(
-                    ["--explicit-target-dependency-import-check=warn"],
+                    [
+                        "--explicit-target-dependency-import-check=warn",
+                        "--build-tests",
+                    ],
                     packagePath: fullPath,
                     configuration: configuration,
                     buildSystem: buildSystem,
@@ -397,7 +400,10 @@ struct BuildCommandTestCases {
             let fullPath = try resolveSymlinks(path)
             let error = await #expect(throws: SwiftPMError.self ) {
                 try await build(
-                    ["--explicit-target-dependency-import-check=error"],
+                    [
+                        "--explicit-target-dependency-import-check=error",
+                        "--build-tests",
+                    ],
                     packagePath: fullPath,
                     configuration: config,
                     buildSystem: buildSystem,
@@ -436,7 +442,9 @@ struct BuildCommandTestCases {
             let fullPath = try resolveSymlinks(path)
             let error = await #expect(throws: SwiftPMError.self ) {
                 try await build(
-                    [],
+                    [
+                        "--build-tests",
+                    ],
                     packagePath: fullPath,
                     configuration: config,
                     buildSystem: buildSystem,
