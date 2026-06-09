@@ -151,19 +151,6 @@ public struct ManifestValidator {
     private func validateDependencies() -> [Basics.Diagnostic] {
         var diagnostics = [Basics.Diagnostic]()
 
-        // Warn about dependencies declared more than once with the same location. Dependencies that
-        // share an identity but point to different locations are a conflict reported during graph
-        // loading, not a duplicate, so they are keyed by location to avoid a misleading warning.
-        let duplicateIdentities = Set(
-            self.manifest.dependencies
-                .map { DependencyLocationKey(identity: $0.identity, location: $0.locationStringForValidation) }
-                .spm_findDuplicates()
-                .map(\.identity)
-        )
-        for identity in duplicateIdentities {
-            diagnostics.append(.duplicatePackageDependency(identity: identity))
-        }
-
         for dependency in self.manifest.dependencies {
             switch dependency {
             case .sourceControl(let sourceControl):
@@ -418,6 +405,25 @@ extension Basics.Diagnostic {
 extension TargetDescription {
     fileprivate var isRemote: Bool { url != nil }
     fileprivate var isLocal: Bool { path != nil }
+}
+
+extension Manifest {
+    /// Identities of dependencies that are declared more than once with the same location.
+    ///
+    /// Dependencies that share an identity but point to different locations are a conflict reported
+    /// during graph loading, not a duplicate, so they are keyed by location to avoid a misleading
+    /// warning. This is computed on the authored manifest, before any registry transformation that
+    /// could intentionally collapse a source control dependency onto a registry one.
+    var duplicateDependencyIdentities: [PackageIdentity] {
+        Array(
+            Set(
+                self.dependencies
+                    .map { DependencyLocationKey(identity: $0.identity, location: $0.locationStringForValidation) }
+                    .spm_findDuplicates()
+                    .map(\.identity)
+            )
+        )
+    }
 }
 
 private struct DependencyLocationKey: Hashable {

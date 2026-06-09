@@ -389,8 +389,8 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
 
         let observability = ObservabilitySystem.makeForTesting()
         let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
-        XCTAssertNoDiagnostics(observability.diagnostics)
-        testDiagnostics(validationDiagnostics) { result in
+        XCTAssertNoDiagnostics(validationDiagnostics)
+        testDiagnostics(observability.diagnostics) { result in
             result.check(diagnostic: "duplicate dependency 'bar'", severity: .warning)
         }
     }
