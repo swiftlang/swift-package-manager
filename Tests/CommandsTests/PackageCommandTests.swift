@@ -1219,7 +1219,6 @@ struct PackageCommandTests {
             .Feature.Command.Package.DumpSymbolGraph,
         ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8848", relationship: .defect),
-        .IssueWindowsLongPath,
         .requiresSymbolgraphExtract,
         arguments: [BuildSystemProvider.Kind.swiftbuild],
         [
@@ -1289,7 +1288,6 @@ struct PackageCommandTests {
         .tags(
             .Feature.Command.Package.DumpSymbolGraph,
         ),
-        .IssueWindowsLongPath,
         .requiresSymbolgraphExtract,
         arguments: [BuildSystemProvider.Kind.swiftbuild],
     )
@@ -6308,9 +6306,6 @@ struct PackageCommandTests {
                 .Feature.Command.Run,
                 .Feature.Command.Package.CommandPlugin,
             ),
-            .IssueWindowsRelativePathAssert,
-            .IssueWindowsLongPath,
-            .IssueWindowsPathLastComponent,
             .issue(
                 "https://github.com/swiftlang/swift-package-manager/issues/9083",
                 relationship: .defect,

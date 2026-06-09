@@ -718,7 +718,6 @@ struct MiscellaneousTestCase {
     }
 
     @Test(
-        .IssueWindowsLongPath,
         .skipHostOS(.linux),
         .skipHostOS(.android),
         .tags(
@@ -731,7 +730,6 @@ struct MiscellaneousTestCase {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/Unicode") { fixturePath in
                 // See the fixture manifest for an explanation of this string.
                 let complicatedString = "πשּׁµ𝄞🇺🇳🇮🇱x̱̱̱̱̱̄̄̄̄̄"
@@ -777,9 +775,6 @@ struct MiscellaneousTestCase {
                     ProcessInfo.hostOperatingSystem == .linux && buildSystem == .swiftbuild
                 }
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows
-        }
     }
 
     @Test(
@@ -1321,7 +1316,6 @@ struct MiscellaneousTestCase {
     }
 
     @Test(
-        .IssueWindowsLongPath,
         .tags(
             .Feature.Command.Build,
         ),
@@ -1331,7 +1325,6 @@ struct MiscellaneousTestCase {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/RootPackageWithConditionals") { path in
                 let (_, stderr) = try await executeSwiftBuild(
                     path,
@@ -1351,9 +1344,6 @@ struct MiscellaneousTestCase {
                         break
                 }
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
-        }
     }
 
     @Test(

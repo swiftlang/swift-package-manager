@@ -297,7 +297,6 @@ struct TestCommandTests {
     }
 
     @Test(
-        .IssueWindowsLongPath,
         .tags(
             .Feature.TargetType.Executable,
         ),
@@ -307,7 +306,6 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestableExeWithDifferentProductName") { fixturePath in
                 _ = try await execute(
                     ["--vv"],
@@ -316,9 +314,6 @@ struct TestCommandTests {
                     buildSystem: buildSystem,
                 )
             }
-        } when: {
-            .windows == ProcessInfo.hostOperatingSystem
-        }
     }
 
     @Test(
@@ -358,13 +353,11 @@ struct TestCommandTests {
     }
 
     @Test(
-        .IssueWindowsLongPath,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testProductFlag(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue(isIntermittent: true) {
             let configuration = BuildConfiguration.debug
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 let (stdout, _) = try await executeSwiftTest(
@@ -376,9 +369,6 @@ struct TestCommandTests {
                 )
                 #expect(stdout.contains("Executed 3 tests"))
             }
-        } when: {
-            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
-        }
     }
 
     @Test(
@@ -1727,7 +1717,6 @@ struct TestCommandTests {
     }
 
     @Test(
-        .IssueWindowsLongPath,
             .tags(
                 .Feature.TargetType.Executable,
             ),
@@ -1747,8 +1736,7 @@ struct TestCommandTests {
                     )
                 }
             } when: {
-                .windows == ProcessInfo.hostOperatingSystem
-                || ProcessInfo.processInfo.environment["SWIFTCI_EXHIBITS_GH_9524"] != nil
+                ProcessInfo.processInfo.environment["SWIFTCI_EXHIBITS_GH_9524"] != nil
             }
         }
 

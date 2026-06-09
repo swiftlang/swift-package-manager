@@ -472,7 +472,6 @@ struct BuildCommandTestCases {
               .Feature.Command.Build,
               .Feature.TargetType.Executable
         ),
-        .IssueWindowsLongPath,
         buildDataUsingAllBuildSystemWithTags.tags,
         arguments: buildDataUsingAllBuildSystemWithTags.buildData,
     )
@@ -950,7 +949,6 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        .IssueWindowsLongPath,
         .tags(
             .Feature.BuildCache,
         ),
@@ -960,7 +958,6 @@ struct BuildCommandTestCases {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 let buildCompleteRegex = try Regex(#"Build complete!\s?(\([0-9]*\.[0-9]*\s*s(econds)?\))?"#)
                 do {
@@ -999,9 +996,6 @@ struct BuildCommandTestCases {
                     #expect(lastLine.contains(buildCompleteRegex))
                 }
             }
-        } when: {
-            (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows)
-        }
     }
 
     @Test(
@@ -1037,14 +1031,12 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        .IssueWindowsLongPath,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func buildSystemDefaultSettings(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
-        try await withKnownIssue("Sometimes failed to build due to a possible path issue", isIntermittent: true) {
             try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
                 // try await building using XCBuild with default parameters.  This should succeed.  We build verbosely so we get
                 // full command lines.
@@ -1066,9 +1058,6 @@ struct BuildCommandTestCases {
                 // Look for build completion message from the particular build system
                 #expect(output.stdout.contains("Build complete!"))
             }
-        } when: {
-            (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows)
-        }
     }
 
     @Test(
@@ -1888,7 +1877,6 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        .IssueWindowsLongPath,
         .tags(
             .Feature.CommandLineArguments.BuildSystem,
             .Feature.CommandLineArguments.Configuration,
@@ -1898,7 +1886,6 @@ struct BuildCommandTestCases {
     func executableTargetIntegratedIntoTwoProducts(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue("Sometimes failed to build due to a possible path issue", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/ExecutableTargetWithTwoProducts") { fixturePath in
                 let config = BuildConfiguration.debug
                 let _ = try await build(
@@ -1909,9 +1896,6 @@ struct BuildCommandTestCases {
                     buildSystem: buildSystem,
                 )
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows
-        }
     }
 
     @Test(
