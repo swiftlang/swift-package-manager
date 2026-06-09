@@ -40,7 +40,7 @@ jobs:
 
   soundness:
     name: Soundness
-    uses: swiftlang/github-workflows/.github/workflows/soundness.yml@0.0.11
+    uses: swiftlang/github-workflows/.github/workflows/soundness.yml@0.0.12
     with:
       license_header_check_project_name: "Swift"
       license_header_check_enabled: true
@@ -49,6 +49,11 @@ jobs:
       format_check_enabled: false
       shell_check_enabled: false
       docs_check_enabled: true
+      docs_check_analyze: false
+      docs_check_targets: "PackageManagerDocs"
+      docs_check_macos_enabled: true
+      docs_check_macos_analyze: false
+      docs_check_macos_targets: "PackageManagerDocs"
       broken_symlink_check_enabled: true
       python_lint_check_enabled: true
       yamllint_check_enabled: true
