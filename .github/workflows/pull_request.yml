@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
     name: Build
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.12
     with:
       enable_cross_pr_testing: true
       linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
@@ -40,7 +40,7 @@ jobs:
 
   soundness:
     name: Soundness
-    uses: swiftlang/github-workflows/.github/workflows/soundness.yml@0.0.11
+    uses: swiftlang/github-workflows/.github/workflows/soundness.yml@0.0.12
     with:
       license_header_check_project_name: "Swift"
       license_header_check_enabled: true
@@ -49,6 +49,9 @@ jobs:
       format_check_enabled: false
       shell_check_enabled: false
       docs_check_enabled: true
+      docs_check_analyze: false
+      docs_check_targets: "PackageManagerDocs"
+      docs_check_macos_enabled: false
       broken_symlink_check_enabled: true
       python_lint_check_enabled: true
       yamllint_check_enabled: true
@@ -56,7 +59,7 @@ jobs:
   integration-tests:
     name: Integration Tests
     needs: [soundness]
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.12
     with:
       enable_linux_checks: false
       enable_windows_checks: false
