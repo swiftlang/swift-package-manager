@@ -27,6 +27,7 @@ import class PackageModel.SystemLibraryModule
 import struct SPMBuildCore.BuildParameters
 import struct SPMBuildCore.ExecutableInfo
 import struct SPMBuildCore.LibraryInfo
+import struct SPMBuildCore.WindowsDLLInfo
 import func TSCBasic.topologicalSort
 
 extension BuildPlan {
@@ -56,6 +57,9 @@ extension BuildPlan {
                 buildProduct.additionalFlags += ["-framework", binaryPath.basenameWithoutExt]
             } else if binaryPath.basename.starts(with: "lib") {
                 buildProduct.additionalFlags += ["-l\(binaryPath.basenameWithoutExt.dropFirst(3))"]
+            } else if binaryPath.extension == "lib" {
+                // Static libraries on Windows
+                buildProduct.additionalFlags += ["-l\(binaryPath.basenameWithoutExt)"]
             } else {
                 self.observabilityScope.emit(error: "unexpected binary name at \(binaryPath). Static libraries should be prefixed with lib")
             }
@@ -348,10 +352,17 @@ extension BuildPlan {
     }
 
     /// Extracts the artifacts  from an artifactsArchive
-    private func parseExecutableArtifactsArchive(for module: BinaryModule, triple: Triple) throws -> [ExecutableInfo] {
+    func parseExecutableArtifactsArchive(for module: BinaryModule, triple: Triple) throws -> [ExecutableInfo] {
         try self.externalExecutablesCache.memoize(key: module) {
             let execInfos = try module.parseExecutableArtifactArchives(for: triple, fileSystem: self.fileSystem)
             return execInfos.filter { !$0.supportedTriples.isEmpty }
+        }
+    }
+
+    func parseWindowsDLLArtifactsArchive(for module: BinaryModule, triple: Triple) throws -> [WindowsDLLInfo] {
+        try self.externalWindowsDLLCache.memoize(key: module) {
+            let dllInfos = try module.parseWindowsDLLArtifactArchives(for: triple, fileSystem: self.fileSystem)
+            return dllInfos.filter { !$0.supportedTriples.isEmpty }
         }
     }
 

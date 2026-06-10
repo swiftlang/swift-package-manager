@@ -18,14 +18,6 @@ public struct TestBuildData {
 }
 
 public let buildDataUsingAllBuildSystemWithTags = TestBuildData(
-    buildData: getBuildData(for: SupportedBuildSystemOnPlatform),
-    tags: .tags(
-        .Feature.CommandLineArguments.BuildSystem,
-        .Feature.CommandLineArguments.Configuration
-    )
-)
-
-public let buildDataUsingBuildSystemAvailableOnAllPlatformsWithTags = TestBuildData(
     buildData: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     tags: .tags(
         .Feature.CommandLineArguments.BuildSystem,

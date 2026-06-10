@@ -129,63 +129,63 @@ public struct ManifestToolStream {
     fileprivate var buffer = ""
 
     public subscript(key: String) -> Int {
-        get { fatalError() }
+        get { fatalError("\(#file):\(#line) at function \(#function) - Cannot get subscript that return an Int") }
         set {
             self.buffer += "    \(key): \(newValue.description.asJSON)\n"
         }
     }
 
     public subscript(key: String) -> String {
-        get { fatalError() }
+        get { fatalError("\(#file):\(#line) at function \(#function) - Cannot get subscript that return a String") }
         set {
             self.buffer += "    \(key): \(newValue.asJSON)\n"
         }
     }
 
     public subscript(key: String) -> ToolProtocol {
-        get { fatalError() }
+        get { fatalError("\(#file):\(#line) at function \(#function) - Cannot get subscript that return a ToolProtocol") }
         set {
             self.buffer += "    \(key): \(type(of: newValue).name)\n"
         }
     }
 
     public subscript(key: String) -> AbsolutePath {
-        get { fatalError() }
+        get { fatalError("\(#file):\(#line) at function \(#function) - Cannot get subscript that return an AbsolutePath") }
         set {
             self.buffer += "    \(key): \(newValue.pathString.asJSON)\n"
         }
     }
 
     public subscript(key: String) -> [AbsolutePath] {
-        get { fatalError() }
+        get { fatalError("\(#file):\(#line) at function \(#function) - Cannot get subscript that return an array of AbsolutePath") }
         set {
             self.buffer += "    \(key): \(newValue.map(\.pathString).asJSON)\n"
         }
     }
 
     public subscript(key: String) -> [Node] {
-        get { fatalError() }
+        get { fatalError("\(#file):\(#line) at function \(#function) - Cannot get subscript that return an array of Node") }
         set {
             self.buffer += "    \(key): \(newValue.map(\.encodingName).asJSON)\n"
         }
     }
 
     public subscript(key: String) -> Bool {
-        get { fatalError() }
+        get { fatalError("\(#file):\(#line) at function \(#function) - Cannot get subscript that return a Bool") }
         set {
             self.buffer += "    \(key): \(newValue.description)\n"
         }
     }
 
     public subscript(key: String) -> [String] {
-        get { fatalError() }
+        get { fatalError("\(#file):\(#line) at function \(#function) - Cannot get subscript that return an array of String") }
         set {
             self.buffer += "    \(key): \(newValue.asJSON)\n"
         }
     }
 
     public subscript(key: String) -> [String: String] {
-        get { fatalError() }
+        get { fatalError("\(#file):\(#line) at function \(#function) - Cannot get subscript that return a [String: String]") }
         set {
             self.buffer += "    \(key):\n"
             for (key, value) in newValue.sorted(by: { $0.key < $1.key }) {
@@ -195,7 +195,7 @@ public struct ManifestToolStream {
     }
 
     package subscript(key: String) -> Environment {
-        get { fatalError() }
+        get { fatalError("\(#file):\(#line) at function \(#function) - Cannot get subscript that return an Environment") }
         set {
             self.buffer += "    \(key):\n"
             for (key, value) in newValue.sorted(by: { $0.key < $1.key }) {

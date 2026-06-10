@@ -353,13 +353,13 @@ final class LegacyHTTPClientTests: XCTestCase {
         try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8501")
 
         let count = ThreadSafeBox<Int>(0)
-        let lastCall = ThreadSafeBox<Date>()
+        let lastCall = ThreadSafeBox<Date?>()
         let maxAttempts = 5
         let errorCode = Int.random(in: 500 ..< 600)
         let delay = SendableTimeInterval.milliseconds(100)
 
         let brokenHandler: LegacyHTTPClient.Handler = { _, _, completion in
-            let expectedDelta = pow(2.0, Double(count.get(default: 0) - 1)) * delay.timeInterval()!
+            let expectedDelta = pow(2.0, Double(count.get() - 1)) * delay.timeInterval()!
             let delta = lastCall.get().flatMap { Date().timeIntervalSince($0) } ?? 0
             XCTAssertEqual(delta, expectedDelta, accuracy: 0.1)
 

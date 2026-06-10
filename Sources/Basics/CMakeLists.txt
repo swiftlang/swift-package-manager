@@ -32,6 +32,7 @@ add_library(Basics
   Environment/EnvironmentShims.swift
   Errors.swift
   FileSystem/AbsolutePath.swift
+  FileSystem/CommonParentDirectory.swift
   FileSystem/FileSystem+Extensions.swift
   FileSystem/InMemoryFileSystem.swift
   FileSystem/NativePathExtensions.swift
@@ -58,6 +59,7 @@ add_library(Basics
   ImportScanning.swift
   JSON+Extensions.swift
   JSONDecoder+Extensions.swift
+  KnownFolders.swift
   Netrc.swift
   Observability.swift
   OSSignpost.swift

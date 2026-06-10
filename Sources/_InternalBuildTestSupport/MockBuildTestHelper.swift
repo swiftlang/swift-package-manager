@@ -28,7 +28,7 @@ import Testing
 public func mockBuildPlan(
     buildPath: AbsolutePath? = nil,
     environment: BuildEnvironment,
-    toolchain: PackageModel.Toolchain = MockToolchain(),
+    toolchain: PackageModel.Toolchain = try! MockToolchain(),
     graph: ModulesGraph,
     commonFlags: PackageModel.BuildFlags = .init(),
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
@@ -61,8 +61,10 @@ public func mockBuildPlan(
     config: BuildConfiguration = .debug,
     triple: Basics.Triple? = nil,
     platform: PackageModel.Platform? = nil,
-    toolchain: PackageModel.Toolchain = MockToolchain(),
+    toolchain: PackageModel.Toolchain = try! MockToolchain(),
     graph: ModulesGraph,
+    pluginConfiguration: PluginConfiguration? = nil,
+    pluginTools: [ResolvedModule.ID: [String: PluginTool]] = [:],
     commonFlags: PackageModel.BuildFlags = .init(),
     indexStoreMode: BuildParameters.IndexStoreMode = .off,
     omitFramePointers: Bool? = nil,
@@ -105,6 +107,7 @@ public func mockBuildPlan(
         config: config,
         toolchain: toolchain,
         flags: commonFlags,
+        buildSystemKind: .native,
         triple: inferredTriple,
         indexStoreMode: indexStoreMode,
         enableXCFrameworksOnLinux: enableXCFrameworksOnLinux
@@ -120,6 +123,7 @@ public func mockBuildPlan(
         config: config,
         toolchain: toolchain,
         flags: commonFlags,
+        buildSystemKind: .native,
         triple: inferredTriple,
         indexStoreMode: indexStoreMode,
         enableXCFrameworksOnLinux: enableXCFrameworksOnLinux
@@ -132,6 +136,8 @@ public func mockBuildPlan(
         destinationBuildParameters: destinationParameters,
         toolsBuildParameters: hostParameters,
         graph: graph,
+        pluginConfiguration: pluginConfiguration,
+        pluginTools: pluginTools,
         fileSystem: fs,
         observabilityScope: observabilityScope
     )

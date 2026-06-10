@@ -30,7 +30,7 @@ public enum Concurrency {
 public func unsafe_await<T: Sendable>(_ body: @Sendable @escaping () async -> T) -> T {
     let semaphore = DispatchSemaphore(value: 0)
 
-    let box = ThreadSafeBox<T>()
+    let box = ThreadSafeBox<T?>()
     Task {
         let localValue: T = await body()
         box.mutate { _ in localValue }

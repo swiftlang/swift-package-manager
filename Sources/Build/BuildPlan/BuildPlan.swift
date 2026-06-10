@@ -208,6 +208,9 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Cache for tools information.
     var externalExecutablesCache = [BinaryModule: [ExecutableInfo]]()
 
+    /// Cache for Windows DLL information.
+    var externalWindowsDLLCache = [BinaryModule: [WindowsDLLInfo]]()
+
     /// Whether to disable sandboxing (e.g. for macros).
     private let shouldDisableSandbox: Bool
 
@@ -539,10 +542,10 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         // similar to how we filter out the library search path unless
         // explicitly requested.
         var extraSwiftCFlags = self.destinationBuildParameters.toolchain.extraFlags.swiftCompilerFlags
-            .filter { !$0.starts(with: "-use-ld=") }
+            .filter { !$0.value.starts(with: "-use-ld=") }
         if !includeLibrarySearchPaths {
             for index in extraSwiftCFlags.indices.dropLast().reversed() {
-                if extraSwiftCFlags[index] == "-L" {
+                if extraSwiftCFlags[index].value == "-L" {
                     // Remove the flag
                     extraSwiftCFlags.remove(at: index)
                     // Remove the argument
@@ -550,7 +553,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                 }
             }
         }
-        arguments += extraSwiftCFlags
+        arguments += extraSwiftCFlags.rawFlags
 
         // Add search paths to the directories containing module maps and Swift modules.
         for target in self.targets {
@@ -794,7 +797,7 @@ extension BuildPlan {
                 // build.
                 let observability = ObservabilitySystem { _, _ in }
                 // Compute the generated files based on all results we have computed so far.
-                (pluginDerivedSources, pluginDerivedResources) = ModulesGraph.computePluginGeneratedFiles(
+                let pluginGeneratedFiles = ModulesGraph.computePluginGeneratedFiles(
                     target: module,
                     toolsVersion: package.manifest.toolsVersion,
                     additionalFileRules: additionalFileRules,
@@ -803,6 +806,11 @@ extension BuildPlan {
                     prebuildCommandResults: [],
                     observabilityScope: observability.topScope
                 )
+                pluginDerivedSources = Sources(
+                    paths: pluginGeneratedFiles.sources.map(\.self),
+                    root: buildParameters.dataPath
+                )
+                pluginDerivedResources = pluginGeneratedFiles.resources.values.map(\.self)
             } else {
                 pluginDerivedSources = .init(paths: [], root: package.path)
                 pluginDerivedResources = []
@@ -817,6 +825,7 @@ extension BuildPlan {
                     pluginGeneratedResources: pluginDerivedResources.map(\.path)
                 ),
                 buildEnvironment: buildParameters.buildEnvironment,
+                workers: buildParameters.workers,
                 scriptRunner: configuration.scriptRunner,
                 workingDirectory: package.path,
                 outputDirectory: pluginOutputDir,
@@ -943,7 +952,7 @@ extension BuildPlan {
             case .test:
                 self = .product(product, product.hasDirectMacroDependencies ? .host : destination)
             default:
-                self = .product(product, destination)
+                self = .product(product, product.platformConstraint == .host ? .host : destination)
             }
         }
 
@@ -960,8 +969,9 @@ extension BuildPlan {
             default:
                 // By default assume the destination of the context.
                 // This means that i.e. test products that reference macros
-                // would force all of their successors to be `host`
-                self = .module(module, destination)
+                // would force all of their successors to be `host`.
+                // Also if the module has a platform constraint of `host`, use that.
+                self = .module(module, module.platformConstraint == .host ? .host : destination)
             }
         }
     }
@@ -1364,12 +1374,7 @@ extension Basics.Triple {
 
 extension ResolvedPackage {
     var isRemote: Bool {
-        switch self.underlying.manifest.packageKind {
-        case .registry, .remoteSourceControl, .localSourceControl:
-            return true
-        case .root, .fileSystem:
-            return false
-        }
+        self.underlying.manifest.packageKind.isRemote
     }
 }
 

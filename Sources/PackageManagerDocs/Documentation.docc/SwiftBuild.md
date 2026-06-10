@@ -54,6 +54,8 @@ build [--package-path=<package-path>]
   [--traits=<traits>] [--enable-all-traits]
   [--disable-default-traits]
   [--static-swift-stdlib|no-static-swift-stdlib]
+  [--sbom-spec=<sbom-spec>...] [--sbom-output-dir=<sbom-output-dir>]
+  [--sbom-filter=<sbom-filter>] [--sbom-warning-only]
   [--version] [--help]
 ```
 
@@ -354,6 +356,25 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 - term **--static-swift-stdlib|no-static-swift-stdlib**:
 
 *Link Swift stdlib statically.*
+
+- term **--sbom-spec=\<sbom-spec\>**:
+
+*Set the SBOM specification(s) and generate SBOM(s).*
+
+
+- term **--sbom-output-dir=\<sbom-output-dir\>**:
+
+*The absolute or relative directory path to generate the SBOM(s) in. Must be used with --sbom-spec. (default: <scratch_path>/sboms).*
+
+
+- term **--sbom-filter=\<sbom-filter\>**:
+
+*Filter the SBOM components and dependencies by products and/or packages. Must be used with --sbom-spec.*
+
+
+- term **--sbom-warning-only**:
+
+*Treat SBOM generation errors as warnings. Must be used with --sbom-spec. (default: false).*
 
 
 - term **--version**:

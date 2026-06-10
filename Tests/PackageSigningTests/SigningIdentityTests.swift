@@ -24,7 +24,7 @@ import X509
 struct SigningIdentityTests {
     @Test
     func swiftSigningIdentityWithECKey() throws {
-        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+        try fixture(name: "Signing") { fixturePath in
             let certificateBytes = try readFileContents(
                 in: fixturePath,
                 pathComponents: "Certificates",
@@ -59,7 +59,7 @@ struct SigningIdentityTests {
 
     @Test
     func swiftSigningIdentityWithRSAKey() throws {
-        try fixture(name: "Signing", createGitRepo: false) { fixturePath in
+        try fixture(name: "Signing") { fixturePath in
             let certificateBytes = try readFileContents(
                 in: fixturePath,
                 pathComponents: "Certificates",

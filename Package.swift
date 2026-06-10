@@ -347,6 +347,20 @@ let package = Package(
         ),
 
         .target(
+            /** SBOM (Software Bill of Materials) model objects */
+            name: "SBOMModel",
+            dependencies: ["Basics", "PackageCollections", "PackageGraph", "PackageModel", "SourceControl", "SwiftBuildSupport"],
+            exclude: ["CMakeLists.txt", "README.md"],
+            resources: [
+                .copy("CycloneDX/Resources/cyclonedx-1.7.schema.json"),
+                .copy("SPDX/Resources/spdx-3.0.1.schema.json"),
+            ],
+            swiftSettings: commonExperimentalFeatures + [
+                .unsafeFlags(["-static"]),
+            ]
+        ),
+
+        .target(
             /** Package model conventions and loading support */
             name: "PackageLoading",
             dependencies: [
@@ -569,7 +583,10 @@ let package = Package(
                 "SourceKitLSPAPI",
                 "SwiftBuildSupport",
                 "Workspace"
-            ] + swiftTSCBasicsDeps + swiftToolsProtocolsDeps
+            ] + swiftTSCBasicsDeps + swiftToolsProtocolsDeps,
+            exclude: [
+                "CMakeLists.txt",
+            ],
         ),
 
         // MARK: Commands
@@ -587,6 +604,7 @@ let package = Package(
                 "Workspace",
                 "XCBuildSupport",
                 "SwiftBuildSupport",
+                "SBOMModel",
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
@@ -606,6 +624,7 @@ let package = Package(
                 "Build",
                 "CoreCommands",
                 "PackageGraph",
+                "SBOMModel",
                 "SourceControl",
                 "Workspace",
                 "XCBuildSupport",
@@ -987,6 +1006,13 @@ let package = Package(
             dependencies: ["_InternalTestSupport", "PackageSigning"]
         ),
         .testTarget(
+            name: "SBOMModelTests",
+            dependencies: ["SBOMModel", "_InternalTestSupport"],
+            resources: [
+                .copy("testfiles"),
+            ]
+        ),
+        .testTarget(
             name: "QueryEngineTests",
             dependencies: ["QueryEngine", "_InternalTestSupport"]
         ),
@@ -1150,7 +1176,11 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // utils/update_checkout/update-checkout-config.json
         // They are used to build the official swift toolchain.
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
+<<<<<<< HEAD
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.6.1"),
+=======
+        .package(url: "https://github.com/apple/swift-argument-parser.git", revision: "1.6.1"),
+>>>>>>> main
         .package(url: "https://github.com/apple/swift-crypto.git", revision: "3.12.5"),
         .package(url: "https://github.com/apple/swift-system.git", revision: "1.5.0"),
         .package(url: "https://github.com/apple/swift-collections.git", revision: "1.1.6"),
@@ -1206,7 +1236,7 @@ if !shouldUseSwiftBuildFramework {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         package.dependencies += [
             .package(url: "https://github.com/swiftlang/swift-build.git", branch: relatedDependenciesBranch),
-            .package(url: "https://github.com/swiftlang/swift-tools-protocols.git", .upToNextMinor(from: "0.0.9")),
+            .package(url: "https://github.com/swiftlang/swift-tools-protocols.git", branch: relatedDependenciesBranch),
         ]
     } else {
         package.dependencies += [

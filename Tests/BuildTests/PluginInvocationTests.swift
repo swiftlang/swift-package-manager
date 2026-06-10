@@ -120,10 +120,10 @@ final class PluginInvocationTests: XCTestCase {
             buildPlanResult.checkTargetsCount(5) // Note: plugins are not included here.
 
             buildPlanResult.check(destination: .target, for: "Foo")
-            
+
             buildPlanResult.check(destination: .host, for: "FooTool")
             buildPlanResult.check(destination: .target, for: "FooTool")
-            
+
             buildPlanResult.check(destination: .host, for: "FooToolLib")
             buildPlanResult.check(destination: .target, for: "FooToolLib")
         }
@@ -135,11 +135,12 @@ final class PluginInvocationTests: XCTestCase {
                     return try UserToolchain.default.targetTriple
                 }
             }
-            
+
             func compilePluginScript(
                 sourceFiles: [AbsolutePath],
                 pluginName: String,
                 toolsVersion: ToolsVersion,
+                workers: UInt32,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
                 delegate: PluginScriptCompilerDelegate,
@@ -149,7 +150,7 @@ final class PluginInvocationTests: XCTestCase {
                     completion(.failure(StringError("unimplemented")))
                 }
             }
-            
+
             func runPluginScript(
                 sourceFiles: [AbsolutePath],
                 pluginName: String,
@@ -159,6 +160,7 @@ final class PluginInvocationTests: XCTestCase {
                 writableDirectories: [AbsolutePath],
                 readOnlyDirectories: [AbsolutePath],
                 allowNetworkConnections: [SandboxNetworkPermission],
+                workers: UInt32,
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
@@ -173,7 +175,7 @@ final class PluginInvocationTests: XCTestCase {
                     callbackQueue.sync {
                         delegate.handleOutput(data: Data("Hello Plugin!".utf8))
                     }
-                    
+
                     // Pretend it emitted a warning.
                     try callbackQueue.sync {
                         let message = Data("""
@@ -233,7 +235,8 @@ final class PluginInvocationTests: XCTestCase {
         let pluginRunner = MockPluginScriptRunner()
         let buildParameters = mockBuildParameters(
             destination: .host,
-            environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+            environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+            buildSystem: .native,
         )
 
         let results = try await invokeBuildToolPlugins(
@@ -262,7 +265,7 @@ final class PluginInvocationTests: XCTestCase {
         XCTAssertEqual(evalFirstCommand.configuration.arguments, ["-c", "/Foo/Sources/Foo/SomeFile.abc"])
         XCTAssertEqual(evalFirstCommand.configuration.environment, ["X": "Y"])
         XCTAssertEqual(evalFirstCommand.configuration.workingDirectory, AbsolutePath("/Foo/Sources/Foo"))
-        XCTAssertEqual(evalFirstCommand.inputFiles, [builtToolsDir.appending("FooTool")])
+        XCTAssertEqual(evalFirstCommand.inputFiles, [builtToolsDir.appending("FooTool" + ProcessInfo.exeSuffix)])
         XCTAssertEqual(evalFirstCommand.outputFiles, [])
 
         XCTAssertEqual(evalFirstResult.diagnostics.count, 1)
@@ -273,7 +276,7 @@ final class PluginInvocationTests: XCTestCase {
 
         XCTAssertEqual(evalFirstResult.textOutput, "Hello Plugin!")
     }
-    
+
     func testCompilationDiagnostics() async throws {
         try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
@@ -298,13 +301,13 @@ final class PluginInvocationTests: XCTestCase {
                     ]
                 )
                 """)
-            
+
             let myLibraryTargetDir = packageDir.appending(components: "Sources", "MyLibrary")
             try localFileSystem.createDirectory(myLibraryTargetDir, recursive: true)
             try localFileSystem.writeFileContents(myLibraryTargetDir.appending("library.swift"), string: """
                 public func Foo() { }
                 """)
-            
+
             let myPluginTargetDir = packageDir.appending(components: "Plugins", "MyPlugin")
             try localFileSystem.createDirectory(myPluginTargetDir, recursive: true)
             try localFileSystem.writeFileContents(myPluginTargetDir.appending("plugin.swift"), string: """
@@ -327,7 +330,7 @@ final class PluginInvocationTests: XCTestCase {
                 customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
                 delegate: MockWorkspaceDelegate()
             )
-            
+
             // Load the root manifest.
             let rootInput = PackageGraphRootInput(packages: [packageDir], dependencies: [])
             let rootManifests = try await workspace.loadRootManifests(
@@ -343,7 +346,7 @@ final class PluginInvocationTests: XCTestCase {
             )
             XCTAssertNoDiagnostics(observability.diagnostics)
             XCTAssert(packageGraph.packages.count == 1, "\(packageGraph.packages)")
-            
+
             // Find the build tool plugin.
             let buildToolPlugin = try XCTUnwrap(packageGraph.packages.first?.modules.map(\.underlying).first{ $0.name == "MyPlugin" } as? PluginModule)
             XCTAssertEqual(buildToolPlugin.name, "MyPlugin")
@@ -356,10 +359,10 @@ final class PluginInvocationTests: XCTestCase {
                 cacheDir: pluginCacheDir,
                 toolchain: try UserToolchain.default
             )
-            
+
             // Define a plugin compilation delegate that just captures the passed information.
             class Delegate: PluginScriptCompilerDelegate {
-                var commandLine: [String]? 
+                var commandLine: [String]?
                 var environment: Environment?
                 var compiledResult: PluginCompilationResult?
                 var cachedResult: PluginCompilationResult?
@@ -384,6 +387,7 @@ final class PluginInvocationTests: XCTestCase {
                     sourceFiles: buildToolPlugin.sources.paths,
                     pluginName: buildToolPlugin.name,
                     toolsVersion: buildToolPlugin.apiVersion,
+                    workers: 1,
                     observabilityScope: observability.topScope,
                     callbackQueue: DispatchQueue.sharedConcurrent,
                     delegate: delegate
@@ -393,6 +397,7 @@ final class PluginInvocationTests: XCTestCase {
                 XCTAssert(result.succeeded == false)
                 XCTAssert(result.cached == false)
                 XCTAssert(result.commandLine.contains(result.executableFile.pathString), "\(result.commandLine)")
+                XCTAssert(result.commandLine.contains("-j1"), "expected workers flag in \(result.commandLine)")
                 XCTAssert(result.executableFile.components.contains("plugin-cache"), "\(result.executableFile.pathString)")
                 XCTAssert(result.compilerOutput.contains("error: missing return"), "\(result.compilerOutput)")
                 XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
@@ -402,7 +407,7 @@ final class PluginInvocationTests: XCTestCase {
                 XCTAssertNotNil(delegate.environment)
                 XCTAssertEqual(delegate.compiledResult, result)
                 XCTAssertNil(delegate.cachedResult)
-                
+
                 // Check the serialized diagnostics. We should have an error.
                 let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
                 let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
@@ -427,7 +432,7 @@ final class PluginInvocationTests: XCTestCase {
                     }
                 }
                 """)
-            
+
             // Try to compile the fixed plugin.
             let firstExecModTime: Date
             do {
@@ -436,6 +441,7 @@ final class PluginInvocationTests: XCTestCase {
                     sourceFiles: buildToolPlugin.sources.paths,
                     pluginName: buildToolPlugin.name,
                     toolsVersion: buildToolPlugin.apiVersion,
+                    workers: 1,
                     observabilityScope: observability.topScope,
                     callbackQueue: DispatchQueue.sharedConcurrent,
                     delegate: delegate
@@ -486,6 +492,7 @@ final class PluginInvocationTests: XCTestCase {
                     sourceFiles: buildToolPlugin.sources.paths,
                     pluginName: buildToolPlugin.name,
                     toolsVersion: buildToolPlugin.apiVersion,
+                    workers: 1,
                     observabilityScope: observability.topScope,
                     callbackQueue: DispatchQueue.sharedConcurrent,
                     delegate: delegate
@@ -548,6 +555,7 @@ final class PluginInvocationTests: XCTestCase {
                     sourceFiles: buildToolPlugin.sources.paths,
                     pluginName: buildToolPlugin.name,
                     toolsVersion: buildToolPlugin.apiVersion,
+                    workers: 1,
                     observabilityScope: observability.topScope,
                     callbackQueue: DispatchQueue.sharedConcurrent,
                     delegate: delegate
@@ -566,7 +574,7 @@ final class PluginInvocationTests: XCTestCase {
                 XCTAssertNotNil(delegate.environment)
                 XCTAssertEqual(delegate.compiledResult, result)
                 XCTAssertNil(delegate.cachedResult)
-                
+
                 // Check that the diagnostics no longer have a warning.
                 let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
                 let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
@@ -601,6 +609,7 @@ final class PluginInvocationTests: XCTestCase {
                     sourceFiles: buildToolPlugin.sources.paths,
                     pluginName: buildToolPlugin.name,
                     toolsVersion: buildToolPlugin.apiVersion,
+                    workers: 1,
                     observabilityScope: observability.topScope,
                     callbackQueue: DispatchQueue.sharedConcurrent,
                     delegate: delegate
@@ -619,7 +628,7 @@ final class PluginInvocationTests: XCTestCase {
                 XCTAssertNotNil(delegate.environment)
                 XCTAssertEqual(delegate.compiledResult, result)
                 XCTAssertNil(delegate.cachedResult)
-                
+
                 // Check the diagnostics. We should have a different error than the original one.
                 let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
                 let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
@@ -819,7 +828,7 @@ final class PluginInvocationTests: XCTestCase {
             let packageDir = tmpPath.appending(components: "mypkg")
             try localFileSystem.createDirectory(packageDir, recursive: true)
             try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
-                // swift-tools-version:5.7
+                // swift-tools-version:6.0
 
                 import PackageDescription
 
@@ -880,15 +889,15 @@ final class PluginInvocationTests: XCTestCase {
                           [
                               Command.prebuildCommand(
                                   displayName: "X: Running Y before the build...",
-                                  executable: try context.tool(named: "Y").path,
+                                  executable: try context.tool(named: "Y").url,
                                   arguments: [ "ARGUMENT_ONE", "ARGUMENT_TWO" ],
-                                  outputFilesDirectory: context.pluginWorkDirectory.appending("OUTPUT_FILES_DIRECTORY")
+                                  outputFilesDirectory: context.pluginWorkDirectoryURL.appendingPathComponent("OUTPUT_FILES_DIRECTORY")
                               )
                           ]
                       }
                   }
                   """)
-            
+
             let artifactVariants = [try UserToolchain.default.targetTriple].map {
                 """
                 { "path": "Y", "supportedTriples": ["\($0.tripleString)"] }
@@ -960,7 +969,8 @@ final class PluginInvocationTests: XCTestCase {
                 let outputDir = packageDir.appending(".build")
                 let buildParameters = mockBuildParameters(
                     destination: .host,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                    buildSystem: .swiftbuild,
                 )
 
                 let result = try await invokeBuildToolPlugins(
@@ -990,7 +1000,7 @@ final class PluginInvocationTests: XCTestCase {
             let packageDir = tmpPath.appending(components: "mypkg")
             try localFileSystem.createDirectory(packageDir, recursive: true)
             try localFileSystem.writeFileContents(packageDir.appending("Package.swift"), string: """
-                // swift-tools-version:5.7
+                // swift-tools-version:6.0
 
                 import PackageDescription
 
@@ -1050,9 +1060,9 @@ final class PluginInvocationTests: XCTestCase {
                           [
                               Command.prebuildCommand(
                                   displayName: "X: Running Y before the build...",
-                                  executable: try context.tool(named: "Y").path,
+                                  executable: try context.tool(named: "Y").url,
                                   arguments: [ "ARGUMENT_ONE", "ARGUMENT_TWO" ],
-                                  outputFilesDirectory: context.pluginWorkDirectory.appending("OUTPUT_FILES_DIRECTORY")
+                                  outputFilesDirectory: context.pluginWorkDirectoryURL.appendingPathComponent("OUTPUT_FILES_DIRECTORY")
                               )
                           ]
                       }
@@ -1102,7 +1112,8 @@ final class PluginInvocationTests: XCTestCase {
                 let outputDir = packageDir.appending(".build")
                 let buildParameters = mockBuildParameters(
                     destination: .host,
-                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                    buildSystem: .swiftbuild,
                 )
 
                 let result = try await invokeBuildToolPlugins(
@@ -1116,7 +1127,7 @@ final class PluginInvocationTests: XCTestCase {
 
                 let diags = result.flatMap(\.value.results).flatMap(\.diagnostics)
                 testDiagnostics(diags) { result in
-                    let msg = "a prebuild command cannot use executables built from source, including executable target 'Y'"
+                    let msg = "a prebuild command cannot use executables built from source, including executable target '\("Y" + ProcessInfo.exeSuffix)'"
                     result.check(diagnostic: .contains(msg), severity: .error)
                 }
             }
@@ -1235,7 +1246,7 @@ final class PluginInvocationTests: XCTestCase {
                       ) throws -> [Command] { }
                   }
                   """)
-            
+
             // Create a valid swift interface file that can be detected via `canImport()`.
             let fakeExtraModulesDir = tmpPath.appending("ExtraModules")
             try localFileSystem.createDirectory(fakeExtraModulesDir, recursive: true)
@@ -1244,7 +1255,7 @@ final class PluginInvocationTests: XCTestCase {
                   // swift-interface-format-version: 1.0
                   // swift-module-flags: -module-name ModuleFoundViaExtraSearchPaths
                   """)
-            
+
             /////////
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
@@ -1456,7 +1467,8 @@ final class PluginInvocationTests: XCTestCase {
             let outputDir = packageDir.appending(".build")
             let buildParameters = mockBuildParameters(
                 destination: .host,
-                environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+                buildSystem: .swiftbuild,
             )
 
             return try await invokeBuildToolPlugins(
@@ -1581,5 +1593,5 @@ extension BuildPlanResult {
             $0.module.name == target && $0.destination == destination
         }
         XCTAssertEqual(targets.count, 1, file: file, line: line)
-    }    
+    }
 }

@@ -84,7 +84,7 @@ private struct SwiftPMTests {
             Tag.Feature.Command.Package.Init,
             Tag.Feature.PackageType.Executable,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func packageInitExecutable(_ buildSystemProvider: BuildSystemProvider.Kind) throws {
         try withTemporaryDirectory { tmpDir in
@@ -111,14 +111,11 @@ private struct SwiftPMTests {
     }
 
     @Test(
-        .bug(id: 0, "SWBINTTODO: Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error:"),
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/8380", "lld-link: error: subsystem must be defined"),
-        .bug(id: 0, "SWBINTTODO: MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found"),
         .tags(
             Tag.Feature.Command.Package.Init,
             Tag.Feature.PackageType.Library,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func packageInitLibrary(_ buildSystemProvider: BuildSystemProvider.Kind) async throws {
         try await withTemporaryDirectory { tmpDir in
@@ -129,28 +126,17 @@ private struct SwiftPMTests {
                 extraArgs: ["init", "--type", "library"],
                 buildSystem: buildSystemProvider,
             )
-            try await withKnownIssue(
-                """
-                Linux: /lib/x86_64-linux-gnu/Scrt1.o:function _start: error: undefined reference to 'main'
-                Windows: lld-link: error: subsystem must be defined
-                MacOS: Could not find or use auto-linked library 'Testing': library 'Testing' not found
-                """,
-                isIntermittent: true
-            ) {
-                try await executeSwiftBuild(
-                    packagePath,
-                    buildSystem: buildSystemProvider,
-                )
-                let testOutput = try await executeSwiftTest(
-                    packagePath,
-                    buildSystem: buildSystemProvider,
-                )
-                // #expect(testOutput.returnCode == .terminated(code: 0))
-                #expect(!testOutput.stderr.contains("error:"))
 
-            } when: {
-                (buildSystemProvider == .swiftbuild) || (buildSystemProvider == .xcode && ProcessInfo.hostOperatingSystem == .macOS)
-            }
+            try await executeSwiftBuild(
+                packagePath,
+                buildSystem: buildSystemProvider,
+            )
+            let testOutput = try await executeSwiftTest(
+                packagePath,
+                buildSystem: buildSystemProvider,
+            )
+            // #expect(testOutput.returnCode == .terminated(code: 0))
+            #expect(!testOutput.stderr.contains("error:"))
         }
     }
 
@@ -226,7 +212,7 @@ private struct SwiftPMTests {
             switch buildSystem {
             case .native:
                 fooPath = try AbsolutePath(
-                    validating: ".build/apple/Products/Debug/foo", relativeTo: packagePath
+                    validating: ".build/out/Products/Debug/foo", relativeTo: packagePath
                 )
             case .swiftbuild:
                 fooPath = try AbsolutePath(
@@ -247,6 +233,7 @@ private struct SwiftPMTests {
 
     @Test(
         .requireSwift6_2,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9588", relationship: .defect),
         .tags(
             .UserWorkflow,
             .Feature.CodeCoverage,
@@ -262,6 +249,7 @@ private struct SwiftPMTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let config = BuildConfiguration.debug
+        try await withKnownIssue(isIntermittent: true) {
         try await withTemporaryDirectory(removeTreeOnDeinit: false) { tmpDir in
             let packagePath = tmpDir.appending(component: "test-package-coverage")
             try localFileSystem.createDirectory(packagePath)
@@ -301,48 +289,49 @@ private struct SwiftPMTests {
                 }
                 """
             )
-            let expectedCoveragePath = try await executeSwiftTest(
+            let expectedCoveragePath = try await getCoveragePath(
                 packagePath,
-                configuration: config,
-                extraArgs: ["--show-coverage-path"],
-                buildSystem: buildSystem,
-            ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                with: BuildData(buildSystem: buildSystem, config: config),
+            )
+
             try await executeSwiftTest(
                 packagePath,
                 configuration: config,
                 extraArgs: ["--enable-code-coverage", "--disable-xctest"],
                 buildSystem: buildSystem,
+                throwIfCommandFails: true,
             )
             let coveragePath = try AbsolutePath(validating: expectedCoveragePath)
 
             // Check the coverage path exists.
-            try withKnownIssue(isIntermittent: true) {
-                // the CoveragePath file does not exists in Linux platform build
-                expectFileExists(at: coveragePath)
+            // the CoveragePath file does not exists in Linux platform build
+            expectFileExists(at: coveragePath)
 
-                // This resulting coverage file should be merged JSON, with a schema that valiades against this subset.
-                struct Coverage: Codable {
-                    var data: [Entry]
-                    struct Entry: Codable {
-                        var files: [File]
-                        struct File: Codable {
-                            var filename: String
-                            var summary: Summary
-                            struct Summary: Codable {
-                                var functions: Functions
-                                struct Functions: Codable {
-                                    var count, covered: Int
-                                    var percent: Double
-                                }
+            // This resulting coverage file should be merged JSON, with a schema that valiades against this subset.
+            struct Coverage: Codable {
+                var data: [Entry]
+                struct Entry: Codable {
+                    var files: [File]
+                    struct File: Codable {
+                        var filename: String
+                        var summary: Summary
+                        struct Summary: Codable {
+                            var functions: Functions
+                            struct Functions: Codable {
+                                var count, covered: Int
+                                var percent: Double
                             }
                         }
                     }
                 }
-                let coverageJSON = try localFileSystem.readFileContents(coveragePath)
-                let coverage = try JSONDecoder().decode(Coverage.self, from: Data(coverageJSON.contents))
+            }
+            let coverageJSON = try localFileSystem.readFileContents(coveragePath)
+            let coverage = try JSONDecoder().decode(Coverage.self, from: Data(coverageJSON.contents))
 
-                // Check for 100% coverage for Subject.swift, which should happen because the per-PID files got merged.
-                let subjectCoverage = try #require(coverage.data.first?.files.first(where: { $0.filename.hasSuffix("Subject.swift") }))
+            // Check for 100% coverage for Subject.swift, which should happen because the per-PID files got merged.
+            try withKnownIssue(isIntermittent: true) {
+                let data = try #require(coverage.data.first, "covege JSON = \(coverage)")
+                let subjectCoverage = try #require(data.files.first(where: { $0.filename.hasSuffix("Subject.swift") }), "covege JSON = \(data.files)")
                 #expect(subjectCoverage.summary.functions.count == 2)
                 #expect(subjectCoverage.summary.functions.covered == 2)
                 #expect(subjectCoverage.summary.functions.percent == 100)
@@ -371,6 +360,9 @@ private struct SwiftPMTests {
             } when: {
                 [.linux, .windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
             }
+        }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
         }
     }
 }

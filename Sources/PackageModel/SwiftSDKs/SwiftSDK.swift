@@ -233,29 +233,29 @@ public struct SwiftSDK: Equatable {
     /// Additional flags to be passed to the C compiler.
     @available(*, deprecated, message: "use `toolset` and its properties instead")
     public var extraCCFlags: [String] {
-        extraFlags.cCompilerFlags
+        extraFlags.cCompilerFlags.rawFlags
     }
 
     /// Additional flags to be passed to the Swift compiler.
     @available(*, deprecated, message: "use `toolset` and its properties instead")
     public var extraSwiftCFlags: [String] {
-        extraFlags.swiftCompilerFlags
+        extraFlags.swiftCompilerFlags.rawFlags
     }
 
     /// Additional flags to be passed to the C++ compiler.
     @available(*, deprecated, message: "use `toolset` and its properties instead")
     public var extraCPPFlags: [String] {
-        extraFlags.cxxCompilerFlags
+        extraFlags.cxxCompilerFlags.rawFlags
     }
 
     /// Additional flags to be passed to the build tools.
     @available(*, deprecated, message: "use `toolset` and its properties instead")
     public var extraFlags: BuildFlags {
-        .init(
-            cCompilerFlags: toolset.knownTools[.cCompiler]?.extraCLIOptions ?? [],
-            cxxCompilerFlags: toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? [],
-            swiftCompilerFlags: toolset.knownTools[.swiftCompiler]?.extraCLIOptions ?? [],
-            linkerFlags: toolset.knownTools[.linker]?.extraCLIOptions ?? [],
+        return .init(
+            cCompilerFlags: (toolset.knownTools[.cCompiler]?.extraCLIOptions ?? []).constructBuildFlags(source: .toolset),
+            cxxCompilerFlags: (toolset.knownTools[.cxxCompiler]?.extraCLIOptions ?? []).constructBuildFlags(source: .toolset),
+            swiftCompilerFlags: (toolset.knownTools[.swiftCompiler]?.extraCLIOptions ?? []).constructBuildFlags(source: .toolset),
+            linkerFlags: (toolset.knownTools[.linker]?.extraCLIOptions ?? []).constructBuildFlags(source: .toolset),
             xcbuildFlags: toolset.knownTools[.xcbuild]?.extraCLIOptions ?? []
         )
     }
@@ -264,6 +264,15 @@ public struct SwiftSDK: Equatable {
     /// metadata may specify multiple toolset files, these files are consolidated into a single ``Toolset`` value during
     /// deserialization.
     public private(set) var toolset: Toolset
+
+    public private(set) var swiftSDKManifest: Basics.AbsolutePath?
+
+    public func loadSettings() throws -> SDKSettings? {
+        guard let sdkSettingsFile = pathsConfiguration.sdkRootPath?.appending("SDKSettings.json") else {
+            return nil
+        }
+        return try JSONDecoder().decode(SDKSettings.self, from: Data(contentsOf: sdkSettingsFile.asURL))
+    }
 
     /// The paths associated with a Swift SDK. The Path type can be a `String`
     /// to encapsulate the arguments for the `SwiftSDKConfigurationStore.configure`
@@ -336,7 +345,7 @@ public struct SwiftSDK: Equatable {
         ///   - properties: properties of a Swift SDK for the given triple.
         ///   - swiftSDKDirectory: directory used for converting relative paths in `properties` to absolute paths.
         fileprivate init(
-            _ properties: SwiftSDKMetadataV4.TripleProperties, 
+            _ properties: SwiftSDKMetadataV4.TripleProperties,
             swiftSDKDirectory: Basics.AbsolutePath? = nil
         ) throws where Path == Basics.AbsolutePath {
             self.init(
@@ -444,9 +453,9 @@ public struct SwiftSDK: Equatable {
             sdkRootDir: sdk,
             toolchainBinDir: binDir,
             extraFlags: BuildFlags(
-                cCompilerFlags: extraCCFlags,
-                cxxCompilerFlags: extraCPPFlags,
-                swiftCompilerFlags: extraSwiftCFlags
+                cCompilerFlags: extraCCFlags.constructBuildFlags(source: .swiftSDK),
+                cxxCompilerFlags: extraCPPFlags.constructBuildFlags(source: .swiftSDK),
+                swiftCompilerFlags: extraSwiftCFlags.constructBuildFlags(source: .swiftSDK)
             )
         )
     }
@@ -499,12 +508,14 @@ public struct SwiftSDK: Equatable {
         hostTriple: Triple? = nil,
         targetTriple: Triple? = nil,
         toolset: Toolset,
+        swiftSDKManifest: Basics.AbsolutePath? = nil,
         pathsConfiguration: PathsConfiguration<Basics.AbsolutePath>,
         xctestSupport: XCTestSupport = .supported
     ) {
         self.hostTriple = hostTriple
         self.targetTriple = targetTriple
         self.toolset = toolset
+        self.swiftSDKManifest = swiftSDKManifest
         self.pathsConfiguration = pathsConfiguration
         self.xctestSupport = xctestSupport
     }
@@ -665,45 +676,45 @@ public struct SwiftSDK: Equatable {
         for darwinPlatform: DarwinPlatform,
         environment: Environment = .current
     ) throws -> PlatformPaths {
-        if let path = _sdkPlatformFrameworkPath[darwinPlatform] {
-            return path
+        let sdkPlatformFrameworkPath = try _sdkPlatformFrameworkPathCache.memoize(darwinPlatform) {
+            // Compute the platform path.
+            let platformPath = try environment[
+                EnvironmentKey("SWIFTPM_PLATFORM_PATH_\(darwinPlatform.xcrunName)")
+            ] ?? AsyncProcess.checkNonZeroExit(
+                arguments: ["/usr/bin/xcrun", "--sdk", darwinPlatform.xcrunName, "--show-sdk-platform-path"],
+                environment: environment
+            ).spm_chomp()
+
+            guard !platformPath.isEmpty else {
+                throw StringError("could not determine SDK platform path")
+            }
+
+            // For testing frameworks.
+            let frameworksPath = try Basics.AbsolutePath(validating: platformPath).appending(
+                components: "Developer", "Library", "Frameworks"
+            )
+            let privateFrameworksPath = try Basics.AbsolutePath(validating: platformPath).appending(
+                components: "Developer", "Library", "PrivateFrameworks"
+            )
+
+            // For testing libraries.
+            let librariesPath = try Basics.AbsolutePath(validating: platformPath).appending(
+                components: "Developer", "usr", "lib"
+            )
+
+            let sdkPlatformFrameworkPath = PlatformPaths(
+                buildTimeFrameworkSearchPaths: [frameworksPath /* omit privateFrameworksPath */],
+                buildTimeLibrarySearchPaths: [librariesPath],
+                runtimeFrameworkSearchPaths: [frameworksPath, privateFrameworksPath],
+                runtimeLibrarySearchPaths: [librariesPath]
+            )
+            return sdkPlatformFrameworkPath
         }
-        let platformPath = try environment[
-            EnvironmentKey("SWIFTPM_PLATFORM_PATH_\(darwinPlatform.xcrunName)")
-        ] ?? AsyncProcess.checkNonZeroExit(
-            arguments: ["/usr/bin/xcrun", "--sdk", darwinPlatform.xcrunName, "--show-sdk-platform-path"],
-            environment: environment
-        ).spm_chomp()
-
-        guard !platformPath.isEmpty else {
-            throw StringError("could not determine SDK platform path")
-        }
-
-        // For testing frameworks.
-        let frameworksPath = try Basics.AbsolutePath(validating: platformPath).appending(
-            components: "Developer", "Library", "Frameworks"
-        )
-        let privateFrameworksPath = try Basics.AbsolutePath(validating: platformPath).appending(
-            components: "Developer", "Library", "PrivateFrameworks"
-        )
-
-        // For testing libraries.
-        let librariesPath = try Basics.AbsolutePath(validating: platformPath).appending(
-            components: "Developer", "usr", "lib"
-        )
-
-        let sdkPlatformFrameworkPath = PlatformPaths(
-            buildTimeFrameworkSearchPaths: [frameworksPath /* omit privateFrameworksPath */],
-            buildTimeLibrarySearchPaths: [librariesPath],
-            runtimeFrameworkSearchPaths: [frameworksPath, privateFrameworksPath],
-            runtimeLibrarySearchPaths: [librariesPath]
-        )
-        _sdkPlatformFrameworkPath[darwinPlatform] = sdkPlatformFrameworkPath
         return sdkPlatformFrameworkPath
     }
 
     /// Cache storage for sdk platform paths.
-    private static var _sdkPlatformFrameworkPath: [DarwinPlatform: PlatformPaths] = [:]
+    private static let _sdkPlatformFrameworkPathCache = ThreadSafeKeyValueStore<DarwinPlatform, PlatformPaths>()
 
     /// Returns a default Swift SDK for a given target environment
     @available(*, deprecated, renamed: "defaultSwiftSDK")
@@ -942,7 +953,8 @@ extension SwiftSDK {
                     targetTriple: triple,
                     properties: properties,
                     toolset: toolset,
-                    swiftSDKDirectory: swiftSDKDirectory
+                    swiftSDKDirectory: swiftSDKDirectory,
+                    swiftSDKManifest: path,
                 )
             }
 
@@ -973,7 +985,8 @@ extension SwiftSDK {
                     targetTriple: triple,
                     properties: properties,
                     toolset: toolset,
-                    swiftSDKDirectory: swiftSDKDirectory
+                    swiftSDKDirectory: swiftSDKDirectory,
+                    swiftSDKManifest: path,
                 )
             }
         default:
@@ -991,11 +1004,13 @@ extension SwiftSDK {
         targetTriple: Triple,
         properties: SwiftSDKMetadataV4.TripleProperties,
         toolset: Toolset = .init(),
-        swiftSDKDirectory: Basics.AbsolutePath? = nil
+        swiftSDKDirectory: Basics.AbsolutePath? = nil,
+        swiftSDKManifest: Basics.AbsolutePath? = nil,
     ) throws {
         self.init(
             targetTriple: targetTriple,
             toolset: toolset,
+            swiftSDKManifest: swiftSDKManifest,
             pathsConfiguration: try .init(properties, swiftSDKDirectory: swiftSDKDirectory)
         )
     }
@@ -1010,11 +1025,13 @@ extension SwiftSDK {
         targetTriple: Triple,
         properties: SerializedDestinationV3.TripleProperties,
         toolset: Toolset = .init(),
-        swiftSDKDirectory: Basics.AbsolutePath? = nil
+        swiftSDKDirectory: Basics.AbsolutePath? = nil,
+        swiftSDKManifest: Basics.AbsolutePath? = nil,
     ) throws {
         self.init(
             targetTriple: targetTriple,
             toolset: toolset,
+            swiftSDKManifest: swiftSDKManifest,
             pathsConfiguration: try .init(properties, swiftSDKDirectory: swiftSDKDirectory)
         )
     }
@@ -1030,7 +1047,7 @@ extension SwiftSDK {
         switch version.version {
         case 1:
             let serializedMetadata = try decoder.decode(
-                path: path, 
+                path: path,
                 fileSystem: fileSystem,
                 as: SerializedDestinationV1.self
             )
@@ -1039,9 +1056,9 @@ extension SwiftSDK {
                 toolset: .init(
                     toolchainBinDir: serializedMetadata.binDir,
                     buildFlags: .init(
-                        cCompilerFlags: serializedMetadata.extraCCFlags,
-                        cxxCompilerFlags: serializedMetadata.extraCPPFlags,
-                        swiftCompilerFlags: serializedMetadata.extraSwiftCFlags
+                        cCompilerFlags: serializedMetadata.extraCCFlags.constructBuildFlags(source: .swiftSDK),
+                        cxxCompilerFlags: serializedMetadata.extraCPPFlags.constructBuildFlags(source: .swiftSDK),
+                        swiftCompilerFlags: serializedMetadata.extraSwiftCFlags.constructBuildFlags(source: .swiftSDK)
                     )
                 ),
                 pathsConfiguration: .init(sdkRootPath: serializedMetadata.sdk)
@@ -1059,10 +1076,10 @@ extension SwiftSDK {
                         relativeTo: swiftSDKDirectory
                     ),
                     buildFlags: .init(
-                        cCompilerFlags: serializedMetadata.extraCCFlags,
-                        cxxCompilerFlags: serializedMetadata.extraCXXFlags,
-                        swiftCompilerFlags: serializedMetadata.extraSwiftCFlags,
-                        linkerFlags: serializedMetadata.extraLinkerFlags
+                        cCompilerFlags: serializedMetadata.extraCCFlags.constructBuildFlags(source: .swiftSDK),
+                        cxxCompilerFlags: serializedMetadata.extraCXXFlags.constructBuildFlags(source: .swiftSDK),
+                        swiftCompilerFlags: serializedMetadata.extraSwiftCFlags.constructBuildFlags(source: .swiftSDK),
+                        linkerFlags: serializedMetadata.extraLinkerFlags.constructBuildFlags(source: .swiftSDK)
                     )
                 ),
                 pathsConfiguration: .init(
@@ -1083,7 +1100,7 @@ extension SwiftSDK {
             guard let targetTriple = self.targetTriple, let sdkRootDir = self.pathsConfiguration.sdkRootPath else {
                 throw SwiftSDKError.unserializableMetadata
             }
-            
+
             return (
                 targetTriple,
                 .init(
@@ -1247,4 +1264,9 @@ extension Basics.AbsolutePath {
             try self.init(validating: string)
         }
     }
+}
+
+// TODO: Move anything to do with the SDKSettings here
+public struct SDKSettings: Codable {
+    public let CanonicalName: String
 }

@@ -15,7 +15,26 @@ package struct ReferencedSymbols {
     package private(set) var undefined: Set<String>
 
     package init() {
-        self.defined = []
+        // Some symbols are defined by linker directly by convention and need to be assumed defined.
+        // The list below was pulled from
+        // https://github.com/llvm/llvm-project/blob/177e38286cd61a7b5a968636e1f147f128dd25a2/lld/ELF/Config.h#L632
+        self.defined = [
+            "__bss_start",
+            "_etext",
+            "etext",
+            "_edata",
+            "edata",
+            "_end",
+            "end",
+            "_GLOBAL_OFFSET_TABLE_",
+            "_gp",
+            "_gp_disp",
+            "__gnu_local_gp",
+            "__global_pointer$",
+            "__rela_iplt_start",
+            "__rela_iplt_end",
+            "_TLS_MODULE_BASE",
+        ]
         self.undefined = []
     }
 

@@ -61,7 +61,7 @@ import enum SwiftBuild.ProjectModel
 
 // MARK: - PIF GUID Helpers
 
-public enum TargetSuffix: String {
+public enum TargetSuffix: String, CaseIterable {
     case testable, dynamic
 
     func hasSuffix(id: GUID) -> Bool {
@@ -145,9 +145,70 @@ extension PackagePIFBuilder {
     ///
     /// This format helps make sure that modules and products with the same name (as they often have)
     /// have different target names in the PIF.
-    static func targetName(forProductName name: String, suffix: TargetSuffix? = nil) -> String {
+    public static func targetName(forProductName name: String, suffix: TargetSuffix? = nil) -> String {
         let suffix = suffix?.rawValue ?? ""
         return "\(name)\(suffix)-product"
+    }
+
+    /// Helper function to consistently generate a target name string for a module in a product.
+    package static func targetName(forModuleName name: String, suffix: TargetSuffix? = nil) -> String {
+        let suffix = suffix?.rawValue ?? ""
+        return "\(name)\(suffix)"
+    }
+    
+    /// Removes known TargetSuffix patterns from a name string.
+    private static func removeSuffix(from name: String) -> String {
+        for suffix in TargetSuffix.allCases {
+            let suffixPattern: String
+            switch suffix {
+            case .testable, .dynamic:
+                suffixPattern = "-\(suffix.rawValue)"
+                if name.hasSuffix(suffixPattern) {
+                    return String(name.dropLast(suffixPattern.count))
+                }
+            }
+        }
+        return name
+    }
+
+    /// Extracts a Swift Package product name from a PIF target name.
+    ///
+    /// This reverses the conversion performed by `targetName(forProductName:suffix:)`.
+    /// Returns `nil` if the target name doesn't represent a product (i.e., doesn't end with "-product").
+    ///
+    /// - Parameter targetName: The PIF target name to parse
+    /// - Returns: The Swift Package product name, or `nil` if this isn't a product target name
+    package static func productName(forTargetName targetName: String) -> String? {
+        guard targetName.hasSuffix("-product") else {
+            return nil
+        }
+        let nameWithoutProduct = String(targetName.dropLast("-product".count))
+        return removeSuffix(from: nameWithoutProduct)
+    }
+
+        /// Extracts a Swift Package module name from a PIF target name.
+    ///
+    /// This reverses the conversion performed by `targetName(forModuleName:suffix:)`.
+    /// Returns `nil` if the target name represents a product or resource bundle.
+    ///
+    /// - Parameter targetName: The PIF target name to parse
+    /// - Returns: The Swift Package module name, or `nil` if this isn't a module target name
+    ///
+    /// - Note: Resource bundle target names follow the pattern `packageName_moduleName`
+    ///   (e.g., `swift-nio_NIOPosix`, `swift-crypto__CryptoExtras`) and are excluded.
+    ///   However, module names can start with `_` (e.g., `_CryptoExtras`, `__AsyncFileSystem`).
+    package static func moduleName(forTargetName targetName: String) -> String? {
+        guard !targetName.hasSuffix("-product") else {
+            return nil
+        }
+        // Resource bundle target names follow the pattern packageName_moduleName
+        // e.g., swift-nio_NIOPosix, swift-crypto__CryptoExtras
+        // So should be ignored by moduleName()
+        // But moduleName can start with _, like _CryptoExtras and __AsyncFileSystem
+        if targetName.contains("_") && targetName.first != "_" {
+            return nil
+        }
+        return removeSuffix(from: targetName)
     }
 }
 
@@ -300,6 +361,10 @@ extension PackageModel.BuildSettings.Declaration {
 
         // Linker.
         case .OTHER_LDFLAGS, .LINK_LIBRARIES, .LINK_FRAMEWORKS:
+            true
+
+        // Prebuilts
+        case .PREBUILT_INCLUDE_PATHS, .PREBUILT_LIBRARY_PATHS, .PREBUILT_LIBRARIES:
             true
 
         default:
@@ -611,7 +676,7 @@ extension PackageGraph.ResolvedModule {
     /// Collect the build settings defined in the package manifest.
     /// Some of them apply *only* to the target itself, while others are also imparted to clients.
     /// Note that the platform is *optional*; unconditional settings have no platform condition.
-    func computeAllBuildSettings(observabilityScope: ObservabilityScope) -> AllBuildSettings {
+    func computeAllBuildSettings(observabilityScope: ObservabilityScope, forRemotePackage: Bool) -> AllBuildSettings {
         var allSettings = AllBuildSettings()
 
         for (declaration, settingsAssigments) in self.underlying.buildSettings.assignments {
@@ -635,6 +700,34 @@ extension PackageGraph.ResolvedModule {
                     singleValueSetting = nil
                     multipleValueSetting = .HEADER_SEARCH_PATHS
                     values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
+                case .PREBUILT_INCLUDE_PATHS:
+                    singleValueSetting = nil
+                    multipleValueSetting = .OTHER_SWIFT_FLAGS
+                    values = settingAssignment.values.flatMap { ["-I", $0] }
+                case .PREBUILT_LIBRARY_PATHS:
+                    singleValueSetting = nil
+                    multipleValueSetting = .LIBRARY_SEARCH_PATHS
+                    values = settingAssignment.values
+                case .PREBUILT_LIBRARIES:
+                    singleValueSetting = nil
+                    multipleValueSetting = .OTHER_LDFLAGS
+                    values = settingAssignment.values.map { "-l\($0)" }
+                case .OTHER_SWIFT_FLAGS:
+                    singleValueSetting = nil
+                    multipleValueSetting = .OTHER_SWIFT_FLAGS
+                    if forRemotePackage {
+                        values = WarningControlFlags.filterSwiftWarningControlFlags(settingAssignment.values)
+                    } else {
+                        values = settingAssignment.values
+                    }
+                case .OTHER_CFLAGS, .OTHER_CPLUSPLUSFLAGS:
+                    singleValueSetting = nil
+                    multipleValueSetting = ProjectModel.BuildSettings.MultipleValueSetting(from: declaration)
+                    if forRemotePackage {
+                        values = WarningControlFlags.filterClangWarningControlFlags(settingAssignment.values)
+                    } else {
+                        values = settingAssignment.values
+                    }
                 default:
                     if declaration.allowsMultipleValues {
                         singleValueSetting = nil
@@ -661,8 +754,12 @@ extension PackageGraph.ResolvedModule {
                         pifPlatform = nil
                     }
 
-                    // Handle imparted settings for OTHER_LDFLAGS (always multiple values)
-                    if let multipleValueSetting = multipleValueSetting, multipleValueSetting == .OTHER_LDFLAGS {
+                    // Handle imparted settings for OTHER_LDFLAGS and prebuilts include paths (always multiple values)
+                    // TODO: Do we realy need to impart OTHER_LDFLAGS?
+                    // TODO: Doing that for the PREBUILT_LIBRARIES was causing duplicate library warnings.
+                    if let multipleValueSetting = multipleValueSetting,
+                        declaration != .PREBUILT_LIBRARIES,
+                        (multipleValueSetting == .OTHER_LDFLAGS || declaration == .PREBUILT_INCLUDE_PATHS) {
                         allSettings.impartedMultipleValueSettings[pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
                     }
 
@@ -693,6 +790,7 @@ extension SystemLibraryModule {
     /// Returns pkgConfig result for a system library target.
     func pkgConfig(
         package: PackageGraph.ResolvedPackage,
+        pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) throws -> (cFlags: [String], libs: [String]) {
@@ -703,9 +801,9 @@ extension SystemLibraryModule {
             }
         }
 
-        let pkgConfigParsingScope = ObservabilitySystem { _, diagnostic in
+        let pkgConfigParsingScope = ObservabilitySystem({ _, diagnostic in
             diagnostics.append(diagnostic)
-        }.topScope.makeChildScope(description: "PkgConfig") {
+        }, outputStream: nil, logLevel: .debug).topScope.makeChildScope(description: "PkgConfig") {
             var packageMetadata = ObservabilityMetadata.packageMetadata(
                 identity: package.identity,
                 kind: package.manifest.packageKind
@@ -714,29 +812,33 @@ extension SystemLibraryModule {
             return packageMetadata
         }
 
-        let brewPath = if FileManager.default.fileExists(atPath: "/opt/brew") {
-            "/opt/brew" // Legacy path for Homebrew.
-        } else if FileManager.default.fileExists(atPath: "/opt/homebrew") {
-            "/opt/homebrew" // Default path for Homebrew on Apple Silicon.
+        let brewPrefix: AbsolutePath?
+        // Normally PIF should be independent of the host OS, but in this case
+        // we need to invoke a tool (pkg-config) installed on the host system by homebrew.
+        if ProcessInfo.hostOperatingSystem == .macOS {
+            let brewPath = if FileManager.default.fileExists(atPath: "/opt/brew") {
+                "/opt/brew" // Legacy path for Homebrew.
+            } else if FileManager.default.fileExists(atPath: "/opt/homebrew") {
+                "/opt/homebrew" // Default path for Homebrew on Apple Silicon.
+            } else {
+                "/usr/local" // Fallback to default path for Homebrew.
+            }
+
+            brewPrefix = try? AbsolutePath(
+                validating: UserDefaults.standard.string(forKey: "IDEHomebrewPrefixPath") ?? brewPath
+            )
         } else {
-            "/usr/local" // Fallback to default path for Homebrew.
+            brewPrefix = nil
         }
-
-        let emptyPkgConfig: (cFlags: [String], libs: [String]) = ([], [])
-
-        let brewPrefix = try? AbsolutePath(
-            validating: UserDefaults.standard.string(forKey: "IDEHomebrewPrefixPath") ?? brewPath
-        )
-        guard let brewPrefix else { return emptyPkgConfig }
 
         let pkgConfigResult = try? pkgConfigArgs(
             for: self,
-            pkgConfigDirectories: [],
+            pkgConfigDirectories: pkgConfigDirectories,
             brewPrefix: brewPrefix,
             fileSystem: fileSystem,
             observabilityScope: pkgConfigParsingScope
         )
-        guard let pkgConfigResult else { return emptyPkgConfig }
+        guard let pkgConfigResult else { return ([], []) }
 
         let pkgConfig = (
             cFlags: pkgConfigResult.flatMap(\.cFlags),
@@ -874,16 +976,19 @@ extension Collection<PackageGraph.ResolvedModule> {
     /// Recursively applies a block to each of the *dependencies* of the given module, in topological sort order.
     /// Each module or product dependency is visited only once.
     func recursivelyTraverseDependencies(with block: (ResolvedModule.Dependency) -> Void) {
-        var moduleGuidsSeen: Set<ResolvedModule.ID> = []
-        var productGuidsSeen: Set<ResolvedProduct.ID> = []
+        var moduleIDsSeen: Set<ResolvedModule.ID> = []
+        var productIDsSeen: Set<ResolvedProduct.ID> = []
 
         func visitDependency(_ dependency: ResolvedModule.Dependency) {
             switch dependency {
             case .module(let moduleDependency, _):
-                let (unseenModule, _) = moduleGuidsSeen.insert(moduleDependency.id)
+                let (unseenModule, _) = moduleIDsSeen.insert(moduleDependency.id)
                 guard unseenModule else { return }
 
-                if moduleDependency.underlying.type != .macro {
+                // Do not traverse into *macro* or *plugin* dependencies.
+                // Macros run at compile time and their dependencies should not be linked into the client.
+                // Plugins run at build time and their dependencies should not be linked into the client neither.
+                if ![.macro, .plugin].contains(moduleDependency.underlying.type) {
                     for dependency in moduleDependency.dependencies {
                         visitDependency(dependency)
                     }
@@ -891,15 +996,14 @@ extension Collection<PackageGraph.ResolvedModule> {
                 block(dependency)
 
             case .product(let productDependency, let conditions):
-                let (unseenProduct, _) = productGuidsSeen.insert(productDependency.id)
+                let (unseenProduct, _) = productIDsSeen.insert(productDependency.id)
                 guard unseenProduct && !productDependency.isBinaryOnlyExecutableProduct else { return }
                 block(dependency)
 
-                // We need to visit any binary modules to be able to add direct references to them to any client
-                // targets.
+                // We need to visit any binary modules to be able to add direct references to them to any client targets.
                 // This is needed so that XCFramework processing always happens *prior* to building any client targets.
                 for moduleDependency in productDependency.modules where moduleDependency.isBinary {
-                    if moduleGuidsSeen.contains(moduleDependency.id) { continue }
+                    if moduleIDsSeen.contains(moduleDependency.id) { continue }
                     block(.module(moduleDependency, conditions: conditions))
                 }
             }
@@ -1016,8 +1120,9 @@ extension ProjectModel.BuildSettings.Platform {
 }
 
 extension ProjectModel.BuildSettings {
-    /// Configure necessary settings for a dynamic library/framework.
+    /// Configure necessary settings for a *dynamic library* or *framework*.
     mutating func configureDynamicSettings(
+        product: PackageModel.Product?,
         productName: String,
         targetName: String,
         packageIdentity: PackageIdentity,
@@ -1026,19 +1131,37 @@ extension ProjectModel.BuildSettings {
         installPath: String,
         delegate: PackagePIFBuilder.BuildDelegate,
     ) {
+        let productBundleIdentifier = "\(packageIdentity).\(productName)"
+
         self[.TARGET_NAME] = targetName
+        self[.TARGET_TEMP_DIR_SUFFIX] = "-t"
         self[.PRODUCT_NAME] = productName
         self[.PRODUCT_MODULE_NAME] = productName
-        self[.PRODUCT_BUNDLE_IDENTIFIER] = "\(packageIdentity).\(productName)".spm_mangledToBundleIdentifier()
+        self[.PRODUCT_BUNDLE_IDENTIFIER] = productBundleIdentifier.spm_mangledToBundleIdentifier()
         self[.SWIFT_PACKAGE_NAME] = packageName ?? nil
 
-        // This should really be swift-build defaults set in the .xcspec files, but changing that requires
-        // some extensive testing to ensure xcode projects are not effected.
-        // So for now lets just force it here.
-        self[.EXECUTABLE_PREFIX] = "lib"
-        self[.EXECUTABLE_PREFIX, Platform.windows] = ""
+        if createDylibForDynamicProducts {
+            // This should really be swift-build defaults set in the .xcspec files, but changing that requires
+            // some extensive testing to ensure xcode projects are not affected.
+            // So for now lets just force it here.
+            self[.EXECUTABLE_PREFIX] = "lib"
+            self[.EXECUTABLE_PREFIX, Platform.windows] = ""
+        }
 
+        // Are we building a framework?
         if !createDylibForDynamicProducts {
+            // Apply delegate overrides for *executable name* and *bundle identifier prefix* on frameworks.
+            // This can be used by SwiftPM clients to disambiguate framework names and bundle IDs, if necessary.
+            if let product {
+                if let customProductName = delegate.customProductName(forFramework: product) {
+                    self[.PRODUCT_NAME] = customProductName
+                }
+                if let customBundleIdPrefix = delegate.customBundleIdentifierPrefix(forFramework: product) {
+                    self[.PRODUCT_BUNDLE_IDENTIFIER] = "\(customBundleIdPrefix)\(productBundleIdentifier)"
+                        .spm_mangledToBundleIdentifier()
+                }
+            }
+
             self[.GENERATE_INFOPLIST_FILE] = "YES"
             // If the built framework is named same as one of the target in the package,
             // it can be picked up automatically during indexing since the build system always adds a -F flag

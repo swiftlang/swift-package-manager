@@ -35,6 +35,8 @@ extension ProcessInfo {
         .freebsd
         #elseif os(OpenBSD)
         .openbsd
+        #elseif os(Android)
+        .android
         #else
         .unknown
         #endif

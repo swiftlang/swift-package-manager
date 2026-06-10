@@ -154,7 +154,7 @@ struct TestCommandOptions: ParsableArguments {
     /// If tests should run in parallel mode.
     @Flag(name: .customLong("parallel"),
           inversion: .prefixedNo,
-          help: "Run the tests in parallel.")
+          help: "Determines whether tests run in parallel.")
     var shouldRunInParallel: Bool = false
 
     /// Number of tests to execute in parallel
@@ -170,7 +170,7 @@ struct TestCommandOptions: ParsableArguments {
 
     /// List the tests and exit.
     @Flag(name: [.customLong("list-tests"), .customShort("l")],
-          help: "Lists test methods in specifier format.")
+          help: "List test methods in specifier format.")
     var _deprecated_shouldListTests: Bool = false
 
     /// If the path of the exported code coverage JSON should be printed.
@@ -190,13 +190,13 @@ struct TestCommandOptions: ParsableArguments {
     var _testCaseSpecifier: String?
 
     @Option(help: """
-        Run test cases that match a regular expression, Format: '<test-target>.<test-case>' \
-        or '<test-target>.<test-case>/<test>'.
+        Run test cases that match a regular expression. \
+        Format: <test-target>.<test-case> or <test-target>.<test-case>/<test>.
         """)
     var filter: [String] = []
 
     @Option(name: .customLong("skip"),
-            help: "Skip test cases that match a regular expression, Example: '--skip PerformanceTests'.")
+            help: "Skip test cases that match a regular expression. For example: '--skip PerformanceTests'.")
     var _testCaseSkip: [String] = []
 
     /// Path where the xUnit xml file should be generated.
@@ -214,13 +214,13 @@ struct TestCommandOptions: ParsableArguments {
     var shouldShowDetailedFailureMessage: Bool = false
 
     /// Generate LinuxMain entries and exit.
-    @Flag(name: .customLong("testable-imports"), inversion: .prefixedEnableDisable, help: "Enable or disable testable imports. Enabled by default.")
+    @Flag(name: .customLong("testable-imports"), inversion: .prefixedEnableDisable, help: "Determines whether test modules use @testable imports.")
     var enableTestableImports: Bool = true
 
     /// Whether to enable code coverage.
     @Flag(name: .customLong("code-coverage"),
           inversion: .prefixedEnableDisable,
-          help: "Enable code coverage.")
+          help: "Determines whether testing measures code coverage.")
     var enableCodeCoverage: Bool = false
 
     /// Configure test output.
@@ -278,6 +278,13 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
     @OptionGroup()
     var options: TestCommandOptions
+
+    /// The text of a note emitted after Swift Testing tests finish running if
+    /// at least one XCTest has failed, to inform the user.
+    ///
+    /// - Note: This is exposed as a property so it can be referenced by an
+    ///     accompanying test as well as the implementation.
+    public static let xctestFailedNote = "Note: One or more XCTests failed, see logging above for details."
 
     private func run(_ swiftCommandState: SwiftCommandState, buildParameters: BuildParameters, testProducts: [BuiltTestProduct]) async throws {
         // Remove test output from prior runs and validate priors.
@@ -359,6 +366,9 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
         // Run Swift Testing (parallel or not, it has a single entry point.)
         if options.testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) {
+            // Determine whether any XCTest runs performed above failed, before Swift Testing runs.
+            let anyXCTestFailed = results.reduce() == .failure
+
             lazy var testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first
             if options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) || testEntryPointPath == nil {
                 results.append(
@@ -376,6 +386,15 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 swiftCommandState.observabilityScope.emit(
                     debug: "Skipping automatic Swift Testing invocation because a test entry point path is present: \(testEntryPointPath)"
                 )
+            }
+
+            // After running Swift Testing tests, if we determined that any XCTests failed earlier,
+            // emit a message informing the user so they aren't misled and know to look elsewhere for
+            // those details.
+            if anyXCTestFailed {
+                // In theory this could, or should, use `observabilityScope.print(_:verbose:)`,
+                // but that causes tests which check for this output to fail in CI.
+                print(Self.xctestFailedNote)
             }
         }
 
@@ -523,7 +542,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             toolchain: toolchain,
             destinationBuildParameters: productsBuildParameters,
             sanitizers: globalOptions.build.sanitizers,
-            library: library
+            library: library,
+            testProductPaths: testProducts.map(\.bundlePath)
         )
 
         let runnerPaths: [AbsolutePath] = switch library {
@@ -809,7 +829,8 @@ extension SwiftTestCommand {
                 toolchain: toolchain,
                 destinationBuildParameters: productsBuildParameters,
                 sanitizers: globalOptions.build.sanitizers,
-                library: .swiftTesting
+                library: .swiftTesting,
+                testProductPaths: testProducts.map(\.bundlePath)
             )
 
             if testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
@@ -1040,7 +1061,8 @@ final class TestRunner {
                 stdout: outputHandler,
                 stderr: outputHandler
             )
-            let process = AsyncProcess(arguments: try args(forTestAt: path), environment: self.testEnv, outputRedirection: outputRedirection)
+            let arguments = try args(forTestAt: path)
+            let process = AsyncProcess(arguments: arguments, environment: self.testEnv, outputRedirection: outputRedirection)
             guard let terminationKey = self.cancellator.register(process) else {
                 return .failure // terminating
             }
@@ -1054,7 +1076,7 @@ final class TestRunner {
                 return .noMatchingTests
             #if !os(Windows)
             case .signalled(let signal) where ![SIGINT, SIGKILL, SIGTERM].contains(signal):
-                testObservabilityScope.emit(error: "Exited with unexpected signal code \(signal)")
+                testObservabilityScope.emit(error: "Process '\(arguments.joined(separator: " "))' exited with unexpected signal code \(signal)")
                 return .failure
             #endif
             default:
@@ -1193,7 +1215,8 @@ final class ParallelTestRunner {
             toolchain: self.toolchain,
             destinationBuildParameters: self.productsBuildParameters,
             sanitizers: self.buildOptions.sanitizers,
-            library: .xctest // swift-testing does not use ParallelTestRunner
+            library: .xctest, // swift-testing does not use ParallelTestRunner
+            testProductPaths: bundlePaths
         )
 
         // Enqueue all the tests.
@@ -1223,7 +1246,7 @@ final class ParallelTestRunner {
                     }
                     self.finishedTests.enqueue(TestResult(
                         unitTest: test,
-                        output: output.get() ?? "",
+                        output: output.get(),
                         success: result != .failure,
                         duration: duration
                     ))
@@ -1611,11 +1634,16 @@ private func buildTestsIfNeeded(
     }
 
     if let testProductName = testProduct {
-        guard let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) else {
-            throw TestError.testProductNotFound(productName: testProductName)
+        if let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) {
+            return [selectedTestProduct]
         }
 
-        return [selectedTestProduct]
+        let selectedTestProducts = testProducts.filter({ $0.umbrellaProductName == testProductName })
+        if !selectedTestProducts.isEmpty {
+            return selectedTestProducts
+        }
+
+        throw TestError.testProductNotFound(productName: testProductName)
     } else {
         return testProducts
     }

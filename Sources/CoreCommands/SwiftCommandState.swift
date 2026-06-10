@@ -83,7 +83,7 @@ public struct ToolWorkspaceConfiguration {
 
 public typealias WorkspaceDelegateProvider = (
     _ observabilityScope: ObservabilityScope,
-    _ outputHandler: @escaping (String, Bool) -> Void,
+    _ outputHandler: @escaping (String, OutputCondition) -> Void,
     _ progressHandler: @escaping (Int64, Int64, String?) -> Void,
     _ inputHandler: @escaping (String, (String?) -> Void) -> Void
 ) -> WorkspaceDelegate
@@ -475,6 +475,14 @@ public final class SwiftCommandState {
             if options.build.buildSystem != .swiftbuild {
                 observabilityScope.emit(
                     warning: "'--experimental-task-backtraces' is only supported when using '--build-system swiftbuild'"
+                )
+            }
+        }
+
+        if options.build.traceEventsFilePath != nil {
+            if options.build.buildSystem != .swiftbuild {
+                observabilityScope.emit(
+                    warning: "'--experimental-trace-events-file' is only supported when using '--build-system swiftbuild'"
                 )
             }
         }
@@ -902,7 +910,7 @@ public final class SwiftCommandState {
     }
 
     static let entitlementsMacOSWarning = """
-    `--disable-get-task-allow-entitlement` and `--disable-get-task-allow-entitlement` only have an effect \
+    `--enable-get-task-allow-entitlement` and `--disable-get-task-allow-entitlement` only have an effect \
     when building on macOS.
     """
 
@@ -937,8 +945,9 @@ public final class SwiftCommandState {
             flags: options.build.buildFlags,
             buildSystemKind: options.build.buildSystem,
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
+            customToolsetPaths: options.locations.toolsetPaths,
             architectures: options.build.architectures,
-            workers: options.build.jobs ?? UInt32(ProcessInfo.processInfo.activeProcessorCount),
+            workers: options.build.jobs,
             shouldCreateDylibForDynamicProducts: !self.options.build.shouldBuildDylibsAsFrameworks,
             sanitizers: options.build.enabledSanitizers,
             indexStoreMode: options.build.indexStoreMode.buildParameter,
@@ -976,7 +985,13 @@ public final class SwiftCommandState {
             outputParameters: .init(
                 isColorized: self.options.logging.colorDiagnostics,
                 isVerbose: self.logLevel <= .info,
-                enableTaskBacktraces: self.options.build.enableTaskBacktraces
+                enableTaskBacktraces: self.options.build.enableTaskBacktraces,
+                traceEventsFilePath: try self.options.build.traceEventsFilePath.map {
+                    try AbsolutePath(
+                        validating: $0,
+                        relativeTo: self.fileSystem.currentWorkingDirectory ?? .root
+                    )
+                }
             ),
             testingParameters: .init(
                 forceTestDiscovery: self.options.build.enableTestDiscovery,
@@ -1143,6 +1158,9 @@ public final class SwiftCommandState {
     }
 
     private func acquireLockIfNeeded() throws {
+        guard !options.locations.skipAcquiringLock else {
+            return
+        }
         guard self.packageRoot != nil else {
             return
         }

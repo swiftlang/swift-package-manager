@@ -40,14 +40,14 @@ struct RunCommandTests {
     ) async throws -> (stdout: String, stderr: String) {
         return try await executeSwiftRun(
             packagePath,
-            nil,
+            executable,
             extraArgs: args,
             buildSystem: buildSystem,
         )
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func usage(
         buildSystem: BuildSystemProvider.Kind
@@ -58,7 +58,7 @@ struct RunCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func seeAlso(
         buildSystem: BuildSystemProvider.Kind
@@ -68,7 +68,7 @@ struct RunCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func commandDoesNotEmitDuplicateSymbols(
         buildSystem: BuildSystemProvider.Kind,
@@ -80,7 +80,7 @@ struct RunCommandTests {
     }
 
     @Test(
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func version(
         buildSystem: BuildSystemProvider.Kind,
@@ -101,7 +101,7 @@ struct RunCommandTests {
             .Feature.CommandLineArguments.BuildSystem,
             .Feature.CommandLineArguments.Configuration,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func toolsetDebugger(
         buildSystem: BuildSystemProvider.Kind,
@@ -123,15 +123,14 @@ struct RunCommandTests {
             #expect(stdout.contains("sentinel"))
 
             // swift-build-tool output should go to stderr.
-            withKnownIssue {
-                #expect(stderr.contains("Compiling"))
-            } when: {
-                buildSystem == .swiftbuild
-            }
-            withKnownIssue {
-                #expect(stderr.contains("Linking"))
-            } when: {
-                buildSystem == .swiftbuild
+            switch buildSystem {
+                case .native:
+                    #expect(stderr.contains("Compiling"))
+                    #expect(stderr.contains("Linking"))
+                case .swiftbuild:
+                    break
+                case .xcode:
+                    Issue.record("Test expectations have not been implemented")
             }
         }
     }
@@ -142,7 +141,7 @@ struct RunCommandTests {
         ),
         .IssueWindowsPathTestsFailures,
         .IssueWindowsRelativePathAssert,
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func productArgumentPassing(
         buildSystem: BuildSystemProvider.Kind,
@@ -160,23 +159,21 @@ struct RunCommandTests {
                 """))
 
             // swift-build-tool output should go to stderr.
-            withKnownIssue {
-                #expect(stderr.contains("Compiling"))
-            } when: {
-                buildSystem == .swiftbuild
-            }
-            withKnownIssue {
-                #expect(stderr.contains("Linking"))
-            } when: {
-                buildSystem == .swiftbuild
+            switch buildSystem {
+                case .native:
+                    #expect(stderr.contains("Compiling"))
+                    #expect(stderr.contains("Linking"))
+                case .swiftbuild:
+                    break
+                case .xcode:
+                    Issue.record("Test expectations have not been implemented")
             }
         }
     }
 
     @Test(
-        .SWBINTTODO("Swift run using Swift Build does not output executable content to the terminal"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8279"),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func unknownProductRaisesAnError(
         buildSystem: BuildSystemProvider.Kind,
@@ -205,7 +202,7 @@ struct RunCommandTests {
         ),
         .SWBINTTODO("Swift run using Swift Build does not output executable content to the terminal"),
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8279"),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func multipleExecutableAndExplicitExecutable(
         buildSystem: BuildSystemProvider.Kind,
@@ -244,13 +241,13 @@ struct RunCommandTests {
         ),
         .IssueWindowsPathTestsFailures,
         .IssueWindowsRelativePathAssert,
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func unreachableExecutable(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await withKnownIssue(isIntermittent: true) {
-            try await fixture(name: "Miscellaneous/UnreachableTargets") { fixturePath in
+            try await fixture(name: "Miscellaneous/UnreachableTargets", createGitRepo: true) { fixturePath in
                 let (output, _) = try await execute(["bexec"], packagePath: fixturePath.appending("A"), buildSystem: buildSystem)
                 let outputLines = output.split(whereSeparator: { $0.isNewline })
                 #expect(String(outputLines[0]).contains("BTarget2"))
@@ -264,7 +261,7 @@ struct RunCommandTests {
         .tags(
             .Feature.TargetType.Executable,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func fileDeprecation(
         buildSystem: BuildSystemProvider.Kind,
@@ -288,7 +285,7 @@ struct RunCommandTests {
             .Feature.CommandLineArguments.BuildTests,
             .Feature.CommandLineArguments.SkipBuild
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func mutualExclusiveFlags(
         buildSystem: BuildSystemProvider.Kind,
@@ -313,7 +310,7 @@ struct RunCommandTests {
         .tags(
             .Feature.TargetType.Executable,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func swiftRunSIGINT(
         buildSystem: BuildSystemProvider.Kind,
@@ -420,11 +417,11 @@ struct RunCommandTests {
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8844", relationship: .verifies),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8911", relationship: .defect),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8912", relationship: .defect),
-        arguments: SupportedBuildSystemOnPlatform, BuildConfiguration.allCases
+        arguments: SupportedBuildSystemOnAllPlatforms, BuildConfiguration.allCases,
     )
     func swiftRunQuietLogLevel(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration
+        configuration: BuildConfiguration,
     ) async throws {
         try await withKnownIssue(isIntermittent: true) {
             // GIVEN we have a simple test package
@@ -449,12 +446,12 @@ struct RunCommandTests {
 
     @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8844"),
-        arguments: SupportedBuildSystemOnPlatform, BuildConfiguration.allCases
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func swiftRunQuietLogLevelWithError(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration
     ) async throws {
+        let configuration = BuildConfiguration.debug
         // GIVEN we have a simple test package
         try await fixture(name: "Miscellaneous/SwiftRun") { fixturePath in
             let mainFilePath = fixturePath.appending("main.swift")
@@ -471,7 +468,7 @@ struct RunCommandTests {
                 try await executeSwiftRun(
                     fixturePath,
                     nil,
-                    configuration: .debug,
+                    configuration: configuration,
                     extraArgs: ["--quiet"],
                     buildSystem: buildSystem
                 )

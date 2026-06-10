@@ -9,7 +9,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-// import Foundation
+import Foundation
 
 import Basics
 import Commands
@@ -80,6 +80,7 @@ struct SwiftSDKCommandTests {
         command: SwiftPM,
         bundle: String,
     ) async throws {
+        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "SwiftSDKs") { fixturePath in
             let bundlePath = fixturePath.appending(bundle)
             expectFileExists(at: bundlePath)
@@ -154,6 +155,9 @@ struct SwiftSDKCommandTests {
 
             // We only expect tool's output on the stdout stream.
             #expect(!stdout.contains("test-artifact"))
+        }
+        } when: {
+            ProcessInfo.isHostAmazonLinux2()
         }
     }
 

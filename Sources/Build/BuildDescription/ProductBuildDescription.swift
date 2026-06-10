@@ -368,13 +368,13 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         // building for Darwin in debug configuration.
         args += self.swiftASTs.flatMap { ["-Xlinker", "-add_ast_path", "-Xlinker", $0.pathString] }
 
-        args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags
+        args += self.buildParameters.toolchain.extraFlags.swiftCompilerFlags.rawFlags
         // User arguments (from -Xswiftc) should follow generated arguments to allow user overrides
-        args += self.buildParameters.flags.swiftCompilerFlags
+        args += self.buildParameters.flags.swiftCompilerFlags.rawFlags
 
-        args += self.buildParameters.toolchain.extraFlags.linkerFlags.asSwiftcLinkerFlags()
+        args += self.buildParameters.toolchain.extraFlags.linkerFlags.rawFlags.asSwiftcLinkerFlags()
         // User arguments (from -Xlinker) should follow generated arguments to allow user overrides
-        args += self.buildParameters.flags.linkerFlags.asSwiftcLinkerFlags()
+        args += self.buildParameters.flags.linkerFlags.rawFlags.asSwiftcLinkerFlags()
 
         // Enable the correct lto mode if requested.
         switch self.buildParameters.linkingParameters.linkTimeOptimizationMode {
@@ -418,6 +418,15 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             })
             flags += frameworks.flatMap { ["-framework", $0] }
         }
+
+        // Prebuilt libraries.
+        let prebuiltLibPaths = OrderedSet(self.staticTargets.reduce([]) {
+            $0 + self.buildParameters.createScope(for: $1).evaluate(.PREBUILT_LIBRARY_PATHS)
+        })
+        let prebuiltLibraries = OrderedSet(self.staticTargets.reduce([]) {
+            $0 + self.buildParameters.createScope(for: $1).evaluate(.PREBUILT_LIBRARIES)
+        })
+        flags += prebuiltLibPaths.flatMap({ ["-L", $0] }) + prebuiltLibraries.map({ "-l" + $0 })
 
         // Other linker flags.
         for target in self.staticTargets {

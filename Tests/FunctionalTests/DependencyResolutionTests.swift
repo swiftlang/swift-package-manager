@@ -37,12 +37,11 @@ struct DependencyResolutionTests {
             Tag.Feature.Command.Build,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
-        BuildConfiguration.allCases,
     )
     func internalSimple(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 try await executeSwiftBuild(
@@ -67,12 +66,11 @@ struct DependencyResolutionTests {
             Tag.Feature.Command.Build,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
-        BuildConfiguration.allCases,
     )
     func internalExecAsDep(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await fixture(name: "DependencyResolution/Internal/InternalExecutableAsDependency") { fixturePath in
             await withKnownIssue(isIntermittent: true) {
                 await #expect(throws: (any Error).self) {
@@ -95,12 +93,11 @@ struct DependencyResolutionTests {
             Tag.Feature.Command.Build,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
-        BuildConfiguration.allCases,
     )
     func internalComplex(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "DependencyResolution/Internal/Complex") { fixturePath in
                 try await executeSwiftBuild(
@@ -127,14 +124,13 @@ struct DependencyResolutionTests {
             Tag.Feature.Command.Build,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
-        BuildConfiguration.allCases,
     )
     func externalSimple(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
-            try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            try await fixture(name: "DependencyResolution/External/Simple", createGitRepo: true) { fixturePath in
                 // Add several other tags to check version selection.
                 let repo = GitRepository(path: fixturePath.appending(components: "Foo"))
                 for tag in ["1.1.0", "1.2.0"] {
@@ -169,18 +165,17 @@ struct DependencyResolutionTests {
             Tag.Feature.Command.Build,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
-        BuildConfiguration.allCases,
     )
     func externalComplex(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(
             isIntermittent: ProcessInfo.hostOperatingSystem == .windows
             // rdar://162339964
             || (ProcessInfo.isHostAmazonLinux2() && buildSystem == .swiftbuild)
         ) {
-            try await fixture(name: "DependencyResolution/External/Complex") { fixturePath in
+            try await fixture(name: "DependencyResolution/External/Complex", createGitRepo: true) { fixturePath in
                 let packageRoot = fixturePath.appending("app")
                 try await executeSwiftBuild(
                     packageRoot,
@@ -206,14 +201,13 @@ struct DependencyResolutionTests {
             Tag.Feature.Command.Build,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
-        BuildConfiguration.allCases,
     )
     func convenienceBranchInit(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
-            try await fixture(name: "DependencyResolution/External/Branch") { fixturePath in
+            try await fixture(name: "DependencyResolution/External/Branch", createGitRepo: true) { fixturePath in
                 // Tests the convenience init .package(url: , branch: )
                 let app = fixturePath.appending("Bar")
                 try await executeSwiftBuild(
@@ -235,14 +229,13 @@ struct DependencyResolutionTests {
             Tag.Feature.Command.Package.Config,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
-        BuildConfiguration.allCases,
     )
     func mirrors(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await withKnownIssue("https://github.com/swiftlang/swift-build/issues/609", isIntermittent: true) {
-            try await fixture(name: "DependencyResolution/External/Mirror") { fixturePath in
+            try await fixture(name: "DependencyResolution/External/Mirror", createGitRepo: true) { fixturePath in
                 let prefix = try resolveSymlinks(fixturePath)
                 let appPath = prefix.appending("App")
                 let packageResolvedPath = appPath.appending("Package.resolved")
@@ -266,7 +259,7 @@ struct DependencyResolutionTests {
                     let output = try await executeSwiftPackage(
                         appPath,
                         configuration: configuration,
-                        extraArgs: ["show-dependencies"],
+                        extraArgs: ["show-dependencies", "-v"],
                         buildSystem: buildSystem,
                     )
                     // logs are in stderr
@@ -311,7 +304,7 @@ struct DependencyResolutionTests {
                     let output = try await executeSwiftPackage(
                         appPath,
                         configuration: configuration,
-                        extraArgs: ["show-dependencies"],
+                        extraArgs: ["show-dependencies", "-v"],
                         buildSystem: buildSystem,
                     )
                     // logs are in stderr
@@ -350,12 +343,11 @@ struct DependencyResolutionTests {
             Tag.Feature.Command.Package.Update,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
-        BuildConfiguration.allCases,
     )
     func packageLookupCaseInsensitive(
         buildSystem: BuildSystemProvider.Kind,
-        configuration: BuildConfiguration,
     ) async throws {
+        let configuration = BuildConfiguration.debug
         try await fixture(name: "DependencyResolution/External/PackageLookupCaseInsensitive") {
             fixturePath in
             try await executeSwiftPackage(

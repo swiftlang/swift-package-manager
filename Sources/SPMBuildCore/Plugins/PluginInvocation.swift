@@ -63,6 +63,7 @@ extension PluginModule {
     public func invoke(
         action: PluginAction,
         buildEnvironment: BuildEnvironment,
+        workers: UInt32,
         scriptRunner: PluginScriptRunner,
         workingDirectory: AbsolutePath,
         outputDirectory: AbsolutePath,
@@ -83,6 +84,7 @@ extension PluginModule {
             self.invoke(
                 action: action,
                 buildEnvironment: buildEnvironment,
+                workers: workers,
                 scriptRunner: scriptRunner,
                 workingDirectory: workingDirectory,
                 outputDirectory: outputDirectory,
@@ -132,6 +134,7 @@ extension PluginModule {
     public func invoke(
         action: PluginAction,
         buildEnvironment: BuildEnvironment,
+        workers: UInt32,
         scriptRunner: PluginScriptRunner,
         workingDirectory: AbsolutePath,
         outputDirectory: AbsolutePath,
@@ -419,6 +422,7 @@ extension PluginModule {
             writableDirectories: writableDirectories,
             readOnlyDirectories: readOnlyDirectories,
             allowNetworkConnections: allowNetworkConnections,
+            workers: workers,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue,
@@ -442,6 +446,7 @@ extension PluginModule {
         module: ResolvedModule,
         action: PluginAction,
         buildEnvironment: BuildEnvironment,
+        workers: UInt32,
         scriptRunner: PluginScriptRunner,
         workingDirectory: AbsolutePath,
         outputDirectory: AbsolutePath,
@@ -461,6 +466,7 @@ extension PluginModule {
                 module: module,
                 action: action,
                 buildEnvironment: buildEnvironment,
+                workers: workers,
                 scriptRunner: scriptRunner,
                 workingDirectory: workingDirectory,
                 outputDirectory: outputDirectory,
@@ -488,6 +494,7 @@ extension PluginModule {
         module: ResolvedModule,
         action: PluginAction,
         buildEnvironment: BuildEnvironment,
+        workers: UInt32,
         scriptRunner: PluginScriptRunner,
         workingDirectory: AbsolutePath,
         outputDirectory: AbsolutePath,
@@ -531,6 +538,7 @@ extension PluginModule {
         self.invoke(
             action: action,
             buildEnvironment: buildEnvironment,
+            workers: workers,
             scriptRunner: scriptRunner,
             workingDirectory: workingDirectory,
             outputDirectory: outputDirectory,
@@ -611,44 +619,55 @@ extension ModulesGraph {
         buildToolPluginInvocationResults: [BuildToolPluginInvocationResult],
         prebuildCommandResults: [CommandPluginResult],
         observabilityScope: ObservabilityScope
-    ) -> (pluginDerivedSources: Sources, pluginDerivedResources: [Resource]) {
-        var pluginDerivedSources = Sources(paths: [], root: buildParameters.dataPath)
-
+    ) -> GeneratedFiles {
         // Add any derived files that were declared for any commands from plugin invocations.
-        var pluginDerivedFiles = [AbsolutePath]()
-        for command in buildToolPluginInvocationResults.reduce([], { $0 + $1.buildCommands }) {
-            for absPath in command.outputFiles {
-                pluginDerivedFiles.append(absPath)
+        var generatedFiles = GeneratedFiles()
+
+        for result in buildToolPluginInvocationResults {
+            let files = TargetSourcesBuilder.computeContents(
+                for: result.buildCommands.flatMap(\.outputFiles),
+                toolsVersion: toolsVersion,
+                additionalFileRules: additionalFileRules,
+                defaultLocalization: target.defaultLocalization,
+                module: target.underlying,
+                observabilityScope: observabilityScope
+            )
+            generatedFiles.add(files)
+            if !files.headers.isEmpty {
+                // Capture the public include directory if there were header files generated there
+                // Hardcoding as the default for now
+                let publicDir = result.pluginOutputDirectory.appending(ClangModule.defaultPublicHeadersComponent)
+                if files.headers.contains(where: { $0.isDescendantOfOrEqual(to: publicDir) }) {
+                    generatedFiles.publicHeaderPaths.append(publicDir)
+                }
             }
         }
 
         // Add any derived files that were discovered from output directories of prebuild commands.
         for result in prebuildCommandResults {
-            for path in result.derivedFiles {
-                pluginDerivedFiles.append(path)
+            let files = TargetSourcesBuilder.computeContents(
+                for: result.derivedFiles,
+                toolsVersion: toolsVersion,
+                additionalFileRules: additionalFileRules,
+                defaultLocalization: target.defaultLocalization,
+                module: target.underlying,
+                observabilityScope: observabilityScope
+            )
+            if !files.headers.isEmpty {
+                observabilityScope.emit(warning: "C header file generation not supported in prebuilt commands: \(target.name)")
             }
+            if !files.moduleMaps.isEmpty {
+                observabilityScope.emit(warning: "Module map generation not supported in prebuilt commands: \(target.name)")
+            }
+            if !files.apiNotes.isEmpty {
+                observabilityScope.emit(warning: "API note generation not supported in prebuilt commands: \(target.name)")
+            }
+            generatedFiles.add(GeneratedFiles(sources: files.sources, resources: files.resources))
         }
 
-        // Let `TargetSourcesBuilder` compute the treatment of plugin generated files.
-        let (derivedSources, derivedResources) = TargetSourcesBuilder.computeContents(
-            for: pluginDerivedFiles,
-            toolsVersion: toolsVersion,
-            additionalFileRules: additionalFileRules,
-            defaultLocalization: target.defaultLocalization,
-            targetName: target.name,
-            targetPath: target.underlying.path,
-            observabilityScope: observabilityScope
-        )
-        let pluginDerivedResources = derivedResources
-        derivedSources.forEach { absPath in
-            let relPath = absPath.relative(to: pluginDerivedSources.root)
-            pluginDerivedSources.relativePaths.append(relPath)
-        }
-
-        return (pluginDerivedSources, pluginDerivedResources)
+        return generatedFiles
     }
 }
-
 
 /// A description of a tool to which a plugin has access.
 public enum PluginAccessibleTool: Hashable {
@@ -697,7 +716,8 @@ fileprivate func collectAccessibleTools(
         }
         // For an executable target we create a `builtTool`.
         else if executableOrBinaryModule.type == .executable {
-            return try [.builtTool(name: builtToolName, path: RelativePath(validating: executableOrBinaryModule.name))]
+            let exeName = executableOrBinaryModule.name + hostTriple.executableExtension
+            return try [.builtTool(name: builtToolName, path: RelativePath(validating: exeName))]
         }
         else {
             return []

@@ -55,7 +55,7 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
         @Option(help: "Associate the registry with a given scope.")
         var scope: String?
 
-        @Flag(name: .customLong("allow-insecure-http"), help: "Allow using a non-HTTPS registry URL.")
+        @Flag(name: .customLong("allow-insecure-http"), help: "Use a non-HTTPS registry URL.")
         var allowInsecureHTTP: Bool = false
 
         @Argument(help: "The registry URL.")

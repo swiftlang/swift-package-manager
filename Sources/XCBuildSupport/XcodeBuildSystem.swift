@@ -58,6 +58,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
                         builtProducts.append(
                             BuiltTestProduct(
                                 productName: product.name,
+                                umbrellaProductName: nil,
                                 binaryPath: binaryPath,
                                 packagePath: package.path,
                                 testEntryPointPath: product.underlying.testEntryPointPath
@@ -164,6 +165,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         let buildResult = BuildResult(
             serializedDiagnosticPathsByTargetName: .failure(StringError("XCBuild does not support reporting serialized diagnostics.")),
             replArguments: nil,
+            dependencyGraph: nil
         )
 
         guard !buildParameters.shouldSkipBuilding else {
@@ -277,23 +279,23 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
         settings["LIBRARY_SEARCH_PATHS"] = try "$(inherited) \(buildParameters.toolchain.toolchainLibDir.pathString)"
         settings["OTHER_CFLAGS"] = (
             ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.cCompilerFlags.map { $0.spm_shellEscaped() }
-                + buildParameters.flags.cCompilerFlags.map { $0.spm_shellEscaped() }
+                + buildParameters.toolchain.extraFlags.cCompilerFlags.rawFlags.map { $0.spm_shellEscaped() }
+                + buildParameters.flags.cCompilerFlags.rawFlags.map { $0.spm_shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_CPLUSPLUSFLAGS"] = (
             ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.cxxCompilerFlags.map { $0.spm_shellEscaped() }
-                + buildParameters.flags.cxxCompilerFlags.map { $0.spm_shellEscaped() }
+                + buildParameters.toolchain.extraFlags.cxxCompilerFlags.rawFlags.map { $0.spm_shellEscaped() }
+                + buildParameters.flags.cxxCompilerFlags.rawFlags.map { $0.spm_shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_SWIFT_FLAGS"] = (
             ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.swiftCompilerFlags.map { $0.spm_shellEscaped() }
-                + buildParameters.flags.swiftCompilerFlags.map { $0.spm_shellEscaped() }
+            + buildParameters.toolchain.extraFlags.swiftCompilerFlags.rawFlags.map { $0.spm_shellEscaped() }
+            + buildParameters.flags.swiftCompilerFlags.rawFlags.map { $0.spm_shellEscaped() }
         ).joined(separator: " ")
         settings["OTHER_LDFLAGS"] = (
             ["$(inherited)"]
-                + buildParameters.toolchain.extraFlags.linkerFlags.map { $0.spm_shellEscaped() }
-                + buildParameters.flags.linkerFlags.map { $0.spm_shellEscaped() }
+                + buildParameters.toolchain.extraFlags.linkerFlags.rawFlags.map { $0.spm_shellEscaped() }
+                + buildParameters.flags.linkerFlags.rawFlags.map { $0.spm_shellEscaped() }
         ).joined(separator: " ")
 
         // Optionally also set the list of architectures to build for.
