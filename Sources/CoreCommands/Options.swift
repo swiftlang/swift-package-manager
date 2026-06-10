@@ -164,6 +164,9 @@ public struct LocationOptions: ParsableArguments {
 
     @Flag(name: .customLong("ignore-lock"), help: .hidden)
     public var ignoreLock: Bool = false
+
+    @Flag(name: .customLong("experimental-skip-acquiring-lock"), help: .hidden)
+    public var skipAcquiringLock: Bool = false
 }
 
 public struct CachingOptions: ParsableArguments {
@@ -550,7 +553,7 @@ public struct BuildOptions: ParsableArguments {
         name: .customLong("build-system"),
         help: "Specify the build system to use.",
     )
-    var _buildSystem: BuildSystemProvider.Kind = .native
+    var _buildSystem: BuildSystemProvider.Kind = .swiftbuild
 
     /// The Debug Information Format to use.
     @Option(name: .customLong("debug-info-format", withSingleDash: true), help: "The Debug Information Format to use.")
@@ -562,7 +565,7 @@ public struct BuildOptions: ParsableArguments {
             return self._buildSystem
         case .native:
             // Maintain legacy behavior and force use of the Xcode build system if we want to build more than one arch.
-            return self.architectures.count > 1 ? .xcode : .native
+            return self.architectures.count > 1 ? .swiftbuild : .native
         }
     }
 
@@ -597,6 +600,10 @@ public struct BuildOptions: ParsableArguments {
     // Whether to enable task backtrace logging.
     @Flag(name: .customLong("experimental-task-backtraces"), help: .hidden)
     public var enableTaskBacktraces: Bool = false
+
+    // Path to write a Trace Event Format JSON file with build task timeline data.
+    @Option(name: .customLong("experimental-trace-events-file"), help: .hidden)
+    public var traceEventsFilePath: String? = nil
 
     // Build dynamic library targets as frameworks (only available for Darwin targets and only when using the 'swiftbuild' build-system (currently used for tests).
     @Flag(name: .customLong("experimental-build-dylibs-as-frameworks"), help: .hidden )

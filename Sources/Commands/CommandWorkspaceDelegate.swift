@@ -66,7 +66,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
-        guard case .success = result, !self.observabilityScope.errorsReported else {
+        guard case .success(let fetchDetails) = result, !self.observabilityScope.errorsReported else {
             return
         }
 
@@ -81,7 +81,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
             }
         }
 
-        self.outputHandler("Fetched \(packageLocation ?? package.description) from cache (\(duration.descriptionInSeconds))", .always)
+        self.outputHandler("Fetched \(packageLocation ?? package.description)\(fetchDetails.fromCache ? " from cache" : "") (\(duration.descriptionInSeconds))", .always)
     }
 
     func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {

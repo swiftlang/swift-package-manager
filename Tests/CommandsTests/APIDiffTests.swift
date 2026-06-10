@@ -66,7 +66,7 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testInvokeAPIDiffDigester(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+        try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending("Foo")
             // Overwrite the existing decl.
             try localFileSystem.writeFileContents(
@@ -87,7 +87,7 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testSimpleAPIDiff(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+        try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending("Foo")
             // Overwrite the existing decl.
             try localFileSystem.writeFileContents(
@@ -110,7 +110,7 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testMultiTargetAPIDiff(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+        try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             try localFileSystem.writeFileContents(
                 packageRoot.appending(components: "Sources", "Baz", "Baz.swift"),
@@ -139,7 +139,7 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testBreakageAllowlist(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+        try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             try localFileSystem.writeFileContents(
                 packageRoot.appending(components: "Sources", "Baz", "Baz.swift"),
@@ -176,7 +176,7 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testCheckVendedModulesOnly(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+        try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending("NonAPILibraryTargets")
             try localFileSystem.writeFileContents(
                 packageRoot.appending(components: "Sources", "Foo", "Foo.swift"),
@@ -215,7 +215,7 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testFilters(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+        try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending("NonAPILibraryTargets")
             try localFileSystem.writeFileContents(
                 packageRoot.appending(components: "Sources", "Foo", "Foo.swift"),
@@ -282,7 +282,7 @@ struct APIDiffTests {
     )
     func testAPIDiffOfModuleWithCDependency(buildSystem: BuildSystemProvider.Kind) async throws {
         try await withKnownIssue {
-            try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+            try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
                 let packageRoot = fixturePath.appending("CTargetDep")
                 // Overwrite the existing decl.
                 try localFileSystem.writeFileContents(packageRoot.appending(components: "Sources", "Bar", "Bar.swift"), string:
@@ -324,7 +324,7 @@ struct APIDiffTests {
     )
     func testAPIDiffOfVendoredCDependency(buildSystem: BuildSystemProvider.Kind) async throws {
         try await withKnownIssue {
-            try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+            try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
                 let packageRoot = fixturePath.appending("CIncludePath")
                 let (output, _) = try await execute(["diagnose-api-breaking-changes", "main"], packagePath: packageRoot, buildSystem: buildSystem)
 
@@ -348,7 +348,7 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testNoBreakingChanges(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+        try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending("Bar")
             // Introduce an API-compatible change
             try localFileSystem.writeFileContents(
@@ -371,7 +371,7 @@ struct APIDiffTests {
     )
     func testAPIDiffAfterAddingNewTarget(buildSystem: BuildSystemProvider.Kind) async throws {
         try await withKnownIssue(isIntermittent: true) {
-            try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+            try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
                 let packageRoot = fixturePath.appending("Bar")
                 try localFileSystem.createDirectory(packageRoot.appending(components: "Sources", "Foo"))
                 try localFileSystem.writeFileContents(
@@ -415,7 +415,7 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testAPIDiffPackageWithPlugin(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+        try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending("WithPlugin")
             let (output, _) = try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)
             #expect(output.contains("No breaking changes detected in TargetLib"))
@@ -430,7 +430,7 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testBadTreeish(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+        try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending("Foo")
             await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "7.8.9"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
                 #expect(error.stderr.contains("error: Couldn’t get revision"))
@@ -447,7 +447,7 @@ struct APIDiffTests {
     )
     func testBranchUpdate(buildSystem: BuildSystemProvider.Kind) async throws {
         try await withTemporaryDirectory { baselineDir in
-            try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+            try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
                 let packageRoot = fixturePath.appending("Foo")
                 let repo = GitRepository(path: packageRoot)
                 try repo.checkout(newBranch: "feature")
@@ -492,7 +492,7 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testBaselineDirOverride(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+        try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending("Foo")
             // Overwrite the existing decl.
             try localFileSystem.writeFileContents(
@@ -528,7 +528,7 @@ struct APIDiffTests {
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testRegenerateBaseline(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await fixture(name: "Miscellaneous/APIDiff/") { fixturePath in
+        try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
             let packageRoot = fixturePath.appending("Foo")
             // Overwrite the existing decl.
             try localFileSystem.writeFileContents(

@@ -6,8 +6,9 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-add_library(SwiftBuildSupport STATIC
+add_library(SwiftBuildSupport
   BuildSystem.swift
+  TraceEventsWriter.swift
   Diagnostics+Extensions.swift
   DotPIFSerializer.swift
   PackagePIFBuilder.swift
@@ -34,3 +35,9 @@ target_link_libraries(SwiftBuildSupport PUBLIC
 
 set_target_properties(SwiftBuildSupport PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_Swift_MODULE_DIRECTORY})
+
+install(TARGETS SwiftBuildSupport
+  ARCHIVE DESTINATION lib
+  LIBRARY DESTINATION lib
+  RUNTIME DESTINATION bin)
+set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS SwiftBuildSupport)

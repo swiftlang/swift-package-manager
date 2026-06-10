@@ -21,7 +21,8 @@ struct BuildParametersTests {
     func configurationDependentProperties() throws {
         var parameters = mockBuildParameters(
             destination: .host,
-            environment: BuildEnvironment(platform: .linux, configuration: .debug)
+            environment: BuildEnvironment(platform: .linux, configuration: .debug),
+            buildSystem: .swiftbuild,
         )
         #expect(parameters.enableTestability)
         parameters.configuration = .release

@@ -191,7 +191,10 @@ import SwiftBuild
         )
 
         return try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host)
+            buildParameters: mockBuildParameters(
+                destination: .host,
+                buildSystemKind: .swiftbuild,
+            )
         )
     }
 
@@ -231,6 +234,9 @@ import SwiftBuild
                 #expect(impartedCFlags.contains(pluginModuleMapArg))
                 let impartedSwiftFlags = try #require(config.impartedBuildProperties.settings[.OTHER_SWIFT_FLAGS])
                 #expect(impartedSwiftFlags.contains(pluginModuleMapArg))
+
+                let moduleMapPath = try #require(config.settings[.MODULEMAP_PATH])
+                #expect(moduleMapPath == pluginModuleMapFile.pathString)
             }
 
             // Make sure our generated source is included

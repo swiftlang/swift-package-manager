@@ -56,4 +56,24 @@ public enum TraitConfiguration: Codable, Hashable {
             nil
         }
     }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .enableAllTraits:
+            var nestedContainer = container.nestedUnkeyedContainer(forKey: .enableAllTraits)
+            try nestedContainer.encode(EmptyEncodable())
+        case .disableAllTraits:
+            var nestedContainer = container.nestedUnkeyedContainer(forKey: .disableAllTraits)
+            try nestedContainer.encode(EmptyEncodable())
+        case .enabledTraits(let traits):
+            var nestedContainer = container.nestedUnkeyedContainer(forKey: .enabledTraits)
+            try nestedContainer.encode(traits.sorted())
+        case .default:
+            var nestedContainer = container.nestedUnkeyedContainer(forKey: .default)
+            try nestedContainer.encode(EmptyEncodable())
+        }
+    }
+
+    private struct EmptyEncodable: Encodable {}
 }

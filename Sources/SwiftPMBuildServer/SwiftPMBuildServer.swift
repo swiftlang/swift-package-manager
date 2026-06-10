@@ -124,11 +124,11 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         let connectionToUnderlyingBuildServer = LocalConnection(receiverName: "underlying-swift-build-server")
         self.connectionToUnderlyingBuildServer = connectionToUnderlyingBuildServer
         let connectionFromUnderlyingBuildServer = LocalConnection(receiverName: "swiftpm-build-server")
-        // TODO: fix derived data path, cleanup configured targets list computation
         let buildrequest = try await self.buildSystem.makeBuildRequest(
+            service: session.service,
             session: session.session,
             configuredTargets: [.init(rawValue: "ALL-INCLUDING-TESTS")],
-            derivedDataPath: self.buildSystem.buildParameters.buildPath,
+            derivedDataPath: self.buildSystem.buildParameters.dataPath,
             symbolGraphOptions: nil
         )
         self.underlyingBuildServer = SWBBuildServer(
@@ -186,7 +186,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
     public func handle<Request: RequestType>(
         request: Request,
         id: RequestID,
-        reply: @Sendable @escaping (LSPResult<Request.Response>) -> Void
+        reply: @Sendable @escaping (Result<Request.Response, any Error>) -> Void
     ) async {
         let request = RequestAndReply(request, reply: reply)
         switch request {

@@ -68,7 +68,7 @@ extension Workspace {
             self.hostToolchain = hostToolchain
             self.checksumAlgorithm = checksumAlgorithm
             self.httpClient = customHTTPClient ?? HTTPClient()
-            self.archiver = customArchiver ?? ZipArchiver(fileSystem: fileSystem)
+            self.archiver = customArchiver ?? UniversalArchiver(fileSystem)
             self.cachePath = cachePath
             self.delegate = delegate
         }

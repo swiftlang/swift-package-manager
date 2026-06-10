@@ -89,7 +89,7 @@ public func mockBuildParameters(
     config: BuildConfiguration = .debug,
     toolchain: PackageModel.Toolchain = try! MockToolchain(),
     flags: PackageModel.BuildFlags = PackageModel.BuildFlags(),
-    buildSystemKind: BuildSystemProvider.Kind = .native,
+    buildSystemKind: BuildSystemProvider.Kind,
     shouldLinkStaticSwiftStdlib: Bool = false,
     shouldDisableLocalRpath: Bool = false,
     canRenameEntrypointFunctionName: Bool = false,
@@ -97,6 +97,8 @@ public func mockBuildParameters(
     indexStoreMode: BuildParameters.IndexStoreMode = .auto,
     linkerDeadStrip: Bool = true,
     linkTimeOptimizationMode: BuildParameters.LinkTimeOptimizationMode? = nil,
+    debugInfoFormat: BuildParameters.DebugInfoFormat = .dwarf,
+    shouldEnableDebuggingEntitlement: Bool? = nil,
     omitFramePointers: Bool? = nil,
     enableXCFrameworksOnLinux: Bool = false,
     prepareForIndexing: BuildParameters.PrepareForIndexingMode = .off,
@@ -118,8 +120,9 @@ public func mockBuildParameters(
         prepareForIndexing: prepareForIndexing,
         enableXCFrameworksOnLinux: enableXCFrameworksOnLinux,
         debuggingParameters: .init(
+            debugInfoFormat: debugInfoFormat,
             triple: triple,
-            shouldEnableDebuggingEntitlement: config == .debug,
+            shouldEnableDebuggingEntitlement: shouldEnableDebuggingEntitlement ?? (config == .debug),
             omitFramePointers: omitFramePointers
         ),
         driverParameters: .init(
@@ -136,7 +139,8 @@ public func mockBuildParameters(
 
 public func mockBuildParameters(
     destination: BuildParameters.Destination,
-    environment: BuildEnvironment
+    environment: BuildEnvironment,
+    buildSystem: BuildSystemProvider.Kind,
 ) -> BuildParameters {
     let triple: Basics.Triple
     switch environment.platform {
@@ -155,6 +159,7 @@ public func mockBuildParameters(
     return mockBuildParameters(
         destination: destination,
         config: environment.configuration ?? .debug,
-        triple: triple
+        buildSystemKind: buildSystem,
+        triple: triple,
     )
 }

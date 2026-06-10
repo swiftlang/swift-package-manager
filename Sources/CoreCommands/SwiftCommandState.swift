@@ -478,6 +478,14 @@ public final class SwiftCommandState {
                 )
             }
         }
+
+        if options.build.traceEventsFilePath != nil {
+            if options.build.buildSystem != .swiftbuild {
+                observabilityScope.emit(
+                    warning: "'--experimental-trace-events-file' is only supported when using '--build-system swiftbuild'"
+                )
+            }
+        }
     }
 
     func waitForObservabilityEvents(timeout: DispatchTime) {
@@ -937,6 +945,7 @@ public final class SwiftCommandState {
             flags: options.build.buildFlags,
             buildSystemKind: options.build.buildSystem,
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
+            customToolsetPaths: options.locations.toolsetPaths,
             architectures: options.build.architectures,
             workers: options.build.jobs,
             shouldCreateDylibForDynamicProducts: !self.options.build.shouldBuildDylibsAsFrameworks,
@@ -976,7 +985,13 @@ public final class SwiftCommandState {
             outputParameters: .init(
                 isColorized: self.options.logging.colorDiagnostics,
                 isVerbose: self.logLevel <= .info,
-                enableTaskBacktraces: self.options.build.enableTaskBacktraces
+                enableTaskBacktraces: self.options.build.enableTaskBacktraces,
+                traceEventsFilePath: try self.options.build.traceEventsFilePath.map {
+                    try AbsolutePath(
+                        validating: $0,
+                        relativeTo: self.fileSystem.currentWorkingDirectory ?? .root
+                    )
+                }
             ),
             testingParameters: .init(
                 forceTestDiscovery: self.options.build.enableTestDiscovery,
@@ -1143,6 +1158,9 @@ public final class SwiftCommandState {
     }
 
     private func acquireLockIfNeeded() throws {
+        guard !options.locations.skipAcquiringLock else {
+            return
+        }
         guard self.packageRoot != nil else {
             return
         }

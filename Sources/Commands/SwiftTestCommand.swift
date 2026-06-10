@@ -542,7 +542,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             toolchain: toolchain,
             destinationBuildParameters: productsBuildParameters,
             sanitizers: globalOptions.build.sanitizers,
-            library: library
+            library: library,
+            testProductPaths: testProducts.map(\.bundlePath)
         )
 
         let runnerPaths: [AbsolutePath] = switch library {
@@ -828,7 +829,8 @@ extension SwiftTestCommand {
                 toolchain: toolchain,
                 destinationBuildParameters: productsBuildParameters,
                 sanitizers: globalOptions.build.sanitizers,
-                library: .swiftTesting
+                library: .swiftTesting,
+                testProductPaths: testProducts.map(\.bundlePath)
             )
 
             if testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
@@ -1213,7 +1215,8 @@ final class ParallelTestRunner {
             toolchain: self.toolchain,
             destinationBuildParameters: self.productsBuildParameters,
             sanitizers: self.buildOptions.sanitizers,
-            library: .xctest // swift-testing does not use ParallelTestRunner
+            library: .xctest, // swift-testing does not use ParallelTestRunner
+            testProductPaths: bundlePaths
         )
 
         // Enqueue all the tests.

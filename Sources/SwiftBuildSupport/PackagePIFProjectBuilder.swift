@@ -64,6 +64,10 @@ struct PackagePIFProjectBuilder {
     /// Current set of names of any package products that are explicitly declared dynamic libraries.
     private let dynamicLibraryProductNames: Set<String>
 
+    /// Module names that are direct dependencies of dynamic library products.
+    /// These modules should be compiled without static linking on Windows.
+    var modulesInDynamicLibraries: Set<String> = []
+
     /// FIXME: We should eventually clean this up but right now we have to carry over this
     /// bit of information from processing the *products* to processing the *targets*.
     var mainModuleTargetNamesWithResources: Set<String> = []
@@ -269,7 +273,7 @@ struct PackagePIFProjectBuilder {
         // If resourceBundleTarget is nil, we add resources to the sourceModuleTarget instead.
         let targetForResourcesKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target> =
             resourceBundleTargetKeyPath ?? sourceModuleTargetKeyPath
-        
+
         // Generated resources get a default treatment for rule and localization.
         let generatedResources = generatedResourceFiles.compactMap {
             PackagePIFBuilder.Resource(path: $0, rule: .process(localization: nil))
@@ -365,7 +369,7 @@ struct PackagePIFProjectBuilder {
         } else {
             resourceBundleTargetName = nil
         }
-        
+
         return PackagePIFBuilder.EmbedResourcesResult(
             bundleName: resourceBundleTargetName,
             shouldGenerateBundleAccessor: shouldGenerateBundleAccessor,
@@ -579,4 +583,3 @@ struct PackagePIFProjectBuilder {
         !self.dynamicLibraryProductNames.contains(targetName)
     }
 }
-

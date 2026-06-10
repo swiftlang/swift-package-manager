@@ -59,6 +59,7 @@ add_library(Basics
   ImportScanning.swift
   JSON+Extensions.swift
   JSONDecoder+Extensions.swift
+  KnownFolders.swift
   Netrc.swift
   Observability.swift
   OSSignpost.swift

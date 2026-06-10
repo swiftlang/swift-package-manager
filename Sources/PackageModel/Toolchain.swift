@@ -100,20 +100,13 @@ extension Toolchain {
         }
     }
 
-    /// Base toolchain path that's given to Swift Build to initialize its core.
+    /// Toolchain path that's given to Swift Build to determine whether the compiler needs to be overridden.
     public var toolchainDir: AbsolutePath {
         get throws {
             let compilerPath = try resolveSymlinks(swiftCompilerPath)
             let os = ProcessInfo.hostOperatingSystem
             switch os {
-            case .windows:
-                return compilerPath
-                    .parentDirectory // bin
-                    .parentDirectory // usr
-                    .parentDirectory // <version>
-                    .parentDirectory // Toolchains
-                    .parentDirectory // <toolchain>
-            case .macOS, .linux, .android:
+            case .windows, .macOS, .linux, .android:
                 return compilerPath
                     .parentDirectory // bin
                     .parentDirectory // usr

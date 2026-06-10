@@ -22,14 +22,15 @@ final class SandboxTest: XCTestCase {
     func testSandboxOnAllPlatforms() throws {
         try withTemporaryDirectory { path in
 #if os(Windows)
-            let command = try Sandbox.apply(command: ["tar.exe", "-h"], strictness: .default, writableDirectories: [])
+            let tarArchiver = TarArchiver(fileSystem: localFileSystem)
+            let command = try Sandbox.apply(command: [tarArchiver.tarCommand, "-h"], strictness: .default, writableDirectories: [])
 #else
             let command = try Sandbox.apply(command: ["echo", "0"], strictness: .default, writableDirectories: [])
 #endif
             XCTAssertNoThrow(try AsyncProcess.checkNonZeroExit(arguments: command))
         }
     }
-    
+
 #if canImport(Darwin)
     // _CS_DARWIN_USER_CACHE_DIR is only on Darwin, will fail to compile on other platforms.
     func testUniformTypeIdentifiers() throws {
@@ -217,7 +218,7 @@ final class SandboxTest: XCTestCase {
              XCTAssertNoThrow(try AsyncProcess.checkNonZeroExit(arguments: allowedCommand))
          }
      }
-    
+
     func testDeterministicOrdering() throws {
         #if !os(macOS)
         try XCTSkipIf(true, "test is only supported on macOS")
@@ -230,12 +231,12 @@ final class SandboxTest: XCTestCase {
             let writeable2 = path.appending(component: "w2")
             let writeable3 = path.appending(component: "w3")
             let writeable4 = path.appending(component: "w4")
-            
+
             let readable1 = path.appending(component: "r1")
             let readable2 = path.appending(component: "r2")
             let readable3 = path.appending(component: "r3")
             let readable4 = path.appending(component: "r4")
-            
+
             let command = try Sandbox.apply(command: ["echo", "hello"], strictness: .default, writableDirectories: [writeable1, writeable2, writeable3, writeable4], readOnlyDirectories: [readable1, readable2, readable3, readable4], fileSystem: localFileSystem)
             for _ in 0..<10 {
                 let newCommand = try Sandbox.apply(command: ["echo", "hello"], strictness: .default, writableDirectories: [writeable1, writeable2, writeable3, writeable4], readOnlyDirectories: [readable1, readable2, readable3, readable4],fileSystem: localFileSystem)

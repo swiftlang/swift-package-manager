@@ -84,7 +84,7 @@ private struct SwiftPMTests {
             Tag.Feature.Command.Package.Init,
             Tag.Feature.PackageType.Executable,
         ),
-        arguments: SupportedBuildSystemOnPlatform,
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func packageInitExecutable(_ buildSystemProvider: BuildSystemProvider.Kind) throws {
         try withTemporaryDirectory { tmpDir in
@@ -212,7 +212,7 @@ private struct SwiftPMTests {
             switch buildSystem {
             case .native:
                 fooPath = try AbsolutePath(
-                    validating: ".build/apple/Products/Debug/foo", relativeTo: packagePath
+                    validating: ".build/out/Products/Debug/foo", relativeTo: packagePath
                 )
             case .swiftbuild:
                 fooPath = try AbsolutePath(

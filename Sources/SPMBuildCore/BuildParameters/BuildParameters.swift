@@ -72,6 +72,9 @@ public struct BuildParameters: Encodable {
     /// An array of paths to search for pkg-config `.pc` files.
     public var pkgConfigDirectories: [Basics.AbsolutePath]
 
+    /// Paths to toolset files specified on the command line via `--toolset`.
+    public var customToolsetPaths: [Basics.AbsolutePath]
+
     /// The architectures to build for.
     // FIXME: this may be inconsistent with `targetTriple`.
     public var architectures: [String]?
@@ -118,8 +121,12 @@ public struct BuildParameters: Encodable {
             return .openbsd
         } else if self.triple.isFreeBSD() {
             return .freebsd
-        } else {
+        } else if self.triple.isNoneOS() {
+            return .custom(name: self.triple.osNameUnversioned, oldestSupportedVersion: .unknown)
+        } else if self.triple.isLinux() {
             return .linux
+        } else {
+            return .custom(name: "unknown", oldestSupportedVersion: .unknown)
         }
     }
 
@@ -162,6 +169,7 @@ public struct BuildParameters: Encodable {
         flags: BuildFlags,
         buildSystemKind: BuildSystemProvider.Kind,
         pkgConfigDirectories: [Basics.AbsolutePath] = [],
+        customToolsetPaths: [Basics.AbsolutePath] = [],
         architectures: [String]? = nil,
         workers: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount),
         shouldCreateDylibForDynamicProducts: Bool = true,
@@ -197,7 +205,7 @@ public struct BuildParameters: Encodable {
         self.triple = triple
         self.buildSystemKind = buildSystemKind
         switch self.debuggingParameters.debugInfoFormat {
-        case .dwarf:
+        case .dwarf, nil:
             var flags = flags
             // DWARF requires lld as link.exe expects CodeView debug info.
             self.flags = flags.merging(triple.isWindows() ? BuildFlags(
@@ -217,7 +225,7 @@ public struct BuildParameters: Encodable {
                 swiftCompilerFlags: ["-g", "-debug-info-format=codeview"].constructBuildFlags(source: .debugging),
                 linkerFlags: ["-debug"].constructBuildFlags(source: .debugging)
             ))
-        case .none:
+        case .none?:
             var flags = flags
             self.flags = flags.merging(BuildFlags(
                 cCompilerFlags: ["-g0"].constructBuildFlags(source: .debugging),
@@ -226,6 +234,7 @@ public struct BuildParameters: Encodable {
             ))
         }
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.customToolsetPaths = customToolsetPaths
         self.architectures = architectures
         self.workers = workers
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts

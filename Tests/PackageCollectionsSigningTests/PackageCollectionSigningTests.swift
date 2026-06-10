@@ -707,7 +707,7 @@ class PackageCollectionSigningTests: XCTestCase {
     private func readTestPackageCollection() async throws -> PackageCollectionModel.V1.Collection {
         try await withCheckedThrowingContinuation { continuation in
             do {
-                try fixtureXCTest(name: "Collections", createGitRepo: false) { fixturePath in
+                try fixtureXCTest(name: "Collections") { fixturePath in
                     let jsonDecoder = JSONDecoder.makeWithDefaults()
                     let collectionPath = fixturePath.appending(components: "JSON", "good.json")
                     let collectionData: Data = try localFileSystem.readFileContents(collectionPath)
@@ -730,7 +730,7 @@ class PackageCollectionSigningTests: XCTestCase {
     ) async throws -> ([AbsolutePath], AbsolutePath) {
         try await withCheckedThrowingContinuation { continuation in
             do {
-                try fixtureXCTest(name: "Signing", createGitRepo: false) { fixturePath in
+                try fixtureXCTest(name: "Signing") { fixturePath in
                     let certSourcePaths = certPaths(fixturePath)
 
                     let certDirectoryPath = tmpDirectoryPath.appending("Certificates")

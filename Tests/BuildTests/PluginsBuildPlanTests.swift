@@ -30,13 +30,11 @@ struct PluginsBuildPlanTests {
             .Feature.Plugin,
             .Feature.SourceGeneration,
         ),
-        .IssueWindowsPathTestsFailures,  // Fails to build the project to due to incorrect Path handling
         arguments: BuildConfiguration.allCases,
     )
     func buildToolsDatabasePath(
         config: BuildConfiguration,
     ) async throws {
-        try await withKnownIssue(isIntermittent: true) {
         try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
@@ -47,9 +45,6 @@ struct PluginsBuildPlanTests {
             // FIXME: This is temporary until build of plugin tools is extracted into its own command.
             #expect(localFileSystem.exists(fixturePath.appending(RelativePath(".build/plugin-tools.db"))))
             #expect(localFileSystem.exists(fixturePath.appending(RelativePath(".build/build.db"))))
-        }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows
         }
     }
 

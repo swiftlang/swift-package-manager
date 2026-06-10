@@ -8070,13 +8070,9 @@ final class WorkspaceTests: XCTestCase {
     }
 
     func testArtifactChecksum() async throws {
-        try XCTSkipOnWindows(because: #"""
-        threw error "\tmp\ws doesn't exist in file system" because there is an issue with InMemoryFileSystem readFileContents(...) on Windows
-        """#)
-
         let fs = InMemoryFileSystem()
         try fs.createMockToolchain()
-        let sandbox = AbsolutePath("/tmp/ws/")
+        let sandbox = AbsolutePath.root.appending(components: ["tmp", "ws"])
 
         try fs.createDirectory(sandbox, recursive: true)
 
@@ -8109,10 +8105,12 @@ final class WorkspaceTests: XCTestCase {
                 try binaryArtifactsManager.checksum(forBinaryArtifactAt: unknownPath),
                 "error expected"
             ) { error in
-                XCTAssertEqual(
-                    error as? StringError,
-                    StringError("unexpected file type; supported extensions are: zip")
-                )
+                guard let stringError = error as? StringError else {
+                    XCTFail("not a string error")
+                    return
+                }
+                // What the file types are is platform specific
+                XCTAssert(stringError.description.hasPrefix("unexpected file type"))
             }
         }
 

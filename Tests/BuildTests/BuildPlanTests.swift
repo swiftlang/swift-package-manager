@@ -629,7 +629,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             toolchain: UserToolchain.default,
             fileSystem: localFileSystem
         )
-        try await fixtureXCTest(name: "Miscellaneous/PackageNameFlag") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/PackageNameFlag", createGitRepo: true) { fixturePath in
             let (stdout, stderr) = try await executeSwiftBuild(
                 fixturePath.appending("appPkg"),
                 extraArgs: ["--vv"],
@@ -667,7 +667,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             toolchain: UserToolchain.default,
             fileSystem: localFileSystem
         )
-        try await fixtureXCTest(name: "Miscellaneous/PackageNameFlag") { fixturePath in
+        try await fixtureXCTest(name: "Miscellaneous/PackageNameFlag", createGitRepo: true) { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath.appending("appPkg"),
                 extraArgs: ["--vv"],
