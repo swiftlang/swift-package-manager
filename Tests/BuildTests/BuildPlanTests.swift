@@ -834,7 +834,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path", "-Xlinker",
@@ -1150,7 +1149,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-dead_strip",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-g",
@@ -1245,7 +1243,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-g",
@@ -1796,7 +1793,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path", "-Xlinker", "/path/to/build/\(result.plan.destinationBuildParameters.triple)/debug/exe.build/exe.swiftmodule",
@@ -2810,7 +2806,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path",
@@ -2957,7 +2952,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-emit-executable",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "Foo.product", "Objects.LinkFileList"))",
-            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path",
@@ -2975,7 +2969,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-install_name", "-Xlinker", "@rpath/libBar-Baz.dylib",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "Bar-Baz.product", "Objects.LinkFileList"))",
-            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path",
@@ -3132,7 +3125,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-install_name", "-Xlinker", "@rpath/liblib.dylib",
             "-Xlinker", "-rpath", "-Xlinker", "@loader_path",
             "@\(buildPath.appending(components: "lib.product", "Objects.LinkFileList"))",
-            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path", "-Xlinker",
@@ -3937,7 +3929,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         #if os(macOS)
         XCTAssertMatch(
             aTarget,
-            [.equal("-target"), .equal(hostTriple.tripleString(forPlatformVersion: "10.13")), .anySequence]
+            [.equal("-target"), .equal(hostTriple.tripleString(forPlatformVersion: "12.0")), .anySequence]
         )
         #else
         XCTAssertMatch(aTarget, [.equal("-target"), .equal(defaultTargetTriple), .anySequence])
@@ -3947,7 +3939,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         #if os(macOS)
         XCTAssertMatch(
             bTarget,
-            [.equal("-target"), .equal(hostTriple.tripleString(forPlatformVersion: "10.13")), .anySequence]
+            [.equal("-target"), .equal(hostTriple.tripleString(forPlatformVersion: "12.0")), .anySequence]
         )
         #else
         XCTAssertMatch(bTarget, [.equal("-target"), .equal(defaultTargetTriple), .anySequence])
@@ -4041,7 +4033,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                     displayName: "A",
                     path: "/A",
                     platforms: [
-                        PlatformDescription(name: "macos", version: "10.13"),
+                        PlatformDescription(name: "macos", version: "12.0"),
                         PlatformDescription(name: "ios", version: "10"),
                     ],
                     toolsVersion: .v5,
@@ -4056,7 +4048,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                     displayName: "B",
                     path: "/B",
                     platforms: [
-                        PlatformDescription(name: "macos", version: "10.14"),
+                        PlatformDescription(name: "macos", version: "13.0"),
                         PlatformDescription(name: "ios", version: "10"),
                     ],
                     toolsVersion: .v5,
@@ -4101,9 +4093,9 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         testDiagnostics(observability.diagnostics) { result in
             let diagnosticMessage = """
-            the library 'ATarget' requires macos 10.13, but depends on the product 'BLibrary' which requires macos 10.14; \
-            consider changing the library 'ATarget' to require macos 10.14 or later, or the product 'BLibrary' to require \
-            macos 10.13 or earlier.
+            the library 'ATarget' requires macos 12.0, but depends on the product 'BLibrary' which requires macos 13.0; \
+            consider changing the library 'ATarget' to require macos 13.0 or later, or the product 'BLibrary' to require \
+            macos 12.0 or earlier.
             """
             result.check(diagnostic: .contains(diagnosticMessage), severity: .error)
         }
@@ -4124,7 +4116,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                     displayName: "A",
                     path: "/A",
                     platforms: [
-                        PlatformDescription(name: "macos", version: "10.13"),
+                        PlatformDescription(name: "macos", version: "12.0"),
                     ],
                     toolsVersion: .v5,
                     dependencies: [
@@ -4138,7 +4130,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                     displayName: "B",
                     path: "/B",
                     platforms: [
-                        PlatformDescription(name: "macos", version: "10.14"),
+                        PlatformDescription(name: "macos", version: "13.0"),
                     ],
                     toolsVersion: .v5,
                     products: [
@@ -4168,9 +4160,9 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         testDiagnostics(observability.diagnostics) { result in
             let diagnosticMessage = """
-            the library 'ATarget' requires macos 10.13, but depends on the product 'BLibrary' which requires macos 10.14; \
-            consider changing the library 'ATarget' to require macos 10.14 or later, or the product 'BLibrary' to require \
-            macos 10.13 or earlier.
+            the library 'ATarget' requires macos 12.0, but depends on the product 'BLibrary' which requires macos 13.0; \
+            consider changing the library 'ATarget' to require macos 13.0 or later, or the product 'BLibrary' to require \
+            macos 12.0 or earlier.
             """
             result.check(diagnostic: .contains(diagnosticMessage), severity: .error)
         }
@@ -7156,7 +7148,6 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             "-Xlinker", "-no_warn_duplicate_libraries",
             "-emit-executable",
             "@\(buildPath.appending(components: "exe.product", "Objects.LinkFileList"))",
-            "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-5.5/macosx",
             "-Xlinker", "-rpath", "-Xlinker", "/fake/path/lib/swift-6.2/macosx",
             "-target", defaultTargetTriple,
             "-Xlinker", "-add_ast_path",
