@@ -1505,11 +1505,6 @@ extension BuildOptions.DebugInfoFormat {
     }
 }
 
-extension Basics.Diagnostic {
-    public static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
-        .error(arguments.map { "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
-    }
-
 extension SwiftCommandState {
 
     /// Test helper utility for managing task-local currentWorkingDirectory in parallel tests.
@@ -1592,6 +1587,14 @@ extension SwiftCommandState {
         let tempRoot = try self.getWorkspaceRoot()
 
         return try await perform(tempWorkspace, tempRoot)
+    }
+}
+
+extension Basics.Diagnostic {
+    public static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
+        .error(arguments.map { "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
+    }
+
     package static func deprecatedBuildSystem(buildSystem: BuildSystemProvider.Kind) -> Self {
         .warning(
             "'--build-system \(buildSystem)' has been deprecated and will be removed in a future release; please report an issue at https://github.com/swiftlang/swift-package-manager/issues if you are unable to adopt the default build system."

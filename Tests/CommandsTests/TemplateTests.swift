@@ -901,7 +901,7 @@ struct TemplateTests {
                 // Manually create the built package structure instead of building
                 // This tests the directory transfer logic without subprocess complications
                 let stagingBuildPath = stagingPath.appending(".build")
-                let binPathComponents = try data.buildSystem.binPath(for: data.config, scratchPath: [])
+                let binPathComponents = [data.config.dirname]
                 let stagingBinPath = stagingBuildPath.appending(components: binPathComponents)
                 let stagingBinFile = stagingBinPath.appending(executableName("generated-package"))
 
@@ -922,7 +922,7 @@ struct TemplateTests {
                     ).finalize(cwd: cwd, stagingPath: stagingPath, cleanupPath: cleanupPath, swiftCommandState: tool)
 
                     let cwdBuildPath = cwd.appending(".build")
-                    let cwdBinPathComponents = try data.buildSystem.binPath(for: data.config, scratchPath: [])
+                    let cwdBinPathComponents = [data.config.dirname]
                     let cwdBinPath = cwdBuildPath.appending(components: cwdBinPathComponents)
                     let cwdBinFile = cwdBinPath.appending(executableName("generated-package"))
 
