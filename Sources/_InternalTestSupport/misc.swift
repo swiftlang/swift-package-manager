@@ -783,8 +783,6 @@ public func executableName(_ name: String) -> String {
   return name
 #endif
 }
-<<<<<<< HEAD
-=======
 
 package func getCoveragePath(
     _ path: AbsolutePath,
@@ -800,4 +798,3 @@ package func getCoveragePath(
             throwIfCommandFails: true,
         ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
 }
->>>>>>> main

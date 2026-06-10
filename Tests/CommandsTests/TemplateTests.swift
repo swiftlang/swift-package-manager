@@ -3214,15 +3214,12 @@ struct TemplateTests {
                             name: "TestPackage",
                             initMode: dependency,
                             fileSystem: tool.fileSystem,
-                            packageType: .executable,
-                            supportedTestingLibraries: [.xctest],
                             destinationPath: packagePath,
                             installedSwiftPMConfiguration: tool.getHostToolchain().installedSwiftPMConfiguration
                         )
 
                         // Test package configuration
                         #expect(initPackage.packageName == "TestPackage")
-                        #expect(initPackage.packageType == .executable)
                         #expect(initPackage.destinationPath == packagePath)
                     }
                 }
@@ -3249,8 +3246,6 @@ struct TemplateTests {
                             name: "TestPackage",
                             initMode: dependency,
                             fileSystem: tool.fileSystem,
-                            packageType: .executable,
-                            supportedTestingLibraries: [.xctest],
                             destinationPath: packagePath,
                             installedSwiftPMConfiguration: tool.getHostToolchain().installedSwiftPMConfiguration
                         )
@@ -3260,7 +3255,6 @@ struct TemplateTests {
                         // Verify package structure was created
                         #expect(tool.fileSystem.exists(packagePath))
                         #expect(tool.fileSystem.exists(packagePath.appending("Package.swift")))
-                        #expect(tool.fileSystem.exists(packagePath.appending("Sources")))
                     }
                 }
             }
@@ -3276,7 +3270,7 @@ struct TemplateTests {
 
                     // Should handle invalid template path gracefully
                     await #expect(throws: (any Error).self) {
-                        _ = try await TemplatePackageInitializer.inferPackageType(
+                        _ = try await TemplatePackageInitializer.validateTemplate(
                             from: invalidTemplatePath,
                             templateName: "foo",
                             swiftCommandState: tool
@@ -3351,8 +3345,6 @@ struct TemplateTests {
                             name: "TestPackage",
                             initMode: packageDependency,
                             fileSystem: tool.fileSystem,
-                            packageType: .executable,
-                            supportedTestingLibraries: [.xctest],
                             destinationPath: packagePath,
                             installedSwiftPMConfiguration: tool.getHostToolchain().installedSwiftPMConfiguration
                         )
@@ -3362,7 +3354,6 @@ struct TemplateTests {
                         // Verify complete package structure
                         #expect(tool.fileSystem.exists(packagePath))
                         expectFileExists(at: packagePath.appending("Package.swift"))
-                        expectDirectoryExists(at: packagePath.appending("Sources"))
 
                         /* Bad memory access error here
                          // Verify package builds successfully

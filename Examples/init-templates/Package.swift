@@ -26,8 +26,6 @@ let package = Package(
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
             .product(name: "SystemPackage", package: "swift-system"),
         ],
-
-        initialPackageType: .executable,
         description: "This template generates a simple parts management service using Hummingbird, and Fluent!"
 
     ) + .template(
@@ -37,7 +35,6 @@ let package = Package(
             .product(name: "SystemPackage", package: "swift-system"),
         ],
 
-        initialPackageType: .executable,
         templatePermissions: [
             .allowNetworkConnections(scope: .none, reason: "Need network access to help generate a template"),
         ],
@@ -54,7 +51,6 @@ let package = Package(
         resources: [
             .process("StencilTemplates"),
         ],
-        initialPackageType: .executable,
         description: "This is a template that uses Stencil templating engine ."
 
     ) + .template(
@@ -63,7 +59,6 @@ let package = Package(
             .product(name: "ArgumentParser", package: "swift-argument-parser"),
             .product(name: "SystemPackage", package: "swift-system"),
         ],
-        initialPackageType: .executable,
         description: "A set of starter Swift Server projects."
     )
 )

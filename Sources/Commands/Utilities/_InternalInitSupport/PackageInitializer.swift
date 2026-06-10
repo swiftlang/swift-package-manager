@@ -90,13 +90,23 @@ struct TemplatePackageInitializer: PackageInitializer {
             self.swiftCommandState.observabilityScope
                 .emit(debug: "Inferring initial type of consumer's package based on template's specifications.")
 
-            let resolvedTemplateName: String = if self.templateName == nil {
-                try await self.resolveTemplateNameInPackage(from: resolvedTemplatePath)
+            var resolvedTemplateName: String
+            if self.templateName == nil {
+                do {
+                    resolvedTemplateName = try await self.resolveTemplateNameInPackage(from: resolvedTemplatePath)
+                } catch TemplatePackageInitializerError.multipleTemplatesFound(let names) {
+                     if self.args.contains("--experimental-dump-help") || self.args.contains("--dump-help") {
+                         let encoder = JSONEncoder()
+                         print(String(data: try encoder.encode(names), encoding: .utf8)!)
+                         return
+                     }
+                     throw TemplatePackageInitializerError.multipleTemplatesFound(names)
+                }
             } else {
-                self.templateName!
+                resolvedTemplateName = self.templateName!
             }
 
-            let packageType = try await TemplatePackageInitializer.inferPackageType(
+            try await TemplatePackageInitializer.validateTemplate(
                 from: resolvedTemplatePath,
                 templateName: resolvedTemplateName,
                 swiftCommandState: self.swiftCommandState
@@ -112,7 +122,7 @@ struct TemplatePackageInitializer: PackageInitializer {
                 resolvedTemplatePath: resolvedTemplatePath
             )
 
-            let templatePackage = try setUpPackage(builder: builder, packageType: packageType, stagingPath: stagingPath)
+            let templatePackage = try setUpPackage(builder: builder, stagingPath: stagingPath)
 
             self.swiftCommandState.observabilityScope
                 .emit(debug: "Finished setting up initial package: \(templatePackage.packageName).")
@@ -171,11 +181,11 @@ struct TemplatePackageInitializer: PackageInitializer {
     }
 
     /// Infers the package type from a template at the given path.
-    static func inferPackageType(
+    static func validateTemplate(
         from templatePath: Basics.AbsolutePath,
         templateName: String?,
         swiftCommandState: SwiftCommandState
-    ) async throws -> InitPackage.PackageType {
+    ) async throws {
         try await swiftCommandState.withTemporaryWorkspace(switchingTo: templatePath) { workspace, root in
             let rootManifests = try await workspace.loadRootManifests(
                 packages: root.packages,
@@ -194,10 +204,9 @@ struct TemplatePackageInitializer: PackageInitializer {
 
             for target in manifest.targets {
                 if target.name == targetName,
-                   let options = target.templateInitializationOptions,
-                   case .packageInit(let type, _, _) = options
+                   let _ = target.templateInitializationOptions // The template target must have options or it could be a normal target
                 {
-                    return try .init(from: type)
+                    return
                 }
             }
             throw TemplatePackageInitializerError.templateNotFound(templateName ?? "<unspecified>")
@@ -244,15 +253,12 @@ struct TemplatePackageInitializer: PackageInitializer {
     /// Sets up the package with the template dependency.
     private func setUpPackage(
         builder: DefaultPackageDependencyBuilder,
-        packageType: InitPackage.PackageType,
         stagingPath: Basics.AbsolutePath
     ) throws -> InitTemplatePackage {
         let templatePackage = try InitTemplatePackage(
             name: packageName,
             initMode: builder.makePackageDependency(),
             fileSystem: self.swiftCommandState.fileSystem,
-            packageType: packageType,
-            supportedTestingLibraries: [],
             destinationPath: stagingPath,
             installedSwiftPMConfiguration: self.swiftCommandState.getHostToolchain().installedSwiftPMConfiguration
         )
@@ -277,7 +283,7 @@ struct TemplatePackageInitializer: PackageInitializer {
             case .noTemplatesInManifest:
                 "No templates with packageInit options were found in the manifest."
             case .multipleTemplatesFound(let templates):
-                "Multiple templates found: \(templates.joined(separator: ", ")). Please specify one using --template."
+                "Multiple templates found: \(templates.joined(separator: ", ")). Please choose one using --type and try again."
             }
         }
     }
@@ -320,8 +326,7 @@ struct StandardPackageInitializer: PackageInitializer {
 
         let initPackage = try InitPackage(
             name: packageName,
-            packageType: knownType,
-            supportedTestingLibraries: supportedTestingLibraries,
+            options: .init(packageType: .empty, supportedTestingLibraries: []),
             destinationPath: cwd,
             installedSwiftPMConfiguration: swiftCommandState.getHostToolchain().installedSwiftPMConfiguration,
             fileSystem: self.swiftCommandState.fileSystem

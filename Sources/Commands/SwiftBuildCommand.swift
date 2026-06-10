@@ -107,9 +107,6 @@ struct BuildCommandOptions: ParsableArguments {
     @Option(help: "Build the specified product.")
     var product: String?
 
-<<<<<<< HEAD
-    /// If should link the Swift stdlib statically.
-=======
     /// Testing library options.
     ///
     /// These options are no longer used but are needed by older versions of the
@@ -118,7 +115,6 @@ struct BuildCommandOptions: ParsableArguments {
     var testLibraryOptions: TestLibraryOptions
 
     /// Determines whether the binary should statically link the Swift stdlib.
->>>>>>> origin/main
     @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Determines whether Swift stdlib links statically.")
     public var shouldLinkStaticSwiftStdlib: Bool = false
 

@@ -45,9 +45,6 @@ public struct InitTemplatePackage {
     /// The kind of package dependency to add for the template.
     let packageDependency: SwiftRefactor.PackageDependency
 
-    /// The set of testing libraries supported by the generated package.
-    public var supportedTestingLibraries: Set<TestingLibrary>
-
     /// The file system abstraction to use for file operations.
     let fileSystem: FileSystem
 
@@ -59,17 +56,8 @@ public struct InitTemplatePackage {
     /// The name of the package to create.
     public var packageName: String
 
-    /// The type of package to create (e.g., library, executable).
-    let packageType: InitPackage.PackageType
-
     /// Options used to configure package initialization.
     public struct InitPackageOptions {
-        /// The type of package to create.
-        public var packageType: InitPackage.PackageType
-
-        /// The set of supported testing libraries to include in the package.
-        public var supportedTestingLibraries: Set<TestingLibrary>
-
         /// The list of supported platforms to target in the manifest.
         ///
         /// Note: Currently only Apple platforms are supported.
@@ -82,12 +70,8 @@ public struct InitTemplatePackage {
         ///   - platforms: The list of supported platforms (default is empty).
 
         public init(
-            packageType: InitPackage.PackageType,
-            supportedTestingLibraries: Set<TestingLibrary>,
             platforms: [SupportedPlatform] = []
         ) {
-            self.packageType = packageType
-            self.supportedTestingLibraries = supportedTestingLibraries
             self.platforms = platforms
         }
     }
@@ -120,15 +104,11 @@ public struct InitTemplatePackage {
         name: String,
         initMode: SwiftRefactor.PackageDependency,
         fileSystem: FileSystem,
-        packageType: InitPackage.PackageType,
-        supportedTestingLibraries: Set<TestingLibrary>,
         destinationPath: Basics.AbsolutePath,
         installedSwiftPMConfiguration: InstalledSwiftPMConfiguration,
     ) {
         self.packageName = name
         self.packageDependency = initMode
-        self.packageType = packageType
-        self.supportedTestingLibraries = supportedTestingLibraries
         self.destinationPath = destinationPath
         self.installedSwiftPMConfiguration = installedSwiftPMConfiguration
         self.fileSystem = fileSystem
@@ -145,7 +125,7 @@ public struct InitTemplatePackage {
         // initialize empty swift package
         let initializedPackage = try InitPackage(
             name: self.packageName,
-            options: .init(packageType: self.packageType, supportedTestingLibraries: self.supportedTestingLibraries),
+            options: .init(packageType: .empty, supportedTestingLibraries: []),
             destinationPath: self.destinationPath,
             installedSwiftPMConfiguration: self.installedSwiftPMConfiguration,
             fileSystem: self.fileSystem

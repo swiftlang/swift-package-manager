@@ -49,7 +49,6 @@ let package = Package(
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ],
-            initialPackageType: .library,
             description: "Generate a Swift library package"
         ),
         .template(
@@ -57,7 +56,6 @@ let package = Package(
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
             ],
-            initialPackageType: .executable,
             templatePermissions: [
                 .writeToPackageDirectory(reason: "Generate source files and documentation"),
             ],
@@ -67,9 +65,9 @@ let package = Package(
 )
 ```
 
-The `templateTarget` declares the name and capability of the template, along with its dependencies. The `initialPackageType` specifies the base package structure that SwiftPM sets up before invoking the template — this can be `.library`, `.executable`, `.tool`, `.buildToolPlugin`, `.commandPlugin`, `.macro`, or `.empty`.
+The `templateTarget` declares the name and capability of the template, along with its dependencies.
 
-The Swift Package Manager expects the Swift script files that implement the logic of the template to be in a directory with the same as the template, located within a `Templates` subdirectory of the package. The Package Manager also expects Swift script files in a directory with the same name as the template, alongside a `Plugin` suffix, located under the `Plugins` subdirectory of the package.
+The Swift Package Manager expects the Swift script files that implement the logic of the template to be in a directory with the same name as the template, located within a `Templates` subdirectory of the package. The Package Manager also expects Swift script files in a directory with the same name as the template, alongside a `Plugin` suffix, located under the `Plugins` subdirectory of the package.
 
 ```shell
 .

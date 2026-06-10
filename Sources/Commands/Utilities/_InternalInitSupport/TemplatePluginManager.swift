@@ -107,6 +107,16 @@ struct TemplateInitializationPluginManager: TemplatePluginManager {
             rootPackage: self.rootPackage
         )
 
+        if self.args.contains("--experimental-dump-help") || self.args.contains("--dump-help") {
+            // Dump the tool info right away, subtracting our hidden options
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = .prettyPrinted
+            var toolInfoFiltered = toolInfo
+            toolInfoFiltered.command.arguments = (toolInfo.command.arguments ?? []).filter{ $0.shouldDisplay }
+            print(String(data: try encoder.encode(toolInfoFiltered), encoding: .utf8)!)
+            return
+        }
+
         let cliResponses: [String] = try promptUserForTemplateArguments(using: toolInfo)
 
         _ = try await self.runTemplatePlugin(plugin, with: cliResponses)

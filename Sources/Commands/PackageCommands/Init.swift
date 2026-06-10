@@ -45,9 +45,10 @@ extension SwiftPackageCommand {
             command-plugin    - A package that vends a command plugin.
             macro             - A package that vends a macro.
             empty             - An empty package with a Package.swift manifest.
-            custom            - When used with --path, --url, or --package-id,
-                                this resolves to a template from the specified 
-                                package or location.
+            <template>        - When used with --path, --url, or --package-id,
+                                this selects a template from the specified
+                                path, url, or package id where there can be
+                                more than one.
             """)
         )
         var initMode: String?
@@ -147,27 +148,6 @@ extension SwiftPackageCommand {
         }
 
         init() {}
-    }
-}
-
-extension InitPackage.PackageType {
-    init(from templateType: TargetDescription.TemplateType) throws {
-        switch templateType {
-        case .executable:
-            self = .executable
-        case .library:
-            self = .library
-        case .tool:
-            self = .tool
-        case .macro:
-            self = .macro
-        case .buildToolPlugin:
-            self = .buildToolPlugin
-        case .commandPlugin:
-            self = .commandPlugin
-        case .empty:
-            self = .empty
-        }
     }
 }
 

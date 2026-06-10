@@ -23,8 +23,6 @@ import _InternalTestSupport
 import TSCTestSupport
 import Testing
 
-<<<<<<< HEAD
-// to delete later
 import Basics
 
 import ArgumentParserToolInfo
@@ -52,11 +50,9 @@ import class TSCBasic.BufferedOutputByteStream
 import struct TSCBasic.ByteString
 import enum TSCBasic.JSON
 
-=======
 import struct ArgumentParser.ExitCode
 import protocol ArgumentParser.AsyncParsableCommand
 import class TSCBasic.BufferedOutputByteStream
->>>>>>> origin/main
 
 @Suite(
     .serialized,  // to limit the number of swift executable running.
