@@ -433,6 +433,10 @@ private struct MockRegistryArchiver: Archiver {
         fatalError("not implemented")
     }
 
+    func compress(paths: [RelativePath], from parent: AbsolutePath, to destinationPath: AbsolutePath) async throws {
+        fatalError("not implemented")
+    }
+
     func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
         do {
             let lines = try self.readFileContents(path)

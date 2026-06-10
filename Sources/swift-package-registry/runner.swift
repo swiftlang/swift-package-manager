@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Commands
 import PackageRegistryCommand
 
 @main

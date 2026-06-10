@@ -35,6 +35,14 @@ public protocol PluginScriptRunner {
         completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
     )
 
+    func buildCommandLine(
+        sourceFiles: [Basics.AbsolutePath],
+        pluginName: String,
+        toolsVersion: ToolsVersion,
+        workers: UInt32,
+        observabilityScope: ObservabilityScope?
+    ) -> (commandLine: [String], execName: String, execFilePath: Basics.AbsolutePath, diagFilePath: Basics.AbsolutePath)
+
     /// Implements the mechanics of running a plugin script implemented as a set of Swift source files, for use
     /// by the package graph when it is evaluating package plugins.
     ///

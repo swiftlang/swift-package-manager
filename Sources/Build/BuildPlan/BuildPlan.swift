@@ -45,7 +45,7 @@ extension BuildParameters {
             if let path = Environment.current["SWIFTPM_TESTS_MODULECACHE"] {
                 return try AbsolutePath(validating: path)
             }
-            return buildPath.appending("ModuleCache")
+            return BuildOperation.buildProductsPath(for: self).appending("ModuleCache")
         }
     }
 
@@ -69,7 +69,7 @@ extension BuildParameters {
         }
 
         if addIndexStoreArguments {
-            return ["-index-store-path", indexStore.pathString]
+            return ["-index-store-path", BuildOperation.indexStore(for: self).pathString]
         }
         return []
     }
@@ -588,7 +588,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
     /// Creates arguments required to launch the Swift REPL that will allow
     /// importing the modules in the package graph.
     public func createREPLArguments() throws -> CLIArguments {
-        let buildPath = self.toolsBuildParameters.buildPath.pathString
+        let buildPath = BuildOperation.buildProductsPath(for: self.toolsBuildParameters).pathString
         var arguments = ["repl", "-I" + buildPath, "-L" + buildPath]
 
         // Link the special REPL product that contains all of the library targets.
@@ -1336,7 +1336,7 @@ extension Basics.Diagnostic {
 extension BuildParameters {
     /// Returns a named bundle's path inside the build directory.
     func bundlePath(named name: String) -> Basics.AbsolutePath {
-        self.buildPath.appending(component: name + self.triple.nsbundleExtension)
+        BuildOperation.buildProductsPath(for: self).appending(component: name + self.triple.nsbundleExtension)
     }
 }
 

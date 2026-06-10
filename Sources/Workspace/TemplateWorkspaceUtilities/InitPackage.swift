@@ -475,9 +475,12 @@ public final class InitPackage {
                 pkgParams.append(param)
             }
 
-            if (!options.swiftLanguageModes.isEmpty) {
+            let nonDefaultModes = options.swiftLanguageModes.filter {
+                $0 != InitPackage.newPackageToolsVersion.swiftLanguageVersion
+            }
+            if !nonDefaultModes.isEmpty {
                 pkgParams.append("""
-                    swiftLanguageModes: [\(options.swiftLanguageModes.map { ".v\($0)" }.joined(separator: ", "))]
+                    swiftLanguageModes: [\(nonDefaultModes.map { ".v\($0)" }.joined(separator: ", "))]
                 """)
             }
 

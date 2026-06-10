@@ -28,7 +28,7 @@ import Metal
 struct BuildMetalTests {
 
     @Test(
-        .disabled("Require downloadable Metal toolchain"),
+        .disabled("https://github.com/swiftlang/swift-package-manager/issues/9443: Require downloadable Metal toolchain"),
         .tags(
             .TestSize.large,
         ),
@@ -52,15 +52,11 @@ struct BuildMetalTests {
             )
 
             // Get the bin path
-            let (binPathOutput, _) = try await executeSwiftBuild(
+            let binPath = try await getBinPath(
                 fixturePath,
                 configuration: configuration,
-                extraArgs: ["--show-bin-path"],
                 buildSystem: buildSystem,
-                throwIfCommandFails: true
             )
-
-            let binPath = try AbsolutePath(validating: binPathOutput.trimmingCharacters(in: .whitespacesAndNewlines))
 
             // Check that default.metallib exists
             let metallibPath = binPath.appending(components:["MyRenderer_MyRenderer.bundle", "Contents", "Resources", "default.metallib"])

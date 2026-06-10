@@ -142,11 +142,9 @@ struct TestDiscoveryTests {
                 // in "swift test" build output goes to stderr
                 #expect(stderr.contains("Build complete!"))
                 // we are expecting that no warning is produced
-                withKnownIssue(isIntermittent: true) {
-                    #expect(!stderr.contains("warning:"))
-                } when: {
-                    buildSystem == .swiftbuild
-                }
+                let buidlSystemDeprecationDiag = Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem)
+                let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains(buidlSystemDeprecationDiag.message)}.joined(separator: "\n|")
+                #expect(!filteredStderr.contains("warning:"))
                 // in "swift test" test output goes to stdout
                 #expect(stdout.contains("Executed 0 tests"))
             }
@@ -265,8 +263,10 @@ struct TestDiscoveryTests {
             try await fixture(name: "Miscellaneous/TestDiscovery/Deprecation") { fixturePath in
                 let (stdout, stderr) = try await executeSwiftTest(fixturePath, buildSystem: buildSystem)
                 // in "swift test" test output goes to stdout
+                let buidlSystemDeprecationDiag = Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem)
+                let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains(buidlSystemDeprecationDiag.message)}.joined(separator: "\n")
                 #expect(stdout.contains("Executed 2 tests"))
-                #expect(!stderr.contains("is deprecated"))
+                #expect(!filteredStderr.contains("is deprecated"))
             }
         } when: {
             buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows

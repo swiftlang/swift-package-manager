@@ -10,8 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+@testable import Commands
+@testable import CoreCommands
 
+import Foundation
 import Basics
 import Commands
 import struct SPMBuildCore.BuildSystemProvider
@@ -21,6 +23,7 @@ import _InternalTestSupport
 import TSCTestSupport
 import Testing
 
+<<<<<<< HEAD
 // to delete later
 import Basics
 
@@ -49,6 +52,11 @@ import class TSCBasic.BufferedOutputByteStream
 import struct TSCBasic.ByteString
 import enum TSCBasic.JSON
 
+=======
+import struct ArgumentParser.ExitCode
+import protocol ArgumentParser.AsyncParsableCommand
+import class TSCBasic.BufferedOutputByteStream
+>>>>>>> origin/main
 
 @Suite(
     .serialized,  // to limit the number of swift executable running.
@@ -253,7 +261,6 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue("fails to build the package", isIntermittent: true) {
             // default should run with testability
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 let result = try await execute(
@@ -262,11 +269,8 @@ struct TestCommandTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                #expect(result.stderr.contains("-enable-testing"))
+                #expect(result.stderr.contains("-enable-testing") == true)
             }
-        } when: {
-            buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem
-        }
     }
 
     @Test(
@@ -281,7 +285,6 @@ struct TestCommandTests {
     ) async throws {
         let configuration = BuildConfiguration.debug
         // disabled
-        try await withKnownIssue("fails to build", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 let error = await #expect(throws: SwiftPMError.self) {
                     try await execute(
@@ -301,9 +304,6 @@ struct TestCommandTests {
                     "got stdout: \(stdout), stderr: \(stderr)",
                 )
             }
-        } when: {
-            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
-        }
     }
 
     @Test(
@@ -316,7 +316,6 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue("failes to build the package", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 let result = try await execute(
                     ["--enable-testable-imports", "--vv"],
@@ -324,11 +323,8 @@ struct TestCommandTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                #expect(result.stderr.contains("-enable-testing"))
+                #expect(result.stderr.contains("-enable-testing") == true)
             }
-        } when: {
-            (buildSystem == .swiftbuild && .windows == ProcessInfo.hostOperatingSystem)
-        }
     }
 
     @Test(
@@ -344,7 +340,7 @@ struct TestCommandTests {
         let configuration = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestableExeWithDifferentProductName") { fixturePath in
-                let result = try await execute(
+                _ = try await execute(
                     ["--vv"],
                     packagePath: fixturePath,
                     configuration: configuration,
@@ -580,6 +576,66 @@ struct TestCommandTests {
         }
     }
 
+    /// Regression: `--xunit-output=PATH` must be stripped when forwarding argv to Swift Testing so only
+    /// SPM's suffixed path is passed; otherwise the helper receives duplicate `--xunit-output` flags and
+    /// overwrites the XCTest JUnit file. See discussion in swift-package-manager around combined forms.
+    @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+            .Feature.CommandLineArguments.TestParallel,
+            .Feature.CommandLineArguments.TestOutputXunit,
+            .Feature.CommandLineArguments.TestEnableXCTest,
+            .Feature.CommandLineArguments.TestEnableSwiftTesting,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9960", relationship: .verifies),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9982", relationship: .defect),
+        arguments: SupportedBuildSystemOnAllPlatforms.filter { $0 != .xcode },
+    )
+    func swiftTestParallelXunitOutputCombinedEqualsForm(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await withKnownIssue(isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/DefaultInteropMode") { fixturePath in
+                let xUnitOutput = fixturePath.appending("output.xml")
+                let swiftTestingXUnitOutput = fixturePath.appending("output-swift-testing.xml")
+                _ = try await execute(
+                    [
+                        "--parallel",
+                        "--enable-xctest",
+                        "--enable-swift-testing",
+                        "--xunit-output=\(xUnitOutput.pathString)",
+                    ],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+
+                expectFileExists(at: xUnitOutput, "\(xUnitOutput) does not exist")
+                expectFileExists(at: swiftTestingXUnitOutput, "\(swiftTestingXUnitOutput) does not exist")
+
+                let xctestContents: String = try localFileSystem.readFileContents(xUnitOutput)
+                #expect(
+                    xctestContents.contains(#"<testsuite name="TestResults""#),
+                    "XCTest JUnit should be generated at the base path; got:\n\(xctestContents)",
+                )
+                #expect(
+                    xctestContents.contains(#"name="testInteropSetToComplete""#),
+                    "Expected XCTest case in base xUnit file; got:\n\(xctestContents)",
+                )
+
+                let swiftTestingContents: String = try localFileSystem.readFileContents(swiftTestingXUnitOutput)
+                #expect(
+                    swiftTestingContents.contains("DefaultInteropModeSwiftTestingTests")
+                        || swiftTestingContents.contains("Interop mode should be set to complete"),
+                    "Expected Swift Testing output in suffixed xUnit file; got:\n\(swiftTestingContents)",
+                )
+            }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
+    }
+
     enum TestRunner {
         case XCTest
         case SwiftTesting
@@ -771,8 +827,8 @@ struct TestCommandTests {
         }
     }
 
-    /// An argument to the test function `noteXCTestFailures()`.
-    struct XCTestFailureNoteTestArgument: CustomStringConvertible {
+    /// An argument to the test function `noteTestFailures()`.
+    struct TestFailureNoteTestArgument: CustomStringConvertible {
         /// The relative path to a test fixture in this project.
         var fixturePath: String
 
@@ -792,8 +848,14 @@ struct TestCommandTests {
         /// to having Swift Testing enabled.
         var isSwiftTestingEnabled: Bool? = nil
 
+        /// Whether `--parallel` or `--no-parallel` is passed to the test command
+        var parallel: Bool? = nil
+
+        /// The build system to use when building tests
+        var buildSystem: BuildSystemProvider.Kind
+
         /// Whether the test command output is expected to include the note.
-        var expectNote: Bool
+        var expectedNote: String? = nil
 
         var description: String {
             var description = "fixture: '\((fixturePath as NSString).lastPathComponent)'"
@@ -803,13 +865,16 @@ struct TestCommandTests {
             if let isSwiftTestingEnabled {
                 description.append(", Swift Testing enabled: \(isSwiftTestingEnabled)")
             }
-            description.append(", expectNote: \(expectNote)")
+            if let parallel {
+                description.append(", parallel testing enabled: \(parallel)")
+            }
+            description.append(", buildSystem: \(buildSystem)")
+            description.append(", expectedNote: \(expectedNote ?? "<none>")")
             return description
         }
     }
 
-    /// Test whether a note is emitted to stdout indicating that XCTests failed
-    /// after Swift Testing tests finish running.
+    /// Test whether a note is emitted summarizing the failed test runs.
     @Test(
         .tags(
             .Feature.TargetType.Test,
@@ -821,57 +886,169 @@ struct TestCommandTests {
         arguments: [
             .init(
                 fixturePath: "Miscellaneous/TestDiscovery/Simple",
-                expectNote: false,
+                buildSystem: .native,
             ),
             .init(
                 fixturePath: "Miscellaneous/TestSingleFailureXCTest",
-                expectNote: true,
+                buildSystem: .native,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - TestFailuresPackageTests (XCTest)
+                """,
             ),
             .init(
                 fixturePath: "Miscellaneous/TestSingleFailureSwiftTesting",
-                expectNote: false,
-            ),
-            .init(
-                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
-                isXCTestEnabled: false,
-                expectNote: false,
-            ),
-            .init(
-                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
-                isSwiftTestingEnabled: false,
-                expectNote: false,
-            ),
-            .init(
-                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
-                isXCTestEnabled: false,
-                isSwiftTestingEnabled: false,
-                expectNote: false,
-            ),
-        ] as [XCTestFailureNoteTestArgument]
-    )
-    func noteXCTestFailures(noteArgument arg: XCTestFailureNoteTestArgument) async throws {
-        try await fixture(name: arg.fixturePath) { fixturePath in
-            var args: [String] = []
-
-            switch arg.isXCTestEnabled {
-            case .none: break
-            case .some(true): args.append("--enable-xctest")
-            case .some(false): args.append("--disable-xctest")
-            }
-
-            switch arg.isSwiftTestingEnabled {
-            case .none: break
-            case .some(true): args.append("--enable-swift-testing")
-            case .some(false): args.append("--disable-swift-testing")
-            }
-
-            let (stdout, stderr) = try await execute(
-                args,
-                packagePath: fixturePath,
                 buildSystem: .native,
-                throwIfCommandFails: false,
-            )
-            #expect(stdout.contains(SwiftTestCommand.xctestFailedNote) == arg.expectNote, "stdout: \(stdout), stderr: \(stderr)")
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - TestFailuresSwiftTestingPackageTests (Swift Testing)
+                """,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                isXCTestEnabled: false,
+                buildSystem: .native,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                isSwiftTestingEnabled: false,
+                buildSystem: .native,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - TestFailuresPackageTests (XCTest)
+                """,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                isXCTestEnabled: false,
+                isSwiftTestingEnabled: false,
+                buildSystem: .native,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestDiscovery/Simple",
+                buildSystem: .swiftbuild,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                buildSystem: .swiftbuild,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - TestFailuresTests (XCTest)
+                """,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureSwiftTesting",
+                buildSystem: .swiftbuild,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - TestFailuresSwiftTestingTests (Swift Testing)
+                """,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                isXCTestEnabled: false,
+                buildSystem: .swiftbuild,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                isSwiftTestingEnabled: false,
+                buildSystem: .swiftbuild,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - TestFailuresTests (XCTest)
+                """,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestSingleFailureXCTest",
+                isXCTestEnabled: false,
+                isSwiftTestingEnabled: false,
+                buildSystem: .swiftbuild,
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestMixedFailuresAcrossTargets",
+                buildSystem: .native,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - TestMixedFailuresAcrossTargetsPackageTests (XCTest)
+                  - TestMixedFailuresAcrossTargetsPackageTests (Swift Testing)
+                """
+            ),
+            .init(
+                fixturePath: "Miscellaneous/TestMixedFailuresAcrossTargets",
+                buildSystem: .swiftbuild,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - XCTestFailingTests (XCTest)
+                  - SwiftTestingFailingTests (Swift Testing)
+                """
+            ),
+            .init(
+                fixturePath: "Miscellaneous/MultipleXCTestSuitesWithFailures",
+                parallel: false,
+                buildSystem: .native,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - MultipleXCTestSuitesWithFailuresPackageTests (XCTest)
+                """
+            ),
+            .init(
+                fixturePath: "Miscellaneous/MultipleXCTestSuitesWithFailures",
+                parallel: true,
+                buildSystem: .native,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - MultipleXCTestSuitesWithFailuresPackageTests (XCTest)
+                """
+            ),
+            .init(
+                fixturePath: "Miscellaneous/MultipleXCTestSuitesWithFailures",
+                parallel: false,
+                buildSystem: .swiftbuild,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - MultipleXCTestSuitesWithFailuresTests (XCTest)
+                """
+            ),
+            .init(
+                fixturePath: "Miscellaneous/MultipleXCTestSuitesWithFailures",
+                parallel: true,
+                buildSystem: .swiftbuild,
+                expectedNote: """
+                Note: Some test targets reported failures:
+                  - MultipleXCTestSuitesWithFailuresTests (XCTest)
+                """
+            ),
+        ] as [TestFailureNoteTestArgument]
+    )
+    func noteTestFailures(noteArgument arg: TestFailureNoteTestArgument) async throws {
+        try await withKnownIssue(isIntermittent: true) {
+            try await fixture(name: arg.fixturePath) { fixturePath in
+                var args: [String] = []
+
+                switch arg.isXCTestEnabled {
+                case .none: break
+                case .some(true): args.append("--enable-xctest")
+                case .some(false): args.append("--disable-xctest")
+                }
+
+                switch arg.isSwiftTestingEnabled {
+                case .none: break
+                case .some(true): args.append("--enable-swift-testing")
+                case .some(false): args.append("--disable-swift-testing")
+                }
+
+                let (stdout, stderr) = try await execute(
+                    args,
+                    packagePath: fixturePath,
+                    buildSystem: arg.buildSystem,
+                    throwIfCommandFails: false,
+                )
+                if let expectedNote = arg.expectedNote {
+                    #expect(stdout.contains(expectedNote), "did not find expected note '\(expectedNote)' - stdout: \(stdout), stderr: \(stderr)")
+                }
+            }
+        } when: {
+            arg.buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
@@ -1354,6 +1531,95 @@ struct TestCommandTests {
     }
 
     @Test(
+        .IssueWindowsPathNoEntry,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func defaultInteropMode(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/DefaultInteropMode") { fixturePath in
+            try await withKnownIssue(isIntermittent: true) {
+                try await executeSwiftTest(
+                    fixturePath,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true,
+                )
+            } when: {
+                // Swift Build on Windows sometimes fails to generate LinkFileList files.
+                // https://github.com/swiftlang/swift-package-manager/issues/9420
+                ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+            }
+        }
+    }
+
+    @Test(
+        .IssueWindowsPathNoEntry,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func noDefaultInteropMode(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/NoDefaultInteropMode") { fixturePath in
+            try await withKnownIssue(isIntermittent: true) {
+                try await executeSwiftTest(
+                    fixturePath,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true,
+                )
+            } when: {
+                // Swift Build on Windows sometimes fails to generate LinkFileList files.
+                // https://github.com/swiftlang/swift-package-manager/issues/9420
+                ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+            }
+        }
+    }
+
+    @Test(
+        .IssueWindowsPathNoEntry,
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func respectUserOverrideInteropMode(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/RespectUserInteropMode") { fixturePath in
+            try await withKnownIssue(isIntermittent: true) {
+                try await executeSwiftTest(
+                    fixturePath,
+                    env: ["SWIFT_TESTING_XCTEST_INTEROP_MODE": "none"],
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true,
+                )
+            } when: {
+                // Swift Build on Windows sometimes fails to generate LinkFileList files.
+                // https://github.com/swiftlang/swift-package-manager/issues/9420
+                ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
+            }
+        }
+    }
+
+    /// This is a rare scenario: if you have a workspace with multiple packages
+    /// and conflicting tools-version, we base the interop mode on the lowest
+    /// found tools version.
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func multiRootWorkspaceChoosesLowestToolsVersionInteropMode(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/MultiRootInteropMode") { fixturePath in
+            let workspacePath = fixturePath.appending(
+                components: "Workspace.xcworkspace"
+            ).pathString
+            try await executeSwiftTest(
+                fixturePath,
+                extraArgs: ["--multiroot-data-file", workspacePath],
+                buildSystem: buildSystem,
+                throwIfCommandFails: true,
+            )
+        }
+    }
+
+    @Test(
         .tags(
             .Feature.TargetType.Executable,
             .Feature.CommandLineArguments.TestDisableSwiftTesting,
@@ -1400,7 +1666,7 @@ struct TestCommandTests {
             try await fixture(name: "Miscellaneous/Errors/FatalErrorInSingleXCTest/TypeLibrary") { fixturePath in
                 // WHEN swift-test is executed
                 let error = await #expect(throws: SwiftPMError.self) {
-                    try await self.execute(
+                    try await execute(
                         [],
                         packagePath: fixturePath,
                         configuration: configuration,
@@ -1436,7 +1702,7 @@ struct TestCommandTests {
     }
 
     @Test(
-            .IssueWindowsLongPath,
+        .IssueWindowsLongPath,
             .tags(
                 .Feature.TargetType.Executable,
             ),
@@ -1448,7 +1714,7 @@ struct TestCommandTests {
             let configuration = BuildConfiguration.debug
             try await withKnownIssue(isIntermittent: true) {
                 try await fixture(name: "Miscellaneous/TestableExeWithResources") { fixturePath in
-                    let result = try await execute(
+                    _ = try await execute(
                         ["--vv"],
                         packagePath: fixturePath,
                         configuration: configuration,
@@ -1459,5 +1725,577 @@ struct TestCommandTests {
                 .windows == ProcessInfo.hostOperatingSystem
                 || ProcessInfo.processInfo.environment["SWIFTCI_EXHIBITS_GH_9524"] != nil
             }
-         }
+        }
+
+    // Regression test for https://github.com/swiftlang/swift-package-manager/issues/9986. Ensure
+    // environment is computed correctly throughout the testing pipeline.
+    @Test(
+        .tags(
+            .Feature.TargetType.Test,
+            .Feature.ProductType.DynamicLibrary,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testTargetWithDynamicLibraryProductDependency(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await withKnownIssue("Windows path issue", isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/TestWithDynamicDep") { fixturePath in
+                _ = try await execute(
+                    [],
+                    packagePath: fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true
+                )
+            }
+        } when: {
+            .windows == ProcessInfo.hostOperatingSystem
+        }
+    }
+
+    // MARK: - LLDB Flag Validation Tests
+
+    @Suite
+    struct LLDBTests {
+        /// Probes the host lldb once per test process to discover whether it
+        /// has Python bindings. Old smoke-test CI lldb predates them, and
+        /// some Windows toolchains ship lldb without `python310.dll` on
+        /// PATH so `script` and `command script import` crash.
+        private static let lldbHasPythonBindings: Bool = {
+            let lldbPath: String
+            do {
+                lldbPath = try UserToolchain.default.getLLDB().pathString
+            } catch {
+                return false
+            }
+            let probeMarker = "SWIFT_PM_LLDB_PYTHON_OK"
+            let output = (try? AsyncProcess.checkNonZeroExit(
+                arguments: [lldbPath, "-b", "-o", "script print('\(probeMarker)')"]
+            )) ?? ""
+            return output.contains(probeMarker)
+        }()
+
+        /// Probes the host lldb once to discover whether `target create -l`
+        /// is supported. Older lldb (e.g. system lldb that smoke-test CI
+        /// sometimes falls back to) predates the `--label` option.
+        private static let lldbSupportsTargetLabels: Bool = {
+            let lldbPath: String
+            do {
+                lldbPath = try UserToolchain.default.getLLDB().pathString
+            } catch {
+                return false
+            }
+            let output = (try? AsyncProcess.checkNonZeroExit(
+                arguments: [lldbPath, "-b", "-o", "help target create"]
+            )) ?? ""
+            return output.contains("--label")
+        }()
+
+        private func execute(
+            _ args: [String],
+            packagePath: AbsolutePath? = nil,
+            configuration: BuildConfiguration = .debug,
+            buildSystem: BuildSystemProvider.Kind,
+            throwIfCommandFails: Bool = true
+        ) async throws -> (stdout: String, stderr: String) {
+            try await executeSwiftTest(
+                packagePath,
+                configuration: configuration,
+                extraArgs: args,
+                buildSystem: buildSystem,
+                throwIfCommandFails: throwIfCommandFails
+            )
+        }
+
+        /// Smoke test that verifies `validateLLDBCompatibility` is wired into
+        /// the command pipeline. The individual incompatibility rules are
+        /// covered directly by `ValidationTests` below.
+        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
+        func lldbValidationIsWiredIntoCommandPipeline(buildSystem: BuildSystemProvider.Kind) async throws {
+            let args = args(["--debugger", "--parallel"], for: buildSystem)
+            let command = try #require(SwiftTestCommand.parseAsRoot(args) as? SwiftTestCommand)
+            let (state, outputStream) = try commandState()
+
+            let error = await #expect(throws: ExitCode.self) {
+                try await command.run(state)
+            }
+
+            #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
+
+            // The output stream is written to asynchronously on a DispatchQueue and can
+            // receive output after the command has thrown.
+            let found = try await waitForOutputStreamToContain(outputStream, "--debugger")
+            #expect(
+                found,
+                "Expected validation error to surface via the command pipeline, got: \(outputStream.bytes.description)"
+            )
+        }
+
+        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
+        func lldbWithAllTestingLibrariesDisabledThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
+            try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                let (_, stderr) = try await execute(
+                    ["--debugger", "--disable-xctest", "--disable-swift-testing"],
+                    packagePath: fixturePath,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: false
+                )
+
+                #expect(
+                    stderr.contains("No testing libraries are enabled for debugging"),
+                    "Expected error about no testing libraries, got stderr: \(stderr)"
+                )
+            }
+        }
+
+        @Test(arguments: SupportedBuildSystemOnAllPlatforms)
+        func lldbWithNoTestTargetsThrowsError(buildSystem: BuildSystemProvider.Kind) async throws {
+            try await fixture(name: "Miscellaneous/AtMainSupport") { fixturePath in
+                let (_, stderr) = try await execute(
+                    ["--debugger"],
+                    packagePath: fixturePath,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: false
+                )
+
+                #expect(
+                    stderr.contains("no tests found"),
+                    "Expected error about no tests found, got stderr: \(stderr)"
+                )
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func debuggerFlagWithXCTestSuite(buildSystem: BuildSystemProvider.Kind) async throws {
+            let configuration = BuildConfiguration.debug
+            try await withKnownIssue {
+                try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--disable-swift-testing", "--verbose"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
+                    )
+
+                    #expect(
+                        !stderr.contains("error: --debugger cannot be used with"),
+                        "got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    #if os(macOS)
+                    let targetName = "xctest"
+                    #else
+                    let targetName = buildSystem == .swiftbuild ? "test-runner" : "xctest"
+                    #endif
+
+                    #expect(
+                        stdout.contains("target create") && stdout.contains(targetName),
+                        "Expected LLDB to target xctest binary, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    // Probe lldb at runtime; environments without Python
+                    // bindings can't register the failbreak command, so
+                    // there's nothing to assert here.
+                    guard Self.lldbHasPythonBindings else { return }
+                    #expect(
+                        stdout.contains("failbreak command registered: 1 specs"),
+                        "Expected a failure breakpoint to be setup, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                }
+            } when: {
+                // Windows lldb ships without python310.dll on PATH, so it crashes
+                // with access violation when the failbreak `command script import`
+                // runs, and swift-test exits abnormally before producing any output.
+                ProcessInfo.hostOperatingSystem == .windows
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms
+        )
+        func debuggerFlagWithSwiftTestingSuite(buildSystem: BuildSystemProvider.Kind) async throws {
+            let configuration = BuildConfiguration.debug
+            try await withKnownIssue {
+                try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--disable-xctest", "--verbose"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
+                    )
+
+                    #expect(
+                        !stderr.contains("error: --debugger cannot be used with"),
+                        "got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    #if os(macOS)
+                    let targetName = "swiftpm-testing-helper"
+                    #else
+                    let targetName = buildSystem == .native ? "TestDebuggingPackageTests.xctest" : "TestDebuggingTests-test-runner"
+                    #endif
+
+                    #expect(
+                        stdout.contains("target create") && stdout.contains(targetName),
+                        "Expected LLDB to target swiftpm-testing-helper binary, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    guard Self.lldbHasPythonBindings else { return }
+                    #expect(
+                        stdout.contains("failbreak command registered: 1 specs"),
+                        "Expected Swift Testing failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                }
+            } when: {
+                // Windows lldb ships without python310.dll on PATH, so it crashes
+                // with access violation when the failbreak `command script import`
+                // runs, and swift-test exits abnormally before producing any output.
+                ProcessInfo.hostOperatingSystem == .windows
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms
+        )
+        func debuggerFlagWithBothTestingSuites(buildSystem: BuildSystemProvider.Kind) async throws {
+            let configuration = BuildConfiguration.debug
+            try await withKnownIssue {
+                try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--verbose"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
+                    )
+
+                    #expect(
+                        !stderr.contains("error: --debugger cannot be used with"),
+                        "got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    #expect(
+                        stdout.contains("target create"),
+                        "Expected LLDB to create targets, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    let productName = buildSystem == .native ? "TestDebuggingPackageTests" : "TestDebuggingTests"
+                    if Self.lldbSupportsTargetLabels {
+                        #expect(
+                            stdout.contains("\(productName) (XCTest)") && stdout.contains("\(productName) (Swift Testing)"),
+                            "Expected labeled LLDB targets, got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    }
+
+                    if Self.lldbHasPythonBindings {
+                        #expect(
+                            stdout.contains("failbreak command registered: 2 specs"),
+                            "Expected combined failure breakpoint setup, got stdout: \(stdout), stderr: \(stderr)",
+                        )
+
+                        #expect(
+                            stdout.contains("command script import"),
+                            "Expected Python script import for multi-target switching, got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    }
+
+                    #if os(macOS)
+                    #expect(
+                        stdout.contains("settings set target.env-vars SWIFT_TESTING_ENABLED=0"),
+                        "Expected SWIFT_TESTING_ENABLED=0 scoped to the xctest target to prevent duplicate Swift Testing runs, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                    #endif
+                }
+            } when: {
+                // Windows lldb ships without python310.dll on PATH, so it crashes
+                // with access violation when the failbreak `command script import`
+                // runs, and swift-test exits abnormally before producing any output.
+                ProcessInfo.hostOperatingSystem == .windows
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms
+        )
+        func debuggerFlagWithMultipleTestProducts(buildSystem: BuildSystemProvider.Kind) async throws {
+            let configuration = BuildConfiguration.debug
+            try await withKnownIssue {
+                try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--verbose"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
+                    )
+
+                    if Self.lldbHasPythonBindings {
+                        #expect(
+                            !stderr.contains("error:"),
+                            "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    }
+
+                    let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
+                    // Native build system produces a single umbrella product (2 targets: xctest + swift-testing).
+                    // Swiftbuild produces one product per test target (4 targets: 2 products x 2 libraries).
+                    let expectedMinTargets = buildSystem == .native ? 2 : 4
+                    #expect(
+                        targetCreateCount >= expectedMinTargets,
+                        "Expected at least \(expectedMinTargets) LLDB targets, got \(targetCreateCount). stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    if Self.lldbHasPythonBindings {
+                        #expect(
+                            stdout.contains("command script import"),
+                            "Expected Python script import for multi-target switching, got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    }
+                }
+            } when: {
+                // Windows lldb ships without python310.dll on PATH, so it crashes
+                // with access violation when the failbreak `command script import`
+                // runs, and swift-test exits abnormally before producing any output.
+                ProcessInfo.hostOperatingSystem == .windows
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms
+        )
+        func debuggerFlagWithMultipleTestProductsXCTestOnly(buildSystem: BuildSystemProvider.Kind) async throws {
+            let configuration = BuildConfiguration.debug
+            try await withKnownIssue {
+                try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--disable-swift-testing", "--verbose"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
+                    )
+
+                    if Self.lldbHasPythonBindings {
+                        #expect(
+                            !stderr.contains("error:"),
+                            "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    }
+
+                    let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
+                    // Native: 1 umbrella product → 1 xctest target.
+                    // Swiftbuild: 2 products → 2 xctest targets.
+                    let expectedMinTargets = buildSystem == .native ? 1 : 2
+                    #expect(
+                        targetCreateCount >= expectedMinTargets,
+                        "Expected at least \(expectedMinTargets) LLDB targets, got \(targetCreateCount). stdout: \(stdout), stderr: \(stderr)",
+                    )
+                }
+            } when: {
+                // Windows lldb ships without python310.dll on PATH, so it crashes
+                // with access violation when the failbreak `command script import`
+                // runs, and swift-test exits abnormally before producing any output.
+                ProcessInfo.hostOperatingSystem == .windows
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms
+        )
+        func debuggerFlagWithMultipleTestProductsSwiftTestingOnly(buildSystem: BuildSystemProvider.Kind) async throws {
+            let configuration = BuildConfiguration.debug
+            try await withKnownIssue {
+                try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--disable-xctest", "--verbose"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
+                    )
+
+                    if Self.lldbHasPythonBindings {
+                        #expect(
+                            !stderr.contains("error:"),
+                            "Expected no errors, got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    }
+
+                    let targetCreateCount = getNumberOfMatches(of: "target create", in: stdout)
+                    // Native: 1 umbrella product → 1 swift-testing target.
+                    // Swiftbuild: 2 products → 2 swift-testing targets.
+                    let expectedMinTargets = buildSystem == .native ? 1 : 2
+                    #expect(
+                        targetCreateCount >= expectedMinTargets,
+                        "Expected at least \(expectedMinTargets) LLDB targets, got \(targetCreateCount). stdout: \(stdout), stderr: \(stderr)",
+                    )
+                }
+            } when: {
+                // Windows lldb ships without python310.dll on PATH, so it crashes
+                // with access violation when the failbreak `command script import`
+                // runs, and swift-test exits abnormally before producing any output.
+                ProcessInfo.hostOperatingSystem == .windows
+            }
+        }
+
+        @Test(arguments: SupportedBuildSystemOnAllPlatforms, ["XCTestCalculatorTests/testAdditionPasses", "calculatorAdditionPasses()"])
+        func lldbRunExecutesTestsSuccessfully(buildSystem: BuildSystemProvider.Kind, test: String) async throws {
+            try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftTest(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: [
+                        "--debugger",
+                        "--verbose",
+                        "--filter", test,
+                    ] + getBuildSystemArgs(for: buildSystem),
+                    env: ["SWIFTPM_TESTS_LLDB_RUN": "1"],
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: false
+                )
+
+                // Probe lldb at runtime; without Python bindings the lldb
+                // run path can hit platform-specific crashes (e.g. Windows
+                // missing python310.dll), so don't progress here.
+                guard Self.lldbHasPythonBindings else { return }
+                #expect(
+                    stdout.contains("Process") && stdout.contains("launched"),
+                    "Expected LLDB to launch the process, got stdout: \(stdout), stderr: \(stderr)"
+                )
+
+                #expect(
+                    stdout.contains("exited with status = 0"),
+                    "Expected process to exit with status 0, got stdout: \(stdout), stderr: \(stderr)"
+                )
+            }
+        }
+
+        /// Direct unit tests for the validation logic, exercising
+        /// `validateLLDBCompatibility` without going through the full
+        /// command pipeline.
+        @Suite
+        struct ValidationTests {
+            private func expectValidationError(
+                configuration: BuildConfiguration = .debug,
+                shouldRunInParallel: Bool = false,
+                numberOfWorkers: Int? = nil,
+                shouldListTests: Bool = false,
+                shouldPrintCodeCovPath: Bool = false,
+                containing substrings: [String]
+            ) {
+                let error = #expect(throws: StringError.self) {
+                    try SwiftTestCommand.validateLLDBCompatibility(
+                        configuration: configuration,
+                        shouldRunInParallel: shouldRunInParallel,
+                        numberOfWorkers: numberOfWorkers,
+                        shouldListTests: shouldListTests,
+                        shouldPrintCodeCovPath: shouldPrintCodeCovPath
+                    )
+                }
+                let message = error?.description ?? ""
+                for substring in substrings {
+                    #expect(
+                        message.contains(substring),
+                        "Expected error message to contain '\(substring)', got: \(message)"
+                    )
+                }
+            }
+
+            @Test
+            func releaseConfigurationIsRejected() {
+                expectValidationError(
+                    configuration: .release,
+                    containing: ["--debugger", "release configuration"]
+                )
+            }
+
+            @Test
+            func parallelFlagIsRejected() {
+                expectValidationError(
+                    shouldRunInParallel: true,
+                    containing: ["--debugger", "--parallel"]
+                )
+            }
+
+            @Test
+            func numWorkersIsRejected() {
+                expectValidationError(
+                    numberOfWorkers: 2,
+                    containing: ["--debugger", "--num-workers"]
+                )
+            }
+
+            @Test
+            func listTestsIsRejected() {
+                expectValidationError(
+                    shouldListTests: true,
+                    containing: ["--debugger", "--list-tests"]
+                )
+            }
+
+            @Test
+            func showCodeCovPathIsRejected() {
+                expectValidationError(
+                    shouldPrintCodeCovPath: true,
+                    containing: ["--debugger", "--show-codecov-path"]
+                )
+            }
+
+            @Test
+            func compatibleOptionsPassValidation() throws {
+                try SwiftTestCommand.validateLLDBCompatibility(
+                    configuration: .debug,
+                    shouldRunInParallel: false,
+                    numberOfWorkers: nil,
+                    shouldListTests: false,
+                    shouldPrintCodeCovPath: false
+                )
+            }
+
+            @Test
+            func configurationIsCheckedBeforeOtherFlags() {
+                // When multiple incompatible flags are set, the release-configuration
+                // check fires first so callers see a single, deterministic error.
+                expectValidationError(
+                    configuration: .release,
+                    shouldRunInParallel: true,
+                    numberOfWorkers: 2,
+                    shouldListTests: true,
+                    shouldPrintCodeCovPath: true,
+                    containing: ["release configuration"]
+                )
+            }
+        }
+
+        func args(_ args: [String], for buildSystem: BuildSystemProvider.Kind, buildConfiguration: BuildConfiguration = .debug) -> [String] {
+            return args + buildConfiguration.buildArgs + getBuildSystemArgs(for: buildSystem)
+        }
+
+        func commandState() throws -> (SwiftCommandState, BufferedOutputByteStream) {
+            let outputStream = BufferedOutputByteStream()
+
+            let state = try SwiftCommandState(
+                outputStream: outputStream,
+                options: try GlobalOptions.parse([]),
+                toolWorkspaceConfiguration: .init(shouldInstallSignalHandlers: false),
+                workspaceDelegateProvider: {
+                    CommandWorkspaceDelegate(
+                        observabilityScope: $0,
+                        outputHandler: $1,
+                        progressHandler: $2,
+                        inputHandler: $3
+                    )
+                },
+                workspaceLoaderProvider: {
+                    XcodeWorkspaceLoader(
+                        fileSystem: $0,
+                        observabilityScope: $1
+                    )
+                },
+                createPackagePath: false
+            )
+            return (state, outputStream)
+        }
+    }
 }
+

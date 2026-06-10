@@ -3867,7 +3867,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
             ))
 
             let lib = try result.moduleBuildDescription(for: "lib").clang()
-            let path = StringPattern.equal(result.plan.destinationBuildParameters.indexStore.pathString)
+            let path = StringPattern.equal(BuildOperation.indexStore(for: result.plan.destinationBuildParameters).pathString)
 
             XCTAssertMatch(
                 try lib.basicArguments(isCXX: false),
@@ -5598,7 +5598,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         // Link Product
         let exeLinkArguments = try result.buildProduct(for: "exe").linkArguments()
-        let exeLinkArgumentsPattern: [StringPattern] = ["-L", "\(sdkIncludeSearchPath)"]
+        let exeLinkArgumentsPattern: [StringPattern] = ["-L", "\(sdkLibrarySearchPath)"]
         XCTAssertMatch(exeLinkArguments, exeLinkArgumentsPattern)
     }
 
@@ -7765,4 +7765,46 @@ class BuildPlanSwiftBuildTests: BuildPlanTestCase {
         try await super.testPackageNameFlag()
     }
 
+    func testWindowsLinkerFlagsIssue9738() async throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/exe/main.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(
+                            name: "exe",
+                            dependencies: [],
+                            type: .executable,
+                            settings: [
+                                .init(tool: .linker, kind: .unsafeFlags(["/include:SomeSymbol"]))
+                            ]
+                        )
+                    ]
+                )
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let windowsTriple = try Triple("x86_64-unknown-windows-msvc")
+
+        let plan = try await mockBuildPlan(
+            triple: windowsTriple,
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let result = try BuildPlanResult(plan: plan)
+        let productDescription = try result.buildProduct(for: "exe")
+        let linkArgs = try productDescription.linkArguments()
+        
+        XCTAssertTrue(linkArgs.contains("/include:SomeSymbol"), "Should contain exact linker flag")
+    }
 }

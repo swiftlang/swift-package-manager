@@ -121,7 +121,11 @@ struct InitTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                let binPath = try path.appending(components: buildSystem.binPath(for: configuration))
+                let binPath = try await getBinPath(
+                    path,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 expectFileExists(at: binPath.appending(executableName("Foo")))
                 let expectedOutput: [String]
                 switch buildSystem {
@@ -234,6 +238,11 @@ struct InitTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
+                let binPath = try await getBinPath(
+                    path,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 let expectedOutput: [String]
                 switch buildSystem {
                     case .native:
@@ -244,7 +253,7 @@ struct InitTests {
                     expectedOutput = ["Foo.swiftmodule"]
                     Issue.record("Test expectation is not implemented")
                 }
-                let expectedFile = try path.appending(components: buildSystem.binPath(for: configuration) + expectedOutput)
+                let expectedFile = binPath.appending(components: expectedOutput)
                 expectFileExists(at: expectedFile)
             }
         }
@@ -294,7 +303,12 @@ struct InitTests {
                     buildSystem: buildSystem,
                 )
                 let triple = try UserToolchain.default.targetTriple
-                expectFileExists(at: path.appending(components: buildSystem.binPath(for: configuration) + ["Modules", "Foo.swiftmodule"]))
+                let binPath = try await getBinPath(
+                    path,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                expectFileExists(at: binPath.appending(components: ["Modules", "Foo.swiftmodule"]))
     #endif
             }
         }
@@ -344,7 +358,12 @@ struct InitTests {
                     buildSystem: buildSystem,
                 )
                 let triple = try UserToolchain.default.targetTriple
-                expectFileExists(at: path.appending(components: buildSystem.binPath(for: configuration) + ["Modules", "Foo.swiftmodule"]))
+                let binPath = try await getBinPath(
+                    path,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                expectFileExists(at: binPath.appending(components: ["Modules", "Foo.swiftmodule"]))
     #endif
             }
         }
@@ -382,7 +401,7 @@ struct InitTests {
                 let manifestContents: String = try localFileSystem.readFileContents(manifest)
                 #expect(!manifestContents.contains(#".testTarget"#))
 
-                expectFileDoesNotExists(at: path.appending("Tests"))
+                expectFileDoesNotExist(at: path.appending("Tests"))
 
     #if canImport(TestingDisabled)
                 // Try building it
@@ -434,15 +453,20 @@ struct InitTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
+                let binPath = try await getBinPath(
+                    packageRoot,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
 
                 let expectedFile: AbsolutePath
                 switch buildSystem {
                     case .native:
-                    expectedFile = try packageRoot.appending(components: buildSystem.binPath(for: configuration) + ["Modules", "some_package.swiftmodule"])
+                    expectedFile = binPath.appending(components: ["Modules", "some_package.swiftmodule"])
                     case .swiftbuild:
-                    expectedFile = try packageRoot.appending(components: buildSystem.binPath(for: configuration) + [ "some_package.swiftmodule"])
+                    expectedFile = binPath.appending("some_package.swiftmodule")
                     case .xcode:
-                    expectedFile = try packageRoot.appending(components: buildSystem.binPath(for: configuration) + [ "some_package.swiftmodule"])
+                    expectedFile = binPath.appending("some_package.swiftmodule")
                     Issue.record("Test expectation is not implemented")
                 }
 
@@ -697,10 +721,39 @@ struct InitTests {
             )
             try initPackage.writePackageStructure()
 
-            // Verify the manifest includes Swift language mode
+            // swiftLanguageModes should be omitted when it matches the default for the current tools version
             let manifest = path.appending("Package.swift")
             let manifestContents: String = try localFileSystem.readFileContents(manifest)
-            #expect(manifestContents.contains("swiftLanguageModes: [.v6]"))
+            #expect(!manifestContents.contains("swiftLanguageModes"))
+        }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.medium,
+        ),
+    )
+    func initPackageIncludesNonDefaultSwiftLanguageMode() throws {
+        try withTemporaryDirectory { tmpPath in
+            let path = tmpPath.appending("testInitPackageNonDefaultLanguageMode")
+            try localFileSystem.createDirectory(path)
+
+            let options = InitPackage.InitPackageOptions(
+                packageType: .library,
+                supportedTestingLibraries: [],
+                swiftLanguageModes: [.v5]
+            )
+            let initPackage = try InitPackage(
+                name: path.basename,
+                options: options,
+                destinationPath: path,
+                installedSwiftPMConfiguration: .default,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+
+            let manifestContents: String = try localFileSystem.readFileContents(path.appending("Package.swift"))
+            #expect(manifestContents.contains("swiftLanguageModes: [.v5]"))
         }
     }
 

@@ -128,6 +128,14 @@ extension SwiftCommand {
             workspaceLoaderProvider: self.workspaceLoaderProvider,
             createPackagePath: self.createPackagePath
         )
+        defer {
+            _ = createCacheDirFile(inDirectory: swiftCommandState.scratchDirectory)
+            _ = createBuildSystemFile(
+                inDirectory: swiftCommandState.scratchDirectory,
+                for: swiftCommandState.options.build.configuration ?? swiftCommandState.preferredBuildConfiguration,
+                buildSystem: swiftCommandState.options.build.buildSystem,
+            )
+        }
 
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
         swiftCommandState.setNeedsLocking()
@@ -145,6 +153,11 @@ extension SwiftCommand {
 
         swiftCommandState.releaseLockIfNeeded()
 
+        if globalOptions.build._buildSystem != .swiftbuild {
+            swiftCommandState.observabilityScope.emit(
+                .deprecatedBuildSystem(buildSystem: globalOptions.build._buildSystem)
+            )
+        }
         // wait for all observability items to process
         swiftCommandState.waitForObservabilityEvents(timeout: .now() + 5)
 
@@ -154,12 +167,55 @@ extension SwiftCommand {
     }
 }
 
+package func createCacheDirFile(
+    inDirectory directory: AbsolutePath,
+    _ fileSystem: FileSystem = localFileSystem,
+) -> AbsolutePath? {
+    // https://bford.info/cachedir/
+    let path = directory.appending("CACHEDIR.TAG")
+    do {
+        let contents = """
+            Signature: 8a477f597d28d172789f06886806bc55
+            # This file is a cache directory tag created by (Swift Package Manager).
+            # For information about cache directory tags, see:
+            #.   http://www.brynosaurus.com/cachedir/
+            """
+        try fileSystem.createDirectory(path.parentDirectory, recursive: true)
+        try fileSystem.writeFileContents(path, string: contents)
+        return path
+    } catch {
+        // Don't error out if we fail to create the CACHEDIR.TAG file, as this is not critical to the functioning of the tool.
+        return nil
+    }
+}
+
+package func createBuildSystemFile(
+    inDirectory directory: AbsolutePath,
+    for configuration: BuildConfiguration,
+    buildSystem: BuildSystemProvider.Kind,
+    fileSystem fs: FileSystem = localFileSystem,
+) -> AbsolutePath? {
+    let path = directory.appending(".buildSystem_\(configuration)")
+    do {
+        try fs.createDirectory(path.parentDirectory, recursive: true)
+        try fs.writeFileContents(path, string: "\(buildSystem)")
+        return path
+    } catch {
+        // Don't error out if we fail to create the file, as this is not critical to the functioning of the tool.
+        return nil
+    }
+}
+
 public protocol AsyncSwiftCommand: AsyncParsableCommand, _SwiftCommand {
     func run(_ swiftCommandState: SwiftCommandState) async throws
+    var inclueAdditionalScratchPathFiles: Bool { get }
+
 }
 
 extension AsyncSwiftCommand {
     public static var _errorLabel: String { "error" }
+
+    public var inclueAdditionalScratchPathFiles: Bool { true }
 
     // FIXME: It doesn't seem great to have this be duplicated with `SwiftCommand`.
     public func run() async throws {
@@ -170,6 +226,16 @@ extension AsyncSwiftCommand {
             workspaceLoaderProvider: self.workspaceLoaderProvider,
             createPackagePath: self.createPackagePath
         )
+        defer {
+            if self.inclueAdditionalScratchPathFiles {
+                _ = createCacheDirFile(inDirectory: swiftCommandState.scratchDirectory)
+                _ = createBuildSystemFile(
+                    inDirectory: swiftCommandState.scratchDirectory,
+                    for: swiftCommandState.options.build.configuration ?? swiftCommandState.preferredBuildConfiguration,
+                    buildSystem: swiftCommandState.options.build.buildSystem,
+                )
+            }
+        }
 
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
         swiftCommandState.setNeedsLocking()
@@ -186,6 +252,12 @@ extension AsyncSwiftCommand {
         }
 
         swiftCommandState.releaseLockIfNeeded()
+
+        if globalOptions.build._buildSystem != .swiftbuild {
+            swiftCommandState.observabilityScope.emit(
+                .deprecatedBuildSystem(buildSystem: globalOptions.build._buildSystem)
+            )
+        }
 
         // wait for all observability items to process
         swiftCommandState.waitForObservabilityEvents(timeout: .now() + 5)
@@ -244,7 +316,7 @@ public final class SwiftCommandState {
 
     /// Path to the shared configuration directory
     public let sharedConfigurationDirectory: AbsolutePath
-    
+
     /// Path to the package manager's own resources directory.
     public let packageManagerResourcesDirectory: AbsolutePath?
 
@@ -407,7 +479,7 @@ public final class SwiftCommandState {
                 warning: "`--experimental-swift-sdks-path` is deprecated and will be removed in a future version of SwiftPM. Use `--swift-sdks-path` instead."
             )
         }
-        
+
         if let packageManagerResourcesDirectory = options.locations.packageManagerResourcesDirectory {
             self.packageManagerResourcesDirectory = packageManagerResourcesDirectory
         } else if let cwd = localFileSystem.currentWorkingDirectory {
@@ -417,7 +489,7 @@ public final class SwiftCommandState {
             self.packageManagerResourcesDirectory = try? AbsolutePath(validating: CommandLine.arguments[0])
                 .parentDirectory.parentDirectory.appending(components: ["share", "pm"])
         }
-        
+
         self.sharedSwiftSDKsDirectory = try fileSystem.getSharedSwiftSDKsDirectory(
             explicitDirectory: options.locations.swiftSDKsDirectory ?? options.locations.deprecatedSwiftSDKsDirectory
         )
@@ -464,10 +536,11 @@ public final class SwiftCommandState {
         }
 
         if options.build.enableTaskBacktraces {
-            // Task backtraces require at least verbose output to be logged
-            if !options.logging.verbose && !options.logging.veryVerbose {
+            // Task backtraces require at least verbose output to be logged, unless
+            // they're being captured in an event trace file.
+            if !options.logging.verbose && !options.logging.veryVerbose && options.build.traceEventsFilePath == nil {
                 observabilityScope.emit(
-                    warning: "'--experimental-task-backtraces' requires '--verbose' or '--very-verbose'"
+                    warning: "'--experimental-task-backtraces' requires '--verbose', '--very-verbose', or '--experimental-trace-events-file'"
                 )
             }
 
@@ -542,7 +615,7 @@ public final class SwiftCommandState {
                 signingEntityCheckingMode: self.options.security.signingEntityCheckingMode,
                 skipSignatureValidation: !self.options.security.signatureValidation,
                 sourceControlToRegistryDependencyTransformation: self.options.resolver
-                    .sourceControlToRegistryDependencyTransformation.workspaceConfiguration,
+                    .sourceControlToRegistryDependencyTransformation?.workspaceConfiguration,
                 defaultRegistry: self.options.resolver.defaultRegistryURL.flatMap {
                     // TODO: should supportsAvailability be a flag as well?
                     .init(url: $0, supportsAvailability: true)
@@ -788,18 +861,24 @@ public final class SwiftCommandState {
         do {
             let workspace = try getActiveWorkspace(enableAllTraits: enableAllTraits)
 
+            // Create a dedicated observability scope for package graph loading so that the `packageGraphObservabilityScope.errorsReported`
+            // below only considers errors reported from this call to `loadPackageGraph`. This ensures that in an interactive context like
+            // when using `swift package experimental-build-server`, a package graph load which initially fails doesn't cause all subsequent
+            // package graph load attempts to also fail due to sharing the same `errorsReported` bit.
+            let packageGraphObservabilityScope = self.observabilityScope.makeChildScope(description: "Loading Package Graph")
+
             // Fetch and load the package graph.
             let graph = try await workspace.loadPackageGraph(
                 rootInput: self.getWorkspaceRoot(),
                 explicitProduct: explicitProduct,
                 forceResolvedVersions: self.options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
-                observabilityScope: self.observabilityScope
+                observabilityScope: packageGraphObservabilityScope
             )
 
             // Throw if there were errors when loading the graph.
             // The actual errors will be printed before exiting.
-            guard !self.observabilityScope.errorsReported else {
+            guard !packageGraphObservabilityScope.errorsReported else {
                 throw ExitCode.failure
             }
             return graph
@@ -833,11 +912,28 @@ public final class SwiftCommandState {
         try self._hostToolchain.get()
     }
 
+    /// Fetch the tools version for the root package in the currently active
+    /// workspace.
+    ///
+    /// If there are multiple root packages, returns the lowest tools version.
+    ///
+    /// - Throws: If an error occurs when trying to resolve workspace details.
+    /// - Returns: The current tools version, nil if no manifests are found.
+    public func getToolsVersion() async throws -> ToolsVersion? {
+        let workspace = try self.getActiveWorkspace()
+        let root = try self.getWorkspaceRoot()
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: self.observabilityScope
+        )
+        return rootManifests.values.map { $0.toolsVersion }.min()
+    }
+
     func getManifestLoader() throws -> ManifestLoader {
         try self._manifestLoader.get()
     }
 
-    public func canUseCachedBuildManifest(_ traitConfiguration: TraitConfiguration = .default) async throws -> Bool {
+    public func canUseCachedBuildManifest(_ traitConfiguration: TraitConfiguration = .default, buildDescriptionPath: AbsolutePath) async throws -> Bool {
         if !self.options.caching.cacheBuildManifest {
             return false
         }
@@ -845,7 +941,7 @@ public final class SwiftCommandState {
         let buildParameters = try self.productsBuildParameters
         let haveBuildManifestAndDescription =
             self.fileSystem.exists(buildParameters.llbuildManifest) &&
-            self.fileSystem.exists(buildParameters.buildDescriptionPath)
+            self.fileSystem.exists(buildDescriptionPath)
 
         if !haveBuildManifestAndDescription {
             return false
@@ -942,6 +1038,7 @@ public final class SwiftCommandState {
             configuration: self.options.build.configuration ?? self.preferredBuildConfiguration,
             toolchain: toolchain,
             triple: triple,
+            sdkRootOverride: self.options.build.customCompileSDK ?? self.environment["SDKROOT"].flatMap({ try? AbsolutePath(validating: $0) }),
             flags: options.build.buildFlags,
             buildSystemKind: options.build.buildSystem,
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
@@ -954,7 +1051,7 @@ public final class SwiftCommandState {
             prepareForIndexing: prepareForIndexingMode,
             enableXCFrameworksOnLinux: options.build.enableXCFrameworksOnLinux,
             debuggingParameters: .init(
-                debugInfoFormat: self.options.build.debugInfoFormat.buildParameter,
+                debugInfoFormat: self.options.build.debugInfoFormat?.buildParameter,
                 triple: triple,
                 shouldEnableDebuggingEntitlement:
                 self.options.build
@@ -997,7 +1094,8 @@ public final class SwiftCommandState {
                 forceTestDiscovery: self.options.build.enableTestDiscovery,
                 // backwards compatibility, remove with --enable-test-discovery
                 testEntryPointPath: self.options.build.testEntryPointPath
-            )
+            ),
+            stripProducts: self.options.build.stripProducts,
         )
     }
 
@@ -1185,7 +1283,7 @@ public final class SwiftCommandState {
             if errno == EWOULDBLOCK {
                 let lockingPID = try? String(contentsOfFile: lockFile, encoding: .utf8)
                 let pidInfo = lockingPID.map { "(PID: \($0)) " } ?? ""
-                
+
                 if self.options.locations.ignoreLock {
                     self.outputStream
                         .write(
@@ -1411,7 +1509,6 @@ extension Basics.Diagnostic {
     public static func mutuallyExclusiveArgumentsError(arguments: [String]) -> Self {
         .error(arguments.map { "'\($0)'" }.spm_localizedJoin(type: .conjunction) + " are mutually exclusive")
     }
-}
 
 extension SwiftCommandState {
 
@@ -1495,5 +1592,9 @@ extension SwiftCommandState {
         let tempRoot = try self.getWorkspaceRoot()
 
         return try await perform(tempWorkspace, tempRoot)
+    package static func deprecatedBuildSystem(buildSystem: BuildSystemProvider.Kind) -> Self {
+        .warning(
+            "'--build-system \(buildSystem)' has been deprecated and will be removed in a future release; please report an issue at https://github.com/swiftlang/swift-package-manager/issues if you are unable to adopt the default build system."
+        )
     }
 }

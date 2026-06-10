@@ -156,7 +156,7 @@ package func mockPluginTools(
             environment: buildParameters.buildEnvironment,
             for: hostTriple
         ) { name, path in
-            buildParameters.buildPath.appending(path)
+            BuildOperation.buildProductsPath(for: buildParameters).appending(path)
         }
 
         accessibleToolsPerPlugin[plugin.id] = accessibleTools

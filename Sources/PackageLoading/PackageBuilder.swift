@@ -87,6 +87,9 @@ public enum ModuleError: Swift.Error {
     /// Indicates several targets with the same name exist in packages
     case duplicateModules(package: PackageIdentity, otherPackage: PackageIdentity, modules: [String])
 
+    /// A normal target points to an artifact bundle.
+    case artifactBundleAsNormalTarget(target: String)
+
     /// Indicates several targets with the same name exist in a registry and scm package
     case duplicateModulesScmAndRegistry(
         registryPackage: PackageIdentity.RegistryIdentity,
@@ -99,7 +102,7 @@ public enum ModuleError: Swift.Error {
         package: PackageIdentity,
         trait: String
     )
-    
+
     case disablingDefaultTraitsOnEmptyTraits(
         parentPackage: PackageIdentity,
         packageName: String
@@ -158,6 +161,8 @@ extension ModuleError: CustomStringConvertible {
             return "plugin target '\(target)' doesn't have a 'capability' property"
         case .embedInCodeNotSupported(let target):
             return "embedding resources in code not supported for C-family language target \(target)"
+        case .artifactBundleAsNormalTarget(let target):
+            return "target '\(target)' cannot point to an artifact bundle; use '.binaryTarget' instead"
         case .duplicateModules(let package, let otherPackage, let targets):
             var targetsDescription = "'\(targets.sorted().prefix(3).joined(separator: "', '"))'"
             if targets.count > 3 {
@@ -648,6 +653,9 @@ public final class PackageBuilder {
         let potentialTargets: [PotentialModule]
         potentialTargets = try self.manifest.targetsRequired(for: self.productFilter).map { target in
             let path = try findPath(for: target)
+            if target.type != .binary && path.extension == "artifactbundle" {
+                throw ModuleError.artifactBundleAsNormalTarget(target: target.name)
+            }
             return PotentialModule(
                 name: target.name,
                 path: path,
@@ -1002,7 +1010,7 @@ public final class PackageBuilder {
                 throw ModuleError.pluginCapabilityNotDeclared(target: manifestTarget.name)
             }
 
-            // Create and return an PluginTarget configured with the information from the manifest.
+            // Create and return a PluginTarget configured with the information from the manifest.
             return PluginModule(
                 name: potentialModule.name,
                 sources: sources,
@@ -1127,7 +1135,7 @@ public final class PackageBuilder {
                 // The setting is currently not enabled so we should skip it
                 continue
             }
-        
+
             let decl: BuildSettings.Declaration
             let values: [String]
 
@@ -1269,7 +1277,7 @@ public final class PackageBuilder {
                     case .warning: "-Wno-error"
                     }
                     values = [flag]
-                    
+
                 case .cxx:
                     decl = .OTHER_CPLUSPLUSFLAGS
                     let flag = switch level {
@@ -1277,7 +1285,7 @@ public final class PackageBuilder {
                     case .warning: "-Wno-error"
                     }
                     values = [flag]
-                    
+
                 case .linker:
                     throw InternalError("linker does not support treatAllWarnings")
 
@@ -1302,7 +1310,7 @@ public final class PackageBuilder {
                     case .warning: "-Wno-error=\(name)"
                     }
                     values = [flag]
-                    
+
                 case .cxx:
                     decl = .OTHER_CPLUSPLUSFLAGS
                     let flag = switch level {
@@ -1310,7 +1318,7 @@ public final class PackageBuilder {
                     case .warning: "-Wno-error=\(name)"
                     }
                     values = [flag]
-                    
+
                 case .linker:
                     throw InternalError("linker does not support treatWarning")
 
@@ -1742,7 +1750,8 @@ public final class PackageBuilder {
 
     private func validateExecutableProduct(_ product: ProductDescription, with targets: [Module]) -> Bool {
         let executableTargetCount = targets.executables.count
-        guard executableTargetCount == 1 else {
+        let isSingleBinaryModule = targets.count == 1 && targets[0].type == .binary
+        guard executableTargetCount == 1 || isSingleBinaryModule else {
             if executableTargetCount == 0 {
                 if let target = targets.spm_only {
                     self.observabilityScope
@@ -1852,7 +1861,7 @@ extension Manifest {
 }
 
 extension Sources {
-    var hasSwiftSources: Bool {
+    public var hasSwiftSources: Bool {
         paths.contains { path in
             guard let ext = path.extension else { return false }
 
@@ -1860,7 +1869,7 @@ extension Sources {
         }
     }
 
-    var hasClangSources: Bool {
+    public var hasClangSources: Bool {
         let supportedClangFileExtensions = FileRuleDescription.clang.fileTypes.union(FileRuleDescription.asm.fileTypes)
 
         return paths.contains { path in
@@ -1870,7 +1879,7 @@ extension Sources {
         }
     }
 
-    var containsMixedLanguage: Bool {
+    public var containsMixedLanguage: Bool {
         self.hasSwiftSources && self.hasClangSources
     }
 

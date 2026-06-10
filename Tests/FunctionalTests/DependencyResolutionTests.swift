@@ -50,7 +50,11 @@ struct DependencyResolutionTests {
                     buildSystem: buildSystem,
                 )
 
-                let binPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration))
+                let binPath = try await getBinPath(
+                    fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 let executablePath = binPath.appending(components: "Foo")
                 let output = try await AsyncProcess.checkNonZeroExit(args: executablePath.pathString).withSwiftLineEnding
                 #expect(output == "Foo\nBar\n")
@@ -61,27 +65,24 @@ struct DependencyResolutionTests {
     }
 
     @Test(
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/8984", relationship: .defect),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8984", relationship: .verifies),
         .tags(
             Tag.Feature.Command.Build,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
     func internalExecAsDep(
-        buildSystem: BuildSystemProvider.Kind,
+        buildData: BuildData,
     ) async throws {
-        let configuration = BuildConfiguration.debug
+        let buildSystem = buildData.buildSystem
+        let configuration = buildData.config
         try await fixture(name: "DependencyResolution/Internal/InternalExecutableAsDependency") { fixturePath in
-            await withKnownIssue(isIntermittent: true) {
-                await #expect(throws: (any Error).self) {
-                    try await executeSwiftBuild(
-                        fixturePath,
-                        configuration: configuration,
-                        buildSystem: buildSystem,
-                    )
-                }
-            } when: {
-                configuration == .release && buildSystem == .swiftbuild // an error is not raised.
+            await #expect(throws: (any Error).self) {
+                try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
             }
         }
     }
@@ -106,7 +107,11 @@ struct DependencyResolutionTests {
                     buildSystem: buildSystem,
                 )
 
-                let binPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration))
+                let binPath = try await getBinPath(
+                    fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 let executablePath = binPath.appending(components: "Foo")
                 let output = try await AsyncProcess.checkNonZeroExit(args: executablePath.pathString)
                     .withSwiftLineEnding
@@ -143,7 +148,11 @@ struct DependencyResolutionTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                let binPath = try packageRoot.appending(components: buildSystem.binPath(for: configuration))
+                let binPath = try await getBinPath(
+                    packageRoot,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 let executablePath = binPath.appending(components: executableName("Bar"))
                 #expect(
                     localFileSystem.exists(executablePath),
@@ -182,7 +191,11 @@ struct DependencyResolutionTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                let binPath = try packageRoot.appending(components: buildSystem.binPath(for: configuration))
+                let binPath = try await getBinPath(
+                    packageRoot,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 let executablePath = binPath.appending(components: "Dealer")
                 expectFileExists(at: executablePath)
                 let output = try await AsyncProcess.checkNonZeroExit(args: executablePath.pathString)
@@ -291,9 +304,9 @@ struct DependencyResolutionTests {
                     extraArgs: [
                         "config",
                         "set-mirror",
-                        "--original-url",
+                        "--original",
                         prefix.appending("Bar").pathString,
-                        "--mirror-url",
+                        "--mirror",
                         prefix.appending("BarMirror").pathString,
                     ],
                     buildSystem: buildSystem,

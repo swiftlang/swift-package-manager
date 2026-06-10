@@ -12,6 +12,7 @@ add_library(Commands
   PackageCommands/AddTarget.swift
   PackageCommands/AddTargetDependency.swift
   PackageCommands/AddSetting.swift
+  PackageCommands/AddTargetPlugin.swift
   PackageCommands/APIDiff.swift
   PackageCommands/ArchiveSource.swift
   PackageCommands/AuditBinaryArtifact.swift
@@ -54,6 +55,7 @@ add_library(Commands
   Utilities/DOTManifestSerializer.swift
   Utilities/MermaidPackageSerializer.swift
   Utilities/MultiRootSupport.swift
+  Utilities/NonEmpty.swift
   Utilities/PlainTextEncoder.swift
   Utilities/PluginDelegate.swift
   Utilities/RefactoringSupport.swift
