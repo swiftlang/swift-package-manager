@@ -75,15 +75,6 @@ public struct EnabledTraitsMap {
     public typealias Key = PackageIdentity
     public typealias Value = EnabledTraits
 
-//    public struct Key: Hashable {
-//        let identity: PackageIdentity
-//        let version: TSCUtility.Version? // nil represents a version-agnostic assignment of traits
-//        public init(identity: PackageIdentity, version: TSCUtility.Version? = nil) {
-//            self.identity = identity
-//            self.version = version
-//        }
-//    }
-
     struct VersionedTraits {
         var map: [Version: EnabledTraits] = [:]
 
@@ -99,10 +90,7 @@ public struct EnabledTraitsMap {
     }
 
     private struct Storage {
-        /// TODO bp temporary storage; should be emptied into either unversionedTraits
-        /// or versionedTraits once resolution is complete. perhaps a proxy enabled traits map
-        /// will help?
-        /// Storage for explicitly enabled traits per package per version, if applicable.
+        /// Proxy storage for explicitly enabled traits per package before versions are known.
         /// Omits packages with only the "default" trait.
         var traits: [Key: EnabledTraits] = [:]
 
@@ -110,7 +98,6 @@ public struct EnabledTraitsMap {
         /// is not versionable (e.g. a filesystem package).
         var unversionedTraits: [Key: EnabledTraits] = [:]
 
-        /// TBC
         /// Storage for explicitly enabled traits per package wherein the package kind
         /// is versionable (e.g. a source control package).
         var versionedTraits: [Key: VersionedTraits] = [:]
@@ -142,20 +129,19 @@ public struct EnabledTraitsMap {
     public subscript(manifest: Manifest) -> EnabledTraits {
         get {
             // use manifest version to acquire per-version traits
-//            let version = manifest.version
             let identity = manifest.packageIdentity
             guard let version = manifest.version else {
                 return self[identity]
             }
 
-            // todo to include version in computation
             return self.storage.get().versionedTraits[identity]?.at(version) ?? ["default"]
         }
         set {
-            let identity = manifest.packageIdentity
-            let packageKind = manifest.packageKind
-
-            self.set(identity: identity, value: newValue, version: manifest.version)
+            self.set(
+                identity: manifest.packageIdentity,
+                value: newValue,
+                version: manifest.version
+            )
         }
     }
 
@@ -188,8 +174,7 @@ public struct EnabledTraitsMap {
                     state._defaultSetters[identity, default: []].insert(defaultSetter)
                 }
                 if let version {
-                    // assure there is an entry for the versioned traits.
-                    // todo bp check that this actually populated the map
+                    // first assure there is an entry for the versioned traits.
                     if state.versionedTraits[identity, default: .init()].at(version) == [] {
                         state.versionedTraits[identity]?.set(version, enabledTraits: value)
                     }
@@ -198,9 +183,6 @@ public struct EnabledTraitsMap {
                         state.unversionedTraits[identity] = value
                     }
                 }
-//                    if state.traits[key] == [] {
-//                        state.traits[key] = nil
-//                    }
                 return state
             }
 
@@ -211,20 +193,14 @@ public struct EnabledTraitsMap {
 
             // Union or create; the set of enabled traits is strictly additive.
             if let version {
-                if state.versionedTraits[identity] == nil {
-                    state.versionedTraits[identity] = .init()
-                }
-                state.versionedTraits[identity]?.set(version, enabledTraits: value)
+                state.versionedTraits[identity, default: .init()].set(version, enabledTraits: value)
             } else {
-                if state.unversionedTraits[identity] == nil {
-                    state.unversionedTraits[identity] = value
-                } else {
-                    state.unversionedTraits[identity]?.formUnion(value)
-                }
+                state.unversionedTraits[identity, default: []].formUnion(value)
             }
 
             // Keep the proxy in sync so PackageIdentity-keyed reads (enabledTraitsMap[identity])
             // reflect the current traits after the proxy was cleared above.
+            state.traits[identity, default: []].formUnion(value)
             if state.traits[identity] == nil {
                 state.traits[identity] = value
             } else {
@@ -349,13 +325,6 @@ public struct EnabledTraitsMap {
     /// Returns a dictionary literal representation of the enabled traits map.
     public var dictionaryLiteral: [PackageIdentity: EnabledTraits] {
         return storage.get().traits
-    }
-
-    public func pin(identity: PackageIdentity, at version: Version) {
-        // TODO bp implement; store in versioned map, to remove from version-agnostic? or
-        // maybe keep in case we have local/file system dependencies that aren't versioned.
-
-        // Step 1:
     }
 }
 

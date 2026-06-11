@@ -72,7 +72,6 @@ public class MockPackageContainer: CustomPackageContainer {
     }
 
     public func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<TraitDescription> {
-        // TODO bp complete implementation
         return []
     }
 

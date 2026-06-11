@@ -147,29 +147,6 @@ extension Manifest {
 
         try validateEnabledTraits(enabledTraits)
     }
-
-    public func validateTargetDependencyTraitConditions() throws {
-        for target in self.targets {
-            for dep in target.dependencies where dep.condition?.traits != nil {
-                guard let traits = dep.condition?.traits else {
-                    continue
-                }
-                do {
-                    try traits.forEach { trait in
-                        try validateTrait(.init(name: trait))
-                    }
-                } catch TraitError.invalidTrait(_, let trait, _) {
-                    throw TraitError.invalidTraitInTargetCondition(
-                        package: .init(self),
-                        target: target.name,
-                        dependency: dep.name,
-                        trait: trait.name,
-                        availableTraits: self.traits.map(\.name)
-                    )
-                }
-            }
-        }
-    }
 }
 
 
@@ -235,13 +212,9 @@ extension Manifest {
             return ["default"]
         }
 
-        var enabledTraits: EnabledTraits = []
+        let allEnabledTraits = calculateAllEnabledTraits(explicitlyEnabledTraits: explicitlyEnabledTraits)
 
-        if let allEnabledTraits = try? calculateAllEnabledTraits(explicitlyEnabledTraits: explicitlyEnabledTraits) {
-            enabledTraits = allEnabledTraits
-        }
-
-        return enabledTraits
+        return allEnabledTraits
     }
 
     /// Determines if a trait is enabled with a given set of enabled traits.
@@ -490,16 +463,6 @@ public enum TraitError: Swift.Error {
         package: Manifest.PackageIdentifier,
         explicitlyEnabledTraits: EnabledTraits
     )
-
-    /// Indicates that a trait defined in a target dependency condition does not exist in the
-    /// available list of traits for a package.
-    case invalidTraitInTargetCondition(
-        package: Manifest.PackageIdentifier,
-        target: String,
-        dependency: String,
-        trait: String,
-        availableTraits: [String] = []
-    )
 }
 
 extension TraitError: CustomStringConvertible {
@@ -538,15 +501,6 @@ extension TraitError: CustomStringConvertible {
 
     public var description: String {
         switch self {
-        case .invalidTraitInTargetCondition(let package, let target, let dep, let trait, var availableTraits):
-            availableTraits = availableTraits.sorted()
-            var errorMsg = "Trait '\(trait)' referenced in target dependency \(dep) for target \(target) is not delcared by package \(package)."
-            if availableTraits.isEmpty {
-                errorMsg += " There are no available traits declared by this package."
-            } else {
-                errorMsg += " The available traits declared by this package are: \(availableTraits.joined(separator: ", "))."
-            }
-            return errorMsg
         case .invalidTrait(let package, let trait, var availableTraits):
             availableTraits = availableTraits.sorted()
             var errorMsg = "Trait '\(trait)'"
