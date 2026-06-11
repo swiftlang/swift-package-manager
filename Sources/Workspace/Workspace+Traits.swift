@@ -21,12 +21,6 @@ import class Basics.ObservabilityScope
 import Basics
 
 extension Workspace {
-//    public struct EnabledTraitsManager: Cancellable {
-//
-//        // todo to fill in stubs?
-//    }
-}
-extension Workspace {
     /// Given a loaded `Manifest`, determine the traits that are enabled for it and
     /// calculate whichever traits are enabled transitively from this, if possible, and update the
     /// map of enabled traits on `Workspace` (`Workspace.enabledTraitsMap`).
@@ -105,14 +99,13 @@ extension Workspace {
                 ["default"],
                 setBy: .package(.init(parent))
             )
-            // todo bp dependency.packageRef may be relevant here.
             self.enabledTraitsMap[dependency.identity] = defaultTraits
         }
     }
 }
 
 extension Workspace {
-    internal func updateTraits(
+    internal func validateUpdatedTraits(
         manifests: DependencyManifests,
         addedOrUpdatedPackages: [PackageReference],
         observabilityScope: ObservabilityScope
@@ -122,24 +115,10 @@ extension Workspace {
 
         for package in packages {
             let manifest = package.manifest
-            // TODO bp: not clearing out old traits; need to reset this somehow..
-            // since we have the updated packages, reconcile how we can identify
-            // "stale" enabled trait entries in the map vs whichever "new" ones
-            // were added in this new run. perhaps when an update is being initiated,
-            // keep track of the enabled traits by parents...?
             let enabledTraits = self.enabledTraitsMap[manifest]
-            // Find outdated trait enablement from previous state.
 
             // Validate traits on update.
             try manifest.validateEnabledTraits(enabledTraits)
-
-            // Validate dependency manifest traits?
-            let dependencies = manifest.dependencies.filter({ dep in
-                guard let traits = dep.traits else {
-                    return false
-                }
-                return !traits.isEmpty
-            })
         }
     }
 }
