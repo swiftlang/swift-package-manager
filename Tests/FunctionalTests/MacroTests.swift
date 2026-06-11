@@ -61,7 +61,8 @@ struct MacroTests {
         try await fixture(name: "Macros/MinimalMacroPackage") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
-                buildSystem: buildSystem,
+                extraArgs: ["--build-tests"],
+                buildSystem: buildSystem
             )
             #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }

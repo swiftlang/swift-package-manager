@@ -970,8 +970,8 @@ extension PackageGraph.ResolvedProduct {
 }
 
 extension PackageGraph.ResolvedModule {
-    func recursivelyTraverseDependencies(with block: (ResolvedModule.Dependency) -> Void) {
-        [self].recursivelyTraverseDependencies(with: block)
+    func recursivelyTraverseTransitiveLinkageDependencies(includeMacroDependencies: Bool, with block: (ResolvedModule.Dependency) -> Void) {
+        [self].recursivelyTraverseTransitiveLinkageDependencies(includeMacroDependencies: includeMacroDependencies, with: block)
     }
 
     func addParseAsLibrarySettings(to settings: inout BuildSettings, toolsVersion: ToolsVersion, fileSystem: FileSystem) {
@@ -997,9 +997,9 @@ extension PackageGraph.ResolvedModule {
 }
 
 extension Collection<PackageGraph.ResolvedModule> {
-    /// Recursively applies a block to each of the *dependencies* of the given module, in topological sort order.
+    /// Recursively applies a block to each of the linkage dependencies of the given module, in topological sort order.
     /// Each module or product dependency is visited only once.
-    func recursivelyTraverseDependencies(with block: (ResolvedModule.Dependency) -> Void) {
+    func recursivelyTraverseTransitiveLinkageDependencies(includeMacroDependencies: Bool, with block: (ResolvedModule.Dependency) -> Void) {
         var moduleIDsSeen: Set<ResolvedModule.ID> = []
         var productIDsSeen: Set<ResolvedProduct.ID> = []
 
@@ -1009,10 +1009,20 @@ extension Collection<PackageGraph.ResolvedModule> {
                 let (unseenModule, _) = moduleIDsSeen.insert(moduleDependency.id)
                 guard unseenModule else { return }
 
-                // Do not traverse into *macro* or *plugin* dependencies.
-                // Macros run at compile time and their dependencies should not be linked into the client.
-                // Plugins run at build time and their dependencies should not be linked into the client neither.
-                if ![.macro, .plugin].contains(moduleDependency.underlying.type) {
+                // Do not traverse into *macro* or *plugin* dependencies unless explicitly requested.
+                // Macros run at compile time and their dependencies should not be linked into the client, unless a client includes their testable variant.
+                // Plugins run at build time and their dependencies should not be linked into the client.
+                let stopTraversal: Bool
+                switch moduleDependency.type {
+                case .macro:
+                    stopTraversal = !includeMacroDependencies
+                case .plugin:
+                    stopTraversal = true
+                default:
+                    stopTraversal = false
+                }
+
+                if !stopTraversal {
                     for dependency in moduleDependency.dependencies {
                         visitDependency(dependency)
                     }

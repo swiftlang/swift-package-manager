@@ -8,9 +8,11 @@ let package = Package(
         .macOS(.v13),
     ],
     targets: [
-        .macro(name: "MacroImpl"),
+        .target(name: "MacroImplHelpers"),
+        .macro(name: "MacroImpl", dependencies: ["MacroImplHelpers"]),
         .target(name: "MacroDef", dependencies: ["MacroImpl"]),
         .executableTarget(name: "MacroClient", dependencies: ["MacroDef"]),
+        .testTarget(name: "MinimalMacroPackageTests", dependencies: ["MacroDef"]),
     ],
     swiftLanguageModes: [.v5]
 )
