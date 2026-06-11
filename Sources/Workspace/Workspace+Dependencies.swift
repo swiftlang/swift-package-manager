@@ -265,7 +265,7 @@ extension Workspace {
         )
 
         // Update traits; validation check.
-        try await self.updateTraits(
+        try await self.validateUpdatedTraits(
             manifests: updatedDependencyManifests,
             addedOrUpdatedPackages: addedOrUpdatedPackages,
             observabilityScope: observabilityScope
@@ -343,8 +343,6 @@ extension Workspace {
                     .emit(
                         debug: "resolution based on '\(self.location.resolvedVersionsFile.basename)' could not be completed because \(reasonString). resolving and updating accordingly"
                     )
-                // TODO bp test whether this fixes the update of stale traits problem
-//                self.enabledTraitsMap = .init()
                 return try await resolveAndUpdateResolvedFile(forceResolution: false)
             }
         }
@@ -584,7 +582,7 @@ extension Workspace {
         )
 
         // Update traits; validation check
-        try await self.updateTraits(
+        try await self.validateUpdatedTraits(
             manifests: currentManifests,
             addedOrUpdatedPackages: [],
             observabilityScope: observabilityScope
@@ -697,7 +695,7 @@ extension Workspace {
                     observabilityScope: observabilityScope
                 )
 
-                try await self.updateTraits(
+                try await self.validateUpdatedTraits(
                     manifests: currentManifests,
                     addedOrUpdatedPackages: [],
                     observabilityScope: observabilityScope
@@ -779,7 +777,7 @@ extension Workspace {
         )
 
         // Update traits; validation check.
-        try await self.updateTraits(
+        try await self.validateUpdatedTraits(
             manifests: updatedDependencyManifests,
             addedOrUpdatedPackages: addedOrUpdatedPackages,
             observabilityScope: observabilityScope
@@ -830,10 +828,6 @@ extension Workspace {
                 }
             }
         }
-
-        // TODO bp check updated dependencies, determine which traits map
-        // to update here? will this affect the computation of transitively enabled
-        // traits? should we do this before we get to this point?
 
         // Update or clone new packages.
         for (packageRef, state) in packageStateChanges {
