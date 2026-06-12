@@ -470,6 +470,7 @@ public final class PIFBuilder {
                 addLocalRpaths: self.parameters.addLocalRpaths,
                 packageDisplayVersion: package.manifest.displayName,
                 pkgConfigDirectories: self.parameters.pkgConfigDirectories,
+                treatWarningsAsErrors: WarningControlFlags.containsWarningsAsErrors(buildParameters.flags.swiftCompilerFlags.map(\.value)),
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,
             )
