@@ -13,6 +13,7 @@
 import Basics
 @testable import PackageLoading
 import _InternalTestSupport
+import Testing
 import XCTest
 
 import struct TSCBasic.ByteString

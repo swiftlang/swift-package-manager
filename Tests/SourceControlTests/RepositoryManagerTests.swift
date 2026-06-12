@@ -15,6 +15,7 @@ import _Concurrency
 import PackageModel
 import _InternalTestSupport
 @testable import SourceControl
+import Testing
 import XCTest
 
 final class RepositoryManagerTests: XCTestCase {

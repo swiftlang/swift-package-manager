@@ -248,17 +248,27 @@ public class DiagnosticsTestResult {
         severity: Basics.Diagnostic.Severity,
         //metadata: ObservabilityMetadata? = .none,
         file: StaticString = #file,
-        line: UInt = #line
+        line: UInt = #line,
+        sourceLocation: SourceLocation = #_sourceLocation
     ) -> Basics.Diagnostic? {
         guard !self.uncheckedDiagnostics.isEmpty else {
-            XCTFail("No diagnostics left to check", file: file, line: line)
+            if Test.current != nil {
+                Issue.record("No diagnostics left to check", sourceLocation: sourceLocation)
+            } else {
+                XCTFail("No diagnostics left to check", file: file, line: line)
+            }
             return nil
         }
 
         let diagnostic: Basics.Diagnostic = self.uncheckedDiagnostics.removeFirst()
 
-        XCTAssertMatch(diagnostic.message, message, file: file, line: line)
-        XCTAssertEqual(diagnostic.severity, severity, file: file, line: line)
+        if Test.current != nil {
+            #expect(diagnostic.severity == severity, sourceLocation: sourceLocation)
+            #expect(message ~= diagnostic.message, sourceLocation: sourceLocation)
+        } else {
+            XCTAssertMatch(diagnostic.message, message, file: file, line: line)
+            XCTAssertEqual(diagnostic.severity, severity, file: file, line: line)
+        }
         // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
         //XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
         //XCTAssertEqual(diagnostic.metadata?.droppingLegacyKeys(), metadata?.droppingLegacyKeys(), file: file, line: line)
