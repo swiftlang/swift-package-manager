@@ -291,6 +291,7 @@ extension Workspace {
                                         artifactURL: artifact.url,
                                         targetName: artifact.targetName
                                     ))
+                                    self.evictFromCache(artifact: artifact, observabilityScope: observabilityScope)
                                     return nil
                                 }
 
@@ -426,6 +427,7 @@ extension Workspace {
                                     targetName: artifact.targetName,
                                     reason: error.interpolationDescription
                                 ))
+                                self.evictFromCache(artifact: artifact, observabilityScope: observabilityScope)
                                 self.delegate?.didDownloadBinaryArtifact(
                                     from: artifact.url.absoluteString,
                                     result: .failure(error),
@@ -665,6 +667,16 @@ extension Workspace {
             } catch {
                 try? self.fileSystem.removeFileTree(cachedArtifactPath)
                 throw error
+            }
+        }
+
+        private func evictFromCache(artifact: RemoteArtifact, observabilityScope: ObservabilityScope) {
+            guard let cachePath = self.cachePath else { return }
+            let cacheKey = artifact.url.absoluteString.spm_mangledToC99ExtendedIdentifier()
+            let cachedArtifactPath = cachePath.appending(cacheKey)
+            guard self.fileSystem.exists(cachedArtifactPath) else { return }
+            observabilityScope.trap {
+                try self.fileSystem.removeFileTree(cachedArtifactPath)
             }
         }
 
