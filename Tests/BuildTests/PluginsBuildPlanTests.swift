@@ -175,5 +175,31 @@ struct PluginsBuildPlanTests {
             expectFileExists(at: pluginToolBinPath.appending(pluginToolName))
         }
     }
-
+    @Test(
+        .tags(
+            .Feature.Command.Package.Plugin,
+        ),
+        .requireHostOS(.macOS),
+    )
+    func docCPluginForBinaryDependency() async throws {
+        try await fixture(name: "Miscellaneous/Plugins/SymbolGraphForBinaryDependency") { fixturePath in
+            let result = try await AsyncProcess.popen(arguments: [
+                fixturePath.appending(RelativePath("FooKit/Scripts/archive_xcframework.sh")).pathString,
+                "FooKit"
+            ])
+            try print(result.utf8Output())
+            try print(result.utf8stderrOutput())
+            #expect(result.exitStatus == .terminated(code: 0))
+            // Before we add -F support for xcframework, this call will throw since the command will abort with a non-zero exit code
+            do {
+                _ = try await executeSwiftPackage(
+                    fixturePath,
+                    extraArgs: ["generate-symbol-graph"],
+                    buildSystem: .native
+                )
+            } catch {
+                Issue.record("Expected symbol graph generation for an xcframework dependency to succeed, but failed with \(error)")
+            }
+        }
+    }
 }
