@@ -442,5 +442,17 @@ struct SwiftPMBuildServerTests {
             #expect(doccCatalog.sourceKitData?.kind == .doccCatalog)
         }
     }
+
+    @Test
+    func manifestPrepareIsNotForwardedToUnderlyingBuildServer() async throws {
+        try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple") { connection, notificationCollector, _ in
+            let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
+            let manifestTarget = try #require(targetResponse.targets.first(where: { $0.displayName == "Package Manifest" }))
+            let logsBefore = notificationCollector.notifications(of: OnBuildLogMessageNotification.self).count
+            _ = try await connection.send(BuildTargetPrepareRequest(targets: [manifestTarget.id]))
+            let logsAfter = notificationCollector.notifications(of: OnBuildLogMessageNotification.self)
+            #expect(logsAfter.count == logsBefore)
+        }
+    }
 }
 #endif

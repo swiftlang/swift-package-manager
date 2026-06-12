@@ -247,6 +247,10 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             await request.reply {
                 var underlyingRequest = request.params
                 underlyingRequest.targets.removeAll(where: \.isSwiftPMBuildServerTargetID )
+                // Don't forward an empty prepare request to the underlying build server.
+                guard !underlyingRequest.targets.isEmpty else {
+                    return BuildTargetPrepareResponse()
+                }
                 return try await connectionToUnderlyingBuildServer.send(underlyingRequest)
             }
         case let request as RequestAndReply<BuildTargetSourcesRequest>:
