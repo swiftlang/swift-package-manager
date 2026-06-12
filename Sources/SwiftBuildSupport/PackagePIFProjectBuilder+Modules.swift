@@ -911,6 +911,14 @@ extension PackagePIFProjectBuilder {
             .module
         }
 
+        // The input files of any build tool plugin commands (which may live outside the target
+        // directory).
+        let buildToolPluginInputs = Set(
+            (pifBuilder.buildToolPluginResultsByTargetName[sourceModule.name] ?? [])
+                .flatMap(\.buildCommands)
+                .flatMap(\.inputPaths)
+        )
+
         let moduleOrProduct = PackagePIFBuilder.ModuleOrProduct(
             type: productOrModuleType,
             name: sourceModule.name,
@@ -918,6 +926,7 @@ extension PackagePIFProjectBuilder {
             pifTarget: .target(self.project[keyPath: sourceModuleTargetKeyPath]),
             indexableFileURLs: indexableFileURLs,
             headerFiles: headerFiles,
+            buildToolPluginInputs: buildToolPluginInputs,
             doccCatalogs: doccCatalogs,
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: sourceModule.packageSwiftLanguageVersion(manifest: packageManifest),

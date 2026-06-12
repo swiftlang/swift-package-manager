@@ -381,6 +381,7 @@ public final class PackagePIFBuilder {
 
         public var indexableFileURLs: [SourceControlURL]
         public var headerFiles: Set<AbsolutePath>
+        public var buildToolPluginInputs: Set<AbsolutePath>
         public var doccCatalogs: Set<AbsolutePath>
         /// Source files implementing the plugin represented by this target, which
         /// are compiled during build planning as opposed to participating in the
@@ -749,6 +750,7 @@ extension PackagePIFBuilder.ModuleOrProduct {
         pifTarget: ProjectModel.BaseTarget?,
         indexableFileURLs: [SourceControlURL] = [],
         headerFiles: Set<AbsolutePath> = [],
+        buildToolPluginInputs: Set<AbsolutePath> = [],
         doccCatalogs: Set<AbsolutePath> = [],
         pluginScriptSourcePaths: [AbsolutePath] = [],
         linkedPackageBinaries: [PackagePIFBuilder.LinkedPackageBinary] = [],
@@ -764,6 +766,7 @@ extension PackagePIFBuilder.ModuleOrProduct {
         self.indexableFileURLs = indexableFileURLs
         self.pluginScriptSourcePaths = pluginScriptSourcePaths
         self.headerFiles = headerFiles
+        self.buildToolPluginInputs = buildToolPluginInputs
         self.doccCatalogs = doccCatalogs
         self.linkedPackageBinaries = linkedPackageBinaries
         self.swiftLanguageVersion = swiftLanguageVersion

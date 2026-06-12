@@ -138,6 +138,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
 
     private var headersByTargetGUID: [String: Set<Basics.AbsolutePath>] = [:]
     private var doccCatalogsByTargetGUID: [String: Set<Basics.AbsolutePath>] = [:]
+    private var buildToolPluginInputsByTargetGUID: [String: Set<Basics.AbsolutePath>] = [:]
 
     private struct PluginInfo {
         var name: String
@@ -311,6 +312,12 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
                             )
                         )
                     }
+                    let buildToolPluginInputs = self.buildToolPluginInputsByTargetGUID[targetGUID] ?? []
+                    for pluginInput in buildToolPluginInputs {
+                        sourcesResponse.items[index].sources.append(
+                            SourceItem(uri: DocumentURI(pluginInput.asURL), kind: .file, generated: false)
+                        )
+                    }
                 }
                 return sourcesResponse
             }
@@ -377,7 +384,12 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
                 outputPathsProvider: true,
                 prepareProvider: true,
                 sourceKitOptionsProvider: true,
-                watchers: []
+                // Watch all files in the workspace so that changes to non-Swift inputs (e.g. the
+                // input files of build tool plugins) invalidate the affected target's preparation
+                // and cause it to be rebuilt/re-indexed. This matches the native `SwiftPMBuildServer`,
+                // which registers a `**/*` watcher. SourceKit-LSP otherwise only watches `*.swift`
+                // and `*.swiftmodule` by default.
+                watchers: [FileSystemWatcher(globPattern: "**/*", kind: [.create, .change, .delete])]
             ).encodeToLSPAny()
         )
     }
@@ -524,6 +536,18 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         self.headersByTargetGUID = headers
     }
 
+    private func rebuildBuildToolPluginInputsMapping(pifAccompanyingMetadata: [PackagePIFBuilder.ModuleOrProduct]) async {
+        var buildToolPluginInputs: [String: Set<Basics.AbsolutePath>] = [:]
+        for moduleOrProduct in pifAccompanyingMetadata {
+            guard let pifTarget = moduleOrProduct.pifTarget else { continue }
+            let guid = pifTarget.id.value
+            if !moduleOrProduct.buildToolPluginInputs.isEmpty {
+                buildToolPluginInputs[guid] = moduleOrProduct.buildToolPluginInputs
+            }
+        }
+        self.buildToolPluginInputsByTargetGUID = buildToolPluginInputs
+    }
+
     private func rebuildDocCCatalogMapping(pifAccompanyingMetadata: [PackagePIFBuilder.ModuleOrProduct]) async {
         var doccCatalogs: [String: Set<Basics.AbsolutePath>] = [:]
         for moduleOrProduct in pifAccompanyingMetadata {
@@ -597,6 +621,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
                 let result = try await buildSystem.generatePIFAndAccompanyingMetadata(preserveStructure: false)
                 try localFileSystem.writeIfChanged(path: buildSystem.buildParameters.pifManifest, string: result.pif)
                 await self.rebuildHeaderMapping(pifAccompanyingMetadata: result.accompanyingMetadata)
+                await self.rebuildBuildToolPluginInputsMapping(pifAccompanyingMetadata: result.accompanyingMetadata)
                 await self.rebuildDocCCatalogMapping(pifAccompanyingMetadata: result.accompanyingMetadata)
                 self.rebuildPluginMapping(pifAccompanyingMetadata: result.accompanyingMetadata)
                 self.connectionToUnderlyingBuildServer.send(OnWatchedFilesDidChangeNotification(changes: [
