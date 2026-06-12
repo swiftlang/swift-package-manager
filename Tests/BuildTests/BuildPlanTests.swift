@@ -6217,6 +6217,8 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         // See https://bugs.swift.org/browse/SR-14555 and
         // https://github.com/swiftlang/swift-package-manager/pull/2972/files#r623861646
         XCTAssertMatch(contents, .contains("let mainPath = Bundle.main."))
+        // For tools-versions older than 6.0, access-level-on-import is not part of the language mode.
+        XCTAssertMatch(contents, .contains("\nimport Foundation\n"))
 
         let barTarget = try result.moduleBuildDescription(for: "Bar").swift()
         XCTAssertEqual(try barTarget.objects.map(\.pathString), [
@@ -6225,6 +6227,53 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         XCTAssertTrue(try fooTarget.compileArguments().contains(["-DSWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE"]))
         XCTAssertTrue(try barTarget.compileArguments().contains(["-DSWIFT_MODULE_RESOURCE_BUNDLE_UNAVAILABLE"]))
+    }
+
+    func testSwiftBundleAccessorEmitsExplicitAccessLevelImport() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/PkgA/Sources/Foo/Foo.swift",
+            "/PkgA/Sources/Foo/foo.txt"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "PkgA",
+                    path: "/PkgA",
+                    // access-level-on-import is part of the language mode
+                    // for tools-version >= 6.0, so the emitted file must
+                    // have an access level on the Foundation import.
+                    toolsVersion: .v6_0,
+                    targets: [
+                        TargetDescription(
+                            name: "Foo",
+                            resources: [
+                                .init(rule: .copy, path: "foo.txt"),
+                            ]
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let plan = try await mockBuildPlan(
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let result = try BuildPlanResult(plan: plan)
+
+        let fooTarget = try result.moduleBuildDescription(for: "Foo").swift()
+        let resourceAccessor = fooTarget.sources.first { $0.basename == "resource_bundle_accessor.swift" }!
+        let contents: String = try fs.readFileContents(resourceAccessor)
+        XCTAssertMatch(contents, .contains("public import Foundation"))
     }
 
     func testSwiftWASIBundleAccessor() async throws {
