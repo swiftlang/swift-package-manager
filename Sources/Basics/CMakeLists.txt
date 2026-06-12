@@ -88,9 +88,10 @@ target_link_libraries(Basics PUBLIC
   SwiftCollections::OrderedCollections
   TSCBasic
   TSCUtility
-  SwiftSubprocess::SubProcess)
+  SwiftSubprocess::Subprocess)
 target_link_libraries(Basics PRIVATE
   SwiftCollections::DequeModule
+  SwiftSystem::SystemPackage
   SPMSQLite3
   TSCclibc)
 
