@@ -711,6 +711,7 @@ def build_swiftpm_with_cmake(args):
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-crypto"],          "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-driver"],          "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-system"],          "lib"))
+        add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-subprocess"],      "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-collections"],     "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-tools-protocols"], "lib"))
         add_rpath_for_cmake_build(args, os.path.join(args.build_dirs["swift-asn1"],            "lib"))
@@ -869,6 +870,7 @@ def get_swiftpm_env_cmd(args):
             os.path.join(args.build_dirs["swift-crypto"],          "lib"),
             os.path.join(args.build_dirs["swift-driver"],          "lib"),
             os.path.join(args.build_dirs["swift-system"],          "lib"),
+            os.path.join(args.build_dirs["swift-subprocess"],      "lib"),
             os.path.join(args.build_dirs["swift-collections"],     "lib"),
             os.path.join(args.build_dirs["swift-tools-protocols"], "lib"),
             os.path.join(args.build_dirs["swift-asn1"],            "lib"),

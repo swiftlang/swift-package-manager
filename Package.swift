@@ -1171,6 +1171,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-crypto"),
         .package(path: "../swift-syntax"),
         .package(path: "../swift-system"),
+        .package(path: "../swift-subprocess"),
         .package(path: "../swift-collections"),
         .package(path: "../swift-certificates"),
         .package(path: "../swift-toolchain-sqlite"),
