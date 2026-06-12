@@ -457,7 +457,20 @@ public final class SwiftCommandState {
         self.cancellator = cancellator
 
         // Create local variables to use while finding build path to avoid capture self before init error.
-        let packageRoot = findPackageRoot(fileSystem: fileSystem)
+        let packageRoot: AbsolutePath?
+        if options.locations.skipResolvingPackagePaths {
+            // Do not use the current working directory to determine the package root, as it will indirectly
+            // cause us to reference its sources via their real instead of symlinked paths.
+            guard let packageDirectory = options.locations.packageDirectory else {
+                self.observabilityScope.emit(
+                    error: "'--experimental-skip-resolving-package-paths' requires an explicit '--package-path'"
+                )
+                throw ExitCode.failure
+            }
+            packageRoot = packageDirectory
+        } else {
+            packageRoot = findPackageRoot(fileSystem: fileSystem)
+        }
 
         self.packageRoot = packageRoot
         self.scratchDirectory =
@@ -1094,6 +1107,7 @@ public final class SwiftCommandState {
                 testEntryPointPath: self.options.build.testEntryPointPath
             ),
             stripProducts: self.options.build.stripProducts,
+            shouldPreserveSymlinks: options.locations.skipResolvingPackagePaths,
         )
     }
 
