@@ -322,6 +322,7 @@ public final class MockWorkspace {
 
             for version in packageVersions {
                 let v = version.flatMap(Version.init(_:))
+                let traits = package.traitsPerVersion[v?.description ?? ""] ?? package.traits
                 manifests[.init(url: packageLocation, version: v)] = try Manifest.createManifest(
                     displayName: package.name,
                     path: packagePath,
@@ -341,7 +342,7 @@ public final class MockWorkspace {
                         targets: $0.modules
                     ) },
                     targets: package.targets.map { try $0.convert(identityResolver: self.identityResolver) },
-                    traits: package.traits,
+                    traits: traits,
                     pruneDependencies: self.pruneDependencies
                 )
             }

@@ -172,4 +172,8 @@ private struct LocalPackageContainer: PackageContainer {
             return .root(identity: self.package.identity, path: self.manifest.path)
         }
     }
+
+    func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<TraitDescription> {
+        return manifest.traits
+    }
 }
