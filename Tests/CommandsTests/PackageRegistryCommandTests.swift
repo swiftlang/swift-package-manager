@@ -1383,3 +1383,50 @@ struct PackageRegistryCommandTests {
         )
     }
 }
+
+@Suite struct PackageRegistrySearchTests {
+    @Test func helpListsSearchSubcommand() async throws {
+        let stdout = try await SwiftPM.Registry.execute(["--help"]).stdout
+        #expect(stdout.contains("search"), "expected 'search' subcommand in help output, got: \(stdout)")
+    }
+
+    @Test func searchHelpReferencesQualifiers() async throws {
+        let stdout = try await SwiftPM.Registry.execute(["search", "--help"]).stdout
+        #expect(stdout.contains("--limit"))
+        #expect(stdout.contains("--offset"))
+        #expect(stdout.contains("--registry"))
+        #expect(stdout.contains("--json"))
+    }
+
+    @Test func interleavingRoundRobinsAcrossRegistries() {
+        let registryA = Registry(url: URL("https://a.example.com"), supportsAvailability: true)
+        let registryB = Registry(url: URL("https://b.example.com"), supportsAvailability: true)
+        let resultsA = RegistryClient.SearchResults(
+            results: [
+                .init(identity: "a.one"),
+                .init(identity: "a.two"),
+                .init(identity: "a.three"),
+            ],
+            total: 3,
+            offset: 0,
+            limit: 20
+        )
+        let resultsB = RegistryClient.SearchResults(
+            results: [
+                .init(identity: "b.one"),
+                .init(identity: "b.two"),
+            ],
+            total: 2,
+            offset: 0,
+            limit: 20
+        )
+
+        let interleaved = PackageRegistryCommand.Search.interleavePairs([
+            (registryA, resultsA),
+            (registryB, resultsB),
+        ])
+
+        #expect(interleaved.map(\.result.identity) == ["a.one", "b.one", "a.two", "b.two", "a.three"])
+        #expect(interleaved.map(\.registry.url.host) == ["a.example.com", "b.example.com", "a.example.com", "b.example.com", "a.example.com"])
+    }
+}

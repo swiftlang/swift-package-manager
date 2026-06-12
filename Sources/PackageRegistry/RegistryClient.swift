@@ -1135,6 +1135,84 @@ public final class RegistryClient: AsyncCancellable {
         }
     }
 
+    public func search(
+        query: String,
+        limit: Int = 20,
+        offset: Int = 0,
+        registry: Registry,
+        timeout: DispatchTimeInterval? = .none,
+        observabilityScope: ObservabilityScope
+    ) async throws -> SearchResults {
+        try await withAvailabilityCheck(
+            registry: registry,
+            requiring: .search,
+            observabilityScope: observabilityScope
+        )
+
+        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
+            throw RegistryError.invalidURL(registry.url)
+        }
+        components.appendPathComponents("search")
+        components.queryItems = [
+            URLQueryItem(name: "q", value: query),
+            URLQueryItem(name: "limit", value: String(limit)),
+            URLQueryItem(name: "offset", value: String(offset)),
+        ]
+
+        guard let url = components.url else {
+            throw RegistryError.invalidURL(registry.url)
+        }
+
+        let start = DispatchTime.now()
+        observabilityScope.emit(info: "searching \(registry.url) with query '\(query)'")
+
+        let response: HTTPClient.Response
+        do {
+            response = try await self.httpClient.get(
+                url,
+                headers: ["Accept": self.acceptHeader(mediaType: .json)],
+                options: self.defaultRequestOptions(timeout: timeout)
+            )
+        } catch let error where !(error is _Concurrency.CancellationError) {
+            throw RegistryError.searchFailed(registry: registry, error: error)
+        }
+
+        observabilityScope
+            .emit(
+                debug: "server response for \(url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+            )
+
+        switch response.statusCode {
+        case 200:
+            let decoded = try response.parseJSON(
+                Serialization.SearchResponse.self,
+                decoder: self.jsonDecoder
+            )
+            return SearchResults(
+                results: decoded.results.map { r in
+                    SearchResults.Result(
+                        identity: r.identity,
+                        summary: r.summary,
+                        latestVersion: r.latestVersion,
+                        author: r.author,
+                        licenseURL: r.licenseURL.flatMap(URL.init(string:)),
+                        url: r.url.flatMap(URL.init(string:))
+                    )
+                },
+                total: decoded.total,
+                offset: decoded.offset,
+                limit: decoded.limit
+            )
+        case 404:
+            throw RegistryError.capabilityNotSupported(registry: registry, capability: .search)
+        default:
+            throw RegistryError.searchFailed(
+                registry: registry,
+                error: self.unexpectedStatusError(response, expectedStatus: [200])
+            )
+        }
+    }
+
     public func login(
         loginURL: URL,
         timeout: DispatchTimeInterval? = .none,
@@ -1431,7 +1509,15 @@ public final class RegistryClient: AsyncCancellable {
 
         switch response.statusCode {
         case 200:
-            return .available
+            let capabilities: Set<String>
+            if let body = response.body, !body.isEmpty,
+               let decoded = try? self.jsonDecoder.decode(Serialization.AvailabilityResponse.self, from: body),
+               let advertised = decoded.capabilities {
+                capabilities = Set(advertised.keys)
+            } else {
+                capabilities = []
+            }
+            return .available(capabilities: capabilities)
         case let value where AvailabilityStatus.unavailableStatusCodes.contains(value):
             return .unavailable
         default:
@@ -1442,21 +1528,32 @@ public final class RegistryClient: AsyncCancellable {
         }
     }
 
-    // If the registry is available, the function returns, otherwise an error
-    // explaining why the registry is unavailable is thrown.
+    // If the registry is available, the function returns its advertised
+    // capability set (empty if none were advertised). If `capability` is
+    // provided, throws `RegistryError.capabilityNotSupported` when the
+    // registry does not advertise that capability.
+    @discardableResult
     func withAvailabilityCheck(
         registry: Registry,
+        requiring capability: Capability? = nil,
         observabilityScope: ObservabilityScope
-    ) async throws {
+    ) async throws -> Set<String> {
         if !registry.supportsAvailability {
-            return
+            if let capability {
+                throw RegistryError.capabilityNotSupported(registry: registry, capability: capability)
+            }
+            return []
         }
 
-        let availabilityHandler: (Result<AvailabilityStatus, Error>) throws -> Void = { result in
+        let availabilityHandler: (Result<AvailabilityStatus, Error>) throws -> Set<String> = { result in
             switch result {
             case .success(let status):
                 switch status {
-                case .available: return
+                case .available(let capabilities):
+                    if let capability, !capabilities.contains(capability.rawValue) {
+                        throw RegistryError.capabilityNotSupported(registry: registry, capability: capability)
+                    }
+                    return capabilities
                 case .unavailable: throw RegistryError.registryNotAvailable(registry)
                 case .error(let error): throw StringError(error)
                 }
@@ -1571,6 +1668,8 @@ public enum RegistryError: Error, CustomStringConvertible {
     case loginFailed(url: URL, error: Error)
     case availabilityCheckFailed(registry: Registry, error: Error)
     case registryNotAvailable(Registry)
+    case capabilityNotSupported(registry: Registry, capability: RegistryClient.Capability)
+    case searchFailed(registry: Registry, error: Error)
     case packageNotFound
     case packageVersionNotFound
     case sourceArchiveMissingChecksum(registry: Registry, package: PackageIdentity, version: Version)
@@ -1675,6 +1774,10 @@ public enum RegistryError: Error, CustomStringConvertible {
             return "failed checking availability of registry at '\(registry.url)': \(error.interpolationDescription)"
         case .registryNotAvailable(let registry):
             return "registry at '\(registry.url)' is not available at this time, please try again later"
+        case .capabilityNotSupported(let registry, let capability):
+            return "registry at '\(registry.url)' does not support the '\(capability.rawValue)' capability"
+        case .searchFailed(let registry, let error):
+            return "failed searching registry at '\(registry.url)': \(error.interpolationDescription)"
         case .packageNotFound:
             return "package not found on registry"
         case .packageVersionNotFound:
@@ -1852,13 +1955,58 @@ extension RegistryClient {
 }
 
 extension RegistryClient {
+    public struct SearchResults: Sendable {
+        public struct Result: Sendable {
+            public let identity: String
+            public let summary: String?
+            public let latestVersion: String?
+            public let author: String?
+            public let licenseURL: URL?
+            public let url: URL?
+
+            public init(
+                identity: String,
+                summary: String? = nil,
+                latestVersion: String? = nil,
+                author: String? = nil,
+                licenseURL: URL? = nil,
+                url: URL? = nil
+            ) {
+                self.identity = identity
+                self.summary = summary
+                self.latestVersion = latestVersion
+                self.author = author
+                self.licenseURL = licenseURL
+                self.url = url
+            }
+        }
+
+        public let results: [Result]
+        public let total: Int
+        public let offset: Int
+        public let limit: Int
+
+        public init(results: [Result], total: Int, offset: Int, limit: Int) {
+            self.results = results
+            self.total = total
+            self.offset = offset
+            self.limit = limit
+        }
+    }
+}
+
+extension RegistryClient {
     public enum AvailabilityStatus: Equatable {
-        case available
+        case available(capabilities: Set<String> = [])
         case unavailable
         case error(String)
 
         // marked internal for testing
         static var unavailableStatusCodes = [404, 501]
+    }
+
+    public enum Capability: String, Hashable, Sendable, CaseIterable {
+        case search
     }
 }
 
@@ -2229,6 +2377,57 @@ extension RegistryClient {
 
             public init(identifiers: [String]) {
                 self.identifiers = identifiers
+            }
+        }
+
+        public struct AvailabilityResponse: Codable {
+            public let capabilities: [String: Capability]?
+
+            public init(capabilities: [String: Capability]?) {
+                self.capabilities = capabilities
+            }
+        }
+
+        public struct Capability: Codable {
+            public init() {}
+        }
+
+        public struct SearchResponse: Codable {
+            public let results: [SearchResult]
+            public let total: Int
+            public let offset: Int
+            public let limit: Int
+
+            public init(results: [SearchResult], total: Int, offset: Int, limit: Int) {
+                self.results = results
+                self.total = total
+                self.offset = offset
+                self.limit = limit
+            }
+        }
+
+        public struct SearchResult: Codable {
+            public let identity: String
+            public let summary: String?
+            public let latestVersion: String?
+            public let author: String?
+            public let licenseURL: String?
+            public let url: String?
+
+            public init(
+                identity: String,
+                summary: String? = nil,
+                latestVersion: String? = nil,
+                author: String? = nil,
+                licenseURL: String? = nil,
+                url: String? = nil
+            ) {
+                self.identity = identity
+                self.summary = summary
+                self.latestVersion = latestVersion
+                self.author = author
+                self.licenseURL = licenseURL
+                self.url = url
             }
         }
     }
