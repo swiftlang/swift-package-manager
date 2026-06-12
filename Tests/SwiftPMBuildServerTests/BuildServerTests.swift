@@ -426,6 +426,20 @@ struct SwiftPMBuildServerTests {
     }
 
     @Test
+    func buildToolPluginInputsAreReportedAsSources() async throws {
+        try await withSwiftPMBSP(fixtureName: "Miscellaneous/Plugins/MySourceGenPlugin") { connection, _, _ in
+            // SourceKit-LSP expects a build server to report built tool plugin inputs in the BuildTargetSourcesResponse so it knows to re-prepare a target when they change.
+            let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
+            let myLocalTool = try #require(targetResponse.targets.first(where: { $0.displayName == "MyLocalTool" }))
+            let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [myLocalTool.id]))
+            let sources = try #require(sourcesResponse.items.only?.sources)
+            let pluginInput = try #require(sources.first(where: { $0.uri.fileURL?.lastPathComponent == "foo.dat" }))
+            #expect(pluginInput.kind == .file)
+            #expect(!pluginInput.generated)
+        }
+    }
+
+    @Test
     func doccCatalogSources() async throws {
         try await withSwiftPMBSP(fixtureName: "Miscellaneous/LibraryWithDocC") { connection, _, _ in
             let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
