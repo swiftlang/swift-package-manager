@@ -274,6 +274,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
 
     private let useInMemoryCache: Bool
     private let memoryCacheActor = ManifestCacheActor()
+    private let gitInformationCache = ManifestGitInformationCache()
 
     public init(
         toolchain: UserToolchain,
@@ -850,19 +851,9 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             do {
                 let packageDirectory = manifestPath.parentDirectory.pathString
 
-                let gitInformation: ContextModel.GitInformation?
-                do {
-                    let repo = GitRepository(path: manifestPath.parentDirectory)
-                    // These Git operations might block, consider making them async if performance is critical
-                    gitInformation = ContextModel.GitInformation(
-                        currentTag: repo.getCurrentTag(),
-                        currentCommit: try repo.getCurrentRevision().identifier,
-                        hasUncommittedChanges: repo.hasUncommittedChanges()
-                    )
-                } catch {
-                    // Ignore errors getting git info
-                    gitInformation = nil
-                }
+                let gitInformation = self.gitInformationCache.gitInformation(
+                    for: manifestPath.parentDirectory
+                )
 
                 let contextModel = ContextModel(
                     packageDirectory: packageDirectory,
@@ -985,6 +976,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
     /// reset internal cache
     public func resetCache(observabilityScope: ObservabilityScope) async {
         await self.memoryCacheActor.clear()
+        self.gitInformationCache.clear()
     }
 
     /// reset internal state and purge shared cache
