@@ -74,8 +74,31 @@ package extension Connection {
     }
 }
 
+fileprivate actor UnderlyingBuildSystemMessageHandler: QueueBasedMessageHandler {
+    let messageHandlingHelper = QueueBasedMessageHandlerHelper(
+        signpostLoggingCategory: "underlying-build-server-message-handling",
+        createLoggingScope: false
+    )
+    let messageHandlingQueue = AsyncQueue<BuildServerMessageDependencyTracker>()
+
+    weak var swiftPMBuildServer: SwiftPMBuildServer?
+    func setSwiftPMBuildServer(_ swiftPMBuildServer: SwiftPMBuildServer) {
+        self.swiftPMBuildServer = swiftPMBuildServer
+    }
+
+    func handle<Request>(request: Request, id: LanguageServerProtocol.RequestID, reply: @escaping @Sendable (Result<Request.Response, any Error>) -> Void) async where Request : LanguageServerProtocol.RequestType {
+        let request = RequestAndReply(request, reply: reply)
+        await request.reply { throw ResponseError.methodNotFound(Request.method) }
+    }
+
+    public func handle(notification: some NotificationType) async {
+        await swiftPMBuildServer?.handle(notificationFromUnderlyingBuildServer: notification)
+    }
+}
+
 public actor SwiftPMBuildServer: QueueBasedMessageHandler {
     private let underlyingBuildServer: SWBBuildServer
+    private let underlyingBuildServerMessageHandler: UnderlyingBuildSystemMessageHandler
     private let connectionToUnderlyingBuildServer: LocalConnection
     private let packageRoot: Basics.AbsolutePath
     private let buildSystem: SwiftBuildSystem
@@ -153,11 +176,17 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
                 try? await session.teardownHandler()
             }
         )
+        self.underlyingBuildServerMessageHandler = UnderlyingBuildSystemMessageHandler()
+        await self.underlyingBuildServerMessageHandler.setSwiftPMBuildServer(self)
         connectionToUnderlyingBuildServer.start(handler: underlyingBuildServer)
-        connectionFromUnderlyingBuildServer.start(handler: self)
+        connectionFromUnderlyingBuildServer.start(handler: underlyingBuildServerMessageHandler)
     }
 
     public func handle(notification: some NotificationType) async {
+        await handle(notificationFromClient: notification)
+    }
+
+    public func handle(notificationFromClient notification: some NotificationType) async {
         switch notification {
         case is OnBuildExitNotification:
             connectionToUnderlyingBuildServer.send(notification)
@@ -178,6 +207,13 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
                     return
                 }
             }
+        default:
+            logToClient(.warning, "SwiftPM build server received unknown notification type from client: \(notification)")
+        }
+    }
+
+    public func handle(notificationFromUnderlyingBuildServer notification: some NotificationType) async {
+        switch notification {
         case is OnBuildLogMessageNotification:
             // If we receive a build log message notification, forward it on to the client
             connectionToClient.send(notification)
@@ -185,7 +221,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             // If the underlying server notifies us of target updates, forward the notification to the client
             connectionToClient.send(notification)
         default:
-            logToClient(.warning, "SwiftPM build server received unknown notification type: \(notification)")
+            logToClient(.warning, "SwiftPM build server received unknown notification type from underlying build server: \(notification)")
         }
     }
 
