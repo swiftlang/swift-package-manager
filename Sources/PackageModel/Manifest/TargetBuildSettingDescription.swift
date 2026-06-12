@@ -60,6 +60,8 @@ public enum TargetBuildSettingDescription {
 
         case defaultIsolation(DefaultIsolation)
 
+        case inherited
+
         public var isUnsafeFlags: Bool {
             switch self {
             case .unsafeFlags(let flags):
@@ -67,7 +69,7 @@ public enum TargetBuildSettingDescription {
                 return !flags.isEmpty
             case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
                  .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode,
-                 .treatAllWarnings, .treatWarning, .enableWarning, .disableWarning, .defaultIsolation:
+                 .treatAllWarnings, .treatWarning, .enableWarning, .disableWarning, .defaultIsolation, .inherited:
                 return false
             }
         }
@@ -92,6 +94,35 @@ public enum TargetBuildSettingDescription {
             self.tool = tool
             self.kind = kind
             self.condition = condition
+        }
+
+        public func overridesDefault(_ defaultSetting: Setting) -> Bool {
+            guard tool == defaultSetting.tool else {
+                return false
+            }
+
+            switch (kind, defaultSetting.kind) {
+            case (.defaultIsolation, .defaultIsolation):
+                return true
+            case (.interoperabilityMode, .interoperabilityMode):
+                return true
+            case (.swiftLanguageMode, .swiftLanguageMode):
+                return true
+            case (.treatAllWarnings, .treatAllWarnings):
+                return true
+            case (.unsafeFlags, .unsafeFlags):
+                return true
+            case (.define, .define):
+                return true
+            case (.treatWarning(let value, _), .treatWarning(let defaultValue, _)):
+                return value == defaultValue
+            case (.enableWarning(let value), .disableWarning(let defaultValue)):
+                return value == defaultValue
+            case (.disableWarning(let value), .enableWarning(let defaultValue)):
+                return value == defaultValue
+            default:
+                return false
+            }
         }
     }
 }
