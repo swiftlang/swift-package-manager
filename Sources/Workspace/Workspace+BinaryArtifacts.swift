@@ -647,23 +647,35 @@ extension Workspace {
                 return true // fetched from cache
             }
 
-            // download to the cache
+            let uniqueDownloadPath = cachePath.appending(component: "\(cacheKey).\(UUID().uuidString).tmp")
+            let cacheLockPath = cachePath.appending(component: "\(cacheKey).lock")
+
             observabilityScope
-                .emit(debug: "downloading binary artifact for \(artifact.url) to cache at \(cachedArtifactPath)")
+                .emit(debug: "downloading binary artifact for \(artifact.url) to temporary cache path at \(uniqueDownloadPath)")
 
             self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString, fromCache: false)
+
+            defer {
+                try? self.fileSystem.removeFileTree(uniqueDownloadPath)
+            }
 
             do {
                 try await self.download(
                     artifact: artifact,
-                    destination: cachedArtifactPath,
+                    destination: uniqueDownloadPath,
                     observabilityScope: observabilityScope,
                     progress: progress
                 )
+                try self.fileSystem.withLock(on: cacheLockPath, type: .exclusive) {
+                    if !self.fileSystem.exists(cachedArtifactPath) {
+                        try self.fileSystem.copy(from: uniqueDownloadPath, to: cachedArtifactPath)
+                    } else {
+                        observabilityScope.emit(debug: "Another process populated the cache for \(artifact.url) first; discarding duplicate download.")
+                    }
+                }
                 try self.fileSystem.copy(from: cachedArtifactPath, to: destination)
                 return false // not fetched from cache
             } catch {
-                try? self.fileSystem.removeFileTree(cachedArtifactPath)
                 throw error
             }
         }
