@@ -430,6 +430,70 @@ public class RepositoryManager: Cancellable {
         try self.fileSystem.removeFileTree(repositoryPath)
     }
 
+    /// Evicts a single repository from both the working location and the shared cache, forcing a
+    /// fresh fetch from its origin on the next lookup.
+    ///
+    /// Unlike `remove(repository:)`, this also discards the shared cache copy. It is used to
+    /// recover from an incomplete or corrupt local object store which can happen when a package
+    /// resolution is interrupted and a repo is only partially fetched. Re-copying the cached
+    /// repository would only reproduce the corruption, so the cached copy must be discarded as well.
+    public func purge(repository: RepositorySpecifier, observabilityScope: ObservabilityScope) throws {
+        // Remove the working (per-destination) clone.
+        try self.remove(repository: repository)
+
+        // Remove the shared cache copy, if caching is enabled, so it cannot be re-copied.
+        guard let cachePath else {
+            return
+        }
+        let cachedRepositoryPath = try cachePath.appending(repository.storagePath())
+        do {
+            // Match `fetchAndPopulateCache`'s locking: a shared lock on the cache directory plus an
+            // exclusive lock on this repository's entry, so evicting one repository does not block
+            // concurrent cache fetches of unrelated repositories.
+            try self.fileSystem.withLock(on: cachePath, type: .shared) {
+                try self.fileSystem.withLock(on: cachedRepositoryPath, type: .exclusive) {
+                    try self.fileSystem.removeFileTree(cachedRepositoryPath)
+                }
+            }
+        } catch {
+            observabilityScope.emit(
+                error: "Error purging repository cache for '\(repository.location)' at '\(cachedRepositoryPath)'",
+                underlyingError: error
+            )
+        }
+    }
+
+    /// Runs `operation` against `repository`, recovering once from an incomplete or corrupt local
+    /// object store.
+    ///
+    /// If `operation` throws an error indicating the object store is incomplete or corrupt (see
+    /// `isGitObjectStoreCorruptionError`), this purges the repository from both the working
+    /// location and the shared cache, runs `beforeRetry` (so the caller can discard derived
+    /// state such as a working copy), and retries `operation` exactly once.  The retried `operation`
+    /// re-fetches the repository from its durable origin. Any other error, or a second failure,
+    /// propagates unchanged.
+    public func withObjectStoreRecovery<T>(
+        repository: RepositorySpecifier,
+        observabilityScope: ObservabilityScope,
+        beforeRetry: () async throws -> Void = {},
+        operation: () async throws -> T
+    ) async throws -> T {
+        do {
+            return try await operation()
+        } catch {
+            guard isGitObjectStoreCorruptionError(error) else {
+                throw error
+            }
+            observabilityScope.emit(
+                warning: "the local repository for '\(repository.location)' is incomplete or corrupt; re-fetching from its origin",
+                underlyingError: error
+            )
+            try self.purge(repository: repository, observabilityScope: observabilityScope)
+            try await beforeRetry()
+            return try await operation()
+        }
+    }
+
     /// Returns true if the directory is valid git location.
     public func isValidDirectory(_ directory: Basics.AbsolutePath) throws -> Bool {
         try self.provider.isValidDirectory(directory)
