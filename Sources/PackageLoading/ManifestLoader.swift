@@ -969,8 +969,11 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cmd += ["-F", modulesPath.parentDirectory.parentDirectory.pathString]
 
             // If not in the PackageFrameworks directory, need the swiftmodule that's in the same directory
-            if modulesPath.parentDirectory.basename != "PackageFrameworks" {
-                cmd += ["-I", modulesPath.parentDirectory.pathString]
+            let parent = modulesPath.parentDirectory
+            if parent.basename == "PackageFrameworks" {
+                cmd += ["-I", parent.parentDirectory.pathString]
+            } else {
+                cmd += ["-I", parent.pathString]
             }
         } else {
             cmd += ["-I", modulesPath.pathString]
