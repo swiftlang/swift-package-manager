@@ -16,3 +16,8 @@ target_compile_options(swift-build PRIVATE
 
 install(TARGETS swift-build
   DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:swift-build>/$<TARGET_FILE_BASE_NAME:swift-build>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()

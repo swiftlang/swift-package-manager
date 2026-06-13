@@ -16,3 +16,8 @@ target_compile_options(swift-package-registry PRIVATE
 
 install(TARGETS swift-package-registry
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:swift-package-registry>/$<TARGET_FILE_BASE_NAME:swift-package-registry>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()
