@@ -727,9 +727,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 "-Xlinker", "-rpath", "-Xlinker", runtimePath.parentDirectory.pathString,
             ]
 
-            // If not in the PackageFrameworks directory, need the swiftmodule that's in the same directory
-            if runtimePath.parentDirectory.basename != "PackageFrameworks" {
-                cmd += ["-I", runtimePath.parentDirectory.pathString]
+            // Make sure we can find the swiftmodule
+            let parent = runtimePath.parentDirectory
+            if parent.basename == "PackageFrameworks" {
+                cmd += ["-I", parent.parentDirectory.pathString]
+            } else {
+                cmd += ["-I", parent.pathString]
             }
 
             // Explicitly link `AppleProductTypes` since auto-linking won't work here.
