@@ -349,7 +349,7 @@ public final class Manifest: Sendable {
 
                 let plugins: [String] = target.pluginUsages?.compactMap { pluginUsage in
                     switch pluginUsage {
-                    case .plugin(name: let name, package: nil):
+                    case .plugin(name: let name, package: nil, condition: _):
                         if targetsByName.keys.contains(name) {
                             name
                         } else if let targetName = productsByName[name]?.targets.first {
@@ -447,7 +447,7 @@ public final class Manifest: Sendable {
         referencedBy pluginUsage: TargetDescription.PluginUsage
     ) -> PackageDependency? {
         switch pluginUsage {
-        case .plugin(_, .some(let package)):
+        case .plugin(_, .some(let package), _):
             self.packageDependency(referencedBy: package)
         default:
             nil
@@ -546,7 +546,7 @@ public final class Manifest: Sendable {
         availablePackages: Set<PackageIdentity>
     ) {
         switch requiredPlugIn {
-        case .plugin(let name, let package):
+        case .plugin(let name, let package, _):
             if let package {
                 if !self.register(
                     product: name,

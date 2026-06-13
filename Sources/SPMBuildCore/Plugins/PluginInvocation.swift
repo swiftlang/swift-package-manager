@@ -597,18 +597,98 @@ fileprivate extension PluginToHostMessage {
 
 extension ModulesGraph {
     public func pluginsPerModule(
-        satisfying buildEnvironment: BuildEnvironment
+        satisfyingHost hostEnvironment: BuildEnvironment,
+        targetEnvironment: BuildEnvironment
     ) -> [ResolvedModule.ID: [ResolvedModule]] {
         var pluginsPerModule = [ResolvedModule.ID: [ResolvedModule]]()
         for module in self.allModules.sorted(by: { $0.name < $1.name }) {
+            let enabledTraits = self.enabledTraitsMap[module.packageIdentity]
             let pluginDependencies = module.pluginDependencies(
-                satisfying: buildEnvironment
+                satisfying: hostEnvironment,
+                targetEnvironment: targetEnvironment,
+                enabledTraits: enabledTraits
             )
             if !pluginDependencies.isEmpty {
                 pluginsPerModule[module.id] = pluginDependencies
             }
         }
         return pluginsPerModule
+    }
+
+    /// Per-(module, plugin, platform) plugin entries.
+    ///
+    /// Like `pluginsPerModule`, but produces one entry per `(module, plugin, platform?)`
+    /// tuple. A `nil` platform means "match every platform" — used when the plugin usage
+    /// has no `targetPlatforms` axis (or no condition at all). When `condition.targetPlatforms`
+    /// is non-empty, the plugin fans out across exactly those platforms.
+    ///
+    /// Host and trait axes are evaluated once per `(module, plugin)` pair before fan-out;
+    /// the trait axis uses the module's package's `enabledTraitsMap` entry.
+    ///
+    /// Single-CT callers pass `forceSinglePlatform: targetEnv.platform`. That collapses each
+    /// fanned-out entry to either the build platform (if the explicit `targetPlatforms` set
+    /// permits it) or drops it entirely (proposal: "plugin not invoked when condition not
+    /// met"). Untagged entries (no `targetPlatforms` axis) stay untagged.
+    ///
+    /// Entries are de-duplicated per `(plugin, platform)` so that a plugin referenced via
+    /// both `.module` and `.product` usages on the same module produces a single entry.
+    package func pluginsPerModulePerPlatform(
+        satisfyingHost hostEnvironment: BuildEnvironment,
+        forceSinglePlatform: PackageModel.Platform? = nil
+    ) -> [ResolvedModule.ID: [(plugin: ResolvedModule, platform: PackageModel.Platform?)]] {
+        var pluginsPerModulePerPlatform: [ResolvedModule.ID: [(ResolvedModule, PackageModel.Platform?)]] = [:]
+        for module in self.allModules.sorted(by: { $0.name < $1.name }) {
+            let enabledTraits = self.enabledTraitsMap[module.packageIdentity]
+            var entries: [(ResolvedModule, PackageModel.Platform?)] = []
+            // Per-module dedupe: ensures a plugin reachable via two usages (e.g.
+            // `.module(p, ...)` and `.product(prod, ...)` where `prod.modules` contains `p`)
+            // is only emitted once per platform tag.
+            struct EntryKey: Hashable {
+                let pluginID: ResolvedModule.ID
+                let platform: PackageModel.Platform?
+            }
+            var seenPairs = Set<EntryKey>()
+
+            for usage in module.pluginUsages {
+                // Trait + host axes are singletons per PIF generation; evaluate once per
+                // usage before the per-platform fan-out. A nil condition matches every
+                // host/trait set (`?? true`).
+                guard usage.condition?.traitsAxisSatisfied(enabledTraits: enabledTraits) ?? true,
+                      usage.condition?.hostAxisSatisfied(hostEnv: hostEnvironment) ?? true
+                else { continue }
+
+                let conditionPlatforms = Set(usage.condition?.targetPlatforms ?? [])
+                // Resolve the platform tags this usage will produce:
+                //   - Empty `targetPlatforms` axis → one untagged entry (`nil`), commands
+                //     carry empty `platformFilters` and apply to every CT.
+                //   - Non-empty `targetPlatforms` → one entry per listed platform.
+                //   - Under `forceSinglePlatform`: untagged entries collapse to the pinned
+                //     platform (still emitted once); explicit entries are dropped unless the
+                //     pinned platform is in the list.
+                let resolvedPlatforms: [PackageModel.Platform?]
+                if conditionPlatforms.isEmpty {
+                    resolvedPlatforms = [forceSinglePlatform]
+                } else if let pinned = forceSinglePlatform {
+                    resolvedPlatforms = conditionPlatforms.contains(pinned) ? [pinned] : []
+                } else {
+                    // Sort by name for deterministic ordering across runs and CI.
+                    resolvedPlatforms = conditionPlatforms.sorted(by: { $0.name < $1.name })
+                }
+
+                for plugin in usage.buildToolPluginModules {
+                    for platform in resolvedPlatforms {
+                        let key = EntryKey(pluginID: plugin.id, platform: platform)
+                        if seenPairs.insert(key).inserted {
+                            entries.append((plugin, platform))
+                        }
+                    }
+                }
+            }
+            if !entries.isEmpty {
+                pluginsPerModulePerPlatform[module.id] = entries
+            }
+        }
+        return pluginsPerModulePerPlatform
     }
 
     public static func computePluginGeneratedFiles(

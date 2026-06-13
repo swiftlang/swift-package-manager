@@ -972,7 +972,8 @@ public final class SwiftCommandState {
         outputStream: OutputByteStream? = .none,
         logLevel: Basics.Diagnostic.Severity? = nil,
         observabilityScope: ObservabilityScope? = .none,
-        delegate: BuildSystemDelegate? = nil
+        delegate: BuildSystemDelegate? = nil,
+        configuredTargetMode: PIFConfiguredTargetMode = .single
     ) async throws -> BuildSystem {
 
         if self.options.build.useIntegratedSwiftDriver && self.options.build.buildSystem == .native {
@@ -995,7 +996,8 @@ public final class SwiftCommandState {
             outputStream: outputStream,
             logLevel: logLevel ?? self.logLevel,
             observabilityScope: observabilityScope,
-            delegate: delegate
+            delegate: delegate,
+            configuredTargetMode: configuredTargetMode
         )
 
         // register the build system with the cancellation handler

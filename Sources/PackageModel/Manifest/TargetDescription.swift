@@ -191,7 +191,32 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
 
     /// Represents a target's usage of a plugin target or product.
     public enum PluginUsage: Hashable, Sendable {
-        case plugin(name: String, package: String?)
+        /// A plugin in the same or another package, with an optional condition.
+        case plugin(name: String, package: String?, condition: PluginUsageConditionDescription? = nil)
+
+        /// The condition under which the plugin is applied, if any.
+        public var condition: PluginUsageConditionDescription? {
+            switch self {
+            case .plugin(_, _, let condition):
+                condition
+            }
+        }
+
+        /// The name of the plugin target.
+        public var name: String {
+            switch self {
+            case .plugin(let name, _, _):
+                name
+            }
+        }
+
+        /// The name of the package that defines the plugin, or nil if it is in the same package.
+        public var package: String? {
+            switch self {
+            case .plugin(_, let package, _):
+                package
+            }
+        }
     }
 
     public init(
@@ -564,10 +589,11 @@ extension TargetDescription.PluginUsage: Codable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case let .plugin(name, package):
+        case let .plugin(name, package, condition):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .plugin)
             try unkeyedContainer.encode(name)
             try unkeyedContainer.encode(package)
+            try unkeyedContainer.encode(condition)
         }
     }
 
@@ -581,7 +607,8 @@ extension TargetDescription.PluginUsage: Codable {
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
             let name = try unkeyedValues.decode(String.self)
             let package = try unkeyedValues.decodeIfPresent(String.self)
-            self = .plugin(name: name, package: package)
+            let condition = try unkeyedValues.decodeIfPresent(PluginUsageConditionDescription.self)
+            self = .plugin(name: name, package: package, condition: condition)
         }
     }
 }

@@ -74,6 +74,63 @@ public struct ResolvedModule {
         }
     }
 
+    /// Represents a plugin usage of a resolved module.
+    public enum PluginUsage: Hashable {
+
+        /// A plugin defined as a module in the same package, with an optional condition.
+        case module(_ module: ResolvedModule, condition: Module.PluginUsageCondition?)
+
+        /// A plugin defined as a product in a package dependency, with an optional condition.
+        case product(_ product: ResolvedProduct, condition: Module.PluginUsageCondition?)
+
+        /// The condition under which the plugin is applied, if any.
+        public var condition: Module.PluginUsageCondition? {
+            switch self {
+            case .module(_, let condition), .product(_, let condition):
+                condition
+            }
+        }
+
+        /// The name of the plugin module or product.
+        public var name: String {
+            switch self {
+            case .module(let module, _):
+                module.name
+            case .product(let product, _):
+                product.name
+            }
+        }
+
+        /// The build-tool plugin module(s) referenced by this usage. A direct `.module`
+        /// usage yields at most one module (the empty array if the referenced module isn't
+        /// a build-tool plugin); a `.product` usage yields every plugin module reachable
+        /// through the product. Used everywhere a caller needs to enumerate plugins from
+        /// a `PluginUsage` without re-implementing the dispatch.
+        public var buildToolPluginModules: [ResolvedModule] {
+            switch self {
+            case .module(let module, _):
+                if (module.underlying as? PluginModule)?.capability == .buildTool {
+                    return [module]
+                }
+                return []
+            case .product(let product, _):
+                return product.modules.filter { $0.underlying is PluginModule }
+            }
+        }
+
+        /// Returns true if the condition is satisfied by the given build environments and enabled traits.
+        public func satisfies(hostEnvironment: BuildEnvironment, targetEnvironment: BuildEnvironment, enabledTraits: EnabledTraits) -> Bool {
+            guard let condition else {
+                return true
+            }
+            return condition.satisfies(
+                hostEnvironment: hostEnvironment,
+                targetEnvironment: targetEnvironment,
+                enabledTraits: enabledTraits
+            )
+        }
+    }
+
     /// The name of this module.
     public var name: String {
         self.underlying.name
@@ -107,10 +164,18 @@ public struct ResolvedModule {
     }
 
     /// Collect all of the plugins that the current target depends on.
-    package func pluginDependencies(satisfying environment: BuildEnvironment) -> [ResolvedModule] {
+    package func pluginDependencies(
+        satisfying hostEnvironment: BuildEnvironment,
+        targetEnvironment: BuildEnvironment,
+        enabledTraits: EnabledTraits
+    ) -> [ResolvedModule] {
         var plugins = IdentifiableSet<ResolvedModule>()
-        for dependency in self.dependencies(satisfying: environment) {
-            switch dependency {
+        for usage in self.pluginUsages where usage.satisfies(
+            hostEnvironment: hostEnvironment,
+            targetEnvironment: targetEnvironment,
+            enabledTraits: enabledTraits
+        ) {
+            switch usage {
             case .module(let module, _):
                 if let plugin = module.underlying as? PluginModule {
                     assert(plugin.capability == .buildTool)
@@ -160,6 +225,9 @@ public struct ResolvedModule {
     /// The dependencies of this module.
     public internal(set) var dependencies: [Dependency]
 
+    /// The plugin usages of this module.
+    public let pluginUsages: [PluginUsage]
+
     /// The default localization for resources.
     public let defaultLocalization: String?
 
@@ -199,6 +267,7 @@ public struct ResolvedModule {
         packageIdentity: PackageIdentity,
         underlying: Module,
         dependencies: [ResolvedModule.Dependency],
+        pluginUsages: [ResolvedModule.PluginUsage] = [],
         defaultLocalization: String? = nil,
         supportedPlatforms: [SupportedPlatform],
         platformConstraint: PlatformConstraint,
@@ -208,6 +277,7 @@ public struct ResolvedModule {
         self.packageIdentity = packageIdentity
         self.underlying = underlying
         self.dependencies = dependencies
+        self.pluginUsages = pluginUsages
         self.defaultLocalization = defaultLocalization
         self.supportedPlatforms = supportedPlatforms
         self.platformConstraint = platformConstraint

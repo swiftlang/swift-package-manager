@@ -243,7 +243,11 @@ extension PackagePIFProjectBuilder {
 
         let doccCatalogs = mainModule.underlying.doccCatalogPaths
 
-        // Add any additional source files emitted by custom build commands.
+        // Add any additional source files emitted by custom build commands. Tagged
+        // generated sources only flow into the matching configured target; untagged
+        // sources keep today's "match every CT" behavior via empty platform filters.
+        let generatedSourceFilters = platformFiltersByGeneratedSourcePath(forModule: mainModule.name)
+
         for path in generatedFiles.sources {
             let sourceFileRef = self.project.mainGroup[keyPath: mainTargetSourceFileGroupKeyPath]
                 .addFileReference { id in
@@ -253,15 +257,18 @@ extension PackagePIFProjectBuilder {
                         pathBase: .absolute
                     )
                 }
+            let filters = generatedSourceFilters[path] ?? []
             self.project[keyPath: mainModuleTargetKeyPath].addSourceFile { id in
-                BuildFile(id: id, fileRef: sourceFileRef)
+                BuildFile(id: id, fileRef: sourceFileRef, platformFilters: filters)
             }
             log(.debug, indent: 2, "Added generated source file '\(path)'")
         }
 
         // Add any additional resource files emitted by synthesized build commands
-        let generatedResourceFiles: [String] = {
-            var generatedResourceFiles = generatedFiles.resources.keys.map(\.pathString)
+        let generatedResourceFiles: [(path: String, platformFilters: Set<ProjectModel.PlatformFilter>)] = {
+            var generatedResourceFiles = generatedFiles.resources.keys.map { path in
+                (path: path.pathString, platformFilters: generatedSourceFilters[path] ?? [])
+            }
             generatedResourceFiles.append(
                 contentsOf: addBuildToolCommands(
                     from: synthesizedResourceGeneratingPluginInvocationResults,

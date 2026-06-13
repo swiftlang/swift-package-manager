@@ -197,18 +197,23 @@ public struct ModulesGraph {
     /// Any binary artifacts referenced by the graph.
     public let binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
 
+    /// The enabled traits map for all packages in the graph.
+    public let enabledTraitsMap: EnabledTraitsMap
+
     /// Construct a package graph directly.
     public init(
         rootPackages: [ResolvedPackage],
         rootDependencies: [ResolvedPackage] = [],
         packages: IdentifiableSet<ResolvedPackage>,
         dependencies requiredDependencies: [PackageReference],
-        binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
+        binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
+        enabledTraitsMap: EnabledTraitsMap = .init()
     ) throws {
         let rootPackages = IdentifiableSet(rootPackages)
         self.requiredDependencies = requiredDependencies
         self.inputPackages = rootPackages + rootDependencies
         self.binaryArtifacts = binaryArtifacts
+        self.enabledTraitsMap = enabledTraitsMap
         self.packages = packages
 
         var allModules = IdentifiableSet<ResolvedModule>()

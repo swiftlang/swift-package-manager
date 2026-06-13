@@ -61,6 +61,7 @@ public final class ClangModule: Module {
         dependencies: [Module.Dependency] = [],
         buildSettings: BuildSettings.AssignmentTable = .init(),
         buildSettingsDescription: [TargetBuildSettingDescription.Setting] = [],
+        pluginUsages: [PluginUsage] = [],
         usesUnsafeFlags: Bool,
         implicit: Bool
     ) throws {
@@ -86,7 +87,7 @@ public final class ClangModule: Module {
             packageAccess: false,
             buildSettings: buildSettings,
             buildSettingsDescription: buildSettingsDescription,
-            pluginUsages: [],
+            pluginUsages: pluginUsages,
             usesUnsafeFlags: usesUnsafeFlags,
             implicit: implicit
         )

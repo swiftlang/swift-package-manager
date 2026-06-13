@@ -6,3 +6,5 @@
 
 - ``plugin(name:)``
 - ``plugin(name:package:)``
+- ``plugin(name:condition:)``
+- ``plugin(name:package:condition:)``

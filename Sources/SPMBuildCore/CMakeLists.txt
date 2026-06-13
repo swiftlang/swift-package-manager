@@ -19,6 +19,7 @@ add_library(SPMBuildCore
   BuildSystem/BuildSystemCommand.swift
   BuildSystem/BuildSystemDelegate.swift
   BuildSystem/DiagnosticsCapturingBuildSystemDelegate.swift
+  BuildSystem/PIFConfiguredTargetMode.swift
   BuiltTestProduct.swift
   Diagnostics+Extensions.swift
   Plugins/DefaultPluginScriptRunner.swift

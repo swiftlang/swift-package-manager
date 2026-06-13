@@ -247,7 +247,8 @@ public protocol BuildSystemFactory {
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?,
-        delegate: BuildSystemDelegate?
+        delegate: BuildSystemDelegate?,
+        configuredTargetMode: PIFConfiguredTargetMode
     ) async throws -> any BuildSystem
 }
 
@@ -284,7 +285,8 @@ public struct BuildSystemProvider {
         outputStream: OutputByteStream? = .none,
         logLevel: Diagnostic.Severity? = .none,
         observabilityScope: ObservabilityScope? = .none,
-        delegate: BuildSystemDelegate? = nil
+        delegate: BuildSystemDelegate? = nil,
+        configuredTargetMode: PIFConfiguredTargetMode
     ) async throws -> any BuildSystem {
         guard let buildSystemFactory = self.providers[kind] else {
             throw Errors.buildSystemProviderNotRegistered(kind: kind)
@@ -299,7 +301,8 @@ public struct BuildSystemProvider {
             outputStream: outputStream,
             logLevel: logLevel,
             observabilityScope: observabilityScope,
-            delegate: delegate
+            delegate: delegate,
+            configuredTargetMode: configuredTargetMode
         )
     }
 }

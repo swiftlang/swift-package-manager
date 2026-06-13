@@ -317,7 +317,28 @@ extension Sequence<PackageModel.PackageCondition> {
         }
         return Set(pifPlatforms.flatMap { $0.toPlatformFilter() })
     }
+}
 
+extension PackageModel.Platform {
+    /// Maps a single `Platform` to the `Set<PlatformFilter>` SwiftBuild's
+    /// `CustomTaskProducer` expects. Goes through `BuildSettings.Platform.toPlatformFilter()`,
+    /// which is the same path `BuildFile.platformFilters` and `TargetDependency.platformFilters`
+    /// use today; this inherits the iOS-device+simulator pair, macCatalyst → (ios, maccatalyst),
+    /// Linux gnu env, etc.
+    func toPlatformFilter(toolsVersion: ToolsVersion) -> Set<ProjectModel.PlatformFilter> {
+        var pifPlatforms: [ProjectModel.BuildSettings.Platform] = []
+        if let pifPlatform = try? ProjectModel.BuildSettings.Platform(from: self) {
+            pifPlatforms.append(pifPlatform)
+        }
+        // Treat catalyst like macOS for backwards compatibility with older tools versions.
+        if pifPlatforms.contains(.macOS), toolsVersion < ToolsVersion.v5_5 {
+            pifPlatforms.append(.macCatalyst)
+        }
+        return Set(pifPlatforms.flatMap { $0.toPlatformFilter() })
+    }
+}
+
+extension Sequence<PackageModel.PackageCondition> {
     var splitIntoConcreteConditions: (
         [PackageModel.Platform?],
         [PackageModel.BuildConfiguration],

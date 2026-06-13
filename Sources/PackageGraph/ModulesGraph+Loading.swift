@@ -223,7 +223,8 @@ extension ModulesGraph {
             rootDependencies: resolvedPackages.filter { rootDependencies.contains($0.manifest) },
             packages: resolvedPackages,
             dependencies: requiredDependencies,
-            binaryArtifacts: binaryArtifacts
+            binaryArtifacts: binaryArtifacts,
+            enabledTraitsMap: enabledTraitsMap
         )
     }
 }
@@ -237,7 +238,7 @@ private func checkAllDependenciesAreUsed(
     for package in rootPackages {
         // List all dependency products dependent on by the package modules.
         let productDependencies = IdentifiableSet(package.modules.flatMap { module in
-            module.dependencies.compactMap { moduleDependency in
+            let dependencyProducts = module.dependencies.compactMap { moduleDependency in
                 switch moduleDependency {
                 case .product(let product, _):
                     product
@@ -245,11 +246,20 @@ private func checkAllDependenciesAreUsed(
                     nil
                 }
             }
+            let pluginProducts = module.pluginUsages.compactMap { pluginUsage in
+                switch pluginUsage {
+                case .product(let product, _):
+                    product
+                case .module:
+                    nil
+                }
+            }
+            return dependencyProducts + pluginProducts
         })
 
         // List all dependencies of modules that are guarded by a trait.
         let traitGuardedProductDependencies = Set(package.underlying.modules.flatMap { module in
-            module.dependencies.compactMap { moduleDependency in
+            let dependencyProducts = module.dependencies.compactMap { moduleDependency in
                 switch moduleDependency {
                 case .product(let product, let conditions):
                     if conditions.contains(where: { $0.traitCondition != nil }) {
@@ -261,6 +271,18 @@ private func checkAllDependenciesAreUsed(
                     return nil
                 }
             }
+            let pluginProducts = module.pluginUsages.compactMap { pluginUsage in
+                switch pluginUsage {
+                case .product(let product, let condition):
+                    if let condition, !condition.traits.isEmpty {
+                        return product.name
+                    }
+                    return nil
+                case .module:
+                    return nil
+                }
+            }
+            return dependencyProducts + pluginProducts
         })
 
         for dependencyId in package.dependencies {
@@ -587,8 +609,8 @@ private func createResolvedPackages(
         }
         packageBuilder.modules = moduleBuilders
 
-        // Establish dependencies between the modules. A module can only depend on another module present in the same
-        // package.
+        // Establish dependencies and local plugin usages between the modules.
+        // A module can only depend on another module present in the same package.
         let modulesMap = moduleBuilders.spm_createDictionary { ($0.module, $0) }
         for moduleBuilder in moduleBuilders {
             moduleBuilder.dependencies += try moduleBuilder.module.dependencies.compactMap { dependency in
@@ -603,6 +625,17 @@ private func createResolvedPackages(
                         dependencyBuilder.isTestSupportModule = true
                     }
                     return .module(dependencyBuilder, conditions: conditions)
+                case .product:
+                    return nil
+                }
+            }
+            moduleBuilder.pluginUsages += try moduleBuilder.module.pluginUsages.compactMap { usage in
+                switch usage {
+                case .module(let moduleDependency, let condition):
+                    guard let moduleBuilder = modulesMap[moduleDependency] else {
+                        throw InternalError("unknown plugin target \(moduleDependency.name)")
+                    }
+                    return .module(moduleBuilder, condition: condition)
                 case .product:
                     return nil
                 }
@@ -782,6 +815,26 @@ private func createResolvedPackages(
                 }
 
                 moduleBuilder.dependencies.append(.product(product, conditions: conditions))
+            }
+
+            // Establish product plugin usages.
+            for case .product(let productRef, let condition) in moduleBuilder.module.pluginUsages {
+                let product = lookupByProductIDs ? productDependencyMap[productRef.identity] :
+                    productDependencyMap[productRef.name]
+                guard let product else {
+                    if !observabilityScope.errorsReportedInAnyScope {
+                        let error = prepareProductDependencyNotFoundError(
+                            packageBuilder: packageBuilder,
+                            moduleBuilder: moduleBuilder,
+                            dependency: productRef,
+                            lookupByProductIDs: lookupByProductIDs
+                        )
+                        packageObservabilityScope.emit(error)
+                    }
+                    continue
+                }
+
+                moduleBuilder.pluginUsages.append(.product(product, condition: condition))
             }
         }
     }
@@ -1491,6 +1544,11 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
         case product(_ product: ResolvedProductBuilder, conditions: [PackageCondition])
     }
 
+    enum PluginUsage {
+        case module(_ module: ResolvedModuleBuilder, condition: Module.PluginUsageCondition?)
+        case product(_ product: ResolvedProductBuilder, condition: Module.PluginUsageCondition?)
+    }
+
     /// The reference to its package.
     let packageIdentity: PackageIdentity
 
@@ -1499,6 +1557,9 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
 
     /// The module dependencies of this module.
     var dependencies: [Dependency] = []
+
+    /// The plugin usages of this module.
+    var pluginUsages: [PluginUsage] = []
 
     /// All the modules this module depends on ignoring the conditions
     var allModuleDependencies: [ResolvedModuleBuilder] {
@@ -1575,10 +1636,21 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
             }
         }
 
+        let pluginUsages = try self.pluginUsages.map { usage -> ResolvedModule.PluginUsage in
+            switch usage {
+            case .module(let moduleBuilder, let condition):
+                return try .module(moduleBuilder.construct(), condition: condition)
+            case .product(let productBuilder, let condition):
+                let product = try productBuilder.construct()
+                return .product(product, condition: condition)
+            }
+        }
+
         return ResolvedModule(
             packageIdentity: self.packageIdentity,
             underlying: self.module,
             dependencies: dependencies,
+            pluginUsages: pluginUsages,
             defaultLocalization: self.defaultLocalization,
             supportedPlatforms: self.supportedPlatforms,
             // maintain existing functionality and default to .all

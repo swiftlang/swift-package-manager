@@ -115,11 +115,107 @@ public class Module {
         }
     }
 
-    /// A usage of a plugin module or product. Implemented as a dependency
-    /// for now and added to the `dependencies` array, since they currently
-    /// have exactly the same characteristics and to avoid duplicating the
-    /// implementation for now.
-    public typealias PluginUsage = Dependency
+    /// A condition that limits the application of a plugin usage.
+    public struct PluginUsageCondition: Hashable, Sendable {
+
+        /// The host platforms on which the plugin may run.
+        public let hostPlatforms: [Platform]
+
+        /// The target platforms for which the plugin may produce output.
+        public let targetPlatforms: [Platform]
+
+        /// The traits that must be enabled for the plugin to apply.
+        public let traits: Set<String>
+
+        public init(hostPlatforms: [Platform] = [], targetPlatforms: [Platform] = [], traits: Set<String> = EnabledTraits.defaults.names) {
+            precondition(!hostPlatforms.isEmpty || !targetPlatforms.isEmpty || !traits.isEmpty)
+            self.hostPlatforms = hostPlatforms
+            self.targetPlatforms = targetPlatforms
+            self.traits = traits
+        }
+
+        /// Returns true if the host axis is satisfied by the given host build environment.
+        public func hostAxisSatisfied(hostEnv: BuildEnvironment) -> Bool {
+            return hostPlatforms.isEmpty || hostPlatforms.contains(hostEnv.platform)
+        }
+
+        /// Returns true if the target axis is satisfied by the given target build environment.
+        public func targetAxisSatisfied(targetEnv: BuildEnvironment) -> Bool {
+            return targetPlatforms.isEmpty || targetPlatforms.contains(targetEnv.platform)
+        }
+
+        /// Returns true if the trait axis is satisfied by the given enabled-trait set.
+        ///
+        /// After trait resolution, `enabledTraits.names` contains the resolved trait names
+        /// (e.g. `{"Logging"}`) without the `"default"` sentinel. We re-insert it when the
+        /// build has defaults enabled so that a condition requiring `["default"]` matches.
+        public func traitsAxisSatisfied(enabledTraits: EnabledTraits) -> Bool {
+            if traits.isEmpty {
+                return true
+            }
+            let effectiveNames: Set<String> = enabledTraits.areDefaultsEnabled
+                ? enabledTraits.names.union(EnabledTraits.defaults.names)
+                : enabledTraits.names
+            return !traits.intersection(effectiveNames).isEmpty
+        }
+
+        /// Returns true if the condition is satisfied by the given build environments and enabled traits.
+        ///
+        /// Each axis uses OR semantics internally (the condition passes if the actual value matches
+        /// ANY of the listed values). Across axes, AND semantics apply (all specified axes must pass).
+        /// For traits: the condition is satisfied if at least one listed trait is enabled.
+        public func satisfies(hostEnvironment: BuildEnvironment, targetEnvironment: BuildEnvironment, enabledTraits: EnabledTraits) -> Bool {
+            return hostAxisSatisfied(hostEnv: hostEnvironment)
+                && targetAxisSatisfied(targetEnv: targetEnvironment)
+                && traitsAxisSatisfied(enabledTraits: enabledTraits)
+        }
+    }
+
+    /// A usage of a plugin module or product.
+    public enum PluginUsage {
+
+        /// A plugin defined as a module in the same package, with an optional condition.
+        case module(_ module: Module, condition: PluginUsageCondition?)
+
+        /// A plugin defined as a product in a package dependency, with an optional condition.
+        case product(_ product: ProductReference, condition: PluginUsageCondition?)
+
+        /// The plugin module, if this is a module usage.
+        public var module: Module? {
+            if case .module(let module, _) = self {
+                return module
+            } else {
+                return nil
+            }
+        }
+
+        /// The product reference, if this is a product usage.
+        public var product: ProductReference? {
+            if case .product(let product, _) = self {
+                return product
+            } else {
+                return nil
+            }
+        }
+
+        /// The condition under which the plugin is applied, if any.
+        public var condition: PluginUsageCondition? {
+            switch self {
+            case .module(_, let condition), .product(_, let condition):
+                return condition
+            }
+        }
+
+        /// The name of the plugin module or product.
+        public var name: String {
+            switch self {
+            case .module(let module, _):
+                return module.name
+            case .product(let product, _):
+                return product.name
+            }
+        }
+    }
 
     /// The name of the module.
     ///

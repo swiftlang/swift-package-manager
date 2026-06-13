@@ -37,7 +37,8 @@ private struct NativeBuildSystemFactory: BuildSystemFactory {
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?,
-        delegate: BuildSystemDelegate?
+        delegate: BuildSystemDelegate?,
+        configuredTargetMode: PIFConfiguredTargetMode
     ) async throws -> any BuildSystem {
         _ = try await swiftCommandState.getRootPackageInformation(enableAllTraits)
         let testEntryPointPath = productsBuildParameters?.testProductStyle.explicitlySpecifiedEntryPointPath
@@ -89,7 +90,8 @@ private struct XcodeBuildSystemFactory: BuildSystemFactory {
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?,
-        delegate: BuildSystemDelegate?
+        delegate: BuildSystemDelegate?,
+        configuredTargetMode: PIFConfiguredTargetMode
     ) throws -> any BuildSystem {
         return try XcodeBuildSystem(
             buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
@@ -121,7 +123,8 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
         outputStream: OutputByteStream?,
         logLevel: Diagnostic.Severity?,
         observabilityScope: ObservabilityScope?,
-        delegate: BuildSystemDelegate?
+        delegate: BuildSystemDelegate?,
+        configuredTargetMode: PIFConfiguredTargetMode
     ) throws -> any BuildSystem {
         return try SwiftBuildSystem(
             buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
@@ -145,6 +148,7 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
             ),
             delegate: delegate,
             scratchDirectory: self.swiftCommandState.scratchDirectory,
+            configuredTargetMode: configuredTargetMode,
         )
     }
 }

@@ -20,6 +20,8 @@ import struct Basics.SourceControlURL
 
 import enum SwiftBuild.ProjectModel
 
+import struct PackageModel.Platform
+
 extension PackagePIFBuilder {
     /// Contains all of the information resulting from applying a build tool plugin to a package target thats affect how
     /// a target is built.
@@ -31,8 +33,20 @@ extension PackagePIFBuilder {
         /// Absolute paths of output files of any prebuild commands.
         public let prebuildCommandOutputPaths: [AbsolutePath]
 
+        /// Per-output platform tag, parallel to `prebuildCommandOutputPaths`. `nil` means
+        /// the output is not platform-attributed (preserved today's "match every platform"
+        /// behavior). Used downstream by `PackagePIFProjectBuilder` to gate which
+        /// configured targets see each derived source file.
+        public let prebuildCommandOutputPlatforms: [PackageModel.Platform?]
+
         /// Build commands to incorporate into the dependency graph.
         public let buildCommands: [CustomBuildCommand]
+
+        /// Per-command platform tag, parallel to `buildCommands`. `nil` means the command
+        /// is not platform-attributed. Used downstream by `PackagePIFProjectBuilder` to
+        /// attach `CustomTask.platformFilters` for SwiftBuild's per-`ConfiguredTarget`
+        /// dispatch.
+        public let buildCommandPlatforms: [PackageModel.Platform?]
 
         /// Absolute paths of all derived source files that should be compiled as sources of the target.
         /// This includes the outputs of any prebuild commands as well as all the outputs referenced in all the build
@@ -43,10 +57,20 @@ extension PackagePIFBuilder {
 
         public init(
             prebuildCommandOutputPaths: [AbsolutePath],
-            buildCommands: [CustomBuildCommand]
+            buildCommands: [CustomBuildCommand],
+            prebuildCommandOutputPlatforms: [PackageModel.Platform?]? = nil,
+            buildCommandPlatforms: [PackageModel.Platform?]? = nil
         ) {
             self.prebuildCommandOutputPaths = prebuildCommandOutputPaths
             self.buildCommands = buildCommands
+            self.prebuildCommandOutputPlatforms = prebuildCommandOutputPlatforms
+                ?? Array(repeating: nil, count: prebuildCommandOutputPaths.count)
+            self.buildCommandPlatforms = buildCommandPlatforms
+                ?? Array(repeating: nil, count: buildCommands.count)
+            precondition(self.prebuildCommandOutputPlatforms.count == prebuildCommandOutputPaths.count,
+                "prebuildCommandOutputPlatforms must be parallel to prebuildCommandOutputPaths")
+            precondition(self.buildCommandPlatforms.count == buildCommands.count,
+                "buildCommandPlatforms must be parallel to buildCommands")
         }
     }
 

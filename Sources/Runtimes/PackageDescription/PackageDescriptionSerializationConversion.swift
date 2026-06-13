@@ -288,10 +288,23 @@ extension Serialization.PluginNetworkPermissionScope {
     }
 }
 
+
+@available(_PackageDescription, introduced: 6.5)
+extension Serialization.PluginUsageCondition {
+    init(_ condition: PackageDescription.PluginUsageCondition) {
+        self.hostPlatforms = condition.hostPlatforms?.map { .init($0) }
+        self.targetPlatforms = condition.targetPlatforms?.map { .init($0) }
+        self.traits = condition.traits?.sorted()
+    }
+}
+
 extension Serialization.PluginUsage {
     init(_ usage: PackageDescription.Target.PluginUsage) {
         switch usage {
-        case .plugin(let name, let package): self = .plugin(name: name, package: package)
+        case .plugin(let name, let package):
+            self = .plugin(name: name, package: package, condition: nil)
+        case .pluginWithCondition(let name, let package, let condition):
+            self = .plugin(name: name, package: package, condition: condition.map { .init($0) })
         }
     }
 }

@@ -323,6 +323,11 @@ extension PackagePIFProjectBuilder {
             addBuildToolPluginCommands: false
         )
 
+        // Add any additional source files emitted by custom build commands. Tagged
+        // generated sources only flow into the matching configured target; untagged
+        // sources keep today's "match every CT" behavior via empty platform filters.
+        let generatedSourceFilters = platformFiltersByGeneratedSourcePath(forModule: sourceModule.name)
+
         // Either create or reuse the resource bundle.
         var resourceBundleName = inputResourceBundleName
         let shouldGenerateBundleAccessor: Bool
@@ -331,10 +336,13 @@ extension PackagePIFProjectBuilder {
             // FIXME: We are not handling resource rules here, but the same is true for non-generated resources.
             // (Today, everything gets essentially treated as `.processResource` even if it may have been declared as
             // `.copy` in the manifest.)
+            let generatedResources = generatedFiles.resources.keys.map { path in
+                (path: path.pathString, platformFilters: generatedSourceFilters[path] ?? [])
+            }
             let (result, resourceBundle) = try addResourceBundle(
                 for: sourceModule,
                 targetKeyPath: sourceModuleTargetKeyPath,
-                generatedResourceFiles: generatedFiles.resources.keys.map(\.pathString)
+                generatedResourceFiles: generatedResources
             )
             if let resourceBundle { self.builtModulesAndProducts.append(resourceBundle) }
 
@@ -683,8 +691,9 @@ extension PackagePIFProjectBuilder {
             let sourceFileRef = self.project.mainGroup[keyPath: targetSourceFileGroupKeyPath].addFileReference { id in
                 FileReference(id: id, path: path.pathString, pathBase: .absolute)
             }
+            let filters = generatedSourceFilters[path] ?? []
             self.project[keyPath: sourceModuleTargetKeyPath].addSourceFile { id in
-                BuildFile(id: id, fileRef: sourceFileRef)
+                BuildFile(id: id, fileRef: sourceFileRef, platformFilters: filters)
             }
             log(.debug, indent: 2, "Added generated source file '\(path)'")
         }

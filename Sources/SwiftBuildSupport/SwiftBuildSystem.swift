@@ -266,6 +266,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     /// Additional rules for different file types generated from plugins.
     private let additionalFileRules: [FileRuleDescription]
 
+    /// Whether this build system can drive multiple configured targets at different
+    /// platforms in one PIF generation. Threaded into ``PIFBuilderParameters`` to gate
+    /// the per-platform plugin-invocation fan-out. See ``PIFConfiguredTargetMode``.
+    package let configuredTargetMode: PIFConfiguredTargetMode
+
     public var builtTestProducts: [BuiltTestProduct] {
         get async {
             do {
@@ -348,6 +353,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         pluginConfiguration: PluginConfiguration,
         delegate: BuildSystemDelegate?,
         scratchDirectory: Basics.AbsolutePath, // currently used to create the symbolic links
+        configuredTargetMode: PIFConfiguredTargetMode,
     ) throws {
         self.buildParameters = buildParameters
         self.hostBuildParameters = hostBuildParameters
@@ -361,6 +367,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         self.pluginConfiguration = pluginConfiguration
         self.delegate = delegate
         self.scratchDirectory = scratchDirectory
+        self.configuredTargetMode = configuredTargetMode
     }
 
     private func createREPLArguments(
@@ -1357,7 +1364,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     addLocalRpaths: self.buildParameters.linkingParameters.shouldDisableLocalRpath ? .never : .always,
                     materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
                     createDynamicVariantsForLibraryProducts: false,
-                    hostBuildProductsPath: try await self.buildProductsPath(for: self.hostBuildParameters)
+                    hostBuildProductsPath: try await self.buildProductsPath(for: self.hostBuildParameters),
+                    configuredTargetMode: self.configuredTargetMode
                 ),
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,
@@ -1373,7 +1381,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return try await pifBuilder.generatePIF(
             preservePIFModelStructure: preserveStructure,
             printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
-            buildParameters: buildParameters
+            targetBuildParameters: buildParameters,
+            hostBuildParameters: hostBuildParameters
         )
     }
 
