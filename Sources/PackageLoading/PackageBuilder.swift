@@ -34,7 +34,7 @@ public enum ModuleError: Swift.Error {
     case duplicateModule(moduleName: String, packages: [PackageIdentity])
 
     /// The referenced target could not be found.
-    case moduleNotFound(String, TargetDescription.TargetKind, shouldSuggestRelaxedSourceDir: Bool)
+    case moduleNotFound(String, TargetDescription.TargetKind, shouldSuggestRelaxedSourceDir: Bool, expectedLocation: String)
 
     /// The artifact for the binary target could not be found.
     case artifactNotFound(moduleName: String, expectedArtifactName: String)
@@ -115,11 +115,10 @@ extension ModuleError: CustomStringConvertible {
         case .duplicateModule(let target, let packages):
             let packages = packages.map(\.description).sorted().joined(separator: "', '")
             return "multiple packages ('\(packages)') declare targets with a conflicting name: '\(target)’; target names need to be unique across the package graph"
-        case .moduleNotFound(let target, let type, let shouldSuggestRelaxedSourceDir):
-            let folderName = (type == .test) ? "Tests" : (type == .plugin) ? "Plugins" : "Sources"
-            var clauses = ["Source files for target \(target) should be located under '\(folderName)/\(target)'"]
+        case .moduleNotFound(let target, let type, let shouldSuggestRelaxedSourceDir, let expectedLocation):
+            var clauses = ["Source files for target \(target) of type \(type) should be located under '\(expectedLocation)/\(target)'"]
             if shouldSuggestRelaxedSourceDir {
-                clauses.append("'\(folderName)'")
+                clauses.append("'\(expectedLocation)'")
             }
             clauses.append("or a custom sources path can be set with the 'path' property in Package.swift")
             return clauses.joined(separator: ", ")
@@ -295,7 +294,8 @@ public final class PackageBuilder {
     public static let predefinedTestDirectories = ["Tests", "Sources", "Source", "src", "srcs"]
     /// Predefined plugin directories, in order of preference.
     public static let predefinedPluginDirectories = ["Plugins"]
-
+    /// Predefined template directories, in order of preference
+    public static let predefinedTemplateDirectories = ["Templates", "Template"]
     /// The identity for the package being constructed.
     private let identity: PackageIdentity
 
@@ -531,7 +531,7 @@ public final class PackageBuilder {
 
     /// Finds the predefined directories for regular targets, test targets, and plugin targets.
     private func findPredefinedTargetDirectory()
-        -> (targetDir: String, testTargetDir: String, pluginTargetDir: String)
+    -> (targetDir: String, testTargetDir: String, pluginTargetDir: String, templateTargetDir: String)
     {
         let targetDir = PackageBuilder.predefinedSourceDirectories.first(where: {
             self.fileSystem.isDirectory(self.packagePath.appending(component: $0))
@@ -545,7 +545,11 @@ public final class PackageBuilder {
             self.fileSystem.isDirectory(self.packagePath.appending(component: $0))
         }) ?? PackageBuilder.predefinedPluginDirectories[0]
 
-        return (targetDir, testTargetDir, pluginTargetDir)
+        let templateTargetDir = PackageBuilder.predefinedTemplateDirectories.first(where: {
+            self.fileSystem.isDirectory(self.packagePath.appending(component: $0))
+        }) ?? PackageBuilder.predefinedTemplateDirectories[0]
+
+        return (targetDir, testTargetDir, pluginTargetDir, templateTargetDir)
     }
 
     /// Construct targets according to PackageDescription 4 conventions.
@@ -565,7 +569,10 @@ public final class PackageBuilder {
             fs: fileSystem,
             path: packagePath.appending(component: predefinedDirs.pluginTargetDir)
         )
-
+        let predefinedTemplateTargetDirectory = PredefinedTargetDirectory(
+            fs: fileSystem,
+            path: packagePath.appending(component: predefinedDirs.templateTargetDir)
+        )
         /// Returns the path of the given target.
         func findPath(for target: TargetDescription) throws -> AbsolutePath {
             if target.type == .binary {
@@ -595,14 +602,23 @@ public final class PackageBuilder {
             }
 
             // Check if target is present in the predefined directory.
-            let predefinedDir: PredefinedTargetDirectory = switch target.type {
-            case .test:
-                predefinedTestTargetDirectory
-            case .plugin:
-                predefinedPluginTargetDirectory
-            default:
-                predefinedTargetDirectory
-            }
+            let predefinedDir: PredefinedTargetDirectory = {
+                switch target.type {
+                case .test:
+                    predefinedTestTargetDirectory
+                case .plugin:
+                    predefinedPluginTargetDirectory
+                case .executable:
+                    if target.templateInitializationOptions != nil {
+                        predefinedTemplateTargetDirectory
+                    } else {
+                        predefinedTargetDirectory
+                    }
+                default:
+                    predefinedTargetDirectory
+                }
+            }()
+
             let path = predefinedDir.path.appending(component: target.name)
 
             // Return the path if the predefined directory contains it.
@@ -628,7 +644,8 @@ public final class PackageBuilder {
                 target.name,
                 target.type,
                 shouldSuggestRelaxedSourceDir: self.manifest
-                    .shouldSuggestRelaxedSourceDir(type: target.type)
+                    .shouldSuggestRelaxedSourceDir(type: target.type),
+                expectedLocation: path.pathString
             )
         }
 
@@ -677,7 +694,8 @@ public final class PackageBuilder {
             throw ModuleError.moduleNotFound(
                 missingModuleName,
                 type,
-                shouldSuggestRelaxedSourceDir: self.manifest.shouldSuggestRelaxedSourceDir(type: type)
+                shouldSuggestRelaxedSourceDir: self.manifest.shouldSuggestRelaxedSourceDir(type: type),
+                expectedLocation: PackageBuilder.suggestedPredefinedSourceDirectory(type: type)
             )
         }
 
@@ -1042,6 +1060,7 @@ public final class PackageBuilder {
                 buildSettingsDescription: manifestTarget.settings,
                 // unsafe flags check disabled in 6.2
                 usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
+                template: manifestTarget.templateInitializationOptions != nil,
                 implicit: false
             )
         } else {
@@ -1087,8 +1106,8 @@ public final class PackageBuilder {
                 dependencies: dependencies,
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
-                // unsafe flags check disabled in 6.2
                 usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
+                template: manifestTarget.templateInitializationOptions != nil,
                 implicit: false
             )
         }
@@ -1929,6 +1948,7 @@ extension PackageBuilder {
                     buildSettings: buildSettings,
                     buildSettingsDescription: targetDescription.settings,
                     usesUnsafeFlags: false,
+                    template: false, // Snippets are not templates
                     implicit: true
                 )
             }

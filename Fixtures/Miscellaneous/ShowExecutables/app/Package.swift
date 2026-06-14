@@ -1,4 +1,4 @@
-// swift-tools-version:5.10
+// swift-tools-version:6.3.0
 import PackageDescription
 
 let package = Package(
@@ -6,16 +6,20 @@ let package = Package(
     products: [
         .executable(
             name: "dealer",
-            targets: ["Dealer"]
+            targets: ["dealer"]
         ),
-    ],
+    ] + .template(name: "TemplateExample"),
     dependencies: [
         .package(path: "../deck-of-playing-cards"),
     ],
     targets: [
         .executableTarget(
-            name: "Dealer",
-            path: "./"
+            name: "dealer",
         ),
-    ]
+    ] + .template(
+        name: "TemplateExample",
+        dependencies: [],
+        initialPackageType: .executable,
+        description: "Make your own Swift package template."
+    ),
 )

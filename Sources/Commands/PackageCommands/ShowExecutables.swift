@@ -36,6 +36,8 @@ struct ShowExecutables: AsyncSwiftCommand {
 
         let executables = packageGraph.allProducts.filter({
             $0.type == .executable || $0.type == .snippet
+        }).filter({
+            $0.modules.allSatisfy( { !$0.underlying.template })
         }).map { product -> Executable in
             if !rootPackages.contains(product.packageIdentity) {
                 return Executable(package: product.packageIdentity.description, name: product.name)
