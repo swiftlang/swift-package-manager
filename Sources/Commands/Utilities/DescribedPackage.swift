@@ -159,6 +159,10 @@ struct DescribedPackage: Encodable {
                 self.type = "buildTool"
                 self.intent = nil
                 self.permissions = nil
+            case .externalBuilder:
+                self.type = "externalBuilder"
+                self.intent = nil
+                self.permissions = nil
             case .command(let intent, let permissions):
                 self.type = "command"
                 self.intent = .init(from: intent)

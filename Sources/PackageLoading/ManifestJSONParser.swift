@@ -46,6 +46,7 @@ enum ManifestJSONParser {
         var providers: [SystemPackageProviderDescription]?
         var products: [ProductDescription] = []
         var traits: Set<TraitDescription> = []
+        var pluginUsages: [Manifest.PluginUsage]?
         var cxxLanguageStandard: String?
         var cLanguageStandard: String?
     }
@@ -115,6 +116,7 @@ enum ManifestJSONParser {
             providers: input.package.providers?.map { .init($0) },
             products: try input.package.products.map { try .init($0) },
             traits: Set(input.package.traits?.map { TraitDescription($0) } ?? []),
+            pluginUsages: input.package.pluginUsages?.map { TargetDescription.PluginUsage.init($0) },
             cxxLanguageStandard: input.package.cxxLanguageStandard?.rawValue,
             cLanguageStandard: input.package.cLanguageStandard?.rawValue
         )
@@ -573,6 +575,8 @@ extension TargetDescription.PluginCapability {
         switch capability {
         case .buildTool:
             self = .buildTool
+        case .externalBuilder:
+            self = .externalBuilder
         case .command(let intent, let permissions):
             self = .command(intent: .init(intent), permissions: permissions.map { .init($0) })
         }
@@ -692,6 +696,16 @@ extension TargetBuildSettingDescription.Kind {
                 throw InternalError("invalid (empty) build settings value")
             }
             return .headerSearchPath(value)
+        case "publicHeaderPath":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            return .publicHeaderPath(value)
+        case "bridgingHeader":
+            guard values.count == 2, let visibility = TargetBuildSettingDescription.Visibility(rawValue: values[1]) else {
+                throw InternalError("invalid values")
+            }
+            return .bridgingHeader(values[0], visibility)
         case "define":
             guard let value = values.first else {
                 throw InternalError("invalid (empty) build settings value")

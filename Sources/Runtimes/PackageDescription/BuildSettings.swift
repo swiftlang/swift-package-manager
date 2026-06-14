@@ -162,6 +162,10 @@ public struct CSetting: Sendable {
         return CSetting(name: "headerSearchPath", value: [path], condition: condition)
     }
 
+    public static func publicHeaderPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> CSetting {
+        return CSetting(name: "publicHeaderPath", value: [path], condition: condition)
+    }
+
     /// Defines a value for a macro.
     ///
     /// If you don't specify a value, the macro's default value is 1.
@@ -480,6 +484,15 @@ public struct SwiftSetting: Sendable {
     @available(_PackageDescription, introduced: 5.0)
     public static func define(_ name: String, _ condition: BuildSettingCondition? = nil) -> SwiftSetting {
         return SwiftSetting(name: "define", value: [name], condition: condition)
+    }
+
+    public enum Visibility: String {
+        case `public`
+        case `internal`
+    }
+
+    public static func bridgingHeader(_ path: String, visibility: Visibility = .internal, _ condition: BuildSettingCondition? = nil) -> SwiftSetting {
+        return SwiftSetting(name: "bridgingHeader", value: [path, visibility.rawValue], condition: condition)
     }
 
     /// Set unsafe flags to pass arbitrary command-line flags to the

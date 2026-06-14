@@ -400,12 +400,34 @@ public final class PackageBuilder {
         // Find the special directory for targets.
         let targetSpecialDirs = self.findTargetSpecialDirs(targets)
 
+        // Get dependencies from the plugin usages of this target.
+        let pluginUsages: [Module.PluginUsage] = manifest.pluginUsages.map {
+            $0.compactMap { usage in
+                switch usage {
+                case .plugin(let name, let package):
+                    if let package {
+                        return .product(Module.ProductReference(name: name, package: package), conditions: [])
+                    } else {
+                        if let target = targets.first(where: { $0.name == name }) {
+                            return .module(target, conditions: [])
+                        } else if let target = products.first(where: { $0.name == name })?.modules.first {
+                            return .module(target, conditions: [])
+                        } else {
+                            self.observabilityScope.emit(.pluginNotFound(name: name))
+                            return nil
+                        }
+                    }
+                }
+            }
+        } ?? []
+
         return Package(
             identity: self.identity,
             manifest: self.manifest,
             path: self.packagePath,
             targets: targets,
             products: products,
+            pluginUsages: pluginUsages,
             targetSearchPath: self.packagePath.appending(component: targetSpecialDirs.targetDir),
             testTargetSearchPath: self.packagePath.appending(component: targetSpecialDirs.testTargetDir)
         )
@@ -1138,7 +1160,38 @@ public final class PackageBuilder {
                 guard path.isDescendantOfOrEqual(to: self.packagePath) else {
                     throw ModuleError.invalidHeaderSearchPath(value)
                 }
+            case .publicHeaderPath(let value):
+                values = [value]
 
+                switch setting.tool {
+                case .c, .cxx:
+                    decl = .PUBLIC_HEADER_PATHS
+                case .swift, .linker:
+                    throw InternalError("unexpected tool for setting type \(setting)")
+                }
+
+                // Ensure that the search path is contained within the package.
+                _ = try RelativePath(validating: value)
+                let path = try AbsolutePath(validating: value, relativeTo: targetRoot)
+                guard path.isDescendantOfOrEqual(to: self.packagePath) else {
+                    throw ModuleError.invalidHeaderSearchPath(value)
+                }
+            case .bridgingHeader(let path, let visibility):
+                values = [path, visibility.rawValue]
+
+                switch setting.tool {
+                case .swift:
+                    decl = .SWIFT_BRIDGING_HEADER
+                case .c, .cxx, .linker:
+                    throw InternalError("unexpected tool for setting type \(setting)")
+                }
+
+                // Ensure that the search path is contained within the package.
+                _ = try RelativePath(validating: path)
+                let absPath = try AbsolutePath(validating: path, relativeTo: targetRoot)
+                guard absPath.isDescendantOfOrEqual(to: self.packagePath) else {
+                    throw ModuleError.invalidHeaderSearchPath(path)
+                }
             case .define(let value):
                 values = [value]
 

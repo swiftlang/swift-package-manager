@@ -163,6 +163,8 @@ public final class Target {
         @available(_PackageDescription, introduced: 5.5)
         case buildTool
 
+        case externalBuilder
+
         /// Specifies that the plug-in provides a user command capability.
         ///
         ///- Parameters:

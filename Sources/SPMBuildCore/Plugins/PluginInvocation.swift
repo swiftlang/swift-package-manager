@@ -38,6 +38,7 @@ public enum PluginAction {
     )
     case performCommand(package: ResolvedPackage, arguments: [String])
     case performXcodeProjectCommand(project: XcodeProjectRepresentation, arguments: [String])
+    case externalBuild(package: ResolvedPackage, arguments: [String], triple: Triple, sdkPath: URL?)
 }
 
 public struct PluginTool {
@@ -262,6 +263,26 @@ extension PluginModule {
                     context: wireInput,
                     rootProjectId: rootProjectId,
                     arguments: arguments)
+
+            case .externalBuild(let package, let arguments, let triple, let sdkPath):
+                let rootPackageId = try serializer.serialize(package: package)
+                let wireInput = WireInput(
+                    paths: serializer.paths,
+                    targets: serializer.targets,
+                    products: serializer.products,
+                    packages: serializer.packages,
+                    xcodeTargets: serializer.xcodeTargets,
+                    xcodeProjects: serializer.xcodeProjects,
+                    pluginWorkDirId: pluginWorkDirId,
+                    toolSearchDirIds: toolSearchDirIds,
+                    accessibleTools: accessibleTools)
+                actionMessage = .externalBuild(
+                    context: wireInput,
+                    rootPackageId: rootPackageId,
+                    arguments: arguments,
+                    triple: triple.tripleString,
+                    sdkPath: sdkPath
+                )
             }
             initialMessage = try actionMessage.toData()
         }

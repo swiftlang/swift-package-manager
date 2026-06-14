@@ -147,6 +147,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
     /// Represents the declared capability of a package plugin.
     public enum PluginCapability: Hashable, Sendable {
         case buildTool
+        case externalBuilder
         case command(intent: PluginCommandIntent, permissions: [PluginPermission])
     }
 
@@ -524,7 +525,7 @@ extension TargetDescription.Dependency: ExpressibleByStringLiteral {
 
 extension TargetDescription.PluginCapability: Codable {
     private enum CodingKeys: CodingKey {
-        case buildTool, command
+        case buildTool, externalBuilder, command
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -532,6 +533,8 @@ extension TargetDescription.PluginCapability: Codable {
         switch self {
         case .buildTool:
             try container.encodeNil(forKey: .buildTool)
+        case .externalBuilder:
+            try container.encodeNil(forKey: .externalBuilder)
         case .command(let a1, let a2):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .command)
             try unkeyedContainer.encode(a1)
@@ -547,6 +550,8 @@ extension TargetDescription.PluginCapability: Codable {
         switch key {
         case .buildTool:
             self = .buildTool
+        case .externalBuilder:
+            self = .externalBuilder
         case .command:
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
             let a1 = try unkeyedValues.decode(TargetDescription.PluginCommandIntent.self)

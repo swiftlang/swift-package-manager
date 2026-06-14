@@ -154,6 +154,11 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 "-framework", "PackagePlugin",
                 "-Xlinker", "-rpath", "-Xlinker", pluginLibraryPath.parentDirectory.pathString,
             ]
+
+            // If not in the PackageFrameworks directory, need the swiftmodule that's in the same directory
+            if pluginLibraryPath.parentDirectory.basename != "PackageFrameworks" {
+                commandLine += ["-I", pluginLibraryPath.parentDirectory.pathString]
+            }
         } else {
             commandLine += [
                 "-L", pluginLibraryPath.pathString,

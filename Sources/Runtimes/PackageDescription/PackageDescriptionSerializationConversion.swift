@@ -246,6 +246,7 @@ extension Serialization.PluginCapability {
     init(_ capability: PackageDescription.Target.PluginCapability) {
         switch capability {
         case .buildTool: self = .buildTool
+        case .externalBuilder: self = .externalBuilder
         case .command(let intent, let permissions): self = .command(
                 intent: .init(intent),
                 permissions: permissions.map { .init($0) }
@@ -411,6 +412,7 @@ extension Serialization.Package {
         self.swiftLanguageVersions = package.swiftLanguageModes?.map { .init($0) }
         self.cLanguageStandard = package.cLanguageStandard.map { .init($0) }
         self.cxxLanguageStandard = package.cxxLanguageStandard.map { .init($0) }
+        self.pluginUsages = package.plugins?.map { .init($0) }
     }
 }
 

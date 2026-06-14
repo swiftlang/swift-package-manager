@@ -184,6 +184,7 @@ enum Serialization {
 
     enum PluginCapability: Codable {
         case buildTool
+        case externalBuilder
         case command(intent: PluginCommandIntent, permissions: [PluginPermission])
     }
 
@@ -303,6 +304,7 @@ enum Serialization {
         let swiftLanguageVersions: [SwiftVersion]?
         let cLanguageStandard: CLanguageStandard?
         let cxxLanguageStandard: CXXLanguageStandard?
+        let pluginUsages: [PluginUsage]?
     }
 }
 

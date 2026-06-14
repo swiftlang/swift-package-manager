@@ -19,10 +19,12 @@ public enum BuildSettings {
             .init("SWIFT_ACTIVE_COMPILATION_CONDITIONS")
         public static let OTHER_SWIFT_FLAGS: Declaration = .init("OTHER_SWIFT_FLAGS")
         public static let SWIFT_VERSION: Declaration = .init("SWIFT_VERSION")
+        public static let SWIFT_BRIDGING_HEADER: Declaration = .init("SWIFT_BRIDGING_HEADER")
 
         // C family.
         public static let GCC_PREPROCESSOR_DEFINITIONS: Declaration = .init("GCC_PREPROCESSOR_DEFINITIONS")
         public static let HEADER_SEARCH_PATHS: Declaration = .init("HEADER_SEARCH_PATHS")
+        public static let PUBLIC_HEADER_PATHS: Declaration = .init("PUBLIC_HEADER_PATHS")
         public static let OTHER_CFLAGS: Declaration = .init("OTHER_CFLAGS")
         public static let OTHER_CPLUSPLUSFLAGS: Declaration = .init("OTHER_CPLUSPLUSFLAGS")
 

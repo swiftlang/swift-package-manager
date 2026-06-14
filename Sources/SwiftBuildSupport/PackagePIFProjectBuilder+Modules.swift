@@ -22,6 +22,7 @@ import struct Basics.SourceControlURL
 import class PackageModel.Manifest
 import class PackageModel.Module
 import class PackageModel.BinaryModule
+import class PackageModel.PluginModule
 import enum PackageModel.PrebuiltsPlatform
 import class PackageModel.Product
 import class PackageModel.SystemLibraryModule
@@ -540,6 +541,25 @@ extension PackagePIFProjectBuilder {
             // We are setting this instead of `LD_DYLIB_INSTALL_NAME` because `mh_object` files
             // don't actually have install names, so we should not pass an install name to the linker.
             settings[.TAPI_DYLIB_INSTALL_NAME] = sourceModule.name
+        }
+
+        // Add external build plugins as library paths TODO: until we get a swiftpm build setting for that
+        for plugin in self.package.pluginUsages {
+            let pluginTarget: PluginModule?
+            switch plugin {
+            case .module(let module, _):
+                pluginTarget = module.underlying as? PluginModule
+            case .product(let product, _):
+                pluginTarget = product.modules.compactMap({ $0.underlying as? PluginModule }).first
+            }
+            guard let pluginTarget else {
+                continue
+            }
+
+            let pluginOutputDir = pluginTarget.outputDirectory(pluginWorkingDirectory: pifBuilder.pluginWorkingDirectory, package: self.package)
+                .appending("$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)")
+
+            impartedSettings[.LIBRARY_SEARCH_PATHS, default: ["$(inherited)"]].append(pluginOutputDir.pathString)
         }
 
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"

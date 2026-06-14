@@ -95,6 +95,9 @@ public final class Manifest: Sendable {
     /// The supported Swift language versions of the package.
     public let swiftLanguageVersions: [SwiftLanguageVersion]?
 
+    public typealias PluginUsage = TargetDescription.PluginUsage
+    public let pluginUsages: [PluginUsage]?
+
     /// The pkg-config name of a system package.
     public let pkgConfig: String?
 
@@ -129,6 +132,7 @@ public final class Manifest: Sendable {
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
         traits: Set<TraitDescription>,
+        pluginUsages: [PluginUsage]?,
         pruneDependencies: Bool = false
     ) {
         self.displayName = displayName
@@ -151,6 +155,7 @@ public final class Manifest: Sendable {
         self.targets = targets
         self.targetMap = Dictionary(targets.lazy.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
         self.traits = traits
+        self.pluginUsages = pluginUsages
         self.pruneDependencies = pruneDependencies
     }
 
