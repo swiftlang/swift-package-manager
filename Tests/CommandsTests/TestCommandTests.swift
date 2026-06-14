@@ -297,7 +297,6 @@ struct TestCommandTests {
     }
 
     @Test(
-        .IssueWindowsLongPath,
         .tags(
             .Feature.TargetType.Executable,
         ),
@@ -307,7 +306,6 @@ struct TestCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestableExeWithDifferentProductName") { fixturePath in
                 _ = try await execute(
                     ["--vv"],
@@ -316,9 +314,6 @@ struct TestCommandTests {
                     buildSystem: buildSystem,
                 )
             }
-        } when: {
-            .windows == ProcessInfo.hostOperatingSystem
-        }
     }
 
     @Test(
@@ -358,13 +353,11 @@ struct TestCommandTests {
     }
 
     @Test(
-        .IssueWindowsLongPath,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testProductFlag(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await withKnownIssue(isIntermittent: true) {
             let configuration = BuildConfiguration.debug
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 let (stdout, _) = try await executeSwiftTest(
@@ -376,9 +369,6 @@ struct TestCommandTests {
                 )
                 #expect(stdout.contains("Executed 3 tests"))
             }
-        } when: {
-            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
-        }
     }
 
     @Test(
@@ -1191,6 +1181,62 @@ struct TestCommandTests {
     }
 
     @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9431", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func noTestingIfBuildFails(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "Miscellaneous/ImportOfMissingDependency") { path in
+            let fullPath = try resolveSymlinks(path)
+            let error = await #expect(throws: SwiftPMError.self ) {
+                try await executeSwiftTest(
+                    fullPath,
+                    configuration: configuration,
+                    // extraArgs: ["--explicit-target-dependency-import-check=warn"],
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true,
+                )
+            }
+
+            guard case SwiftPMError.executionFailure(_, let stdout, let stderr) = try #require(error) else {
+                Issue.record("Incorrect error was raised.")
+                return
+            }
+
+            #expect(
+                stderr.contains("error: fatalError") == true,
+                "stdout: \(stdout)\n\nstderr: \(stderr)",
+            )
+            #expect(
+                stderr.contains("myTests") == false,
+                "stdout: \(stdout)\n\nstderr: \(stderr)",
+            )
+            #expect(
+                stderr.contains("mySwiftTestingTests (Swift Testing)") == false,
+                "stdout: \(stdout)\n\nstderr: \(stderr)",
+            )
+            #expect(
+                stderr.contains("myXCTests (XCTest)") == false,
+                "stdout: \(stdout)\n\nstderr: \(stderr)",
+            )
+            switch buildSystem {
+                case .native:
+                    break
+                case .swiftbuild:
+                    #expect(
+                        stderr.contains("Build failed"),
+                        "stdout: \(stdout)\n\nstderr: \(stderr)",
+                    )
+                case .xcode:
+                    Issue.record("Test expectation have not been implemented")
+                    break
+            }
+        }
+    }
+
+    @Test(
         .tags(
             .Feature.TargetType.Executable,
         ),
@@ -1671,7 +1717,6 @@ struct TestCommandTests {
     }
 
     @Test(
-        .IssueWindowsLongPath,
             .tags(
                 .Feature.TargetType.Executable,
             ),
@@ -1691,8 +1736,7 @@ struct TestCommandTests {
                     )
                 }
             } when: {
-                .windows == ProcessInfo.hostOperatingSystem
-                || ProcessInfo.processInfo.environment["SWIFTCI_EXHIBITS_GH_9524"] != nil
+                ProcessInfo.processInfo.environment["SWIFTCI_EXHIBITS_GH_9524"] != nil
             }
         }
 

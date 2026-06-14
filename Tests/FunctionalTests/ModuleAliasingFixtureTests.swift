@@ -77,7 +77,6 @@ struct ModuleAliasingFixtureTests {
 
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/pull/9130", relationship: .fixedBy),
-        .IssueWindowsLongPath,
         .IssueWindowsCannotSaveAttachment,
         .tags(
             Tag.Feature.Command.Build,
@@ -88,7 +87,6 @@ struct ModuleAliasingFixtureTests {
         buildSystem: BuildSystemProvider.Kind
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "ModuleAliasing/DirectDeps2") { fixturePath in
                 let pkgPath = fixturePath.appending(components: "AppPkg")
                 let expectedModules = [
@@ -123,9 +121,6 @@ struct ModuleAliasingFixtureTests {
                     buildSystem: buildSystem,
                 )
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
-        }
     }
 
     @Test(
@@ -182,7 +177,6 @@ struct ModuleAliasingFixtureTests {
 
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/pull/9130", relationship: .fixedBy),
-        .IssueWindowsLongPath,
         .IssueWindowsCannotSaveAttachment,
         .tags(
             Tag.Feature.Command.Build,

@@ -59,18 +59,24 @@ extension PIFBuilderParameters {
 
 fileprivate func withGeneratedPIF(
     fromFixture fixtureName: String,
+    withPackage packageName: String? = nil,
     addLocalRpaths: PackagePIFBuilder.AddLocalRpaths = .always,
     shouldCreateDylibForDynamicProducts: Bool = true,
     buildParameters: BuildParameters? = nil,
     hostBuildProductsPath: AbsolutePath? = nil,
-    do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability) async throws -> ()
+    do doIt: (SwiftBuildSupport.PIF.TopLevelObject, TestingObservability, AbsolutePath) async throws -> ()
 ) async throws {
     let buildParameters = if let buildParameters {
         buildParameters
     } else {
         mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
     }
-    try await fixture(name: fixtureName) { fixturePath in
+    try await fixture(name: fixtureName) { tmpFixturePath in
+        let fixturePath = if let packageName {
+            tmpFixturePath.appending(packageName)
+        } else {
+            tmpFixturePath
+        }
         let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting(verbose: false)
         let toolchain = try UserToolchain.default
         var config = WorkspaceConfiguration.default
@@ -101,7 +107,7 @@ fileprivate func withGeneratedPIF(
         let (pif, _) = try await builder.constructPIF(
             buildParameters: buildParameters
         )
-        try await doIt(pif, observabilitySystem)
+        try await doIt(pif, observabilitySystem, fixturePath)
     }
 }
 
@@ -406,7 +412,7 @@ struct PIFBuilderTests {
     }
 
     @Test func platformExecutableModuleLibrarySearchPath() async throws {
-        try await withGeneratedPIF(fromFixture: "PIFBuilder/BasicExecutable") { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/BasicExecutable") { pif, observabilitySystem, fixturePath in
             let releaseConfig = try pif.workspace
                 .project(named: "BasicExecutable")
                 .target(named: "Executable")
@@ -424,8 +430,35 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test
+    func emitUnhandledFilesOnlyForRootPackages() async throws {
+        try await withGeneratedPIF(
+            fromFixture: "PIFBuilder/UnhandledFiled",
+            withPackage: "App",
+        ) { pif, observabilitySystem, fixturePath in
+
+
+            let actualUnhandledFilesWarnings =  observabilitySystem.warnings.filter { $0.message.contains("which are unhandled;")}
+            let expected: [Basics.Diagnostic] =  [
+                Basics.Diagnostic.unhandledFiles([
+                    fixturePath.appending(components: ["Sources", "App", "Foo.txt"]),
+                    fixturePath.appending(components: ["Sources", "App", "README.md"]),
+                ])
+            ]
+
+            #expect(
+                observabilitySystem.hasErrorDiagnostics == false,
+                "Unexepcted errors occurred >> \(observabilitySystem.errors)"
+            )
+            #expect(
+                actualUnhandledFilesWarnings.count == expected.count,
+                "Actual number of diagnostics is not as expected... actual: \(actualUnhandledFilesWarnings)",
+            )
+        }
+    }
+
     @Test func platformConditionBasics() async throws {
-        try await withGeneratedPIF(fromFixture: "PIFBuilder/UnknownPlatforms") { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/UnknownPlatforms") { pif, observabilitySystem, fixturePath in
             // We should emit a warning to the PIF log about the unknown platform
             #expect(observabilitySystem.diagnostics.filter {
                 $0.severity == .warning && $0.message.contains("Ignoring settings assignments for unknown platform 'DoesNotExist'")
@@ -444,7 +477,7 @@ struct PIFBuilderTests {
     }
 
     @Test func platformCCLibrary() async throws {
-        try await withGeneratedPIF(fromFixture: "PIFBuilder/CCPackage") { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/CCPackage") { pif, observabilitySystem, fixturePath in
             let releaseConfig = try pif.workspace
                 .project(named: "CCPackage")
                 .target(id: "PACKAGE-TARGET:CCTarget")
@@ -465,7 +498,7 @@ struct PIFBuilderTests {
     }
 
     @Test func packageWithInternal() async throws {
-        try await withGeneratedPIF(fromFixture: "PIFBuilder/PackageWithSDKSpecialization") { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/PackageWithSDKSpecialization") { pif, observabilitySystem, fixturePath in
             let errors: [Diagnostic] = observabilitySystem.diagnostics.filter { $0.severity == .error }
             #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
 
@@ -478,7 +511,7 @@ struct PIFBuilderTests {
     }
 
     @Test func pluginWithBinaryTargetDependency() async throws {
-        try await withGeneratedPIF(fromFixture: "Miscellaneous/Plugins/BinaryTargetExePlugin") { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "Miscellaneous/Plugins/BinaryTargetExePlugin") { pif, observabilitySystem, fixturePath in
             // Verify that PIF generation succeeds for a package with a plugin that depends on a binary target
             #expect(pif.workspace.projects.count > 0)
 
@@ -518,7 +551,7 @@ struct PIFBuilderTests {
             fromFixture: "Miscellaneous/Plugins/MySourceGenPlugin",
             buildParameters: destBuildParams,
             hostBuildProductsPath: hostBuildPath
-        ) { pif, observabilitySystem in
+        ) { pif, observabilitySystem, fixturePath in
             let project = try pif.workspace.project(named: "MySourceGenPlugin")
             let target = try project.target(named: "MyLocalTool-product")
             for task in target.common.customTasks {
@@ -538,7 +571,7 @@ struct PIFBuilderTests {
         try await withGeneratedPIF(
             fromFixture: "PIFBuilder/Library",
             shouldCreateDylibForDynamicProducts: true
-        ) { pif, observabilitySystem in
+        ) { pif, observabilitySystem, fixturePath in
             let errors: [Diagnostic] = observabilitySystem.diagnostics.filter { $0.severity == .error }
             #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
 
@@ -559,7 +592,7 @@ struct PIFBuilderTests {
         try await withGeneratedPIF(
             fromFixture: "PIFBuilder/Library",
             shouldCreateDylibForDynamicProducts: false
-        ) { pif, observabilitySystem in
+        ) { pif, observabilitySystem, fixturePath in
             let errors: [Diagnostic] = observabilitySystem.diagnostics.filter { $0.severity == .error }
             #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
 
@@ -578,7 +611,7 @@ struct PIFBuilderTests {
     func executablePrefixIsSetCorrectly(
         configuration: BuildConfiguration,
     ) async throws {
-        try await withGeneratedPIF(fromFixture: "PIFBuilder/Library") { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/Library") { pif, observabilitySystem, fixturePath in
             let errors: [Diagnostic] = observabilitySystem.diagnostics.filter { $0.severity == .error }
             #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
 
@@ -622,7 +655,7 @@ struct PIFBuilderTests {
 
     @Test(arguments: BuildConfiguration.allCases)
     func conditionalLinkerSettings(configuration: BuildConfiguration) async throws {
-        try await withGeneratedPIF(fromFixture: "PIFBuilder/ConditionalBuildSettings") { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/ConditionalBuildSettings") { pif, observabilitySystem, fixturePath in
             let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
             #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
 
@@ -646,7 +679,7 @@ struct PIFBuilderTests {
     }
 
     @Test func impartedModuleMaps() async throws {
-        try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem, fixturePath in
             #expect(observabilitySystem.diagnostics.filter {
                 $0.severity == .error
             }.isEmpty)
@@ -681,7 +714,7 @@ struct PIFBuilderTests {
     }
 
     @Test func moduleMapPathAndContents() async throws {
-        try await withGeneratedPIF(fromFixture: "PIFBuilder/Library") { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/Library") { pif, observabilitySystem, fixturePath in
             #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
 
             let releaseConfig = try pif.workspace
@@ -699,7 +732,7 @@ struct PIFBuilderTests {
             """)
         }
 
-        try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem, fixturePath in
             #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
 
             let project = try pif.workspace.project(named: "ModuleMapGenerationCases")
@@ -765,7 +798,7 @@ struct PIFBuilderTests {
     }
 
     @Test func disablingLocalRpaths() async throws {
-        try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple") { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple") { pif, observabilitySystem, fixturePath in
             #expect(observabilitySystem.diagnostics.filter {
                 $0.severity == .error
             }.isEmpty)
@@ -789,7 +822,7 @@ struct PIFBuilderTests {
             }
         }
 
-        try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple", addLocalRpaths: .never) { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple", addLocalRpaths: .never) { pif, observabilitySystem, fixturePath in
             #expect(observabilitySystem.diagnostics.filter {
                 $0.severity == .error
             }.isEmpty)
@@ -818,7 +851,7 @@ struct PIFBuilderTests {
         try await withGeneratedPIF(
             fromFixture: "Miscellaneous/Simple",
             addLocalRpaths: .debugOnly
-        ) { pif, observabilitySystem in
+        ) { pif, observabilitySystem, fixturePath in
             #expect(observabilitySystem.diagnostics.filter {
                 $0.severity == .error
             }.isEmpty)
@@ -1012,7 +1045,7 @@ struct PIFBuilderTests {
             try await withGeneratedPIF(
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild, indexStoreMode: indexStoreSettingUT),
-            ) { pif, observabilitySystem in
+            ) { pif, observabilitySystem, fixturePath in
                 // #expect(false, "fail purposefully...")
                 #expect(observabilitySystem.diagnostics.filter {
                     $0.severity == .error
@@ -1128,7 +1161,7 @@ struct PIFBuilderTests {
     }
 
     @Test func macroPackageSupportedPlatforms() async throws {
-        try await withGeneratedPIF(fromFixture: "Macros/MinimalMacroPackage") { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "Macros/MinimalMacroPackage") { pif, observabilitySystem, fixturePath in
             #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
             let project = try pif.workspace.project(named: "MinimalMacroPackage")
             let projectPlatforms = try project.buildConfig(named: .debug).settings[.SUPPORTED_PLATFORMS]
@@ -1144,6 +1177,33 @@ struct PIFBuilderTests {
                     #expect(platforms == nil, "target \(id) has supported platforms set, unexpectedly")
                 }
             }
+        }
+    }
+
+    @Test func macroPackageTestDependencies() async throws {
+        try await withGeneratedPIF(fromFixture: "Macros/MinimalMacroPackage") { pif, observabilitySystem, _ in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+
+            let project = try pif.workspace.project(named: "MinimalMacroPackage")
+
+            let testProduct = try project.target(named: "MinimalMacroPackageTests-product")
+            guard case .target(let testTarget) = testProduct else {
+                Issue.record("Expected MinimalMacroPackageTests-product to be a regular target")
+                return
+            }
+            #expect(testTarget.productType == .unitTest)
+
+            let depIDs = testTarget.common.dependencies.map(\.targetId.value)
+
+            // The test bundle should link both the testable variant of the macro target, and its transitive dependency.
+            #expect(
+                depIDs.contains { $0.hasPrefix("PACKAGE-TARGET:MacroImpl-") && $0.hasSuffix("-testable") },
+                "Expected test bundle to link testable variant of MacroImpl, found dependencies: \(depIDs)"
+            )
+            #expect(
+                depIDs.contains("PACKAGE-TARGET:MacroImplHelpers"),
+                "Expected test bundle to link MacroImplHelpers, found dependencies: \(depIDs)"
+            )
         }
     }
 
@@ -1209,7 +1269,7 @@ struct PIFBuilderTests {
      }
 
     @Test func testTargetDependsOnTestTarget() async throws {
-        try await withGeneratedPIF(fromFixture: "Miscellaneous/TestTargetDependsOnTestTarget") { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "Miscellaneous/TestTargetDependsOnTestTarget") { pif, observabilitySystem, fixturePath in
             #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
 
             let project = try pif.workspace.project(named: "TestTargetDependsOnTestTarget")
@@ -1248,7 +1308,7 @@ struct PIFBuilderTests {
     }
 
     @Test func noHeaderMaps() async throws {
-        try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple") { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "Miscellaneous/Simple") { pif, observabilitySystem, fixturePath in
             #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
             let project = try pif.workspace.project(named: "Foo")
             for configName in [BuildConfiguration.debug, .release] {
@@ -1261,7 +1321,7 @@ struct PIFBuilderTests {
     }
 
     @Test func symbolGraphExtractorBuildSettings() async throws {
-        try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem, fixturePath in
             #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
 
             // configureSourceModuleBuildSettings is called for every source module via the same
@@ -1281,7 +1341,7 @@ struct PIFBuilderTests {
     }
 
     @Test func cFamilyHeadersAddedToHeadersBuildPhase() async throws {
-        try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem in
+        try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem, fixturePath in
             #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
 
             let project = try pif.workspace.project(named: "ModuleMapGenerationCases")

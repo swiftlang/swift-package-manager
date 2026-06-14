@@ -55,14 +55,6 @@ extension Trait where Self == Testing.Bug {
         )
     }
 
-    public static var IssueWindowsLongPath: Self {
-        .issue(
-            // "https://github.com/swiftlang/swift-tools-support-core/pull/521",
-            "rdar://157310562",
-            relationship: .fixedBy,
-        )
-    }
-
     public static var IssueWindowsPathTestsFailures: Self {
         .issue(
             "https://github.com/swiftlang/swift-package-manager/issues/8511",

@@ -722,14 +722,14 @@ public final class GitRepository: Repository, WorkingCheckout {
             ) else {
                 return nil
             }
-            
+
             let url = try callGit(
                 "config",
                 "--get",
                 "remote.\(remoteName).url",
                 failureMessage: "Couldn't get URL for remote '\(remoteName)'"
             )
-            
+
             return (name: remoteName, url: url)
         }
     }
