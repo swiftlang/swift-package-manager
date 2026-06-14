@@ -97,6 +97,33 @@ extension BinaryModule {
         }
     }
 
+    /// Parses the prebuilt macro plugin executables in this artifact bundle, selecting the
+    /// variant(s) matching the given host `triple`. Mirrors `parseExecutableArtifactArchives`
+    /// but filters for the `.macro` artifact type. The returned `ExecutableInfo.name` is the
+    /// artifact key, which doubles as the macro plugin module name passed to the compiler.
+    public func parseMacroArtifactArchives(for triple: Triple, fileSystem: any FileSystem) throws -> [ExecutableInfo] {
+        // The host triple might contain a version which we don't want to take into account here.
+        let versionLessTriple = try triple.withoutVersion()
+        let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: self.artifactPath)
+        // Filter out everything except macro plugins.
+        let macros = metadata.artifacts.filter { $0.value.type == .macro }
+        // Construct an ExecutableInfo for each matching variant.
+        return try macros.flatMap { entry in
+            try entry.value.variants.map {
+                guard let supportedTriples = $0.supportedTriples else {
+                    throw StringError("No \"supportedTriples\" found in the artifact metadata for \(entry.key) in \(self.artifactPath)")
+                }
+                let filteredSupportedTriples = try supportedTriples
+                    .filter { try $0.withoutVersion() == versionLessTriple }
+                return ExecutableInfo(
+                    name: entry.key,
+                    executablePath: self.artifactPath.appending($0.path),
+                    supportedTriples: filteredSupportedTriples
+                )
+            }
+        }
+    }
+
     public func parseWindowsDLLArtifactArchives(for triple: Triple, fileSystem: any FileSystem) throws -> [WindowsDLLInfo] {
         // The host triple might contain a version which we don't want to take into account here.
         let versionLessTriple = try triple.withoutVersion()

@@ -44,6 +44,10 @@ public struct ArtifactsArchiveMetadata: Equatable {
     // 3D models along with associated textures, or fonts, etc.
     public enum ArtifactType: String, RawRepresentable, Decodable {
         case executable
+        /// A compiler plugin executable that implements a Swift macro, to be loaded by the
+        /// compiler via `-load-plugin-executable`. Like `executable`, variants are keyed by
+        /// the host triple (the platform performing the compilation), not the build target.
+        case macro
         case staticLibrary
         case swiftSDK
         // Experimental support for Windows DLLs

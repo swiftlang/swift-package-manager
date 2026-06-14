@@ -97,6 +97,18 @@ public final class BinaryModule: Module {
         }
     }
 
+    /// Whether this binary artifact provides one or more prebuilt macro plugin executables.
+    public var containsMacro: Bool {
+        switch self.kind {
+        case .xcframework:
+            return false
+        case .artifactsArchive(let types):
+            return types.contains(.macro)
+        case .unknown:
+            return false
+        }
+    }
+
     public enum Origin: Equatable {
 
         /// Represents an artifact that was downloaded from a remote URL.
