@@ -17593,6 +17593,123 @@ final class WorkspaceTests: XCTestCase {
             checksumAlgorithm: MockHashAlgorithm()
         )
     }
+
+    /// Verifies that multiple independent SwiftPM processes can resolve the same
+    /// remote binary artifact concurrently without crashing.
+    func testCrossProcessConcurrentBinaryArtifactFetching() async throws {
+        try await withTemporaryDirectory { tempDir in
+            let cacheDir = tempDir.appending(component: "shared-cache")
+            let packageDir = tempDir.appending(component: "MyPackage")
+            try localFileSystem.createDirectory(packageDir, recursive: true)
+
+            // Create a dummy zip file to serve as the artifact
+            let artifactPath = tempDir.appending(component: "mock_artifact.xcframework.zip")
+            try localFileSystem.writeFileContents(artifactPath, string: "mock zip content")
+
+            // Start a local Python HTTP Server that intentionally delays the response.
+            let pythonScript = """
+            import http.server, socketserver, time
+            class DelayedHandler(http.server.SimpleHTTPRequestHandler):
+                def do_GET(self):
+                    time.sleep(2.0) # Hold the response for 2 seconds
+                    super().do_GET()
+            httpd = socketserver.TCPServer(('127.0.0.1', 0), DelayedHandler)
+            with open('port.txt', 'w') as f: f.write(str(httpd.server_address[1]))
+            httpd.serve_forever()
+            """
+
+            let serverProcess = Foundation.Process()
+            serverProcess.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            serverProcess.arguments = ["python3", "-c", pythonScript]
+            serverProcess.currentDirectoryURL = URL(fileURLWithPath: tempDir.pathString)
+            try serverProcess.run()
+            defer { serverProcess.terminate() }
+
+            // Read the assigned port from the Python script
+            let portFile = tempDir.appending(component: "port.txt")
+            var port = 0
+            for _ in 0..<50 { // Poll for up to 5 seconds
+                if let byteString = try? localFileSystem.readFileContents(portFile),
+                   let portString = byteString.validDescription,
+                   let parsedPort = Int(portString.trimmingCharacters(in: .whitespacesAndNewlines)) {
+                    port = parsedPort
+                    break
+                }
+                try await Task.sleep(nanoseconds: 100_000_000)
+            }
+            guard port != 0 else {
+                XCTFail("Failed to start background python HTTP server")
+                return
+            }
+
+            let artifactURL = URL(string: "http://127.0.0.1:\(port)/mock_artifact.xcframework.zip")!
+
+            // Create the Package.swift
+            let manifestPath = packageDir.appending(component: "Package.swift")
+            let manifest = """
+            // swift-tools-version: 5.7
+            import PackageDescription
+
+            let package = Package(
+                name: "MyPackage",
+                targets: [
+                    .binaryTarget(
+                        name: "MockTarget",
+                        url: "\(artifactURL.absoluteString)",
+                        checksum: "dummy_checksum_to_bypass_validation"
+                    )
+                ]
+            )
+            """
+            try localFileSystem.writeFileContents(manifestPath, string: manifest)
+
+            // Find the locally compiled `swift-package` executable
+            let builtProductsDir = URL(fileURLWithPath: Bundle.main.bundlePath).deletingLastPathComponent()
+            let swiftPackageExec = builtProductsDir.appendingPathComponent("swift-package")
+
+            guard FileManager.default.fileExists(atPath: swiftPackageExec.path) else {
+                print("Skipping test: swift-package executable not found at \(swiftPackageExec.path)")
+                return
+            }
+
+            // Spawn the OS processes
+            let processCount = 3
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for i in 0..<processCount {
+                    group.addTask {
+                        let process = Foundation.Process()
+                        process.executableURL = swiftPackageExec
+                        process.arguments = [
+                            "resolve",
+                            "--package-path", packageDir.pathString,
+                            "--cache-path", cacheDir.pathString
+                        ]
+
+                        let pipe = Pipe()
+                        process.standardOutput = pipe
+                        process.standardError = pipe
+
+                        try process.run()
+                        process.waitUntilExit()
+
+                        let outputData = pipe.fileHandleForReading.readDataToEndOfFile()
+                        let output = String(decoding: outputData, as: UTF8.self)
+                        XCTAssertEqual(process.terminationStatus, 0, "Process \(i) failed with output: \(output)")
+                    }
+                }
+
+                // Wait for all concurrent tasks to finish
+                try await group.waitForAll()
+            }
+
+            // Verify the cache was populated correctly
+            let cacheContents = try localFileSystem.getDirectoryContents(cacheDir)
+            XCTAssertFalse(cacheContents.isEmpty, "The shared cache should have been populated.")
+
+            let tempFiles = cacheContents.filter { $0.hasSuffix(".tmp") }
+            XCTAssertTrue(tempFiles.isEmpty, "All temporary cross-process download files should be cleaned up.")
+        }
+    }
 }
 
 func createDummyXCFramework(fileSystem: FileSystem, path: AbsolutePath, name: String) throws {
