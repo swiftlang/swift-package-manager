@@ -128,6 +128,47 @@ private struct WebAssemblyIntegrationTests {
     @Test(
         .requiresWebAssemblySwiftSDK,
         .tags(
+            .Feature.Command.Run,
+            .Feature.CommandLineArguments.Toolset,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func flagOverridesToolset(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await fixture(name: "Miscellaneous/FlagOverrides") { fixturePath in
+            let (compilerPath, sdkID) = try #require(try await findCompilerAndSDKIDForTesting(for: .webassembly))
+
+            var env = Environment()
+            env["SWIFT_EXEC"] = compilerPath.pathString
+
+            // Pass the `-DONE` flag to the Swift compiler via a toolset file instead of `-Xswiftc`.
+            let toolsetPath = fixturePath.appending("toolset.json")
+            try localFileSystem.writeFileContents(
+                toolsetPath,
+                string: """
+                {
+                  "schemaVersion": "1.0",
+                  "swiftCompiler": { "extraCLIOptions": ["-DONE"] }
+                }
+                """
+            )
+
+            let runOutput = try await executeSwiftRun(
+                fixturePath,
+                "FlagOverrides",
+                extraArgs: ["--swift-sdk", sdkID, "--toolset", toolsetPath.pathString],
+                env: env,
+                buildSystem: buildSystem,
+            )
+
+            let lines = runOutput.stdout.split(separator: "\n").map(String.init)
+            #expect(lines.contains("Executable flag: ONE"))
+            #expect(lines.contains("Plugin tool flag: NONE"))
+        }
+    }
+
+    @Test(
+        .requiresWebAssemblySwiftSDK,
+        .tags(
             .Feature.Command.Package.Plugin,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
