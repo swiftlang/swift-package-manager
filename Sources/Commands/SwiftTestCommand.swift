@@ -357,19 +357,19 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
             if !self.options.shouldRunInParallel {
                 let (xctestArgs, testCount) = try await xctestArgs(for: testProducts, swiftCommandState: swiftCommandState, buildSystem: buildSystem)
-                let productResults = try await runTestProducts(
-                    testProducts,
-                    additionalArguments: xctestArgs,
-                    productsBuildParameters: buildParameters,
-                    swiftCommandState: swiftCommandState,
-                    library: .xctest,
-                    buildSystem: buildSystem
-                )
-                if productResults.map(\.result).reduce() == .success, testCount == 0 {
-                    results.append(contentsOf: productResults.map {
-                        TestProductResult(productName: $0.productName, library: $0.library, result: .noMatchingTests)
-                    })
+                if testCount == 0 {
+                    // Record no-matching-tests for each test product.
+                    results += testProducts.lazy
+                        .map { TestProductResult(productName: $0.productName, library: .xctest, result: .noMatchingTests) }
                 } else {
+                    let productResults = try await runTestProducts(
+                        testProducts,
+                        additionalArguments: xctestArgs,
+                        productsBuildParameters: buildParameters,
+                        swiftCommandState: swiftCommandState,
+                        library: .xctest,
+                        buildSystem: buildSystem
+                    )
                     results.append(contentsOf: productResults)
                 }
             } else {
@@ -390,13 +390,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 if tests.isEmpty {
                     testResults = []
                     // Record no-matching-tests for each test product.
-                    for product in testProducts {
-                        results.append(TestProductResult(
-                            productName: product.productName,
-                            library: .xctest,
-                            result: .noMatchingTests
-                        ))
-                    }
+                    results += testProducts.lazy
+                        .map { TestProductResult(productName: $0.productName, library: .xctest, result: .noMatchingTests) }
                 } else {
                     // Run the tests using the parallel runner.
                     let toolsVersion = try await swiftCommandState.getToolsVersion()

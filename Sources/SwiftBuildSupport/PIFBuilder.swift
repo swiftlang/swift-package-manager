@@ -434,11 +434,13 @@ public final class PIFBuilder {
                     observabilityScope: observabilityScope
                 )
 
-                self.diagnoseUnhandledFiles(
-                    package: package,
-                    module: module,
-                    buildToolPluginInvocationResults: buildToolPluginResults
-                )
+                if graph.rootPackages.contains(id: package.id) {
+                    self.diagnoseUnhandledFiles(
+                        package: package,
+                        module: module,
+                        buildToolPluginInvocationResults: buildToolPluginResults
+                    )
+                }
 
                 let result = PackagePIFBuilder.BuildToolPluginInvocationResult(
                     prebuildCommandOutputPaths: runResults.flatMap( { $0.derivedFiles }),
@@ -645,7 +647,7 @@ public final class PIFBuilder {
             metadata.moduleName = module.name
             return metadata
         }
-        
+
         diagnosticsEmitter.emit(.unhandledFiles(unhandledFiles))
     }
 }
@@ -942,7 +944,7 @@ extension Basics.Diagnostic {
     public static func unhandledFiles(_ files: Set<AbsolutePath>) -> Self {
         var message =
             "found \(files.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
-        for file in files {
+        for file in files.sorted() {
             message += "    " + file.pathString + "\n"
         }
         return .warning(message)

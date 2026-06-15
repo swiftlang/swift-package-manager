@@ -1777,6 +1777,9 @@ final class PubGrubTests: XCTestCase {
                 []
             }
             func loadPackageReference(at boundVersion: BoundVersion) async throws -> PackageReference { self.package }
+            func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<PackageModel.TraitDescription> {
+                []
+            }
         }
 
         let path = AbsolutePath("/Package")
@@ -3182,6 +3185,7 @@ public class MockContainer: PackageContainer {
 
     public var package: PackageReference
     var manifestName: PackageReference?
+    var traits: Set<TraitDescription> = []
 
     var dependencies: [String: [String: [Dependency]]]
 
@@ -3261,6 +3265,10 @@ public class MockContainer: PackageContainer {
             self.package = self.package.withName(manifestName.identity.description)
         }
         return self.package
+    }
+
+    public func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<TraitDescription> {
+        return self.traits
     }
 
     func appendVersion(_ version: BoundVersion) {

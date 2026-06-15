@@ -82,7 +82,7 @@ extension Basics.Triple {
 
 public let hostTriple = try! UserToolchain.default.targetTriple
 #if os(macOS)
-public let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.13")
+public let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "12.0")
 #else
 public let defaultTargetTriple: String = hostTriple.tripleString
 #endif
