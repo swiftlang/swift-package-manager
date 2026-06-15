@@ -48,7 +48,6 @@ struct TestDiscoveryTests {
     }
 
     @Test(
-        .IssueWindowsLongPath,
         .tags(
             .Feature.Command.Test,
             .Feature.CommandLineArguments.VeryVerbose,
@@ -59,7 +58,6 @@ struct TestDiscoveryTests {
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func discovery(_ buildSystem: BuildSystemProvider.Kind) async throws {
-        try await withKnownIssue("Windows builds encounter long path handling issues", isIntermittent: true) {
             try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
                 let (stdout, stderr) = try await executeSwiftTest(fixturePath, extraArgs: ["-vv"], buildSystem: buildSystem)
                 // in "swift test" build output goes to stderr
@@ -67,9 +65,6 @@ struct TestDiscoveryTests {
                 // in "swift test" test output goes to stdout
                 #expect(stdout.contains("Executed 3 tests"))
             }
-        } when: {
-            buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
-        }
     }
 
     @Test(
