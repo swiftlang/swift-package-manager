@@ -23,6 +23,7 @@ import struct Foundation.URL
 
 import enum PackageModel.BuildConfiguration
 import struct PackageModel.BuildFlags
+import struct PackageModel.BuildCacheConfiguration
 import struct PackageModel.EnabledSanitizers
 import class PackageModel.Manifest
 import struct PackageModel.PackageIdentity
@@ -54,6 +55,9 @@ public struct GlobalOptions: ParsableArguments {
 
     @OptionGroup(title: "Caching")
     public var caching: CachingOptions
+
+    @OptionGroup(title: "Build Caching")
+    public var buildCaching: BuildCachingOptions
 
     @OptionGroup(title: "Logging")
     public var logging: LoggingOptions
@@ -230,6 +234,85 @@ public struct CachingOptions: ParsableArguments {
         help: .hidden
     )
     public var prebuiltsRootCertPath: String?
+}
+
+public struct BuildCachingOptions: ParsableArguments {
+    public init() {}
+
+    /// Whether to enable build caching. `nil` defers to configuration files
+    /// and ultimately the build system default.
+    @Flag(
+        name: .customLong("build-caching"),
+        inversion: .prefixedEnableDisable,
+        help: """
+        Enable or disable build caching. Overrides any value set via \
+        'swift package build-cache configure'.
+        """
+    )
+    public var enableBuildCache: Bool?
+
+    /// Override the on-disk location of the build cache.
+    @Option(
+        name: .customLong("build-cache-path"),
+        help: "Override the on-disk location of the build cache.",
+        completion: .directory
+    )
+    public var path: AbsolutePath?
+
+    /// Limit the cache size, either as an absolute size (e.g. `10G`) or as a
+    /// percentage of available disk space (e.g. `50%`).
+    @Option(
+        name: .customLong("build-cache-size-limit"),
+        help: """
+        Limit the build cache size, either as an absolute size (e.g. '10G') \
+        or as a percentage of available disk space (e.g. '50%').
+        """
+    )
+    public var sizeLimit: String?
+
+    /// Whether to emit diagnostic remarks about build cache hits and misses.
+    @Flag(
+        name: .customLong("build-cache-diagnostic-remarks"),
+        inversion: .prefixedNo,
+        help: """
+        Emit diagnostic remarks about build cache hits and misses. Only \
+        supported with the 'swiftbuild' build system.
+        """
+    )
+    public var enableDiagnosticRemarks: Bool?
+
+    @Option(
+        name: .customLong("build-cache-remote-service-path"),
+        help: "Override the path to the build cache remote service.",
+        completion: .directory
+    )
+    public var remoteServicePath: AbsolutePath?
+
+    @Option(
+        name: .customLong("build-cache-plugin-path"),
+        help: "Override the path to the build cache plugin.",
+        completion: .directory
+    )
+    public var pluginPath: AbsolutePath?
+
+    @Flag(
+        name: .customLong("build-cache-prefix-mapping"),
+        inversion: .prefixedEnableDisable,
+        help: "Enable or disable prefix mapping for build caching."
+    )
+    public var enablePrefixMapping: Bool?
+
+    public func resolved() throws -> BuildCacheConfiguration {
+        .init(
+            enabled: self.enableBuildCache,
+            casPath: self.path,
+            sizeLimit: try self.sizeLimit.map(BuildCacheConfiguration.SizeLimit.parse),
+            enableDiagnosticRemarks: self.enableDiagnosticRemarks,
+            remoteServicePath: self.remoteServicePath,
+            pluginPath: self.pluginPath,
+            enablePrefixMapping: self.enablePrefixMapping
+        )
+    }
 }
 
 public struct LoggingOptions: ParsableArguments {
