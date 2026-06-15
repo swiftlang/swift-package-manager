@@ -769,6 +769,7 @@ extension PackagePIFProjectBuilder {
         // (and link against them, which in the case of a package product, really just means that clients should link
         // against them).
         var libraryUmbrellaTarget = self.project[keyPath: libraryUmbrellaTargetKeyPath]
+        let mainModuleProducts = package.products.filter(\.isMainModuleProduct)
         product.modules.recursivelyTraverseTransitiveLinkageDependencies(includeMacroDependencies: false) { dependency in
             switch dependency {
             case .module(let moduleDependency, let packageConditions):
@@ -817,8 +818,6 @@ extension PackagePIFProjectBuilder {
                 // For executable targets, add a build time dependency on the product.
                 // FIXME: Maybe we should we do this at the libSwiftPM level.
                 if moduleDependency.isExecutable {
-                    let mainModuleProducts = package.products.filter(\.isMainModuleProduct)
-
                     if let product = moduleDependency
                         .productRepresentingDependencyOfBuildPlugin(in: mainModuleProducts)
                     {
