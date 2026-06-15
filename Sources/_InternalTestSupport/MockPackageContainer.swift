@@ -71,6 +71,10 @@ public class MockPackageContainer: CustomPackageContainer {
         return self.package
     }
 
+    public func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<TraitDescription> {
+        return []
+    }
+
     public func isToolsVersionCompatible(at version: Version) -> Bool {
         return true
     }

@@ -71,6 +71,8 @@ extension Workspace {
             self.delegate?.didUpdateDependencies(duration: start.distance(to: .now()))
         }
 
+//        self.enabledTraitsMap = [:]
+
         // Create cache directories.
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
@@ -222,6 +224,10 @@ extension Workspace {
             return nil
         }
 
+        // Reset traits map so updated manifests (potentially new versions with different traits)
+        // rebuild it from scratch rather than accumulating stale entries from previous versions.
+        self.enabledTraitsMap = .init()
+
         // Load the updated manifests.
         let updatedDependencyManifests = try await self.loadDependencyManifests(
             root: graphRoot,
@@ -254,6 +260,13 @@ extension Workspace {
         // Update prebuilts
         try await self.updatePrebuilts(
             manifests: currentManifests,
+            addedOrUpdatedPackages: addedOrUpdatedPackages,
+            observabilityScope: observabilityScope
+        )
+
+        // Update traits; validation check.
+        try await self.validateUpdatedTraits(
+            manifests: updatedDependencyManifests,
             addedOrUpdatedPackages: addedOrUpdatedPackages,
             observabilityScope: observabilityScope
         )
@@ -568,6 +581,13 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+        // Update traits; validation check
+        try await self.validateUpdatedTraits(
+            manifests: currentManifests,
+            addedOrUpdatedPackages: [],
+            observabilityScope: observabilityScope
+        )
+
         let precomputationResult = try await self.precomputeResolution(
             root: graphRoot,
             dependencyManifests: currentManifests,
@@ -675,6 +695,12 @@ extension Workspace {
                     observabilityScope: observabilityScope
                 )
 
+                try await self.validateUpdatedTraits(
+                    manifests: currentManifests,
+                    addedOrUpdatedPackages: [],
+                    observabilityScope: observabilityScope
+                )
+
                 return currentManifests
             case .required(let reason):
                 delegate?.willResolveDependencies(reason: reason)
@@ -750,6 +776,13 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+        // Update traits; validation check.
+        try await self.validateUpdatedTraits(
+            manifests: updatedDependencyManifests,
+            addedOrUpdatedPackages: addedOrUpdatedPackages,
+            observabilityScope: observabilityScope
+        )
+
         return updatedDependencyManifests
     }
 
@@ -769,6 +802,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async -> [(PackageReference, PackageStateChange)] {
         // Get the update package states from resolved results.
+
         guard let packageStateChanges = await observabilityScope.trap({
             try await self.computePackageStateChanges(
                 root: root,
@@ -950,7 +984,7 @@ extension Workspace {
         let computedConstraints =
         try root.constraints(self.enabledTraitsMap) +
             // Include constraints from the manifests in the graph root.
-        root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything, self.enabledTraitsMap[$0.packageIdentity]) } +
+        root.manifests.values.flatMap { try $0.dependencyConstraints(productFilter: .everything, self.enabledTraitsMap[$0]) } +
             dependencyManifests.dependencyConstraints +
             constraints
 
@@ -996,7 +1030,8 @@ extension Workspace {
         }
 
         guard let requiredDependencies = observabilityScope
-            .trap({ try dependencyManifests.requiredPackages.filter(\.kind.isResolvable) })
+            .trap({ try
+                dependencyManifests.requiredPackages.filter(\.kind.isResolvable) })
         else {
             return nil
         }
