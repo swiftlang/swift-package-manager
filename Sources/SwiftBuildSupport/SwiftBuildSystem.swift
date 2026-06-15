@@ -148,6 +148,39 @@ func withSession(
     }
 }
 
+package func queryBuildCacheInfo(
+    casPath: Basics.AbsolutePath,
+    pluginPath: Basics.AbsolutePath?,
+    remoteServicePath: Basics.AbsolutePath?,
+    toolchain: Toolchain,
+    packageManagerResourcesDirectory: Basics.AbsolutePath?
+) async throws -> SWBBuildCacheInfo {
+    let usingXcodeDeveloperDirectory = (try? toolchainDeveloperPathInfo(toolchain: toolchain))?.isEmbeddedInXcode ?? false
+    let pluginEnabled = pluginPath != nil || usingXcodeDeveloperDirectory
+
+    return try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
+        let (session, _) = try await createSession(
+            service: service,
+            name: "swiftpm-build-cache-info",
+            toolchain: toolchain,
+            packageManagerResourcesDirectory: packageManagerResourcesDirectory
+        )
+        do {
+            let info = try await session.buildCacheInfo(
+                casPath: casPath.pathString,
+                pluginPath: pluginPath?.pathString,
+                remoteServicePath: remoteServicePath?.pathString,
+                pluginEnabled: pluginEnabled
+            )
+            try await session.close()
+            return info
+        } catch {
+            try? await session.close()
+            throw error
+        }
+    }
+}
+
 package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperationDelegate, SWBIndexingDelegate, Sendable {
     private let shouldEnableDebuggingEntitlement: Bool
 
@@ -1089,6 +1122,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructAPIDigesterSettingsOverrides(from: buildParameters.apiDigesterMode), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructOutputSettingsOverrides(from: buildParameters.outputParameters), uniquingKeysWith: reportConflict)
+        let usingXcodeDeveloperDirectory = (try? toolchainDeveloperPathInfo(toolchain: buildParameters.toolchain))?.isEmbeddedInXcode ?? false
+        try settings.merge(Self.constructBuildCacheSettingsOverrides(from: buildParameters.buildCaching, usingXcodeDeveloperDirectory: usingXcodeDeveloperDirectory), uniquingKeysWith: reportConflict)
 
         if buildParameters.driverParameters.codesizeProfileEnabled {
             // dSYM generation is required to attribute code size to source locations
@@ -1323,12 +1358,70 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return settings
     }
 
+    package static func constructBuildCacheSettingsOverrides(
+        from configuration: BuildCacheConfiguration,
+        usingXcodeDeveloperDirectory: Bool
+    ) -> [String: String] {
+        var settings: [String: String] = [:]
+
+        // Caching is off by default, so only emit overrides when it's enabled.
+        if configuration.enabled != true {
+            return settings
+        }
+
+        settings["SWIFT_ENABLE_COMPILE_CACHE"] = "YES"
+        settings["CLANG_ENABLE_COMPILE_CACHE"] = "YES"
+        settings["SWIFT_ENABLE_EXPLICIT_MODULES"] = "YES"
+        settings["CLANG_ENABLE_EXPLICIT_MODULES"] = "YES"
+
+        if let casPath = configuration.casPath {
+            settings["COMPILATION_CACHE_CAS_PATH"] = casPath.pathStringWithPosixSlashes
+        }
+
+        switch configuration.sizeLimit {
+        case .size(let value):
+            settings["COMPILATION_CACHE_LIMIT_SIZE"] = value
+        case .percent(let value):
+            settings["COMPILATION_CACHE_LIMIT_PERCENT"] = "\(value)"
+        case .none:
+            break
+        }
+
+        if let enableDiagnosticRemarks = configuration.enableDiagnosticRemarks {
+            settings["COMPILATION_CACHE_ENABLE_DIAGNOSTIC_REMARKS"] = enableDiagnosticRemarks ? "YES" : "NO"
+        }
+
+        if let pluginPath = configuration.pluginPath {
+            settings["COMPILATION_CACHE_PLUGIN_PATH"] = pluginPath.pathStringWithPosixSlashes
+        }
+
+        // Enable the CAS plugin when a plugin path is provided, or when building
+        // with an Xcode developer directory, which ships a compatible plugin.
+        if configuration.pluginPath != nil || usingXcodeDeveloperDirectory {
+            settings["COMPILATION_CACHE_ENABLE_PLUGIN"] = "YES"
+        }
+
+        if let remoteServicePath = configuration.remoteServicePath {
+            settings["COMPILATION_CACHE_REMOTE_SERVICE_PATH"] = remoteServicePath.pathStringWithPosixSlashes
+        }
+
+        // Caching is enabled here, so default prefix mapping to on unless the user
+        // expressed a preference.
+        let enablePrefixMapping = configuration.enablePrefixMapping ?? true
+        let prefixMappingValue = enablePrefixMapping ? "YES" : "NO"
+        settings["CLANG_ENABLE_PREFIX_MAPPING"] = prefixMappingValue
+        settings["SWIFT_ENABLE_PREFIX_MAPPING"] = prefixMappingValue
+        settings["CLANG_ENABLE_PROJECT_PREFIX_MAPPING"] = prefixMappingValue
+        settings["SWIFT_ENABLE_PROJECT_PREFIX_MAPPING"] = prefixMappingValue
+
+        return settings
+    }
+
     private static func constructTestingSettingsOverrides(from parameters: BuildParameters.Testing) -> [String: String] {
         var settings: [String: String] = [:]
 
         // Coverage settings
         settings["CLANG_COVERAGE_MAPPING"] = parameters.enableCodeCoverage ? "YES" : "NO"
-
         if let testability = parameters.explicitlyEnabledTestability {
             settings["ENABLE_TESTABILITY"] = testability ? "YES" : "NO"
         }
