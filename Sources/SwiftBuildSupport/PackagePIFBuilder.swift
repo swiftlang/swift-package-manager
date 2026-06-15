@@ -16,6 +16,7 @@ import protocol TSCBasic.FileSystem
 
 import struct Basics.AbsolutePath
 import struct Basics.SourceControlURL
+import struct Basics.Triple
 import struct Basics.Diagnostic
 import struct Basics.ObservabilityMetadata
 import class Basics.ObservabilityScope
@@ -49,6 +50,10 @@ typealias FileReference = SwiftBuild.ProjectModel.FileReference
 public final class PackagePIFBuilder {
     let modulesGraph: ModulesGraph
     private let package: ResolvedPackage
+
+    /// The triple of the host performing the build. Used to select the right variant of a
+    /// prebuilt macro plugin shipped as a binary artifact bundle (macros are host tools).
+    let hostTriple: Basics.Triple
 
     /// Contains the package declarative specification.
     let packageManifest: PackageModel.Manifest // FIXME: Can't we just use `package.manifest` instead? —— Paulo
@@ -236,6 +241,7 @@ public final class PackagePIFBuilder {
         addLocalRpaths: AddLocalRpaths = .always,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
+        hostTriple: Basics.Triple,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -249,6 +255,7 @@ public final class PackagePIFBuilder {
         self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.hostTriple = hostTriple
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.addLocalRpaths = addLocalRpaths
@@ -266,6 +273,7 @@ public final class PackagePIFBuilder {
         addLocalRpaths: AddLocalRpaths = .always,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
+        hostTriple: Basics.Triple,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -280,6 +288,7 @@ public final class PackagePIFBuilder {
         self.addLocalRpaths = addLocalRpaths
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.hostTriple = hostTriple
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
     }

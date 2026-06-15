@@ -31,6 +31,8 @@ import struct PackageGraph.ResolvedPackage
 
 import struct PackageLoading.GeneratedFiles
 
+import SPMBuildCore
+
 import enum SwiftBuild.ProjectModel
 
 /// Extension to create PIF **modules** for a given package.
@@ -722,6 +724,26 @@ extension PackagePIFProjectBuilder {
             settings[.SKIP_BUILDING_DOCUMENTATION] = "YES"
         }
 
+        // A target that (transitively) depends on a binary artifact bundle vending a prebuilt
+        // macro plugin loads it via SWIFT_LOAD_BINARY_MACROS. Macros are host tools, so we select
+        // the variant matching the build host. The SwiftBuild engine turns each "path#Module"
+        // entry into `-load-plugin-executable`, exactly like a source-built macro.
+        for dependency in try sourceModule.recursiveModuleDependencies() {
+            guard dependency.type == .binary,
+                  let binaryModule = dependency.underlying as? BinaryModule,
+                  binaryModule.containsMacro else { continue }
+            let macros = try binaryModule.parseMacroArtifactArchives(
+                for: pifBuilder.hostTriple,
+                fileSystem: pifBuilder.fileSystem
+            )
+            for macro in macros where !macro.supportedTriples.isEmpty {
+                let entry = "\(macro.executablePath.pathString)#\(macro.name)"
+                var loadBinaryMacros = settings[.SWIFT_LOAD_BINARY_MACROS] ?? []
+                loadBinaryMacros.append(entry)
+                settings[.SWIFT_LOAD_BINARY_MACROS] = loadBinaryMacros
+            }
+        }
+
         sourceModule.addParseAsLibrarySettings(to: &settings, toolsVersion: package.manifest.toolsVersion, fileSystem: pifBuilder.fileSystem)
 
         // Handle the target's dependencies (but only link against them if needed).
@@ -761,6 +783,14 @@ extension PackagePIFProjectBuilder {
                 case .binary:
                     guard let binaryModule = moduleDependency.underlying as? BinaryModule else {
                         log(.error, "'\(moduleDependency.name)' is a binary dependency, but its underlying module was not")
+                        break
+                    }
+                    if binaryModule.containsMacro {
+                        // Prebuilt macro plugin: loaded via SWIFT_LOAD_BINARY_MACROS (set above), not
+                        // linked or embedded. Don't add it as a build file so the SwiftBuild engine does
+                        // not treat the artifact bundle as a linkable/resource artifact (its info.json
+                        // 'macro' type would otherwise be rejected by the engine's artifact parser).
+                        log(.debug, indent: 1, "Loading prebuilt binary macro '\(moduleDependency.name)'")
                         break
                     }
                     let binaryReference = self.binaryGroup.addFileReference { id in

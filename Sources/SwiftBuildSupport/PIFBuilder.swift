@@ -468,6 +468,7 @@ public final class PIFBuilder {
                 addLocalRpaths: self.parameters.addLocalRpaths,
                 packageDisplayVersion: package.manifest.displayName,
                 pkgConfigDirectories: self.parameters.pkgConfigDirectories,
+                hostTriple: try self.parameters.pluginScriptRunner.hostTriple,
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,
             )
