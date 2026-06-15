@@ -22,6 +22,7 @@ add_library(Commands
   PackageCommands/AuditBinaryArtifact.swift
   PackageCommands/BuildServer.swift
   PackageCommands/CompletionCommand.swift
+  PackageCommands/BuildCacheCommand.swift
   PackageCommands/ComputeChecksum.swift
   PackageCommands/Config.swift
   PackageCommands/Describe.swift
