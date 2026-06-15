@@ -7891,6 +7891,105 @@ final class WorkspaceTests: XCTestCase {
         )
     }
 
+    func testConcurrentArtifactDownloadsWithSameURLUsingSharedCache() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let downloads = ThreadSafeArrayStore<(URL, AbsolutePath)>()
+
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
+            }
+            guard request.url.absoluteString == "https://a.com/same.zip" else {
+                throw StringError("unexpected url \(request.url)")
+            }
+
+            if downloads.append((request.url, destination)) == 1 {
+                // Keep the first cache download in flight long enough for the second artifact with the
+                // same URL to contend for the same cache entry.
+                try await Task.sleep(nanoseconds: 100_000_000)
+            }
+
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: ByteString([0xA1]),
+                atomically: true
+            )
+            return .okay()
+        }
+
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                guard archivePath.basename == "same.zip" else {
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                try createDummyXCFramework(fileSystem: fs, path: destinationPath, name: "Same")
+                archiver.extractions
+                    .append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            url: "https://a.com/same.zip",
+                            checksum: "a1"
+                        ),
+                        MockTarget(
+                            name: "A2",
+                            type: .binary,
+                            url: "https://a.com/same.zip",
+                            checksum: "a1"
+                        ),
+                    ]
+                ),
+            ],
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        XCTAssertEqual(downloads.count, 1)
+        XCTAssertEqual(downloads.map(\.0.absoluteString), ["https://a.com/same.zip"])
+        XCTAssertEqual(archiver.extractions.count, 2)
+
+        await workspace.checkManagedArtifacts { result in
+            result.check(
+                packageIdentity: .plain("root"),
+                targetName: "A1",
+                source: .remote(
+                    url: "https://a.com/same.zip",
+                    checksum: "a1"
+                ),
+                path: workspace.artifactsDir.appending(components: "root", "A1", "Same.xcframework")
+            )
+            result.check(
+                packageIdentity: .plain("root"),
+                targetName: "A2",
+                source: .remote(
+                    url: "https://a.com/same.zip",
+                    checksum: "a1"
+                ),
+                path: workspace.artifactsDir.appending(components: "root", "A2", "Same.xcframework")
+            )
+        }
+    }
+
     func testArtifactDownloadServerError() async throws {
         let fs = InMemoryFileSystem()
         let sandbox = AbsolutePath("/tmp/ws/")
