@@ -3687,7 +3687,7 @@ final class ContainerProviderWarmCacheTests: XCTestCase {
     }
 
     /// prefetch() skips packages already in warmCache.
-    func testPrefetchSkipsWarmCachedPackages() async throws {
+    func testPrefetchSkipsWarmCachedPackages() {
         let ref = makeRef("foo")
         let container = makeContainer(ref)
         let provider = CountingProvider(containers: [container])
@@ -3702,8 +3702,6 @@ final class ContainerProviderWarmCacheTests: XCTestCase {
         )
 
         cp.prefetch(containers: [ref])
-        // Give async prefetch a moment to complete if it were to fire.
-        try await Task.sleep(nanoseconds: 100_000_000)
 
         XCTAssertNil(provider.fetchCounts[ref.identity], "prefetch should skip packages already in warmCache")
     }

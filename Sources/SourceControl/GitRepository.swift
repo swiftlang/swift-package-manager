@@ -30,22 +30,6 @@ import struct TSCBasic.RegEx
 import protocol TSCUtility.DiagnosticLocationProviding
 import enum TSCUtility.Git
 
-private final class AsyncSerialQueue: @unchecked Sendable {
-    private let queue = DispatchQueue(label: "org.swift.swiftpm.git-serial-queue", qos: .userInitiated)
-
-    func run<T: Sendable>(_ body: @Sendable @escaping () throws -> T) async throws -> T {
-        try await withCheckedThrowingContinuation { cont in
-            self.queue.async {
-                do {
-                    cont.resume(returning: try body())
-                } catch {
-                    cont.resume(throwing: error)
-                }
-            }
-        }
-    }
-}
-
 // MARK: - GitShellHelper
 
 /// Helper for shelling out to `git`
@@ -88,6 +72,45 @@ private struct GitShellHelper {
             throw error
         } catch {
             // Handle a failure to even launch the Git tool by synthesizing a result that we can wrap an error around.
+            let result = AsyncProcessResult(
+                arguments: process.arguments,
+                environment: process.environment,
+                exitStatus: .terminated(code: -1),
+                output: .failure(error),
+                stderrOutput: .failure(error)
+            )
+            throw GitShellError(result: result)
+        }
+    }
+
+    /// Async variant of `run` that does not block the calling cooperative
+    /// thread while waiting for the subprocess to finish.
+    func run(
+        _ args: [String],
+        environment: Environment = .init(Git.environmentBlock),
+        outputRedirection: AsyncProcess.OutputRedirection = .collect
+    ) async throws -> String {
+        let process = AsyncProcess(
+            arguments: [Git.tool] + args,
+            environment: environment,
+            outputRedirection: outputRedirection
+        )
+        do {
+            guard let terminationKey = self.cancellator.register(process) else {
+                throw CancellationError()
+            }
+            defer { self.cancellator.deregister(terminationKey) }
+            try process.launch()
+            let result = try await process.waitUntilExit()
+            guard result.exitStatus == .terminated(code: 0) else {
+                throw GitShellError(result: result)
+            }
+            return try result.utf8Output().spm_chomp()
+        } catch let error as CancellationError {
+            throw error
+        } catch let error as GitShellError {
+            throw error
+        } catch {
             let result = AsyncProcessResult(
                 arguments: process.arguments,
                 environment: process.environment,
@@ -248,6 +271,8 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             let stdoutBytes = ThreadSafeArrayStore<UInt8>()
             let stderrBytes = ThreadSafeArrayStore<UInt8>()
             do {
+                // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
+                // handler. We count on it being line-buffered.
                 let outputHandler = AsyncProcess.OutputRedirection.stream(
                     stdout: { stdoutBytes.append(contentsOf: $0) },
                     stderr: {
@@ -377,15 +402,8 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     }
 
     public func isValidDirectory(_ directory: Basics.AbsolutePath) async throws -> Bool {
-        try await withCheckedThrowingContinuation { cont in
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    cont.resume(returning: try self.isValidDirectory(directory))
-                } catch {
-                    cont.resume(throwing: error)
-                }
-            }
-        }
+        let result = try await self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
+        return result == ".git" || result == "." || result == directory.pathString
     }
 
     public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
@@ -407,19 +425,9 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         return CanonicalPackageURL(remoteURL) == CanonicalPackageURL(repository.url)
     }
 
-    public func isValidDirectory(
-        _ directory: Basics.AbsolutePath,
-        for repository: RepositorySpecifier
-    ) async throws -> Bool {
-        try await withCheckedThrowingContinuation { cont in
-            DispatchQueue.global(qos: .userInitiated).async {
-                do {
-                    cont.resume(returning: try self.isValidDirectory(directory, for: repository))
-                } catch {
-                    cont.resume(throwing: error)
-                }
-            }
-        }
+    public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: RepositorySpecifier) async throws -> Bool {
+        let remoteURL = try await self.git.run(["-C", directory.pathString, "config", "--get", "remote.origin.url"])
+        return CanonicalPackageURL(remoteURL) == CanonicalPackageURL(repository.url)
     }
 
     public func copy(from sourcePath: Basics.AbsolutePath, to destinationPath: Basics.AbsolutePath) throws {
@@ -614,7 +622,7 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// Serializes async git operations on this repository. NSLock can't be
     /// held across `await`, so async methods use this serial queue instead.
-    private let asyncQueue = AsyncSerialQueue()
+    private let asyncQueue = AsyncOperationQueue(concurrentTasks: 1)
 
     /// If this repo is a work tree repo (checkout) as opposed to a bare repo.
     private let isWorkingRepo: Bool
@@ -665,6 +673,8 @@ public final class GitRepository: Repository, WorkingCheckout {
             let stdoutBytes = ThreadSafeArrayStore<UInt8>()
             let stderrBytes = ThreadSafeArrayStore<UInt8>()
             do {
+                // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
+                // handler. We count on it being line-buffered.
                 let outputHandler = AsyncProcess.OutputRedirection.stream(
                     stdout: { stdoutBytes.append(contentsOf: $0) },
                     stderr: {
@@ -812,7 +822,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     public func getTags() async throws -> [String] {
-        try await asyncQueue.run { try self.getTags() }
+        try await asyncQueue.withOperation { try self.getTags() }
     }
 
     public func resolveRevision(tag: String) throws -> Revision {
@@ -845,7 +855,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     public func fetch(progress: FetchProgress.Handler? = nil) async throws {
-        try await asyncQueue.run { try self.fetch(progress: progress) }
+        try await asyncQueue.withOperation { try self.fetch(progress: progress) }
     }
 
     public func hasUncommittedChanges() -> Bool {
@@ -859,8 +869,8 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
     }
 
-    public func hasUncommittedChanges() async -> Bool {
-        (try? await asyncQueue.run { self.hasUncommittedChanges() }) ?? false
+    public func hasUncommittedChanges() async throws -> Bool {
+        try await asyncQueue.withOperation { self.hasUncommittedChanges() }
     }
 
     public func openFileView(revision: Revision) throws -> FileSystem {
@@ -898,12 +908,12 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     public func getCurrentRevision() async throws -> Revision {
-        try await asyncQueue.run { try self.getCurrentRevision() }
+        try await asyncQueue.withOperation { try self.getCurrentRevision() }
     }
 
-    public func getCurrentTag() async -> String? {
-        try? await asyncQueue.run {
-            try self.callGit(
+    public func getCurrentTag() async throws -> String? {
+        try await asyncQueue.withOperation {
+            try? self.callGit(
                 "describe",
                 "--exact-match",
                 "--tags",
@@ -993,7 +1003,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     func hasLFSTrackedFiles() async throws -> Bool {
-        try await asyncQueue.run { try self.hasLFSTrackedFiles() }
+        try await asyncQueue.withOperation { try self.hasLFSTrackedFiles() }
     }
 
     /// Clears the cached LFS detection result

@@ -899,7 +899,7 @@ extension Workspace {
                 // FIXME: We need to get the revision here, and we don't have a
                 // way to get it back out of the resolver which is very
                 // annoying. Maybe we should make an SPI on the provider for this?
-                guard let tag = container.getTag(for: version) else {
+                guard let tag = await container.getTag(for: version) else {
                     throw try await InternalError(
                         "unable to get tag for \(package) \(version); available versions \(container.versionsDescending())"
                     )
@@ -1319,11 +1319,13 @@ extension Workspace {
     /// Reads `Package.resolved` from disk for the full transitive closure
     /// (even during `swift package update` which clears the resolver's pins).
     /// Falls back to root manifest direct deps on fresh checkout.
-    fileprivate func prefetchPackages(
-        rootManifests: [AbsolutePath: Manifest]
+    internal func prefetchPackages(
+        rootManifests: [AbsolutePath: Manifest],
+        observabilityScope: ObservabilityScope
     ) -> [PackageReference] {
         // Prefer Package.resolved on disk — full transitive closure.
-        if let store = try? self.resolvedPackagesStore.load() {
+        do {
+            let store = try self.resolvedPackagesStore.load()
             let packages = store.resolvedPackages.values.compactMap { resolved -> PackageReference? in
                 switch resolved.state {
                 case .branch, .revision:
@@ -1335,6 +1337,11 @@ extension Workspace {
             if !packages.isEmpty {
                 return packages
             }
+        } catch {
+            observabilityScope.emit(
+                info: "unable to load Package.resolved for prefetching; falling back to root manifest dependencies",
+                underlyingError: error
+            )
         }
 
         // Fresh checkout: no Package.resolved. Use root manifest deps.
@@ -1352,7 +1359,7 @@ extension Workspace {
         }
     }
 
-    fileprivate func prefetchContainers(
+    internal func prefetchContainers(
         rootManifests: [AbsolutePath: Manifest],
         observabilityScope: ObservabilityScope
     ) async -> (packagesToWarm: [PackageReference], prefetchedContainers: [PackageReference: any PackageContainer]) {
@@ -1360,7 +1367,7 @@ extension Workspace {
             if case .edited = $0.state { return true }
             return false
         }.map(\.packageRef.identity))
-        let packagesToWarm = self.prefetchPackages(rootManifests: rootManifests)
+        let packagesToWarm = self.prefetchPackages(rootManifests: rootManifests, observabilityScope: observabilityScope)
             .filter { !editedIdentities.contains($0.identity) }
 
         guard self.configuration.prefetchBasedOnResolvedFile else {
@@ -1371,12 +1378,20 @@ extension Workspace {
         let prefetched = await withTaskGroup(of: (PackageReference, (any PackageContainer)?).self) { group in
             for package in packagesToWarm {
                 group.addTask {
-                    let container = try? await self.getContainer(
-                        for: package,
-                        updateStrategy: updateStrategy,
-                        observabilityScope: observabilityScope
-                    )
-                    return (package, container)
+                    do {
+                        let container = try await self.getContainer(
+                            for: package,
+                            updateStrategy: updateStrategy,
+                            observabilityScope: observabilityScope
+                        )
+                        return (package, container)
+                    } catch {
+                        observabilityScope.emit(
+                            debug: "prefetch failed for '\(package.identity)'",
+                            underlyingError: error
+                        )
+                        return (package, nil)
+                    }
                 }
             }
             var result = [PackageReference: any PackageContainer]()
