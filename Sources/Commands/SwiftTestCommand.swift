@@ -247,6 +247,12 @@ struct TestCommandOptions: ParsableArguments {
     var enableExperimentalTestOutput: Bool {
         return testOutput == .experimentalSummary
     }
+
+    /// Experimental out-of-process test harness.
+    @Flag(name: .customLong("experimental-test-harness"),
+            inversion: .prefixedEnableDisable,
+            help: .private)
+    var experimentalTestHarnessEnabled = false
 }
 
 /// Tests filtering the specifier, which is used to filter tests to run.
@@ -451,7 +457,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
         // After all test runs complete, emit a summary of any failures.
         let failures = results.filter { $0.result == .failure }
-        if !failures.isEmpty {
+        if !failures.isEmpty && !options.experimentalTestHarnessEnabled {
             print(Self.failedTestsNote(for: failures))
         }
 
@@ -766,7 +772,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             toolchain: toolchain,
             testEnv: testEnv,
             observabilityScope: swiftCommandState.observabilityScope,
-            library: library
+            library: library,
+            experimentalTestHarnessEnabled: options.experimentalTestHarnessEnabled
         )
 
         // Run the tests and collect per-product results.
@@ -1209,6 +1216,9 @@ final class TestRunner {
     /// Which testing library to use with this test run.
     private let library: TestingLibrary
 
+    /// Whether or not the experimental out-of-process test harness is enabled.
+    private let experimentalTestHarnessEnabled: Bool
+
     /// Get the arguments used on this platform to pass test specifiers to XCTest.
     static func xctestArguments<S>(forTestSpecifiers testSpecifiers: S) -> [String] where S: Collection, S.Element == String {
         let testSpecifier: String
@@ -1237,7 +1247,8 @@ final class TestRunner {
         toolchain: UserToolchain,
         testEnv: Environment,
         observabilityScope: ObservabilityScope,
-        library: TestingLibrary
+        library: TestingLibrary,
+        experimentalTestHarnessEnabled: Bool = false
     ) {
         self.testProducts = testProducts
         self.additionalArguments = additionalArguments
@@ -1246,6 +1257,7 @@ final class TestRunner {
         self.testEnv = testEnv
         self.observabilityScope = observabilityScope.makeChildScope(description: "Test Runner")
         self.library = library
+        self.experimentalTestHarnessEnabled = experimentalTestHarnessEnabled
     }
 
     /// The result of running the test(s).
@@ -1270,6 +1282,10 @@ final class TestRunner {
 
     /// Executes and returns per-product results.
     func testPerProduct(outputHandler: @escaping @Sendable (String) -> Void) -> [SwiftTestCommand.TestProductResult] {
+        if case .swiftTesting = library, experimentalTestHarnessEnabled {
+            return testWithHarness(outputHandler: outputHandler)
+        }
+
         var results: [SwiftTestCommand.TestProductResult] = []
         for product in testProducts {
             let path: AbsolutePath
@@ -1282,6 +1298,26 @@ final class TestRunner {
             results.append(.init(productName: product.productName, library: library, result: self.test(at: path, outputHandler: outputHandler)))
         }
         return results
+    }
+
+    private func testWithHarness(outputHandler: @escaping @Sendable (String) -> Void) -> [SwiftTestCommand.TestProductResult] {
+        let result: Result
+
+        let testObservabilityScope = self.observabilityScope.makeChildScope(description: "running tests from all test products")
+        do {
+            var args: [String] = []
+            let helper = try self.toolchain.getSwiftTestingHarness()
+            args += [helper.pathString, "--test-binary-paths"]
+            args += testProducts.map(\.binaryPath.pathString)
+            args += ["--"]
+            args += self.additionalArguments
+            result = self.test(arguments: args, testObservabilityScope: testObservabilityScope, outputHandler: outputHandler)
+        } catch {
+            testObservabilityScope.emit(error)
+            result = .failure
+        }
+
+        return testProducts.map { .init(productName: $0.productName, library: .swiftTesting, result: result) }
     }
 
     /// Constructs arguments to execute XCTest.
@@ -1324,7 +1360,16 @@ final class TestRunner {
 
     private func test(at path: AbsolutePath, outputHandler: @escaping @Sendable (String) -> Void) -> Result {
         let testObservabilityScope = self.observabilityScope.makeChildScope(description: "running test at \(path)")
+        do {
+            let arguments = try args(forTestAt: path)
+            return test(arguments: arguments, testObservabilityScope: testObservabilityScope, outputHandler: outputHandler)
+        } catch {
+            testObservabilityScope.emit(error)
+            return .failure
+        }
+    }
 
+    private func test(arguments: [String], testObservabilityScope: ObservabilityScope, outputHandler: @escaping @Sendable (String) -> Void) -> Result {
         do {
             let outputHandler: @Sendable ([UInt8]) -> Void = { (bytes: [UInt8]) in
                 if let output = String(bytes: bytes, encoding: .utf8) {
@@ -1335,7 +1380,6 @@ final class TestRunner {
                 stdout: outputHandler,
                 stderr: outputHandler
             )
-            let arguments = try args(forTestAt: path)
             let process = AsyncProcess(arguments: arguments, environment: self.testEnv, outputRedirection: outputRedirection)
             guard let terminationKey = self.cancellator.register(process) else {
                 return .failure // terminating

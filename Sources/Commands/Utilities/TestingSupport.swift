@@ -349,6 +349,7 @@ enum TestingSupport {
         if library == .xctest {
             env["SWIFT_TESTING_ENABLED"] = "0"
         }
+        env["SWIFTPM_TESTING_HELPER_PATH"] = try toolchain.getSwiftTestingHelper().pathString
 
         // Fast path when no sanitizers are enabled.
         if sanitizers.isEmpty {

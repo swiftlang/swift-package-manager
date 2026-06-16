@@ -696,7 +696,7 @@ let package = Package(
         .executableTarget(
             /** Runs package tests */
             name: "swift-test",
-            dependencies: ["Commands"],
+            dependencies: ["Commands", "swiftpm-testing-helper"],
             exclude: ["CMakeLists.txt"]
         ),
         .executableTarget(
@@ -1024,6 +1024,13 @@ let package = Package(
 package.targets.append(contentsOf: [
     .executableTarget(
         name: "swiftpm-testing-helper"
+    ),
+    .executableTarget(
+        name: "swiftpm-testing-harness",
+        dependencies: [
+            .product(name: "Testing", package: "swift-testing-public"),
+            .product(name: "ArgumentParser", package: "swift-argument-parser"),
+        ]
     )
 ])
 #endif
@@ -1140,6 +1147,9 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-collections.git", revision: "1.1.6"),
         .package(url: "https://github.com/apple/swift-certificates.git", revision: "1.10.1"),
         .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", revision: "1.0.9"),
+        // FIXME: use real package
+        // .package(url: "https://github.com/swiftlang/swift-testing.git", branch: "main"),
+        .package(path: "../swift-testing-public"),
         // Not in toolchain, used for use in previewing documentation
         .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.1.0"),
     ]
@@ -1158,6 +1168,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-collections"),
         .package(path: "../swift-certificates"),
         .package(path: "../swift-toolchain-sqlite"),
+        .package(path: "../swift-testing-public"),
     ]
     if !swiftDriverDeps.isEmpty {
         package.dependencies += [
