@@ -87,6 +87,7 @@ extension Workspace {
 
         let (packagesToWarm, prefetchedContainers) = await self.prefetchContainers(
             rootManifests: rootManifests,
+            rootDependencies: root.dependencies,
             observabilityScope: observabilityScope
         )
 
@@ -724,6 +725,7 @@ extension Workspace {
         // Perform dependency resolution.
         let (packagesToWarm, prefetchedContainers) = await self.prefetchContainers(
             rootManifests: rootManifests,
+            rootDependencies: root.dependencies,
             observabilityScope: observabilityScope
         )
         let resolver = try self.createResolver(
@@ -1321,8 +1323,25 @@ extension Workspace {
     /// Falls back to root manifest direct deps on fresh checkout.
     internal func prefetchPackages(
         rootManifests: [AbsolutePath: Manifest],
+        rootDependencies: [PackageDependency] = [],
         observabilityScope: ObservabilityScope
     ) -> [PackageReference] {
+        // Current root URLs by identity (override deps win), to skip warming packages whose URL changed.
+        let rootRemoteLocations = Dictionary(
+            (rootManifests.values.flatMap(\.dependencies) + rootDependencies).compactMap { dep -> (PackageIdentity, String)? in
+                guard case .sourceControl(let settings) = dep,
+                      case .remote(let url) = settings.location else { return nil }
+                return (settings.identity, url.absoluteString)
+            },
+            uniquingKeysWith: { _, last in last }
+        )
+
+        // Identities overridden to a non-remote dependency must not be warmed as remote.
+        let locallyOverriddenIdentities = Set(rootDependencies.compactMap { dep -> PackageIdentity? in
+            if case .sourceControl(let settings) = dep, case .remote = settings.location { return nil }
+            return dep.identity
+        })
+
         // Prefer Package.resolved on disk — full transitive closure.
         do {
             let store = try self.resolvedPackagesStore.load()
@@ -1331,6 +1350,19 @@ extension Workspace {
                 case .branch, .revision:
                     return nil
                 case .version:
+                    // Only remote packages need warming; a local one clobbers overrides.
+                    guard case .remoteSourceControl(let resolvedURL) = resolved.packageRef.kind else { return nil }
+                    if locallyOverriddenIdentities.contains(resolved.packageRef.identity) {
+                        return nil // overridden to a local/non-remote dependency
+                    }
+                    if let rootURL = rootRemoteLocations[resolved.packageRef.identity],
+                       rootURL != resolvedURL.absoluteString {
+                        // URL changed since Package.resolved; skip so the warm container can't pin the stale location.
+                        observabilityScope.emit(
+                            debug: "not prefetching '\(resolved.packageRef.identity)': root URL '\(rootURL)' differs from resolved '\(resolvedURL.absoluteString)'"
+                        )
+                        return nil
+                    }
                     return resolved.packageRef
                 }
             }
@@ -1348,6 +1380,7 @@ extension Workspace {
         return rootManifests.values.flatMap(\.dependencies).compactMap { dep in
             guard case .sourceControl(let settings) = dep,
                   case .remote(let url) = settings.location else { return nil }
+            guard !locallyOverriddenIdentities.contains(settings.identity) else { return nil }
             switch settings.requirement {
             case .branch, .revision:
                 return nil
@@ -1361,14 +1394,18 @@ extension Workspace {
 
     internal func prefetchContainers(
         rootManifests: [AbsolutePath: Manifest],
+        rootDependencies: [PackageDependency] = [],
         observabilityScope: ObservabilityScope
     ) async -> (packagesToWarm: [PackageReference], prefetchedContainers: [PackageReference: any PackageContainer]) {
         let editedIdentities = await Set(self.state.dependencies.filter {
             if case .edited = $0.state { return true }
             return false
         }.map(\.packageRef.identity))
-        let packagesToWarm = self.prefetchPackages(rootManifests: rootManifests, observabilityScope: observabilityScope)
-            .filter { !editedIdentities.contains($0.identity) }
+        let packagesToWarm = self.prefetchPackages(
+            rootManifests: rootManifests,
+            rootDependencies: rootDependencies,
+            observabilityScope: observabilityScope
+        ).filter { !editedIdentities.contains($0.identity) }
 
         guard self.configuration.prefetchBasedOnResolvedFile else {
             return (packagesToWarm, [:])

@@ -48,7 +48,7 @@ final class ContainerProvider {
     init(
         provider underlying: PackageContainerProvider,
         skipUpdate: Bool,
-        skipUpdateForResolvedPackages: Bool,
+        skipUpdateForResolvedPackages: Bool = false,
         resolvedPackages: ResolvedPackagesStore.ResolvedPackages,
         prefetchedContainers: [PackageReference: any PackageContainer] = [:],
         observabilityScope: ObservabilityScope
@@ -59,7 +59,11 @@ final class ContainerProvider {
         self.resolvedPackages = resolvedPackages
         self.observabilityScope = observabilityScope
         for (ref, container) in prefetchedContainers {
-            self.warmCache[ref] = PubGrubPackageContainer(underlying: container, resolvedPackages: resolvedPackages)
+            self.warmCache[ref] = PubGrubPackageContainer(
+                underlying: container,
+                resolvedPackages: resolvedPackages,
+                trustPinnedVersions: self.trustPinnedVersions(for: ref)
+            )
         }
     }
 
@@ -71,6 +75,10 @@ final class ContainerProvider {
             }
         }
         _ = self.warmCache.clear()
+        // Drop any overridden entry an early `getContainer` already promoted, so the override isn't bypassed.
+        for ref in self.containersCache.get().keys where overriddenIdentities.contains(ref.identity) {
+            self.containersCache[ref] = nil
+        }
     }
 
     private func updateStrategy(for package: PackageReference) -> ContainerUpdateStrategy {
@@ -165,7 +173,7 @@ final class ContainerProvider {
         // Process each container.
         for identifier in identifiers {
             if self.containersCache[comparingLocation: identifier] != nil
-                || self.warmCache[identifier] != nil {
+                || self.warmCache[comparingLocation: identifier] != nil {
                 continue
             }
             var needsFetching = false
