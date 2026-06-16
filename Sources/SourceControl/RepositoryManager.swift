@@ -199,7 +199,6 @@ public class RepositoryManager: Cancellable {
         // check if a repository already exists
         // errors when trying to check if a repository already exists are legitimate
         // and recoverable, and as such can be ignored
-        //
         quick: if await self.isValidDirectory(repositoryPath) {
             let repository = try await handle.open()
 
@@ -208,6 +207,7 @@ public class RepositoryManager: Cancellable {
                 break quick
             }
 
+            // Update the repository if needed
             if self.fetchRequired(repository: repository, updateStrategy: updateStrategy) {
                 let start = DispatchTime.now()
 
