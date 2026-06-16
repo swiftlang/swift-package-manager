@@ -137,25 +137,28 @@ final class WorkspacePrefetchTests: XCTestCase {
             roots: [
                 MockPackage(
                     name: "Foo",
-                    targets: [MockTarget(name: "Foo", dependencies: ["Bar"])],
+                    targets: [MockTarget(name: "Foo", dependencies: [.product(name: "Bar", package: "bar")])],
                     products: [MockProduct(name: "Foo", modules: ["Foo"])],
                     dependencies: [
-                        .sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        // Remote: only remote packages are prefetched.
+                        .sourceControl(url: "https://scm.com/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
                     ]
                 ),
             ],
             packages: [
                 MockPackage(
                     name: "Bar",
-                    targets: [MockTarget(name: "Bar", dependencies: ["Baz"])],
+                    url: "https://scm.com/org/bar",
+                    targets: [MockTarget(name: "Bar", dependencies: [.product(name: "Baz", package: "baz")])],
                     products: [MockProduct(name: "Bar", modules: ["Bar"])],
                     dependencies: [
-                        .sourceControl(path: "./Baz", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://scm.com/org/baz", requirement: .upToNextMajor(from: "1.0.0")),
                     ],
                     versions: ["1.0.0"]
                 ),
                 MockPackage(
                     name: "Baz",
+                    url: "https://scm.com/org/baz",
                     targets: [MockTarget(name: "Baz")],
                     products: [MockProduct(name: "Baz", modules: ["Baz"])],
                     versions: ["1.0.0"]
@@ -244,6 +247,215 @@ final class WorkspacePrefetchTests: XCTestCase {
         XCTAssertFalse(
             prefetched.keys.contains { $0.identity.description == "bar" },
             "edited package 'bar' must not be in prefetched containers"
+        )
+    }
+
+    /// If a root dependency's URL changed textually since `Package.resolved` was
+    /// written (e.g. `bar` -> `bar.git`, same canonical identity), that package
+    /// must not be prefetched — its warm container would pin the stale URL.
+    ///
+    /// `bar` is the package whose URL changes (expected: dropped). `qux` is a
+    /// second, unchanged package (expected: kept) — its only job is to keep the
+    /// prefetch list non-empty so the assertion proves the skip happened, rather
+    /// than the empty-list fallback to root-manifest deps re-adding `bar`.
+    func testPrefetchPackagesSkipsResolvedEntryWhoseURLChanged() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let mockWorkspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [MockTarget(name: "Foo", dependencies: [
+                        .product(name: "Bar", package: "bar"),
+                        .product(name: "Qux", package: "qux"),
+                    ])],
+                    products: [MockProduct(name: "Foo", modules: ["Foo"])],
+                    dependencies: [
+                        .sourceControl(url: "https://scm.com/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(url: "https://scm.com/org/qux", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Bar",
+                    url: "https://scm.com/org/bar",
+                    targets: [MockTarget(name: "Bar")],
+                    products: [MockProduct(name: "Bar", modules: ["Bar"])],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Qux",
+                    url: "https://scm.com/org/qux",
+                    targets: [MockTarget(name: "Qux")],
+                    products: [MockProduct(name: "Qux", modules: ["Qux"])],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        // Resolve once so Package.resolved pins both at their original URLs.
+        try await mockWorkspace.checkPackageGraph(roots: ["Foo"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        let workspace = try mockWorkspace.getOrCreateWorkspace()
+        let observability = ObservabilitySystem.makeForTesting()
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: [try mockWorkspace.pathToRoot(withName: "Foo")],
+            observabilityScope: observability.topScope
+        )
+
+        // Sanity: with the same URLs, both are prefetched.
+        let unchanged = workspace.prefetchPackages(
+            rootManifests: rootManifests,
+            observabilityScope: observability.topScope
+        )
+        XCTAssertEqual(unchanged.map(\.identity.description).sorted(), ["bar", "qux"])
+
+        // Bar's root URL changed textually (added `.git`) but is canonically the
+        // same identity — bar must be dropped while qux (unchanged) stays.
+        let changedURL = SourceControlURL("https://scm.com/org/bar.git")
+        let changedURLDep = PackageDependency.remoteSourceControl(
+            identity: PackageIdentity(url: changedURL),
+            nameForTargetDependencyResolutionOnly: nil,
+            url: changedURL,
+            requirement: .upToNextMajor(from: "1.0.0"),
+            productFilter: .everything
+        )
+        let changed = workspace.prefetchPackages(
+            rootManifests: rootManifests,
+            rootDependencies: [changedURLDep],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertEqual(
+            changed.map(\.identity.description).sorted(), ["qux"],
+            "bar's URL changed and must be dropped; qux unchanged and must stay"
+        )
+    }
+
+    /// When checking whether a resolved entry's URL changed, a `rootDependencies`
+    /// override (e.g. from `swift package update`) wins over the manifest's URL.
+    /// Here the override matches the resolved URL, so `bar` stays prefetched.
+    func testPrefetchPackagesRootDependenciesOverrideManifestURL() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let mockWorkspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [MockTarget(name: "Foo", dependencies: [.product(name: "Bar", package: "bar")])],
+                    products: [MockProduct(name: "Foo", modules: ["Foo"])],
+                    dependencies: [
+                        .sourceControl(url: "https://scm.com/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Bar",
+                    url: "https://scm.com/org/bar",
+                    targets: [MockTarget(name: "Bar")],
+                    products: [MockProduct(name: "Bar", modules: ["Bar"])],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        // Resolve once so Package.resolved pins `https://scm.com/org/bar`.
+        try await mockWorkspace.checkPackageGraph(roots: ["Foo"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        let workspace = try mockWorkspace.getOrCreateWorkspace()
+        let observability = ObservabilitySystem.makeForTesting()
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: [try mockWorkspace.pathToRoot(withName: "Foo")],
+            observabilityScope: observability.topScope
+        )
+
+        // The manifest URL alone would not change anything, but an override that
+        // matches the resolved URL must win over it: bar stays prefetched.
+        let overrideURL = SourceControlURL("https://scm.com/org/bar")
+        let overrideDep = PackageDependency.remoteSourceControl(
+            identity: PackageIdentity(url: overrideURL),
+            nameForTargetDependencyResolutionOnly: nil,
+            url: overrideURL,
+            requirement: .upToNextMajor(from: "1.0.0"),
+            productFilter: .everything
+        )
+        let prefetched = workspace.prefetchPackages(
+            rootManifests: rootManifests,
+            rootDependencies: [overrideDep],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertEqual(prefetched.map(\.identity.description).sorted(), ["bar"])
+    }
+
+    /// A package that is remote in `Package.resolved` but overridden to a local
+    /// path via `rootDependencies` (a `.fileSystem` override) must NOT be
+    /// prefetched — warming it as remote would clobber the local override.
+    func testPrefetchPackagesSkipsFileSystemOverrideOfRemoteResolvedEntry() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let mockWorkspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [MockTarget(name: "Foo", dependencies: [.product(name: "Bar", package: "bar")])],
+                    products: [MockProduct(name: "Foo", modules: ["Foo"])],
+                    dependencies: [
+                        .sourceControl(url: "https://scm.com/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Bar",
+                    url: "https://scm.com/org/bar",
+                    targets: [MockTarget(name: "Bar")],
+                    products: [MockProduct(name: "Bar", modules: ["Bar"])],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        // Resolve once so Package.resolved pins the remote `https://scm.com/org/bar`.
+        try await mockWorkspace.checkPackageGraph(roots: ["Foo"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        let workspace = try mockWorkspace.getOrCreateWorkspace()
+        let observability = ObservabilitySystem.makeForTesting()
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: [try mockWorkspace.pathToRoot(withName: "Foo")],
+            observabilityScope: observability.topScope
+        )
+
+        // Override `bar` to a local path (same identity as the remote resolved entry).
+        let overrideDep = PackageDependency.fileSystem(
+            identity: PackageIdentity(url: SourceControlURL("https://scm.com/org/bar")),
+            nameForTargetDependencyResolutionOnly: nil,
+            path: sandbox.appending(components: "pkgs", "Bar"),
+            productFilter: .everything
+        )
+        let prefetched = workspace.prefetchPackages(
+            rootManifests: rootManifests,
+            rootDependencies: [overrideDep],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertFalse(
+            prefetched.contains { $0.identity.description == "bar" },
+            "bar is overridden to a local path; it must not be prefetched as remote, got \(prefetched.map(\.identity.description))"
         )
     }
 }

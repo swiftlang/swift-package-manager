@@ -557,7 +557,7 @@ class GitRepositoryTests: XCTestCase {
             try localFileSystem.writeFileContents(originPath.appending("feature.txt"), bytes: "feature")
             try origin.stage(file: "feature.txt")
             try origin.commit()
-            let featureTip = try origin.getCurrentRevision()
+            let featureTip = try await origin.getCurrentRevision()
             try await AsyncProcess.checkNonZeroExit(args: Git.tool, "-C", originPath.pathString, "checkout", defaultBranch)
 
             // Fetch into the cache as a bare mirror, exactly as SwiftPM does.
@@ -671,8 +671,10 @@ class GitRepositoryTests: XCTestCase {
 
             // The resolution cache fast-path validates the bare cache repository via
             // `isValidDirectory`; both variants must also keep working under `explicit`.
-            XCTAssertTrue(try provider.isValidDirectory(bareRepoPath))
-            XCTAssertTrue(try provider.isValidDirectory(bareRepoPath, for: repoSpec))
+            let isValidBareRepo = try await provider.isValidDirectory(bareRepoPath)
+            XCTAssertTrue(isValidBareRepo)
+            let isValidBareRepoForSpec = try await provider.isValidDirectory(bareRepoPath, for: repoSpec)
+            XCTAssertTrue(isValidBareRepoForSpec)
         }
     }
 

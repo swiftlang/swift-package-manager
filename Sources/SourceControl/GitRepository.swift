@@ -402,8 +402,26 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     }
 
     public func isValidDirectory(_ directory: Basics.AbsolutePath) async throws -> Bool {
-        let result = try await self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
-        return result == ".git" || result == "." || result == directory.pathString
+        // A working tree is found via discovery (`-C`). A bare repository is refused by
+        // discovery when the user sets `safe.bareRepository=explicit`, so fall back to
+        // addressing the directory as an explicit git directory, which that setting permits.
+        do {
+            let result = try await self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
+            return result == ".git" || result == "." || result == directory.pathString
+        } catch let error as GitShellError {
+            let isBareRepository: String
+            do {
+                isBareRepository = try await self.git.run(
+                    gitLocationArguments(directory.pathString, bare: true) + ["rev-parse", "--is-bare-repository"]
+                )
+            } catch is GitShellError {
+                throw error
+            }
+            if isBareRepository == "true" {
+                return true
+            }
+            throw error
+        }
     }
 
     public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
@@ -426,7 +444,21 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
     }
 
     public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: RepositorySpecifier) async throws -> Bool {
-        let remoteURL = try await self.git.run(["-C", directory.pathString, "config", "--get", "remote.origin.url"])
+        let remoteURL: String
+        do {
+            remoteURL = try await self.git.run(["-C", directory.pathString, "config", "--get", "remote.origin.url"])
+        } catch let error as GitShellError {
+            // Discovery is refused for a bare repository under `safe.bareRepository=explicit`,
+            // so git exits non-zero without reading the config; re-read it with the directory
+            // named as an explicit git directory.
+            do {
+                remoteURL = try await self.git.run(
+                    gitLocationArguments(directory.pathString, bare: true) + ["config", "--get", "remote.origin.url"]
+                )
+            } catch is GitShellError {
+                throw error
+            }
+        }
         return CanonicalPackageURL(remoteURL) == CanonicalPackageURL(repository.url)
     }
 
