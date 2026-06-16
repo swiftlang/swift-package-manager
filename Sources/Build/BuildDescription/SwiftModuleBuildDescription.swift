@@ -483,18 +483,15 @@ public final class SwiftModuleBuildDescription {
         #endif
 
         // Prebuilt macro plugins shipped as binary artifact bundles. These are host tools, so
-        // their variants are selected against the host (macro build) triple. The artifact key is
-        // used as the plugin module name, matching the `module:` of the `#externalMacro` decl.
+        // their variants are selected against the host triple. The artifact key is
+        // used as the plugin module name, matching the `module:` of the `#externalMacro` declaration
         try self.requiredBinaryMacros.forEach { binaryMacro in
             let macros = try binaryMacro.parseMacroArtifactArchives(
                 for: macroBuildParameters.triple,
                 fileSystem: self.fileSystem
             )
             for macro in macros where !macro.supportedTriples.isEmpty {
-                args += [
-                    "-Xfrontend", "-load-plugin-executable",
-                    "-Xfrontend", "\(macro.executablePath.pathString)#\(macro.name)",
-                ]
+                args += ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", "\(macro.executablePath.pathString)#\(macro.name)"]
             }
         }
 

@@ -97,10 +97,7 @@ extension BinaryModule {
         }
     }
 
-    /// Parses the prebuilt macro plugin executables in this artifact bundle, selecting the
-    /// variant(s) matching the given host `triple`. Mirrors `parseExecutableArtifactArchives`
-    /// but filters for the `.macro` artifact type. The returned `ExecutableInfo.name` is the
-    /// artifact key, which doubles as the macro plugin module name passed to the compiler.
+    /// Parses the prebuilt macro plugin executables in this artifact bundle, matching the given host `triple`.
     public func parseMacroArtifactArchives(for triple: Triple, fileSystem: any FileSystem) throws -> [ExecutableInfo] {
         // The host triple might contain a version which we don't want to take into account here.
         let versionLessTriple = try triple.withoutVersion()

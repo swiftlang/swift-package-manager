@@ -204,8 +204,7 @@ extension PackagePIFProjectBuilder {
         settings[.CLANG_CXX_LANGUAGE_STANDARD] = mainModule.cxxLanguageStandard
         settings[.SWIFT_ENABLE_BARE_SLASH_REGEX] = "NO"
 
-        // Load any prebuilt macro plugins that this product's main module (transitively) depends
-        // on, shipped as binary artifact bundles. See the matching logic in `buildSourceModule`.
+        // Load any prebuilt macro plugins
         for dependency in try mainModule.recursiveModuleDependencies() {
             guard dependency.type == .binary,
                   let binaryModule = dependency.underlying as? BinaryModule,
@@ -402,8 +401,7 @@ extension PackagePIFProjectBuilder {
                         break
                     }
                     if binaryModule.containsMacro {
-                        // Prebuilt macro plugin: loaded via SWIFT_LOAD_BINARY_MACROS on the source
-                        // module, not linked/embedded in the product. Skip adding it as a build file.
+                        // Skip adding prebuilt macro plugin as a build file
                         log(.debug, indent: 1, "Loading prebuilt binary macro '\(moduleDependency.name)'")
                         break
                     }

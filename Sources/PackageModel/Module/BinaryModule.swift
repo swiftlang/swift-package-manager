@@ -21,7 +21,7 @@ public final class BinaryModule: Module {
 
     /// The kind of binary artifact.
     public let kind: Kind
-    
+
     /// The original source of the binary artifact.
     public let origin: Origin
 
@@ -97,7 +97,6 @@ public final class BinaryModule: Module {
         }
     }
 
-    /// Whether this binary artifact provides one or more prebuilt macro plugin executables.
     public var containsMacro: Bool {
         switch self.kind {
         case .xcframework:

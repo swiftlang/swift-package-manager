@@ -51,8 +51,6 @@ public final class PackagePIFBuilder {
     let modulesGraph: ModulesGraph
     private let package: ResolvedPackage
 
-    /// The triple of the host performing the build. Used to select the right variant of a
-    /// prebuilt macro plugin shipped as a binary artifact bundle (macros are host tools).
     let hostTriple: Basics.Triple
 
     /// Contains the package declarative specification.
