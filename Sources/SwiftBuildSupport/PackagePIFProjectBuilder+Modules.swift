@@ -618,14 +618,27 @@ extension PackagePIFProjectBuilder {
         // Create a group for the target's source files.
         //
         // For now we use an absolute path for it, but we should really make it be container-relative,
-        // since it's always inside the package directory. Resolve symbolic links otherwise there will
-        // be a mismatch between the paths that the index service is using for Swift Build queries,
-        // and what paths Swift Build uses in its build description; such a mismatch would result
-        // in the index service failing to get compiler arguments for source files of the target.
+        // since it's always inside the package directory.
+        //
+        // By default (for historical reasons) we resolve symbolic links,
+        // otherwise there will be a mismatch between the paths some indexing clients are using for
+        // Swift Build queries, and what paths Swift Build uses in its build description; such a
+        // mismatch would result in the index service failing to get compiler arguments for source
+        // files of the target.
+        //
+        // If a client is using `--experimental-skip-resolving-package-paths`, the path is used
+        // as-is.
+        //
+        // Ideally, we could get all known clients to use one mode or the other, but the migration story
+        // is tricky.
+        let sourceDirGroupPath =
+            pifBuilder.shouldPreserveSymlinks
+            ? sourceModule.sourceDirAbsolutePath
+            : (try! resolveSymlinks(sourceModule.sourceDirAbsolutePath))
         let targetSourceFileGroupKeyPath = self.project.mainGroup.addGroup { id in
             ProjectModel.Group(
                 id: id,
-                path: try! resolveSymlinks(sourceModule.sourceDirAbsolutePath).pathString,
+                path: sourceDirGroupPath.pathString,
                 pathBase: .absolute
             )
         }

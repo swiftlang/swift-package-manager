@@ -52,7 +52,8 @@ extension PIFBuilderParameters {
             pluginWorkingDirectory: temporaryDirectory.appending(component: "plugin-working-dir"),
             additionalFileRules: [],
             addLocalRpaths: addLocalRpaths,
-            hostBuildProductsPath: hostBuildProductsPath ?? temporaryDirectory.appending(component: "host-build-products")
+            hostBuildProductsPath: hostBuildProductsPath ?? temporaryDirectory.appending(component: "host-build-products"),
+            shouldPreserveSymlinks: false
         )
     }
 }

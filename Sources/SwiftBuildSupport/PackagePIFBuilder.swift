@@ -202,6 +202,10 @@ public final class PackagePIFBuilder {
     /// the build products to a different location or building the release configuration.
     let addLocalRpaths: AddLocalRpaths
 
+    /// Whether to preserve symbolic links in source file paths instead of resolving them to their
+    /// real path.
+    let shouldPreserveSymlinks: Bool
+
     /// Package display version, if any (i.e., it can be a version, branch or a git ref).
     let packageDisplayVersion: String?
 
@@ -234,6 +238,7 @@ public final class PackagePIFBuilder {
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
         addLocalRpaths: AddLocalRpaths = .always,
+        shouldPreserveSymlinks: Bool,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
@@ -252,6 +257,7 @@ public final class PackagePIFBuilder {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.addLocalRpaths = addLocalRpaths
+        self.shouldPreserveSymlinks = shouldPreserveSymlinks
     }
 
     public init(
@@ -264,6 +270,7 @@ public final class PackagePIFBuilder {
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
         addLocalRpaths: AddLocalRpaths = .always,
+        shouldPreserveSymlinks: Bool = false,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
         fileSystem: FileSystem,
@@ -282,6 +289,7 @@ public final class PackagePIFBuilder {
         self.pkgConfigDirectories = pkgConfigDirectories
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
+        self.shouldPreserveSymlinks = shouldPreserveSymlinks
     }
 
     /// Build an empty PIF project.
