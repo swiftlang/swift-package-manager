@@ -122,6 +122,43 @@ final class RepositoryManagerTests: XCTestCase {
         }
     }
 
+    func testFailedLookupIsNotCached() async throws {
+        // Regression test: a lookup that fails must not be cached.
+        // Subsequent lookups must retry the operation rather than
+        // replaying the previous failure.
+        let fs = localFileSystem
+        let observability = ObservabilitySystem.makeForTesting()
+
+        try await testWithTemporaryDirectory { path in
+            let provider = DummyRepositoryProvider(fileSystem: fs)
+            let delegate = DummyRepositoryManagerDelegate()
+
+            let manager = RepositoryManager(
+                fileSystem: fs,
+                path: path,
+                provider: provider,
+                delegate: delegate
+            )
+
+            let dummyRepo = RepositorySpecifier(path: "/dummy")
+
+            // The host is unreachable: the first lookup fails.
+            provider.nextFetchError = StringError("ssh: connect to host dummy port 22: Operation timed out")
+            delegate.prepare(fetchExpected: true, updateExpected: false)
+            await XCTAssertAsyncThrowsError(
+                try await manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
+            )
+
+            // The host is now reachable: the next lookup must retry and succeed,
+            // not re-throw the cached timeout from the first attempt.
+            provider.nextFetchError = nil
+            delegate.prepare(fetchExpected: true, updateExpected: false)
+            let handle = try await manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
+            XCTAssertEqual(handle.repository, dummyRepo)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+        }
+    }
+
     func testCache() async throws {
         let fs = localFileSystem
         let observability = ObservabilitySystem.makeForTesting()
@@ -715,12 +752,24 @@ private class DummyRepositoryProvider: RepositoryProvider, @unchecked Sendable {
     private let lock = NSLock()
     private var _numClones = 0
     private var _numFetches = 0
+    private var _nextFetchError: Error?
 
     init(fileSystem: FileSystem) {
         self.fileSystem = fileSystem
     }
 
+    /// When set, the next `fetch` throws this error instead of cloning. Used to
+    /// simulate a transient failure such as an unreachable host. The test is
+    /// responsible for clearing it to simulate recovery.
+    var nextFetchError: Error? {
+        get { self.lock.withLock { self._nextFetchError } }
+        set { self.lock.withLock { self._nextFetchError = newValue } }
+    }
+
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) async throws {
+        if let error = self.lock.withLock({ self._nextFetchError }) {
+            throw error
+        }
         assert(!self.fileSystem.exists(path), "\(path) should not exist")
         try self.fileSystem.createDirectory(path, recursive: true)
         try self.fileSystem.writeFileContents(path.appending("readme.md"), string: repository.location.description)
