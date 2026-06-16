@@ -138,6 +138,35 @@ public final class Cancellator: Cancellable, Sendable {
         self.registry[key] = nil
     }
 
+    /// Runs `block` as a cancellable task, hooking it into the Cancellator so that
+    /// an OS-level cancellation signal (e.g. SIGINT) causes the task — and any
+    /// Subprocess running inside it — to be cancelled cooperatively.
+    ///
+    /// A single `ThreadSafeBox` holding both the task reference and the cancellation
+    /// flag ensures that "store task + check cancelled" and "set cancelled + cancel task"
+    /// are each atomic, closing the race between registration and task creation.
+    public func withCancellable<T: Sendable>(
+        name: String,
+        _ block: @escaping @Sendable () async throws -> T
+    ) async throws -> T {
+        let state = ThreadSafeBox<(task: Task<T, any Error>?, cancelled: Bool)>((task: nil, cancelled: false))
+        guard let registrationKey = self.register(name: name, handler: { _ in
+            state.mutate { s in
+                s.cancelled = true
+                s.task?.cancel()
+            }
+        }) else {
+            throw CancellationError()
+        }
+        defer { self.deregister(registrationKey) }
+        let task = Task { try await block() }
+        state.mutate { s in
+            s.task = task
+            if s.cancelled { task.cancel() }
+        }
+        return try await task.value
+    }
+
     public func cancel(deadline: DispatchTime) throws {
         self._cancel(deadline: deadline)
     }

@@ -239,6 +239,7 @@ def parse_global_args(args):
     args.source_dirs["swift-driver"]          = os.path.join(args.project_root, "..", "swift-driver")
     args.source_dirs["swift-system"]          = os.path.join(args.project_root, "..", "swift-system")
     args.source_dirs["swift-collections"]     = os.path.join(args.project_root, "..", "swift-collections")
+    args.source_dirs["swift-subprocess"]      = os.path.join(args.project_root, "..", "swift-subprocess")
     args.source_dirs["swift-tools-protocols"] = os.path.join(args.project_root, "..", "swift-tools-protocols")
     args.source_dirs["swift-certificates"]    = os.path.join(args.project_root, "..", "swift-certificates")
     args.source_dirs["swift-asn1"]            = os.path.join(args.project_root, "..", "swift-asn1")
@@ -386,15 +387,15 @@ def build(args):
         # tsc depends on swift-system so they must be built first.
         build_dependency(args, "swift-system")
         # swift-driver depends on tsc and swift-argument-parser so they must be built first.
-        tsc_cmake_flags = [
+        swift_system_dep_flags = [
             "-DSwiftSystem_DIR="    + os.path.join(args.build_dirs["swift-system"], "cmake/modules"),
         ]
-        build_dependency(args, "tsc", tsc_cmake_flags)
+        build_dependency(args, "tsc", swift_system_dep_flags)
         build_dependency(args, "swift-argument-parser", ["-DBUILD_TESTING=NO", "-DBUILD_EXAMPLES=NO"])
 
-        swift_driver_cmake_flags = [
+        build_dependency(args, "swift-subprocess", swift_system_dep_flags)
+        swift_driver_cmake_flags = swift_system_dep_flags + [
             get_llbuild_cmake_arg(args),
-            "-DSwiftSystem_DIR="    + os.path.join(args.build_dirs["swift-system"], "cmake/modules"),
             "-DTSC_DIR=" + os.path.join(args.build_dirs["tsc"], "cmake/modules"),
             "-DArgumentParser_DIR=" + os.path.join(args.build_dirs["swift-argument-parser"], "cmake/modules"),
         ]
@@ -407,9 +408,9 @@ def build(args):
         build_dependency(args, "swift-certificates",
             ["-DSwiftASN1_DIR=" + os.path.join(args.build_dirs["swift-asn1"], "cmake/modules"),
              "-DSwiftCrypto_DIR=" + os.path.join(args.build_dirs["swift-crypto"], "cmake/modules")])
-        swift_build_cmake_flags = [
+        swift_build_cmake_flags = swift_system_dep_flags + [
             get_llbuild_cmake_arg(args),
-            "-DSwiftSystem_DIR="    + os.path.join(args.build_dirs["swift-system"], "cmake/modules"),
+            "-DSwiftSubprocess_DIR="  + os.path.join(args.build_dirs["swift-subprocess"], "cmake/modules"),
             "-DSwiftASN1_DIR=" + os.path.join(args.build_dirs["swift-asn1"], "cmake/modules"),
             "-DSwiftCrypto_DIR=" + os.path.join(args.build_dirs["swift-crypto"], "cmake/modules"),
             "-DTSC_DIR=" + os.path.join(args.build_dirs["tsc"], "cmake/modules"),
