@@ -284,8 +284,6 @@ let package = Package(
             dependencies: [
                 "Basics",
                 "PackageModel",
-                .product(name: "Subprocess", package: "swift-subprocess"),
-                .product(name: "SystemPackage", package: "swift-system"),
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures
@@ -1139,7 +1137,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-argument-parser.git", revision: "1.6.1"),
         .package(url: "https://github.com/apple/swift-crypto.git", revision: "3.12.5"),
         .package(url: "https://github.com/apple/swift-system.git", revision: "1.5.0"),
-        .package(url: "https://github.com/swiftlang/swift-subprocess.git", from: "0.4.0"),
         .package(url: "https://github.com/apple/swift-collections.git", revision: "1.1.6"),
         .package(url: "https://github.com/apple/swift-certificates.git", revision: "1.10.1"),
         .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", revision: "1.0.9"),
@@ -1158,7 +1155,6 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-crypto"),
         .package(path: "../swift-syntax"),
         .package(path: "../swift-system"),
-        .package(path: "../swift-subprocess"),
         .package(path: "../swift-collections"),
         .package(path: "../swift-certificates"),
         .package(path: "../swift-toolchain-sqlite"),
