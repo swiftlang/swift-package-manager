@@ -654,9 +654,10 @@ extension ModulesGraph {
                 observabilityScope: observabilityScope
             )
             generatedFiles.add(files)
-            if !files.headers.isEmpty {
+            if !files.headers.isEmpty && toolsVersion < .v6_5 {
                 // Capture the public include directory if there were header files generated there
                 // Hardcoding as the default for now
+                // In 6.5, use the new build setting that points at the plugin output dir
                 let publicDir = result.pluginOutputDirectory.appending(ClangModule.defaultPublicHeadersComponent)
                 if files.headers.contains(where: { $0.isDescendantOfOrEqual(to: publicDir) }) {
                     generatedFiles.publicHeaderPaths.append(publicDir)

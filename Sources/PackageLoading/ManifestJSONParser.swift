@@ -697,10 +697,16 @@ extension TargetBuildSettingDescription.Kind {
             }
             return .headerSearchPath(value)
         case "publicHeaderPath":
-            guard let value = values.first else {
+            guard let name = values.first else {
                 throw InternalError("invalid (empty) build settings value")
             }
-            return .publicHeaderPath(value)
+            let pluginName: String?
+            if values.count > 1 {
+                pluginName = values[1]
+            } else {
+                pluginName = nil
+            }
+            return .publicHeaderPath(name, pluginName)
         case "bridgingHeader":
             guard values.count == 2, let visibility = TargetBuildSettingDescription.Visibility(rawValue: values[1]) else {
                 throw InternalError("invalid values")

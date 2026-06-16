@@ -876,7 +876,10 @@ extension PackagePIFProjectBuilder {
         var debugSettings = settings
         var releaseSettings = settings
 
-        let allBuildSettings = sourceModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
+        let allBuildSettings = sourceModule.computeAllBuildSettings(
+            observabilityScope: pifBuilder.observabilityScope,
+            pluginWorkingDirectory: pifBuilder.pluginWorkingDirectory,
+            forRemotePackage: pifBuilder.delegate.isRemote)
 
         // Apply target-specific build settings defined in the manifest.
         allBuildSettings.apply(to: &debugSettings, for: .debug)

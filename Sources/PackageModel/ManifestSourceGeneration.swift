@@ -659,8 +659,17 @@ fileprivate extension SourceCodeFragment {
         var params: [SourceCodeFragment] = []
 
         switch setting.kind {
-        case .headerSearchPath(let value), .publicHeaderPath(let value), .linkedLibrary(let value), .linkedFramework(let value), .enableUpcomingFeature(let value), .enableExperimentalFeature(let value):
+        case .headerSearchPath(let value), .linkedLibrary(let value), .linkedFramework(let value), .enableUpcomingFeature(let value), .enableExperimentalFeature(let value):
             params.append(SourceCodeFragment(string: value))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
+        case .publicHeaderPath(let name, let pluginName):
+            params.append(.init(string: name))
+            if let pluginName {
+                params.append(.init(string: pluginName))
+            }
             if let condition = setting.condition {
                 params.append(SourceCodeFragment(from: condition))
             }

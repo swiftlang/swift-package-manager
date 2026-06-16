@@ -1141,8 +1141,12 @@ public final class PackageBuilder {
                 guard path.isDescendantOfOrEqual(to: self.packagePath) else {
                     throw ModuleError.invalidHeaderSearchPath(value)
                 }
-            case .publicHeaderPath(let value):
-                values = [value]
+            case .publicHeaderPath(let value, let pluginName):
+                if let pluginName {
+                    values = [value, pluginName]
+                } else {
+                    values = [value]
+                }
 
                 switch setting.tool {
                 case .c, .cxx:

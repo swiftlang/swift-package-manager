@@ -120,7 +120,6 @@ public final class Package {
     /// The C++ language standard to use for all C++ targets in this package.
     public var cxxLanguageStandard: CXXLanguageStandard?
 
-    public typealias PluginUsage = Target.PluginUsage
     public var plugins: [PluginUsage]?
 
     /// Initializes a Swift package with configuration options you provide.

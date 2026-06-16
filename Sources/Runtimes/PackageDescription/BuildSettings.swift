@@ -166,6 +166,10 @@ public struct CSetting: Sendable {
         return CSetting(name: "publicHeaderPath", value: [path], condition: condition)
     }
 
+    public static func publicHeaderPath(plugin: PluginUsage, path: String, _ condition: BuildSettingCondition? = nil) -> CSetting {
+        return CSetting(name: "publicHeaderPath", value: [path, plugin.name], condition: condition)
+    }
+
     /// Defines a value for a macro.
     ///
     /// If you don't specify a value, the macro's default value is 1.

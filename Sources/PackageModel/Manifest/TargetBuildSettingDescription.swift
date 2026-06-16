@@ -44,7 +44,7 @@ public enum TargetBuildSettingDescription {
     /// The kind of the build setting, with associate configuration
     public enum Kind: Codable, Hashable, Sendable {
         case headerSearchPath(String)
-        case publicHeaderPath(String)
+        case publicHeaderPath(String, String?)
         case bridgingHeader(String, Visibility)
         case define(String)
         case linkedLibrary(String)

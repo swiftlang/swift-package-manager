@@ -247,7 +247,6 @@ public final class PIFBuilder {
         buildParameters: BuildParameters
     ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] {
         let pluginScriptRunner = self.parameters.pluginScriptRunner
-        let outputDir = self.parameters.pluginWorkingDirectory.appending("outputs")
 
         let pluginsPerModule = graph.pluginsPerModule(
             satisfying: buildParameters.buildEnvironment // .buildEnvironment(for: .host)
@@ -284,20 +283,16 @@ public final class PIFBuilder {
                         throw InternalError("No tools found for plugin \(plugin.name)")
                     }
 
-                    // Assign a plugin working directory based on the package, target, and plugin.
-                    let pluginOutputDir = outputDir.appending(
-                        components: [
-                            package.identity.description,
-                            module.name,
-                            buildParameters.destination == .host ? "tools" : "destination",
-                            plugin.name,
-                        ]
+                    let pluginOutputDir = self.parameters.pluginWorkingDirectory.pluginOutputDir(
+                        packageIdentity: package.identity,
+                        module: module,
+                        plugin: plugin
                     )
 
                     // Determine the set of directories under which plugins are allowed to write.
                     // We always include just the output directory, and for now there is no possibility
                     // of opting into others.
-                    let writableDirectories = [outputDir]
+                    let writableDirectories = [pluginOutputDir]
 
                     // Determine a set of further directories under which plugins are never allowed
                     // to write, even if they are covered by other rules (such as being able to write
@@ -948,5 +943,23 @@ extension Basics.Diagnostic {
             message += "    " + file.pathString + "\n"
         }
         return .warning(message)
+    }
+}
+
+extension Basics.AbsolutePath {
+    /// Plugin output directory relative to the top scratch path plugin output directory
+    func pluginOutputDir(
+        packageIdentity: PackageIdentity,
+        module: ResolvedModule,
+        plugin: ResolvedModule
+    ) -> AbsolutePath {
+        // Assign a plugin working directory based on the package, target, and plugin.
+        return self.appending("outputs").appending(
+            components: [
+                packageIdentity.description,
+                module.name,
+                plugin.name,
+            ]
+        )
     }
 }

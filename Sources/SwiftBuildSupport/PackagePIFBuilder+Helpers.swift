@@ -700,7 +700,11 @@ extension PackageGraph.ResolvedModule {
     /// Collect the build settings defined in the package manifest.
     /// Some of them apply *only* to the target itself, while others are also imparted to clients.
     /// Note that the platform is *optional*; unconditional settings have no platform condition.
-    func computeAllBuildSettings(observabilityScope: ObservabilityScope, forRemotePackage: Bool) -> AllBuildSettings {
+    func computeAllBuildSettings(
+        observabilityScope: ObservabilityScope,
+        pluginWorkingDirectory: AbsolutePath,
+        forRemotePackage: Bool
+    ) -> AllBuildSettings {
         var allSettings = AllBuildSettings()
 
         for (declaration, settingsAssigments) in self.underlying.buildSettings.assignments {
@@ -723,7 +727,17 @@ extension PackageGraph.ResolvedModule {
                 case .HEADER_SEARCH_PATHS, .PUBLIC_HEADER_PATHS:
                     singleValueSetting = nil
                     multipleValueSetting = .HEADER_SEARCH_PATHS
-                    values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
+                    if settingAssignment.values.count == 2,
+                       let plugin = pluginsAppliedToModule.first(where: { $0.name == settingAssignment.values[1] })
+                    {
+                        // second value is plugin name
+                        values = [pluginWorkingDirectory.pluginOutputDir(
+                            packageIdentity: self.packageIdentity,
+                            module: self,
+                            plugin: plugin).pathString]
+                    } else {
+                        values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
+                    }
                 case .SWIFT_BRIDGING_HEADER:
                     singleValueSetting = .SWIFT_OBJC_BRIDGING_HEADER
                     multipleValueSetting = nil
