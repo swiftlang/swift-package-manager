@@ -450,4 +450,87 @@ struct PrebuiltsPIFTests {
             #expect(isHost == false, "\(target.common.name)")
         }
     }
+
+    // A module that depends on a `macro`-typed artifact bundle should have the host-matching
+    // plugin recorded in `SWIFT_LOAD_BINARY_MACROS`, which the build engine turns into
+    // `-load-plugin-executable <path>#<name>`. This is the PIF counterpart of the native
+    // `testBinaryMacroLoadsPluginExecutable` build-plan test.
+    @Test func testBinaryMacroSetsLoadBinaryMacrosSetting() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(
+            emptyFiles: [
+                "/MyPackage/Sources/MyLib/MyLib.swift",
+                "/MyPackage/Sources/MyApp/MyApp.swift",
+            ]
+        )
+
+        let bundlePath = AbsolutePath("/MyPackage/MyMacros.artifactbundle")
+        try fs.createDirectory(bundlePath, recursive: true)
+        // Cover every triple the test host might run on so a host variant is always selected.
+        try fs.writeFileContents(
+            bundlePath.appending("info.json"),
+            string: """
+                {
+                    "schemaVersion": "1.0",
+                    "artifacts": {
+                        "MyMacros": {
+                            "type": "macro",
+                            "version": "1.0.0",
+                            "variants": [
+                                { "path": "arm64-apple-macosx/MyMacros", "supportedTriples": ["arm64-apple-macosx"] },
+                                { "path": "x86_64-apple-macosx/MyMacros", "supportedTriples": ["x86_64-apple-macosx"] },
+                                { "path": "aarch64-unknown-linux-gnu/MyMacros", "supportedTriples": ["aarch64-unknown-linux-gnu"] },
+                                { "path": "x86_64-unknown-linux-gnu/MyMacros", "supportedTriples": ["x86_64-unknown-linux-gnu"] }
+                            ]
+                        }
+                    }
+                }
+            """
+        )
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "MyPackage",
+                    path: "/MyPackage",
+                    products: [
+                        ProductDescription(name: "MyApp", type: .executable, targets: ["MyApp"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "MyApp", dependencies: ["MyLib"], type: .executable),
+                        TargetDescription(name: "MyLib", dependencies: ["MyMacros"]),
+                        TargetDescription(name: "MyMacros", path: "MyMacros.artifactbundle", type: .binary),
+                    ]
+                ),
+            ],
+            binaryArtifacts: [
+                .plain("mypackage"): [
+                    "MyMacros": .init(kind: .artifactsArchive(types: [.macro]), originURL: nil, path: bundlePath),
+                ],
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder: PIFBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root, addLocalRpaths: .always),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+
+        let targets = pif.workspace.projects.flatMap { $0.underlying.targets }
+        let myLib = try #require(targets.first { $0.common.name == "MyLib" })
+
+        let loadBinaryMacros = myLib.common.buildConfigs
+            .compactMap { $0.settings[.SWIFT_LOAD_BINARY_MACROS] }
+            .flatMap { $0 }
+        #expect(!loadBinaryMacros.isEmpty, "MyLib should load the prebuilt macro plugin")
+        #expect(loadBinaryMacros.contains { $0.hasSuffix("#MyMacros") })
+    }
 }
