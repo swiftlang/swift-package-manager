@@ -183,8 +183,7 @@ final class WorkspacePrefetchTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        // The resolved file should expose the full transitive closure
-        // (Bar AND Baz), not just the direct root dep.
+        // Resolved file exposes the full closure (Bar AND Baz), not just the direct dep.
         let identities = Set(prefetched.map(\.identity.description))
         XCTAssertTrue(identities.contains("bar"), "expected bar in \(identities)")
         XCTAssertTrue(identities.contains("baz"), "expected baz in \(identities)")
@@ -250,14 +249,7 @@ final class WorkspacePrefetchTests: XCTestCase {
         )
     }
 
-    /// If a root dependency's URL changed textually since `Package.resolved` was
-    /// written (e.g. `bar` -> `bar.git`, same canonical identity), that package
-    /// must not be prefetched — its warm container would pin the stale URL.
-    ///
-    /// `bar` is the package whose URL changes (expected: dropped). `qux` is a
-    /// second, unchanged package (expected: kept) — its only job is to keep the
-    /// prefetch list non-empty so the assertion proves the skip happened, rather
-    /// than the empty-list fallback to root-manifest deps re-adding `bar`.
+    /// A package whose root URL changed since `Package.resolved` must not be prefetched (`qux` keeps the list non-empty).
     func testPrefetchPackagesSkipsResolvedEntryWhoseURLChanged() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -316,8 +308,7 @@ final class WorkspacePrefetchTests: XCTestCase {
         )
         XCTAssertEqual(unchanged.map(\.identity.description).sorted(), ["bar", "qux"])
 
-        // Bar's root URL changed textually (added `.git`) but is canonically the
-        // same identity — bar must be dropped while qux (unchanged) stays.
+        // Bar's URL changed (added `.git`, same identity) — bar dropped, qux stays.
         let changedURL = SourceControlURL("https://scm.com/org/bar.git")
         let changedURLDep = PackageDependency.remoteSourceControl(
             identity: PackageIdentity(url: changedURL),
@@ -337,9 +328,7 @@ final class WorkspacePrefetchTests: XCTestCase {
         )
     }
 
-    /// When checking whether a resolved entry's URL changed, a `rootDependencies`
-    /// override (e.g. from `swift package update`) wins over the manifest's URL.
-    /// Here the override matches the resolved URL, so `bar` stays prefetched.
+    /// A `rootDependencies` override URL wins over the manifest URL; here it matches the resolved URL so `bar` stays.
     func testPrefetchPackagesRootDependenciesOverrideManifestURL() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -380,8 +369,7 @@ final class WorkspacePrefetchTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        // The manifest URL alone would not change anything, but an override that
-        // matches the resolved URL must win over it: bar stays prefetched.
+        // Override matches the resolved URL and wins over the manifest: bar stays.
         let overrideURL = SourceControlURL("https://scm.com/org/bar")
         let overrideDep = PackageDependency.remoteSourceControl(
             identity: PackageIdentity(url: overrideURL),
@@ -398,9 +386,7 @@ final class WorkspacePrefetchTests: XCTestCase {
         XCTAssertEqual(prefetched.map(\.identity.description).sorted(), ["bar"])
     }
 
-    /// A package that is remote in `Package.resolved` but overridden to a local
-    /// path via `rootDependencies` (a `.fileSystem` override) must NOT be
-    /// prefetched — warming it as remote would clobber the local override.
+    /// A remote-in-`Package.resolved` package overridden to a local path must not be prefetched as remote.
     func testPrefetchPackagesSkipsFileSystemOverrideOfRemoteResolvedEntry() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
