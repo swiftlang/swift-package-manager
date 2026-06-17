@@ -72,6 +72,9 @@ struct PackagePIFProjectBuilder {
     /// bit of information from processing the *products* to processing the *targets*.
     var mainModuleTargetNamesWithResources: Set<String> = []
 
+    /// Names of modules for which a resource-bundle target has actually been created (in `addResourceBundle`).
+    private var moduleNamesWithResourceBundleTargets: Set<String> = []
+
     var builtModulesAndProducts: [PackagePIFBuilder.ModuleOrProduct]
 
     func log(
@@ -187,6 +190,7 @@ struct PackagePIFProjectBuilder {
                 productName: bundleName
             )
         }
+        self.moduleNamesWithResourceBundleTargets.insert(module.name)
         var resourcesTarget: ProjectModel.Target { self.project[keyPath: resourcesTargetKeyPath] }
 
         self.project[keyPath: targetKeyPath].common.addDependency(
@@ -381,6 +385,10 @@ struct PackagePIFProjectBuilder {
     func resourceBundleTargetKeyPath(
         forModuleName name: String
     ) -> WritableKeyPath<ProjectModel.Project, ProjectModel.Target>? {
+        // Skip the `findTarget` scan for modules that have no resource-bundle target, which is
+        // the common case. Performing the scan for every module would make PIF construction O(n^2)
+        // on the number of targets. When a bundle does exist, fall through to the scan.
+        guard self.moduleNamesWithResourceBundleTargets.contains(name) else { return nil }
         let resourceBundleGUID = self.pifTargetIdForResourceBundle(name)
         let targetKeyPath = self.project.findTarget(id: resourceBundleGUID)
         return targetKeyPath
