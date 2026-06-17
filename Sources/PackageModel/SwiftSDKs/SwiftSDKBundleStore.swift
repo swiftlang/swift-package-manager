@@ -123,10 +123,12 @@ public final class SwiftSDKBundleStore {
     /// - Parameters:
     ///   - query: either an artifact ID or target triple to filter with.
     ///   - hostTriple: triple of the host building with these Swift SDKs.
+    ///   - targetTriple: target triple for compilation.
     /// - Returns: ``SwiftSDK`` value matching `query` either by artifact ID or target triple, `nil` if none found.
     public func selectBundle(
         matching selector: String,
-        hostTriple: Triple
+        hostTriple: Triple,
+        targetTriple: Triple? = nil
     ) throws -> SwiftSDK {
         let validBundles = try self.allValidBundles
 
@@ -139,6 +141,7 @@ public final class SwiftSDKBundleStore {
         guard var selectedSwiftSDKs = validBundles.selectSwiftSDK(
             matching: selector,
             hostTriple: hostTriple,
+            targetTriple: targetTriple,
             observabilityScope: self.observabilityScope
         ) else {
             throw Error.noMatchingSwiftSDK(selector: selector, hostTriple: hostTriple)
