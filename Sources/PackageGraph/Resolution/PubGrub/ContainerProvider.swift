@@ -75,7 +75,6 @@ final class ContainerProvider {
             }
         }
         _ = self.warmCache.clear()
-        // Drop any overridden entry an early `getContainer` already promoted, so the override isn't bypassed.
         for ref in self.containersCache.get().keys where overriddenIdentities.contains(ref.identity) {
             self.containersCache[ref] = nil
         }
