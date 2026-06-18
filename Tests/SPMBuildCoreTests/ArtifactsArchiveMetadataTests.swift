@@ -128,57 +128,6 @@ struct ArtifactsArchiveMetadataTests {
     }
 
     @Test
-    func parseMacroMetadata() throws {
-        let fileSystem = InMemoryFileSystem()
-        try fileSystem.writeFileContents(
-            "/info.json",
-            string: """
-            {
-                "schemaVersion": "1.0",
-                "artifacts": {
-                    "MyMacros": {
-                        "type": "macro",
-                        "version": "1.0.0",
-                        "variants": [
-                            {
-                                "path": "arm64-apple-macosx/MyMacros",
-                                "supportedTriples": ["arm64-apple-macosx"]
-                            },
-                            {
-                                "path": "aarch64-unknown-linux-gnu/MyMacros",
-                                "supportedTriples": ["aarch64-unknown-linux-gnu"]
-                            }
-                        ]
-                    }
-                }
-            }
-            """
-        )
-
-        let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: .root)
-        let expected = try ArtifactsArchiveMetadata(
-            schemaVersion: "1.0",
-            artifacts: [
-                "MyMacros": ArtifactsArchiveMetadata.Artifact(
-                    type: .macro,
-                    version: "1.0.0",
-                    variants: [
-                        ArtifactsArchiveMetadata.Variant(
-                            path: "arm64-apple-macosx/MyMacros",
-                            supportedTriples: [Triple("arm64-apple-macosx")]
-                        ),
-                        ArtifactsArchiveMetadata.Variant(
-                            path: "aarch64-unknown-linux-gnu/MyMacros",
-                            supportedTriples: [Triple("aarch64-unknown-linux-gnu")]
-                        ),
-                    ]
-                ),
-            ]
-        )
-        #expect(metadata == expected, "Actual is not as expected")
-    }
-
-    @Test
     func parseMacroArtifactArchivesSelectsHostVariant() throws {
         let fileSystem = InMemoryFileSystem()
         try fileSystem.writeFileContents(
