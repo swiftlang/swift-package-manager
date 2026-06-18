@@ -674,6 +674,15 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .libraryPath(let name, let pluginName):
+            params.append(.init(string: name))
+            if let pluginName {
+                params.append(.init(string: pluginName))
+            }
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
         case .bridgingHeader(let path, let visibility):
             params.append(SourceCodeFragment(string: path))
             params.append(SourceCodeFragment(string: visibility.rawValue))
@@ -1215,6 +1224,8 @@ extension TargetBuildSettingDescription.Kind {
             return "linkedLibrary"
         case .linkedFramework:
             return "linkedFramework"
+        case .libraryPath:
+            return "libraryPath"
         case .unsafeFlags:
             return "unsafeFlags"
         case .interoperabilityMode:

@@ -49,6 +49,7 @@ public enum TargetBuildSettingDescription {
         case define(String)
         case linkedLibrary(String)
         case linkedFramework(String)
+        case libraryPath(String, String?)
 
         case interoperabilityMode(InteroperabilityMode)
 

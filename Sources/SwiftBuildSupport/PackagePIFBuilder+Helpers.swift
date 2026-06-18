@@ -724,6 +724,25 @@ extension PackageGraph.ResolvedModule {
                     singleValueSetting = nil
                     multipleValueSetting = .OTHER_LDFLAGS
                     values = settingAssignment.values.map { "-l\($0)" }
+                case .LIBRARY_SEARCH_PATHS:
+                    singleValueSetting = nil
+                    multipleValueSetting = .LIBRARY_SEARCH_PATHS
+                    if settingAssignment.values.count == 2 {
+                        // second value is plugin name, find the binary output directory for the plugin
+                        // TODO: Check that
+                        // TODO: need to really know this is an external build plugin
+                        let libraryPath = pluginWorkingDirectory.appending(
+                            components: [
+                                "packages",
+                                packageIdentity.description,
+                                settingAssignment.values[1],
+                                "$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)",
+                                settingAssignment.values[0]
+                            ]).pathString
+                        values = [libraryPath]
+                    } else {
+                        values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
+                    }
                 case .HEADER_SEARCH_PATHS, .PUBLIC_HEADER_PATHS:
                     singleValueSetting = nil
                     multipleValueSetting = .HEADER_SEARCH_PATHS
@@ -801,7 +820,11 @@ extension PackageGraph.ResolvedModule {
                     // TODO: Doing that for the PREBUILT_LIBRARIES was causing duplicate library warnings.
                     if let multipleValueSetting = multipleValueSetting,
                         declaration != .PREBUILT_LIBRARIES,
-                        (multipleValueSetting == .OTHER_LDFLAGS || declaration == .PUBLIC_HEADER_PATHS || declaration == .PREBUILT_INCLUDE_PATHS) {
+                        (multipleValueSetting == .OTHER_LDFLAGS
+                         || declaration == .PUBLIC_HEADER_PATHS
+                         || declaration == .LIBRARY_SEARCH_PATHS
+                         || declaration == .PREBUILT_INCLUDE_PATHS
+                        ) {
                         allSettings.impartedMultipleValueSettings[pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
                     }
 

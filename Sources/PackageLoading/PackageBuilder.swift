@@ -75,6 +75,8 @@ public enum ModuleError: Swift.Error {
     /// Invalid header search path.
     case invalidHeaderSearchPath(String)
 
+    case invalidLibrarySearchPath(String)
+
     /// Default localization not set in the presence of localized resources.
     case defaultLocalizationNotSet
 
@@ -145,6 +147,8 @@ extension ModuleError: CustomStringConvertible {
             return "invalid custom path '\(path)' for target '\(target)'"
         case .invalidHeaderSearchPath(let path):
             return "invalid header search path '\(path)'; header search path should not be outside the package root"
+        case .invalidLibrarySearchPath(let path):
+            return "invalid library search path '\(path)'; header search path should not be outside the package root"
         case .defaultLocalizationNotSet:
             return "manifest property 'defaultLocalization' not set; it is required in the presence of localized resources"
         case .pluginCapabilityNotDeclared(let target):
@@ -1141,6 +1145,7 @@ public final class PackageBuilder {
                 guard path.isDescendantOfOrEqual(to: self.packagePath) else {
                     throw ModuleError.invalidHeaderSearchPath(value)
                 }
+
             case .publicHeaderPath(let value, let pluginName):
                 if let pluginName {
                     values = [value, pluginName]
@@ -1155,12 +1160,20 @@ public final class PackageBuilder {
                     throw InternalError("unexpected tool for setting type \(setting)")
                 }
 
-                // Ensure that the search path is contained within the package.
                 _ = try RelativePath(validating: value)
-                let path = try AbsolutePath(validating: value, relativeTo: targetRoot)
-                guard path.isDescendantOfOrEqual(to: self.packagePath) else {
-                    throw ModuleError.invalidHeaderSearchPath(value)
+                if pluginName != nil {
+                    // Ensure that the search path is contained within the plugin output directory
+                    guard !value.hasPrefix("..") else {
+                        throw ModuleError.invalidHeaderSearchPath(value)
+                    }
+                } else {
+                    // Ensure that the search path is contained within the package.
+                    let path = try AbsolutePath(validating: value, relativeTo: targetRoot)
+                    guard path.isDescendantOfOrEqual(to: self.packagePath) else {
+                        throw ModuleError.invalidHeaderSearchPath(value)
+                    }
                 }
+
             case .bridgingHeader(let path, let visibility):
                 values = [path, visibility.rawValue]
 
@@ -1177,6 +1190,7 @@ public final class PackageBuilder {
                 guard absPath.isDescendantOfOrEqual(to: self.packagePath) else {
                     throw ModuleError.invalidHeaderSearchPath(path)
                 }
+
             case .define(let value):
                 values = [value]
 
@@ -1209,6 +1223,33 @@ public final class PackageBuilder {
                     decl = .LINK_FRAMEWORKS
                 }
 
+            case .libraryPath(let value, let pluginName):
+                if let pluginName {
+                    values = [value, pluginName]
+                } else {
+                    values = [value]
+                }
+
+                switch setting.tool {
+                case .linker:
+                    decl = .LIBRARY_SEARCH_PATHS
+                case .c, .cxx, .swift:
+                    throw InternalError("unexpected tool for setting type \(setting)")
+                }
+
+                _ = try RelativePath(validating: value)
+                if pluginName != nil {
+                    // Ensure the search path is contined in the plugin output directory
+                    guard !value.hasPrefix("..") else {
+                        throw ModuleError.invalidLibrarySearchPath(value)
+                    }
+                } else {
+                    // Ensure that the search path is contained within the package.
+                    let path = try AbsolutePath(validating: value, relativeTo: targetRoot)
+                    guard path.isDescendantOfOrEqual(to: self.packagePath) else {
+                        throw ModuleError.invalidLibrarySearchPath(value)
+                    }
+                }
             case .interoperabilityMode(let lang):
                 switch setting.tool {
                 case .c, .cxx, .linker:

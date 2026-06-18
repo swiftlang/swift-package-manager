@@ -727,6 +727,17 @@ extension TargetBuildSettingDescription.Kind {
                 throw InternalError("invalid (empty) build settings value")
             }
             return .linkedFramework(value)
+        case "libraryPath":
+            guard let name = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            let pluginName: String?
+            if values.count > 1 {
+                pluginName = values[1]
+            } else {
+                pluginName = nil
+            }
+            return .libraryPath(name, pluginName)
         case "interoperabilityMode":
             guard let rawLang = values.first else {
                 throw InternalError("invalid (empty) build settings value")
