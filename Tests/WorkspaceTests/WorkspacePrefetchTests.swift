@@ -301,7 +301,7 @@ final class WorkspacePrefetchTests: XCTestCase {
             observabilityScope: observability.topScope
         )
 
-        // Sanity: with the same URLs, both are prefetched.
+        // URLs match the resolved file, so both packages prefetch.
         let unchanged = workspace.prefetchPackages(
             rootManifests: rootManifests,
             observabilityScope: observability.topScope
