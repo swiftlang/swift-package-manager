@@ -22,10 +22,21 @@ PROJECT_BUILD_DIR="${PROJECT_BUILD_DIR:-"${PROJECT_ROOT}/.build"}"
 XCODEBUILD_BUILD_DIR="$PROJECT_BUILD_DIR/xcodebuild"
 XCODEBUILD_DERIVED_DATA_PATH="$XCODEBUILD_BUILD_DIR/DerivedData"
 
+# SwiftPM CI runs tests with SWIFT_EXEC pointing at the just-built compiler. Do not let xcodebuild
+# inherit those overrides while resolving this fixture package; it should use the selected Xcode
+# toolchain to create the xcframework input for the SwiftPM command under test.
+run_xcodebuild() {
+    env \
+        -u SWIFT_EXEC \
+        -u SWIFT_DRIVER_SWIFT_EXEC \
+        -u SWIFT_EXEC_MANIFEST \
+        xcodebuild "$@"
+}
+
 PACKAGE_NAME=$1
 if [ -z "$PACKAGE_NAME" ]; then
     echo "No package name provided. Using the first scheme found in the Package.swift."
-    PACKAGE_NAME=$(xcodebuild -list | awk 'schemes && NF>0 { print $1; exit } /Schemes:$/ { schemes = 1 }')
+    PACKAGE_NAME=$(run_xcodebuild -list | awk 'schemes && NF>0 { print $1; exit } /Schemes:$/ { schemes = 1 }')
     echo "Using: $PACKAGE_NAME"
 fi
 
@@ -38,7 +49,7 @@ build_framework() {
 
     rm -rf "$XCODEBUILD_ARCHIVE_PATH"
 
-    PROTOBUFKIT_LIBRARY_TYPE=dynamic xcodebuild archive \
+    PROTOBUFKIT_LIBRARY_TYPE=dynamic run_xcodebuild archive \
         -scheme $scheme \
         -archivePath $XCODEBUILD_ARCHIVE_PATH \
         -derivedDataPath "$XCODEBUILD_DERIVED_DATA_PATH" \
@@ -78,6 +89,6 @@ cd $PROJECT_BUILD_DIR
 XCFRAMEWORK_DESTINATION="$PROJECT_ROOT/../$PACKAGE_NAME.xcframework"
 
 rm -rf $XCFRAMEWORK_DESTINATION
-xcodebuild -create-xcframework  \
+run_xcodebuild -create-xcframework  \
     -framework $PACKAGE_NAME-macosx.xcarchive/Products/Library/Frameworks/$PACKAGE_NAME.framework \
     -output $XCFRAMEWORK_DESTINATION
