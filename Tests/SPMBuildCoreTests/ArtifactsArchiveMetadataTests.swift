@@ -12,6 +12,7 @@
 
 import Basics
 import PackageModel
+import SPMBuildCore
 import Testing
 
 struct ArtifactsArchiveMetadataTests {
@@ -124,5 +125,48 @@ struct ArtifactsArchiveMetadataTests {
                 for: Triple("x86_64-apple-macosx"), fileSystem: fileSystem
             )
         }
+    }
+
+    @Test
+    func parseMacroArtifactArchivesSelectsHostVariant() throws {
+        let fileSystem = InMemoryFileSystem()
+        try fileSystem.writeFileContents(
+            "/info.json",
+            string: """
+            {
+                "schemaVersion": "1.0",
+                "artifacts": {
+                    "MyMacros": {
+                        "type": "macro",
+                        "version": "1.0.0",
+                        "variants": [
+                            {
+                                "path": "arm64-apple-macosx/MyMacros",
+                                "supportedTriples": ["arm64-apple-macosx"]
+                            },
+                            {
+                                "path": "aarch64-unknown-linux-gnu/MyMacros",
+                                "supportedTriples": ["aarch64-unknown-linux-gnu"]
+                            }
+                        ]
+                    }
+                }
+            }
+            """
+        )
+
+        let hostTriple = try Triple("arm64-apple-macosx")
+        let binaryTarget = BinaryModule(
+            name: "MyMacros", kind: .artifactsArchive(types: [.macro]), path: .root, origin: .local
+        )
+        let macros = try binaryTarget.parseMacroArtifactArchives(for: hostTriple, fileSystem: fileSystem)
+
+        // One entry per variant; only the variant matching the host triple keeps a non-empty
+        // `supportedTriples`, which is how the build plan picks the plugin to load.
+        let hostMacros = macros.filter { !$0.supportedTriples.isEmpty }
+        #expect(hostMacros.count == 1)
+        #expect(hostMacros.first?.name == "MyMacros")
+        #expect(hostMacros.first?.executablePath.pathString == "/arm64-apple-macosx/MyMacros")
+        #expect(hostMacros.first?.supportedTriples == [hostTriple])
     }
 }

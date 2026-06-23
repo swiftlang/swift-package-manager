@@ -21,7 +21,7 @@ public final class BinaryModule: Module {
 
     /// The kind of binary artifact.
     public let kind: Kind
-    
+
     /// The original source of the binary artifact.
     public let origin: Origin
 
@@ -92,6 +92,17 @@ public final class BinaryModule: Module {
             return false
         case .artifactsArchive(let types):
             return types.contains(.executable)
+        case .unknown:
+            return false
+        }
+    }
+
+    public var containsMacro: Bool {
+        switch self.kind {
+        case .xcframework:
+            return false
+        case .artifactsArchive(let types):
+            return types.contains(.macro)
         case .unknown:
             return false
         }

@@ -51,6 +51,9 @@ public struct ArtifactsArchiveMetadata: Equatable {
 
         // Can't be marked as formally deprecated as we still need to use this value for warning users.
         case crossCompilationDestination
+
+        // Plugin executable that implements a macro, keyed to the host triple, not build target
+        case macro
     }
 
     public struct Variant: Equatable {

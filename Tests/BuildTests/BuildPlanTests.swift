@@ -6806,6 +6806,80 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         try await self.sanitizerTest(.address, expectedName: "address")
     }
 
+    func testBinaryMacroLoadsPluginExecutable() async throws {
+        // A Swift module that depends on a `macro`-typed artifact bundle should be compiled
+        // with `-load-plugin-executable <host-variant>#<artifact-name>`, where the artifact
+        // name matches the `module:` of the consumer's `#externalMacro` declaration. This is
+        // the prebuilt counterpart to building a `.macro` target from source.
+        let fs = InMemoryFileSystem(emptyFiles: "/Pkg/Sources/MyLib/MyLib.swift")
+
+        let toolPath = AbsolutePath("/Pkg/MyMacros.artifactbundle")
+        try fs.createDirectory(toolPath, recursive: true)
+        try fs.writeFileContents(
+            toolPath.appending("info.json"),
+            string: """
+                {
+                    "schemaVersion": "1.0",
+                    "artifacts": {
+                        "MyMacros": {
+                            "type": "macro",
+                            "version": "1.0.0",
+                            "variants": [
+                                {
+                                    "path": "x86_64-apple-macosx/MyMacros",
+                                    "supportedTriples": ["x86_64-apple-macosx"]
+                                },
+                                {
+                                    "path": "x86_64-unknown-linux-gnu/MyMacros",
+                                    "supportedTriples": ["x86_64-unknown-linux-gnu"]
+                                }
+                            ]
+                        }
+                    }
+                }
+            """
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(name: "MyLib", dependencies: ["MyMacros"]),
+                        TargetDescription(name: "MyMacros", path: "MyMacros.artifactbundle", type: .binary),
+                    ]
+                ),
+            ],
+            binaryArtifacts: [
+                .plain("pkg"): [
+                    "MyMacros": .init(kind: .artifactsArchive(types: [.macro]), originURL: nil, path: toolPath),
+                ],
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
+            triple: .x86_64MacOS,
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let lib = try result.moduleBuildDescription(for: "MyLib").swift()
+        let args = try lib.compileArguments().joined(separator: " ")
+
+        // Only the host-matching variant (x86_64-apple-macosx) should be loaded, keyed by the
+        // artifact name; the foreign Linux variant must not be passed to the host compiler.
+        XCTAssertMatch(args, .contains("-load-plugin-executable"))
+        XCTAssertMatch(args, .contains("x86_64-apple-macosx/MyMacros#MyMacros"))
+        XCTAssertNoMatch(args, .contains("x86_64-unknown-linux-gnu/MyMacros"))
+    }
+
     func testThreadSanitizer() async throws {
         try await self.sanitizerTest(.thread, expectedName: "thread")
     }

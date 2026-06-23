@@ -16,6 +16,7 @@ import protocol TSCBasic.FileSystem
 
 import struct Basics.AbsolutePath
 import struct Basics.SourceControlURL
+import struct Basics.Triple
 import struct Basics.Diagnostic
 import struct Basics.ObservabilityMetadata
 import class Basics.ObservabilityScope
@@ -49,6 +50,8 @@ typealias FileReference = SwiftBuild.ProjectModel.FileReference
 public final class PackagePIFBuilder {
     let modulesGraph: ModulesGraph
     private let package: ResolvedPackage
+
+    let hostTriple: Basics.Triple
 
     /// Contains the package declarative specification.
     let packageManifest: PackageModel.Manifest // FIXME: Can't we just use `package.manifest` instead? —— Paulo
@@ -241,6 +244,7 @@ public final class PackagePIFBuilder {
         shouldPreserveSymlinks: Bool,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
+        hostTriple: Basics.Triple,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -254,6 +258,7 @@ public final class PackagePIFBuilder {
         self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.hostTriple = hostTriple
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.addLocalRpaths = addLocalRpaths
@@ -273,6 +278,7 @@ public final class PackagePIFBuilder {
         shouldPreserveSymlinks: Bool = false,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
+        hostTriple: Basics.Triple,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -287,6 +293,7 @@ public final class PackagePIFBuilder {
         self.addLocalRpaths = addLocalRpaths
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.hostTriple = hostTriple
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.shouldPreserveSymlinks = shouldPreserveSymlinks

@@ -246,6 +246,18 @@ public final class SwiftModuleBuildDescription {
         }
     }
 
+    /// Binary dependencies that vend prebuilt macro plugin executables (an artifact bundle
+    /// containing a `macro`-typed artifact), as opposed to `.macro` targets built from source.
+    public var requiredBinaryMacros: [BinaryModule] {
+        get throws {
+            try self.target.recursiveModuleDependencies().compactMap {
+                guard $0.type == .binary, let binary = $0.underlying as? BinaryModule,
+                      binary.containsMacro else { return nil }
+                return binary
+            }
+        }
+    }
+
     /// ObservabilityScope with which to emit diagnostics
     private let observabilityScope: ObservabilityScope
 
@@ -469,6 +481,19 @@ public final class SwiftModuleBuildDescription {
             args += ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", "\(executablePath)#\(macro.c99name)"]
         }
         #endif
+
+        // Prebuilt macro plugins shipped as binary artifact bundles. These are host tools, so
+        // their variants are selected against the host triple. The artifact key is
+        // used as the plugin module name, matching the `module:` of the `#externalMacro` declaration
+        try self.requiredBinaryMacros.forEach { binaryMacro in
+            let macros = try binaryMacro.parseMacroArtifactArchives(
+                for: macroBuildParameters.triple,
+                fileSystem: self.fileSystem
+            )
+            for macro in macros where !macro.supportedTriples.isEmpty {
+                args += ["-Xfrontend", "-load-plugin-executable", "-Xfrontend", "\(macro.executablePath.pathString)#\(macro.name)"]
+            }
+        }
 
         if self.shouldDisableSandbox {
             let toolchainSupportsDisablingSandbox = DriverSupport.checkSupportedFrontendFlags(

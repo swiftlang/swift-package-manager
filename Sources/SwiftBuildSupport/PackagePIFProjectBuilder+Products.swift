@@ -19,6 +19,7 @@ import class Basics.ObservabilitySystem
 import struct Basics.SourceControlURL
 
 import PackageLoading
+import SPMBuildCore
 
 import class PackageModel.BinaryModule
 import class PackageModel.Manifest
@@ -203,6 +204,22 @@ extension PackagePIFProjectBuilder {
         settings[.CLANG_CXX_LANGUAGE_STANDARD] = mainModule.cxxLanguageStandard
         settings[.SWIFT_ENABLE_BARE_SLASH_REGEX] = "NO"
 
+        // Load any prebuilt macro plugins
+        for dependency in try mainModule.recursiveModuleDependencies() {
+            guard dependency.type == .binary,
+                  let binaryModule = dependency.underlying as? BinaryModule,
+                  binaryModule.containsMacro else { continue }
+            let macros = try binaryModule.parseMacroArtifactArchives(
+                for: pifBuilder.hostTriple,
+                fileSystem: pifBuilder.fileSystem
+            )
+            for macro in macros where !macro.supportedTriples.isEmpty {
+                var loadBinaryMacros = settings[.SWIFT_LOAD_BINARY_MACROS] ?? []
+                loadBinaryMacros.append("\(macro.executablePath.pathString)#\(macro.name)")
+                settings[.SWIFT_LOAD_BINARY_MACROS] = loadBinaryMacros
+            }
+        }
+
         // Create a group for the source files of the main module
         // For now we use an absolute path for it, but we should really make it
         // container-relative, since it's always inside the package directory.
@@ -383,6 +400,11 @@ extension PackagePIFProjectBuilder {
                 case .binary:
                     guard let binaryModule = moduleDependency.underlying as? BinaryModule else {
                         log(.error, "'\(moduleDependency.name)' is a binary dependency, but its underlying module was not")
+                        break
+                    }
+                    if binaryModule.containsMacro {
+                        // Skip adding prebuilt macro plugin as a build file
+                        log(.debug, indent: 1, "Loading prebuilt binary macro '\(moduleDependency.name)'")
                         break
                     }
                     let binaryFileRef = self.binaryGroup.addFileReference { id in
@@ -663,6 +685,11 @@ extension PackagePIFProjectBuilder {
         for module in product.modules {
             // Binary targets are special in that they are just linked, not built.
             if let binaryTarget = module.underlying as? BinaryModule {
+                if binaryTarget.containsMacro {
+                    // Prebuilt macro plugin: loaded via SWIFT_LOAD_BINARY_MACROS, not linked.
+                    log(.debug, indent: 1, "Loading prebuilt binary macro '\(binaryTarget.name)'")
+                    continue
+                }
                 let binaryFileRef = self.binaryGroup.addFileReference { id in
                     FileReference(id: id, path: binaryTarget.artifactPath.pathString)
                 }
@@ -783,6 +810,11 @@ extension PackagePIFProjectBuilder {
                 }
 
                 if let binaryTarget = moduleDependency.underlying as? BinaryModule {
+                    if binaryTarget.containsMacro {
+                        // Prebuilt macro plugin: loaded via SWIFT_LOAD_BINARY_MACROS, not linked.
+                        log(.debug, indent: 1, "Loading prebuilt binary macro '\(binaryTarget.name)'")
+                        return
+                    }
                     let binaryFileRef = self.binaryGroup.addFileReference { id in
                         FileReference(id: id, path: binaryTarget.artifactPath.pathString)
                     }
