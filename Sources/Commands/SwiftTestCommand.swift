@@ -665,6 +665,10 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             let commandLineArguments = CommandLine.arguments.dropFirst()
             var swiftTestingArgs = ["--testing-library", "swift-testing", "--enable-swift-testing"]
 
+            for pattern in options.filter {
+                swiftTestingArgs += ["--filter", pattern]
+            }
+
             if let separatorIndex = commandLineArguments.firstIndex(of: "--") {
                 let offset = commandLineArguments.distance(from: commandLineArguments.startIndex, to: separatorIndex)
                 swiftTestingArgs += Array(commandLineArguments.dropFirst(offset + 1))

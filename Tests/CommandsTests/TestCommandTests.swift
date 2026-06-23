@@ -1974,6 +1974,36 @@ struct TestCommandTests {
         @Test(
             arguments: SupportedBuildSystemOnAllPlatforms
         )
+        func debuggerFlagForwardsFilterToSwiftTesting(buildSystem: BuildSystemProvider.Kind) async throws {
+            let configuration = BuildConfiguration.debug
+            try await withKnownIssue {
+                try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--disable-xctest", "--verbose", "--filter", "calculatorAdditionPasses"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
+                    )
+
+                    #expect(
+                        !stderr.contains("error: --debugger cannot be used with"),
+                        "got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    #expect(
+                        stdout.contains("settings append target.run-args \"--filter\"") &&
+                        stdout.contains("settings append target.run-args \"calculatorAdditionPasses\""),
+                        "Expected --filter to be forwarded to Swift Testing run-args, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms
+        )
         func debuggerFlagWithBothTestingSuites(buildSystem: BuildSystemProvider.Kind) async throws {
             let configuration = BuildConfiguration.debug
             try await withKnownIssue {
