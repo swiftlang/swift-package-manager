@@ -22,14 +22,17 @@ PROJECT_BUILD_DIR="${PROJECT_BUILD_DIR:-"${PROJECT_ROOT}/.build"}"
 XCODEBUILD_BUILD_DIR="$PROJECT_BUILD_DIR/xcodebuild"
 XCODEBUILD_DERIVED_DATA_PATH="$XCODEBUILD_BUILD_DIR/DerivedData"
 
-# SwiftPM CI runs tests with SWIFT_EXEC pointing at the just-built compiler. Do not let xcodebuild
-# inherit those overrides while resolving this fixture package; it should use the selected Xcode
-# toolchain to create the xcframework input for the SwiftPM command under test.
+# SwiftPM CI runs tests with compiler and library overrides pointing at the just-built toolchain and
+# in-tree SwiftPM libraries. Do not let xcodebuild inherit those while resolving this fixture package;
+# it should use the selected Xcode toolchain to create the xcframework input for the command under test.
 run_xcodebuild() {
     env \
+        -u DYLD_LIBRARY_PATH \
         -u SWIFT_EXEC \
         -u SWIFT_DRIVER_SWIFT_EXEC \
         -u SWIFT_EXEC_MANIFEST \
+        -u SWIFTCI_USE_LOCAL_DEPS \
+        -u SWIFTPM_CUSTOM_LIBS_DIR \
         xcodebuild "$@"
 }
 
