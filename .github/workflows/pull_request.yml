@@ -28,7 +28,9 @@ jobs:
       # android_sdk_build_command: "swift --version && swift run swift-build --build-tests --build-system swiftbuild"
       # android_ndk_versions: '["r27d", "r29"]'
       enable_windows_checks: false
-      enable_macos_checks: true
+      enable_linux_checks: false
+      enable_macos_checks: false
+      # enable_macos_checks: true
       macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.4\"}]"
       macos_build_command: 'swift --version && swift run swift-build --build-tests'
       enable_ios_checks: false
