@@ -28,14 +28,16 @@ jobs:
       # android_sdk_build_command: "swift --version && swift run swift-build --build-tests --build-system swiftbuild"
       # android_ndk_versions: '["r27d", "r29"]'
       enable_windows_checks: false
-      enable_macos_checks: true
+      enable_linux_checks: false
+      enable_macos_checks: false
+      # enable_macos_checks: true
       macos_exclude_xcode_versions: "[{\"xcode_version\": \"16.4\"}]"
       macos_build_command: 'swift --version && swift run swift-build --build-tests'
       enable_ios_checks: false
       # ios_build_command: 'swift --version && swift run swift-build --build-tests  --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
 
   build-and-test-windows:
-    needs: [soundness]
+    # needs: [soundness]
     strategy:
       fail-fast: false
       matrix:
@@ -50,9 +52,9 @@ jobs:
       enable_windows_checks: true
       enable_windows_docker: ${{ matrix.windows_with_docker }}
       windows_build_timeout: 480
-      windows_swift_versions: ${{ case(matrix.windows_with_docker,'["nightly-main", "nightly-6.4.x", "nightly-6.3", "6.3.0"]', '["nightly-main"]') }}
+      windows_swift_versions: ${{ case(matrix.windows_with_docker,'["nightly-main", "nightly-6.4.x", "nightly-6.3", "6.3.0"]', '["nightly-main", "nightly-6.4.x"]') }}
       windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1 -SkipAndroid'
-      windows_build_command: 'Invoke-Program swift --version ; Invoke-Program swift test -Xlinker /ignore:4217 --parallel --experimental-xunit-message-failure --xunit-output windows-xunit.xml --filter BasicsTests'
+      windows_build_command: 'Invoke-Program swift --version ; Invoke-Program swift test -Xlinker /ignore:4217 --parallel --experimental-xunit-message-failure --xunit-output windows-xunit.xml' # --filter BasicsTests'
 
   soundness:
     name: Soundness
