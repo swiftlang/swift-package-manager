@@ -950,7 +950,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
 
         if !buildParameters.customToolsetPaths.isEmpty {
-            settings["SWIFT_SDK_TOOLSETS"] =
+            settings["SWIFT_SDK_TOOLSETS[__destination_platform=YES]"] =
                 (["$(inherited)"] + buildParameters.customToolsetPaths.map { $0.pathStringWithPosixSlashes })
                 .joined(separator: " ")
         }

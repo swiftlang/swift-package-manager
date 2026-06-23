@@ -39,8 +39,11 @@ public class RepositoryManager: Cancellable {
     /// The filesystem to operate on.
     private let fileSystem: FileSystem
 
-    // tracks outstanding lookups for de-duping requests
-    private var pendingLookups = [RepositorySpecifier: Task<RepositoryManager.RepositoryHandle, Error>]()
+    // Tracks in-flight lookups so that concurrent requests for the same
+    // repository can be de-duped. Each entry is tagged with a unique id so that
+    // a completing lookup only removes its own entry and never a newer one for
+    // the same repository.
+    private var pendingLookups = [RepositorySpecifier: (id: UUID, task: Task<RepositoryManager.RepositoryHandle, Error>)]()
     private var pendingLookupsLock = NSLock()
 
     // Limits how many concurrent operations can be performed at once.
@@ -131,60 +134,53 @@ public class RepositoryManager: Cancellable {
                 self.pendingLookupsLock.lock()
                 defer { self.pendingLookupsLock.unlock() }
 
-                let lookupTask: Task<RepositoryManager.RepositoryHandle, any Error>
-                if let inFlight = self.pendingLookups[repositorySpecifier] {
-                    lookupTask = Task {
-                        // Let the existing in-flight task finish before queuing up the new one
-                        let _ = try await inFlight.value
+                // Identifies this lookup so that, on completion, it only removes
+                // its own entry from `pendingLookups`.
+                let lookupID = UUID()
+                let inFlight = self.pendingLookups[repositorySpecifier]?.task
 
-                        if Task.isCancelled {
-                            throw CancellationError()
-                        }
+                let lookupTask = Task { () throws -> RepositoryManager.RepositoryHandle in
+                    defer { self.removePendingLookup(for: repositorySpecifier, id: lookupID) }
 
-                        let result = try await self.performLookup(
-                            package: package,
-                            repository: repositorySpecifier,
-                            updateStrategy: updateStrategy,
-                            observabilityScope: observabilityScope
-                        )
-
-                        if Task.isCancelled {
-                            throw CancellationError()
-                        }
-
-                        return result
+                    // Let the existing in-flight task finish before queuing up the new one
+                    if let inFlight {
+                        _ = try? await inFlight.value
                     }
-                } else {
-                    lookupTask = Task {
-                        if Task.isCancelled {
-                            throw CancellationError()
-                        }
 
-                        let result = try await self.performLookup(
-                            package: package,
-                            repository: repositorySpecifier,
-                            updateStrategy: updateStrategy,
-                            observabilityScope: observabilityScope
-                        )
-
-                        if Task.isCancelled {
-                            throw CancellationError()
-                        }
-
-                        return result
+                    if Task.isCancelled {
+                        throw CancellationError()
                     }
+
+                    let result = try await self.performLookup(
+                        package: package,
+                        repository: repositorySpecifier,
+                        updateStrategy: updateStrategy,
+                        observabilityScope: observabilityScope
+                    )
+
+                    if Task.isCancelled {
+                        throw CancellationError()
+                    }
+
+                    return result
                 }
 
-                self.pendingLookups[repositorySpecifier] = lookupTask
+                self.pendingLookups[repositorySpecifier] = (id: lookupID, task: lookupTask)
                 continuation.resume(returning: lookupTask)
             }
 
-            do {
-                let result = try await task.value
-                return result
-            } catch {
-                throw error
-            }
+            return try await task.value
+        }
+    }
+
+    /// Removes the in-flight lookup tracked for `repositorySpecifier`, but only
+    /// if it is still the lookup identified by `id`. A newer in-flight lookup for
+    /// the same repository is left in place.
+    private func removePendingLookup(for repositorySpecifier: RepositorySpecifier, id: UUID) {
+        self.pendingLookupsLock.lock()
+        defer { self.pendingLookupsLock.unlock() }
+        if self.pendingLookups[repositorySpecifier]?.id == id {
+            self.pendingLookups[repositorySpecifier] = nil
         }
     }
 
@@ -271,8 +267,8 @@ public class RepositoryManager: Cancellable {
 
         self.pendingLookupsLock.lock()
         defer { self.pendingLookupsLock.unlock() }
-        for task in self.pendingLookups.values {
-            task.cancel()
+        for entry in self.pendingLookups.values {
+            entry.task.cancel()
         }
         self.pendingLookups = [:]
     }

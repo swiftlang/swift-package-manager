@@ -61,6 +61,8 @@ extension PackagePIFProjectBuilder {
         var buildSettings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
 
         // Add the dependencies.
+        var pluginTarget = self.project[keyPath: pluginTargetKeyPath]
+        let mainModuleProducts = self.package.products.filter(\.isMainModuleProduct)
         pluginModule.recursivelyTraverseTransitiveLinkageDependencies(includeMacroDependencies: false) { dependency in
             switch dependency {
             case .module(let moduleDependency, let packageConditions):
@@ -75,12 +77,11 @@ extension PackagePIFProjectBuilder {
                 case .executable, .snippet:
                     // For executable targets, add a build time dependency on the product.
                     // FIXME: Maybe we should we do this at the libSwiftPM level.
-                    let moduleProducts = self.package.products.filter(\.isMainModuleProduct)
                     let productDependency = moduleDependency
-                        .productRepresentingDependencyOfBuildPlugin(in: moduleProducts)
+                        .productRepresentingDependencyOfBuildPlugin(in: mainModuleProducts)
 
                     if let productDependency {
-                        self.project[keyPath: pluginTargetKeyPath].common.addDependency(
+                        pluginTarget.common.addDependency(
                             on: productDependency.pifTargetGUID,
                             platformFilters: dependencyPlatformFilters
                         )
@@ -95,7 +96,7 @@ extension PackagePIFProjectBuilder {
 
                 case .library, .systemModule, .test, .binary, .plugin, .macro:
                     let dependencyGUID = moduleDependency.pifTargetGUID
-                    self.project[keyPath: pluginTargetKeyPath].common.addDependency(
+                    pluginTarget.common.addDependency(
                         on: dependencyGUID,
                         platformFilters: dependencyPlatformFilters
                     )
@@ -116,7 +117,7 @@ extension PackagePIFProjectBuilder {
                     let dependencyPlatformFilters = packageConditions
                         .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
 
-                    self.project[keyPath: pluginTargetKeyPath].common.addDependency(
+                    pluginTarget.common.addDependency(
                         on: dependencyGUID,
                         platformFilters: dependencyPlatformFilters
                     )
@@ -128,12 +129,13 @@ extension PackagePIFProjectBuilder {
         // Any dependencies of plugin targets need to be built for the host.
         buildSettings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
 
-        self.project[keyPath: pluginTargetKeyPath].common.addBuildConfig { id in
+        pluginTarget.common.addBuildConfig { id in
             BuildConfig(id: id, name: "Debug", settings: buildSettings)
         }
-        self.project[keyPath: pluginTargetKeyPath].common.addBuildConfig { id in
+        pluginTarget.common.addBuildConfig { id in
             BuildConfig(id: id, name: "Release", settings: buildSettings)
         }
+        self.project[keyPath: pluginTargetKeyPath] = pluginTarget
 
         let pluginModuleMetadata = PackagePIFBuilder.ModuleOrProduct(
             type: .plugin,
@@ -744,6 +746,7 @@ extension PackagePIFProjectBuilder {
         // Handle the target's dependencies (but only link against them if needed).
         let shouldLinkProduct = (desiredModuleType == .dynamicLibrary) || (desiredModuleType == .macro)
         var moduleTarget = self.project[keyPath: sourceModuleTargetKeyPath]
+        let moduleMainProducts = self.package.products.filter(\.isMainModuleProduct)
         sourceModule.recursivelyTraverseTransitiveLinkageDependencies(includeMacroDependencies: false) { dependency in
             switch dependency {
             case .module(let moduleDependency, let packageConditions):
@@ -758,7 +761,6 @@ extension PackagePIFProjectBuilder {
                 case .executable, .snippet:
                     // Always depend on product of executable targets (if available).
                     // FIXME: Maybe we should we do this at the libSwiftPM level.
-                    let moduleMainProducts = self.package.products.filter(\.isMainModuleProduct)
                     if let product = moduleDependency
                         .productRepresentingDependencyOfBuildPlugin(in: moduleMainProducts)
                     {
