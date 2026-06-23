@@ -669,6 +669,10 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 swiftTestingArgs += ["--filter", pattern]
             }
 
+            for pattern in options._testCaseSkip {
+                swiftTestingArgs += ["--skip", pattern]
+            }
+
             if let separatorIndex = commandLineArguments.firstIndex(of: "--") {
                 let offset = commandLineArguments.distance(from: commandLineArguments.startIndex, to: separatorIndex)
                 swiftTestingArgs += Array(commandLineArguments.dropFirst(offset + 1))
