@@ -127,90 +127,81 @@ struct ArtifactsArchiveMetadataTests {
         }
     }
 
-    @Test
-    func parseMetadataTypeMismatch() throws {
-        let fileSystem = InMemoryFileSystem()
-        try fileSystem.writeFileContents(
-            "/info.json",
-            string: """
-            {
-                "schemaVersion": 1.0, 
-                "artifacts": {}
-            }
-            """
-        )
-
-        do {
-            _ = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: .root)
-            Issue.record("Expected an error to be thrown for type mismatch")
-        } catch let error as StringError {
-            let message = error.description
-            #expect(message.contains("Type mismatch"))
-            #expect(message.contains("schemaVersion"))
-            #expect(message.contains("String"))
-        } catch {
-            Issue.record("Unexpected error type: \(error)")
-        }
-    }
-
-    @Test
-    func parseMetadataMissingKey() throws {
-        let fileSystem = InMemoryFileSystem()
-        try fileSystem.writeFileContents(
-            "/info.json",
-            string: """
-            {
-                "schemaVersion": "1.0",
-                "artifacts": {
-                    "my-artifact": {
-                        "type": "executable",
-                        "variants": []
+    @Test(
+        arguments: [
+            (
+                infoPathName: AbsolutePath("/info.json"),
+                contents: """
+                {
+                    "schemaVersion": 1.0, 
+                    "artifacts": {}
+                }
+                """,
+                expectedError: StringError("Type mismatch in ArtifactsArchive info.json at '/info.json'. Key 'schemaVersion' expected type 'String'."),
+                id: "Type Mismatch",
+            ),
+            (
+                infoPathName: AbsolutePath("/info.json"),
+                contents: """
+                {
+                    "schemaVersion": "1.0",
+                    "artifacts": {
+                        "my-artifact": {
+                            "type": "executable",
+                            "variants": []
                     }
                 }
-            }
-            """
-        )
-
-        do {
-            _ = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: .root)
-            Issue.record("Expected an error to be thrown for missing key")
-        } catch let error as StringError {
-            let message = error.description
-            #expect(message.contains("Missing required key 'version'"))
-            #expect(message.contains("artifacts.my-artifact"))
-        } catch {
-            Issue.record("Unexpected error type: \(error)")
-        }
-    }
-
-    @Test
-    func parseMetadataValueNotFound() throws {
-        let fileSystem = InMemoryFileSystem()
-        try fileSystem.writeFileContents(
-            "/info.json",
-            string: """
-            {
-                "schemaVersion": "1.0",
-                "artifacts": {
-                    "my-artifact": {
-                        "type": "executable",
-                        "version": null,
-                        "variants": []
+                """,
+                expectedError: StringError("Invalid JSON in ArtifactsArchive info.json at '/info.json': The given data was not valid JSON."),
+                id: "Invalid JSON",
+            
+            ),
+            (
+                infoPathName: AbsolutePath("/info.json"),
+                contents: """
+                {
+                    "schemaVersion": "1.0",
+                    "artifacts": {
+                        "my-artifact": {
+                            "type": "executable",
+                            "variants": []
+                        }
                     }
                 }
-            }
-            """
+                """,
+                expectedError: StringError("Missing required key 'version' in ArtifactsArchive info.json at '/info.json' in 'artifacts.my-artifact'."),
+                id: "Missing Key",
+            ),
+            (
+                infoPathName: AbsolutePath("/info.json"),
+                contents: """
+                {
+                    "schemaVersion": "1.0",
+                    "artifacts": {
+                        "my-artifact": {
+                            "type": "executable",
+                            "version": null,
+                            "variants": []
+                        }
+                    }
+                }
+                """,
+                expectedError: StringError("Expected non-null value of type 'String' in ArtifactsArchive info.json at '/info.json'. Key 'artifacts.my-artifact.version' is null."),
+                id: "Value not found",
+            ),
+        ],
+    )
+    func parseMetadataErrors(
+        data: (infoPathName: AbsolutePath, contents: String, expectedError: StringError, id: String),
+    ) throws {
+        let fileSystem = InMemoryFileSystem()
+        try fileSystem.writeFileContents(
+            data.infoPathName,
+            string: data.contents,
         )
 
-        do {
+        #expect(throws: data.expectedError) {
             _ = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: .root)
-            Issue.record("Expected an error to be thrown for null value")
-        } catch let error as StringError {
-            let message = error.description
-            #expect(message.contains("Expected non-null value"))
-            #expect(message.contains("version"))
-        } catch {
-            Issue.record("Unexpected error type: \(error)")
         }
     }
 }
