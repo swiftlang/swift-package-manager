@@ -106,6 +106,159 @@ struct ConcurrencyHelpersTest {
             }
         }
 
+        /// Test-only coordinator that lets the test step operations through the
+        /// queue deterministically: it can wait until a given operation has
+        /// started running, and hold an operation inside the queue until the
+        /// test explicitly releases it.
+        fileprivate actor TaskCoordinator {
+            private var entered: Set<Int> = []
+            private var enteredContinuations: [Int: CheckedContinuation<Void, Never>] = [:]
+            private var released: Set<Int> = []
+            private var releaseContinuations: [Int: CheckedContinuation<Void, Never>] = [:]
+
+            /// Called from inside the operation when it begins running.
+            func markEntered(_ id: Int) {
+                entered.insert(id)
+                enteredContinuations.removeValue(forKey: id)?.resume()
+            }
+
+            /// Suspends the test until the operation with `id` has started running.
+            func waitUntilEntered(_ id: Int) async {
+                if entered.contains(id) { return }
+                await withCheckedContinuation { continuation in
+                    enteredContinuations[id] = continuation
+                }
+            }
+
+            /// Called from inside the operation to block until the test releases it.
+            func waitForRelease(_ id: Int) async {
+                if released.contains(id) { return }
+                await withCheckedContinuation { continuation in
+                    releaseContinuations[id] = continuation
+                }
+            }
+
+            /// Allows the operation with `id` to finish.
+            func release(_ id: Int) {
+                released.insert(id)
+                releaseContinuations.removeValue(forKey: id)?.resume()
+            }
+        }
+
+        // Surfaces the over-subscription bug: when a waiting task is promoted it
+        // is *removed* from `waitingTasks` instead of being marked `.running`, so
+        // the admission gate under-counts running tasks. A new arrival is then
+        // admitted while the promoted task is still running, breaking the limit.
+        // With `concurrentTasks: 1` this breaks the serialization guarantee.
+        @Test
+        func doesNotExceedLimitWhenTaskArrivesAfterPromotion() async throws {
+            let queue = AsyncOperationQueue(concurrentTasks: 1)
+            let tracker = ResultsTracker()
+            let coordinator = TaskCoordinator()
+
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                func submit(_ id: Int) {
+                    group.addTask {
+                        try await queue.withOperation {
+                            await tracker.incrementConcurrent()
+                            await coordinator.markEntered(id)
+                            await coordinator.waitForRelease(id)
+                            await tracker.decrementConcurrent()
+                        }
+                    }
+                }
+
+                // Task 0 occupies the single slot.
+                submit(0)
+                await coordinator.waitUntilEntered(0)
+
+                // Task 1 arrives while task 0 holds the slot, so it must park.
+                // Give it time to register as a waiting task (no public hook exists).
+                submit(1)
+                try await Task.sleep(nanoseconds: 100_000_000)
+
+                // Releasing task 0 promotes task 1. The buggy promotion removes
+                // task 1 from the accounting array, so the queue now believes no
+                // task is running even though task 1 is.
+                await coordinator.release(0)
+                await coordinator.waitUntilEntered(1)
+
+                // Task 2 arrives after task 1 was promoted. It should wait for
+                // task 1, but the broken accounting admits it immediately. Give
+                // it time to (wrongly) start running concurrently with task 1.
+                submit(2)
+                try await Task.sleep(nanoseconds: 100_000_000)
+
+                await coordinator.release(1)
+                await coordinator.release(2)
+                try await group.waitForAll()
+            }
+
+            let maxConcurrent = await tracker.maxConcurrent
+            // A serial queue must never run two operations at once.
+            #expect(maxConcurrent == 1)
+        }
+
+        // Surfaces the deadlock race: if the running task completes (calling
+        // `signalCompletion`) while a newly-arrived task is between appending
+        // itself as `.creating` and registering its continuation, the completion
+        // scan finds only a `.creating` entry and resumes nobody. The arriving
+        // task's re-check then counts *itself* in `waitingTasks`, so it parks
+        // with no running task left to ever resume it, permanently wedging the
+        // queue. The window is tiny, so drive a high volume of tiny operations
+        // through a serial queue from several producers to provoke it, and fail
+        // via a deadline if the queue wedges.
+        //
+        // NOTE: this is a probabilistic stress test, not a deterministic one. The
+        // race window between the two lock acquisitions in `waitIfNeeded` is
+        // synchronous on a single thread, so the bug only triggers when the kernel
+        // preempts that thread in the window while another thread completes the
+        // running task. It is therefore gated behind an environment variable and
+        // run as multiple high-volume rounds; on the buggy implementation it wedges
+        // roughly once per tens of millions of operations.
+        @Test(.enabled(if: ProcessInfo.processInfo.environment["SWIFTPM_ENABLE_STRESS_TESTS"] != nil))
+        func doesNotDeadlockWhenTaskCompletesWhileNextTaskRegisters() async throws {
+            enum DeadlockDetected: Error { case timedOut }
+
+            let rounds = 50
+            let producers = 16
+            let operationsPerProducer = 50_000
+
+            for round in 0..<rounds {
+                let queue = AsyncOperationQueue(concurrentTasks: 1)
+                try await withThrowingTaskGroup(of: Void.self) { group in
+                    group.addTask {
+                        try await withThrowingTaskGroup(of: Void.self) { work in
+                            for _ in 0..<producers {
+                                work.addTask {
+                                    for _ in 0..<operationsPerProducer {
+                                        try await queue.withOperation {
+                                            await Task.yield()
+                                        }
+                                    }
+                                }
+                            }
+                            try await work.waitForAll()
+                        }
+                    }
+                    group.addTask {
+                        try await Task.sleep(nanoseconds: 15_000_000_000)
+                        throw DeadlockDetected.timedOut
+                    }
+                    // Whichever finishes first wins: the work (success) or the
+                    // deadline (the queue wedged, failing the test).
+                    do {
+                        try await group.next()
+                        group.cancelAll()
+                    } catch {
+                        Issue.record("Queue deadlocked in round \(round): \(error)")
+                        group.cancelAll()
+                        throw error
+                    }
+                }
+            }
+        }
+
         @Test
         func limitsConcurrentOperations() async throws {
             let queue = AsyncOperationQueue(concurrentTasks: 5)

@@ -118,13 +118,6 @@ public final class AsyncOperationQueue: @unchecked Sendable {
                 return id
             }
         }
-
-        var continuation: WaitingContinuation? {
-            guard case .waiting(_, let continuation) = self else {
-                return nil
-            }
-            return continuation
-        }
     }
 
     /// Creates an `AsyncOperationQueue` with a specified number of concurrent tasks.
@@ -188,13 +181,20 @@ public final class AsyncOperationQueue: @unchecked Sendable {
                             waitingTasks.remove(at: index)
                             return .cancel(continuation)
                         case .creating, .running, .waiting:
-                            // A task may have completed since we initially checked if we should wait. Check again in this locked
-                            // section and if we can start it, remove it from the waiting tasks and start it immediately.
-                            if waitingTasks.count >= concurrentTasks {
+                            // A task may have completed since we initially checked if we should wait. Re-check here, but
+                            // count only the *running* tasks: this task is currently in `waitingTasks` as `.creating`, so
+                            // counting the whole array would count it against itself and could leave it parked with no
+                            // running task left to ever resume it. If a slot is free, mark this task as running in place
+                            // (keeping it in `waitingTasks` so it continues to occupy a concurrency slot until it
+                            // completes) and start it immediately.
+                            let runningCount = waitingTasks.reduce(into: 0) { count, task in
+                                if case .running = task { count += 1 }
+                            }
+                            if runningCount >= concurrentTasks {
                                 waitingTasks[index] = .waiting(taskId, continuation)
                                 return nil
                             } else {
-                                waitingTasks.remove(at: index)
+                                waitingTasks[index] = .running(taskId)
                                 return .start(continuation)
                             }
                     }
@@ -223,10 +223,15 @@ public final class AsyncOperationQueue: @unchecked Sendable {
                         // continuation for the waiting task with a `CancellationError`. Return the continuation
                         // here so it can be resumed once the `waitingTasksLock` is released.
                         return continuation
-                    case .creating, .running:
+                    case .creating:
                         // If the task was still being created, mark it as cancelled in `waitingTasks` so that
                         // the handler for `withCheckedThrowingContinuation` can immediately cancel it.
                         self.waitingTasks[taskIndex] = .cancelled(taskId)
+                        return nil
+                    case .running:
+                        // The task has already been promoted and started running, so it is no longer waiting on
+                        // its continuation. Leave it in place to keep occupying its slot; it will observe the
+                        // cancellation cooperatively and be removed by `signalCompletion` when it completes.
                         return nil
                     case .cancelled:
                         preconditionFailure("Attempting to cancel a task that was already cancelled")
@@ -244,48 +249,38 @@ public final class AsyncOperationQueue: @unchecked Sendable {
                 return nil
             }
 
-            // Remove the completed task from the list to decrement the active task count.
+            // Remove the completed task from the list to free its concurrency slot.
             if let taskIndex = self.waitingTasks.firstIndex(where: { $0.id == taskId }) {
                 waitingTasks.remove(at: taskIndex)
             }
 
-            // We cannot remove elements from `waitingTasks` while iterating over it, so we make
-            // a pass to collect operations and then apply them after the loop.
-            func createTaskListOperations() -> (CollectionDifference<WorkTask>?, WaitingContinuation?) {
-                var changes: [CollectionDifference<WorkTask>.Change] = []
-                for (index, task) in waitingTasks.enumerated() {
-                    switch task {
-                    case .running:
-                        // Skip tasks that are already running, looking for the first one that is waiting or creating.
-                        continue
-                    case .creating:
-                        // If the next task is in the process of being created, let the
-                        // creation code in the `withCheckedThrowingContinuation` in `waitIfNeeded`
-                        // handle starting the task.
-                        break
-                    case .waiting:
-                        // Begin the next waiting task
-                        changes.append(.remove(offset: index, element: task, associatedWith: nil))
-                        return (CollectionDifference<WorkTask>(changes), task.continuation)
-                    case .cancelled:
-                        // If the next task is cancelled, continue removing cancelled
-                        // tasks until we find one that hasn't run yet, or we exaust the list of waiting tasks.
-                        changes.append(.remove(offset: index, element: task, associatedWith: nil))
-                        continue
-                    }
+            // Find the next task to start, removing any cancelled tombstones we pass along the way.
+            var index = 0
+            while index < waitingTasks.count {
+                switch waitingTasks[index] {
+                case .running:
+                    // Already occupying a slot; keep looking for a task that hasn't started yet.
+                    index += 1
+                case .creating:
+                    // The task is in the process of being created, i.e. it is between reserving its slot and
+                    // registering its continuation. We cannot resume it here (it has no continuation yet), but we
+                    // must keep looking for a waiting task behind it to promote: relying on the creating task to
+                    // start itself would strand those waiting tasks if it is cancelled before it ever runs. It is
+                    // safe to promote a later waiting task because the running-count re-check in `waitIfNeeded` will
+                    // make this creating task park once it observes the slot is taken.
+                    index += 1
+                case .waiting(let id, let continuation):
+                    // Promote the next waiting task to running in place so it keeps occupying a concurrency slot
+                    // until it completes, then resume its continuation once the lock is released.
+                    waitingTasks[index] = .running(id)
+                    return continuation
+                case .cancelled:
+                    // Drop cancelled tasks and keep looking for one that still needs to run.
+                    waitingTasks.remove(at: index)
                 }
-                return (CollectionDifference<WorkTask>(changes), nil)
             }
 
-            let (collectionOperations, continuation) = createTaskListOperations()
-            if let operations = collectionOperations {
-                guard let appliedDiff = waitingTasks.applying(operations) else {
-                    preconditionFailure("Failed to apply changes to waiting tasks")
-                }
-                waitingTasks = appliedDiff
-            }
-
-            return continuation
+            return nil
         }
 
         continuationToResume?.resume()
