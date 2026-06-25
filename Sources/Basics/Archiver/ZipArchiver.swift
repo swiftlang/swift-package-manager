@@ -12,6 +12,12 @@
 
 import Dispatch
 import struct TSCBasic.FileSystemError
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 /// An `Archiver` that handles ZIP archives using the command-line `zip` and `unzip` tools.
 public struct ZipArchiver: Archiver, Cancellable {
@@ -93,12 +99,9 @@ public struct ZipArchiver: Archiver, Cancellable {
         #if os(FreeBSD)
         // On FreeBSD, the unzip command is available in base but not the zip command.
         // Therefore; we use libarchive(bsdtar) to produce the ZIP archive instead.
-        let process = AsyncProcess(
-                arguments: [
-                    self.tar, "-c", "--format", "zip", "-f", destinationPath.pathString,
-                ] + directories.map(\.pathString),
-          workingDirectory: parent
-        )
+        let executable = Subprocess.Executable.name(self.tar)
+        let args = ["-c", "--format", "zip", "-f", destinationPath.pathString] + paths.map(\.pathString)
+        let workingDirectory: FilePath? = FilePath(parent.pathString)
         #else
         // This is to work around `swift package-registry publish` tool failing on
         // Amazon Linux 2 due to it having an earlier Glibc version (rdar://116370323)
@@ -106,25 +109,24 @@ public struct ZipArchiver: Archiver, Cancellable {
         // Instead of passing `workingDirectory` param to TSC.Process, which will trigger
         // SPM_posix_spawn_file_actions_addchdir_np_supported check, we shell out and
         // do `cd` explicitly before `zip`.
-        let process = AsyncProcess(
-            arguments: [
-                "/bin/sh",
-                "-c",
-                "cd \(parent.underlying.pathString) && \(self.zip) -ry \(destinationPath.pathString) \(paths.map(\.pathString).joined(separator: " "))"
-            ]
-        )
+        let executable = Subprocess.Executable.path(FilePath("/bin/sh"))
+        let inputs = paths.map(\.pathString).joined(separator: " ")
+        let command = "cd \(parent.underlying.pathString) && \(self.zip) -ry \(destinationPath.pathString) \(inputs)"
+        let args = ["-c", command]
+        let workingDirectory: FilePath? = nil
         #endif
 
-        guard let registrationKey = self.cancellator.register(process) else {
-            throw CancellationError.failedToRegisterProcess(process)
+        let result = try await self.cancellator.withCancellable(name: self.zip) {
+            try await Subprocess.run(
+                executable,
+                arguments: Subprocess.Arguments(args),
+                workingDirectory: workingDirectory,
+                output: .string(limit: .max),
+                error: .string(limit: .max)
+            )
         }
-
-        defer { self.cancellator.deregister(registrationKey) }
-
-        try process.launch()
-        let processResult = try await process.waitUntilExit()
-        guard processResult.exitStatus == .terminated(code: 0) else {
-            throw try StringError(processResult.utf8stderrOutput())
+        guard result.terminationStatus.isSuccess else {
+            throw StringError((result.standardOutput ?? "") + (result.standardError ?? ""))
         }
     }
 
