@@ -211,6 +211,9 @@ public final class PackagePIFBuilder {
 
     let pkgConfigDirectories: [AbsolutePath]
 
+    /// True if the user passed -warnings-as-errors on the command line, false otherwise.
+    let treatWarningsAsErrors: Bool
+
     /// The file system to read from.
     let fileSystem: FileSystem
 
@@ -241,6 +244,7 @@ public final class PackagePIFBuilder {
         shouldPreserveSymlinks: Bool,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
+        treatWarningsAsErrors: Bool = false,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -258,6 +262,7 @@ public final class PackagePIFBuilder {
         self.observabilityScope = observabilityScope
         self.addLocalRpaths = addLocalRpaths
         self.shouldPreserveSymlinks = shouldPreserveSymlinks
+        self.treatWarningsAsErrors = treatWarningsAsErrors
     }
 
     public init(
@@ -273,6 +278,7 @@ public final class PackagePIFBuilder {
         shouldPreserveSymlinks: Bool = false,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
+        treatWarningsAsErrors: Bool = false,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -287,6 +293,7 @@ public final class PackagePIFBuilder {
         self.addLocalRpaths = addLocalRpaths
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.treatWarningsAsErrors = treatWarningsAsErrors
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.shouldPreserveSymlinks = shouldPreserveSymlinks
@@ -631,7 +638,10 @@ public final class PackagePIFBuilder {
             if self.skipStaticAnalyzerForPackageDependencies {
                 settings[.SKIP_CLANG_STATIC_ANALYZER] = "YES"
             }
+        } else if self.treatWarningsAsErrors {
+            settings[.SWIFT_TREAT_WARNINGS_AS_ERRORS] = "YES"
         }
+
         settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS]
             .lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("SWIFT_PACKAGE") }
         settings[.GCC_PREPROCESSOR_DEFINITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]

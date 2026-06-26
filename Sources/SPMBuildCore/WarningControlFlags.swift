@@ -11,6 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 package enum WarningControlFlags {
+    package static func containsWarningsAsErrors(_ args: [String]) -> Bool {
+        args.contains("-warnings-as-errors")
+    }
+
     package static func filterSwiftWarningControlFlags(_ args: [String]) -> [String] {
         var filtered: [String] = []
         var skipNextArg = false
