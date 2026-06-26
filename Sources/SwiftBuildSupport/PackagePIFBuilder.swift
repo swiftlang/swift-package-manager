@@ -202,6 +202,10 @@ public final class PackagePIFBuilder {
     /// the build products to a different location or building the release configuration.
     let addLocalRpaths: AddLocalRpaths
 
+    /// Whether to preserve symbolic links in source file paths instead of resolving them to their
+    /// real path.
+    let shouldPreserveSymlinks: Bool
+
     /// Package display version, if any (i.e., it can be a version, branch or a git ref).
     let packageDisplayVersion: String?
 
@@ -237,6 +241,7 @@ public final class PackagePIFBuilder {
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
         addLocalRpaths: AddLocalRpaths = .always,
+        shouldPreserveSymlinks: Bool,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
         treatWarningsAsErrors: Bool = false,
@@ -257,6 +262,7 @@ public final class PackagePIFBuilder {
         self.observabilityScope = observabilityScope
         self.addLocalRpaths = addLocalRpaths
         self.treatWarningsAsErrors = treatWarningsAsErrors
+        self.shouldPreserveSymlinks = shouldPreserveSymlinks
     }
 
     public init(
@@ -269,6 +275,7 @@ public final class PackagePIFBuilder {
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
         addLocalRpaths: AddLocalRpaths = .always,
+        shouldPreserveSymlinks: Bool = false,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
         treatWarningsAsErrors: Bool = false,
@@ -289,6 +296,7 @@ public final class PackagePIFBuilder {
         self.treatWarningsAsErrors = treatWarningsAsErrors
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
+        self.shouldPreserveSymlinks = shouldPreserveSymlinks
     }
 
     /// Build an empty PIF project.
@@ -388,6 +396,7 @@ public final class PackagePIFBuilder {
 
         public var indexableFileURLs: [SourceControlURL]
         public var headerFiles: Set<AbsolutePath>
+        public var buildToolPluginInputs: Set<AbsolutePath>
         public var doccCatalogs: Set<AbsolutePath>
         /// Source files implementing the plugin represented by this target, which
         /// are compiled during build planning as opposed to participating in the
@@ -759,6 +768,7 @@ extension PackagePIFBuilder.ModuleOrProduct {
         pifTarget: ProjectModel.BaseTarget?,
         indexableFileURLs: [SourceControlURL] = [],
         headerFiles: Set<AbsolutePath> = [],
+        buildToolPluginInputs: Set<AbsolutePath> = [],
         doccCatalogs: Set<AbsolutePath> = [],
         pluginScriptSourcePaths: [AbsolutePath] = [],
         linkedPackageBinaries: [PackagePIFBuilder.LinkedPackageBinary] = [],
@@ -774,6 +784,7 @@ extension PackagePIFBuilder.ModuleOrProduct {
         self.indexableFileURLs = indexableFileURLs
         self.pluginScriptSourcePaths = pluginScriptSourcePaths
         self.headerFiles = headerFiles
+        self.buildToolPluginInputs = buildToolPluginInputs
         self.doccCatalogs = doccCatalogs
         self.linkedPackageBinaries = linkedPackageBinaries
         self.swiftLanguageVersion = swiftLanguageVersion

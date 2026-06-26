@@ -1838,7 +1838,7 @@ extension TestCommandOptions {
             : .skip(self._testCaseSkip)
     }
 
-    /// Returns the test case specifier if overridden in the environment. 
+    /// Returns the test case specifier if overridden in the environment.
     private func skippedTestsOverride(fileSystem: FileSystem) -> TestCaseSpecifier? {
         guard let override = Environment.current["_SWIFTPM_SKIP_TESTS_LIST"] else {
             return nil
@@ -1880,7 +1880,7 @@ private var EXIT_NO_TESTS_FOUND: CInt {
 #if os(macOS) || os(Linux) || canImport(Android) || os(FreeBSD)
     EX_UNAVAILABLE
 #elseif os(Windows)
-    ERROR_NOT_FOUND
+    CInt(ERROR_NOT_FOUND)
 #else
 #warning("Platform-specific implementation missing: value for EXIT_NO_TESTS_FOUND unavailable")
     return 2 // We're assuming that EXIT_SUCCESS = 0 and EXIT_FAILURE = 1.

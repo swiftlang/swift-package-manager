@@ -14,6 +14,7 @@
 import Basics
 import Dispatch
 import class Foundation.NSLock
+import class Foundation.ProcessInfo
 
 import struct PackageModel.CanonicalPackageURL
 
@@ -48,8 +49,9 @@ private struct GitShellHelper {
         environment: Environment = .init(Git.environmentBlock),
         outputRedirection: AsyncProcess.OutputRedirection = .collect
     ) throws -> String {
+        let arguments = gitNetworkTimeoutOverrides(environment: environment) + args
         let process = AsyncProcess(
-            arguments: [Git.tool] + args,
+            arguments: [Git.tool] + arguments,
             environment: environment,
             outputRedirection: outputRedirection
         )
@@ -160,6 +162,37 @@ private struct GitShellHelper {
             throw GitLFSError.pullFailed(underlyingError: error)
         }
     }
+}
+
+/// HTTP transport timeouts that SwiftPM injects into every `git` invocation to
+/// time out connections to remotes that become unreachable during a checkout.
+/// Git defaults these values to 'unlimited', which means that without these overrides
+/// losing connection to a remote mid-checkout could cause the checkout to stall indefinitely.
+///
+/// Users who need different values should set `SWIFTPM_GIT_LOW_SPEED_TIMEOUTS_DISABLED=1`
+/// to suppress the injection entirely and then configure `http.lowSpeedLimit` / `http.lowSpeedTime`
+/// in their own `~/.gitconfig`, which `git` reads on every invocation.
+internal enum GitNetworkTimeoutDefaults {
+    static let lowSpeedLimitBytesPerSecond = 1024
+    static let lowSpeedTimeSeconds = 60
+}
+
+/// Returns `git -c key=value` argument pairs that bound the HTTP network
+/// operations of any subsequent `git` subcommand.
+///
+/// Returns an empty array when `SWIFTPM_GIT_LOW_SPEED_TIMEOUTS_DISABLED` is set to a
+/// truthy value (`1`, `true`, `yes`, `on`), restoring the historical
+/// "wait forever" behaviour for users who explicitly opt out.
+internal func gitNetworkTimeoutOverrides(environment: Environment) -> [String] {
+    if let raw = environment[ConfigurableEnvVar.SWIFTPM_GIT_LOW_SPEED_TIMEOUTS_DISABLED]?.lowercased(),
+       ["1", "true", "yes", "on"].contains(raw) {
+        return []
+    }
+
+    return [
+        "-c", "http.lowSpeedLimit=\(GitNetworkTimeoutDefaults.lowSpeedLimitBytesPerSecond)",
+        "-c", "http.lowSpeedTime=\(GitNetworkTimeoutDefaults.lowSpeedTimeSeconds)",
+    ]
 }
 
 /// Builds the leading `git` arguments that point at a repository on disk.
@@ -689,14 +722,14 @@ public final class GitRepository: Repository, WorkingCheckout {
             ) else {
                 return nil
             }
-            
+
             let url = try callGit(
                 "config",
                 "--get",
                 "remote.\(remoteName).url",
                 failureMessage: "Couldn't get URL for remote '\(remoteName)'"
             )
-            
+
             return (name: remoteName, url: url)
         }
     }
@@ -1418,13 +1451,19 @@ extension GitFileSystemView: @unchecked Sendable {}
 
 // MARK: - Errors
 
+extension AsyncProcessResult {
+    fileprivate var combinedOutput: String {
+        let stdout = (try? self.utf8Output()) ?? ""
+        let stderr = (try? self.utf8stderrOutput()) ?? ""
+        return stdout + stderr
+    }
+}
+
 package struct GitShellError: Error, CustomStringConvertible {
     let result: AsyncProcessResult
 
     public var description: String {
-        let stdout = (try? self.result.utf8Output()) ?? ""
-        let stderr = (try? self.result.utf8stderrOutput()) ?? ""
-        let output = (stdout + stderr).spm_chomp()
+        let output = self.result.combinedOutput.spm_chomp()
         let command = self.result.arguments.joined(separator: " ")
         return "Git command '\(command)' failed: \(output)"
     }
@@ -1483,9 +1522,7 @@ public struct GitRepositoryError: Error, CustomStringConvertible, DiagnosticLoca
     }
 
     public var description: String {
-        let stdout = (try? self.result.utf8Output()) ?? ""
-        let stderr = (try? self.result.utf8stderrOutput()) ?? ""
-        let output = (stdout + stderr).spm_chomp().spm_multilineIndent(count: 4)
+        let output = self.result.combinedOutput.spm_chomp().spm_multilineIndent(count: 4)
         return "\(self.message):\n\(output)"
     }
 }
@@ -1507,11 +1544,46 @@ public struct GitCloneError: Error, CustomStringConvertible, DiagnosticLocationP
     }
 
     public var description: String {
-        let stdout = (try? self.result.utf8Output()) ?? ""
-        let stderr = (try? self.result.utf8stderrOutput()) ?? ""
-        let output = (stdout + stderr).spm_chomp().spm_multilineIndent(count: 4)
+        let output = self.result.combinedOutput.spm_chomp().spm_multilineIndent(count: 4)
         return "\(self.message):\n\(output)"
     }
+}
+
+// MARK: - Object store corruption detection
+
+/// Substrings `git` emits when an operation fails because the local object store is missing or has
+/// corrupt/incomplete objects (e.g. cached object files were evicted from disk). These failures are
+/// recoverable by purging the repository and re-fetching from its origin, so they are deliberately
+/// distinct from "the revision does not exist" failures (which a re-fetch cannot fix). Matched
+/// case-insensitively. `git`'s plumbing object errors are not localized.
+private let gitObjectStoreCorruptionMarkers: [String] = [
+    "unable to read tree",        // "unable to read tree (<oid>)"
+    "not a tree object",
+    "not a valid object name",    // "Not a valid object name <oid>" (object missing from store)
+    "bad object",                 // includes dangling "bad object refs/remotes/origin/<branch>"
+    "is corrupt",                 // "loose object <oid> is corrupt"
+    "object file",                // "object file ... is empty"
+    "missing blob object",
+    "missing tree object",
+    "missing commit object",
+]
+
+/// Returns whether `output` indicates the local object store is missing or corrupt, such that
+/// purging the repository and re-fetching from origin may recover.
+func gitOutputIndicatesObjectStoreCorruption(_ output: String) -> Bool {
+    let lowercased = output.lowercased()
+    return gitObjectStoreCorruptionMarkers.contains { lowercased.contains($0) }
+}
+
+/// Returns whether `error` indicates the local git object store is missing or corrupt, in which
+/// case purging the repository and re-fetching from its origin may recover.
+///
+/// Matches the error's full textual description (like `isOffline`) rather than switching on concrete
+/// git error types: by the time a read failure reaches a recovery seam it has usually been wrapped by
+/// a higher layer (e.g. manifest loading or tools-version parsing), but the underlying `git` message
+/// is preserved in the description chain. See `gitObjectStoreCorruptionMarkers`.
+func isGitObjectStoreCorruptionError(_ error: Error) -> Bool {
+    gitOutputIndicatesObjectStoreCorruption("\(error)")
 }
 
 public enum GitProgressParser: FetchProgress {

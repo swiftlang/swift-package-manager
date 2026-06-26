@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import struct TSCUtility.Version
 
 // MARK: - EnabledTraitsMap
 
@@ -74,9 +75,32 @@ public struct EnabledTraitsMap {
     public typealias Key = PackageIdentity
     public typealias Value = EnabledTraits
 
+    struct VersionedTraits {
+        var map: [Version: EnabledTraits] = [:]
+
+        public func at(_ version: Version) -> EnabledTraits {
+            self.map[version] ?? ["default"]
+        }
+
+        public mutating func set(_ version: Version, enabledTraits: EnabledTraits) {
+            let oldTraits = self.map[version] ?? []
+            let newTraits = oldTraits.union(enabledTraits)
+            self.map[version] = newTraits
+        }
+    }
+
     private struct Storage {
-        /// Storage for explicitly enabled traits per package. Omits packages with only the "default" trait.
-        var traits: [PackageIdentity: EnabledTraits] = [:]
+        /// Proxy storage for explicitly enabled traits per package before versions are known.
+        /// Omits packages with only the "default" trait.
+        var traits: [Key: EnabledTraits] = [:]
+
+        /// Storage for explicitly enabled traits per package wherein the package kind
+        /// is not versionable (e.g. a filesystem package).
+        var unversionedTraits: [Key: EnabledTraits] = [:]
+
+        /// Storage for explicitly enabled traits per package wherein the package kind
+        /// is versionable (e.g. a source control package).
+        var versionedTraits: [Key: VersionedTraits] = [:]
 
         /// Tracks setters that explicitly disabled default traits (via []) for each package.
         var _disablers: [PackageIdentity: Set<EnabledTrait.Setter>] = [:]
@@ -88,7 +112,7 @@ public struct EnabledTraitsMap {
 
         init() { }
 
-        init(_ traits: [PackageIdentity: EnabledTraits]) {
+        init(_ traits: [Key: EnabledTraits]) {
             self.traits = traits
         }
     }
@@ -96,6 +120,97 @@ public struct EnabledTraitsMap {
     private var storage = ThreadSafeBox(Storage())
 
     public init() { }
+
+    // Using this subscript implies that this has run through resolution
+    // and has found a concrete version for a package; given this information,
+    // we should either store the traits in unversionedTraits for package
+    // kinds that are not versioned themselves or in the versionedTraits,
+    // for packages that can be versioned.
+    public subscript(manifest: Manifest) -> EnabledTraits {
+        get {
+            // use manifest version to acquire per-version traits
+            let identity = manifest.packageIdentity
+            guard let version = manifest.version else {
+                return self[identity]
+            }
+
+            return self.storage.get().versionedTraits[identity]?.at(version) ?? ["default"]
+        }
+        set {
+            self.set(
+                identity: manifest.packageIdentity,
+                value: newValue,
+                version: manifest.version
+            )
+        }
+    }
+
+    private mutating func set(identity: PackageIdentity, value: EnabledTraits, version: Version?) {
+        self.storage.mutate { (state: Storage) -> Storage in
+            var state = state
+            var value = value
+            // Fetch traits from proxy map; this could have been
+            // a package dependency that now has a manifest.
+            if let proxyTraits = state.traits[identity] {
+                value.formUnion(proxyTraits)
+                // Clear out proxy.
+                state.traits[identity] = nil
+            }
+
+            // Omit adding "default" explicitly, since the map returns "default"
+            // if there are no explicit traits enabled. This will allow us to check
+            // for nil entries in the stored dictionary, which tells us whether
+            // traits have been explicitly enabled or not.
+            //
+            // However, if "default" is explicitly set by a parent (has setters),
+            // track it in the `defaultSetters` property.
+            guard !(value == .defaults && !value.isExplicitlySetDefault) else {
+                return state
+            }
+
+            // Track default setters
+            if value.isExplicitlySetDefault {
+                if let defaultSetter = value.first?.setters.first {
+                    state._defaultSetters[identity, default: []].insert(defaultSetter)
+                }
+                if let version {
+                    // first assure there is an entry for the versioned traits.
+                    if state.versionedTraits[identity, default: .init()].at(version) == [] {
+                        state.versionedTraits[identity]?.set(version, enabledTraits: value)
+                    }
+                } else {
+                    if state.unversionedTraits[identity] == [] {
+                        state.unversionedTraits[identity] = value
+                    }
+                }
+                return state
+            }
+
+            // Track disablers
+            if value.isEmpty, let disabler = value.disabledBy {
+                state._disablers[identity, default: []].insert(disabler)
+            }
+
+            // Union or create; the set of enabled traits is strictly additive.
+            if let version {
+                state.versionedTraits[identity, default: .init()].set(version, enabledTraits: value)
+            } else {
+                state.unversionedTraits[identity, default: []].formUnion(value)
+            }
+
+            // Keep the proxy in sync so PackageIdentity-keyed reads (enabledTraitsMap[identity])
+            // reflect the current traits after the proxy was cleared above.
+            state.traits[identity, default: []].formUnion(value)
+            if state.traits[identity] == nil {
+                state.traits[identity] = value
+            } else {
+                state.traits[identity]?.formUnion(value)
+            }
+
+            return state
+        }
+
+    }
 
     public subscript(key: String) -> EnabledTraits {
         get { self[PackageIdentity(key)] }
@@ -402,7 +517,9 @@ public struct EnabledTraits: Hashable {
     public typealias Element = EnabledTrait
     public typealias Index = IdentifiableSet<Element>.Index
 
-    /// Storage of enabled traits.
+    /// Storage of enabled version-agnostic traits.
+    /// Since trait computation is intertwined with resolution itself, SwiftPM
+    /// won't be able to determine an applicable version until afterwards.
     private var _traits: IdentifiableSet<EnabledTrait> = []
 
     /// This should only ever be set in the case where a parent
@@ -589,6 +706,8 @@ extension IdentifiableSet where Element == EnabledTrait {
         if let oldElement = self.remove(member), let newElement = oldElement.unify(member) {
             insert(newElement)
         } else {
+            // See if other enabled traits that have same parent (if parent case)
+            // exist,
             insert(member)
         }
     }

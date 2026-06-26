@@ -41,6 +41,9 @@ package enum ConfigurableEnvVar: String, CaseIterable {
     /// Inline netrc-formatted content for per-host credentials
     case SWIFTPM_NETRC_DATA
 
+    /// Whether to disable low speed timeouts for Git operations
+    case SWIFTPM_GIT_LOW_SPEED_TIMEOUTS_DISABLED
+
     private var isCacheable : Bool {
         switch self {
         case .SWIFTPM_BUILD_SBOM_SPEC: false
@@ -52,7 +55,7 @@ package enum ConfigurableEnvVar: String, CaseIterable {
         case .SWIFTPM_REGISTRY_PASSWORD: false
         case .SWIFTPM_SOURCE_CONTROL_TOKEN: false
         case .SWIFTPM_NETRC_DATA: false
-
+        case .SWIFTPM_GIT_LOW_SPEED_TIMEOUTS_DISABLED: false
         }
     }
 

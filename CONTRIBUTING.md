@@ -134,31 +134,31 @@ All the commands described in the "Local Development" section below will work in
 
 With a Swift toolchain installed and the SwiftPM code cloned, you are ready to make changes and test them locally.
 
-### Building
+### Running SPM locally
+
+To test the `swift package init` command with your local changes, run
 
 ```bash
-$> swift build
+swift run swift-package init
 ```
 
-A successful build will create a `.build/` directory with the following approximate structure:
-
-```
-artifacts
-checkouts
-debug
-repositories
-x86_64-apple-macosx
-```
-
-Binary artifacts are located in `x86_64-apple-macosx/` when building on macOS,
-or the equivalent on other architectures and operating systems.
-
-These binaries can be used to test the code modification. For example, to test the `swift package init` and `swift build` commands from the new SwiftPM artifacts in `.build/`:
+This works for all SPM commands. For example, to test the `swift package resolve` command, run
 
 ```bash
-$> cd /tmp && mkdir hello && cd hello
-$> /path/to/swiftpm/.build/x86_64-apple-macosx/debug/swift-package init
-$> /path/to/swiftpm/.build/x86_64-apple-macosx/debug/swift-build
+swift run swift-package resolve
+```
+
+To run actions on packages elsewhere in the file system, use the `--package-path` flag:
+
+```bash
+swift run swift-package resolve --package-path /path/to/test/package
+```
+
+SwiftPM does not currently have a way to specify runtime dependencies, doing a `swift run <target>` could fail as the dependency is not found. If you run into this error, build first, then run:
+
+```bash
+swift build
+swift run swift-build
 ```
 
 ### Testing

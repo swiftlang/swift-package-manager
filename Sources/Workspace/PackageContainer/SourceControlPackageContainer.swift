@@ -57,6 +57,8 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     public let package: PackageReference
     private let repositorySpecifier: RepositorySpecifier
     private let repository: Repository
+    private let repositoryManager: RepositoryManager
+    private let repositoryUpdateStrategy: RepositoryUpdateStrategy
     private let identityResolver: IdentityResolver
     private let dependencyMapper: DependencyMapper
     private let manifestLoader: ManifestLoaderProtocol
@@ -84,6 +86,8 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         dependencyMapper: DependencyMapper,
         repositorySpecifier: RepositorySpecifier,
         repository: Repository,
+        repositoryManager: RepositoryManager,
+        repositoryUpdateStrategy: RepositoryUpdateStrategy,
         manifestLoader: ManifestLoaderProtocol,
         currentToolsVersion: ToolsVersion,
         fingerprintStorage: PackageFingerprintStorage?,
@@ -96,6 +100,8 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         self.dependencyMapper = dependencyMapper
         self.repositorySpecifier = repositorySpecifier
         self.repository = repository
+        self.repositoryManager = repositoryManager
+        self.repositoryUpdateStrategy = repositoryUpdateStrategy
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
         self.fingerprintStorage = fingerprintStorage
@@ -143,17 +149,17 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     /// The available version list (in reverse order).
     public func toolsVersionsAppropriateVersionsDescending() async throws -> [Version] {
         let reversedVersions = try await self.versionsDescending()
-        return reversedVersions.lazy.filter {
-            // If we have the result cached, return that.
-            if let result = self.validToolsVersionsCache[$0] {
-                return result
+        var appropriateVersions: [Version] = []
+        for version in reversedVersions {
+            if let cached = self.validToolsVersionsCache[version] {
+                if cached { appropriateVersions.append(version) }
+                continue
             }
-
-            // Otherwise, compute and cache the result.
-            let isValid = (try? self.toolsVersion(for: $0)).flatMap(self.isValidToolsVersion(_:)) ?? false
-            self.validToolsVersionsCache[$0] = isValid
-            return isValid
+            let isValid = await self.isToolsVersionCompatible(at: version)
+            self.validToolsVersionsCache[version] = isValid
+            if isValid { appropriateVersions.append(version) }
         }
+        return appropriateVersions
     }
 
     public func getTag(for version: Version) -> String? {
@@ -232,7 +238,13 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     }
 
     /// Returns the tools version of the given version of the package.
-    public func toolsVersion(for version: Version) throws -> ToolsVersion {
+    public func toolsVersion(for version: Version) async throws -> ToolsVersion {
+        try await self.withObjectStoreRecovery {
+            try self.readToolsVersion(for: version)
+        }
+    }
+
+    private func readToolsVersion(for version: Version) throws -> ToolsVersion {
         try self.toolsVersionsCache.memoize(version) {
             guard let tag = try self.knownVersions()[version] else {
                 throw StringError("unknown tag \(version)")
@@ -369,6 +381,27 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         return self.package.withName(manifest.displayName)
     }
 
+    public func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<TraitDescription> {
+        let revision: Revision
+        var version: Version?
+        switch boundVersion {
+        case .version(let v):
+            guard let tag = try self.knownVersions()[v] else {
+                throw StringError("unknown tag \(v)")
+            }
+            version = v
+            revision = try repository.resolveRevision(tag: tag)
+        case .revision(let identifier, _):
+            revision = try repository.resolveRevision(identifier: identifier)
+        case .unversioned, .excluded:
+            assertionFailure("Unexpected type requirement \(boundVersion)")
+            return []
+        }
+
+        let manifest = try await self.loadManifest(at: revision, version: version)
+        return manifest.traits
+    }
+
     /// Returns true if the tools version is valid and can be used by this
     /// version of the package manager.
     private func isValidToolsVersion(_ toolsVersion: ToolsVersion) -> Bool {
@@ -380,22 +413,51 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func isToolsVersionCompatible(at version: Version) -> Bool {
-        return (try? self.toolsVersion(for: version)).flatMap(self.isValidToolsVersion(_:)) ?? false
+    public func isToolsVersionCompatible(at version: Version) async -> Bool {
+        // Route through the recovering `toolsVersion(for:)` so an incomplete/corrupt object store is
+        // repaired rather than silently treated as an incompatible (and therefore unusable) version.
+        do {
+            return self.isValidToolsVersion(try await self.toolsVersion(for: version))
+        } catch {
+            return false
+        }
     }
 
     private func loadManifest(tag: String, version: Version?) async throws -> Manifest {
         try await self.manifestsCache.memoize(tag) {
-            let fileSystem = try self.repository.openFileView(tag: tag)
-            return try await self.loadManifest(fileSystem: fileSystem, version: version, revision: tag)
+            try await self.withObjectStoreRecovery {
+                let fileSystem = try self.repository.openFileView(tag: tag)
+                return try await self.loadManifest(fileSystem: fileSystem, version: version, revision: tag)
+            }
         }
     }
 
     private func loadManifest(at revision: Revision, version: Version?) async throws -> Manifest {
         try await self.manifestsCache.memoize(revision.identifier) {
-            let fileSystem = try self.repository.openFileView(revision: revision)
-            return try await self.loadManifest(fileSystem: fileSystem, version: version, revision: revision.identifier)
+            try await self.withObjectStoreRecovery {
+                let fileSystem = try self.repository.openFileView(revision: revision)
+                return try await self.loadManifest(fileSystem: fileSystem, version: version, revision: revision.identifier)
+            }
         }
+    }
+
+    /// Runs a repository read, recovering once if the local object store turns out to be incomplete
+    /// or corrupt (e.g. cached objects were evicted). On recovery the repository is re-fetched from
+    /// its origin into the same location, so the existing `repository` reads cleanly on retry.
+    private func withObjectStoreRecovery<T>(_ operation: () async throws -> T) async throws -> T {
+        try await self.repositoryManager.withObjectStoreRecovery(
+            repository: self.repositorySpecifier,
+            observabilityScope: self.observabilityScope,
+            beforeRetry: {
+                _ = try await self.repositoryManager.lookup(
+                    package: self.package.identity,
+                    repository: self.repositorySpecifier,
+                    updateStrategy: self.repositoryUpdateStrategy,
+                    observabilityScope: self.observabilityScope
+                )
+            },
+            operation: operation
+        )
     }
 
     private func loadManifest(fileSystem: FileSystem, version: Version?, revision: String) async throws -> Manifest {

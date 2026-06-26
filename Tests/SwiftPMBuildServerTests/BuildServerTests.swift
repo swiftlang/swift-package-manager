@@ -35,45 +35,52 @@ final fileprivate class NotificationCollectingMessageHandler: MessageHandler, @u
     }
 }
 
-fileprivate func withSwiftPMBSP(fixtureName: String, extraBSPArgs: [String] = [], body: (Connection, NotificationCollectingMessageHandler, AbsolutePath) async throws -> Void) async throws {
+fileprivate func withSwiftPMBSP(packagePath: AbsolutePath, extraBSPArgs: [String] = [], body: (Connection, NotificationCollectingMessageHandler) async throws -> Void) async throws {
     await withKnownIssue("Tests occasionally fail to load build description in CI", isIntermittent: true) {
-        try await fixture(name: fixtureName) { fixture in
-            let inPipe = Pipe()
-            let outPipe = Pipe()
-            let connection = JSONRPCConnection(
-                name: "bsp-connection",
-                protocol: MessageRegistry.bspProtocol,
-                receiveFD: inPipe.fileHandleForReading,
-                sendFD: outPipe.fileHandleForWriting
-            )
-            defer {
-                connection.close()
-            }
-            let bspProcess = Process()
-            bspProcess.standardOutputPipe = inPipe
-            bspProcess.standardInput = outPipe
-            let execPath = SwiftPM.xctestBinaryPath(for: "swift-package").pathString
-            bspProcess.executableURL = URL(filePath: execPath)
-            bspProcess.arguments = ["--package-path", fixture.pathString] + ["experimental-build-server", "--build-system", "swiftbuild"] + extraBSPArgs
-            async let terminationPromise: Void = try await bspProcess.run()
-            let notificationCollector = NotificationCollectingMessageHandler()
-            connection.start(receiveHandler: notificationCollector)
-            _ = try await connection.send(
-                InitializeBuildRequest(
-                    displayName: "test-bsp-client",
-                    version: "1.0.0",
-                    bspVersion: "2.2.0",
-                    rootUri: URI(URL(filePath: fixture.pathString)),
-                    capabilities: .init(languageIds: [.swift, .c, .objective_c, .cpp, .objective_cpp])
-                )
-            )
-            connection.send(OnBuildInitializedNotification())
-            _ = try await connection.send(WorkspaceWaitForBuildSystemUpdatesRequest())
-            try await body(connection, notificationCollector, fixture)
-            _ = try await connection.send(BuildShutdownRequest())
-            connection.send(OnBuildExitNotification())
-            try await terminationPromise
+        let inPipe = Pipe()
+        let outPipe = Pipe()
+        let connection = JSONRPCConnection(
+            name: "bsp-connection",
+            protocol: MessageRegistry.bspProtocol,
+            receiveFD: inPipe.fileHandleForReading,
+            sendFD: outPipe.fileHandleForWriting
+        )
+        defer {
+            connection.close()
         }
+        let bspProcess = Process()
+        bspProcess.standardOutputPipe = inPipe
+        bspProcess.standardInput = outPipe
+        let execPath = SwiftPM.xctestBinaryPath(for: "swift-package").pathString
+        bspProcess.executableURL = URL(filePath: execPath)
+        bspProcess.arguments = ["--package-path", packagePath.pathString] + ["experimental-build-server", "--build-system", "swiftbuild"] + extraBSPArgs
+        async let terminationPromise: Void = try await bspProcess.run()
+        let notificationCollector = NotificationCollectingMessageHandler()
+        connection.start(receiveHandler: notificationCollector)
+        _ = try await connection.send(
+            InitializeBuildRequest(
+                displayName: "test-bsp-client",
+                version: "1.0.0",
+                bspVersion: "2.2.0",
+                rootUri: URI(URL(filePath: packagePath.pathString)),
+                capabilities: .init(languageIds: [.swift, .c, .objective_c, .cpp, .objective_cpp])
+            )
+        )
+        connection.send(OnBuildInitializedNotification())
+        _ = try await connection.send(WorkspaceWaitForBuildSystemUpdatesRequest())
+        try await body(connection, notificationCollector)
+        _ = try await connection.send(BuildShutdownRequest())
+        connection.send(OnBuildExitNotification())
+        try await terminationPromise
+    }
+}
+
+fileprivate func withSwiftPMBSP(fixtureName: String, extraBSPArgs: [String] = [], body: (Connection, NotificationCollectingMessageHandler, AbsolutePath) async throws -> Void) async throws {
+    try await fixture(name: fixtureName) { fixture in
+        try await withSwiftPMBSP(packagePath: fixture, extraBSPArgs: extraBSPArgs) { connection, notificationCollector in
+            try await body(connection, notificationCollector, fixture)
+        }
+
     }
 }
 
@@ -211,6 +218,21 @@ struct SwiftPMBuildServerTests {
             for finish in taskFinishes {
                 #expect(finish.taskId.id == "package-reloading")
             }
+        }
+    }
+
+    @Test
+    func underlyingBuildServerNotificationsAreForwarded() async throws {
+        try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple") { connection, notificationCollector, fixturePath in
+            let initialChangeCount = notificationCollector.notifications(of: OnBuildTargetDidChangeNotification.self).count
+            try localFileSystem.writeFileContents(fixturePath.appending(component: "Bar.swift"), body: {
+                $0.write("public let baz = \"hello\"")
+            })
+            connection.send(OnWatchedFilesDidChangeNotification(changes: [
+                .init(uri: .init(.init(filePath: fixturePath.appending(component: "Bar.swift").pathString)), type: .created)
+            ]))
+            _ = try await connection.send(WorkspaceWaitForBuildSystemUpdatesRequest())
+            #expect(notificationCollector.notifications(of: OnBuildTargetDidChangeNotification.self).count > initialChangeCount)
         }
     }
 
@@ -411,6 +433,20 @@ struct SwiftPMBuildServerTests {
     }
 
     @Test
+    func buildToolPluginInputsAreReportedAsSources() async throws {
+        try await withSwiftPMBSP(fixtureName: "Miscellaneous/Plugins/MySourceGenPlugin") { connection, _, _ in
+            // SourceKit-LSP expects a build server to report built tool plugin inputs in the BuildTargetSourcesResponse so it knows to re-prepare a target when they change.
+            let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
+            let myLocalTool = try #require(targetResponse.targets.first(where: { $0.displayName == "MyLocalTool" }))
+            let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [myLocalTool.id]))
+            let sources = try #require(sourcesResponse.items.only?.sources)
+            let pluginInput = try #require(sources.first(where: { $0.uri.fileURL?.lastPathComponent == "foo.dat" }))
+            #expect(pluginInput.kind == .file)
+            #expect(!pluginInput.generated)
+        }
+    }
+
+    @Test
     func doccCatalogSources() async throws {
         try await withSwiftPMBSP(fixtureName: "Miscellaneous/LibraryWithDocC") { connection, _, _ in
             let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
@@ -425,6 +461,59 @@ struct SwiftPMBuildServerTests {
             #expect(doccCatalog.kind == .directory)
             #expect(doccCatalog.uri.fileURL?.lastPathComponent == "Documentation.docc")
             #expect(doccCatalog.sourceKitData?.kind == .doccCatalog)
+        }
+    }
+
+    @Test
+    func manifestPrepareIsNotForwardedToUnderlyingBuildServer() async throws {
+        try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple") { connection, notificationCollector, _ in
+            let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
+            let manifestTarget = try #require(targetResponse.targets.first(where: { $0.displayName == "Package Manifest" }))
+            let logsBefore = notificationCollector.notifications(of: OnBuildLogMessageNotification.self).count
+            _ = try await connection.send(BuildTargetPrepareRequest(targets: [manifestTarget.id]))
+            let logsAfter = notificationCollector.notifications(of: OnBuildLogMessageNotification.self)
+            #expect(logsAfter.count == logsBefore)
+        }
+    }
+
+    @Test
+    func skipResolvingPackagePathsPreservesSymlinkedSourcePaths() async throws {
+        func testSourcePath(_ connection: Connection) async throws -> AbsolutePath {
+            let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
+            let fooID = try #require(targetResponse.targets.first(where: { $0.displayName == "Foo" })).id
+            let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [fooID]))
+            let item = try #require(sourcesResponse.items.only?.sources.only)
+            let fileURL = try #require(item.uri.fileURL)
+            return try AbsolutePath(validating: fileURL.path)
+        }
+
+        try await fixture(name: "Miscellaneous/Simple") { fixture in
+            let resolvedPackagePath = try resolveSymlinks(fixture)
+
+            let symlinkPath = resolvedPackagePath.parentDirectory
+                .appending(component: resolvedPackagePath.basename + "-symlink")
+            try localFileSystem.createSymbolicLink(symlinkPath, pointingAt: resolvedPackagePath, relative: false)
+
+            // With `--experimental-skip-resolving-package-paths`, the source path should be
+            // reported under the symlinked path the package was opened with.
+            try await withSwiftPMBSP(
+                packagePath: symlinkPath,
+                extraBSPArgs: ["--experimental-skip-resolving-package-paths"]
+            ) { connection, _ in
+                let path = try await testSourcePath(connection)
+                #expect(path.basename == "Foo.swift")
+                #expect(path.isDescendant(of: symlinkPath))
+                #expect(!path.isDescendant(of: resolvedPackagePath))
+            }
+
+            // Without the flag, the symlink is resolved and the source path is reported under
+            // the real package path.
+            try await withSwiftPMBSP(packagePath: symlinkPath) { connection, _ in
+                let path = try await testSourcePath(connection)
+                #expect(path.basename == "Foo.swift")
+                #expect(path.isDescendant(of: resolvedPackagePath))
+                #expect(!path.isDescendant(of: symlinkPath))
+            }
         }
     }
 }

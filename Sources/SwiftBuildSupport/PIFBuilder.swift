@@ -87,7 +87,11 @@ package struct PIFBuilderParameters {
     /// reported by the build system for the host `BuildParameters`.
     let hostBuildProductsPath: AbsolutePath
 
-    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRpaths: PackagePIFBuilder.AddLocalRpaths, hostBuildProductsPath: AbsolutePath) {
+    /// Whether to preserve symbolic links in source file paths instead of resolving them to their
+    /// real path.
+    let shouldPreserveSymlinks: Bool
+
+    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRpaths: PackagePIFBuilder.AddLocalRpaths, hostBuildProductsPath: AbsolutePath, shouldPreserveSymlinks: Bool) {
         self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
         self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
@@ -102,6 +106,7 @@ package struct PIFBuilderParameters {
         self.additionalFileRules = additionalFileRules
         self.addLocalRpaths = addLocalRpaths
         self.hostBuildProductsPath = hostBuildProductsPath
+        self.shouldPreserveSymlinks = shouldPreserveSymlinks
     }
 }
 
@@ -469,6 +474,7 @@ public final class PIFBuilder {
                 materializeStaticArchiveProductsForRootPackages: self.parameters.materializeStaticArchiveProductsForRootPackages,
                 createDynamicVariantsForLibraryProducts: self.parameters.createDynamicVariantsForLibraryProducts,
                 addLocalRpaths: self.parameters.addLocalRpaths,
+                shouldPreserveSymlinks: self.parameters.shouldPreserveSymlinks,
                 packageDisplayVersion: package.manifest.displayName,
                 pkgConfigDirectories: self.parameters.pkgConfigDirectories,
                 treatWarningsAsErrors: treatWarningsAsErrors,
@@ -936,7 +942,8 @@ extension PIFBuilderParameters {
             pluginWorkingDirectory: pluginWorkingDirectory,
             additionalFileRules: additionalFileRules,
             addLocalRpaths: addLocalRpaths,
-            hostBuildProductsPath: hostBuildProductsPath
+            hostBuildProductsPath: hostBuildProductsPath,
+            shouldPreserveSymlinks: buildParameters.shouldPreserveSymlinks
         )
     }
 }

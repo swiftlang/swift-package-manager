@@ -232,6 +232,172 @@ final class RepositoryManagerTests: XCTestCase {
         }
     }
 
+    func testPurge() async throws {
+        let fs = localFileSystem
+        let observability = ObservabilitySystem.makeForTesting()
+
+        try await fixtureXCTest(name: "DependencyResolution/External/Simple", createGitRepo: true) { (fixturePath: AbsolutePath) in
+            let cachePath = fixturePath.appending("cache")
+            let repositoriesPath = fixturePath.appending("repositories")
+            let repo = RepositorySpecifier(path: fixturePath.appending("Foo"))
+
+            let provider = GitRepositoryProvider()
+            let delegate = DummyRepositoryManagerDelegate()
+
+            let manager = RepositoryManager(
+                fileSystem: fs,
+                path: repositoriesPath,
+                provider: provider,
+                cachePath: cachePath,
+                cacheLocalPackages: true,
+                delegate: delegate
+            )
+
+            // fetch the package, populating both the shared cache and the working repositories path
+            delegate.prepare(fetchExpected: true, updateExpected: false)
+            _ = try await manager.lookup(repository: repo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            try XCTAssertDirectoryExists(cachePath.appending(repo.storagePath()))
+            try XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
+            try await delegate.wait(timeout: .now() + 2)
+
+            // purge must evict the repository from BOTH the working path and the shared cache,
+            // so that a later lookup cannot re-copy an incomplete/corrupt cached object store.
+            try manager.purge(repository: repo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            try XCTAssertNoSuchPath(cachePath.appending(repo.storagePath()))
+            try XCTAssertNoSuchPath(repositoriesPath.appending(repo.storagePath()))
+
+            // the next lookup must re-fetch from the origin (not from cache), repopulating both.
+            delegate.prepare(fetchExpected: true, updateExpected: false)
+            _ = try await manager.lookup(repository: repo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            try await delegate.wait(timeout: .now() + 2)
+            try XCTAssertDirectoryExists(cachePath.appending(repo.storagePath()))
+            try XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
+            XCTAssertEqual(delegate.willFetch.last?.details, RepositoryManager.FetchDetails(fromCache: false, updatedCache: false))
+        }
+    }
+
+    func testWithObjectStoreRecovery() async throws {
+        struct UnrelatedError: Error {}
+
+        // The classifier matches the error's textual description, so this stands in for any error
+        // (git or a higher-level wrapper) whose description carries an object-store-corruption marker.
+        struct ObjectStoreCorruptionError: Error, CustomStringConvertible {
+            var description: String { "fatal: unable to read tree (abc123)" }
+        }
+
+        let fs = localFileSystem
+        let observability = ObservabilitySystem.makeForTesting()
+
+        try await testWithTemporaryDirectory { path in
+            let repos = path.appending("repo")
+            try fs.createDirectory(repos, recursive: true)
+            let manager = RepositoryManager(
+                fileSystem: fs,
+                path: repos,
+                provider: DummyRepositoryProvider(fileSystem: fs),
+                delegate: DummyRepositoryManagerDelegate()
+            )
+            let repo = RepositorySpecifier(path: "/dummy")
+
+            // Success on the first attempt: the operation runs once and beforeRetry is never called.
+            var operationCount = 0
+            var retryCount = 0
+            let value = try await manager.withObjectStoreRecovery(
+                repository: repo,
+                observabilityScope: observability.topScope,
+                beforeRetry: { retryCount += 1 }
+            ) {
+                operationCount += 1
+                return 42
+            }
+            XCTAssertEqual(value, 42)
+            XCTAssertEqual(operationCount, 1)
+            XCTAssertEqual(retryCount, 0)
+
+            // Object-store corruption then success: purge + beforeRetry + exactly one retry.
+            operationCount = 0
+            retryCount = 0
+            let recovered = try await manager.withObjectStoreRecovery(
+                repository: repo,
+                observabilityScope: observability.topScope,
+                beforeRetry: { retryCount += 1 }
+            ) {
+                operationCount += 1
+                if operationCount == 1 {
+                    throw ObjectStoreCorruptionError()
+                }
+                return 7
+            }
+            XCTAssertEqual(recovered, 7)
+            XCTAssertEqual(operationCount, 2)
+            XCTAssertEqual(retryCount, 1)
+
+            // A non-corruption error propagates immediately, without purge or retry.
+            operationCount = 0
+            retryCount = 0
+            await XCTAssertAsyncThrowsError(
+                try await manager.withObjectStoreRecovery(
+                    repository: repo,
+                    observabilityScope: observability.topScope,
+                    beforeRetry: { retryCount += 1 }
+                ) {
+                    operationCount += 1
+                    throw UnrelatedError()
+                }
+            )
+            XCTAssertEqual(operationCount, 1)
+            XCTAssertEqual(retryCount, 0)
+
+            // Persistent corruption is retried exactly once, then propagates.
+            operationCount = 0
+            retryCount = 0
+            await XCTAssertAsyncThrowsError(
+                try await manager.withObjectStoreRecovery(
+                    repository: repo,
+                    observabilityScope: observability.topScope,
+                    beforeRetry: { retryCount += 1 }
+                ) {
+                    operationCount += 1
+                    throw ObjectStoreCorruptionError()
+                }
+            )
+            XCTAssertEqual(operationCount, 2)
+            XCTAssertEqual(retryCount, 1)
+        }
+    }
+
+    func testPurgeWithoutCacheIsIdempotent() async throws {
+        let fs = localFileSystem
+        let observability = ObservabilitySystem.makeForTesting()
+
+        try await fixtureXCTest(name: "DependencyResolution/External/Simple", createGitRepo: true) { (fixturePath: AbsolutePath) in
+            let repositoriesPath = fixturePath.appending("repositories")
+            let repo = RepositorySpecifier(path: fixturePath.appending("Foo"))
+
+            // No cachePath configured: purge must still remove the working clone via its no-cache branch.
+            let manager = RepositoryManager(
+                fileSystem: fs,
+                path: repositoriesPath,
+                provider: GitRepositoryProvider(),
+                cacheLocalPackages: true
+            )
+
+            _ = try await manager.lookup(repository: repo, observabilityScope: observability.topScope)
+            try XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
+
+            try manager.purge(repository: repo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            try XCTAssertNoSuchPath(repositoriesPath.appending(repo.storagePath()))
+
+            // Purging again, with the paths already gone, neither throws nor emits a diagnostic.
+            try manager.purge(repository: repo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+        }
+    }
+
     func testReset() async throws {
         let fs = localFileSystem
         let observability = ObservabilitySystem.makeForTesting()
