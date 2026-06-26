@@ -60,53 +60,6 @@ public struct PluginTool {
 }
 
 extension PluginModule {
-    public func invoke(
-        action: PluginAction,
-        buildEnvironment: BuildEnvironment,
-        workers: UInt32,
-        scriptRunner: PluginScriptRunner,
-        workingDirectory: AbsolutePath,
-        outputDirectory: AbsolutePath,
-        toolSearchDirectories: [AbsolutePath],
-        accessibleTools: [String: PluginTool],
-        writableDirectories: [AbsolutePath],
-        readOnlyDirectories: [AbsolutePath],
-        allowNetworkConnections: [SandboxNetworkPermission],
-        pkgConfigDirectories: [AbsolutePath],
-        sdkRootPath: AbsolutePath?,
-        fileSystem: FileSystem,
-        modulesGraph: ModulesGraph,
-        observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        delegate: PluginInvocationDelegate
-    ) async throws -> Bool {
-        try await withCheckedThrowingContinuation { continuation in
-            self.invoke(
-                action: action,
-                buildEnvironment: buildEnvironment,
-                workers: workers,
-                scriptRunner: scriptRunner,
-                workingDirectory: workingDirectory,
-                outputDirectory: outputDirectory,
-                toolSearchDirectories: toolSearchDirectories,
-                accessibleTools: accessibleTools,
-                writableDirectories: writableDirectories,
-                readOnlyDirectories: readOnlyDirectories,
-                allowNetworkConnections: allowNetworkConnections,
-                pkgConfigDirectories: pkgConfigDirectories,
-                sdkRootPath: sdkRootPath,
-                fileSystem: fileSystem,
-                modulesGraph: modulesGraph,
-                observabilityScope: observabilityScope,
-                callbackQueue: callbackQueue,
-                delegate: delegate,
-                completion: {
-                    continuation.resume(with: $0)
-                }
-            )
-        }
-    }
-
     /// Invokes the plugin by compiling its source code (if needed) and then running it as a subprocess. The specified
     /// plugin action determines which entry point is called in the subprocess, and the package and the tool mapping
     /// determine the context that is available to the plugin.
@@ -130,7 +83,6 @@ extension PluginModule {
     ///   - fileSystem: The file system to which all of the paths refers.
     ///
     /// - Returns: A PluginInvocationResult that contains the results of invoking the plugin.
-    @available(*, noasync, message: "Use the async alternative")
     public func invoke(
         action: PluginAction,
         buildEnvironment: BuildEnvironment,
@@ -149,15 +101,14 @@ extension PluginModule {
         modulesGraph: ModulesGraph,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        delegate: PluginInvocationDelegate,
-        completion: @escaping (Result<Bool, Error>) -> Void
-    ) {
+        delegate: PluginInvocationDelegate
+    ) async throws -> Bool {
         // Create the plugin's output directory if needed (but don't do anything with it if it already exists).
         do {
             try fileSystem.createDirectory(outputDirectory, recursive: true)
         }
         catch {
-            return callbackQueue.async { completion(.failure(PluginEvaluationError.couldNotCreateOuputDirectory(path: outputDirectory, underlyingError: error))) }
+            throw PluginEvaluationError.couldNotCreateOuputDirectory(path: outputDirectory, underlyingError: error)
         }
 
         // Serialize the plugin action to send as the initial message.
@@ -266,7 +217,7 @@ extension PluginModule {
             initialMessage = try actionMessage.toData()
         }
         catch {
-            return callbackQueue.async { completion(.failure(PluginEvaluationError.couldNotSerializePluginInput(underlyingError: error))) }
+            throw PluginEvaluationError.couldNotSerializePluginInput(underlyingError: error)
         }
 
         // Handle messages and output from the plugin.
@@ -283,9 +234,15 @@ extension PluginModule {
             /// If this is true, we exited early with an error.
             var exitEarly = false
 
-            init(invocationDelegate: PluginInvocationDelegate, observabilityScope: ObservabilityScope) {
+            /// Queue on which the invocation delegate expects to be called. The synchronous portions of
+            /// `handleMessage` hop onto it so they observe the same serialization as `handleOutput`, which
+            /// the caller already dispatches on this queue.
+            let callbackQueue: DispatchQueue
+
+            init(invocationDelegate: PluginInvocationDelegate, observabilityScope: ObservabilityScope, callbackQueue: DispatchQueue) {
                 self.invocationDelegate = invocationDelegate
                 self.observabilityScope = observabilityScope
+                self.callbackQueue = callbackQueue
             }
 
             func willCompilePlugin(commandLine: [String], environment: [String: String]) {
@@ -300,120 +257,114 @@ extension PluginModule {
                 invocationDelegate.pluginCompilationWasSkipped(cachedResult: cachedResult)
             }
 
-            /// Invoked when the plugin emits arbitrary data on its stdout/stderr. There is no guarantee that the data is split on UTF-8 character encoding boundaries etc.  The script runner delegate just passes it on to the invocation delegate.
+            /// Invoked when the plugin emits arbitrary data on its stdout/stderr. There is no guarantee that the data is split on UTF-8 character encoding boundaries etc.  The script runner delegate just passes it on to the invocation delegate. Callers dispatch this on `callbackQueue`.
             func handleOutput(data: Data) {
                 invocationDelegate.pluginEmittedOutput(data)
             }
 
-            /// Invoked when the plugin emits a message. The `responder` closure can be used to send any reply messages.
-            func handleMessage(data: Data, responder: @escaping (Data) -> Void) throws {
+            /// Invoked when the plugin emits a message. Returns an optional reply message to send back to the plugin.
+            func handleMessage(data: Data) async throws -> Data? {
                 let message = try PluginToHostMessage(data)
                 switch message {
 
                 case .emitDiagnostic(let severity, let message, let file, let line):
-                    let metadata: ObservabilityMetadata? = file.map {
-                        var metadata = ObservabilityMetadata()
-                        // FIXME: We should probably report some kind of protocol error if the path isn't valid.
-                        metadata.fileLocation = try? .init(.init(validating: $0), line: line)
-                        return metadata
+                    callbackQueue.sync {
+                        let metadata: ObservabilityMetadata? = file.map {
+                            var metadata = ObservabilityMetadata()
+                            // FIXME: We should probably report some kind of protocol error if the path isn't valid.
+                            metadata.fileLocation = try? .init(.init(validating: $0), line: line)
+                            return metadata
+                        }
+                        let diagnostic: Basics.Diagnostic
+                        switch severity {
+                        case .error:
+                            diagnostic = .error(message, metadata: metadata)
+                            hasReportedError = true
+                        case .warning:
+                            diagnostic = .warning(message, metadata: metadata)
+                        case .remark:
+                            diagnostic = .info(message, metadata: metadata)
+                        }
+                        self.invocationDelegate.pluginEmittedDiagnostic(diagnostic)
                     }
-                    let diagnostic: Basics.Diagnostic
-                    switch severity {
-                    case .error:
-                        diagnostic = .error(message, metadata: metadata)
-                        hasReportedError = true
-                    case .warning:
-                        diagnostic = .warning(message, metadata: metadata)
-                    case .remark:
-                        diagnostic = .info(message, metadata: metadata)
-                    }
-                    self.invocationDelegate.pluginEmittedDiagnostic(diagnostic)
+                    return nil
 
                 case .emitProgress(let message):
-                    self.invocationDelegate.pluginEmittedProgress(message)
+                    callbackQueue.sync {
+                        self.invocationDelegate.pluginEmittedProgress(message)
+                    }
+                    return nil
 
                 case .defineBuildCommand(let config, let inputFiles, let outputFiles):
                     if config.version != 2 {
                         throw PluginEvaluationError.pluginUsesIncompatibleVersion(expected: 2, actual: config.version)
                     }
-                    self.invocationDelegate.pluginDefinedBuildCommand(
-                        displayName: config.displayName,
-                        executable: try config.executable.filePath,
-                        arguments: config.arguments,
-                        environment: config.environment,
-                        workingDirectory: try config.workingDirectory.map{ try $0.filePath },
-                        inputFiles: try inputFiles.map{ try $0.filePath },
-                        outputFiles: try outputFiles.map{ try $0.filePath })
+                    try callbackQueue.sync {
+                        self.invocationDelegate.pluginDefinedBuildCommand(
+                            displayName: config.displayName,
+                            executable: try config.executable.filePath,
+                            arguments: config.arguments,
+                            environment: config.environment,
+                            workingDirectory: try config.workingDirectory.map{ try $0.filePath },
+                            inputFiles: try inputFiles.map{ try $0.filePath },
+                            outputFiles: try outputFiles.map{ try $0.filePath })
+                    }
+                    return nil
 
                 case .definePrebuildCommand(let config, let outputFilesDir):
                     if config.version != 2 {
                         throw PluginEvaluationError.pluginUsesIncompatibleVersion(expected: 2, actual: config.version)
                     }
-                    let success = self.invocationDelegate.pluginDefinedPrebuildCommand(
-                        displayName: config.displayName,
-                        executable: try config.executable.filePath,
-                        arguments: config.arguments,
-                        environment: config.environment,
-                        workingDirectory: try config.workingDirectory.map{ try $0.filePath },
-                        outputFilesDirectory: try outputFilesDir.filePath)
+                    try callbackQueue.sync {
+                        let success = self.invocationDelegate.pluginDefinedPrebuildCommand(
+                            displayName: config.displayName,
+                            executable: try config.executable.filePath,
+                            arguments: config.arguments,
+                            environment: config.environment,
+                            workingDirectory: try config.workingDirectory.map{ try $0.filePath },
+                            outputFilesDirectory: try outputFilesDir.filePath)
 
-                    if !success {
-                        exitEarly = true
-                        hasReportedError = true
+                        if !success {
+                            exitEarly = true
+                            hasReportedError = true
+                        }
                     }
+                    return nil
 
                 case .buildOperationRequest(let subset, let parameters):
-                    self.invocationDelegate.pluginRequestedBuildOperation(subset: .init(subset), parameters: .init(parameters)) {
-                        do {
-                            switch $0 {
-                            case .success(let result):
-                                responder(try HostToPluginMessage.buildOperationResponse(result: .init(result)).toData())
-                            case .failure(let error):
-                                responder(try HostToPluginMessage.errorResponse(error: String(describing: error)).toData())
-                            }
-                        }
-                        catch {
-                            self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
-                        }
+                    do {
+                        let result = try await self.invocationDelegate.pluginRequestedBuildOperation(
+                            subset: .init(subset), parameters: .init(parameters))
+                        return try HostToPluginMessage.buildOperationResponse(result: .init(result)).toData()
+                    } catch {
+                        return try HostToPluginMessage.errorResponse(error: String(describing: error)).toData()
                     }
 
                 case .testOperationRequest(let subset, let parameters):
-                    self.invocationDelegate.pluginRequestedTestOperation(subset: .init(subset), parameters: .init(parameters)) {
-                        do {
-                            switch $0 {
-                            case .success(let result):
-                                responder(try HostToPluginMessage.testOperationResponse(result: .init(result)).toData())
-                            case .failure(let error):
-                                responder(try HostToPluginMessage.errorResponse(error: String(describing: error)).toData())
-                            }
-                        }
-                        catch {
-                            self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
-                        }
+                    do {
+                        let result = try await self.invocationDelegate.pluginRequestedTestOperation(
+                            subset: .init(subset), parameters: .init(parameters))
+                        return try HostToPluginMessage.testOperationResponse(result: .init(result)).toData()
+                    } catch {
+                        return try HostToPluginMessage.errorResponse(error: String(describing: error)).toData()
                     }
 
                 case .symbolGraphRequest(let targetName, let options):
                     // The plugin requested symbol graph information for a target. We ask the delegate and then send a response.
-                    self.invocationDelegate.pluginRequestedSymbolGraph(forTarget: .init(targetName), options: .init(options)) {
-                        do {
-                            switch $0 {
-                            case .success(let result):
-                                responder(try HostToPluginMessage.symbolGraphResponse(result: .init(result)).toData())
-                            case .failure(let error):
-                                responder(try HostToPluginMessage.errorResponse(error: String(describing: error)).toData())
-                            }
-                        }
-                        catch {
-                            self.observabilityScope.emit(debug: "couldn't send reply to plugin", underlyingError: error)
-                        }
+                    do {
+                        let result = try await self.invocationDelegate.pluginRequestedSymbolGraph(
+                            forTarget: .init(targetName), options: .init(options))
+                        return try HostToPluginMessage.symbolGraphResponse(result: .init(result)).toData()
+                    } catch {
+                        return try HostToPluginMessage.errorResponse(error: String(describing: error)).toData()
                     }
                 }
             }
         }
-        let runnerDelegate = ScriptRunnerDelegate(invocationDelegate: delegate, observabilityScope: observabilityScope)
+        let runnerDelegate = ScriptRunnerDelegate(invocationDelegate: delegate, observabilityScope: observabilityScope, callbackQueue: callbackQueue)
 
         // Call the plugin script runner to actually invoke the plugin.
-        scriptRunner.runPluginScript(
+        let exitCode = try await scriptRunner.runPluginScript(
             sourceFiles: sources.paths,
             pluginName: self.name,
             initialMessage: initialMessage,
@@ -426,22 +377,22 @@ extension PluginModule {
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             callbackQueue: callbackQueue,
-            delegate: runnerDelegate) { result in
-                dispatchPrecondition(condition: .onQueue(callbackQueue))
-                completion(result.map { exitCode in
-                    // Return a result based on the exit code or the `exitEarly` parameter. If the plugin
-                    // exits with an error but hasn't already emitted an error, we do so for it.
-                    let exitedCleanly = (exitCode == 0) && !runnerDelegate.exitEarly
-                    if !exitedCleanly && !runnerDelegate.hasReportedError {
-                        delegate.pluginEmittedDiagnostic(
-                            .error("Plugin ended with exit code \(exitCode)")
-                        )
-                    }
-                    return exitedCleanly
-                })
+            delegate: runnerDelegate
+        )
+
+        // Return a result based on the exit code or the `exitEarly` parameter. If the plugin
+        // exits with an error but hasn't already emitted an error, we do so for it.
+        let exitedCleanly = (exitCode == 0) && !runnerDelegate.exitEarly
+        if !exitedCleanly && !runnerDelegate.hasReportedError {
+            delegate.pluginEmittedDiagnostic(
+                .error("Plugin ended with exit code \(exitCode)")
+            )
         }
+        return exitedCleanly
     }
 
+    /// This is a convenient way to get results of the plugin invocation without having
+    /// to deal with delegates and other internal details.
     package func invoke(
         module: ResolvedModule,
         action: PluginAction,
@@ -461,59 +412,9 @@ extension PluginModule {
         modulesGraph: ModulesGraph,
         observabilityScope: ObservabilityScope
     ) async throws -> BuildToolPluginInvocationResult {
-        try await withCheckedThrowingContinuation { continuation in
-            self.invoke(
-                module: module,
-                action: action,
-                buildEnvironment: buildEnvironment,
-                workers: workers,
-                scriptRunner: scriptRunner,
-                workingDirectory: workingDirectory,
-                outputDirectory: outputDirectory,
-                toolSearchDirectories: toolSearchDirectories,
-                accessibleTools: accessibleTools,
-                writableDirectories: writableDirectories,
-                readOnlyDirectories: readOnlyDirectories,
-                allowNetworkConnections: allowNetworkConnections,
-                pkgConfigDirectories: pkgConfigDirectories,
-                sdkRootPath: sdkRootPath,
-                fileSystem: fileSystem,
-                modulesGraph: modulesGraph,
-                observabilityScope: observabilityScope,
-                completion: {
-                    continuation.resume(with: $0)
-                }
-            )
-        }
-    }
-
-    /// This is a convenient way to get results of the plugin invocation without having
-    /// to deal with delegates and other internal details.
-    @available(*, noasync, message: "Use the async alternative")
-    package func invoke(
-        module: ResolvedModule,
-        action: PluginAction,
-        buildEnvironment: BuildEnvironment,
-        workers: UInt32,
-        scriptRunner: PluginScriptRunner,
-        workingDirectory: AbsolutePath,
-        outputDirectory: AbsolutePath,
-        toolSearchDirectories: [AbsolutePath],
-        accessibleTools: [String: PluginTool],
-        writableDirectories: [AbsolutePath],
-        readOnlyDirectories: [AbsolutePath],
-        allowNetworkConnections: [SandboxNetworkPermission],
-        pkgConfigDirectories: [AbsolutePath],
-        sdkRootPath: AbsolutePath?,
-        fileSystem: FileSystem,
-        modulesGraph: ModulesGraph,
-        observabilityScope: ObservabilityScope,
-        completion: @escaping (Result<BuildToolPluginInvocationResult, Error>) -> Void
-    ) {
         /// Determine the package that contains the target.
         guard let package = modulesGraph.package(for: module) else {
-            completion(.failure(InternalError("Could not find package for \(self)")))
-            return
+            throw InternalError("Could not find package for \(self)")
         }
 
         // Set up a delegate to handle callbacks from the build tool plugin.
@@ -535,50 +436,44 @@ extension PluginModule {
 
         let startTime = DispatchTime.now()
 
-        self.invoke(
-            action: action,
-            buildEnvironment: buildEnvironment,
-            workers: workers,
-            scriptRunner: scriptRunner,
-            workingDirectory: workingDirectory,
-            outputDirectory: outputDirectory,
-            toolSearchDirectories: toolSearchDirectories,
-            accessibleTools: accessibleTools,
-            writableDirectories: writableDirectories,
-            readOnlyDirectories: readOnlyDirectories,
-            allowNetworkConnections: allowNetworkConnections,
-            pkgConfigDirectories: pkgConfigDirectories,
-            sdkRootPath: sdkRootPath,
-            fileSystem: fileSystem,
-            modulesGraph: modulesGraph,
-            observabilityScope: observabilityScope,
-            callbackQueue: delegateQueue,
-            delegate: delegate,
-            completion: {
-                let duration = startTime.distance(to: .now())
+        let success: Bool
+        do {
+            success = try await self.invoke(
+                action: action,
+                buildEnvironment: buildEnvironment,
+                workers: workers,
+                scriptRunner: scriptRunner,
+                workingDirectory: workingDirectory,
+                outputDirectory: outputDirectory,
+                toolSearchDirectories: toolSearchDirectories,
+                accessibleTools: accessibleTools,
+                writableDirectories: writableDirectories,
+                readOnlyDirectories: readOnlyDirectories,
+                allowNetworkConnections: allowNetworkConnections,
+                pkgConfigDirectories: pkgConfigDirectories,
+                sdkRootPath: sdkRootPath,
+                fileSystem: fileSystem,
+                modulesGraph: modulesGraph,
+                observabilityScope: observabilityScope,
+                callbackQueue: delegateQueue,
+                delegate: delegate
+            )
+        } catch {
+            success = false
+        }
+        let duration = startTime.distance(to: .now())
 
-                let success: Bool = switch $0 {
-                case .success(let result):
-                    result
-                case .failure:
-                    false
-                }
-
-                let invocationResult = BuildToolPluginInvocationResult(
-                    plugin: self,
-                    pluginOutputDirectory: outputDirectory,
-                    package: package,
-                    target: module,
-                    succeeded: success,
-                    duration: duration,
-                    diagnostics: delegate.diagnostics,
-                    textOutput: String(decoding: delegate.outputData, as: UTF8.self),
-                    buildCommands: delegate.buildCommands,
-                    prebuildCommands: delegate.prebuildCommands
-                )
-
-                completion(.success(invocationResult))
-            }
+        return BuildToolPluginInvocationResult(
+            plugin: self,
+            pluginOutputDirectory: outputDirectory,
+            package: package,
+            target: module,
+            succeeded: success,
+            duration: duration,
+            diagnostics: delegate.diagnostics,
+            textOutput: String(decoding: delegate.outputData, as: UTF8.self),
+            buildCommands: delegate.buildCommands,
+            prebuildCommands: delegate.prebuildCommands
         )
     }
 }
@@ -864,13 +759,13 @@ public protocol PluginInvocationDelegate {
     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool
 
     /// Called when a plugin requests a build operation through the PackagePlugin APIs.
-    func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters, completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void)
+    func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters) async throws -> PluginInvocationBuildResult
 
     /// Called when a plugin requests a test operation through the PackagePlugin APIs.
-    func pluginRequestedTestOperation(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters, completion: @escaping (Result<PluginInvocationTestResult, Error>) -> Void)
+    func pluginRequestedTestOperation(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters) async throws -> PluginInvocationTestResult
 
     /// Called when a plugin requests that the host computes and returns symbol graph information for a particular target.
-    func pluginRequestedSymbolGraph(forTarget name: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void)
+    func pluginRequestedSymbolGraph(forTarget name: String, options: PluginInvocationSymbolGraphOptions) async throws -> PluginInvocationSymbolGraphResult
 }
 
 final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
@@ -1087,14 +982,14 @@ public extension PluginInvocationDelegate {
     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool {
         return true
     }
-    func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters, completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void) {
-        DispatchQueue.sharedConcurrent.async { completion(Result.failure(StringError("unimplemented"))) }
+    func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters) async throws -> PluginInvocationBuildResult {
+        throw StringError("unimplemented")
     }
-    func pluginRequestedTestOperation(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters, completion: @escaping (Result<PluginInvocationTestResult, Error>) -> Void) {
-        DispatchQueue.sharedConcurrent.async { completion(Result.failure(StringError("unimplemented"))) }
+    func pluginRequestedTestOperation(subset: PluginInvocationTestSubset, parameters: PluginInvocationTestParameters) async throws -> PluginInvocationTestResult {
+        throw StringError("unimplemented")
     }
-    func pluginRequestedSymbolGraph(forTarget name: String, options: PluginInvocationSymbolGraphOptions, completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void) {
-        DispatchQueue.sharedConcurrent.async { completion(Result.failure(StringError("unimplemented"))) }
+    func pluginRequestedSymbolGraph(forTarget name: String, options: PluginInvocationSymbolGraphOptions) async throws -> PluginInvocationSymbolGraphResult {
+        throw StringError("unimplemented")
     }
 }
 
