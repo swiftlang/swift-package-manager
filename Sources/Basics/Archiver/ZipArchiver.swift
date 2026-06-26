@@ -96,7 +96,7 @@ public struct ZipArchiver: Archiver, Cancellable {
         let process = AsyncProcess(
                 arguments: [
                     self.tar, "-c", "--format", "zip", "-f", destinationPath.pathString,
-                ] + directories.map(\.pathString),
+                ] + paths.map(\.pathString),
           workingDirectory: parent
         )
         #else
