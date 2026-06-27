@@ -16,6 +16,39 @@ import Testing
 @testable import Basics
 
 struct FileSystemTests {
+    // Regression test for https://github.com/swiftlang/swift-package-manager/issues/9915: localFileSystem.readFileContents must accept non-regular
+    // files (FIFOs, /dev/stdin) after TSC switched from fopen/fread to Data(contentsOf:), which
+    // rejects non-regular files on Linux (swift-foundation) and some macOS/Foundation versions.
+    #if !os(Windows)
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9915", relationship: .verifies),
+    )
+    func localFileSystemReadFileContentsAcceptsNonRegularFile() async throws {
+        try await withTemporaryDirectory { tmpDir in
+            let fifoPath = tmpDir.appending("token.fifo")
+
+            let rc = mkfifo(fifoPath.pathString, 0o600)
+            guard rc == 0 else {
+                Issue.record("mkfifo failed: \(String(cString: strerror(errno)))")
+                return
+            }
+
+            let expected = "test-secret-token"
+            // FIFOs block open(2) until both ends are open, so write from a concurrent task.
+            let writeTask = Task.detached {
+                let fd = open(fifoPath.pathString, O_WRONLY)
+                guard fd >= 0 else { return }
+                defer { close(fd) }
+                _ = expected.withCString { ptr in write(fd, ptr, strlen(ptr)) }
+            }
+            defer { writeTask.cancel() }
+
+            let contents: String = try localFileSystem.readFileContents(fifoPath)
+            #expect(contents == expected)
+        }
+    }
+    #endif
+
     @Test
     func stripFirstLevelComponent() throws {
         let fileSystem = InMemoryFileSystem()
