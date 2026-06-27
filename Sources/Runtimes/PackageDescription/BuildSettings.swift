@@ -162,6 +162,14 @@ public struct CSetting: Sendable {
         return CSetting(name: "headerSearchPath", value: [path], condition: condition)
     }
 
+    public static func publicHeaderPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> CSetting {
+        return CSetting(name: "publicHeaderPath", value: [path], condition: condition)
+    }
+
+    public static func publicHeaderPath(plugin: PluginUsage, path: String, _ condition: BuildSettingCondition? = nil) -> CSetting {
+        return CSetting(name: "publicHeaderPath", value: [path, plugin.name], condition: condition)
+    }
+
     /// Defines a value for a macro.
     ///
     /// If you don't specify a value, the macro's default value is 1.
@@ -482,6 +490,15 @@ public struct SwiftSetting: Sendable {
         return SwiftSetting(name: "define", value: [name], condition: condition)
     }
 
+    public enum Visibility: String {
+        case `public`
+        case `internal`
+    }
+
+    public static func bridgingHeader(_ path: String, visibility: Visibility = .internal, _ condition: BuildSettingCondition? = nil) -> SwiftSetting {
+        return SwiftSetting(name: "bridgingHeader", value: [path, visibility.rawValue], condition: condition)
+    }
+
     /// Set unsafe flags to pass arbitrary command-line flags to the
     /// corresponding build tool.
     ///
@@ -756,7 +773,15 @@ public struct LinkerSetting: Sendable {
     public static func linkedFramework(_ framework: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
         return LinkerSetting(name: "linkedFramework", value: [framework], condition: condition)
     }
-   
+
+    public static func libraryPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
+        return LinkerSetting(name: "libraryPath", value: [path], condition: condition)
+    }
+
+    public static func libraryPath(plugin: PluginUsage, path: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
+        return LinkerSetting(name: "libraryPath", value: [path, plugin.name], condition: condition)
+    }
+
     /// Sets unsafe flags to pass arbitrary command-line flags to the
     /// corresponding build tool.
     ///

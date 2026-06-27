@@ -596,6 +596,8 @@ fileprivate extension SourceCodeFragment {
         switch capability {
         case .buildTool:
             self.init(enum: "buildTool", subnodes: [])
+        case .externalBuilder:
+            self.init(enum: "externalBuilder", subnodes: [])
         case .command(let intent, let permissions):
             var params: [SourceCodeFragment] = []
             params.append(SourceCodeFragment(key: "intent", subnode: .init(from: intent)))
@@ -659,6 +661,31 @@ fileprivate extension SourceCodeFragment {
         switch setting.kind {
         case .headerSearchPath(let value), .linkedLibrary(let value), .linkedFramework(let value), .enableUpcomingFeature(let value), .enableExperimentalFeature(let value):
             params.append(SourceCodeFragment(string: value))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
+        case .publicHeaderPath(let name, let pluginName):
+            params.append(.init(string: name))
+            if let pluginName {
+                params.append(.init(string: pluginName))
+            }
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
+        case .libraryPath(let name, let pluginName):
+            params.append(.init(string: name))
+            if let pluginName {
+                params.append(.init(string: pluginName))
+            }
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
+        case .bridgingHeader(let path, let visibility):
+            params.append(SourceCodeFragment(string: path))
+            params.append(SourceCodeFragment(string: visibility.rawValue))
             if let condition = setting.condition {
                 params.append(SourceCodeFragment(from: condition))
             }
@@ -1187,12 +1214,18 @@ extension TargetBuildSettingDescription.Kind {
         switch self {
         case .headerSearchPath:
             return "headerSearchPath"
+        case .publicHeaderPath:
+            return "publicHeaderPath"
+        case .bridgingHeader:
+            return "bridgingHeader"
         case .define:
             return "define"
         case .linkedLibrary:
             return "linkedLibrary"
         case .linkedFramework:
             return "linkedFramework"
+        case .libraryPath:
+            return "libraryPath"
         case .unsafeFlags:
             return "unsafeFlags"
         case .interoperabilityMode:

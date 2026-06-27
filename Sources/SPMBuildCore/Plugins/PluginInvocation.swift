@@ -38,6 +38,7 @@ public enum PluginAction {
     )
     case performCommand(package: ResolvedPackage, arguments: [String])
     case performXcodeProjectCommand(project: XcodeProjectRepresentation, arguments: [String])
+    case externalBuild(package: ResolvedPackage, arguments: [String], triple: Triple, sdkPath: URL?)
 }
 
 public struct PluginTool {
@@ -262,6 +263,26 @@ extension PluginModule {
                     context: wireInput,
                     rootProjectId: rootProjectId,
                     arguments: arguments)
+
+            case .externalBuild(let package, let arguments, let triple, let sdkPath):
+                let rootPackageId = try serializer.serialize(package: package)
+                let wireInput = WireInput(
+                    paths: serializer.paths,
+                    targets: serializer.targets,
+                    products: serializer.products,
+                    packages: serializer.packages,
+                    xcodeTargets: serializer.xcodeTargets,
+                    xcodeProjects: serializer.xcodeProjects,
+                    pluginWorkDirId: pluginWorkDirId,
+                    toolSearchDirIds: toolSearchDirIds,
+                    accessibleTools: accessibleTools)
+                actionMessage = .externalBuild(
+                    context: wireInput,
+                    rootPackageId: rootPackageId,
+                    arguments: arguments,
+                    triple: triple.tripleString,
+                    sdkPath: sdkPath
+                )
             }
             initialMessage = try actionMessage.toData()
         }
@@ -633,9 +654,10 @@ extension ModulesGraph {
                 observabilityScope: observabilityScope
             )
             generatedFiles.add(files)
-            if !files.headers.isEmpty {
+            if !files.headers.isEmpty && toolsVersion < .v6_5 {
                 // Capture the public include directory if there were header files generated there
                 // Hardcoding as the default for now
+                // In 6.5, use the new build setting that points at the plugin output dir
                 let publicDir = result.pluginOutputDirectory.appending(ClangModule.defaultPublicHeadersComponent)
                 if files.headers.contains(where: { $0.isDescendantOfOrEqual(to: publicDir) }) {
                     generatedFiles.publicHeaderPaths.append(publicDir)

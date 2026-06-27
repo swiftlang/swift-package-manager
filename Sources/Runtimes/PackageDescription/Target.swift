@@ -163,6 +163,8 @@ public final class Target {
         @available(_PackageDescription, introduced: 5.5)
         case buildTool
 
+        case externalBuilder
+
         /// Specifies that the plug-in provides a user command capability.
         ///
         ///- Parameters:
@@ -218,17 +220,6 @@ public final class Target {
     @available(_PackageDescription, introduced: 5.5)
     public var plugins: [PluginUsage]?
     
-    /// A plug-in used in a target.
-    @available(_PackageDescription, introduced: 5.5)
-    public enum PluginUsage {
-        /// Specifies the use of a plug-in product in a package dependency.
-        ///
-        /// - Parameters:
-        ///   - name: The name of the plug-in target.
-        ///   - package: The name of the package that defines the plug-in target.
-        case plugin(name: String, package: String?)
-    }
-
     /// Construct a target.
     @_spi(PackageDescriptionInternal)
     public init(
@@ -1524,13 +1515,13 @@ public enum PluginNetworkPermissionScope {
     }
 }
 
-extension Target.PluginUsage {
+extension PluginUsage {
     /// Specifies use of a plugin target in the same package.
     ///
     /// - Parameter name: The name of the plugin target.
     /// - Returns: A `PluginUsage` instance.
     @available(_PackageDescription, introduced: 5.5)
-    public static func plugin(name: String) -> Target.PluginUsage {
+    public static func plugin(name: String) -> PluginUsage {
         return .plugin(name: name, package: nil)
     }
 }
@@ -1550,10 +1541,27 @@ extension Target.Dependency: ExpressibleByStringLiteral {
     }
 }
 
+/// A plug-in used in a target.
+@available(_PackageDescription, introduced: 5.5)
+public enum PluginUsage {
+    /// Specifies the use of a plug-in product in a package dependency.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the plug-in target.
+    ///   - package: The name of the package that defines the plug-in target.
+    case plugin(name: String, package: String?)
+
+    internal var name: String {
+        switch self {
+        case .plugin(name: let name, package: _):
+            return name
+        }
+    }
+}
+
 /// `ExpressibleByStringLiteral` conformance.
 ///
-extension Target.PluginUsage: ExpressibleByStringLiteral {
-
+extension PluginUsage: ExpressibleByStringLiteral {
     /// Specifies use of a plugin target in the same package.
     ///
     /// - Parameter value: A string literal.
@@ -1561,4 +1569,3 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
         self = .plugin(name: value, package: nil)
     }
 }
-

@@ -229,9 +229,6 @@ public class Module {
     @_spi(SwiftPMInternal)
     public let buildSettingsDescription: [TargetBuildSettingDescription.Setting]
 
-    /// The usages of package plugins by this module.
-    public let pluginUsages: [PluginUsage]
-
     /// Whether or not this target uses any custom unsafe flags.
     public let usesUnsafeFlags: Bool
 
@@ -252,7 +249,6 @@ public class Module {
         packageAccess: Bool,
         buildSettings: BuildSettings.AssignmentTable,
         buildSettingsDescription: [TargetBuildSettingDescription.Setting],
-        pluginUsages: [PluginUsage],
         usesUnsafeFlags: Bool,
         implicit: Bool
     ) {
@@ -269,7 +265,6 @@ public class Module {
         self.packageAccess = packageAccess
         self.buildSettings = buildSettings
         self.buildSettingsDescription = buildSettingsDescription
-        self.pluginUsages = pluginUsages
         self.usesUnsafeFlags = usesUnsafeFlags
         self.implicit = implicit
     }

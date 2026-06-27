@@ -438,7 +438,7 @@ struct PackagePIFProjectBuilder {
                 )
 
                 generatedFiles.add(files)
-                if !files.headers.isEmpty {
+                if !files.headers.isEmpty, package.manifest.toolsVersion < .v6_5 {
                     // Capture the public include directory if there were header files generated there
                     // Hardcoding as the default for now
                     let publicDir = command.pluginOutputDir.appending(ClangModule.defaultPublicHeadersComponent)

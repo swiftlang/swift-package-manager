@@ -1042,6 +1042,16 @@ public final class UserToolchain: Toolchain {
                 )
             }
 
+            // May also appear at the root of the application path
+            let manifestFrameworksPath2 = applicationPath.appending("PackageDescription.framework")
+            let pluginFrameworksPath2 = applicationPath.appending("PackagePlugin.framework")
+            if fileSystem.exists(manifestFrameworksPath2), fileSystem.exists(pluginFrameworksPath2) {
+                return .init(
+                    manifestLibraryPath: manifestFrameworksPath2,
+                    pluginLibraryPath: pluginFrameworksPath2
+                )
+            }
+
             // this tests if we are debugging / testing SwiftPM with SwiftPM
             if localFileSystem.exists(applicationPath.appending("swift-package")) {
                 // Newer versions of SwiftPM will emit modules to a "Modules" subdirectory, but we're also staying compatible with older versions for development.

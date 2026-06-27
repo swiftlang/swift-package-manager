@@ -36,12 +36,20 @@ public enum TargetBuildSettingDescription {
         case nonisolated
     }
 
+    public enum Visibility: String, Codable, Sendable {
+        case `public`
+        case `internal`
+    }
+
     /// The kind of the build setting, with associate configuration
     public enum Kind: Codable, Hashable, Sendable {
         case headerSearchPath(String)
+        case publicHeaderPath(String, String?)
+        case bridgingHeader(String, Visibility)
         case define(String)
         case linkedLibrary(String)
         case linkedFramework(String)
+        case libraryPath(String, String?)
 
         case interoperabilityMode(InteroperabilityMode)
 
@@ -65,9 +73,7 @@ public enum TargetBuildSettingDescription {
             case .unsafeFlags(let flags):
                 // If `.unsafeFlags` is used, but doesn't specify any flags, we treat it the same way as not specifying it.
                 return !flags.isEmpty
-            case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
-                 .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode,
-                 .treatAllWarnings, .treatWarning, .enableWarning, .disableWarning, .defaultIsolation:
+            default:
                 return false
             }
         }

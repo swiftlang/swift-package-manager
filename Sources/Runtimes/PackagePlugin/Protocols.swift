@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
+
 // A future improvement to the package manager would be to allow use of
 // a plugin to also provide configuration parameters for that plugin.
 // Any proposal that adds such a facility should also add initializers
@@ -69,5 +71,25 @@ extension CommandPlugin {
     /// through which the plugin can ask for specialized information or actions.
     public var packageManager: PackageManager {
         return PackageManager()
+    }
+}
+
+public struct BuildContext {
+    public let triple: String
+    public let sdkPath: URL?
+}
+
+public protocol ExternalBuilderPlugin: Plugin {
+    func build(context: PluginContext, arguments: [String], buildContext: BuildContext) async throws
+    func test(context: PluginContext, arguments: [String]) async throws
+    func install(context: PluginContext, path: URL, arguments: [String]) async throws
+}
+
+/// test and install are optional
+extension ExternalBuilderPlugin {
+    public func test(context: PluginContext, arguments: [String]) async throws {
+    }
+
+    public func install(context: PluginContext, path: URL, arguments: [String]) async throws {
     }
 }

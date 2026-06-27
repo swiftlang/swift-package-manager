@@ -700,7 +700,11 @@ extension PackageGraph.ResolvedModule {
     /// Collect the build settings defined in the package manifest.
     /// Some of them apply *only* to the target itself, while others are also imparted to clients.
     /// Note that the platform is *optional*; unconditional settings have no platform condition.
-    func computeAllBuildSettings(observabilityScope: ObservabilityScope, forRemotePackage: Bool) -> AllBuildSettings {
+    func computeAllBuildSettings(
+        observabilityScope: ObservabilityScope,
+        pluginWorkingDirectory: AbsolutePath,
+        forRemotePackage: Bool
+    ) -> AllBuildSettings {
         var allSettings = AllBuildSettings()
 
         for (declaration, settingsAssigments) in self.underlying.buildSettings.assignments {
@@ -720,10 +724,43 @@ extension PackageGraph.ResolvedModule {
                     singleValueSetting = nil
                     multipleValueSetting = .OTHER_LDFLAGS
                     values = settingAssignment.values.map { "-l\($0)" }
-                case .HEADER_SEARCH_PATHS:
+                case .LIBRARY_SEARCH_PATHS:
+                    singleValueSetting = nil
+                    multipleValueSetting = .LIBRARY_SEARCH_PATHS
+                    if settingAssignment.values.count == 2 {
+                        // second value is plugin name, find the binary output directory for the plugin
+                        // TODO: Check that
+                        // TODO: need to really know this is an external build plugin
+                        let libraryPath = pluginWorkingDirectory.appending(
+                            components: [
+                                "packages",
+                                packageIdentity.description,
+                                settingAssignment.values[1],
+                                "$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)",
+                                settingAssignment.values[0]
+                            ]).pathString
+                        values = [libraryPath]
+                    } else {
+                        values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
+                    }
+                case .HEADER_SEARCH_PATHS, .PUBLIC_HEADER_PATHS:
                     singleValueSetting = nil
                     multipleValueSetting = .HEADER_SEARCH_PATHS
-                    values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
+                    if settingAssignment.values.count == 2,
+                       let plugin = pluginsAppliedToModule.first(where: { $0.name == settingAssignment.values[1] })
+                    {
+                        // second value is plugin name
+                        values = [pluginWorkingDirectory.pluginOutputDir(
+                            packageIdentity: self.packageIdentity,
+                            module: self,
+                            plugin: plugin).pathString]
+                    } else {
+                        values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
+                    }
+                case .SWIFT_BRIDGING_HEADER:
+                    singleValueSetting = .SWIFT_OBJC_BRIDGING_HEADER
+                    multipleValueSetting = nil
+                    values = [self.sourceDirAbsolutePath.pathString + "/" + settingAssignment.values[0]]
                 case .PREBUILT_INCLUDE_PATHS:
                     singleValueSetting = nil
                     multipleValueSetting = .OTHER_SWIFT_FLAGS
@@ -783,7 +820,11 @@ extension PackageGraph.ResolvedModule {
                     // TODO: Doing that for the PREBUILT_LIBRARIES was causing duplicate library warnings.
                     if let multipleValueSetting = multipleValueSetting,
                         declaration != .PREBUILT_LIBRARIES,
-                        (multipleValueSetting == .OTHER_LDFLAGS || declaration == .PREBUILT_INCLUDE_PATHS) {
+                        (multipleValueSetting == .OTHER_LDFLAGS
+                         || declaration == .PUBLIC_HEADER_PATHS
+                         || declaration == .LIBRARY_SEARCH_PATHS
+                         || declaration == .PREBUILT_INCLUDE_PATHS
+                        ) {
                         allSettings.impartedMultipleValueSettings[pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
                     }
 
@@ -794,6 +835,18 @@ extension PackageGraph.ResolvedModule {
                         } else if let singleValueSetting = singleValueSetting, let singleValue = values.only {
                             // Handle single value settings
                             allSettings.targetSingleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][singleValueSetting] = singleValue
+
+                            if declaration == .SWIFT_BRIDGING_HEADER {
+                                // public or internal
+                                switch settingAssignment.values[1] {
+                                case "public":
+                                    allSettings.targetSingleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][.SWIFT_BRIDGING_HEADER_IS_INTERNAL] = "NO"
+                                case "internal":
+                                    allSettings.targetSingleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][.SWIFT_BRIDGING_HEADER_IS_INTERNAL] = "YES"
+                                default:
+                                    break
+                                }
+                            }
                         }
                     }
                 }
@@ -1420,3 +1473,12 @@ extension UserDefaults {
     }
 }
 
+extension PluginModule {
+    func outputDirectory(pluginWorkingDirectory: AbsolutePath, package: ResolvedPackage) -> AbsolutePath {
+        pluginWorkingDirectory.appending(components: [
+            "packages",
+            package.identity.description,
+            self.name
+        ])
+    }
+}
