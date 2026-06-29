@@ -1270,6 +1270,56 @@ struct PackageRegistryCommandTests {
         }
     }
 
+    #if !os(Windows)
+    // Regression test for https://github.com/swiftlang/swift-package-manager/issues/9915: --token-file must accept non-regular files (FIFOs,
+    // /dev/stdin) after TSC switched readFileContents to Data(contentsOf:), which rejects them.
+    @Test(
+        .tags(
+            .TestSize.large,
+            .Feature.Command.PackageRegistry.Login,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9915", relationship: .verifies),
+    )
+    func tokenFileAcceptsNonRegularFile() async throws {
+        try await withTemporaryDirectory { tmpDir in
+            let fifoPath = tmpDir.appending("token.fifo")
+
+            let rc = mkfifo(fifoPath.pathString, 0o600)
+            guard rc == 0 else {
+                Issue.record("mkfifo failed: \(String(cString: strerror(errno)))")
+                return
+            }
+
+            // FIFOs block open(2) until both ends are open, so write from a concurrent task.
+            let token = "test-registry-token"
+            let writeTask = Task.detached {
+                let fd = open(fifoPath.pathString, O_WRONLY)
+                guard fd >= 0 else { return }
+                defer { close(fd) }
+                _ = token.withCString { ptr in write(fd, ptr, strlen(ptr)) }
+            }
+            defer { writeTask.cancel() }
+
+            // The login will fail (no real registry), but must NOT fail reading the FIFO.
+            let result = try await SwiftPM.Registry.execute(
+                [
+                    "login",
+                    "--url", "https://nonexistent.registry.invalid",
+                    "--token-file", fifoPath.pathString,
+                    "--no-confirm",
+                ],
+                throwIfCommandFails: false
+            )
+
+            let combinedOutput = result.stdout + result.stderr
+            #expect(
+                !combinedOutput.contains("invalid access to"),
+                "Login failed reading the FIFO — regression of https://github.com/swiftlang/swift-package-manager/issues/9915. Output: \(combinedOutput)"
+            )
+        }
+    }
+    #endif
+
     struct LogingUrlData {
         let loginApiPath: String?
         let expectedComponent: String
