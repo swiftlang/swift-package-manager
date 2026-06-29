@@ -542,7 +542,7 @@ extension ConcurrencyHelpersTest {
         }
 
         @Test
-        func memoizeCachesError() async throws {
+        func memoizeDoesNotCacheError() async throws {
             struct TestError: Error, Equatable {}
             let memoizer = AsyncThrowingValueMemoizer<Int>()
 
@@ -552,12 +552,9 @@ extension ConcurrencyHelpersTest {
                 }
             }
 
-            // After error, subsequent calls should return the cached error
-            await #expect(throws: TestError.self) {
-                try await memoizer.memoize {
-                    100
-                }
-            }
+            // After an error, the next call retries instead of replaying a cached error.
+            let result = try await memoizer.memoize { 100 }
+            #expect(result == 100)
         }
 
         // MARK: - Concurrency Tests
