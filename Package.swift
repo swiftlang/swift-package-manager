@@ -467,7 +467,8 @@ let package = Package(
                 "Basics",
                 "PackageGraph",
                 .product(name: "OrderedCollections", package: "swift-collections"),
-            ],
+                .product(name: "Subprocess", package: "swift-subprocess"),
+            ] + swiftSystemDeps,
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures
         ),

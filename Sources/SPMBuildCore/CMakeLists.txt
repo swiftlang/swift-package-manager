@@ -42,6 +42,9 @@ target_link_libraries(SPMBuildCore PUBLIC
   Basics
   SwiftCollections::OrderedCollections
   PackageGraph)
+target_link_libraries(SPMBuildCore PRIVATE
+  SwiftSubprocess::Subprocess
+  SwiftSystem::SystemPackage)
 
 
 install(TARGETS SPMBuildCore
