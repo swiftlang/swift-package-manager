@@ -85,12 +85,6 @@ extension Workspace {
         let rootManifestsMinimumToolsVersion = rootManifests.values.map(\.toolsVersion).min() ?? ToolsVersion.current
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
 
-        let (packagesToWarm, prefetchedContainers) = await self.prefetchContainers(
-            rootManifests: rootManifests,
-            rootDependencies: root.dependencies,
-            observabilityScope: observabilityScope
-        )
-
         // Load the current manifests.
         let graphRoot = try PackageGraphRoot(
             input: root,
@@ -189,6 +183,11 @@ extension Workspace {
             }
         } else {
             // Resolve the dependencies.
+            let (packagesToWarm, prefetchedContainers) = await self.prefetchContainers(
+                rootManifests: rootManifests,
+                rootDependencies: root.dependencies,
+                observabilityScope: observabilityScope
+            )
             let resolver = try self.createResolver(
                 resolvedPackages: resolvedPackages,
                 prefetchPackages: packagesToWarm,

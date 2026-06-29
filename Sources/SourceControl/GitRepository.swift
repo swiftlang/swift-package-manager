@@ -90,8 +90,9 @@ private struct GitShellHelper {
         environment: Environment = .init(Git.environmentBlock),
         outputRedirection: AsyncProcess.OutputRedirection = .collect
     ) async throws -> String {
+        let arguments = gitNetworkTimeoutOverrides(environment: environment) + args
         let process = AsyncProcess(
-            arguments: [Git.tool] + args,
+            arguments: [Git.tool] + arguments,
             environment: environment,
             outputRedirection: outputRedirection
         )
@@ -401,29 +402,6 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         }
     }
 
-    public func isValidDirectory(_ directory: Basics.AbsolutePath) async throws -> Bool {
-        // A working tree is found via discovery (`-C`). A bare repository is refused by
-        // discovery when the user sets `safe.bareRepository=explicit`, so fall back to
-        // addressing the directory as an explicit git directory, which that setting permits.
-        do {
-            let result = try await self.git.run(["-C", directory.pathString, "rev-parse", "--git-dir"])
-            return result == ".git" || result == "." || result == directory.pathString
-        } catch let error as GitShellError {
-            let isBareRepository: String
-            do {
-                isBareRepository = try await self.git.run(
-                    gitLocationArguments(directory.pathString, bare: true) + ["rev-parse", "--is-bare-repository"]
-                )
-            } catch is GitShellError {
-                throw error
-            }
-            if isBareRepository == "true" {
-                return true
-            }
-            throw error
-        }
-    }
-
     public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: RepositorySpecifier) throws -> Bool {
         let remoteURL: String
         do {
@@ -434,25 +412,6 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             // named as an explicit git directory.
             do {
                 remoteURL = try self.git.run(
-                    gitLocationArguments(directory.pathString, bare: true) + ["config", "--get", "remote.origin.url"]
-                )
-            } catch is GitShellError {
-                throw error
-            }
-        }
-        return CanonicalPackageURL(remoteURL) == CanonicalPackageURL(repository.url)
-    }
-
-    public func isValidDirectory(_ directory: Basics.AbsolutePath, for repository: RepositorySpecifier) async throws -> Bool {
-        let remoteURL: String
-        do {
-            remoteURL = try await self.git.run(["-C", directory.pathString, "config", "--get", "remote.origin.url"])
-        } catch let error as GitShellError {
-            // Discovery is refused for a bare repository under `safe.bareRepository=explicit`,
-            // so git exits non-zero without reading the config; re-read it with the directory
-            // named as an explicit git directory.
-            do {
-                remoteURL = try await self.git.run(
                     gitLocationArguments(directory.pathString, bare: true) + ["config", "--get", "remote.origin.url"]
                 )
             } catch is GitShellError {
@@ -691,9 +650,46 @@ public final class GitRepository: Repository, WorkingCheckout {
         gitLocationArguments(self.path.pathString, bare: !self.isWorkingRepo)
     }
 
-    /// Private function to invoke the Git tool with its default environment and given set of arguments, specifying the
-    /// path of the repository as the one to operate on.  The specified failure message is used only in case of error.
-    /// This function waits for the invocation to finish and returns the output as a string.
+    // Captures stdout/stderr so a streamed (progress) invocation can still build a full
+    // AsyncProcessResult on failure. Returns the redirection and the byte stores it writes to.
+    private func progressRedirection(
+        _ progress: @escaping FetchProgress.Handler
+    ) -> (AsyncProcess.OutputRedirection, stdout: ThreadSafeArrayStore<UInt8>, stderr: ThreadSafeArrayStore<UInt8>) {
+        let stdoutBytes = ThreadSafeArrayStore<UInt8>()
+        let stderrBytes = ThreadSafeArrayStore<UInt8>()
+        // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr
+        // to the handler. We count on it being line-buffered.
+        let handler = AsyncProcess.OutputRedirection.stream(
+            stdout: { stdoutBytes.append(contentsOf: $0) },
+            stderr: {
+                stderrBytes.append(contentsOf: $0)
+                gitFetchStatusFilter($0, progress: progress)
+            }
+        )
+        return (handler, stdoutBytes, stderrBytes)
+    }
+
+    // Wraps a GitShellError as a GitRepositoryError, reconstructing the result from streamed bytes
+    // when the invocation was capturing progress.
+    private func gitRepositoryError(
+        _ error: GitShellError,
+        failureMessage: String,
+        stdout: ThreadSafeArrayStore<UInt8>? = nil,
+        stderr: ThreadSafeArrayStore<UInt8>? = nil
+    ) -> GitRepositoryError {
+        guard let stdout, let stderr else {
+            return GitRepositoryError(path: self.path, message: failureMessage, result: error.result)
+        }
+        let result = AsyncProcessResult(
+            arguments: error.result.arguments,
+            environment: error.result.environment,
+            exitStatus: error.result.exitStatus,
+            output: .success(stdout.get()),
+            stderrOutput: .success(stderr.get())
+        )
+        return GitRepositoryError(path: self.path, message: failureMessage, result: result)
+    }
+
     @discardableResult
     private func callGit(
         _ args: String...,
@@ -702,42 +698,40 @@ public final class GitRepository: Repository, WorkingCheckout {
         progress: FetchProgress.Handler? = nil
     ) throws -> String {
         if let progress {
-            let stdoutBytes = ThreadSafeArrayStore<UInt8>()
-            let stderrBytes = ThreadSafeArrayStore<UInt8>()
+            let (handler, out, err) = self.progressRedirection(progress)
             do {
-                // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
-                // handler. We count on it being line-buffered.
-                let outputHandler = AsyncProcess.OutputRedirection.stream(
-                    stdout: { stdoutBytes.append(contentsOf: $0) },
-                    stderr: {
-                        stderrBytes.append(contentsOf: $0)
-                        gitFetchStatusFilter($0, progress: progress)
-                    }
-                )
-                return try self.git.run(
-                    self.repositoryLocationArguments + args,
-                    environment: environment,
-                    outputRedirection: outputHandler
-                )
+                return try self.git.run(self.repositoryLocationArguments + args, environment: environment, outputRedirection: handler)
             } catch let error as GitShellError {
-                let result = AsyncProcessResult(
-                    arguments: error.result.arguments,
-                    environment: error.result.environment,
-                    exitStatus: error.result.exitStatus,
-                    output: .success(stdoutBytes.get()),
-                    stderrOutput: .success(stderrBytes.get())
-                )
-                throw GitRepositoryError(
-                    path: self.path,
-                    message: failureMessage,
-                    result: result
-                )
+                throw self.gitRepositoryError(error, failureMessage: failureMessage, stdout: out, stderr: err)
             }
         } else {
             do {
                 return try self.git.run(self.repositoryLocationArguments + args, environment: environment)
             } catch let error as GitShellError {
-                throw GitRepositoryError(path: self.path, message: failureMessage, result: error.result)
+                throw self.gitRepositoryError(error, failureMessage: failureMessage)
+            }
+        }
+    }
+
+    @discardableResult
+    private func callGit(
+        _ args: String...,
+        environment: Environment = .init(Git.environmentBlock),
+        failureMessage: String = "",
+        progress: FetchProgress.Handler? = nil
+    ) async throws -> String {
+        if let progress {
+            let (handler, out, err) = self.progressRedirection(progress)
+            do {
+                return try await self.git.run(self.repositoryLocationArguments + args, environment: environment, outputRedirection: handler)
+            } catch let error as GitShellError {
+                throw self.gitRepositoryError(error, failureMessage: failureMessage, stdout: out, stderr: err)
+            }
+        } else {
+            do {
+                return try await self.git.run(self.repositoryLocationArguments + args, environment: environment)
+            } catch let error as GitShellError {
+                throw self.gitRepositoryError(error, failureMessage: failureMessage)
             }
         }
     }
@@ -887,7 +881,19 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     public func fetch(progress: FetchProgress.Handler? = nil) async throws {
-        try await asyncQueue.withOperation { try self.fetch(progress: progress) }
+        try await asyncQueue.withOperation {
+            try await self.callGit(
+                "remote",
+                "-v",
+                "update",
+                "-p",
+                failureMessage: "Couldn’t fetch updates from remote repositories",
+                progress: progress
+            )
+            self.cachedTags.clear()
+            self.cachedHasLFS.clear()
+            try self.fetchLFSIfNecessaryWithoutLock()
+        }
     }
 
     public func hasUncommittedChanges() -> Bool {
@@ -945,7 +951,7 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     public func getCurrentTag() async throws -> String? {
         try await asyncQueue.withOperation {
-            try? self.callGit(
+            try? await self.callGit(
                 "describe",
                 "--exact-match",
                 "--tags",

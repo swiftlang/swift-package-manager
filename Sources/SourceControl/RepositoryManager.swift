@@ -199,10 +199,10 @@ public class RepositoryManager: Cancellable {
         // check if a repository already exists
         // errors when trying to check if a repository already exists are legitimate
         // and recoverable, and as such can be ignored
-        quick: if await self.isValidDirectory(repositoryPath) {
+        quick: if (try? self.isValidDirectory(repositoryPath)) ?? false {
             let repository = try await handle.open()
 
-            guard await self.isValidDirectory(repositoryPath, for: repositorySpecifier) else {
+            guard (try? self.isValidDirectory(repositoryPath, for: repositorySpecifier)) ?? false else {
                 observabilityScope.emit(warning: "\(repositoryPath) is not valid git repository for '\(repositorySpecifier.location)', will fetch again.")
                 break quick
             }
@@ -393,20 +393,6 @@ public class RepositoryManager: Cancellable {
         } else {
             try repository.fetch(progress: progress)
         }
-    }
-
-    private func isValidDirectory(_ path: Basics.AbsolutePath) async -> Bool {
-        if let gitProvider = self.provider as? GitRepositoryProvider {
-            return (try? await gitProvider.isValidDirectory(path)) ?? false
-        }
-        return (try? self.provider.isValidDirectory(path)) ?? false
-    }
-
-    private func isValidDirectory(_ path: Basics.AbsolutePath, for repository: RepositorySpecifier) async -> Bool {
-        if let gitProvider = self.provider as? GitRepositoryProvider {
-            return (try? await gitProvider.isValidDirectory(path, for: repository)) ?? false
-        }
-        return (try? self.provider.isValidDirectory(path, for: repository)) ?? false
     }
 
     /// Open a working copy checkout at a path

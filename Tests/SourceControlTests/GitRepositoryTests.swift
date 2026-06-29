@@ -671,9 +671,9 @@ class GitRepositoryTests: XCTestCase {
 
             // The resolution cache fast-path validates the bare cache repository via
             // `isValidDirectory`; both variants must also keep working under `explicit`.
-            let isValidBareRepo = try await provider.isValidDirectory(bareRepoPath)
+            let isValidBareRepo = try provider.isValidDirectory(bareRepoPath)
             XCTAssertTrue(isValidBareRepo)
-            let isValidBareRepoForSpec = try await provider.isValidDirectory(bareRepoPath, for: repoSpec)
+            let isValidBareRepoForSpec = try provider.isValidDirectory(bareRepoPath, for: repoSpec)
             XCTAssertTrue(isValidBareRepoForSpec)
         }
     }
