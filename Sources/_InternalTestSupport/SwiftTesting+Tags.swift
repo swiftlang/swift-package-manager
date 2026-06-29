@@ -13,6 +13,27 @@
 import Testing
 
 extension Tag {
+    /// Test size classifications based on the Test Pyramid strategy.
+    ///
+    /// Rather than using ambiguous terms like "unit", "integration", or
+    /// "end-to-end" tests — which mean different things to different
+    /// developers — tests are classified by their *size*: ``small``,
+    /// ``medium``, or ``large``.
+    ///
+    /// A balanced suite has many ``small`` tests, fewer ``medium`` tests, and
+    /// few ``large`` tests, forming a pyramid that validates each
+    /// architectural layer of SwiftPM:
+    ///
+    /// - few ``large`` tests that validate the entire system as a developer
+    ///   would use the product.
+    /// - fewer ``medium`` tests that validate component interactions, and
+    /// - many ``small`` tests that validate each component in isolation,
+    ///
+    /// | Size   | Quantity | Code Visibility      | Dependencies | Speed     | Scope                                   |
+    /// | ------ | -------- | -------------------- | ------------ | --------- | --------------------------------------- |
+    /// | Large  | Few      | Details not visible  | Many         | Slow      | Entire system                           |
+    /// | Medium | Fewer    | Some details visible | Some         | Fast      | Interface contracts                     |
+    /// | Small  | Many     | Details visible      | Few to none  | Very fast | Individual changes, boundary conditions |
     public enum TestSize {}
     public enum Feature {}
     public enum Platform {}
@@ -21,8 +42,27 @@ extension Tag {
 }
 
 extension Tag.TestSize {
+    /// A test that validates an individual component in isolation.
+    ///
+    /// Small tests have visible code details, few to no dependencies, and very
+    /// fast feedback. They are scoped to individual changes and boundary
+    /// conditions, and should form the bulk of the test suite (the base of
+    /// the pyramid).
     @Tag public static var small: Tag
+
+    /// A test that validates interactions between components.
+    ///
+    /// Medium tests have some visible details, some dependencies, and fast
+    /// feedback. They are scoped to interface contracts between components
+    /// (the middle of the pyramid).
     @Tag public static var medium: Tag
+
+    /// A test that validates the entire system as a software developer would
+    /// use the product.
+    ///
+    /// Large tests have hidden implementation details, many dependencies, and
+    /// slow feedback. They are scoped to the whole system and should be used
+    /// sparingly (the top of the pyramid).
     @Tag public static var large: Tag
 }
 
