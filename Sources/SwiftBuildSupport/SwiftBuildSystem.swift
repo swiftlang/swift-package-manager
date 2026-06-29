@@ -470,6 +470,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         try await writePIF(buildParameters: self.buildParameters)
 
+        guard !self.observabilityScope.errorsReported else {
+            throw Diagnostics.fatalError
+        }
+
         return try await startSWBuildOperation(
             pifTargetName: subset.pifTargetName,
             buildOutputs: buildOutputs,
