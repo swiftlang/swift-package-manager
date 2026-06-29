@@ -1319,6 +1319,62 @@ struct MiscellaneousTestCase {
         .tags(
             .Feature.Command.Build,
         ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10192", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func warningsAsErrorsFlagDoesNotReachRemoteDependencies(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/WarningsAsErrorsWithRemoteDep") { path in
+            let upstreamPath = path.appending("upstream")
+            initGitRepo(upstreamPath, tag: "1.0.0")
+
+            let downstreamPath = path.appending("downstream")
+            let (stdout, stderr) = try await executeSwiftBuild(
+                downstreamPath,
+                Xswiftc: ["-warnings-as-errors"],
+                buildSystem: .swiftbuild,
+            )
+            let combined = stdout + stderr
+            print(combined)
+            #expect(!combined.contains("conflicting options"))
+            #expect(!combined.contains("'deprecatedFunction' is deprecated"))
+        }
+    }
+
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Build,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10192", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func warningsAsErrorsStillApplyToLocalPackage(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/WarningsAsErrorsInLocalPackage") { path in
+            let upstreamPath = path.appending("upstream")
+            initGitRepo(upstreamPath, tag: "1.0.0")
+
+            let downstreamPath = path.appending("downstream")
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftBuild(
+                    downstreamPath,
+                    Xswiftc: ["-warnings-as-errors"],
+                    buildSystem: buildSystem,
+                )
+            ) { error in
+                #expect((error.stdout + error.stderr).contains("'greet()' is deprecated:"))
+            }
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Build,
+        ),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func rootPackageWithConditionals(
@@ -1370,7 +1426,6 @@ struct MiscellaneousTestCase {
             ProcessInfo.isHostAmazonLinux2() // libFuzzer link issues occur on AL2
         }
     }
-}
 
 @Suite
 struct MiscellaneousSwiftTestingTests {
