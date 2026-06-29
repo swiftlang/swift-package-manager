@@ -189,16 +189,16 @@ final class PluginDelegate: PluginInvocationDelegate {
 
         _ = try await buildSystem.getPackageGraph()
 
-        let builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = (result?.builtArtifacts ?? []).filter { (name, _) in
+        let builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = (result?.builtArtifacts ?? []).filter { artifact in
             switch subset {
             case .all:
                 return true
             case .product(let productName):
-                return name == productName
+                return artifact.name == productName || artifact.umbrellaTestProductName == productName
             case .target(let targetName):
-                return name == targetName
+                return artifact.name == targetName
             }
-        }.map(\.1)
+        }.map(\.artifact)
 
         return PluginInvocationBuildResult(
             succeeded: success,

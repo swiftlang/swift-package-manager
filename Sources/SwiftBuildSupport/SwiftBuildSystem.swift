@@ -633,7 +633,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
 
         var replArguments: CLIArguments?
-        var artifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]?
+        var artifacts: [BuildResult.BuiltArtifact]?
         var dependencyGraph: [String: [String]]?
         return try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
             let derivedDataPath = self.buildParameters.dataPath
@@ -752,6 +752,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     if buildOutputs.contains(.builtArtifacts) {
                         if let buildDescriptionID {
+                            let graph = try await self.getPackageGraph()
+                            var umbrellaTestProductNamesByArtifactName: [String: String] = [:]
+                            for package in graph.rootPackages {
+                                let umbrellaName = package.manifest.umbrellaPackageTestsProductName
+                                for product in package.products where product.type == .test {
+                                    umbrellaTestProductNamesByArtifactName[product.name] = umbrellaName
+                                    umbrellaTestProductNamesByArtifactName["\(product.name)-test-runner"] = umbrellaName
+                                }
+                            }
+
                             let targetInfo = try await session.configuredTargets(buildDescription: buildDescriptionID, buildRequest: request)
                             artifacts = targetInfo.compactMap { target in
                                 guard let artifactInfo = target.artifactInfo else {
@@ -770,13 +780,14 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                                 }
                                 var name = target.name
                                 // FIXME: We need a better way to map between SwiftPM target/product names and PIF target names
-                                if pifTargetName.hasSuffix("-product") {
+                                if name.hasSuffix("-product") {
                                     name = String(name.dropLast(8))
                                 }
-                                return (name, .init(
-                                    path: artifactInfo.path,
-                                    kind: kind
-                                ))
+                                return BuildResult.BuiltArtifact(
+                                    name: name,
+                                    artifact: .init(path: artifactInfo.path, kind: kind),
+                                    umbrellaTestProductName: umbrellaTestProductNamesByArtifactName[name]
+                                )
                             }
                         } else {
                             self.observabilityScope.emit(error: "failed to compute built artifacts list")
