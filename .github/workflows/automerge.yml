@@ -18,7 +18,7 @@ jobs:
           - source_branch: release/6.4.x
             destination_branch: main
     name: Create PR to merge `${{ matrix.source_branch }}` into `${{ matrix.destination_branch }}`
-    uses: swiftlang/github-workflows/.github/workflows/create_automerge_pr.yml@0.0.11
+    uses: swiftlang/github-workflows/.github/workflows/create_automerge_pr.yml@0.0.12
     with:
       head_branch: ${{ matrix.source_branch }}
       base_branch: ${{ matrix.destination_branch }}
