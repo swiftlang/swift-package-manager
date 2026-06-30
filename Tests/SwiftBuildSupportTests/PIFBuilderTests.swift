@@ -482,7 +482,7 @@ struct PIFBuilderTests {
                 $0.message.contains("which are unhandled;")
             }
             #expect(
-                actualUnhandledFilesErrors.count == expected.count,
+                actualUnhandledFilesErrors.map(\.message) == expected.map(\.message),
                 "Expected the unhandled files diagnostic to be emitted as an error... actual: \(observabilitySystem.errors)",
             )
 
