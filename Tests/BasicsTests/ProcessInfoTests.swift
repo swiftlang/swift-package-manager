@@ -46,18 +46,54 @@ fileprivate struct Content {
 struct ProcessInfoExtensionTests {
 
     @Suite
-    struct isAmazonLinux2 {
+    struct isHost {
         @Test(
             arguments: [
-                (contentUT: "", expected: false),
-                (contentUT: "PRETTY_NAME=", expected: false),
-                (contentUT: "PRETTY_NAME=foo", expected: false),
-                (contentUT: "PRETTY_NAME=amzn", expected: false),
-                (contentUT: "PRETTY_NAME=Amazon Linux 2", expected: false),
-                (contentUT: "PRETTY_NAME=Amazon Linux 2023.6.20250107", expected: false),
-                (contentUT: " PRETTY_NAME=amzn", expected: false),
-                (contentUT: "PRETTY_NAME=\"Amazon Linux 2\"", expected: true),
-                (contentUT: "PRETTY_NAME=\"Amazon Linux 2 (something else)\"", expected: false),
+                (
+                    contentUT: "",
+                    hostToMatch: "PRETTY_NAME=\"Amazon Linux 2\"",
+                    expected: false,
+                ),
+                (
+                    contentUT: "PRETTY_NAME=",
+                    hostToMatch: "PRETTY_NAME=\"Amazon Linux 2\"",
+                    expected: false,
+                ),
+                (
+                    contentUT: "PRETTY_NAME=foo",
+                    hostToMatch: "PRETTY_NAME=\"Amazon Linux 2\"",
+                    expected: false,
+                ),
+                (
+                    contentUT: "PRETTY_NAME=amzn",
+                    hostToMatch: "PRETTY_NAME=\"Amazon Linux 2\"",
+                    expected: false,
+                ),
+                (
+                    contentUT: "PRETTY_NAME=Amazon Linux 2",
+                    hostToMatch: "PRETTY_NAME=\"Amazon Linux 2\"",
+                    expected: false,
+                ),
+                (
+                    contentUT: "PRETTY_NAME=Amazon Linux 2023.6.20250107",
+                    hostToMatch: "PRETTY_NAME=\"Amazon Linux 2\"",
+                    expected: false,
+                ),
+                (
+                    contentUT: " PRETTY_NAME=amzn",
+                    hostToMatch: "PRETTY_NAME=\"Amazon Linux 2\"",
+                    expected: false,
+                ),
+                (
+                    contentUT: "PRETTY_NAME=\"Amazon Linux 2\"",
+                    hostToMatch: "PRETTY_NAME=\"Amazon Linux 2\"",
+                    expected: true,
+                ),
+                (
+                    contentUT: "PRETTY_NAME=\"Amazon Linux 2 (something else)\"",
+                    hostToMatch: "PRETTY_NAME=\"Amazon Linux 2\"",
+                    expected: false,
+                ),
                 (
                     contentUT: """
                         NAME="Amazon Linux"
@@ -71,6 +107,7 @@ struct ProcessInfoExtensionTests {
                         HOME_URL="https://amazonlinux.com/"
                         SUPPORT_END="2026-06-30"
                         """,
+                    hostToMatch: "PRETTY_NAME=\"Amazon Linux 2\"",
                     expected: true
                 ),
                 (
@@ -86,6 +123,7 @@ struct ProcessInfoExtensionTests {
                         HOME_URL="https://amazonlinux.com/"
                         SUPPORT_END="2026-06-30"
                         """,
+                    hostToMatch: "PRETTY_NAME=\"Amazon Linux 2\"",
                     expected: false
                 ),
                 (
@@ -101,6 +139,7 @@ struct ProcessInfoExtensionTests {
                         HOME_URL="https://amazonlinux.com/"
                         SUPPORT_END="2026-06-30"
                         """,
+                    hostToMatch: "PRETTY_NAME=\"Amazon Linux 2\"",
                     expected: false
                 ),
                 (
@@ -116,6 +155,7 @@ struct ProcessInfoExtensionTests {
                         HOME_URL="https://amazonlinux.com/"
                         SUPPORT_END="2026-06-30"
                         """,
+                    hostToMatch: "PRETTY_NAME=\"Amazon Linux 2\"",
                     expected: false
                 ),
                 (
@@ -137,30 +177,33 @@ struct ProcessInfoExtensionTests {
                     VENDOR_URL="https://aws.amazon.com/"
                     SUPPORT_END="2028-03-15"
                     """,
+                    hostToMatch: "PRETTY_NAME=\"Amazon Linux 2\"",
                     expected: false,
                 )
             ], prefixAndSuffixData,
         )
         fileprivate func isAmazonLinux2ReturnsExpectedValue(
-            data: (contentUT: String, expected: Bool),
+            data: (contentUT: String, hostToMatch: String, expected: Bool),
             content: Content,
         ) async throws {
             let content = content.getContent(data.contentUT)
 
-            let actual = ProcessInfo.isHostAmazonLinux2(content)
+            let actual = ProcessInfo.isHost(osName: data.hostToMatch, content)
 
             #expect(actual == data.expected, "Content is: '\(content)'")
         }
 
         @Test(
-            "isHostAmazonLinux2 returns false when not executed on Linux",
+            "isHost* returns false when not executed on Linux",
             .skipHostOS(.linux),
             .tags(Tag.TestSize.medium),
         )
-        func isAmazonLinux2ReturnsFalseWhenNotRunOnLinux() {
-            let actual = ProcessInfo.isHostAmazonLinux2()
+        func concreteIsHostReturnsFalseWhenNotRunOnLinux() {
+            let actualAL2 = ProcessInfo.isHostAmazonLinux2()
+            #expect(actualAL2 == false)
 
-            #expect(actual == false)
+            let actualRHEL9 = ProcessInfo.isHostRHEL9()
+            #expect(actualRHEL9 == false)
         }
     }
 }

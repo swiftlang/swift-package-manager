@@ -11,7 +11,7 @@
 ##
 ##===----------------------------------------------------------------------===##
 
-set -e
+set -ex
 
 
 # This script is not necessarily always run in a Docker container; add sudo if needed
@@ -51,9 +51,15 @@ elif command -v apt-get >/dev/null 2>&1 ; then # bookworm, noble, jammy
     # Debug symbols
     $sudo apt-get install -y libc6-dbg
 
+    # SwiftPM requirements
+    apt-get install -y zip unzip
+
     if [[ "$INSTALL_CMAKE" == "1" ]] ; then
         $sudo apt-get install -y cmake ninja-build
     fi
+
+    # Install test dependencies
+    apt-get install -y python3
 
     # Android NDK
     dpkg_architecture="$(dpkg --print-architecture)"
@@ -90,4 +96,13 @@ elif command -v yum >/dev/null 2>&1 ; then # amazonlinux2
     # Debug symbols
     $sudo yum install -y yum-utils
     $sudo debuginfo-install -y glibc
+
+    # Install test dependencies
+    $sudo yum install --assumeyes python3
+
+    # SwiftPM requirements
+    $sudo yum install -y zip unzip
 fi
+
+env | sort
+uname -a

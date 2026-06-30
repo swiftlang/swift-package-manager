@@ -97,12 +97,50 @@ public func XCTSkipOnWindows(because reason: String? = nil, skipPlatformCi: Bool
     #endif
 }
 
-public func _requiresTools(_ executable: String) throws {
+public func XCTSkipOnAmazonLinux2(because reason: String, file: StaticString = #filePath, line: UInt = #line) throws {
+    swiftTestingTestCalledAnXCTestAPI()
+    try XCTSkipIf(
+        ProcessInfo.isHostAmazonLinux2(),
+        "Skiping test: \(reason)",
+        file: file,
+        line: line,
+    )
+}
+
+public func XCTSkipOnUbuntu20_04_bookworm(because reason: String, file: StaticString = #filePath, line: UInt = #line) throws {
+    swiftTestingTestCalledAnXCTestAPI()
+    try XCTSkipIf(
+        ProcessInfo.isHostUbuntu20_04_bookworm(),
+        "Skiping test: \(reason)",
+        file: file,
+        line: line,
+    )
+}
+
+public func XCTSkipOnUbuntu22_04_jammy(because reason: String, file: StaticString = #filePath, line: UInt = #line) throws {
+    swiftTestingTestCalledAnXCTestAPI()
+    try XCTSkipIf(
+        ProcessInfo.isHostUbuntu22_04_jammy(),
+        "Skiping test: \(reason)",
+        file: file,
+        line: line,
+    )
+}
+
+public func _requiresTools(
+    _ executable: String,
+    fs: FileSystem = localFileSystem,
+) throws {
     func getAsyncProcessArgs(_ executable: String) -> [String] {
         #if os(Windows)
             let args = ["cmd.exe", "/c", "where.exe", executable]
         #else
-            let args = ["which", executable]
+            let command = if fs.exists("/usr/bin/which") {
+                "/usr/bin/which"
+            } else {
+                "/usr/bin/whereis"
+            }
+            let args = [command, executable]
         #endif
         return args
     }
