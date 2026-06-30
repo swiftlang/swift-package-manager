@@ -526,4 +526,32 @@ struct RunCommandTests {
             #expect(stdout.isEmpty)
         }
     }
+
+    @Test(
+        .tags(
+            .Feature.TargetType.Executable
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms
+    )
+    func debuggerInjectsCustomBanner(
+        buildSystem: BuildSystemProvider.Kind
+    ) async throws {
+        try await withKnownIssue(isIntermittent: true) {
+            try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+                let (stdout, stderr) = try await execute(
+                    ["--debugger", "secho"],
+                    packagePath: fixturePath,
+                    buildSystem: buildSystem
+                )
+
+                let output = stdout + stderr
+                #expect(
+                    output.contains("LLDB is ready. Type 'run' or 'r' to start execution."),
+                    "Expected custom LLDB banner in output, got stdout:\n \(stdout)\n stderr:\n \(stderr)"
+                )
+            }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows || CiEnvironment.runningInSmokeTestPipeline
+        }
+    }
 }
