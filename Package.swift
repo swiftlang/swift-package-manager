@@ -506,7 +506,8 @@ let package = Package(
                 "SourceControl",
                 "SPMBuildCore",
                 .product(name: "OrderedCollections", package: "swift-collections"),
-            ],
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+            ] + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftParser", "SwiftRefactor"]),
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures
         ),
@@ -813,6 +814,7 @@ let package = Package(
                 "PackageRegistry",
                 "PackageSigning",
                 "SourceControl",
+                "CoreCommands",
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 "Workspace",
             ] + swiftTSCTestSupportDeps,
