@@ -588,6 +588,53 @@ struct InitTests {
             .TestSize.medium,
         ),
     )
+    func initPackageMacroWithSwiftTesting() async throws {
+        try withTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let path = tmpPath.appending("Foo")
+            let name = path.basename
+            try fs.createDirectory(path)
+
+            // Create the package
+            let initPackage = try InitPackage(
+                name: name,
+                packageType: .macro,
+                supportedTestingLibraries: [.swiftTesting],
+                destinationPath: path,
+                fileSystem: localFileSystem
+            )
+
+            try initPackage.writePackageStructure()
+
+            // Verify basic file system content that we expect in the package
+            let manifest = path.appending("Package.swift")
+            try requireFileExists(at: manifest)
+
+            let manifestContents: String = try localFileSystem.readFileContents(manifest)
+            #expect(manifestContents.contains(".testTarget("))
+            #expect(manifestContents.contains(#".product(name: "SwiftSyntaxMacrosGenericTestSupport", package: "swift-syntax")"#))
+            #expect(manifestContents.contains(#".product(name: "Testing", package: "swift-testing")"#))
+            #expect(!manifestContents.contains(#".product(name: "SwiftSyntaxMacrosTestSupport", package: "swift-syntax")"#))
+
+            let testFile = path.appending("Tests").appending("FooTests").appending("FooTests.swift")
+            let testFileContents: String = try localFileSystem.readFileContents(testFile)
+            #expect(testFileContents.contains(#"import SwiftSyntaxMacrosGenericTestSupport"#))
+            #expect(testFileContents.contains(#"import Testing"#))
+            #expect(!testFileContents.contains(#"import SwiftSyntaxMacrosTestSupport"#))
+            #expect(!testFileContents.contains(#"import XCTest"#))
+            #expect(testFileContents.contains(#"let testMacros: [String: MacroSpec]"#))
+            #expect(testFileContents.contains(#"@Test func testMacro() throws"#))
+            #expect(testFileContents.contains(#"@Test func testMacroWithStringLiteral() throws"#))
+            #expect(testFileContents.contains(#"macroSpecs: testMacros"#))
+            #expect(testFileContents.contains(#"Issue.record("#))
+        }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.medium,
+        ),
+    )
     func initPackageCommandPlugin() throws {
         try withTemporaryDirectory { tmpPath in
             let fs = localFileSystem
