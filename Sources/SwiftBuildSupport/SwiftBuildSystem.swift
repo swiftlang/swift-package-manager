@@ -1057,6 +1057,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructAPIDigesterSettingsOverrides(from: buildParameters.apiDigesterMode), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructOutputSettingsOverrides(from: buildParameters.outputParameters), uniquingKeysWith: reportConflict)
+        try settings.merge(Self.constructBuildCacheSettingsOverrides(from: buildParameters.buildCaching), uniquingKeysWith: reportConflict)
 
         if buildParameters.driverParameters.codesizeProfileEnabled {
             // dSYM generation is required to attribute code size to source locations
@@ -1289,12 +1290,65 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return settings
     }
 
+    package static func constructBuildCacheSettingsOverrides(
+        from configuration: BuildCacheConfiguration
+    ) -> [String: String] {
+        var settings: [String: String] = [:]
+
+        if let enabled = configuration.enabled {
+            let value = enabled ? "YES" : "NO"
+            settings["SWIFT_ENABLE_COMPILE_CACHE"] = value
+            settings["CLANG_ENABLE_COMPILE_CACHE"] = value
+
+            if enabled {
+                settings["SWIFT_ENABLE_EXPLICIT_MODULES"] = "YES"
+                settings["CLANG_ENABLE_EXPLICIT_MODULES"] = "YES"
+            }
+        }
+
+        if let casPath = configuration.casPath {
+            settings["COMPILATION_CACHE_CAS_PATH"] = casPath.pathStringWithPosixSlashes
+        }
+
+        switch configuration.sizeLimit {
+        case .size(let value):
+            settings["COMPILATION_CACHE_LIMIT_SIZE"] = value
+        case .percent(let value):
+            settings["COMPILATION_CACHE_LIMIT_PERCENT"] = "\(value)"
+        case .none:
+            break
+        }
+
+        if let enableDiagnosticRemarks = configuration.enableDiagnosticRemarks {
+            settings["COMPILATION_CACHE_ENABLE_DIAGNOSTIC_REMARKS"] = enableDiagnosticRemarks ? "YES" : "NO"
+        }
+
+        if let remoteServicePath = configuration.remoteServicePath {
+            settings["COMPILATION_CACHE_REMOTE_SERVICE_PATH"] = remoteServicePath.pathStringWithPosixSlashes
+        }
+
+        if let pluginPath = configuration.pluginPath {
+            settings["COMPILATION_CACHE_PLUGIN_PATH"] = pluginPath.pathStringWithPosixSlashes
+        }
+
+        // If no preference about prefix mapping has been expressed, enable it
+        // whenever build caching is in use.
+        if let enablePrefixMapping = configuration.enablePrefixMapping ?? configuration.enabled {
+            let value = enablePrefixMapping ? "YES" : "NO"
+            settings["CLANG_ENABLE_PREFIX_MAPPING"] = value
+            settings["SWIFT_ENABLE_PREFIX_MAPPING"] = value
+            settings["CLANG_ENABLE_PROJECT_PREFIX_MAPPING"] = value
+            settings["SWIFT_ENABLE_PROJECT_PREFIX_MAPPING"] = value
+        }
+
+        return settings
+    }
+
     private static func constructTestingSettingsOverrides(from parameters: BuildParameters.Testing) -> [String: String] {
         var settings: [String: String] = [:]
 
         // Coverage settings
         settings["CLANG_COVERAGE_MAPPING"] = parameters.enableCodeCoverage ? "YES" : "NO"
-
         if let testability = parameters.explicitlyEnabledTestability {
             settings["ENABLE_TESTABILITY"] = testability ? "YES" : "NO"
         }

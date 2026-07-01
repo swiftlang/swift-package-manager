@@ -4133,6 +4133,106 @@ struct PackageCommandTests {
         }
 
         @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func buildCacheConfiguration(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            let config = BuildConfiguration.debug
+            try await testWithTemporaryDirectory { fixturePath in
+                let fs = localFileSystem
+                let packageRoot = fixturePath.appending("Foo")
+                let configFile = Workspace.DefaultLocations.buildCacheConfigurationFile(
+                    forRootPackage: packageRoot
+                )
+
+                fs.createEmptyFiles(
+                    at: packageRoot,
+                    files:
+                        "/Sources/Foo/Foo.swift",
+                    "/Tests/FooTests/FooTests.swift",
+                    "/Package.swift",
+                    "anchor"
+                )
+
+                // Test writing.
+                try await execute(
+                    [
+                        "build-cache", "configure", "--enable", "--size-limit", "10G", "--diagnostic-remarks",
+                        "--remote-service-path", "/tmp/remote-service",
+                        "--plugin-path", "/tmp/plugin",
+                        "--prefix-mapping",
+                    ],
+                    packagePath: packageRoot,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                #expect(fs.isFile(configFile))
+                let content: String = try fs.readFileContents(configFile)
+                #expect(content.contains("\"enabled\" : true"))
+                #expect(content.contains("\"sizeLimit\" : \"10G\""))
+                #expect(content.contains("\"diagnosticRemarks\" : true"))
+                #expect(content.contains("\"remoteServicePath\" : \"/tmp/remote-service\""))
+                #expect(content.contains("\"pluginPath\" : \"/tmp/plugin\""))
+                #expect(content.contains("\"prefixMapping\" : true"))
+
+                // Test reading the effective configuration.
+                var (stdout, _) = try await execute(
+                    ["build-cache", "get-configuration"],
+                    packagePath: packageRoot,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                #expect(stdout.contains("build cache: enabled"))
+                #expect(stdout.contains("size limit: 10G"))
+                #expect(stdout.contains("diagnostic remarks: enabled"))
+                #expect(stdout.contains("remote service path: /tmp/remote-service"))
+                #expect(stdout.contains("plugin path: /tmp/plugin"))
+                #expect(stdout.contains("prefix mapping: enabled"))
+
+                // Setting a percentage should replace the absolute size limit.
+                try await execute(
+                    ["build-cache", "configure", "--size-limit", "40%"],
+                    packagePath: packageRoot,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                let updated: String = try fs.readFileContents(configFile)
+                #expect(updated.contains("\"sizePercent\" : 40"))
+                #expect(!updated.contains("sizeLimit"))
+
+                // An out-of-range percentage should be rejected.
+                await expectThrowsCommandExecutionError(
+                    try await execute(
+                        ["build-cache", "configure", "--size-limit", "150%"],
+                        packagePath: packageRoot,
+                        configuration: config,
+                        buildSystem: buildSystem,
+                    )
+                ) { error in
+                    #expect(error.stderr.contains("invalid size limit percentage"))
+                }
+
+                // Resetting should remove the file.
+                try await execute(
+                    ["build-cache", "reset"],
+                    packagePath: packageRoot,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                #expect(!fs.isFile(configFile))
+
+                (stdout, _) = try await execute(
+                    ["build-cache", "get-configuration"],
+                    packagePath: packageRoot,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                #expect(stdout.contains("build cache: unset"))
+            }
+        }
+
+        @Test(
             .tags(
                 .Feature.Command.Package.DumpPackage,
             ),

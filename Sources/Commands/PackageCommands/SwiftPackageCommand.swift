@@ -58,6 +58,7 @@ public struct SwiftPackageCommand: AsyncParsableCommand {
             Unedit.self,
 
             Config.self,
+            BuildCache.self,
             Resolve.self,
             Fetch.self,
 

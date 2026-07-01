@@ -769,6 +769,102 @@ struct SwiftBuildSystemTests {
         }
     }
 
+    @Suite
+    struct BuildCacheSettingsTests {
+        @Test
+        func emptyConfigurationProducesNoSettings() {
+            #expect(SwiftBuildSystem.constructBuildCacheSettingsOverrides(from: .none).isEmpty)
+        }
+
+        @Test
+        func enablingCachingAlsoEnablesExplicitModulesAndPrefixMapping() {
+            let result = SwiftBuildSystem.constructBuildCacheSettingsOverrides(
+                from: BuildCacheConfiguration(enabled: true)
+            )
+            #expect(result["SWIFT_ENABLE_COMPILE_CACHE"] == "YES")
+            #expect(result["CLANG_ENABLE_COMPILE_CACHE"] == "YES")
+            // Build caching requires explicit modules, so they are turned on implicitly.
+            #expect(result["SWIFT_ENABLE_EXPLICIT_MODULES"] == "YES")
+            #expect(result["CLANG_ENABLE_EXPLICIT_MODULES"] == "YES")
+            // With no explicit preference, prefix mapping follows the caching state.
+            #expect(result["CLANG_ENABLE_PREFIX_MAPPING"] == "YES")
+            #expect(result["SWIFT_ENABLE_PREFIX_MAPPING"] == "YES")
+            #expect(result["CLANG_ENABLE_PROJECT_PREFIX_MAPPING"] == "YES")
+            #expect(result["SWIFT_ENABLE_PROJECT_PREFIX_MAPPING"] == "YES")
+        }
+
+        @Test
+        func disablingCachingDoesNotForceExplicitModules() {
+            let result = SwiftBuildSystem.constructBuildCacheSettingsOverrides(
+                from: BuildCacheConfiguration(enabled: false)
+            )
+            #expect(result["SWIFT_ENABLE_COMPILE_CACHE"] == "NO")
+            #expect(result["CLANG_ENABLE_COMPILE_CACHE"] == "NO")
+            // Explicit modules are only forced on when caching is enabled.
+            #expect(result["SWIFT_ENABLE_EXPLICIT_MODULES"] == nil)
+            #expect(result["CLANG_ENABLE_EXPLICIT_MODULES"] == nil)
+            // Prefix mapping follows the (disabled) caching state.
+            #expect(result["CLANG_ENABLE_PREFIX_MAPPING"] == "NO")
+            #expect(result["SWIFT_ENABLE_PREFIX_MAPPING"] == "NO")
+            #expect(result["CLANG_ENABLE_PROJECT_PREFIX_MAPPING"] == "NO")
+            #expect(result["SWIFT_ENABLE_PROJECT_PREFIX_MAPPING"] == "NO")
+        }
+
+        @Test
+        func unsetEnabledLeavesCacheModuleAndPrefixSettingsUnset() {
+            let result = SwiftBuildSystem.constructBuildCacheSettingsOverrides(
+                from: BuildCacheConfiguration(enabled: nil)
+            )
+            #expect(result["SWIFT_ENABLE_COMPILE_CACHE"] == nil)
+            #expect(result["CLANG_ENABLE_COMPILE_CACHE"] == nil)
+            #expect(result["SWIFT_ENABLE_EXPLICIT_MODULES"] == nil)
+            #expect(result["CLANG_ENABLE_EXPLICIT_MODULES"] == nil)
+            #expect(result["CLANG_ENABLE_PREFIX_MAPPING"] == nil)
+            #expect(result["SWIFT_ENABLE_PREFIX_MAPPING"] == nil)
+            #expect(result["CLANG_ENABLE_PROJECT_PREFIX_MAPPING"] == nil)
+            #expect(result["SWIFT_ENABLE_PROJECT_PREFIX_MAPPING"] == nil)
+        }
+
+        @Test(arguments: [true, false])
+        func explicitPrefixMappingOverridesCachingDefault(prefixMapping: Bool) {
+            let expected = prefixMapping ? "YES" : "NO"
+            // Use the opposite caching state to prove the explicit value wins over the default.
+            let result = SwiftBuildSystem.constructBuildCacheSettingsOverrides(
+                from: BuildCacheConfiguration(enabled: !prefixMapping, enablePrefixMapping: prefixMapping)
+            )
+            #expect(result["CLANG_ENABLE_PREFIX_MAPPING"] == expected)
+            #expect(result["SWIFT_ENABLE_PREFIX_MAPPING"] == expected)
+            #expect(result["CLANG_ENABLE_PROJECT_PREFIX_MAPPING"] == expected)
+            #expect(result["SWIFT_ENABLE_PROJECT_PREFIX_MAPPING"] == expected)
+        }
+
+        @Test
+        func absoluteSizeLimitMapsToLimitSize() {
+            let result = SwiftBuildSystem.constructBuildCacheSettingsOverrides(
+                from: BuildCacheConfiguration(sizeLimit: .size("10G"))
+            )
+            #expect(result["COMPILATION_CACHE_LIMIT_SIZE"] == "10G")
+            #expect(result["COMPILATION_CACHE_LIMIT_PERCENT"] == nil)
+        }
+
+        @Test
+        func percentSizeLimitMapsToLimitPercent() {
+            let result = SwiftBuildSystem.constructBuildCacheSettingsOverrides(
+                from: BuildCacheConfiguration(sizeLimit: .percent(50))
+            )
+            #expect(result["COMPILATION_CACHE_LIMIT_PERCENT"] == "50")
+            #expect(result["COMPILATION_CACHE_LIMIT_SIZE"] == nil)
+        }
+
+        @Test(arguments: [true, false])
+        func diagnosticRemarksMapToSetting(diagnosticRemarks: Bool) {
+            let result = SwiftBuildSystem.constructBuildCacheSettingsOverrides(
+                from: BuildCacheConfiguration(enableDiagnosticRemarks: diagnosticRemarks)
+            )
+            #expect(result["COMPILATION_CACHE_ENABLE_DIAGNOSTIC_REMARKS"] == (diagnosticRemarks ? "YES" : "NO"))
+        }
+    }
+
     @Test
     func swiftCompilerFlagsForwardedToLinkerDriver() async throws {
         let flags = BuildFlags(
