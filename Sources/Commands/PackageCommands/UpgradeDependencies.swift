@@ -24,11 +24,6 @@ import struct TSCUtility.Version
 extension SwiftPackageCommand {
     /// Rewrites every `from:` or `exact:` version requirement in the package
     /// manifest to its latest released version, including new major versions.
-    ///
-    /// Path, branch, revision, and registry dependencies are left untouched —
-    /// the underlying `UpgradePackageDependencies` refactor only applies to
-    /// remote source-control dependencies with an `url:` parameter and a
-    /// `from:` or `exact:` version requirement.
     struct UpgradeDependencies: AsyncSwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "upgrade-dependencies",
@@ -46,9 +41,9 @@ extension SwiftPackageCommand {
             let observabilityScope = swiftCommandState.observabilityScope
             let context = try await UpgradePackageDependencies.Context(
                 resolvingLatestVersionIn: manifestSyntax
-            ) { url, currentVersion in
+            ) { dependency, currentVersion in
                 await workspace.latestVersion(
-                    of: url,
+                    of: dependency,
                     currentVersion: currentVersion,
                     observabilityScope: observabilityScope
                 )
@@ -66,9 +61,33 @@ extension SwiftPackageCommand {
     }
 }
 
-fileprivate extension Workspace {
-    /// Returns the latest released version of the package at `url` that the
-    /// caller is willing to upgrade to, or `nil` if it cannot be resolved.
+extension UpgradePackageDependencies.Dependency {
+    /// A human-readable identifier for diagnostics — the URL for a
+    /// source-control dep, the identity for a registry dep.
+    fileprivate var displayName: String {
+        switch self {
+        case .sourceControl(let url): return url
+        case .registry(let identity): return identity
+        }
+    }
+
+    fileprivate var packageReference: PackageReference {
+        switch self {
+        case .sourceControl(let url):
+            let sourceControlURL = SourceControlURL(url)
+            return .remoteSourceControl(
+                identity: PackageIdentity(url: sourceControlURL),
+                url: sourceControlURL
+            )
+        case .registry(let identity):
+            return .registry(identity: PackageIdentity.plain(identity))
+        }
+    }
+}
+
+extension Workspace {
+    /// Returns the latest released version of `dependency` that the caller
+    /// is willing to upgrade to, or `nil` if it cannot be resolved.
     ///
     /// Pre-release versions (those with a SemVer pre-release suffix such as
     /// `-alpha.1`) are excluded when `currentVersion` is itself not a
@@ -77,13 +96,10 @@ fileprivate extension Workspace {
     /// already a pre-release the latest available version is returned, even
     /// if it is itself a pre-release.
     func latestVersion(
-        of url: String,
+        of dependency: UpgradePackageDependencies.Dependency,
         currentVersion: String,
         observabilityScope: ObservabilityScope
     ) async -> String? {
-        let sourceControlURL = SourceControlURL(url)
-        let identity = PackageIdentity(url: sourceControlURL)
-        let reference = PackageReference.remoteSourceControl(identity: identity, url: sourceControlURL)
         // If the current version literal does not parse as a SemVer, treat it
         // as a release for the purposes of this filter: hiding pre-releases is
         // the safer default for the kinds of unparseable values seen in the
@@ -91,7 +107,7 @@ fileprivate extension Workspace {
         let allowsPrereleases = Version(currentVersion).map { !$0.prereleaseIdentifiers.isEmpty } ?? false
         do {
             let container = try await self.getContainer(
-                for: reference,
+                for: dependency.packageReference,
                 updateStrategy: .always,
                 observabilityScope: observabilityScope
             )
@@ -99,7 +115,7 @@ fileprivate extension Workspace {
                 .first(where: { allowsPrereleases || $0.prereleaseIdentifiers.isEmpty })?.description
         } catch {
             observabilityScope.emit(
-                warning: "could not resolve latest version of \(url): \(error.interpolationDescription)"
+                warning: "could not resolve latest version of \(dependency.displayName): \(error.interpolationDescription)"
             )
             return nil
         }
