@@ -80,7 +80,24 @@ jobs:
   required:
     name: Required
     runs-on: ubuntu-latest
-    needs: [build, soundness, integration-tests]
+    needs:
+      - build
+      - soundness
+      - integration-tests
+    if: always()  # Runs even if previous jobs fail so it can evaluate them
     steps:
-      - name: Success
-        run: echo "All required jobs succeeded."
+      - name: Install required tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends coreutils jq
+      - name: Check upstream job statuses
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          failed=$(printf '%s' "$NEEDS_JSON" | jq -r 'to_entries | map(select(.value.result != "success")) | .[] | "\(.key): \(.value.result)"')
+          if [ -n "$failed" ]; then
+            echo "The following required jobs did not succeed:"
+            printf '%s\n' "$failed"
+            exit 1
+          fi
+          echo "All required jobs passed successfully!"
