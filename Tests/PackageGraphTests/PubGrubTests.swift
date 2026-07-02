@@ -1734,6 +1734,69 @@ final class PubGrubTests: XCTestCase {
             ]
         )
     }
+
+    // Verifies that getBestAvailableVersion returns the pinned version when it is present
+    // in the container's version list, without requiring any special trust configuration
+    // on PubGrubPackageContainer itself.
+    func testPubGrubPackageContainerCanTrustPinnedVersion() async throws {
+        final class SingleVersionContainer: PackageContainer {
+            let package: PackageReference
+            let version: Version
+
+            init(package: PackageReference, version: Version) {
+                self.package = package
+                self.version = version
+            }
+
+            func isToolsVersionCompatible(at version: Version) async -> Bool { true }
+            func toolsVersion(for version: Version) async throws -> ToolsVersion { .current }
+            func toolsVersionsAppropriateVersionsDescending() async throws -> [Version] { [self.version] }
+            func versionsAscending() async throws -> [Version] { [self.version] }
+            func getDependencies(
+                at version: Version,
+                productFilter: ProductFilter,
+                _ enabledTraits: EnabledTraits = ["default"]
+            ) async throws -> [PackageContainerConstraint] {
+                []
+            }
+            func getDependencies(
+                at revision: String,
+                productFilter: ProductFilter,
+                _ enabledTraits: EnabledTraits = ["default"]
+            ) async throws -> [PackageContainerConstraint] {
+                []
+            }
+            func getUnversionedDependencies(
+                productFilter: ProductFilter,
+                _ enabledTraits: EnabledTraits = ["default"]
+            ) async throws -> [PackageContainerConstraint] {
+                []
+            }
+            func loadPackageReference(at boundVersion: BoundVersion) async throws -> PackageReference { self.package }
+            func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<PackageModel.TraitDescription> {
+                []
+            }
+        }
+
+        let path = AbsolutePath("/Package")
+        let package = PackageReference.localSourceControl(identity: .init(path: path), path: path)
+        let pinnedVersion = Version(1, 2, 3)
+        let container = PubGrubPackageContainer(
+            underlying: SingleVersionContainer(package: package, version: pinnedVersion),
+            resolvedPackages: [
+                package.identity: .init(
+                    packageRef: package,
+                    state: .version(pinnedVersion, revision: nil),
+                    originalScmUrl: nil
+                )
+            ],
+        )
+        let term = Term("package@1.2.3")
+
+        let version = try await container.getBestAvailableVersion(for: term)
+
+        XCTAssertEqual(version, pinnedVersion)
+    }
 }
 
 final class PubGrubTestsBasicGraphs: XCTestCase {
@@ -3117,6 +3180,7 @@ public class MockContainer: PackageContainer {
 
     public var package: PackageReference
     var manifestName: PackageReference?
+    var traits: Set<TraitDescription> = []
 
     var dependencies: [String: [String: [Dependency]]]
 
@@ -3196,6 +3260,10 @@ public class MockContainer: PackageContainer {
             self.package = self.package.withName(manifestName.identity.description)
         }
         return self.package
+    }
+
+    public func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<TraitDescription> {
+        return self.traits
     }
 
     func appendVersion(_ version: BoundVersion) {

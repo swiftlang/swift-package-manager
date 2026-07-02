@@ -12,10 +12,13 @@
 
 import class PackageModel.Manifest
 import struct PackageModel.PackageIdentity
+import struct PackageModel.PackageReference
 import enum PackageModel.ProductFilter
 import enum PackageModel.PackageDependency
 import struct PackageModel.EnabledTrait
 import struct PackageModel.EnabledTraits
+import class Basics.ObservabilityScope
+import Basics
 
 extension Workspace {
     /// Given a loaded `Manifest`, determine the traits that are enabled for it and
@@ -24,7 +27,7 @@ extension Workspace {
     ///
     /// If the package defines a dependency with an explicit set of enabled traits, it will also
     /// add them to the enabled traits map.
-    public func updateEnabledTraits(for manifest: Manifest) throws {
+    public func updateEnabledTraits(for manifest: Manifest, observabilityScope: ObservabilityScope) async throws {
         // If the `Manifest` is a root, then we should default to using
         // the trait configuration set in the `Workspace`. Otherwise,
         // check the enabled traits map to see if there are traits
@@ -32,6 +35,14 @@ extension Workspace {
         let explicitlyEnabledTraits = manifest.packageKind.isRoot ?
         try manifest.enabledTraits(using: self.traitConfiguration) :
         self.enabledTraitsMap[manifest.packageIdentity]
+
+        // Validate before expanding: this is the only point where the original EnabledTraits
+        // (including the disabledBy setter) is still available. Once enabledTraits(using:) runs
+        // for a no-trait package it discards that information and returns ["default"].
+        // Root packages are validated separately through the trait configuration path.
+        if !manifest.packageKind.isRoot {
+            try manifest.validateEnabledTraits(explicitlyEnabledTraits)
+        }
 
         var enabledTraits = try manifest.enabledTraits(using: explicitlyEnabledTraits)
 
@@ -52,7 +63,7 @@ extension Workspace {
             }
         }
 
-        self.enabledTraitsMap[manifest.packageIdentity] = enabledTraits
+        self.enabledTraitsMap[manifest] = enabledTraits
 
         // Check enabled traits for the dependencies
         for dep in manifest.dependencies {
@@ -89,6 +100,25 @@ extension Workspace {
                 setBy: .package(.init(parent))
             )
             self.enabledTraitsMap[dependency.identity] = defaultTraits
+        }
+    }
+}
+
+extension Workspace {
+    internal func validateUpdatedTraits(
+        manifests: DependencyManifests,
+        addedOrUpdatedPackages: [PackageReference],
+        observabilityScope: ObservabilityScope
+    ) async throws {
+        let packages = manifests.dependencies.filter({
+            addedOrUpdatedPackages.map(\.identity).contains($0.manifest.packageIdentity) })
+
+        for package in packages {
+            let manifest = package.manifest
+            let enabledTraits = self.enabledTraitsMap[manifest]
+
+            // Validate traits on update.
+            try manifest.validateEnabledTraits(enabledTraits)
         }
     }
 }
