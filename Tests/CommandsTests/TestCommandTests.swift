@@ -2340,6 +2340,67 @@ struct TestCommandTests {
             }
         }
 
+        @Test(
+            .tags(.Feature.TargetType.Executable),
+            arguments: SupportedBuildSystemOnAllPlatforms
+        )
+        func debuggerSuppressesCustomBannerInAutomatedEnvironments(
+            buildSystem: BuildSystemProvider.Kind
+        ) async throws {
+            let configuration = BuildConfiguration.debug
+            try await withKnownIssue(isIntermittent: true) {
+                try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+                    let fakePythonDir = fixturePath.appending(components: "fake_python")
+                    try localFileSystem.createDirectory(fakePythonDir)
+                    try localFileSystem.writeFileContents(
+                        fakePythonDir.appending(components: "shutil.py"),
+                        string: "def rmtree(*args, **kwargs): pass\n"
+                    )
+
+                    var extraEnv = Environment.current
+                    extraEnv["PYTHONPATH"] = fakePythonDir.pathString
+
+                    let (stdout, stderr) = try await executeSwiftTest(
+                        fixturePath,
+                        configuration: configuration,
+                        extraArgs: ["--debugger", "--verbose"],
+                        env: extraEnv,
+                        buildSystem: buildSystem,
+                        throwIfCommandFails: false
+                    )
+
+                    let output = stdout + stderr
+
+                    guard let markerRange = output.range(of: "info: LLDB will run: ") else {
+                        Issue.record("Expected to find LLDB commands file marker in output. Output:\n\(output)")
+                        return
+                    }
+
+                    let pathLine = output[markerRange.upperBound...].split(whereSeparator: { $0.isNewline }).first ?? ""
+                    guard let pathString = pathLine.split(separator: " ").last.map(String.init), !pathString.isEmpty else {
+                        Issue.record("Failed to parse file path from command line: \(pathLine)")
+                        return
+                    }
+
+                    guard let fileContents = try? String(contentsOf: URL(fileURLWithPath: pathString), encoding: .utf8) else {
+                        Issue.record("Failed to read the generated LLDB commands file at \(pathString).")
+                        return
+                    }
+
+                    #expect(
+                        !fileContents.contains("LLDB is ready"),
+                        "Expected custom LLDB banner to be suppressed in automated mode, but it was found in:\n\(fileContents)"
+                    )
+                    #expect(
+                        fileContents.contains("quit"),
+                        "Expected automated mode to inject 'quit', but it was missing from:\n\(fileContents)"
+                    )
+                }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows || CiEnvironment.runningInSmokeTestPipeline || CiEnvironment.runningInSelfHostedPipeline
+            }
+        }
+
         func args(_ args: [String], for buildSystem: BuildSystemProvider.Kind, buildConfiguration: BuildConfiguration = .debug) -> [String] {
             return args + buildConfiguration.buildArgs + getBuildSystemArgs(for: buildSystem)
         }
