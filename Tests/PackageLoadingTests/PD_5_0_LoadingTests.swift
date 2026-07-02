@@ -14,6 +14,7 @@ import Basics
 import PackageLoading
 import PackageModel
 import _InternalTestSupport
+import Testing
 import XCTest
 
 import struct TSCBasic.ByteString

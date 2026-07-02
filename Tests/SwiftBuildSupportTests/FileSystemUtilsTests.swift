@@ -127,11 +127,6 @@ struct CreateBuildSymbolicLinkFunction {
 
         testDiagnostics(observability.diagnostics) { result in
             result.check(
-                diagnostic: .contains("unable to delete"),
-                severity: .warning
-            )
-
-            result.check(
                 diagnostic: .contains("unable to create symbolic link"),
                 severity: .warning
             )

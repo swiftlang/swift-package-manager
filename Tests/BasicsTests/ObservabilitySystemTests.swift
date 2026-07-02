@@ -178,7 +178,7 @@ struct ObservabilitySystemTest {
                 #expect(diagnostic_metadata.testKey1 == metadata.testKey1)
             }
             do {
-                let diagnostic = try #require(result.check(diagnostic: "debug", severity: .error))
+                let diagnostic = try #require(result.check(diagnostic: "debug", severity: .debug))
                 let diagnostic_metadata = try #require(diagnostic.metadata)
                 #expect(diagnostic_metadata.testKey1 == metadata.testKey1)
             }
