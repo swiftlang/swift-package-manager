@@ -65,17 +65,9 @@ final class PluginDelegate: PluginInvocationDelegate {
 
     func pluginRequestedBuildOperation(
         subset: PluginInvocationBuildSubset,
-        parameters: PluginInvocationBuildParameters,
-        completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void
-    ) {
-        // Run the build in the background and call the completion handler when done.
-        Task {
-            do {
-                try await completion(.success(self.performBuildForPlugin(subset: subset, parameters: parameters)))
-            } catch {
-                completion(.failure(error))
-            }
-        }
+        parameters: PluginInvocationBuildParameters
+    ) async throws -> PluginInvocationBuildResult {
+        try await self.performBuildForPlugin(subset: subset, parameters: parameters)
     }
 
     class TeeOutputByteStream: OutputByteStream {
@@ -208,17 +200,9 @@ final class PluginDelegate: PluginInvocationDelegate {
 
     func pluginRequestedTestOperation(
         subset: PluginInvocationTestSubset,
-        parameters: PluginInvocationTestParameters,
-        completion: @escaping (Result<PluginInvocationTestResult, Error>
-        ) -> Void) {
-        // Run the test in the background and call the completion handler when done.
-        Task {
-            do {
-                try await completion(.success(self.performTestsForPlugin(subset: subset, parameters: parameters)))
-            } catch {
-                completion(.failure(error))
-            }
-        }
+        parameters: PluginInvocationTestParameters
+    ) async throws -> PluginInvocationTestResult {
+        try await self.performTestsForPlugin(subset: subset, parameters: parameters)
     }
 
     func performTestsForPlugin(
@@ -378,17 +362,9 @@ final class PluginDelegate: PluginInvocationDelegate {
 
     func pluginRequestedSymbolGraph(
         forTarget targetName: String,
-        options: PluginInvocationSymbolGraphOptions,
-        completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void
-    ) {
-        // Extract the symbol graph in the background and call the completion handler when done.
-        Task {
-            do {
-                try await completion(.success(self.createSymbolGraphForPlugin(forTarget: targetName, options: options)))
-            } catch {
-                completion(.failure(error))
-            }
-        }
+        options: PluginInvocationSymbolGraphOptions
+    ) async throws -> PluginInvocationSymbolGraphResult {
+        try await self.createSymbolGraphForPlugin(forTarget: targetName, options: options)
     }
 
     private func createSymbolGraphForPlugin(
