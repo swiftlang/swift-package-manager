@@ -28,6 +28,10 @@ public func configure(_ app: Application) async throws {
     IdentifiersRoutes(store: store).register(app)
     PublishRoutes(publisher: ReleasePublisher(store: store)).register(app)
     MetadataRoutes(store: store).register(app)
+
+    let userStore = app.userStore
+    UserRoutes(registrar: UserRegistrar(store: userStore)).register(app)
+    LoginRoutes(authenticator: UserAuthenticator(store: userStore)).register(app)
 }
 
 private func configureTLS(_ app: Application) throws {
