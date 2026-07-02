@@ -39,4 +39,9 @@ install(TARGETS PackageLoading
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:PackageLoading>/$<TARGET_FILE_BASE_NAME:PackageLoading>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS PackageLoading)
