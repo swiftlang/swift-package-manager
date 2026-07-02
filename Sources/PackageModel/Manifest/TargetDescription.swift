@@ -183,6 +183,25 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
     /// The target-specific build settings declared in this target.
     public let settings: [TargetBuildSettingDescription.Setting]
 
+    /// Models the presence of explicitly-defined settings for each tool type.
+    public let explicitSettings: ExplicitSettings
+
+    public struct ExplicitSettings: Hashable, Codable, Sendable {
+        public var swift: Bool
+        public var c: Bool
+        public var cxx: Bool
+        public var linker: Bool
+
+        public init(swift: Bool, c: Bool, cxx: Bool, linker: Bool) {
+            self.swift = swift
+            self.c = c
+            self.cxx = cxx
+            self.linker = linker
+        }
+
+        public static let all = Self.init(swift: true, c: true, cxx: true, linker: true)
+        public static let none = Self.init(swift: false, c: false, cxx: false, linker: false)
+    }
     /// The binary target checksum.
     public let checksum: String?
 
@@ -209,6 +228,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         providers: [SystemPackageProviderDescription]? = nil,
         pluginCapability: PluginCapability? = nil,
         settings: [TargetBuildSettingDescription.Setting] = [],
+        explicitSettings: ExplicitSettings = .all,
         checksum: String? = nil,
         pluginUsages: [PluginUsage]? = nil
     ) throws {
@@ -445,6 +465,43 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
             ) }
         }
 
+        // ensure that settings and settings presense detection are consistent
+        if settings.filter({ $0.tool == .swift}).isEmpty == false && explicitSettings.swift == false {
+            throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "explicitSettings",
+                value: "swift"
+            )
+        }
+
+        if settings.filter({ $0.tool == .c}).isEmpty == false && explicitSettings.c == false {
+            throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "explicitSettings",
+                value: "c"
+            )
+        }
+
+        if settings.filter({ $0.tool == .cxx}).isEmpty == false && explicitSettings.cxx == false {
+            throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "explicitSettings",
+                value: "cxx"
+            )
+        }
+
+        if settings.filter({ $0.tool == .linker}).isEmpty == false && explicitSettings.linker == false {
+            throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "explicitSettings",
+                value: "linker"
+            )
+        }
+
         self.name = name
         self.dependencies = dependencies
         self.path = path
@@ -461,6 +518,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         self.settings = settings
         self.checksum = checksum
         self.pluginUsages = pluginUsages
+        self.explicitSettings = explicitSettings
     }
 }
 
