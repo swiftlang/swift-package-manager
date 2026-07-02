@@ -130,7 +130,8 @@ public struct MetadataRoutes: Sendable {
     }
 
     private func repositoryLinks(from metadata: PackageRelease?) -> [String] {
-        guard let urls = metadata?.repositoryURLs, let canonical = urls.first else {
+        guard let urls = metadata?.repositoryURLs?.filter(Self.isLinkSafe),
+              let canonical = urls.first else {
             return []
         }
         var links = ["<\(canonical)>; rel=\"canonical\""]
@@ -138,6 +139,23 @@ public struct MetadataRoutes: Sendable {
             links.append("<\(alternate)>; rel=\"alternate\"")
         }
         return links
+    }
+
+    /// Reports whether a publisher-supplied URL is safe to embed in a
+    /// `Link` header value.
+    ///
+    /// Release metadata is attacker-controlled, so a URL containing the
+    /// `Link` grammar's delimiters (`<`, `>`, `"`) or whitespace/control
+    /// characters could inject additional link relations into the header.
+    /// This rejects such values (and anything implausibly long) rather
+    /// than attempting to sanitize them.
+    static func isLinkSafe(_ url: String) -> Bool {
+        guard !url.isEmpty, url.count <= 2048 else { return false }
+        return url.unicodeScalars.allSatisfy { scalar in
+            scalar != "<" && scalar != ">" && scalar != "\""
+                && !CharacterSet.controlCharacters.contains(scalar)
+                && !CharacterSet.whitespacesAndNewlines.contains(scalar)
+        }
     }
 
     @Sendable

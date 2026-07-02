@@ -43,12 +43,16 @@ public struct StoredRelease: Sendable, Hashable {
     /// `source-archive` resource in the §4.2 release-info response and
     /// used by clients to verify downloads from §4.4.
     public let sourceArchiveChecksum: String
-    /// The manifest files contained in the release, keyed by filename.
+    /// The manifest files contained in the release, keyed by Swift
+    /// version.
     ///
-    /// The default manifest is stored under the key `"Package.swift"`;
-    /// Swift-version-qualified variants use keys of the form
-    /// `"Package@swift-{version}.swift"`. This map backs §4.3
-    /// (`GET /{scope}/{name}/{version}/Package.swift{?swift-version}`).
+    /// The default manifest (`Package.swift`) is stored under the empty
+    /// key `""`; Swift-version-qualified variants
+    /// (`Package@swift-{version}.swift`) are stored under the bare version
+    /// string (for example, `"5.10"`). This matches the `swift-version`
+    /// query parameter of §4.3
+    /// (`GET /{scope}/{name}/{version}/Package.swift{?swift-version}`),
+    /// which this map backs.
     public let manifests: [String: String]
     /// The decoded release metadata supplied at publish time, or `nil`
     /// if the publisher did not provide a metadata document. Returned as
@@ -82,10 +86,11 @@ public struct StoredRelease: Sendable, Hashable {
     ///   - sourceArchive: The raw bytes of the `.zip` source archive.
     ///   - sourceArchiveChecksum: The cryptographic digest of
     ///     `sourceArchive`, in the `"sha-256=..."` form used by §4.2.
-    ///   - manifests: Manifest filenames mapped to their contents.
-    ///     Must include a `"Package.swift"` entry for the default
-    ///     manifest; may also include `"Package@swift-{version}.swift"`
-    ///     entries.
+    ///   - manifests: Manifests mapped to their contents, keyed by Swift
+    ///     version. Must include a `""` entry for the default
+    ///     `Package.swift`; may also include bare-version entries (for
+    ///     example, `"5.10"`) for `Package@swift-{version}.swift`
+    ///     variants.
     ///   - metadata: The decoded ``PackageRelease`` metadata, or `nil` if
     ///     none was supplied.
     ///   - metadataRaw: The raw bytes of the metadata JSON exactly as
