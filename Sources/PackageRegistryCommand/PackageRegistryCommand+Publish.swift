@@ -19,6 +19,7 @@ import PackageModel
 import PackageFingerprint
 import PackageRegistry
 import PackageSigning
+import SourceControl
 import Workspace
 
 #if USE_IMPL_ONLY_IMPORTS
@@ -472,17 +473,26 @@ enum PackageArchiver {
     ) async throws -> AbsolutePath {
         let archivePath = workingDirectory.appending("\(packageIdentity)-\(packageVersion).zip")
 
-        // create temp location for sources
         let sourceDirectory = workingDirectory.appending(components: "source", "\(packageIdentity)")
         try localFileSystem.createDirectory(sourceDirectory, recursive: true)
 
-        // TODO: filter other unnecessary files, and/or .swiftpmignore file
-        let ignoredContent = [".build", ".git", ".gitignore", ".swiftpm"]
-        let packageContent = try localFileSystem.getDirectoryContents(packageDirectory)
-        for item in (packageContent.filter { !ignoredContent.contains($0) }) {
-            try localFileSystem.copy(
-                from: packageDirectory.appending(component: item),
-                to: sourceDirectory.appending(component: item)
+        let gitRepositoryProvider = GitRepositoryProvider()
+        let isGitRepository = (try? gitRepositoryProvider.isValidDirectory(packageDirectory)) == true
+
+        if isGitRepository {
+            try await Self.populateFromGitHead(
+                packageDirectory: packageDirectory,
+                sourceDirectory: sourceDirectory,
+                workingDirectory: workingDirectory,
+                cancellator: cancellator
+            )
+        } else {
+            observabilityScope.emit(
+                warning: "publishing from a non-git package directory uses a best-effort filter; consider initializing a git repository or using '.gitattributes export-ignore' for deterministic filtering"
+            )
+            try Self.copyFilteringSensitiveFiles(
+                from: packageDirectory,
+                to: sourceDirectory
             )
         }
 
@@ -504,5 +514,76 @@ enum PackageArchiver {
         )
 
         return archivePath
+    }
+
+    private static func populateFromGitHead(
+        packageDirectory: AbsolutePath,
+        sourceDirectory: AbsolutePath,
+        workingDirectory: AbsolutePath,
+        cancellator: Cancellator?
+    ) async throws {
+        let intermediateArchive = workingDirectory.appending("git-source.zip")
+        if localFileSystem.exists(intermediateArchive) {
+            try localFileSystem.removeFileTree(intermediateArchive)
+        }
+
+        let repository = GitRepository(path: packageDirectory, cancellator: cancellator)
+        try repository.archive(to: intermediateArchive)
+
+        let archiver = UniversalArchiver(localFileSystem, cancellator)
+        try await archiver.extract(from: intermediateArchive, to: sourceDirectory)
+        try localFileSystem.stripFirstLevel(of: sourceDirectory)
+        try localFileSystem.removeFileTree(intermediateArchive)
+    }
+
+    private static let ignoredDirectoryNames: Set<String> = [
+        ".build", ".git", ".hg", ".svn", ".swiftpm", "node_modules",
+    ]
+
+    private static let ignoredExactFilenames: Set<String> = [
+        ".ds_store",
+        ".gitignore",
+        ".netrc",
+        ".npmrc",
+        "credentials",
+        "credentials.json",
+        "id_ecdsa",
+        "id_ecdsa.pub",
+        "id_ed25519",
+        "id_ed25519.pub",
+        "id_rsa",
+        "id_rsa.pub",
+        "secrets.json",
+    ]
+
+    private static let ignoredFileExtensions: [String] = [
+        ".key", ".p12", ".pem", ".pfx",
+    ]
+
+    private static func isSensitiveFilename(_ name: String) -> Bool {
+        let lower = name.lowercased()
+        if self.ignoredExactFilenames.contains(lower) { return true }
+        if lower == ".env" || lower.hasPrefix(".env.") { return true }
+        return self.ignoredFileExtensions.contains { lower.hasSuffix($0) }
+    }
+
+    private static func copyFilteringSensitiveFiles(
+        from source: AbsolutePath,
+        to destination: AbsolutePath
+    ) throws {
+        let entries = try localFileSystem.getDirectoryContents(source)
+        for entry in entries {
+            let sourceEntry = source.appending(component: entry)
+            let destinationEntry = destination.appending(component: entry)
+
+            if localFileSystem.isDirectory(sourceEntry) && !localFileSystem.isSymlink(sourceEntry) {
+                if self.ignoredDirectoryNames.contains(entry) { continue }
+                try localFileSystem.createDirectory(destinationEntry, recursive: false)
+                try self.copyFilteringSensitiveFiles(from: sourceEntry, to: destinationEntry)
+            } else {
+                if self.isSensitiveFilename(entry) { continue }
+                try localFileSystem.copy(from: sourceEntry, to: destinationEntry)
+            }
+        }
     }
 }
