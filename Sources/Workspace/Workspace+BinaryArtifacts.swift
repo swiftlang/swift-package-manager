@@ -108,8 +108,8 @@ extension Workspace {
                             ) else {
                                 observabilityScope.emit(
                                     BinaryArtifactsManagerError.localArtifactNotFound(
-                                        artifactPath: absolutePath,
-                                        targetName: target.name
+                                        target: target,
+                                        artifactPath: absolutePath
                                     )
                                 )
                                 continue
@@ -129,8 +129,8 @@ extension Workspace {
                         guard let url = URL(string: mappedURLString) else {
                             observabilityScope.emit(
                                 BinaryArtifactsManagerError.artifactFailedDownload(
+                                    target: target,
                                     artifactURL: URL(string: urlString) ?? URL(string: "unknown")!,
-                                    targetName: target.name,
                                     reason: "Invalid URL after mirroring: \(mappedURLString)"
                                 )
                             )
@@ -288,8 +288,7 @@ extension Workspace {
 
                                 guard valid else {
                                     observabilityScope.emit(BinaryArtifactsManagerError.artifactInvalidArchive(
-                                        artifactURL: artifact.url,
-                                        targetName: artifact.targetName
+                                        artifact: artifact
                                     ))
                                     self.evictFromCache(artifact: artifact, observabilityScope: observabilityScope)
                                     return nil
@@ -302,8 +301,7 @@ extension Workspace {
                                 }
                                 guard archiveChecksum == artifact.checksum else {
                                     observabilityScope.emit(BinaryArtifactsManagerError.artifactInvalidChecksum(
-                                        targetName: artifact.targetName,
-                                        expectedChecksum: artifact.checksum,
+                                        artifact: artifact,
                                         actualChecksum: archiveChecksum
                                     ))
                                     observabilityScope.trap { try self.fileSystem.removeFileTree(archivePath) }
@@ -388,8 +386,7 @@ extension Workspace {
                                         observabilityScope: observabilityScope
                                     ) else {
                                         observabilityScope.emit(BinaryArtifactsManagerError.remoteArtifactNotFound(
-                                            artifactURL: artifact.url,
-                                            targetName: artifact.targetName
+                                            artifact: artifact
                                         ))
                                         return nil
                                     }
@@ -411,8 +408,7 @@ extension Workspace {
 
                                 } catch {
                                     observabilityScope.emit(BinaryArtifactsManagerError.remoteArtifactFailedExtraction(
-                                        artifactURL: artifact.url,
-                                        targetName: artifact.targetName,
+                                        artifact: artifact,
                                         reason: error.interpolationDescription
                                     ))
                                     self.delegate?.didDownloadBinaryArtifact(
@@ -423,8 +419,7 @@ extension Workspace {
                                 }
                             } catch {
                                 observabilityScope.emit(BinaryArtifactsManagerError.artifactFailedValidation(
-                                    artifactURL: artifact.url,
-                                    targetName: artifact.targetName,
+                                    artifact: artifact,
                                     reason: error.interpolationDescription
                                 ))
                                 self.evictFromCache(artifact: artifact, observabilityScope: observabilityScope)
@@ -437,8 +432,7 @@ extension Workspace {
                         } catch {
                             observabilityScope.trap { try self.fileSystem.removeFileTree(archivePath) }
                             observabilityScope.emit(BinaryArtifactsManagerError.artifactFailedDownload(
-                                artifactURL: artifact.url,
-                                targetName: artifact.targetName,
+                                artifact: artifact,
                                 reason: error.interpolationDescription
                             ))
                             self.delegate?.didDownloadBinaryArtifact(
@@ -536,8 +530,7 @@ extension Workspace {
                                     observabilityScope: observabilityScope
                                 ) else {
                                     throw BinaryArtifactsManagerError.localArchivedArtifactNotFound(
-                                        archivePath: artifact.path,
-                                        targetName: artifact.targetName
+                                        artifact: artifact
                                     )
                                 }
 
@@ -553,11 +546,10 @@ extension Workspace {
                                 )
                             }
                         } catch {
-                            let reason = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+                            let reason = error.interpolationDescription
 
                             observabilityScope.emit(BinaryArtifactsManagerError.localArtifactFailedExtraction(
-                                artifactPath: artifact.path,
-                                targetName: artifact.targetName,
+                                artifact: artifact,
                                 reason: reason
                             ))
 
@@ -930,8 +922,7 @@ extension Workspace {
                     observabilityScope: observabilityScope
                 ) else {
                     observabilityScope.emit(BinaryArtifactsManagerError.localArtifactNotFound(
-                        artifactPath: artifact.path,
-                        targetName: artifact.targetName
+                        artifact: artifact
                     ))
                     continue
                 }
@@ -962,7 +953,7 @@ extension Workspace {
                     // If the checksum is different but the package wasn't updated, this is a security risk.
                     if !urlChanged && !addedOrUpdatedPackages.contains(artifact.packageRef) {
                         observabilityScope.emit(
-                            BinaryArtifactsManagerError.artifactChecksumChanged(targetName: artifact.targetName)
+                            BinaryArtifactsManagerError.artifactChecksumChanged(artifact: artifact)
                         )
                         continue
                     }
