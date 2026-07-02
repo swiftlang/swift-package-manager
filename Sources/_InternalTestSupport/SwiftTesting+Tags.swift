@@ -172,6 +172,7 @@ extension Tag.Feature.Command.Package {
     @Tag public static var ToolsVersion: Tag
     @Tag public static var Unedit: Tag
     @Tag public static var Update: Tag
+    @Tag public static var UpgradeDependencies: Tag
 }
 
 extension Tag.Feature.Command.PackageRegistry {
