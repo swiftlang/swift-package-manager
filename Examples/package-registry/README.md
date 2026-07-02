@@ -63,6 +63,13 @@ swift run PackageRegistryServer
 If `certs/cert.pem` and `certs/key.pem` are present, the server binds to
 `https://localhost:8000`. Otherwise it falls back to Vapor's default bind.
 
+Pass `--enable-auth` to require a logged-in user before publishing (see
+[Requiring login to publish](#requiring-login-to-publish)):
+
+```bash
+swift run PackageRegistryServer --enable-auth
+```
+
 ## Publishing the HelloWorld fixture
 
 ```bash
@@ -144,3 +151,17 @@ Equivalently with curl:
 curl -skX POST https://localhost:8000/login -u 'harry@hogwarts.com:ginny!'   # → 200
 curl -skX POST https://localhost:8000/login -H 'Authorization: Bearer kR8f…QeE'  # → 200
 ```
+
+### Requiring login to publish
+
+By default the publish endpoint is open. Start the server with `--enable-auth`
+to require that a user has logged in first:
+
+```bash
+swift run PackageRegistryServer --enable-auth
+```
+
+The set of logged-in users is tracked in memory: a successful `POST /login`
+records the user, and while at least one user is logged in the publish endpoint
+accepts requests. A publish attempt made before anyone has logged in is
+rejected with `401 Unauthorized`. Login state is lost when the server restarts.

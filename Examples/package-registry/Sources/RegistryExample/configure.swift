@@ -14,7 +14,15 @@ import Foundation
 import Vapor
 import NIOSSL
 
-public func configure(_ app: Application) async throws {
+/// Configures the application's middleware and routes.
+///
+/// - Parameters:
+///   - app: The application to configure.
+///   - authEnabled: When `true`, the publish endpoint is gated behind
+///     ``RequireLoginMiddleware`` so that only a logged-in user may publish.
+///     Defaults to `false`, leaving publishing open, matching the server's
+///     `--enable-auth` command-line flag.
+public func configure(_ app: Application, authEnabled: Bool = false) async throws {
     app.middleware = Middlewares()
     app.middleware.use(ProblemErrorMiddleware())
     app.middleware.use(ContentVersionMiddleware())
@@ -23,15 +31,20 @@ public func configure(_ app: Application) async throws {
 
     try configureTLS(app)
 
+    let loginSession = LoginSession()
+
     let store = app.registryStore
     AvailabilityRoutes().register(app)
     IdentifiersRoutes(store: store).register(app)
-    PublishRoutes(publisher: ReleasePublisher(store: store)).register(app)
+    let publishRouter: any RoutesBuilder = authEnabled
+        ? app.grouped(RequireLoginMiddleware(session: loginSession))
+        : app
+    PublishRoutes(publisher: ReleasePublisher(store: store)).register(publishRouter)
     MetadataRoutes(store: store).register(app)
 
     let userStore = app.userStore
     UserRoutes(registrar: UserRegistrar(store: userStore)).register(app)
-    LoginRoutes(authenticator: UserAuthenticator(store: userStore)).register(app)
+    LoginRoutes(authenticator: UserAuthenticator(store: userStore), session: loginSession).register(app)
 }
 
 private func configureTLS(_ app: Application) throws {

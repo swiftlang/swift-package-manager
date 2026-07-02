@@ -42,26 +42,28 @@ public struct UserAuthenticator: Sendable {
     /// - Parameters:
     ///   - rawEmail: The username component (an email address).
     ///   - password: The password component.
-    /// - Returns: `true` only if a password user with `rawEmail` exists and
-    ///   `password` verifies against its bcrypt hash.
-    public func authenticate(email rawEmail: String, password: String) async -> Bool {
-        guard !password.isEmpty else { return false }
-        let user = await EmailAddress(rawEmail).asyncFlatMap { await store.user(email: $0) }
+    /// - Returns: The authenticated user's normalized ``EmailAddress`` if a
+    ///   password user with `rawEmail` exists and `password` verifies against
+    ///   its bcrypt hash; otherwise `nil`.
+    public func authenticate(email rawEmail: String, password: String) async -> EmailAddress? {
+        guard !password.isEmpty else { return nil }
+        let email = EmailAddress(rawEmail)
+        let user = await email.asyncFlatMap { await store.user(email: $0) }
         let storedHash = Self.passwordHash(of: user)
         let verified = await Self.verify(password, against: storedHash ?? Self.decoyHash)
-        return storedHash != nil && verified
+        return (storedHash != nil && verified) ? email : nil
     }
 
     /// Verifies a Bearer token.
     ///
     /// - Parameter token: The presented bearer token.
-    /// - Returns: `true` only if a token user whose token hashes to the
-    ///   presented value exists.
-    public func authenticate(token: String) async -> Bool {
-        guard !token.isEmpty else { return false }
+    /// - Returns: The token user's normalized ``EmailAddress`` if a token user
+    ///   whose token hashes to the presented value exists; otherwise `nil`.
+    public func authenticate(token: String) async -> EmailAddress? {
+        guard !token.isEmpty else { return nil }
         let user = await store.user(tokenHash: TokenHasher.hash(token))
-        guard case .token = user?.credential else { return false }
-        return true
+        guard case .token = user?.credential else { return nil }
+        return user?.email
     }
 
     private static func passwordHash(of user: User?) -> String? {

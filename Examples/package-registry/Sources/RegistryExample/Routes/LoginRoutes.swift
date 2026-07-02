@@ -37,10 +37,17 @@ import Vapor
 /// header) that the registry error contract requires.
 public struct LoginRoutes: Sendable {
     let authenticator: UserAuthenticator
+    let session: LoginSession
 
-    /// Creates a `LoginRoutes` handler backed by the given authenticator.
-    public init(authenticator: UserAuthenticator) {
+    /// Creates a `LoginRoutes` handler.
+    ///
+    /// - Parameters:
+    ///   - authenticator: Verifies the presented credentials.
+    ///   - session: Records the authenticated user so that (when enabled)
+    ///     the publish endpoint can see that a user is logged in.
+    public init(authenticator: UserAuthenticator, session: LoginSession) {
         self.authenticator = authenticator
+        self.session = session
     }
 
     /// Registers `POST /login` on `router`.
@@ -66,19 +73,21 @@ public struct LoginRoutes: Sendable {
 
     private func authenticateBasic(_ req: Request) async throws -> Response {
         guard let basic = req.headers.basicAuthorization,
-              await authenticator.authenticate(email: basic.username, password: basic.password)
+              let email = await authenticator.authenticate(email: basic.username, password: basic.password)
         else {
             throw ProblemDetails.unauthorized("invalid credentials")
         }
+        await session.logIn(email)
         return Response(status: .ok)
     }
 
     private func authenticateBearer(_ req: Request) async throws -> Response {
         guard let bearer = req.headers.bearerAuthorization,
-              await authenticator.authenticate(token: bearer.token)
+              let email = await authenticator.authenticate(token: bearer.token)
         else {
             throw ProblemDetails.unauthorized("invalid credentials")
         }
+        await session.logIn(email)
         return Response(status: .ok)
     }
 }

@@ -10,17 +10,29 @@
 //
 //===----------------------------------------------------------------------===//
 
+import ArgumentParser
 import Vapor
 import RegistryExample
 
 @main
-struct PackageRegistryServer {
-    static func main() async throws {
-        var env = try Environment.detect()
+struct PackageRegistryServer: ArgumentParser.AsyncParsableCommand {
+    static let configuration = ArgumentParser.CommandConfiguration(
+        commandName: "PackageRegistryServer",
+        abstract: "A reference Swift Package Registry server."
+    )
+
+    @ArgumentParser.Flag(
+        name: .customLong("enable-auth"),
+        help: "Require a logged-in user to publish releases (POST /login first)."
+    )
+    var enableAuth = false
+
+    func run() async throws {
+        var env = try Environment.detect(arguments: CommandLine.arguments.filter { $0 != "--enable-auth" })
         try LoggingSystem.bootstrap(from: &env)
         let app = try await Application.make(env)
         do {
-            try await configure(app)
+            try await configure(app, authEnabled: enableAuth)
             try await app.execute()
         } catch {
             try? await app.asyncShutdown()
