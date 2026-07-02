@@ -92,6 +92,9 @@ extension BuildPlan {
                         library.headersPaths.forEach {
                             swiftTarget.additionalFlags += ["-I", $0.pathString, "-Xcc", "-I", "-Xcc", $0.pathString]
                         }
+                        if library.libraryPath.extension == "framework", swiftTarget.buildParameters.triple.isDarwin() {
+                            swiftTarget.frameworkSearchPaths.insert(library.libraryPath.parentDirectory)
+                        }
                         swiftTarget.libraryBinaryPaths.insert(library.libraryPath)
                     }
                 }

@@ -172,6 +172,9 @@ public final class SwiftModuleBuildDescription {
     /// over to the build output directory so executables that use them can find them.
     var windowsDLLBinaryPaths: Set<AbsolutePath> = []
 
+    /// Paths to search when importing binary frameworks.
+    var frameworkSearchPaths: Set<AbsolutePath> = []
+
     /// Any addition flags to be added. These flags are expected to be computed during build planning.
     var additionalFlags: [String] = []
 
@@ -561,10 +564,7 @@ public final class SwiftModuleBuildDescription {
             args += ["-static"]
         }
 
-        // Only add the build path to the framework search path if there are binary frameworks to link against.
-        if !self.libraryBinaryPaths.isEmpty {
-            args += ["-F", BuildOperation.buildProductsPath(for: self.buildParameters).pathString]
-        }
+        args += self.frameworkSearchPathArguments()
 
         // Emit the ObjC compatibility header if enabled.
         if self.shouldEmitObjCCompatibilityHeader {
@@ -696,6 +696,8 @@ public final class SwiftModuleBuildDescription {
         // Include search paths for swift module dependencies.
         args += ["-I", self.modulesPath.pathString]
 
+        args += self.frameworkSearchPathArguments()
+
         // FIXME: Only include valid args
         // This condition should instead only include args which are known to be
         // compatible instead of filtering out specific unknown args.
@@ -704,6 +706,17 @@ public final class SwiftModuleBuildDescription {
         // will silently error failing the operation.
         args = args.filter { !$0.starts(with: "-use-ld=") }
         return args
+    }
+
+    private func frameworkSearchPathArguments() -> [String] {
+        var frameworkSearchPaths = self.frameworkSearchPaths
+        if !self.libraryBinaryPaths.isEmpty {
+            frameworkSearchPaths.insert(BuildOperation.buildProductsPath(for: self.buildParameters))
+        }
+
+        return frameworkSearchPaths.map(\.pathString).sorted().flatMap {
+            ["-F", $0, "-Xcc", "-F", "-Xcc", $0]
+        }
     }
 
     // FIXME: this function should operation on a strongly typed buildSetting
