@@ -13,7 +13,7 @@
 import Dispatch
 import Foundation
 
-import protocol TSCBasic.WritableByteStream
+@preconcurrency import protocol TSCBasic.WritableByteStream
 import struct TSCBasic.Diagnostic
 import protocol TSCBasic.DiagnosticData
 import protocol TSCBasic.DiagnosticLocation
@@ -59,7 +59,7 @@ public class ObservabilitySystem {
         var diagnosticsHandler: DiagnosticsHandler { self }
 
         let underlying: @Sendable (ObservabilityScope, Diagnostic) -> Void
-        let outputStream: (any WritableByteStream)?
+        nonisolated(unsafe) let outputStream: (any WritableByteStream)?
         let logLevel: Diagnostic.Severity
 
         init(
