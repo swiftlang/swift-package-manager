@@ -55,14 +55,13 @@ private struct GitShellHelper {
             environment: environment,
             outputRedirection: outputRedirection
         )
-        let result: AsyncProcessResult
         do {
             guard let terminationKey = self.cancellator.register(process) else {
                 throw CancellationError() // terminating
             }
             defer { self.cancellator.deregister(terminationKey) }
             try process.launch()
-            result = try process.waitUntilExit()
+            let result = try process.waitUntilExit()
             guard result.exitStatus == .terminated(code: 0) else {
                 throw GitShellError(result: result)
             }
@@ -73,6 +72,46 @@ private struct GitShellHelper {
             throw error
         } catch {
             // Handle a failure to even launch the Git tool by synthesizing a result that we can wrap an error around.
+            let result = AsyncProcessResult(
+                arguments: process.arguments,
+                environment: process.environment,
+                exitStatus: .terminated(code: -1),
+                output: .failure(error),
+                stderrOutput: .failure(error)
+            )
+            throw GitShellError(result: result)
+        }
+    }
+
+    /// Async variant of `run` that does not block the calling cooperative
+    /// thread while waiting for the subprocess to finish.
+    func run(
+        _ args: [String],
+        environment: Environment = .init(Git.environmentBlock),
+        outputRedirection: AsyncProcess.OutputRedirection = .collect
+    ) async throws -> String {
+        let arguments = gitNetworkTimeoutOverrides(environment: environment) + args
+        let process = AsyncProcess(
+            arguments: [Git.tool] + arguments,
+            environment: environment,
+            outputRedirection: outputRedirection
+        )
+        do {
+            guard let terminationKey = self.cancellator.register(process) else {
+                throw CancellationError()
+            }
+            defer { self.cancellator.deregister(terminationKey) }
+            try process.launch()
+            let result = try await process.waitUntilExit()
+            guard result.exitStatus == .terminated(code: 0) else {
+                throw GitShellError(result: result)
+            }
+            return try result.utf8Output().spm_chomp()
+        } catch let error as CancellationError {
+            throw error
+        } catch let error as GitShellError {
+            throw error
+        } catch {
             let result = AsyncProcessResult(
                 arguments: process.arguments,
                 environment: process.environment,
@@ -230,14 +269,18 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         progress: FetchProgress.Handler? = nil
     ) throws -> String {
         if let progress {
-            var stdoutBytes: [UInt8] = [], stderrBytes: [UInt8] = []
+            let stdoutBytes = ThreadSafeArrayStore<UInt8>()
+            let stderrBytes = ThreadSafeArrayStore<UInt8>()
             do {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
                 // handler. We count on it being line-buffered.
-                let outputHandler = AsyncProcess.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
-                    stderrBytes += $0
-                    gitFetchStatusFilter($0, progress: progress)
-                })
+                let outputHandler = AsyncProcess.OutputRedirection.stream(
+                    stdout: { stdoutBytes.append(contentsOf: $0) },
+                    stderr: {
+                        stderrBytes.append(contentsOf: $0)
+                        gitFetchStatusFilter($0, progress: progress)
+                    }
+                )
                 return try self.git.run(
                     args + ["--progress"],
                     environment: environment,
@@ -248,10 +291,14 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
                     arguments: error.result.arguments,
                     environment: error.result.environment,
                     exitStatus: error.result.exitStatus,
-                    output: .success(stdoutBytes),
-                    stderrOutput: .success(stderrBytes)
+                    output: .success(stdoutBytes.get()),
+                    stderrOutput: .success(stderrBytes.get())
                 )
-                throw GitCloneError(repository: repository, message: failureMessage, result: result)
+                throw GitCloneError(
+                    repository: repository,
+                    message: failureMessage,
+                    result: result
+                )
             }
         } else {
             do {
@@ -410,7 +457,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             // Set the original remote to the new clone.
             try clone.setURL(remote: origin, url: repository.location.gitURL)
             // FIXME: This is unfortunate that we have to fetch to update remote's data.
-            try clone.fetch()
+            try await clone.fetch()
         } else {
             // Clone using a shared object store with the canonical copy.
             //
@@ -561,8 +608,12 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// Concurrent queue to execute git cli on.
     private let git: GitShellHelper
 
-    // lock top protect concurrent modifications to the repository
+    // lock to protect concurrent modifications to the repository
     private let lock = NSLock()
+
+    /// Serializes async git operations on this repository. NSLock can't be
+    /// held across `await`, so async methods use this serial queue instead.
+    private let asyncQueue = AsyncOperationQueue(concurrentTasks: 1)
 
     /// If this repo is a work tree repo (checkout) as opposed to a bare repo.
     private let isWorkingRepo: Bool
@@ -599,9 +650,46 @@ public final class GitRepository: Repository, WorkingCheckout {
         gitLocationArguments(self.path.pathString, bare: !self.isWorkingRepo)
     }
 
-    /// Private function to invoke the Git tool with its default environment and given set of arguments, specifying the
-    /// path of the repository as the one to operate on.  The specified failure message is used only in case of error.
-    /// This function waits for the invocation to finish and returns the output as a string.
+    // Captures stdout/stderr so a streamed (progress) invocation can still build a full
+    // AsyncProcessResult on failure. Returns the redirection and the byte stores it writes to.
+    private func progressRedirection(
+        _ progress: @escaping FetchProgress.Handler
+    ) -> (AsyncProcess.OutputRedirection, stdout: ThreadSafeArrayStore<UInt8>, stderr: ThreadSafeArrayStore<UInt8>) {
+        let stdoutBytes = ThreadSafeArrayStore<UInt8>()
+        let stderrBytes = ThreadSafeArrayStore<UInt8>()
+        // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr
+        // to the handler. We count on it being line-buffered.
+        let handler = AsyncProcess.OutputRedirection.stream(
+            stdout: { stdoutBytes.append(contentsOf: $0) },
+            stderr: {
+                stderrBytes.append(contentsOf: $0)
+                gitFetchStatusFilter($0, progress: progress)
+            }
+        )
+        return (handler, stdoutBytes, stderrBytes)
+    }
+
+    // Wraps a GitShellError as a GitRepositoryError, reconstructing the result from streamed bytes
+    // when the invocation was capturing progress.
+    private func gitRepositoryError(
+        _ error: GitShellError,
+        failureMessage: String,
+        stdout: ThreadSafeArrayStore<UInt8>? = nil,
+        stderr: ThreadSafeArrayStore<UInt8>? = nil
+    ) -> GitRepositoryError {
+        guard let stdout, let stderr else {
+            return GitRepositoryError(path: self.path, message: failureMessage, result: error.result)
+        }
+        let result = AsyncProcessResult(
+            arguments: error.result.arguments,
+            environment: error.result.environment,
+            exitStatus: error.result.exitStatus,
+            output: .success(stdout.get()),
+            stderrOutput: .success(stderr.get())
+        )
+        return GitRepositoryError(path: self.path, message: failureMessage, result: result)
+    }
+
     @discardableResult
     private func callGit(
         _ args: String...,
@@ -610,33 +698,40 @@ public final class GitRepository: Repository, WorkingCheckout {
         progress: FetchProgress.Handler? = nil
     ) throws -> String {
         if let progress {
-            var stdoutBytes: [UInt8] = [], stderrBytes: [UInt8] = []
+            let (handler, out, err) = self.progressRedirection(progress)
             do {
-                // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
-                // handler. We count on it being line-buffered.
-                let outputHandler = AsyncProcess.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
-                    stderrBytes += $0
-                    gitFetchStatusFilter($0, progress: progress)
-                })
-                return try self.git.run(
-                    self.repositoryLocationArguments + args,
-                    environment: environment,
-                    outputRedirection: outputHandler
-                )
+                return try self.git.run(self.repositoryLocationArguments + args, environment: environment, outputRedirection: handler)
             } catch let error as GitShellError {
-                let result = AsyncProcessResult(
-                    arguments: error.result.arguments,
-                    environment: error.result.environment,
-                    exitStatus: error.result.exitStatus,
-                    output: .success(stdoutBytes),
-                    stderrOutput: .success(stderrBytes))
-                throw GitRepositoryError(path: self.path, message: failureMessage, result: result)
+                throw self.gitRepositoryError(error, failureMessage: failureMessage, stdout: out, stderr: err)
             }
         } else {
             do {
                 return try self.git.run(self.repositoryLocationArguments + args, environment: environment)
             } catch let error as GitShellError {
-                throw GitRepositoryError(path: self.path, message: failureMessage, result: error.result)
+                throw self.gitRepositoryError(error, failureMessage: failureMessage)
+            }
+        }
+    }
+
+    @discardableResult
+    private func callGit(
+        _ args: String...,
+        environment: Environment = .init(Git.environmentBlock),
+        failureMessage: String = "",
+        progress: FetchProgress.Handler? = nil
+    ) async throws -> String {
+        if let progress {
+            let (handler, out, err) = self.progressRedirection(progress)
+            do {
+                return try await self.git.run(self.repositoryLocationArguments + args, environment: environment, outputRedirection: handler)
+            } catch let error as GitShellError {
+                throw self.gitRepositoryError(error, failureMessage: failureMessage, stdout: out, stderr: err)
+            }
+        } else {
+            do {
+                return try await self.git.run(self.repositoryLocationArguments + args, environment: environment)
+            } catch let error as GitShellError {
+                throw self.gitRepositoryError(error, failureMessage: failureMessage)
             }
         }
     }
@@ -752,6 +847,10 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
     }
 
+    public func getTags() async throws -> [String] {
+        try await asyncQueue.withOperation { try self.getTags() }
+    }
+
     public func resolveRevision(tag: String) throws -> Revision {
         try Revision(identifier: self.resolveHash(treeish: tag, type: "commit").bytes.description)
     }
@@ -781,6 +880,22 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
     }
 
+    public func fetch(progress: FetchProgress.Handler? = nil) async throws {
+        try await asyncQueue.withOperation {
+            try await self.callGit(
+                "remote",
+                "-v",
+                "update",
+                "-p",
+                failureMessage: "Couldn’t fetch updates from remote repositories",
+                progress: progress
+            )
+            self.cachedTags.clear()
+            self.cachedHasLFS.clear()
+            try self.fetchLFSIfNecessaryWithoutLock()
+        }
+    }
+
     public func hasUncommittedChanges() -> Bool {
         // Only a working repository can have changes.
         guard self.isWorkingRepo else { return false }
@@ -790,6 +905,10 @@ public final class GitRepository: Repository, WorkingCheckout {
             }
             return !result.isEmpty
         }
+    }
+
+    public func hasUncommittedChanges() async throws -> Bool {
+        try await asyncQueue.withOperation { self.hasUncommittedChanges() }
     }
 
     public func openFileView(revision: Revision) throws -> FileSystem {
@@ -826,9 +945,13 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
     }
 
-    public func getCurrentTag() -> String? {
-        self.lock.withLock {
-            try? callGit(
+    public func getCurrentRevision() async throws -> Revision {
+        try await asyncQueue.withOperation { try self.getCurrentRevision() }
+    }
+
+    public func getCurrentTag() async throws -> String? {
+        try await asyncQueue.withOperation {
+            try? await self.callGit(
                 "describe",
                 "--exact-match",
                 "--tags",
@@ -915,6 +1038,10 @@ public final class GitRepository: Repository, WorkingCheckout {
                 return false
             }
         }
+    }
+
+    func hasLFSTrackedFiles() async throws -> Bool {
+        try await asyncQueue.withOperation { try self.hasLFSTrackedFiles() }
     }
 
     /// Clears the cached LFS detection result

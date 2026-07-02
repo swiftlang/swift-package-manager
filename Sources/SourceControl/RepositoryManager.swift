@@ -139,6 +139,7 @@ public class RepositoryManager: Cancellable {
                 let lookupID = UUID()
                 let inFlight = self.pendingLookups[repositorySpecifier]?.task
 
+                // Serialize lookups per repository, but each caller runs its own `performLookup` to honor its own `updateStrategy`.
                 let lookupTask = Task { () throws -> RepositoryManager.RepositoryHandle in
                     defer { self.removePendingLookup(for: repositorySpecifier, id: lookupID) }
 
@@ -198,10 +199,10 @@ public class RepositoryManager: Cancellable {
         // check if a repository already exists
         // errors when trying to check if a repository already exists are legitimate
         // and recoverable, and as such can be ignored
-        quick: if (try? self.provider.isValidDirectory(repositoryPath)) ?? false {
+        quick: if (try? self.isValidDirectory(repositoryPath)) ?? false {
             let repository = try await handle.open()
 
-            guard ((try? self.provider.isValidDirectory(repositoryPath, for: repositorySpecifier)) ?? false) else {
+            guard (try? self.isValidDirectory(repositoryPath, for: repositorySpecifier)) ?? false else {
                 observabilityScope.emit(warning: "\(repositoryPath) is not valid git repository for '\(repositorySpecifier.location)', will fetch again.")
                 break quick
             }
@@ -214,7 +215,7 @@ public class RepositoryManager: Cancellable {
                     await delegate?.willUpdate(package: package, repository: handle.repository)
                 }
 
-                try repository.fetch()
+                try await self.fetchAsync(repository)
                 let duration = start.distance(to: .now())
                 Task {
                     await delegate?.didUpdate(package: package, repository: handle.repository, duration: duration)
@@ -319,7 +320,7 @@ public class RepositoryManager: Cancellable {
                         if (self.fileSystem.exists(cachedRepositoryPath)) {
                             let repo = try await self.provider.open(repository: handle.repository, at: cachedRepositoryPath)
                             if self.fetchRequired(repository: repo, updateStrategy: updateStrategy) {
-                                try repo.fetch(progress: updateFetchProgress(progress:))
+                                try await self.fetchAsync(repo, progress: updateFetchProgress(progress:))
                             }
                             cacheUsed = true
                         } else {
@@ -383,6 +384,14 @@ public class RepositoryManager: Cancellable {
             return true
         case .ifNeeded(let revision):
             return !repository.exists(revision: revision)
+        }
+    }
+
+    private func fetchAsync(_ repository: Repository, progress: FetchProgress.Handler? = nil) async throws {
+        if let gitRepo = repository as? GitRepository {
+            try await gitRepo.fetch(progress: progress)
+        } else {
+            try repository.fetch(progress: progress)
         }
     }
 
