@@ -45,9 +45,7 @@ import Vapor
 ///
 /// Every generated response sets `Content-Type: application/problem+json`,
 /// `Content-Language: en`, and `Content-Version: 1`, matching the headers
-/// prescribed by the specification. If JSON encoding of the problem itself
-/// fails, a minimal hand-written JSON body is returned as a last-resort
-/// fallback so that the client always receives a well-formed body.
+/// prescribed by the specification.
 ///
 /// When the originating request used the `HEAD` method, the response body is
 /// cleared before returning, matching the semantics enforced by
@@ -68,17 +66,18 @@ public struct ProblemErrorMiddleware: AsyncMiddleware {
     ///   - next: The responder whose errors should be translated into problem
     ///     detail responses.
     /// - Returns: The response produced by `next` on success, or a problem
-    ///   detail response describing the error on failure. This method does
-    ///   not rethrow; errors are always materialized as responses.
+    ///   detail response describing the error on failure.
+    /// - Throws: Only if encoding the problem detail itself fails, which is
+    ///   not expected for the fixed ``ProblemDetails`` shape.
     public func respond(to request: Request, chainingTo next: any AsyncResponder) async throws -> Response {
         do {
             return try await next.respond(to: request)
         } catch {
-            return makeResponse(for: error, request: request)
+            return try makeResponse(for: error, request: request)
         }
     }
 
-    private func makeResponse(for error: any Error, request: Request) -> Response {
+    private func makeResponse(for error: any Error, request: Request) throws -> Response {
         let problem: ProblemDetails
         switch error {
         case let p as ProblemDetails:
@@ -96,12 +95,7 @@ public struct ProblemErrorMiddleware: AsyncMiddleware {
         response.headers.replaceOrAdd(name: .contentType, value: "application/problem+json")
         response.headers.replaceOrAdd(name: .contentLanguage, value: "en")
         response.headers.replaceOrAdd(name: "Content-Version", value: "1")
-        do {
-            let data = try JSONEncoder().encode(problem)
-            response.body = .init(data: data)
-        } catch {
-            response.body = .init(string: "{\"status\":\(problem.status.code),\"detail\":\"internal server error\"}")
-        }
+        response.body = .init(data: try JSONEncoder.registry.encode(problem))
         if request.method == .HEAD {
             response.body = .empty
         }
