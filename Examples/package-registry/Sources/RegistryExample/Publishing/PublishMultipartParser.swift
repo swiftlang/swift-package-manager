@@ -13,6 +13,7 @@
 import Foundation
 import MultipartKit
 import NIOCore
+import Vapor
 
 /// A single part of a parsed `multipart/form-data` publish request body.
 ///
@@ -89,35 +90,18 @@ enum PublishMultipartParser {
     }
 
     private static func extractBoundary(from contentType: String) -> String? {
-        for rawPart in contentType.split(separator: ";") {
-            let part = rawPart.trimmingCharacters(in: .whitespaces)
-            guard part.lowercased().hasPrefix("boundary=") else { continue }
-            var value = String(part.dropFirst("boundary=".count))
-            if value.hasPrefix("\"") && value.hasSuffix("\"") && value.count >= 2 {
-                value = String(value.dropFirst().dropLast())
-            }
-            return value
-        }
-        return nil
+        var headers = HTTPHeaders()
+        headers.replaceOrAdd(name: .contentType, value: contentType)
+        return headers.contentType?.parameters["boundary"]
     }
 
     private final class Collector {
         var parts: [ParsedMultipartPart] = []
-        private var name: String?
-        private var contentType: String?
-        private var filename: String?
+        private var headers = HTTPHeaders()
         private var body = Data()
 
         lazy var onHeader: (String, String) -> Void = { [weak self] name, value in
-            guard let self else { return }
-            let lower = name.lowercased()
-            if lower == "content-disposition" {
-                let (n, f) = Self.parseContentDisposition(value)
-                self.name = n
-                self.filename = f
-            } else if lower == "content-type" {
-                self.contentType = value
-            }
+            self?.headers.add(name: name, value: value)
         }
 
         lazy var onBody: (inout ByteBuffer) -> Void = { [weak self] buffer in
@@ -127,42 +111,23 @@ enum PublishMultipartParser {
         }
 
         lazy var onPartComplete: () -> Void = { [weak self] in
-            guard let self, let name = self.name else {
-                self?.reset()
+            guard let self else { return }
+            guard let disposition = self.headers.contentDisposition, let name = disposition.name else {
+                self.reset()
                 return
             }
             self.parts.append(ParsedMultipartPart(
                 name: name,
-                contentType: self.contentType,
-                filename: self.filename,
+                contentType: self.headers.first(name: .contentType),
+                filename: disposition.filename,
                 data: self.body
             ))
             self.reset()
         }
 
         private func reset() {
-            name = nil
-            contentType = nil
-            filename = nil
+            headers = HTTPHeaders()
             body = Data()
-        }
-
-        private static func parseContentDisposition(_ value: String) -> (String?, String?) {
-            var name: String?
-            var filename: String?
-            for rawPart in value.split(separator: ";") {
-                let part = rawPart.trimmingCharacters(in: .whitespaces)
-                if let eq = part.firstIndex(of: "=") {
-                    let key = part[..<eq].lowercased()
-                    var val = String(part[part.index(after: eq)...])
-                    if val.hasPrefix("\"") && val.hasSuffix("\"") && val.count >= 2 {
-                        val = String(val.dropFirst().dropLast())
-                    }
-                    if key == "name" { name = val }
-                    if key == "filename" { filename = val }
-                }
-            }
-            return (name, filename)
         }
     }
 }
