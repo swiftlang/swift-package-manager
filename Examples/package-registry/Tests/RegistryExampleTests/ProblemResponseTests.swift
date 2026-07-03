@@ -46,7 +46,7 @@ struct ProblemResponseTests {
 
     @Test func `successful responses also carry Content-Version: 1`() async throws {
         try await withRegistryApp { app in
-            try await app.testing().test(.GET, "/healthz") { res async in
+            try await app.testing().test(.GET, "/availability") { res async in
                 #expect(res.status == .ok)
                 #expect(res.headers.first(name: "Content-Version") == "1")
             }

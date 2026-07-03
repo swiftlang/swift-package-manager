@@ -19,7 +19,7 @@ import VaporTesting
 struct AcceptVersionTests {
     @Test func `missing Accept header is accepted`() async throws {
         try await withRegistryApp { app in
-            try await app.testing().test(.GET, "/healthz") { res async in
+            try await app.testing().test(.GET, "/availability") { res async in
                 #expect(res.status == .ok)
             }
         }
@@ -29,7 +29,7 @@ struct AcceptVersionTests {
         try await withRegistryApp { app in
             var headers = HTTPHeaders()
             headers.replaceOrAdd(name: .accept, value: "application/vnd.swift.registry.v1+json")
-            try await app.testing().test(.GET, "/healthz", headers: headers) { res async in
+            try await app.testing().test(.GET, "/availability", headers: headers) { res async in
                 #expect(res.status == .ok)
             }
         }
@@ -39,7 +39,7 @@ struct AcceptVersionTests {
         try await withRegistryApp { app in
             var headers = HTTPHeaders()
             headers.replaceOrAdd(name: .accept, value: "application/vnd.swift.registry+json")
-            try await app.testing().test(.GET, "/healthz", headers: headers) { res async in
+            try await app.testing().test(.GET, "/availability", headers: headers) { res async in
                 #expect(res.status == .ok)
             }
         }
@@ -49,7 +49,7 @@ struct AcceptVersionTests {
         try await withRegistryApp { app in
             var headers = HTTPHeaders()
             headers.replaceOrAdd(name: .accept, value: "application/vnd.swift.registry.v2+json")
-            try await app.testing().test(.GET, "/healthz", headers: headers) { res async in
+            try await app.testing().test(.GET, "/availability", headers: headers) { res async in
                 #expect(res.status == .unsupportedMediaType)
                 #expect(res.headers.first(name: .contentType) == "application/problem+json")
                 #expect(res.body.string.contains("unsupported API version: 2"))
@@ -61,7 +61,7 @@ struct AcceptVersionTests {
         try await withRegistryApp { app in
             var headers = HTTPHeaders()
             headers.replaceOrAdd(name: .accept, value: "application/vnd.swift.registry.vFOO+json")
-            try await app.testing().test(.GET, "/healthz", headers: headers) { res async in
+            try await app.testing().test(.GET, "/availability", headers: headers) { res async in
                 #expect(res.status == .badRequest)
                 #expect(res.headers.first(name: .contentType) == "application/problem+json")
                 #expect(res.body.string.contains("invalid API version: foo"))
@@ -73,7 +73,7 @@ struct AcceptVersionTests {
         try await withRegistryApp { app in
             var headers = HTTPHeaders()
             headers.replaceOrAdd(name: .accept, value: "application/json")
-            try await app.testing().test(.GET, "/healthz", headers: headers) { res async in
+            try await app.testing().test(.GET, "/availability", headers: headers) { res async in
                 #expect(res.status == .ok)
             }
         }
@@ -86,7 +86,7 @@ struct AcceptVersionTests {
                 name: .accept,
                 value: "*/*, application/vnd.swift.registry.v2+json"
             )
-            try await app.testing().test(.GET, "/healthz", headers: headers) { res async in
+            try await app.testing().test(.GET, "/availability", headers: headers) { res async in
                 #expect(res.status == .unsupportedMediaType)
             }
         }
@@ -95,9 +95,9 @@ struct AcceptVersionTests {
 
 @Suite("HEAD request handling")
 struct HeadRequestTests {
-    @Test func `HEAD /healthz returns 200 with no body`() async throws {
+    @Test func `HEAD /availability returns 200 with no body`() async throws {
         try await withRegistryApp { app in
-            try await app.testing().test(.HEAD, "/healthz") { res async in
+            try await app.testing().test(.HEAD, "/availability") { res async in
                 #expect(res.status == .ok)
                 #expect(res.body.readableBytes == 0)
                 #expect(res.headers.first(name: "Content-Version") == "1")
@@ -118,7 +118,7 @@ struct HeadRequestTests {
         try await withRegistryApp { app in
             var headers = HTTPHeaders()
             headers.replaceOrAdd(name: .accept, value: "application/vnd.swift.registry.v2+json")
-            try await app.testing().test(.HEAD, "/healthz", headers: headers) { res async in
+            try await app.testing().test(.HEAD, "/availability", headers: headers) { res async in
                 #expect(res.status == .unsupportedMediaType)
                 #expect(res.body.readableBytes == 0)
             }

@@ -23,10 +23,6 @@ public func configure(_ app: Application) async throws {
 
     try configureTLS(app)
 
-    app.get("healthz") { _ async -> String in
-        "ok"
-    }
-
     let store = app.registryStore
     AvailabilityRoutes().register(app)
     IdentifiersRoutes(store: store).register(app)
