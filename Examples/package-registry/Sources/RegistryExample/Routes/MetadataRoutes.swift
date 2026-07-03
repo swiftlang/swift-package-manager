@@ -313,11 +313,14 @@ public struct MetadataRoutes: Sendable {
     }
 
     private func extractToolsVersion(from manifest: String) -> String? {
-        guard let firstLine = manifest.split(separator: "\n").first else { return nil }
-        let prefix = "// swift-tools-version:"
-        guard let range = firstLine.range(of: prefix) else { return nil }
-        let value = firstLine[range.upperBound...].trimmingCharacters(in: .whitespaces)
-        return value.isEmpty ? nil : value
+        // SwiftPM expects the tools-version spec on the manifest's first non-blank
+        // line; only a version >= 6.0 can sit on a later line, below license or
+        // comment headers. We're looser: we take the first line carrying the spec,
+        // any version, since the value only feeds an advisory Link-header attribute.
+        let pattern = /^[ \t]*\/\/[ \t]*swift-tools-version[ \t]*:[ \t]*(?<version>[^;\s]+)/
+            .anchorsMatchLineEndings()
+            .ignoresCase()
+        return manifest.firstMatch(of: pattern).map { String($0.output.version) }
     }
 
     private func base64Digest(of data: Data) -> String {

@@ -307,6 +307,40 @@ struct MetadataRouteTests {
         }
     }
 
+    @Test func `alternate link reads tools-version from below a license header`() async throws {
+        try await withRegistryApp { app in
+            let licensedManifest = """
+            // Copyright (c) 2026 Apple Inc. and the Swift project authors
+            // Licensed under Apache License v2.0
+            // swift-tools-version:6.0
+            import PackageDescription
+            let package = Package(name: "HelloWorld")
+            """
+            let entries: [String: String] = [
+                "HelloWorld-1.0.0/Package.swift": "// swift-tools-version:5.9\nimport PackageDescription\nlet package = Package(name: \"HelloWorld\")",
+                "HelloWorld-1.0.0/Package@swift-5.10.swift": licensedManifest,
+            ]
+            let zip = try makeZip(entries: entries)
+            try await app.testing().test(
+                .PUT,
+                "/exampleregistry/HelloWorld/1.0.0",
+                headers: publishHeaders(),
+                body: publishMultipartBody(zip: zip, metadata: nil)
+            ) { res async in #expect(res.status == .created) }
+
+            try await app.testing().test(
+                .GET,
+                "/exampleregistry/HelloWorld/1.0.0/Package.swift",
+                headers: acceptSwift
+            ) { res async in
+                #expect(res.status == .ok)
+                let link = res.headers.first(name: .link) ?? ""
+                #expect(link.contains("Package@swift-5.10.swift"))
+                #expect(link.contains("swift-tools-version=\"6.0\""))
+            }
+        }
+    }
+
     @Test func `author with nested organization round-trips through publish and release info`() async throws {
         try await withRegistryApp { app in
             let metadata = """
