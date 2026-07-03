@@ -39,7 +39,7 @@ import Vapor
 ///   case.
 public struct AcceptVersionMiddleware: AsyncMiddleware {
     private static let supportedVersion = 1
-    private static let registryPrefix = "application/vnd.swift.registry"
+    private static let registrySubTypePrefix = "vnd.swift.registry"
 
     /// Creates a new `AcceptVersionMiddleware`.
     public init() {}
@@ -58,28 +58,29 @@ public struct AcceptVersionMiddleware: AsyncMiddleware {
     ///   ``ProblemDetails/unsupportedMediaType(_:)`` with `"unsupported API
     ///   version"` if the requested version is not supported by this server.
     public func respond(to request: Request, chainingTo next: any AsyncResponder) async throws -> Response {
-        if let accept = request.headers.first(name: .accept) {
-            try validateAccept(accept)
-        }
+        try validateAccept(request.headers.accept)
         return try await next.respond(to: request)
     }
 
-    private func validateAccept(_ accept: String) throws {
-        for rawEntry in accept.split(separator: ",") {
-            let entry = rawEntry.prefix(while: { $0 != ";" }).trimmingCharacters(in: .whitespaces)
-            let lowered = entry.lowercased()
-            guard lowered.hasPrefix(Self.registryPrefix) else { continue }
-            let remainder = lowered.dropFirst(Self.registryPrefix.count)
-            guard remainder.hasPrefix(".v") else { return }
-            let afterV = remainder.dropFirst(2)
-            let versionChars = afterV.prefix(while: { $0 != "+" })
-            guard !versionChars.isEmpty, versionChars.allSatisfy(\.isNumber),
-                  let version = Int(versionChars)
-            else {
-                throw ProblemDetails.badRequest("invalid API version")
+    private func validateAccept(_ preferences: [HTTPMediaTypePreference]) throws {
+        // Matches a registry vendor subtype, capturing the optional API version
+        // token (validated numerically below); the version and media-type suffix
+        // are both optional per §3.5, e.g. `vnd.swift.registry.v1+json`.
+        let subTypePattern = /vnd\.swift\.registry(?:\.v(?<version>[^+]*))?(?:\+.*)?/
+        for preference in preferences {
+            let mediaType = preference.mediaType
+            guard mediaType.type.caseInsensitiveCompare("application") == .orderedSame else { continue }
+            let subType = mediaType.subType.lowercased()
+            guard subType.hasPrefix(Self.registrySubTypePrefix) else { continue }
+            guard let match = subType.wholeMatch(of: subTypePattern) else {
+                throw ProblemDetails.badRequest("invalid registry media type: \(subType)")
             }
-            if version != Self.supportedVersion {
-                throw ProblemDetails.unsupportedMediaType("unsupported API version")
+            guard let versionText = match.output.version else { return }
+            guard let version = Int(versionText) else {
+                throw ProblemDetails.badRequest("invalid API version: \(versionText)")
+            }
+            guard version == Self.supportedVersion else {
+                throw ProblemDetails.unsupportedMediaType("unsupported API version: \(versionText)")
             }
             return
         }

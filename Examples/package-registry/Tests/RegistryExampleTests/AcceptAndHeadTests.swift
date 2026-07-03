@@ -52,6 +52,7 @@ struct AcceptVersionTests {
             try await app.testing().test(.GET, "/healthz", headers: headers) { res async in
                 #expect(res.status == .unsupportedMediaType)
                 #expect(res.headers.first(name: .contentType) == "application/problem+json")
+                #expect(res.body.string.contains("unsupported API version: 2"))
             }
         }
     }
@@ -63,6 +64,7 @@ struct AcceptVersionTests {
             try await app.testing().test(.GET, "/healthz", headers: headers) { res async in
                 #expect(res.status == .badRequest)
                 #expect(res.headers.first(name: .contentType) == "application/problem+json")
+                #expect(res.body.string.contains("invalid API version: foo"))
             }
         }
     }
@@ -73,6 +75,19 @@ struct AcceptVersionTests {
             headers.replaceOrAdd(name: .accept, value: "application/json")
             try await app.testing().test(.GET, "/healthz", headers: headers) { res async in
                 #expect(res.status == .ok)
+            }
+        }
+    }
+
+    @Test func `registry entry is validated even when listed after other media types`() async throws {
+        try await withRegistryApp { app in
+            var headers = HTTPHeaders()
+            headers.replaceOrAdd(
+                name: .accept,
+                value: "*/*, application/vnd.swift.registry.v2+json"
+            )
+            try await app.testing().test(.GET, "/healthz", headers: headers) { res async in
+                #expect(res.status == .unsupportedMediaType)
             }
         }
     }
