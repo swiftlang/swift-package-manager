@@ -225,16 +225,12 @@ public struct MetadataRoutes: Sendable {
             throw ProblemDetails.notFound("release not found")
         }
         let response = Response(status: .ok, body: .init(data: release.sourceArchive))
-        response.headers.replaceOrAdd(name: .contentType, value: "application/zip")
-        let filename = "\(identifier.name)-\(version).zip"
+        response.headers.contentType = .zip
+        response.headers.contentDisposition = .init(.attachment, filename: "\(identifier.name)-\(version).zip")
+        response.headers.replaceOrAdd(name: .acceptRanges, value: "bytes")
+        response.headers.cacheControl = .init(isPublic: true, immutable: true)
         response.headers.replaceOrAdd(
-            name: .contentDisposition,
-            value: "attachment; filename=\"\(filename)\""
-        )
-        response.headers.replaceOrAdd(name: "Accept-Ranges", value: "bytes")
-        response.headers.replaceOrAdd(name: .cacheControl, value: "public, immutable")
-        response.headers.replaceOrAdd(
-            name: "Digest",
+            name: .digest,
             value: "sha-256=\(base64Digest(of: release.sourceArchive))"
         )
         if let sig = release.sourceArchiveSignature, let format = release.signatureFormat {
@@ -259,22 +255,15 @@ public struct MetadataRoutes: Sendable {
         }
         let swiftVersion = (try? req.query.get(String.self, at: "swift-version")) ?? ""
         guard let contents = release.manifests[swiftVersion] else {
-            let baseURL = req.baseURL
-            let response = Response(status: .seeOther)
-            response.headers.replaceOrAdd(
-                name: .location,
-                value: "\(baseURL)/\(identifier.scope)/\(identifier.name)/\(version)/Package.swift"
+            return req.redirect(
+                to: "\(req.baseURL)/\(identifier.scope)/\(identifier.name)/\(version)/Package.swift"
             )
-            return response
         }
         let filename = swiftVersion.isEmpty ? "Package.swift" : "Package@swift-\(swiftVersion).swift"
         let response = Response(status: .ok, body: .init(string: contents))
-        response.headers.replaceOrAdd(name: .contentType, value: "text/x-swift")
-        response.headers.replaceOrAdd(
-            name: .contentDisposition,
-            value: "attachment; filename=\"\(filename)\""
-        )
-        response.headers.replaceOrAdd(name: .cacheControl, value: "public, immutable")
+        response.headers.contentType = HTTPMediaType(type: "text", subType: "x-swift")
+        response.headers.contentDisposition = .init(.attachment, filename: filename)
+        response.headers.cacheControl = .init(isPublic: true, immutable: true)
 
         let baseURL = req.baseURL
         let alternateLinks = release.manifests
@@ -319,7 +308,7 @@ public struct MetadataRoutes: Sendable {
         encoder.outputFormatting = [.withoutEscapingSlashes]
         let data = try encoder.encode(body)
         let response = Response(status: .ok, body: .init(data: data))
-        response.headers.replaceOrAdd(name: .contentType, value: "application/json")
+        response.headers.contentType = .json
         return response
     }
 

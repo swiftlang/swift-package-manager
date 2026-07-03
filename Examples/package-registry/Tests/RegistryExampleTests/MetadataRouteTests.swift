@@ -28,7 +28,7 @@ struct MetadataRouteTests {
                 .GET, "/exampleregistry/HelloWorld", headers: acceptJSON
             ) { res async in
                 #expect(res.status == .ok)
-                #expect(res.headers.first(name: .contentType) == "application/json")
+                #expect(res.headers.contentType == .json)
                 #expect(res.headers.first(name: "Content-Version") == "1")
                 let link = res.headers.first(name: .link) ?? ""
                 #expect(link.contains("rel=\"latest-version\""))
@@ -168,7 +168,7 @@ struct MetadataRouteTests {
                 headers: acceptSwift
             ) { res async in
                 #expect(res.status == .ok)
-                #expect(res.headers.first(name: .contentType) == "text/x-swift")
+                #expect(res.headers.contentType == HTTPMediaType(type: "text", subType: "x-swift"))
                 #expect(res.body.string.contains("swift-tools-version:5.9"))
                 let disposition = res.headers.first(name: .contentDisposition) ?? ""
                 #expect(disposition.contains("Package.swift"))
@@ -206,6 +206,8 @@ struct MetadataRouteTests {
                     res.headers.first(name: .location)?
                         .hasSuffix("/exampleregistry/HelloWorld/1.0.0/Package.swift") == true
                 )
+                #expect(res.headers.first(name: .contentType) != "application/problem+json")
+                #expect(res.body.string.isEmpty)
             }
         }
     }
@@ -219,7 +221,7 @@ struct MetadataRouteTests {
                 headers: acceptZip
             ) { res async in
                 #expect(res.status == .ok)
-                #expect(res.headers.first(name: .contentType) == "application/zip")
+                #expect(res.headers.contentType == .zip)
                 let disposition = res.headers.first(name: .contentDisposition) ?? ""
                 #expect(disposition.contains("HelloWorld-1.0.0.zip"))
                 #expect(res.headers.first(name: "Accept-Ranges") == "bytes")

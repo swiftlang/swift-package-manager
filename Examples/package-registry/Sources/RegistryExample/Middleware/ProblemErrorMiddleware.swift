@@ -33,7 +33,10 @@ import Vapor
 ///
 /// - ``ProblemDetails`` errors are serialized as-is, preserving their
 ///   HTTP status.
-/// - Vapor `AbortError`s are wrapped in a ``ProblemDetails`` using the
+/// - Redirecting `AbortError`s (a 3xx status, such as `Abort.redirect(to:)`)
+///   are not treated as errors. Their status and headers are preserved
+///   (notably `Location`) and returned as a redirect response.
+/// - Other Vapor `AbortError`s are wrapped in a ``ProblemDetails`` using the
 ///   abort's `status` and `reason`.
 /// - All other errors are reported to the request's logger and surfaced as a
 ///   `500 Internal Server Error` problem with the generic detail
@@ -81,6 +84,9 @@ public struct ProblemErrorMiddleware: AsyncMiddleware {
         case let p as ProblemDetails:
             problem = p
         case let abort as any AbortError:
+            if (300..<400).contains(abort.status.code) {
+                return Response(status: abort.status, headers: abort.headers)
+            }
             problem = ProblemDetails(status: abort.status, detail: abort.reason)
         default:
             request.logger.report(error: error)
