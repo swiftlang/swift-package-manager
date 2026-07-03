@@ -49,7 +49,7 @@ struct MetadataRouteTests {
             try await publishHelloWorld(
                 app: app,
                 version: "1.2.3",
-                metadata: #"{"repositoryURLs":["https://github.com/exampleregistry/HelloWorld","ssh://git@github.com:exampleregistry/HelloWorld.git"]}"#
+                metadata: #"{"repositoryURLs":["https://github.com/exampleregistry/HelloWorld","git@github.com:exampleregistry/HelloWorld.git","ssh://git@github.com/exampleregistry/HelloWorld.git"]}"#
             )
 
             try await app.testing().test(
@@ -58,8 +58,28 @@ struct MetadataRouteTests {
                 #expect(res.status == .ok)
                 let link = res.headers.first(name: .link) ?? ""
                 #expect(link.contains("<https://github.com/exampleregistry/HelloWorld>; rel=\"canonical\""))
-                #expect(link.contains("<ssh://git@github.com:exampleregistry/HelloWorld.git>; rel=\"alternate\""))
+                #expect(link.contains("<git@github.com:exampleregistry/HelloWorld.git>; rel=\"alternate\""))
+                #expect(link.contains("<ssh://git@github.com/exampleregistry/HelloWorld.git>; rel=\"alternate\""))
                 #expect(!link.contains("old.example.com"))
+            }
+        }
+    }
+
+    @Test func `repository URL containing Link-header delimiters is percent-encoded rather than injected`() async throws {
+        try await withRegistryApp { app in
+            try await publishHelloWorld(
+                app: app,
+                version: "1.0.0",
+                metadata: #"{"repositoryURLs":["https://example.com/x>;rel=\"canonical\",<https://evil.test/y"]}"#
+            )
+            try await app.testing().test(
+                .GET, "/exampleregistry/HelloWorld", headers: acceptJSON
+            ) { res async in
+                #expect(res.status == .ok)
+                let link = res.headers.first(name: .link) ?? ""
+                #expect(link.contains("%3E"))
+                #expect(!link.contains("<https://evil.test/y"))
+                #expect(link.components(separatedBy: "rel=\"canonical\"").count - 1 == 1)
             }
         }
     }

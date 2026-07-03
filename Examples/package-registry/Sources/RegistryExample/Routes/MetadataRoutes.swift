@@ -83,9 +83,14 @@ public struct MetadataRoutes: Sendable {
             orderedReleases[release.version.description] = ["url": url]
         }
         let response = try encodeJSON(ListReleasesResponse(releases: orderedReleases))
-        var links: [String] = []
+        var links: [HTTPHeaders.Link] = []
         if let latest = releases.first {
-            links.append("<\(baseURL)/\(identifier.scope)/\(identifier.name)/\(latest.version)>; rel=\"latest-version\"")
+            if let latestLink = link(
+                "\(baseURL)/\(identifier.scope)/\(identifier.name)/\(latest.version)",
+                relation: .latestVersion
+            ) {
+                links.append(latestLink)
+            }
             links.append(contentsOf: repositoryLinks(from: latest.metadata))
         }
         links.append(contentsOf: paginationLinks(
@@ -95,7 +100,7 @@ public struct MetadataRoutes: Sendable {
             totalPages: totalPages
         ))
         if !links.isEmpty {
-            response.headers.replaceOrAdd(name: .link, value: links.joined(separator: ", "))
+            response.headers.links = links
         }
         return response
     }
@@ -108,54 +113,42 @@ public struct MetadataRoutes: Sendable {
         return page
     }
 
+    private func link(
+        _ uri: String,
+        relation: HTTPHeaders.Link.Relation,
+        attributes: [String: String] = [:]
+    ) -> HTTPHeaders.Link? {
+        URL(string: uri).map {
+            HTTPHeaders.Link(uri: $0.absoluteString, relation: relation, attributes: attributes)
+        }
+    }
+
     private func paginationLinks(
         baseURL: String,
         identifier: PackageIdentifier,
         page: Int,
         totalPages: Int
-    ) -> [String] {
+    ) -> [HTTPHeaders.Link] {
         guard totalPages > 1 else { return [] }
         let pageURL = { (n: Int) in
             "\(baseURL)/\(identifier.scope)/\(identifier.name)?page=\(n)"
         }
-        var links = ["<\(pageURL(1))>; rel=\"first\""]
+        var specs: [(String, HTTPHeaders.Link.Relation)] = [(pageURL(1), .first)]
         if page > 1 {
-            links.append("<\(pageURL(page - 1))>; rel=\"prev\"")
+            specs.append((pageURL(page - 1), .prev))
         }
         if page < totalPages {
-            links.append("<\(pageURL(page + 1))>; rel=\"next\"")
+            specs.append((pageURL(page + 1), .next))
         }
-        links.append("<\(pageURL(totalPages))>; rel=\"last\"")
-        return links
+        specs.append((pageURL(totalPages), .last))
+        return specs.compactMap { link($0.0, relation: $0.1) }
     }
 
-    private func repositoryLinks(from metadata: PackageRelease?) -> [String] {
-        guard let urls = metadata?.repositoryURLs?.filter(Self.isLinkSafe),
-              let canonical = urls.first else {
-            return []
-        }
-        var links = ["<\(canonical)>; rel=\"canonical\""]
-        for alternate in urls.dropFirst() {
-            links.append("<\(alternate)>; rel=\"alternate\"")
-        }
-        return links
-    }
-
-    /// Reports whether a publisher-supplied URL is safe to embed in a
-    /// `Link` header value.
-    ///
-    /// Release metadata is attacker-controlled, so a URL containing the
-    /// `Link` grammar's delimiters (`<`, `>`, `"`) or whitespace/control
-    /// characters could inject additional link relations into the header.
-    /// This rejects such values (and anything implausibly long) rather
-    /// than attempting to sanitize them.
-    static func isLinkSafe(_ url: String) -> Bool {
-        guard !url.isEmpty, url.count <= 2048 else { return false }
-        return url.unicodeScalars.allSatisfy { scalar in
-            scalar != "<" && scalar != ">" && scalar != "\""
-                && !CharacterSet.controlCharacters.contains(scalar)
-                && !CharacterSet.whitespacesAndNewlines.contains(scalar)
-        }
+    private func repositoryLinks(from metadata: PackageRelease?) -> [HTTPHeaders.Link] {
+        (metadata?.repositoryURLs ?? [])
+            .compactMap { URL(string: $0)?.absoluteString }
+            .enumerated()
+            .map { HTTPHeaders.Link(uri: $1, relation: $0 == 0 ? .canonical : .alternate, attributes: [:]) }
     }
 
     @Sendable
@@ -198,21 +191,25 @@ public struct MetadataRoutes: Sendable {
         let response = try encodeJSON(body)
         if let releases = await store.list(identifier) {
             let baseURL = req.baseURL
-            var links: [String] = []
-            if let latest = releases.first {
-                links.append("<\(baseURL)/\(identifier.scope)/\(identifier.name)/\(latest.version)>; rel=\"latest-version\"")
+            let prefix = "\(baseURL)/\(identifier.scope)/\(identifier.name)"
+            var links: [HTTPHeaders.Link] = []
+            if let latest = releases.first,
+               let latestLink = link("\(prefix)/\(latest.version)", relation: .latestVersion) {
+                links.append(latestLink)
             }
             let sorted = releases.sorted { $0.version < $1.version }
             if let idx = sorted.firstIndex(where: { $0.version == release.version }) {
-                if idx > 0 {
-                    links.append("<\(baseURL)/\(identifier.scope)/\(identifier.name)/\(sorted[idx - 1].version)>; rel=\"predecessor-version\"")
+                if idx > 0,
+                   let predecessor = link("\(prefix)/\(sorted[idx - 1].version)", relation: .init("predecessor-version")) {
+                    links.append(predecessor)
                 }
-                if idx < sorted.count - 1 {
-                    links.append("<\(baseURL)/\(identifier.scope)/\(identifier.name)/\(sorted[idx + 1].version)>; rel=\"successor-version\"")
+                if idx < sorted.count - 1,
+                   let successor = link("\(prefix)/\(sorted[idx + 1].version)", relation: .init("successor-version")) {
+                    links.append(successor)
                 }
             }
             if !links.isEmpty {
-                response.headers.replaceOrAdd(name: .link, value: links.joined(separator: ", "))
+                response.headers.links = links
             }
         }
         return response
@@ -279,18 +276,21 @@ public struct MetadataRoutes: Sendable {
         )
         response.headers.replaceOrAdd(name: .cacheControl, value: "public, immutable")
 
+        let baseURL = req.baseURL
         let alternateLinks = release.manifests
             .filter { !$0.key.isEmpty }
             .sorted { $0.key < $1.key }
-            .map { key, manifest -> String in
+            .compactMap { key, manifest -> HTTPHeaders.Link? in
                 let alternateFilename = "Package@swift-\(key).swift"
                 let toolsVersion = extractToolsVersion(from: manifest) ?? key
-                let baseURL = req.baseURL
                 let url = "\(baseURL)/\(identifier.scope)/\(identifier.name)/\(version)/Package.swift?swift-version=\(key)"
-                return "<\(url)>; rel=\"alternate\"; filename=\"\(alternateFilename)\"; swift-tools-version=\"\(toolsVersion)\""
+                return link(url, relation: .alternate, attributes: [
+                    "filename": alternateFilename,
+                    "swift-tools-version": toolsVersion,
+                ])
             }
         if !alternateLinks.isEmpty {
-            response.headers.replaceOrAdd(name: .link, value: alternateLinks.joined(separator: ", "))
+            response.headers.links = alternateLinks
         }
         return response
     }
