@@ -33,22 +33,22 @@ public struct PackageRelease: Codable, Hashable, Sendable {
     public var description: String?
 
     /// URL of the package release's license document.
-    public var licenseURL: String?
+    public var licenseURL: URL?
 
     /// URL of the README for this release (or broadly for the package).
-    public var readmeURL: String?
+    public var readmeURL: URL?
 
     /// Code repository URL(s) for the package release.
     ///
     /// It is recommended to include all URL variations (for example, both
     /// SSH and HTTPS) that refer to the same repository. This may be an
     /// empty array if the package has no source control representation.
-    public var repositoryURLs: [String]?
+    public var repositoryURLs: [URL]?
 
-    /// Original publication time of the package release in ISO 8601
-    /// format. Set if the release was previously published elsewhere
-    /// (for example, on a different registry).
-    public var originalPublicationTime: String?
+    /// Original publication time of the package release. Set if the release
+    /// was previously published elsewhere (for example, on a different
+    /// registry). Encoded as an ISO 8601 timestamp.
+    public var originalPublicationTime: Date?
 
     /// Author of a package release.
     ///
@@ -64,7 +64,7 @@ public struct PackageRelease: Codable, Hashable, Sendable {
         public var organization: Organization?
         /// URL of the author (for example, a personal website or profile
         /// page).
-        public var url: String?
+        public var url: URL?
 
         /// Creates an `Author` value.
         ///
@@ -79,7 +79,7 @@ public struct PackageRelease: Codable, Hashable, Sendable {
             email: String? = nil,
             description: String? = nil,
             organization: Organization? = nil,
-            url: String? = nil
+            url: URL? = nil
         ) {
             self.name = name
             self.email = email
@@ -100,7 +100,7 @@ public struct PackageRelease: Codable, Hashable, Sendable {
             /// A free-form, human-readable description of the organization.
             public var description: String?
             /// URL of the organization's website.
-            public var url: String?
+            public var url: URL?
 
             /// Creates an `Organization` value.
             ///
@@ -114,7 +114,7 @@ public struct PackageRelease: Codable, Hashable, Sendable {
                 name: String,
                 email: String? = nil,
                 description: String? = nil,
-                url: String? = nil
+                url: URL? = nil
             ) {
                 self.name = name
                 self.email = email
@@ -135,15 +135,15 @@ public struct PackageRelease: Codable, Hashable, Sendable {
     ///   - licenseURL: URL of the release's license document.
     ///   - readmeURL: URL of the release's README.
     ///   - repositoryURLs: Source repository URLs for the release.
-    ///   - originalPublicationTime: ISO 8601 timestamp of the release's
-    ///     original publication elsewhere, if applicable.
+    ///   - originalPublicationTime: Timestamp of the release's original
+    ///     publication elsewhere, if applicable.
     public init(
         author: Author? = nil,
         description: String? = nil,
-        licenseURL: String? = nil,
-        readmeURL: String? = nil,
-        repositoryURLs: [String]? = nil,
-        originalPublicationTime: String? = nil
+        licenseURL: URL? = nil,
+        readmeURL: URL? = nil,
+        repositoryURLs: [URL]? = nil,
+        originalPublicationTime: Date? = nil
     ) {
         self.author = author
         self.description = description

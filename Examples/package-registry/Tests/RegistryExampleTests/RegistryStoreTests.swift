@@ -28,7 +28,7 @@ struct RegistryStoreTests {
             sourceArchive: Data([0x50, 0x4B]),
             sourceArchiveChecksum: "deadbeef",
             manifests: ["": "// swift-tools-version:5.9"],
-            metadata: repositoryURLs.map { PackageRelease(repositoryURLs: $0) },
+            metadata: repositoryURLs.map { PackageRelease(repositoryURLs: $0.map { URL(string: $0)! }) },
             metadataRaw: nil,
             publishedAt: Date(timeIntervalSince1970: 0)
         )

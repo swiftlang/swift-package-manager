@@ -112,7 +112,7 @@ public actor RegistryStore {
         for (id, versions) in releases {
             for release in versions.values {
                 guard let urls = release.metadata?.repositoryURLs else { continue }
-                if urls.contains(where: { $0.lowercased() == needle }) {
+                if urls.contains(where: { $0.absoluteString.lowercased() == needle }) {
                     matched.insert(id)
                     break
                 }

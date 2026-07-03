@@ -142,7 +142,7 @@ public struct ReleasePublisher: Sendable {
         if let metaPart = parts.first(where: { $0.name == "metadata" }) {
             metadataRaw = metaPart.data
             do {
-                metadata = try JSONDecoder().decode(PackageRelease.self, from: metaPart.data)
+                metadata = try JSONDecoder.registry.decode(PackageRelease.self, from: metaPart.data)
             } catch {
                 throw PublishError.invalidMetadataJSON
             }

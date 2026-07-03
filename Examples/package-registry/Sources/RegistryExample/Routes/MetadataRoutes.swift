@@ -146,7 +146,7 @@ public struct MetadataRoutes: Sendable {
 
     private func repositoryLinks(from metadata: PackageRelease?) -> [HTTPHeaders.Link] {
         (metadata?.repositoryURLs ?? [])
-            .compactMap { URL(string: $0)?.absoluteString }
+            .map(\.absoluteString)
             .enumerated()
             .map { HTTPHeaders.Link(uri: $1, relation: $0 == 0 ? .canonical : .alternate, attributes: [:]) }
     }
@@ -304,9 +304,7 @@ public struct MetadataRoutes: Sendable {
     }
 
     private func encodeJSON<T: Encodable>(_ body: T) throws -> Response {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.withoutEscapingSlashes]
-        let data = try encoder.encode(body)
+        let data = try JSONEncoder.registry.encode(body)
         let response = Response(status: .ok, body: .init(data: data))
         response.headers.contentType = .json
         return response

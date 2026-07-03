@@ -26,18 +26,18 @@ struct PackageReleaseTests {
                     name: "Acme",
                     email: "info@acme.example",
                     description: "example org",
-                    url: "https://acme.example"
+                    url: URL(string: "https://acme.example")
                 ),
-                url: "https://example.com/alice"
+                url: URL(string: "https://example.com/alice")
             ),
             description: "demo",
-            licenseURL: "https://example.com/LICENSE",
-            readmeURL: "https://example.com/README",
-            repositoryURLs: ["https://example.com/repo.git"],
-            originalPublicationTime: "2025-01-01T00:00:00Z"
+            licenseURL: URL(string: "https://example.com/LICENSE"),
+            readmeURL: URL(string: "https://example.com/README"),
+            repositoryURLs: [URL(string: "https://example.com/repo.git")!],
+            originalPublicationTime: Date(timeIntervalSince1970: 1_735_689_600)
         )
-        let data = try JSONEncoder().encode(release)
-        let decoded = try JSONDecoder().decode(PackageRelease.self, from: data)
+        let data = try JSONEncoder.registry.encode(release)
+        let decoded = try JSONDecoder.registry.decode(PackageRelease.self, from: data)
         #expect(decoded == release)
     }
 }

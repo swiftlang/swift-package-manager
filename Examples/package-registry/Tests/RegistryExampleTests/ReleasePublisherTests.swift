@@ -170,7 +170,25 @@ struct ReleasePublisherTests {
         }
     }
 
-    // MARK: multipart errors
+    @Test func `metadata with a malformed repository URL throws invalidMetadataJSON`() async throws {
+        let (publisher, _) = makePublisher()
+        let zip = try makeHelloWorldZip()
+        let body = MultipartBuilder.body(parts: [
+            .init(name: "source-archive", data: zip, contentType: "application/zip"),
+            .init(
+                name: "metadata",
+                data: Data(#"{"repositoryURLs":["ssh://git@github.com:mona/LinkedList.git"]}"#.utf8),
+                contentType: "application/json"
+            )
+        ])
+        await #expect(throws: PublishError.invalidMetadataJSON) {
+            _ = try await publisher.publish(
+                identifier: Self.mona, version: Self.v1,
+                body: body, contentType: MultipartBuilder.contentTypeHeader,
+                signatureFormat: nil
+            )
+        }
+    }
 
     @Test func `body with malformed headers throws malformedMultipart`() async throws {
         let (publisher, _) = makePublisher()
