@@ -86,7 +86,7 @@ public struct MetadataRoutes: Sendable {
         var links: [HTTPHeaders.Link] = []
         if let latest = releases.first {
             if let latestLink = link(
-                "\(baseURL)/\(identifier.scope)/\(identifier.name)/\(latest.version)",
+                URL(string: "\(baseURL)/\(identifier.scope)/\(identifier.name)/\(latest.version)"),
                 relation: .latestVersion
             ) {
                 links.append(latestLink)
@@ -114,11 +114,11 @@ public struct MetadataRoutes: Sendable {
     }
 
     private func link(
-        _ uri: String,
+        _ url: URL?,
         relation: HTTPHeaders.Link.Relation,
         attributes: [String: String] = [:]
     ) -> HTTPHeaders.Link? {
-        URL(string: uri).map {
+        url.map {
             HTTPHeaders.Link(uri: $0.absoluteString, relation: relation, attributes: attributes)
         }
     }
@@ -131,9 +131,9 @@ public struct MetadataRoutes: Sendable {
     ) -> [HTTPHeaders.Link] {
         guard totalPages > 1 else { return [] }
         let pageURL = { (n: Int) in
-            "\(baseURL)/\(identifier.scope)/\(identifier.name)?page=\(n)"
+            URL(string: "\(baseURL)/\(identifier.scope)/\(identifier.name)?page=\(n)")
         }
-        var specs: [(String, HTTPHeaders.Link.Relation)] = [(pageURL(1), .first)]
+        var specs: [(URL?, HTTPHeaders.Link.Relation)] = [(pageURL(1), .first)]
         if page > 1 {
             specs.append((pageURL(page - 1), .prev))
         }
@@ -194,17 +194,17 @@ public struct MetadataRoutes: Sendable {
             let prefix = "\(baseURL)/\(identifier.scope)/\(identifier.name)"
             var links: [HTTPHeaders.Link] = []
             if let latest = releases.first,
-               let latestLink = link("\(prefix)/\(latest.version)", relation: .latestVersion) {
+               let latestLink = link(URL(string: "\(prefix)/\(latest.version)"), relation: .latestVersion) {
                 links.append(latestLink)
             }
             let sorted = releases.sorted { $0.version < $1.version }
             if let idx = sorted.firstIndex(where: { $0.version == release.version }) {
                 if idx > 0,
-                   let predecessor = link("\(prefix)/\(sorted[idx - 1].version)", relation: .init("predecessor-version")) {
+                   let predecessor = link(URL(string: "\(prefix)/\(sorted[idx - 1].version)"), relation: .init("predecessor-version")) {
                     links.append(predecessor)
                 }
                 if idx < sorted.count - 1,
-                   let successor = link("\(prefix)/\(sorted[idx + 1].version)", relation: .init("successor-version")) {
+                   let successor = link(URL(string: "\(prefix)/\(sorted[idx + 1].version)"), relation: .init("successor-version")) {
                     links.append(successor)
                 }
             }
@@ -272,7 +272,7 @@ public struct MetadataRoutes: Sendable {
             .compactMap { key, manifest -> HTTPHeaders.Link? in
                 let alternateFilename = "Package@swift-\(key).swift"
                 let toolsVersion = extractToolsVersion(from: manifest) ?? key
-                let url = "\(baseURL)/\(identifier.scope)/\(identifier.name)/\(version)/Package.swift?swift-version=\(key)"
+                let url = URL(string: "\(baseURL)/\(identifier.scope)/\(identifier.name)/\(version)/Package.swift?swift-version=\(key)")
                 return link(url, relation: .alternate, attributes: [
                     "filename": alternateFilename,
                     "swift-tools-version": toolsVersion,

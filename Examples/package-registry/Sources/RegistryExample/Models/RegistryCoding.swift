@@ -23,7 +23,7 @@ import Foundation
 extension JSONEncoder {
     static var registry: JSONEncoder {
         let encoder = JSONEncoder()
-        encoder.outputFormatting = [.withoutEscapingSlashes]
+        encoder.outputFormatting = [.withoutEscapingSlashes, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601
         return encoder
     }
