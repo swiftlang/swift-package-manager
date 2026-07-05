@@ -49,6 +49,7 @@ add_library(Commands
   SwiftRunCommand.swift
   SwiftTestCommand.swift
   CommandWorkspaceDelegate.swift
+  XUnitXMLMerger.swift
   Utilities/APIDigester.swift
   Utilities/DependenciesSerializer.swift
   Utilities/DescribedPackage.swift
