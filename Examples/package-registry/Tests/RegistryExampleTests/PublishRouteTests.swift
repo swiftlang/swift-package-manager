@@ -129,27 +129,27 @@ struct PublishRouteTests {
             let zip = try makeHelloWorldZip()
             let body1 = publishMultipartBody(zip: zip, metadata: nil)
             let body2 = publishMultipartBody(zip: zip, metadata: nil)
-            async let first = withCheckedContinuation { (c: CheckedContinuation<HTTPResponseStatus, Never>) in
-                Task {
-                    try await app.testing().test(
-                        .PUT, "/exampleregistry/HelloWorld/1.0.0", headers: publishHeaders(), body: body1
-                    ) { res async in
-                        c.resume(returning: res.status)
-                    }
-                }
-            }
-            async let second = withCheckedContinuation { (c: CheckedContinuation<HTTPResponseStatus, Never>) in
-                Task {
-                    try await app.testing().test(
-                        .PUT, "/exampleregistry/HelloWorld/1.0.0", headers: publishHeaders(), body: body2
-                    ) { res async in
-                        c.resume(returning: res.status)
-                    }
-                }
-            }
-            let statuses: Set<HTTPResponseStatus> = [await first, await second]
+            async let first = publishStatus(app, body: body1)
+            async let second = publishStatus(app, body: body2)
+            let statuses: Set<HTTPResponseStatus> = [try await first, try await second]
             #expect(statuses.contains(.created))
             #expect(statuses.contains(.conflict))
+        }
+    }
+}
+
+func publishStatus(_ app: Application, body: ByteBuffer) async throws -> HTTPResponseStatus {
+    try await withCheckedThrowingContinuation { continuation in
+        Task {
+            do {
+                try await app.testing().test(
+                    .PUT, "/exampleregistry/HelloWorld/1.0.0", headers: publishHeaders(), body: body
+                ) { res async in
+                    continuation.resume(returning: res.status)
+                }
+            } catch {
+                continuation.resume(throwing: error)
+            }
         }
     }
 }
