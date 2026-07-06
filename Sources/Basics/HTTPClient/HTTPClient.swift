@@ -48,7 +48,7 @@ public actor HTTPClient {
 
     public init(configuration: HTTPClientConfiguration = .init(), implementation: Implementation? = nil) {
         self.configuration = configuration
-        self.implementation = implementation ?? URLSessionHTTPClient().execute
+        self.implementation = implementation ?? URLSessionHTTPClient(fileSystem: localFileSystem).execute
         self.tokenBucket = TokenBucket(tokens: configuration.maxConcurrentRequests ?? Concurrency.maxOperations)
     }
 
