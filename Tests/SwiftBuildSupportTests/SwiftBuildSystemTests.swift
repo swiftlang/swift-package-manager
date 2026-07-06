@@ -80,6 +80,7 @@ func withInstantiatedSwiftBuildSystem(
                 ),
                 delegate: nil,
                 scratchDirectory: tmpDir.appending("scratchDirectory"),
+                shouldDisableSandbox: false,
             )
 
             try await SwiftBuildSupport.withService(
@@ -167,6 +168,7 @@ struct SwiftBuildSystemTests {
                     session: session,
                     symbolGraphOptions: nil,
                     setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                    shouldDisableSandbox: false,
                 )
 
                 let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -197,6 +199,7 @@ struct SwiftBuildSystemTests {
                         session: session,
                         symbolGraphOptions: nil,
                         setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                        shouldDisableSandbox: false,
                     )
                 }
             }
@@ -230,6 +233,7 @@ struct SwiftBuildSystemTests {
                     session: session,
                     symbolGraphOptions: nil,
                     setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                    shouldDisableSandbox: false,
                 )
 
                 // THEN we expect a warning to be emitted
@@ -273,6 +277,7 @@ struct SwiftBuildSystemTests {
                     session: session,
                     symbolGraphOptions: nil,
                     setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                    shouldDisableSandbox: false,
                 )
 
                 // THEN we don't expect any warnings to be emitted
@@ -309,6 +314,7 @@ struct SwiftBuildSystemTests {
                 session: session,
                 symbolGraphOptions: nil,
                 setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                shouldDisableSandbox: false,
             )
 
             let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -369,6 +375,7 @@ struct SwiftBuildSystemTests {
                 session: session,
                 symbolGraphOptions: nil,
                 setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                shouldDisableSandbox: false,
             )
 
             let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -405,6 +412,7 @@ struct SwiftBuildSystemTests {
                 session: session,
                 symbolGraphOptions: nil,
                 setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                shouldDisableSandbox: false,
             )
 
             let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -444,7 +452,8 @@ struct SwiftBuildSystemTests {
                     configuredTargets: [],
                     derivedDataPath: tempDir,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 #expect(buildRequest.schedulerLaneWidthOverride == expectedNumberOfWorkers)
@@ -469,7 +478,8 @@ struct SwiftBuildSystemTests {
                     configuredTargets: [],
                     derivedDataPath: tempDir,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 #expect(buildRequest.parameters.overrides.synthesized?.table["OTHER_CFLAGS"]?.contains("-DFoo") == true)
@@ -511,7 +521,8 @@ struct SwiftBuildSystemTests {
                     service: service,
                     session: session,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -547,7 +558,8 @@ struct SwiftBuildSystemTests {
                     service: service,
                     session: session,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -571,7 +583,8 @@ struct SwiftBuildSystemTests {
                     service: service,
                     session: session,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -601,7 +614,8 @@ struct SwiftBuildSystemTests {
                     service: service,
                     session: session,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -624,7 +638,8 @@ struct SwiftBuildSystemTests {
                     service: service,
                     session: session,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -658,7 +673,8 @@ struct SwiftBuildSystemTests {
                     service: service,
                     session: session,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -715,7 +731,8 @@ struct SwiftBuildSystemTests {
                     service: service,
                     session: session,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -789,7 +806,8 @@ struct SwiftBuildSystemTests {
                 service: service,
                 session: session,
                 symbolGraphOptions: nil,
-                setToolchainSetting: false
+                setToolchainSetting: false,
+                shouldDisableSandbox: false,
             )
 
             let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -818,6 +836,7 @@ struct SwiftBuildSystemTests {
                 session: session,
                 symbolGraphOptions: nil,
                 setToolchainSetting: false,
+                shouldDisableSandbox: false,
             )
 
             let runDestination = try #require(buildSettings.activeRunDestination)
