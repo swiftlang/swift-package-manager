@@ -265,6 +265,12 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         self.queue.async {
             self.delegate?.buildSystem(self.buildSystem, didStartCommand: BuildSystemCommand(command))
             if self.logLevel.isVerbose {
+                // Preparation steps and other progress updates can still be emitted while in verbose
+                // mode (e.g. `preparationStepStarted`/`preparationStepFinished` do not gate on
+                // `isVerbose`), which leaves the progress animation's cursor mid-line without a
+                // trailing newline. Clear it before writing the raw verbose description so the two
+                // don't get concatenated onto the same terminal line.
+                self.progressAnimation.clear()
                 self.outputStream.send("\(command.verboseDescription)\n")
                 self.outputStream.flush()
             }
