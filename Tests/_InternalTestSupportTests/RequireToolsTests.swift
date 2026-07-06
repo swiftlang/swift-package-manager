@@ -14,6 +14,7 @@ import Foundation
 import Basics
 import Testing
 import func _InternalTestSupport._requiresTools
+import enum _InternalTestSupport.Missing
 
 @Suite(
     .tags(
@@ -22,16 +23,9 @@ import func _InternalTestSupport._requiresTools
 )
 struct RequireToolsTests {
     @Test func errorIsThrownIfExecutableIsNotFoundOnThePath() {
-        withKnownIssue(
-            "Not sure why this has to be marked withKnownIssue...",
-            isIntermittent: true,  // Test was failing in GitHub actions but passing on Jenkins
-        ) {
-        // #expect(throws: (any Error).self) {
-        #expect(throws: AsyncProcessResult.Error.self) {
-            try _requiresTools("doesNotExists")
-        }
-        } when: {
-            ProcessInfo.isHostAmazonLinux2()
+        let executable = "doesNotExists"
+        #expect(throws: Missing.tool(name: executable)) {
+            try _requiresTools(executable)
         }
     }
 
@@ -40,7 +34,7 @@ struct RequireToolsTests {
         #if os(Windows)
         let executable = "where.exe"
         #else
-        let executable = "which"
+        let executable = "ls"
         #endif
         #expect(throws: Never.self) {
             try _requiresTools(executable)

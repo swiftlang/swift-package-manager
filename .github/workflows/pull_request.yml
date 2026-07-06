@@ -45,7 +45,8 @@ jobs:
     uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.12
     with:
       enable_cross_pr_testing: false
-      linux_os_versions: '["amazonlinux2023", "bookworm", "noble", "jammy", "rhel-ubi9"]'
+      linux_os_versions: '["bookworm", "noble", "rhel-ubi9"]'
+      # linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
       linux_host_archs: '["x86_64", "aarch64"]'
       linux_swift_versions: '["nightly-6.2",]'
       linux_pre_build_command: ./.github/scripts/prebuild.sh
@@ -89,10 +90,10 @@ jobs:
       enable_cross_pr_testing: false
       enable_windows_checks: false
       enable_linux_checks: true
-      # linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
-      linux_os_versions: '["amazonlinux2", "jammy"]'
+      # linux_os_versions: '["amazonlinux2023", "bookworm", "noble", "jammy", "rhel-ubi9"]'
+      linux_os_versions: '["amazonlinux2023", "jammy"]'
       linux_host_archs: '["x86_64", "aarch64"]'
-      linux_swift_versions: '["nightly-main", "6.2.0"]'  # '["6.2.0"]'
+      linux_swift_versions: '["nightly-main", "nightly-6.4.x"]'  # '["6.2.0"]'
       linux_pre_build_command: ./.github/scripts/prebuild.sh
       linux_build_command: 'swift --version && swift test --parallel  --experimental-xunit-message-failure --xunit-output linux-xunit.xml'
       enable_macos_checks: true
@@ -106,24 +107,24 @@ jobs:
       # ios_build_timeout: 240
       # ios_build_command: 'swift --version && swift test--parallel --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios --experimental-xunit-message-failure --xunit-output ios-xunit.xml'
 
-  # build-and-test-al2:
-  #   needs: [soundness]
-  #   strategy:
-  #     fail-fast: false
-  #   name: "Build and Test"
-  #   uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
-  #   with:
-  #     enable_cross_pr_testing: false
-  #     # linux_publish_test_results: true
-  #     enable_linux_checks: true
-  #     linux_os_versions: '["amazonlinux2"]'
-  #     linux_host_archs: '["x86_64", "aarch64"]'
-  #     linux_swift_versions: '["6.2.0"]'
-  #     linux_pre_build_command: ./.github/scripts/prebuild.sh
-  #     linux_build_command: 'swift --version && swift test --parallel  --experimental-xunit-message-failure --xunit-output linux-xunit.xml'
-  #     enable_windows_checks: false
-  #     enable_macos_checks: false
-  #     enable_ios_checks: false
+  build-and-test-6_2:
+    needs: [soundness]
+    strategy:
+      fail-fast: false
+    name: "Build and Test (Jenkins Equivalent)"
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
+    with:
+      enable_cross_pr_testing: false
+      # linux_publish_test_results: true
+      enable_linux_checks: true
+      linux_os_versions: '["amazonlinux2", "jammy"]'
+      linux_host_archs: '["x86_64", "aarch64"]'
+      linux_swift_versions: '["6.2.0"]'
+      linux_pre_build_command: ./.github/scripts/prebuild.sh
+      linux_build_command: 'swift --version && swift test --parallel  --experimental-xunit-message-failure --xunit-output linux-xunit.xml'
+      enable_windows_checks: false
+      enable_macos_checks: false
+      enable_ios_checks: false
 
   integration-tests:
     name: Integration Tests
@@ -154,7 +155,7 @@ jobs:
       - soundness
       - integration-tests
       - build-and-test-posix
-      # - build-and-test-al2
+      - build-and-test-6_2
       - build-nightly-6_2
     if: always()  # Runs even if previous jobs fail so it can evaluate them
     steps:
