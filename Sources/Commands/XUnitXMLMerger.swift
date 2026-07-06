@@ -13,8 +13,12 @@
 import Basics
 import Foundation
 
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
+
 /// Combines xUnit XML files produced by individual test binaries into a single
-/// output file. Each source file's `<testsuite>` elements are preserved verbatim
+/// output file. Each source file's `<testsuite>` elements are preserved
 /// and placed under one `<testsuites>` root in the destination.
 ///
 /// Multiple Swift Testing binaries (one per test product) each write their own
@@ -26,41 +30,31 @@ enum XUnitXMLMerger {
         into destination: AbsolutePath,
         fileSystem: FileSystem = localFileSystem,
     ) throws {
-        var output = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<testsuites>\n"
+        let root = XMLElement(name: "testsuites")
+        let document = XMLDocument(rootElement: root)
+        document.version = "1.0"
+        document.characterEncoding = "UTF-8"
 
         for source in sources {
             guard fileSystem.exists(source) else { continue }
             let contents: String = try fileSystem.readFileContents(source)
-            for block in extractTestsuiteBlocks(from: contents) {
-                output += block
-                output += "\n"
+            for testsuite in try extractTestsuites(from: contents) {
+                root.addChild(testsuite)
             }
         }
 
-        output += "</testsuites>\n"
-        try fileSystem.writeFileContents(destination, string: output)
+        try fileSystem.writeFileContents(
+            destination,
+            string: document.xmlString(options: [.nodePrettyPrint, .nodeCompactEmptyElement]),
+        )
     }
 
-    private static let openMarker = "<testsuite"
-    private static let closeMarker = "</testsuite>"
-
-    private static func extractTestsuiteBlocks(from xml: String) -> [Substring] {
-        var results: [Substring] = []
-        var searchStart = xml.startIndex
-        while let openRange = xml.range(of: openMarker, range: searchStart..<xml.endIndex) {
-            let afterOpen = openRange.upperBound
-            guard afterOpen < xml.endIndex else { break }
-            let nextChar = xml[afterOpen]
-            guard nextChar == " " || nextChar == ">" else {
-                searchStart = afterOpen
-                continue
-            }
-            guard let closeRange = xml.range(of: closeMarker, range: afterOpen..<xml.endIndex) else {
-                break
-            }
-            results.append(xml[openRange.lowerBound..<closeRange.upperBound])
-            searchStart = closeRange.upperBound
+    private static func extractTestsuites(from xml: String) throws -> [XMLElement] {
+        let document = try XMLDocument(xmlString: xml, options: [])
+        guard let root = document.rootElement() else { return [] }
+        return root.elements(forName: "testsuite").map { element in
+            element.detach()
+            return element
         }
-        return results
     }
 }

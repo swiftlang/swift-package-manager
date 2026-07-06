@@ -13,7 +13,24 @@
 @testable import Commands
 
 import Basics
+import Foundation
 import Testing
+
+#if canImport(FoundationXML)
+import FoundationXML
+#endif
+
+
+private func parseTestsuites(_ xml: String) throws -> (root: XMLElement?, suites: [XMLElement]) {
+    let document = try XMLDocument(xmlString: xml, options: [])
+    let root = document.rootElement()
+    let suites = (root?.name == "testsuites" ? root?.elements(forName: "testsuite") : nil) ?? []
+    return (root: root, suites: suites)
+}
+
+private func testsuiteName(_ element: XMLElement) -> String? {
+    element.attribute(forName: "name")?.stringValue
+}
 
 @Suite(
     .tags(
@@ -75,17 +92,22 @@ struct XUnitXMLMergerTests {
         try XUnitXMLMerger.merge(sources: [a, b], into: dest, fileSystem: fs)
 
         let merged: String = try fs.readFileContents(dest)
-        #expect(merged.contains("<?xml"))
-        #expect(merged.contains("<testsuites>"))
-        #expect(merged.contains("</testsuites>"))
-        #expect(merged.contains(#"<testsuite name="TestResultsSampleA""#))
-        #expect(merged.contains(#"<testsuite name="TestResultsSampleB""#))
-        #expect(merged.contains(#"name="testA""#))
-        #expect(merged.contains(#"name="testB""#))
-        #expect(merged.contains(#"name="testC""#))
-        #expect(merged.contains(#"<failure message="boom">"#))
-        let testsuiteCount = merged.components(separatedBy: "<testsuite ").count - 1
-        #expect(testsuiteCount == 2, "expected 2 <testsuite> elements in merged output, got \(testsuiteCount)")
+        let (_, suites) = try parseTestsuites(merged)
+        #expect(suites.count == 2, "expected 2 <testsuite> elements in merged output, got \(suites.count)")
+        #expect(testsuiteName(suites[0]) == "TestResultsSampleA")
+        #expect(testsuiteName(suites[1]) == "TestResultsSampleB")
+
+        let sampleATestcases = suites[0].elements(forName: "testcase")
+            .compactMap { $0.attribute(forName: "name")?.stringValue }
+        #expect(sampleATestcases == ["testA", "testB"])
+
+        let sampleBTestcases = suites[1].elements(forName: "testcase")
+            .compactMap { $0.attribute(forName: "name")?.stringValue }
+        #expect(sampleBTestcases == ["testC"])
+
+        let failures = suites[1].elements(forName: "testcase")
+            .flatMap { $0.elements(forName: "failure") }
+        #expect(failures.first?.attribute(forName: "message")?.stringValue == "boom")
     }
 
     @Test
@@ -98,11 +120,13 @@ struct XUnitXMLMergerTests {
         try XUnitXMLMerger.merge(sources: [a], into: dest, fileSystem: fs)
 
         let merged: String = try fs.readFileContents(dest)
-        #expect(merged.contains(#"<testsuite name="TestResultsSampleA""#))
-        #expect(merged.contains(#"name="testA""#))
-        #expect(merged.contains(#"name="testB""#))
-        let testsuiteCount = merged.components(separatedBy: "<testsuite ").count - 1
-        #expect(testsuiteCount == 1)
+        let (_, suites) = try parseTestsuites(merged)
+        #expect(suites.count == 1)
+        #expect(testsuiteName(suites[0]) == "TestResultsSampleA")
+
+        let testcaseNames = suites[0].elements(forName: "testcase")
+            .compactMap { $0.attribute(forName: "name")?.stringValue }
+        #expect(testcaseNames == ["testA", "testB"])
     }
 
     @Test
@@ -113,9 +137,13 @@ struct XUnitXMLMergerTests {
         try XUnitXMLMerger.merge(sources: [], into: dest, fileSystem: fs)
 
         let merged: String = try fs.readFileContents(dest)
-        #expect(merged.contains("<testsuites>"))
-        #expect(merged.contains("</testsuites>"))
-        #expect(!merged.contains("<testsuite "))
+        let (root, suites) = try parseTestsuites(merged)
+        let rootName = try #require(
+            root?.name,
+            "Root element name is not set.  XML contents:\n\(merged)"
+        )
+        #expect(rootName == "testsuites")
+        #expect(suites.isEmpty)
     }
 
     @Test
@@ -129,10 +157,9 @@ struct XUnitXMLMergerTests {
         try XUnitXMLMerger.merge(sources: [missing, present], into: dest, fileSystem: fs)
 
         let merged: String = try fs.readFileContents(dest)
-        #expect(merged.contains(#"<testsuite name="TestResultsSampleA""#))
-        #expect(merged.contains(#"name="testA""#))
-        let testsuiteCount = merged.components(separatedBy: "<testsuite ").count - 1
-        #expect(testsuiteCount == 1)
+        let (_, suites) = try parseTestsuites(merged)
+        #expect(suites.count == 1)
+        #expect(testsuiteName(suites[0]) == "TestResultsSampleA")
     }
 
     @Test
@@ -145,14 +172,15 @@ struct XUnitXMLMergerTests {
         try XUnitXMLMerger.merge(sources: [a], into: dest, fileSystem: fs)
 
         let merged: String = try fs.readFileContents(dest)
-        let testsuiteCount = merged.components(separatedBy: "<testsuite ").count - 1
-        #expect(testsuiteCount == 1, "empty testsuite should still be preserved for accurate reporting")
-        #expect(merged.contains(#"<testsuite name="TestResultsEmpty""#))
-        #expect(merged.contains(#"errors="1""#))
-        #expect(merged.contains(#"tests="10""#))
-        #expect(merged.contains(#"failures="4""#))
-        #expect(merged.contains(#"skipped="5""#))
-        #expect(merged.contains(#"time="0.000279""#))
+        let (_, suites) = try parseTestsuites(merged)
+        #expect(suites.count == 1, "empty testsuite should still be preserved for accurate reporting")
+        let suite = suites[0]
+        #expect(testsuiteName(suite) == "TestResultsEmpty")
+        #expect(suite.attribute(forName: "errors")?.stringValue == "1")
+        #expect(suite.attribute(forName: "tests")?.stringValue == "10")
+        #expect(suite.attribute(forName: "failures")?.stringValue == "4")
+        #expect(suite.attribute(forName: "skipped")?.stringValue == "5")
+        #expect(suite.attribute(forName: "time")?.stringValue == "0.000279")
     }
 
     @Test
@@ -307,6 +335,45 @@ struct XUnitXMLMergerTests {
     func mergeSourcesReturnsExpectedxUnitContents(
         data: (contents: [String], expected: String, id: String),
     ) async throws {
+
+        func canonicalizeXML(_ xml: String) throws -> String {
+            let document = try XMLDocument(xmlString: xml, options: [])
+            guard let root = document.rootElement() else { return "" }
+            return canonicalizeElement(root)
+        }
+
+        func canonicalizeElement(_ element: XMLElement) -> String {
+            let name = element.name ?? ""
+            let attributes = (element.attributes ?? [])
+                .compactMap { attribute -> String? in
+                    guard let attributeName = attribute.name else { return nil }
+                    let value = (attribute.stringValue ?? "")
+                        .replacingOccurrences(of: "&", with: "&amp;")
+                        .replacingOccurrences(of: "<", with: "&lt;")
+                        .replacingOccurrences(of: "\"", with: "&quot;")
+                    return "\(attributeName)=\"\(value)\""
+                }
+                .sorted()
+                .joined(separator: " ")
+            let attributesPart = attributes.isEmpty ? "" : " \(attributes)"
+
+            let children = (element.children ?? []).compactMap { node -> String? in
+                if let childElement = node as? XMLElement {
+                    return canonicalizeElement(childElement)
+                }
+                if node.kind == .text {
+                    let text = (node.stringValue ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+                    return text.isEmpty ? nil : text
+                }
+                return nil
+            }.joined()
+
+            if children.isEmpty {
+                return "<\(name)\(attributesPart)/>"
+            }
+            return "<\(name)\(attributesPart)>\(children)</\(name)>"
+        }
+
         let fs = InMemoryFileSystem()
         var inputs = [AbsolutePath]()
         // GIVEN we have a few xUnit XML contents
@@ -322,10 +389,12 @@ struct XUnitXMLMergerTests {
         // AND we read the merged XML contents
         let actual: String = try fs.readFileContents(output)
 
-        // THEN we expect the contents to match what we expect
+        // THEN we expect the contents to be semantically equal to what we expect
+        let actualCanonical = try canonicalizeXML(actual)
+        let expectedCanonical = try canonicalizeXML(data.expected)
         #expect(
-            actual == data.expected,
-            "actual is not as expected. id: \(data.id)",
+            actualCanonical == expectedCanonical,
+            "actual is not semantically equal to expected. id: \(data.id)\nactual canonical:   \(actualCanonical)\nexpected canonical: \(expectedCanonical)",
         )
 
     }
