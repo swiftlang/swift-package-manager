@@ -47,8 +47,8 @@ public struct UserAuthenticator: Sendable {
     ///   its bcrypt hash; otherwise `nil`.
     public func authenticate(email rawEmail: String, password: String) async -> EmailAddress? {
         guard !password.isEmpty else { return nil }
-        let email = EmailAddress(rawEmail)
-        let user = await email.asyncFlatMap { await store.user(email: $0) }
+        guard let email = EmailAddress(rawEmail) else { return nil }
+        let user = await store.user(email: email)
         let storedHash = Self.passwordHash(of: user)
         let verified = await Self.verify(password, against: storedHash ?? Self.decoyHash)
         return (storedHash != nil && verified) ? email : nil
@@ -80,11 +80,4 @@ public struct UserAuthenticator: Sendable {
 
     private static let decoyHash: String =
         (try? Bcrypt.hash("decoy value for constant-time credential verification")) ?? ""
-}
-
-private extension Optional {
-    func asyncFlatMap<T>(_ transform: (Wrapped) async -> T?) async -> T? {
-        guard let self else { return nil }
-        return await transform(self)
-    }
 }
