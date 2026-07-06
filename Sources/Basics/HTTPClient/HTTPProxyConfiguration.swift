@@ -92,7 +92,7 @@ extension HTTPProxyConfiguration {
     /// - Must be a valid URL with a scheme and host
     /// - Must not contain credentials (userinfo)
     /// - Supported schemes: http, https, socks5
-    static func validateProxyURL(_ urlString: String) throws {
+    public static func validateProxyURL(_ urlString: String) throws {
         guard let components = URLComponents(string: urlString) else {
             throw ValidationError.invalidProxyURL(urlString, reason: "not a valid URL")
         }
