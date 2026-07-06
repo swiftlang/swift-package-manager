@@ -87,6 +87,9 @@ public enum ModuleError: Swift.Error {
     /// Indicates several targets with the same name exist in packages
     case duplicateModules(package: PackageIdentity, otherPackage: PackageIdentity, modules: [String])
 
+    /// A normal target points to an artifact bundle.
+    case artifactBundleAsNormalTarget(target: String)
+
     /// Indicates several targets with the same name exist in a registry and scm package
     case duplicateModulesScmAndRegistry(
         registryPackage: PackageIdentity.RegistryIdentity,
@@ -148,6 +151,8 @@ extension ModuleError: CustomStringConvertible {
             return "plugin target '\(target)' doesn't have a 'capability' property"
         case .embedInCodeNotSupported(let target):
             return "embedding resources in code not supported for C-family language target \(target)"
+        case .artifactBundleAsNormalTarget(let target):
+            return "target '\(target)' cannot point to an artifact bundle; use '.binaryTarget' instead"
         case .duplicateModules(let package, let otherPackage, let targets):
             var targetsDescription = "'\(targets.sorted().prefix(3).joined(separator: "', '"))'"
             if targets.count > 3 {
@@ -612,6 +617,9 @@ public final class PackageBuilder {
         let potentialTargets: [PotentialModule]
         potentialTargets = try self.manifest.targetsRequired(for: self.productFilter).map { target in
             let path = try findPath(for: target)
+            if target.type != .binary && path.extension == "artifactbundle" {
+                throw ModuleError.artifactBundleAsNormalTarget(target: target.name)
+            }
             return PotentialModule(
                 name: target.name,
                 path: path,

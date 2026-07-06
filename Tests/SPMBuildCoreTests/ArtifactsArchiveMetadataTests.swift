@@ -13,6 +13,7 @@
 import Basics
 import PackageModel
 import Testing
+import struct TSCBasic.StringError
 
 struct ArtifactsArchiveMetadataTests {
     @Test
@@ -123,6 +124,84 @@ struct ArtifactsArchiveMetadataTests {
             try binaryTarget.parseExecutableArtifactArchives(
                 for: Triple("x86_64-apple-macosx"), fileSystem: fileSystem
             )
+        }
+    }
+
+    @Test(
+        arguments: [
+            (
+                infoPathName: AbsolutePath("/info.json"),
+                contents: """
+                {
+                    "schemaVersion": 1.0, 
+                    "artifacts": {}
+                }
+                """,
+                expectedError: StringError("Type mismatch in ArtifactsArchive info.json at '/info.json'. Key 'schemaVersion' expected type 'String'."),
+                id: "Type Mismatch",
+            ),
+            (
+                infoPathName: AbsolutePath("/info.json"),
+                contents: """
+                {
+                    "schemaVersion": "1.0",
+                    "artifacts": {
+                        "my-artifact": {
+                            "type": "executable",
+                            "variants": []
+                    }
+                }
+                """,
+                expectedError: StringError("Invalid JSON in ArtifactsArchive info.json at '/info.json': The given data was not valid JSON."),
+                id: "Invalid JSON",
+            
+            ),
+            (
+                infoPathName: AbsolutePath("/info.json"),
+                contents: """
+                {
+                    "schemaVersion": "1.0",
+                    "artifacts": {
+                        "my-artifact": {
+                            "type": "executable",
+                            "variants": []
+                        }
+                    }
+                }
+                """,
+                expectedError: StringError("Missing required key 'version' in ArtifactsArchive info.json at '/info.json' in 'artifacts.my-artifact'."),
+                id: "Missing Key",
+            ),
+            (
+                infoPathName: AbsolutePath("/info.json"),
+                contents: """
+                {
+                    "schemaVersion": "1.0",
+                    "artifacts": {
+                        "my-artifact": {
+                            "type": "executable",
+                            "version": null,
+                            "variants": []
+                        }
+                    }
+                }
+                """,
+                expectedError: StringError("Expected non-null value of type 'String' in ArtifactsArchive info.json at '/info.json'. Key 'artifacts.my-artifact.version' is null."),
+                id: "Value not found",
+            ),
+        ],
+    )
+    func parseMetadataErrors(
+        data: (infoPathName: AbsolutePath, contents: String, expectedError: StringError, id: String),
+    ) throws {
+        let fileSystem = InMemoryFileSystem()
+        try fileSystem.writeFileContents(
+            data.infoPathName,
+            string: data.contents,
+        )
+
+        #expect(throws: data.expectedError) {
+            _ = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: .root)
         }
     }
 }

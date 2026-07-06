@@ -26,19 +26,21 @@ public struct RegistryConfiguration: Hashable {
     public enum Version: Int, Codable {
         case v1 = 1
     }
-
+    
     public static let version: Version = .v1
 
     public var defaultRegistry: Registry?
     public var scopedRegistries: [PackageIdentity.Scope: Registry]
     public var registryAuthentication: [String: Authentication]
     public var security: Security?
+    public var replaceScmWithRegistry: Bool?
 
     public init() {
         self.defaultRegistry = .none
         self.scopedRegistries = [:]
         self.registryAuthentication = [:]
         self.security = .none
+        self.replaceScmWithRegistry = nil
     }
 
     public mutating func merge(_ other: RegistryConfiguration) {
@@ -56,6 +58,10 @@ public struct RegistryConfiguration: Hashable {
 
         if let security = other.security {
             self.security = security
+        }
+
+        if let replaceScmWithRegistry = other.replaceScmWithRegistry {
+            self.replaceScmWithRegistry = replaceScmWithRegistry
         }
     }
 
@@ -317,6 +323,7 @@ extension RegistryConfiguration: Codable {
         case authentication
         case security
         case version
+        case replaceScmWithRegistry
     }
 
     fileprivate struct ScopeCodingKey: CodingKey, Hashable {
@@ -369,6 +376,7 @@ extension RegistryConfiguration: Codable {
                 forKey: .authentication
             ) ?? [:]
             self.security = try container.decodeIfPresent(Security.self, forKey: .security) ?? nil
+            self.replaceScmWithRegistry = try container.decodeIfPresent(Bool.self, forKey: .replaceScmWithRegistry)
         case nil:
             throw DecodingError.dataCorruptedError(
                 forKey: .version,
@@ -394,6 +402,7 @@ extension RegistryConfiguration: Codable {
 
         try container.encode(self.registryAuthentication, forKey: .authentication)
         try container.encodeIfPresent(self.security, forKey: .security)
+        try container.encodeIfPresent(self.replaceScmWithRegistry, forKey: .replaceScmWithRegistry)
     }
 }
 

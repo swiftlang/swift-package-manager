@@ -138,3 +138,30 @@ struct GitRepositoryProviderTests {
         )
     }
 }
+
+struct GitNetworkTimeoutOverridesTests {
+    @Test
+    func defaultsAreInjectedWhenEnvironmentIsEmpty() {
+        let overrides = gitNetworkTimeoutOverrides(environment: [:])
+        #expect(overrides == [
+            "-c", "http.lowSpeedLimit=\(GitNetworkTimeoutDefaults.lowSpeedLimitBytesPerSecond)",
+            "-c", "http.lowSpeedTime=\(GitNetworkTimeoutDefaults.lowSpeedTimeSeconds)",
+        ])
+    }
+
+    @Test(arguments: ["1", "true", "TRUE", "yes", "Yes", "on", "ON"])
+    func disableFlagSuppressesOverrides(value: String) {
+        let overrides = gitNetworkTimeoutOverrides(environment: [
+            EnvironmentKey(ConfigurableEnvVar.SWIFTPM_GIT_LOW_SPEED_TIMEOUTS_DISABLED.rawValue): value,
+        ])
+        #expect(overrides == [])
+    }
+
+    @Test(arguments: ["", "0", "false", "no", "off", "anything-else"])
+    func nonTruthyDisableFlagDoesNotSuppressOverrides(value: String) {
+        let overrides = gitNetworkTimeoutOverrides(environment: [
+            EnvironmentKey(ConfigurableEnvVar.SWIFTPM_GIT_LOW_SPEED_TIMEOUTS_DISABLED.rawValue): value,
+        ])
+        #expect(!overrides.isEmpty)
+    }
+}

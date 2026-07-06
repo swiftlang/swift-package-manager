@@ -249,6 +249,50 @@ class PackageCollectionsStorageTests: XCTestCase {
             }
         }
     }
+
+    func testDeinitClosesUnderlyingDatabase() async throws {
+        #if os(Windows)
+        throw XCTSkip("File-descriptor counting via /dev/fd or /proc/self/fd is not available on Windows; the leak the test guards against is platform-agnostic but the measurement strategy is not.")
+        #else
+        try await testWithTemporaryDirectory { tmpPath in
+            let path = tmpPath.appending("test.db")
+
+            func openFileDescriptorCount() -> Int {
+                #if canImport(Darwin)
+                let fdPath = "/dev/fd"
+                #else
+                let fdPath = "/proc/self/fd"
+                #endif
+                return (try? FileManager.default.contentsOfDirectory(atPath: fdPath).count) ?? 0
+            }
+
+            let configuration = SQLitePackageCollectionsStorage.Configuration(initializeTargetTrie: false)
+
+            do {
+                let warmUp = SQLitePackageCollectionsStorage(path: path, configuration: configuration)
+                _ = try await warmUp.list()
+                try warmUp.close()
+            }
+
+            let baseline = openFileDescriptorCount()
+
+            let iterations = 50
+            for _ in 0..<iterations {
+                let storage = SQLitePackageCollectionsStorage(path: path, configuration: configuration)
+                _ = try await storage.list()
+                // Intentionally no `try storage.close()` — rely on `deinit`.
+            }
+
+            let afterLeak = openFileDescriptorCount()
+            let growth = afterLeak - baseline
+            XCTAssertLessThan(
+                growth,
+                iterations,
+                "SQLitePackageCollectionsStorage.deinit must close the underlying SQLite handle to avoid leaking file descriptors (baseline=\(baseline), after=\(afterLeak), growth=\(growth) over \(iterations) iterations)"
+            )
+        }
+        #endif
+    }
 }
 
 extension SQLitePackageCollectionsStorage {
@@ -257,5 +301,8 @@ extension SQLitePackageCollectionsStorage {
     }
     convenience init(path: AbsolutePath) {
         self.init(location: .path(path), observabilityScope: ObservabilitySystem.NOOP)
+    }
+    convenience init(path: AbsolutePath, configuration: Configuration) {
+        self.init(location: .path(path), configuration: configuration, observabilityScope: ObservabilitySystem.NOOP)
     }
 }
