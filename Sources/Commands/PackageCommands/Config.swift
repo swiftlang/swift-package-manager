@@ -210,7 +210,18 @@ extension SwiftPackageCommand.Config {
 
         #if canImport(SystemConfiguration)
         private static func querySystemProxy() -> (http: String?, https: String?, noProxy: String?)? {
-            // Implemented in step 6
+            guard let proxySettings = SystemProxyQuery.copySystemProxySettings() else {
+                return nil
+            }
+
+            let http = proxySettings.httpProxy
+            let https = proxySettings.httpsProxy
+            let noProxy = proxySettings.exceptionsList?.joined(separator: ", ")
+
+            // Only return if at least one setting is present
+            if http != nil || https != nil || noProxy != nil {
+                return (http: http, https: https, noProxy: noProxy)
+            }
             return nil
         }
         #endif
@@ -253,3 +264,55 @@ extension SwiftPackageCommand.Config {
         return proxyFile.pathString
     }
 }
+
+// MARK: - System Proxy Query (macOS)
+
+#if canImport(SystemConfiguration)
+import SystemConfiguration
+
+/// Queries macOS system proxy settings via `SCDynamicStoreCopyProxies`.
+///
+/// This is display-only — it is NOT used for actual networking (URLSession handles that automatically).
+enum SystemProxyQuery {
+    struct ProxySettings {
+        var httpProxy: String?
+        var httpsProxy: String?
+        var exceptionsList: [String]?
+    }
+
+    static func copySystemProxySettings() -> ProxySettings? {
+        guard let proxies = SCDynamicStoreCopyProxies(nil) as? [String: Any] else {
+            return nil
+        }
+
+        var settings = ProxySettings()
+
+        // HTTP proxy
+        if let httpEnabled = proxies[kCFNetworkProxiesHTTPEnable as String] as? Int, httpEnabled == 1,
+           let httpHost = proxies[kCFNetworkProxiesHTTPProxy as String] as? String
+        {
+            let httpPort = proxies[kCFNetworkProxiesHTTPPort as String] as? Int ?? 80
+            settings.httpProxy = "http://\(httpHost):\(httpPort)"
+        }
+
+        // HTTPS proxy
+        if let httpsEnabled = proxies[kCFNetworkProxiesHTTPSEnable as String] as? Int, httpsEnabled == 1,
+           let httpsHost = proxies[kCFNetworkProxiesHTTPSProxy as String] as? String
+        {
+            let httpsPort = proxies[kCFNetworkProxiesHTTPSPort as String] as? Int ?? 443
+            settings.httpsProxy = "http://\(httpsHost):\(httpsPort)"
+        }
+
+        // Exceptions list (noProxy)
+        if let exceptions = proxies[kCFNetworkProxiesExceptionsList as String] as? [String], !exceptions.isEmpty {
+            settings.exceptionsList = exceptions
+        }
+
+        // Only return if we found something
+        if settings.httpProxy != nil || settings.httpsProxy != nil || settings.exceptionsList != nil {
+            return settings
+        }
+        return nil
+    }
+}
+#endif
