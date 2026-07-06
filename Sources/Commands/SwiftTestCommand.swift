@@ -190,9 +190,9 @@ struct TestCommandOptions: ParsableArguments {
           help: "Print the path of the exported code coverage JSON file.")
     var shouldPrintCodeCovPath: Bool = false
 
-    var testCaseSpecifier: TestCaseSpecifier {
+    var xctestFilterSpecifier: TestCaseSpecifier {
         if !filter.isEmpty {
-            return .regex(filter)
+            return .regex(filter).normalizedForXCTest()
         }
 
         return _testCaseSpecifier.map { .specific($0) } ?? .none
@@ -383,8 +383,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                     buildSystem: buildSystem
                 )
                 let tests = try testSuites
-                    .filteredTests(specifier: options.testCaseSpecifier)
-                    .skippedTests(specifier: options.skippedTests(fileSystem: swiftCommandState.fileSystem))
+                    .filteredTests(specifier: options.xctestFilterSpecifier)
+                    .skippedTests(specifier: options.xctestSkippedSpecifier(fileSystem: swiftCommandState.fileSystem))
 
                 let testResults: [ParallelTestRunner.TestResult]
                 if tests.isEmpty {
@@ -470,9 +470,9 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     }
 
     private func xctestArgs(for testProducts: [BuiltTestProduct], swiftCommandState: SwiftCommandState, buildSystem: any BuildSystem) async throws -> (arguments: [String], testCount: Int?) {
-        switch options.testCaseSpecifier {
+        switch options.xctestFilterSpecifier {
         case .none:
-            if case .skip = options.skippedTests(fileSystem: swiftCommandState.fileSystem) {
+            if case .skip = options.xctestSkippedSpecifier(fileSystem: swiftCommandState.fileSystem) {
                 fallthrough
             } else {
                 return ([], nil)
@@ -480,7 +480,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
         case .regex, .specific, .skip:
             // If the previous specifier `-s` option was used, emit the deprecation notice.
-            if case .specific = options.testCaseSpecifier {
+            if case .specific = options.xctestFilterSpecifier {
                 swiftCommandState.observabilityScope.emit(warning: "'--specifier' option is deprecated; use '--filter' instead")
             }
 
@@ -495,8 +495,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 buildSystem: buildSystem
             )
             let tests = try testSuites
-                .filteredTests(specifier: options.testCaseSpecifier)
-                .skippedTests(specifier: options.skippedTests(fileSystem: swiftCommandState.fileSystem))
+                .filteredTests(specifier: options.xctestFilterSpecifier)
+                .skippedTests(specifier: options.xctestSkippedSpecifier(fileSystem: swiftCommandState.fileSystem))
 
             return (TestRunner.xctestArguments(forTestSpecifiers: tests.map(\.specifier)), tests.count)
         }
@@ -578,7 +578,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                                  (options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) ||
                                   testEntryPointPath == nil)
 
-        let skipSpecifier = options.skippedTests(fileSystem: swiftCommandState.fileSystem)
+        let skipSpecifier = options.xctestSkippedSpecifier(fileSystem: swiftCommandState.fileSystem)
 
         var productsWithXCTests = Set<AbsolutePath>()
         if xctestEnabled {
@@ -592,7 +592,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 buildSystem: buildSystem
             )
             let matchingTests = try xctestSuites
-                .filteredTests(specifier: options.testCaseSpecifier)
+                .filteredTests(specifier: options.xctestFilterSpecifier)
                 .skippedTests(specifier: skipSpecifier)
             productsWithXCTests = Set(matchingTests.map(\.testProduct.bundlePath))
         }
@@ -1826,16 +1826,51 @@ extension SwiftCommandState {
     }
 }
 
+extension TestCaseSpecifier {
+    /// Normalizes the arguments passed to XCTest by processing any prefixes that are Swift Testing-specific.
+    ///
+    /// In particular, anything prefixed with `id:` should be treated as if the argument to the prefix were passed in
+    /// directly (e.g. `--filter id:foo` becomes `--filter foo`). Any other prefixes indicate behaviors unsupported by
+    /// xctest and so should be dropped (e.g. `--filter tag:integrationTest` will be dropped).
+    func normalizedForXCTest() -> TestCaseSpecifier {
+        switch self {
+        case .none, .specific:
+            return self
+        case .regex(let array):
+            let normalizedPatterns = array.compactMap(Self.stripPrefixesAndFilterForXCTest(_:))
+            if normalizedPatterns.isEmpty { return .none }
+            return .regex(normalizedPatterns)
+        case .skip(let array):
+            let normalizedPatterns = array.compactMap(Self.stripPrefixesAndFilterForXCTest(_:))
+            if normalizedPatterns.isEmpty { return .none }
+            return .skip(normalizedPatterns)
+        }
+    }
+
+    private static func stripPrefixesAndFilterForXCTest(_ pattern: String) -> String? {
+        let idPrefix = #/^id:/#
+        let genericTagPrefix = #/^[a-zA-Z]+:/#
+        if pattern.contains(idPrefix) {
+            return String(pattern.trimmingPrefix(idPrefix))
+        } else if pattern.contains(genericTagPrefix) {
+            return nil
+        } else {
+            return pattern
+        }
+    }
+}
+
 extension TestCommandOptions {
-    func skippedTests(fileSystem: FileSystem) -> TestCaseSpecifier {
+    /// Returns the specifier used for skipping tests, normalized for XCTest.
+    func xctestSkippedSpecifier(fileSystem: FileSystem) -> TestCaseSpecifier {
         // TODO: Remove this once the environment variable is no longer used.
         if let override = skippedTestsOverride(fileSystem: fileSystem) {
-            return override
+            return override.normalizedForXCTest()
         }
 
         return self._testCaseSkip.isEmpty
             ? .none
-            : .skip(self._testCaseSkip)
+            : .skip(self._testCaseSkip).normalizedForXCTest()
     }
 
     /// Returns the test case specifier if overridden in the environment.
