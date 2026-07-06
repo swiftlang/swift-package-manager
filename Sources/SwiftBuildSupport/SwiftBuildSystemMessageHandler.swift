@@ -149,7 +149,7 @@ public final class SwiftBuildSystemMessageHandler {
         if let started = self.buildState.startedInfo(for: startedInfo) {
             // Emit depending on verbosity level.
             if logLevel.isVerbose {
-                self.outputStream.send(started)
+                self.outputStream.send(started + "\n")
             }
             self.observabilityScope.print(started, condition: .onlyWhenVerbose)
         }
