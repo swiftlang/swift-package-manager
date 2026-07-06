@@ -13,12 +13,6 @@
 import Foundation
 
 /// Produces the plaintext bearer tokens minted for token users.
-///
-/// The generator is an injectable seam: production wiring uses
-/// ``secureRandom``, which draws 256 bits from the system CSPRNG, while
-/// tests inject a deterministic closure so a minted token can be asserted
-/// and replayed through login. Because the enclosing services are
-/// `Sendable`, the wrapped closure is `@Sendable`.
 public struct TokenGenerator: Sendable {
     private let generate: @Sendable () -> String
 
