@@ -561,7 +561,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// Concurrent queue to execute git cli on.
     private let git: GitShellHelper
 
-    // lock top protect concurrent modifications to the repository
+    // lock to protect concurrent modifications to the repository
     private let lock = NSLock()
 
     /// If this repo is a work tree repo (checkout) as opposed to a bare repo.
@@ -690,8 +690,8 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     public func getBranches() throws -> [String] {
-        try self.cachedBranches.memoize {
-            try self.lock.withLock {
+        try self.lock.withLock {
+            try self.cachedBranches.memoize {
                 let branches = try callGit("branch", "-l", failureMessage: "Couldn’t get the list of branches")
                 return branches.split(whereSeparator: { $0.isNewline }).map { $0.dropFirst(2) }.map(String.init)
             }
@@ -740,8 +740,8 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// Returns the tags present in repository.
     public func getTags() throws -> [String] {
         // Get the contents using `ls-tree`.
-        try self.cachedTags.memoize {
-            try self.lock.withLock {
+        try self.lock.withLock {
+            try self.cachedTags.memoize {
                 let tagList = try callGit(
                     "tag",
                     "-l",
@@ -1086,8 +1086,8 @@ public final class GitRepository: Repository, WorkingCheckout {
         } else {
             specifier = treeish
         }
-        return try self.cachedHashes.memoize(specifier) {
-            try self.lock.withLock {
+        return try self.lock.withLock {
+            try self.cachedHashes.memoize(specifier) {
                 let output = try callGit(
                     "rev-parse",
                     "--verify",
@@ -1123,8 +1123,8 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// Read a tree object.
     public func readTree(hash: Hash) throws -> Tree {
         let hashString = hash.bytes.description
-        return try self.cachedTrees.memoize(hashString) {
-            try self.lock.withLock {
+        return try self.lock.withLock {
+            try self.cachedTrees.memoize(hashString) {
                 let output = try callGit(
                     "ls-tree",
                     hashString,
@@ -1137,8 +1137,8 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     public func readTree(tag: String) throws -> Tree {
-        try self.cachedTrees.memoize(tag) {
-            try self.lock.withLock {
+        try self.lock.withLock {
+            try self.cachedTrees.memoize(tag) {
                 let output = try callGit(
                     "ls-tree",
                     tag,
@@ -1198,8 +1198,8 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     /// Read a blob object.
     func readBlob(hash: Hash) throws -> ByteString {
-        try self.cachedBlobs.memoize(hash) {
-            try self.lock.withLock {
+        try self.lock.withLock {
+            try self.cachedBlobs.memoize(hash) {
                 // Get the contents using `cat-file`.
                 //
                 // FIXME: We need to get the raw bytes back, not a String.

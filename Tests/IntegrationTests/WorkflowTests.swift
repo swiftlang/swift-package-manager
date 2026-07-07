@@ -81,6 +81,69 @@ struct DeveloperWorkflowTests {
         }
     }
 
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10122", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func addTargetDependencies(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withTemporaryDirectory(removeTreeOnDeinit: false) { packageRoot in
+            let packageName = "MyPackage"
+            try await executeSwiftPackage(
+                packageRoot,
+                configuration: .debug,
+                extraArgs: [
+                    "init",
+                    "--type",
+                    "library",
+                    "--name",
+                    packageName,
+                ],
+                buildSystem: buildSystem,
+            )
+
+            for name in ["TargetOne", "TargetTwo", "TargetThree"] {
+                try await executeSwiftPackage(
+                    packageRoot,
+                    configuration: .debug,
+                    extraArgs: [
+                        "add-target",
+                        name,
+                    ],
+                    buildSystem: buildSystem,
+                )
+            }
+            for (target, pkgName) in [
+                ("TargetOne", "MyPackage"),
+                ("TargetTwo", "MyPackage"),
+                ("TargetOne", "TargetThree"),
+            ] {
+                try await executeSwiftPackage(
+                    packageRoot,
+                    configuration: .debug,
+                    extraArgs: [
+                        "add-target-dependency",
+                        target,
+                        pkgName,
+                    ],
+                    buildSystem: buildSystem,
+                )
+            }
+
+            await #expect(throws: Never.self) {
+                try await executeSwiftPackage(
+                    packageRoot,
+                    configuration: .debug,
+                    extraArgs: [
+                        "dump-package",
+                    ],
+                    buildSystem: buildSystem,
+                )
+            }
+        }
+    }
+
     @Test
     func scratchPathContainsSentinelFiles() async throws {
         try await withTemporaryDirectory(removeTreeOnDeinit: false) { tmpDir in
