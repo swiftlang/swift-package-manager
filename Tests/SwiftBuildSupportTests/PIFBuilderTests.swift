@@ -430,6 +430,124 @@ struct PIFBuilderTests {
         }
     }
 
+    struct ModuleAliasTestData {
+        let fixtureName: String
+        let packageName: String
+        let projectName: String
+        let verify: [Verify]
+
+        struct Verify {
+            let targetName: String
+            let expectedAliases: [String]
+        }
+    }
+    @Test(
+        arguments: [
+            ModuleAliasTestData(
+                fixtureName: "ModuleAliasing/Executable",
+                packageName: "App",
+                projectName: "App",
+                verify: [
+                    ModuleAliasTestData.Verify(
+                        targetName: "App-product",
+                        expectedAliases: ["Utils=AppUtils"],
+                    ),
+                ],
+            ),
+        ]
+    )
+    func moduleAliasesPropagateToExecutableProduct(
+        data: ModuleAliasTestData,
+    ) async throws {
+        try await withGeneratedPIF(
+            fromFixture: data.fixtureName,
+            withPackage: data.packageName,
+        ) { pif, observabilitySystem, fixturePath in
+            let project = try pif.workspace.project(named: data.projectName)
+            for v in data.verify {
+                let productConfig = try project
+                    .target(named: v.targetName)
+                    .buildConfig(named: .debug)
+
+                #expect(
+                    productConfig.settings[.SWIFT_MODULE_ALIASES] == v.expectedAliases,
+                    "Project name \(data.projectName) and target name \(v.targetName) does not have expected module aliases",
+                )
+            }
+        }
+    }
+
+    struct ModuleAliasTargetTestData {
+        let fixtureName: String
+        let packageName: String
+        /// Expected `SWIFT_MODULE_ALIASES` entries (formatted as `"OriginalName=AliasName"`)
+        /// that must appear across the union of every `PACKAGE-TARGET:` target in the generated PIF.
+        let expectedAliasEntries: Set<String>
+    }
+    @Test(
+        arguments: [
+            ModuleAliasTargetTestData(
+                fixtureName: "ModuleAliasing/DirectDeps1",
+                packageName: "AppPkg",
+                expectedAliasEntries: ["Utils=GameUtils"],
+            ),
+            ModuleAliasTargetTestData(
+                fixtureName: "ModuleAliasing/DirectDeps2",
+                packageName: "AppPkg",
+                expectedAliasEntries: ["Utils=AUtils", "Utils=BUtils"],
+            ),
+            ModuleAliasTargetTestData(
+                fixtureName: "ModuleAliasing/Executable",
+                packageName: "App",
+                expectedAliasEntries: ["Utils=AppUtils"],
+            ),
+            ModuleAliasTargetTestData(
+                fixtureName: "ModuleAliasing/NestedDeps1",
+                packageName: "AppPkg",
+                expectedAliasEntries: [
+                    "FooUtils=AFooUtils",
+                    "FooUtils=XFooUtils",
+                    "Utils=CarUtils",
+                    "Utils=XUtils",
+                ],
+            ),
+            ModuleAliasTargetTestData(
+                fixtureName: "ModuleAliasing/NestedDeps2",
+                packageName: "AppPkg",
+                expectedAliasEntries: [
+                    "Utils=BUtils",
+                    "Utils=CUtils",
+                    "Utils=XUtils",
+                ],
+            ),
+        ]
+    )
+    func moduleAliasesPropagateToPackageTargets(
+        data: ModuleAliasTargetTestData,
+    ) async throws {
+        try await withGeneratedPIF(
+            fromFixture: data.fixtureName,
+            withPackage: data.packageName,
+        ) { pif, _, _ in
+            var seenAliasEntries: Set<String> = []
+            for project in pif.workspace.projects {
+                for target in project.underlying.targets {
+                    guard target.common.id.value.hasPrefix("PACKAGE-TARGET:") else { continue }
+                    for config in target.common.buildConfigs {
+                        guard let aliases = config.settings[.SWIFT_MODULE_ALIASES] else { continue }
+                        for entry in aliases {
+                            seenAliasEntries.insert(entry)
+                        }
+                    }
+                }
+            }
+            #expect(
+                seenAliasEntries.isSuperset(of: data.expectedAliasEntries),
+                "\(data.fixtureName): PACKAGE-TARGET SWIFT_MODULE_ALIASES missing expected entries; expected superset of \(data.expectedAliasEntries), got \(seenAliasEntries)",
+            )
+        }
+    }
+
     @Test
     func emitUnhandledFilesOnlyForRootPackages() async throws {
         try await withGeneratedPIF(
