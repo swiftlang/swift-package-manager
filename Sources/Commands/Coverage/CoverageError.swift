@@ -13,6 +13,7 @@
 package enum CoverageError: Error, Equatable {
     case noTestBinariesSupplied(format: CoverageFormat)
     case llvmCovFailed(format: CoverageFormat, output: String)
+    case llvmProfdataMergeFailed(output: String)
 }
 
 extension CoverageError: CustomStringConvertible {
@@ -22,6 +23,8 @@ extension CoverageError: CustomStringConvertible {
             return "Cannot generate \(format.rawValue.uppercased()) coverage report: no test binaries were supplied."
         case .llvmCovFailed(let format, let output):
             return "Unable to generate \(format.rawValue.uppercased()) coverage report:\n\(output)"
+        case .llvmProfdataMergeFailed(let output):
+            return "Unable to merge code coverage data:\n\(output)"
         }
     }
 }

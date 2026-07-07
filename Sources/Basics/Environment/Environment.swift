@@ -64,6 +64,42 @@ extension Environment {
     }
 }
 
+extension Environment {
+    /// Returns a copy without the entries swift-subprocess rejects when spawning.
+    ///
+    /// swift-subprocess validates every key of a custom environment and fails the spawn if any entry is invalid.
+    /// Variables like that can still exist in the parent environment, so drop them instead of failing every launch.
+    /// The rules mirror `Environment.validate()` in swift-subprocess (`Subprocess+Unix.swift` and
+    /// `Subprocess+Windows.swift`) and need to be kept in sync with it.
+    package var removingKeysInvalidForSubprocess: Environment {
+        var result = Environment()
+        for (key, value) in self where Self.isValidForSubprocess(key: key.rawValue, value: value) {
+            result[key] = value
+        }
+        return result
+    }
+
+    private static func isValidForSubprocess(key: String, value: String) -> Bool {
+        let nul = UInt8(ascii: "\0")
+        let equals = UInt8(ascii: "=")
+        let keyUTF8 = key.utf8
+        // Key and value must not contain NUL; the environment block would be silently truncated.
+        if keyUTF8.contains(nul) || value.utf8.contains(nul) || keyUTF8.contains(equals) {
+            return false
+        }
+        #if os(Windows)
+        // The serialized "key=value" entry, plus its null terminator, must not exceed 32,767 UTF-16 code units.
+        return key.utf16.count + 1 + value.utf16.count + 1 <= 32767
+        #else
+        // POSIX: names must not begin with a digit.
+        if let first = keyUTF8.first, (UInt8(ascii: "0")...UInt8(ascii: "9")).contains(first) {
+            return false
+        }
+        return true
+        #endif
+    }
+}
+
 extension [String: String] {
     @_spi(SwiftPMInternal)
     public init(_ environment: Environment) {

@@ -40,6 +40,22 @@ struct CoverageErrorTests {
     }
 
     @Test
+    func llvmProfdataMergeFailedDescription() {
+        let error = CoverageError.llvmProfdataMergeFailed(output: "some tool output")
+        #expect(String(describing: error) == "Unable to merge code coverage data:\nsome tool output")
+    }
+
+    @Test
+    func llvmProfdataMergeFailedIsEquatable() {
+        #expect(
+            CoverageError.llvmProfdataMergeFailed(output: "x") == CoverageError.llvmProfdataMergeFailed(output: "x"),
+        )
+        #expect(
+            CoverageError.llvmProfdataMergeFailed(output: "x") != CoverageError.llvmProfdataMergeFailed(output: "y"),
+        )
+    }
+
+    @Test
     func noTestBinariesSuppliedIsEquatable() {
         #expect(
             CoverageError.noTestBinariesSupplied(format: .html)
