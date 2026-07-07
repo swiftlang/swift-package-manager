@@ -35,6 +35,56 @@ struct EnvironmentTests {
     }
 
     @Test
+    func removingKeysInvalidForSubprocess() {
+        var environment: Environment = [
+            "PATH": "/usr/bin",
+            "FOO1": "ok",
+            "": "empty key is accepted",
+        ]
+        environment[EnvironmentKey("A=B")] = "equals in key"
+        environment[EnvironmentKey("NUL\0KEY")] = "nul in key"
+        environment[EnvironmentKey("NULVALUE")] = "nul\0value"
+
+        let filtered = environment.removingKeysInvalidForSubprocess
+
+        #expect(filtered["PATH"] == "/usr/bin")
+        #expect(filtered["FOO1"] == "ok")
+        #expect(filtered[EnvironmentKey("")] == "empty key is accepted")
+        #expect(filtered[EnvironmentKey("A=B")] == nil)
+        #expect(filtered[EnvironmentKey("NUL\0KEY")] == nil)
+        #expect(filtered[EnvironmentKey("NULVALUE")] == nil)
+    }
+
+    #if os(Windows)
+    @Test
+    func removingKeysInvalidForSubprocessDropsOversizedEntries() {
+        // key + "=" + value + NUL must fit in 32,767 UTF-16 code units.
+        var environment = Environment()
+        environment[EnvironmentKey("FITS")] = String(repeating: "x", count: 32767 - "FITS".count - 2)
+        environment[EnvironmentKey("TOOLONG")] = String(repeating: "x", count: 32767)
+        let filtered = environment.removingKeysInvalidForSubprocess
+        #expect(filtered[EnvironmentKey("FITS")] != nil)
+        #expect(filtered[EnvironmentKey("TOOLONG")] == nil)
+    }
+    #endif
+
+    #if !os(Windows)
+    @Test
+    func removingKeysInvalidForSubprocessDropsDigitLeadingKeys() {
+        let environment: Environment = ["1FOO": "x", "FOO": "y"]
+        let filtered = environment.removingKeysInvalidForSubprocess
+        #expect(filtered[EnvironmentKey("1FOO")] == nil)
+        #expect(filtered["FOO"] == "y")
+    }
+    #else
+    @Test
+    func removingKeysInvalidForSubprocessKeepsDigitLeadingKeys() {
+        let environment: Environment = ["1FOO": "x"]
+        #expect(environment.removingKeysInvalidForSubprocess["1FOO"] == "x")
+    }
+    #endif
+
+    @Test
     func initDictionaryFromSelf() {
         let dictionary = [
             "TestKey": "TestValue",
