@@ -14,6 +14,21 @@ import Dispatch
 
 import class Foundation.JSONDecoder
 import struct TSCBasic.StringError
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import Subprocess
+#if canImport(System)
+@_implementationOnly import System
+#else
+@_implementationOnly import SystemPackage
+#endif
+#else
+internal import Subprocess
+#if canImport(System)
+internal import System
+#else
+internal import SystemPackage
+#endif
+#endif
 
 private let defaultImports = ["Swift", "SwiftOnoneSupport", "_Concurrency",
                               "_StringProcessing", "_SwiftConcurrencyShims"]
@@ -46,16 +61,26 @@ public struct SwiftcImportScanner: ImportScanner {
                    filePathToScan.pathString,
                    "-scan-dependencies", "-Xfrontend", "-import-prescan"] + self.swiftCompilerFlags
 
-        let result = try await AsyncProcess.popen(arguments: cmd, environment: self.swiftCompilerEnvironment)
+        let result = try await Subprocess.run(
+            .path(FilePath(cmd[0])),
+            arguments: Subprocess.Arguments(Array(cmd.dropFirst())),
+            environment: Subprocess.Environment.custom(
+                Dictionary(uniqueKeysWithValues: self.swiftCompilerEnvironment.map {
+                    (Subprocess.Environment.Key(rawValue: $0.key.rawValue)!, $0.value)
+                })
+            ),
+            output: .string(limit: .max),
+            error: .string(limit: .max)
+        )
 
-        guard result.exitStatus == .terminated(code: 0) else {
-            throw try StringError(
-                "'\(cmd.joined(separator: " "))' failed with \(result.exitStatus): " +
-                    "\(result.utf8Output())\(result.utf8stderrOutput())"
+        guard result.terminationStatus.isSuccess else {
+            throw StringError(
+                "'\(cmd.joined(separator: " "))' failed with \(result.terminationStatus): " +
+                    "\(result.standardOutput)\(result.standardError)"
             )
         }
 
-        let stdout = try result.utf8Output()
+        let stdout = result.standardOutput
         do {
             return try JSONDecoder.makeWithDefaults().decode(Imports.self, from: stdout).imports
                 .filter { !defaultImports.contains($0) }

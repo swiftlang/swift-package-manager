@@ -270,6 +270,7 @@ let package = Package(
                 .target(name: "SPMSQLite3", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .macCatalyst, .linux, .openbsd, .custom("freebsd")])),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
+                .product(name: "Subprocess", package: "swift-subprocess"),
             ] + swiftToolchainSQLiteDeps + swiftSystemDeps + swiftToolsCoreSupportAutoDeps,
             exclude: ["CMakeLists.txt", "Vendor/README.md"],
             swiftSettings: swift6CompatibleExperimentalFeatures + [
@@ -336,7 +337,8 @@ let package = Package(
             name: "BinarySymbols",
             dependencies: [
                 "Basics",
-            ] + swiftTSCBasicsDeps,
+                .product(name: "Subprocess", package: "swift-subprocess"),
+            ] + swiftSystemDeps + swiftTSCBasicsDeps,
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures
         ),
@@ -590,6 +592,7 @@ let package = Package(
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
+                .product(name: "Subprocess", package: "swift-subprocess"),
                 "Basics",
                 "BinarySymbols",
                 "Build",
@@ -835,6 +838,7 @@ let package = Package(
                 "PackageSigning",
                 "SourceControl",
                 .product(name: "OrderedCollections", package: "swift-collections"),
+                .product(name: "Subprocess", package: "swift-subprocess"),
                 "Workspace",
             ] + swiftTSCTestSupportDeps,
         ),
@@ -898,7 +902,14 @@ let package = Package(
         ),
         .testTarget(
             name: "BuildTests",
-            dependencies: ["Build", "PackageModel", "Commands", "_InternalTestSupport", "_InternalBuildTestSupport"]
+            dependencies: [
+                "Build",
+                "PackageModel",
+                "Commands",
+                "_InternalTestSupport",
+                "_InternalBuildTestSupport",
+                .product(name: "Subprocess", package: "swift-subprocess"),
+            ]
         ),
         .testTarget(
             name: "LLBuildManifestTests",
@@ -1059,6 +1070,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "swift-package-manager",
                 "PackageModel",
                 "_InternalTestSupport",
+                .product(name: "Subprocess", package: "swift-subprocess"),
             ]
         ),
         .executableTarget(
@@ -1093,6 +1105,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "_InternalTestSupport",
                 "Workspace",
                 "dummy-swiftc",
+                .product(name: "Subprocess", package: "swift-subprocess"),
             ]
         ),
         .testTarget(
@@ -1100,6 +1113,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
             dependencies: [
                 "SwiftPMBuildServer",
                 "_InternalTestSupport",
+                .product(name: "Subprocess", package: "swift-subprocess"),
             ] + swiftToolsProtocolsDeps
         ),
     ])
@@ -1156,6 +1170,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // They are used to build the official swift toolchain.
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-argument-parser.git", revision: "1.8.2"),
+        .package(url: "https://github.com/swiftlang/swift-subprocess.git", from: "1.0.0"),
         .package(url: "https://github.com/apple/swift-collections.git", revision: "1.1.6"),
         .package(url: "https://github.com/apple/swift-certificates.git", revision: "1.10.1"),
     ]
@@ -1176,6 +1191,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
         .package(path: "../swift-argument-parser"),
         .package(path: "../swift-syntax"),
+        .package(path: "../swift-subprocess"),
         .package(path: "../swift-collections"),
         .package(path: "../swift-certificates"),
     ]
