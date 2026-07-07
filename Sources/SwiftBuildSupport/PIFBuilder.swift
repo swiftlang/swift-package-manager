@@ -444,7 +444,8 @@ public final class PIFBuilder {
                     self.diagnoseUnhandledFiles(
                         package: package,
                         module: module,
-                        buildToolPluginInvocationResults: buildToolPluginResults
+                        buildToolPluginInvocationResults: buildToolPluginResults,
+                        treatWarningsAsErrors: treatWarningsAsErrors
                     )
                 }
 
@@ -629,7 +630,8 @@ public final class PIFBuilder {
     private func diagnoseUnhandledFiles(
         package: ResolvedPackage,
         module: ResolvedModule,
-        buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
+        buildToolPluginInvocationResults: [BuildToolPluginInvocationResult],
+        treatWarningsAsErrors: Bool
     ) {
         guard package.manifest.toolsVersion >= .v5_3 else {
             return
@@ -655,7 +657,8 @@ public final class PIFBuilder {
             return metadata
         }
 
-        diagnosticsEmitter.emit(.unhandledFiles(unhandledFiles))
+        let diagnostic = Basics.Diagnostic.unhandledFiles(unhandledFiles)
+        diagnosticsEmitter.emit(severity: treatWarningsAsErrors ? .error : .warning, message: diagnostic.message)
     }
 }
 

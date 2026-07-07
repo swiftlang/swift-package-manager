@@ -165,7 +165,8 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             session: session.session,
             configuredTargets: [.init(rawValue: "ALL-INCLUDING-TESTS")],
             derivedDataPath: self.buildSystem.buildParameters.dataPath,
-            symbolGraphOptions: nil
+            symbolGraphOptions: nil,
+            shouldDisableSandbox: false,
         )
         self.underlyingBuildServer = SWBBuildServer(
             session: session.session,

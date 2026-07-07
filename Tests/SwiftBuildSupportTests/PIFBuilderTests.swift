@@ -458,6 +458,46 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test
+    func emitUnhandledFilesAsErrorWhenWarningsAsErrors() async throws {
+        try await withGeneratedPIF(
+            fromFixture: "PIFBuilder/UnhandledFiled",
+            withPackage: "App",
+            buildParameters: mockBuildParameters(
+                destination: .host,
+                flags: BuildFlags(swiftCompilerFlags: [BuildFlag(value: "-warnings-as-errors", source: nil)]),
+                buildSystemKind: .swiftbuild,
+            ),
+        ) { pif, observabilitySystem, fixturePath in
+
+            let expected: [Basics.Diagnostic] = [
+                Basics.Diagnostic.unhandledFiles([
+                    fixturePath.appending(components: ["Sources", "App", "Foo.txt"]),
+                    fixturePath.appending(components: ["Sources", "App", "README.md"]),
+                ])
+            ]
+
+            // With `-warnings-as-errors`, the unhandled files diagnostic should be
+            // emitted as an error rather than a warning.
+            let actualUnhandledFilesErrors = observabilitySystem.errors.filter {
+                $0.message.contains("which are unhandled;")
+            }
+            #expect(
+                actualUnhandledFilesErrors.map(\.message) == expected.map(\.message),
+                "Expected the unhandled files diagnostic to be emitted as an error... actual: \(observabilitySystem.errors)",
+            )
+
+            // It should no longer be emitted as a warning.
+            let actualUnhandledFilesWarnings = observabilitySystem.warnings.filter {
+                $0.message.contains("which are unhandled;")
+            }
+            #expect(
+                actualUnhandledFilesWarnings.isEmpty,
+                "Did not expect the unhandled files diagnostic to be emitted as a warning... actual: \(actualUnhandledFilesWarnings)",
+            )
+        }
+    }
+
     @Test func platformConditionBasics() async throws {
         try await withGeneratedPIF(fromFixture: "PIFBuilder/UnknownPlatforms") { pif, observabilitySystem, fixturePath in
             // We should emit a warning to the PIF log about the unknown platform

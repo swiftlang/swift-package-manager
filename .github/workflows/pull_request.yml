@@ -20,12 +20,12 @@ jobs:
     uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.12
     with:
       enable_cross_pr_testing: true
-      linux_os_versions: '["amazonlinux2", "bookworm", "noble", "jammy", "rhel-ubi9"]'
-      linux_swift_versions: '["nightly-main", "nightly-6.2"]'
+      linux_os_versions: '["amazonlinux2023", "bookworm", "noble", "jammy", "rhel-ubi9"]'
+      linux_swift_versions: '["nightly-main", "nightly-6.4.x"]'
       linux_pre_build_command: ./.github/scripts/prebuild.sh
       linux_build_command: 'swift run swift-build --build-tests'
       windows_build_timeout: 180
-      windows_swift_versions: '["nightly-main", "nightly-6.2"]'
+      windows_swift_versions: '["nightly-main", "nightly-6.4.x",]'
       windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1'
       windows_build_command: 'Invoke-Program swift run -Xlinker /ignore:4217 --configuration release swift-build --build-tests --scratch-path .tests'
       # enable_android_sdk_build: true
@@ -49,6 +49,9 @@ jobs:
       format_check_enabled: false
       shell_check_enabled: false
       docs_check_enabled: true
+      docs_check_analyze: false
+      docs_check_targets: "PackageManagerDocs"
+      docs_check_macos_enabled: false
       broken_symlink_check_enabled: true
       python_lint_check_enabled: true
       yamllint_check_enabled: true
@@ -77,7 +80,24 @@ jobs:
   required:
     name: Required
     runs-on: ubuntu-latest
-    needs: [build, soundness, integration-tests]
+    needs:
+      - build
+      - soundness
+      - integration-tests
+    if: always()  # Runs even if previous jobs fail so it can evaluate them
     steps:
-      - name: Success
-        run: echo "All required jobs succeeded."
+      - name: Install required tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends coreutils jq
+      - name: Check upstream job statuses
+        env:
+          NEEDS_JSON: ${{ toJSON(needs) }}
+        run: |
+          failed=$(printf '%s' "$NEEDS_JSON" | jq -r 'to_entries | map(select(.value.result != "success")) | .[] | "\(.key): \(.value.result)"')
+          if [ -n "$failed" ]; then
+            echo "The following required jobs did not succeed:"
+            printf '%s\n' "$failed"
+            exit 1
+          fi
+          echo "All required jobs passed successfully!"

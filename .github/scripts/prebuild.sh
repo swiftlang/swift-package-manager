@@ -73,13 +73,14 @@ elif command -v apt-get >/dev/null 2>&1 ; then # bookworm, noble, jammy
     else
         echo "Skipping Android NDK installation on $dpkg_architecture" >&2
     fi
-elif command -v dnf >/dev/null 2>&1 ; then # rhel-ubi9
+elif command -v dnf >/dev/null 2>&1 ; then # amazonlinux2023, rhel-ubi9
     $sudo dnf update -y
 
     # Build dependencies
     $sudo dnf install -y sqlite-devel ncurses-devel
 
     # Debug symbols
+    $sudo dnf install -y 'dnf-command(debuginfo-install)'
     $sudo dnf debuginfo-install -y glibc
 elif command -v yum >/dev/null 2>&1 ; then # amazonlinux2
     $sudo yum update -y
