@@ -518,6 +518,48 @@ struct DebugTestRunner {
 
     private static let lldbTargetLabelSupportCache = ThreadSafeBox<[String: Bool]>([:])
 
+    /// LLDB startup commands to emit before any `target create`.
+    ///
+    /// LLDB disables ASLR before launching a target by calling
+    /// `personality(ADDR_NO_RANDOMIZE)`. Container seccomp profiles (such as
+    /// Docker's default) block that syscall with `EPERM`, so `process launch`
+    /// fails with "personality set failed: Operation not permitted". When
+    /// disabling ASLR isn't permitted we tell LLDB to leave it on, which
+    /// sidesteps the syscall entirely at the cost of losing stable addresses
+    /// across runs in that (already constrained) environment.
+    static func lldbStartupCommands(aslrDisableIsPermitted: Bool) -> [String] {
+        aslrDisableIsPermitted ? [] : ["settings set target.disable-aslr false"]
+    }
+
+    /// Whether the host permits disabling ASLR when launching a process.
+    ///
+    /// Probed once by attempting the same `personality(ADDR_NO_RANDOMIZE)`
+    /// call LLDB makes before launch and checking whether it is denied. Only
+    /// meaningful on Linux (where seccomp can block the syscall); other
+    /// platforms disable ASLR through mechanisms that aren't restricted this
+    /// way, so we treat it as permitted there.
+    static let aslrDisableIsPermitted: Bool = {
+        #if canImport(Glibc)
+        let addrNoRandomize: UInt = 0x0040000
+        // `personality(0xffffffff)` reads the current persona without changing
+        // it, returning -1 on error. Any other value is the active persona.
+        let current = personality(0xffffffff)
+        guard current != -1 else { return true }
+        // The return is a C `int`; a persona with high bits set can look
+        // negative, so convert bit-for-bit rather than through `UInt(_:)`.
+        let persona = UInt(bitPattern: Int(current))
+        // Attempting to set ADDR_NO_RANDOMIZE is what LLDB does before launch;
+        // under a restrictive seccomp profile it returns -1 with EPERM.
+        guard personality(persona | addrNoRandomize) != -1 else {
+            return false
+        }
+        _ = personality(persona) // restore the original persona
+        return true
+        #else
+        return true
+        #endif
+    }()
+
     /// Creates an instance of debug test runner.
     init(
         target: DebuggableTestSession,
@@ -581,6 +623,7 @@ struct DebugTestRunner {
         // runs, so we must clean up ourselves or leak /tmp/swiftpm-lldb-*.
         do {
             var lldbCommands: [String] = []
+            lldbCommands.append(contentsOf: Self.lldbStartupCommands(aslrDisableIsPermitted: Self.aslrDisableIsPermitted))
             try setupTargets(&lldbCommands, scratchDir: scratchDir)
 
             lldbCommands.append(Self.atexitCleanupCommand(tempDirectory: scratchDir))

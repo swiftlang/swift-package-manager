@@ -2454,6 +2454,23 @@ struct TestCommandTests {
             }
         }
 
+        /// When the host forbids disabling ASLR — e.g. under a container
+        /// seccomp profile that blocks the `personality` syscall — the LLDB
+        /// startup commands must tell LLDB to leave ASLR enabled. Otherwise
+        /// `process launch` fails with "personality set failed: Operation not
+        /// permitted".
+        @Test
+        func aslrDisablePermissionControlsStartupCommands() {
+            #expect(
+                DebugTestRunner.lldbStartupCommands(aslrDisableIsPermitted: true).isEmpty,
+                "When disabling ASLR is permitted, LLDB should keep its default launch behavior"
+            )
+            #expect(
+                DebugTestRunner.lldbStartupCommands(aslrDisableIsPermitted: false) == ["settings set target.disable-aslr false"],
+                "When disabling ASLR is forbidden, LLDB must be told not to disable it"
+            )
+        }
+
         /// Direct unit tests for the validation logic, exercising
         /// `validateLLDBCompatibility` without going through the full
         /// command pipeline.
