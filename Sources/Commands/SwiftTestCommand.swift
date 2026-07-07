@@ -34,7 +34,12 @@ import TSCUtility
 import func TSCLibc.exit
 import Workspace
 
-import class Basics.AsyncProcess
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 import struct TSCBasic.ByteString
 import struct TSCBasic.FileSystemError
 import enum TSCBasic.JSON
@@ -778,7 +783,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         )
 
         // Run the tests and collect per-product results.
-        return runner.testPerProduct(outputHandler: {
+        return await runner.testPerProduct(outputHandler: {
             // command's result output goes on stdout
             // ie "swift test" should output to stdout
             print($0, terminator: "")
@@ -868,7 +873,14 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             }
         }
         args += ["-o", try await buildSystem.codeCovDataFile(for: productsBuildParameters).pathString]
-        try await AsyncProcess.checkNonZeroExit(arguments: args)
+        let mergeResult = try await Subprocess.run(
+            .path(FilePath(args[0])),
+            arguments: Subprocess.Arguments(Array(args.dropFirst())),
+            output: .discarded
+        )
+        guard mergeResult.terminationStatus.isSuccess else {
+            throw StringError("Unable to merge code coverage data")
+        }
     }
 
     /// Exports profdata as a JSON file.
@@ -893,13 +905,19 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         ] + archArgs + [
             testBinary.pathString,
         ]
-        let result = try await AsyncProcess.popen(arguments: args)
+        let result = try await Subprocess.run(
+            .path(FilePath(args[0])),
+            arguments: Subprocess.Arguments(Array(args.dropFirst())),
+            output: .bytes(limit: .max),
+            error: .string(limit: .max)
+        )
 
-        if result.exitStatus != .terminated(code: 0) {
-            let output = try result.utf8Output() + result.utf8stderrOutput()
-            throw StringError("Unable to export code coverage:\n \(output)")
+        if !result.terminationStatus.isSuccess {
+            let stdout = String(decoding: result.standardOutput, as: UTF8.self)
+            let stderr = result.standardError ?? ""
+            throw StringError("Unable to export code coverage:\n \(stdout + stderr)")
         }
-        try swiftCommandState.fileSystem.writeFileContents(path, bytes: ByteString(result.output.get()))
+        try swiftCommandState.fileSystem.writeFileContents(path, bytes: ByteString(result.standardOutput))
     }
 
     /// Builds the "test" target if enabled in options.
@@ -1135,7 +1153,7 @@ extension SwiftTestCommand {
                     )
 
                     // Finally, run the tests.
-                    let result = runner.test(outputHandler: {
+                    let result = await runner.test(outputHandler: {
                         // command's result output goes on stdout
                         // ie "swift test" should output to stdout
                         print($0, terminator: "")
@@ -1209,7 +1227,7 @@ final class TestRunner {
     // The toolchain to use.
     private let toolchain: UserToolchain
 
-    private let testEnv: Environment
+    private let testEnv: Basics.Environment
 
     /// The `ObservabilityScope`  to emit diagnostics.
     private let observabilityScope: ObservabilityScope
@@ -1243,7 +1261,7 @@ final class TestRunner {
         additionalArguments: [String],
         cancellator: Cancellator,
         toolchain: UserToolchain,
-        testEnv: Environment,
+        testEnv: Basics.Environment,
         observabilityScope: ObservabilityScope,
         library: TestingLibrary
     ) {
@@ -1272,12 +1290,12 @@ final class TestRunner {
 
     /// Executes and returns the execution status. Prints the test output on standard streams if requested.
     /// - Returns: Result of spawning and running the test process, and the output stream result.
-    func test(outputHandler: @escaping @Sendable (String) -> Void) -> Result {
-        testPerProduct(outputHandler: outputHandler).map(\.result).reduce()
+    func test(outputHandler: @escaping @Sendable (String) -> Void) async -> Result {
+        await testPerProduct(outputHandler: outputHandler).map(\.result).reduce()
     }
 
     /// Executes and returns per-product results.
-    func testPerProduct(outputHandler: @escaping @Sendable (String) -> Void) -> [SwiftTestCommand.TestProductResult] {
+    func testPerProduct(outputHandler: @escaping @Sendable (String) -> Void) async -> [SwiftTestCommand.TestProductResult] {
         var results: [SwiftTestCommand.TestProductResult] = []
         for product in testProducts {
             let path: AbsolutePath
@@ -1287,7 +1305,7 @@ final class TestRunner {
             case .swiftTesting:
                 path = product.binaryPath
             }
-            results.append(.init(productName: product.productName, library: library, result: self.test(at: path, outputHandler: outputHandler)))
+            await results.append(.init(productName: product.productName, library: library, result: self.test(at: path, outputHandler: outputHandler)))
         }
         return results
     }
@@ -1330,34 +1348,39 @@ final class TestRunner {
         return args
     }
 
-    private func test(at path: AbsolutePath, outputHandler: @escaping @Sendable (String) -> Void) -> Result {
+    private func test(at path: AbsolutePath, outputHandler: @escaping @Sendable (String) -> Void) async -> Result {
         let testObservabilityScope = self.observabilityScope.makeChildScope(description: "running test at \(path)")
 
         do {
-            let outputHandler: @Sendable ([UInt8]) -> Void = { (bytes: [UInt8]) in
-                if let output = String(bytes: bytes, encoding: .utf8) {
-                    outputHandler(output)
+            let arguments = try args(forTestAt: path)
+            let subprocessEnv = Subprocess.Environment.custom(
+                Dictionary(uniqueKeysWithValues: self.testEnv.map {
+                    (Subprocess.Environment.Key(rawValue: $0.key.rawValue)!, $0.value)
+                })
+            )
+            let outcome = try await self.cancellator.withCancellable(name: arguments.joined(separator: " ")) {
+                try await Subprocess.run(
+                    .path(FilePath(arguments[0])),
+                    arguments: Subprocess.Arguments(Array(arguments.dropFirst())),
+                    environment: subprocessEnv,
+                    input: .none,
+                    output: .sequence,
+                    error: .combinedWithOutput
+                ) { execution in
+                    for try await buffer in execution.standardOutput {
+                        buffer.withUnsafeBytes { ptr in
+                            outputHandler(String(decoding: ptr, as: UTF8.self))
+                        }
+                    }
                 }
             }
-            let outputRedirection = AsyncProcess.OutputRedirection.stream(
-                stdout: outputHandler,
-                stderr: outputHandler
-            )
-            let arguments = try args(forTestAt: path)
-            let process = AsyncProcess(arguments: arguments, environment: self.testEnv, outputRedirection: outputRedirection)
-            guard let terminationKey = self.cancellator.register(process) else {
-                return .failure // terminating
-            }
-            defer { self.cancellator.deregister(terminationKey) }
-            try process.launch()
-            let result = try process.waitUntilExit()
-            switch result.exitStatus {
-            case .terminated(code: 0):
+            switch outcome.terminationStatus {
+            case .exited(0):
                 return .success
-            case .terminated(code: EXIT_NO_TESTS_FOUND) where library == .swiftTesting:
+            case .exited(TerminationStatus.Code(EXIT_NO_TESTS_FOUND)) where library == .swiftTesting:
                 return .noMatchingTests
             #if !os(Windows)
-            case .signalled(let signal) where ![SIGINT, SIGKILL, SIGTERM].contains(signal):
+            case .signaled(let signal) where ![SIGINT, SIGKILL, SIGTERM].contains(signal):
                 testObservabilityScope.emit(error: "Process '\(arguments.joined(separator: " "))' exited with unexpected signal code \(signal)")
                 return .failure
             #endif
@@ -1532,7 +1555,14 @@ final class ParallelTestRunner {
                     )
                     let output = ThreadSafeBox<String>("")
                     let start = DispatchTime.now()
-                    let result = testRunner.test(outputHandler: { _output in output.append(_output) })
+                    let resultBox = ThreadSafeBox<TestRunner.Result>(.failure)
+                    let semaphore = DispatchSemaphore(value: 0)
+                    Task {
+                        resultBox.put(await testRunner.test(outputHandler: { _output in output.append(_output) }))
+                        semaphore.signal()
+                    }
+                    semaphore.wait()
+                    let result = resultBox.get()
                     let duration = start.distance(to: .now())
                     if result == .failure {
                         self.ranSuccessfully = false
