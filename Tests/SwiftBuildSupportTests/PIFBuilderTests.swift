@@ -763,6 +763,83 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test(arguments: [true, false])
+    func dynamicVariantProductName(createDylibForDynamicProducts: Bool) async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(
+            emptyFiles: [
+                "/MyPkg/Sources/MyLib/MyLib.swift",
+            ]
+        )
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "MyPkg",
+                    path: "/MyPkg",
+                    toolsVersion: .v6_2,
+                    products: [
+                        .init(name: "MyLibDynamic", type: .library(.dynamic), targets: ["MyLib"]),
+                    ],
+                    targets: [
+                        .init(name: "MyLib"),
+                    ]
+                )
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root,
+                addLocalRpaths: .always,
+                shouldCreateDylibForDynamicProducts: createDylibForDynamicProducts
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "MyPkg")
+
+        let moduleVariant = try #require(
+            project.underlying.targets.first {
+                $0.common.name == "MyLib" && $0.common.id.value.hasSuffix("-dynamic")
+            }
+        )
+        guard case .target(let moduleTarget) = moduleVariant else {
+            Issue.record("Expected a regular target for the dynamic module variant, got \(moduleVariant)")
+            return
+        }
+
+        let productVariant = try project.target(named: "MyLibDynamic-product")
+        guard case .target(let productTarget) = productVariant else {
+            Issue.record("Expected a regular target for the dynamic product, got \(productVariant)")
+            return
+        }
+
+        if createDylibForDynamicProducts {
+            #expect(moduleTarget.productType == .dynamicLibrary)
+            #expect(moduleTarget.productName == "$(EXECUTABLE_NAME)")
+
+            #expect(productTarget.productType == .dynamicLibrary)
+            #expect(productTarget.productName == "$(EXECUTABLE_NAME)")
+        } else {
+            #expect(moduleTarget.productType == .framework)
+            #expect(moduleTarget.productName == "$(WRAPPER_NAME)")
+
+            #expect(productTarget.productType == .framework)
+            #expect(productTarget.productName == "$(WRAPPER_NAME)")
+        }
+    }
+
     @Test(
         arguments: BuildConfiguration.allCases,
     )
