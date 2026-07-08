@@ -52,7 +52,7 @@ public struct BuildConfiguration: Sendable {
 ///         .define("ENABLE_SOMETHING", .when(configuration: .release)),
 ///     ],
 ///     linkerSettings: [
-///         .linkLibrary("openssl", .when(platforms: [.linux])),
+///         .linkedLibrary("openssl", .when(platforms: [.linux])),
 ///     ]
 /// ),
 /// ```
@@ -203,7 +203,7 @@ public struct CSetting: Sendable {
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> CSetting {
         return CSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
-    
+
     /// Controls how all C compiler warnings are treated during compilation.
     ///
     /// Use this setting to specify whether all warnings should be treated as warnings (default behavior)
@@ -359,7 +359,7 @@ public struct CXXSetting: Sendable {
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> CXXSetting {
         return CXXSetting(name: "unsafeFlags", value: flags, condition: condition)
     }
-    
+
     /// Controls how all C++ compiler warnings are treated during compilation.
     ///
     /// Use this setting to specify whether all warnings should be treated as warnings (default behavior)
@@ -756,7 +756,7 @@ public struct LinkerSetting: Sendable {
     public static func linkedFramework(_ framework: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
         return LinkerSetting(name: "linkedFramework", value: [framework], condition: condition)
     }
-   
+
     /// Sets unsafe flags to pass arbitrary command-line flags to the
     /// corresponding build tool.
     ///
