@@ -1522,6 +1522,61 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    /// Sync and async git operations share one lock, so exercising both concurrently on the
+    /// same instance must serialize on the working tree without deadlocking. A double acquire
+    /// of the non-reentrant lock (e.g. a wrong `WithoutLock` split) would hang here.
+    func testConcurrentSyncAndAsyncGitOperations() async throws {
+        try await testWithTemporaryDirectory { path in
+            let repoPath = path.appending("repo")
+            try makeDirectories(repoPath)
+            initGitRepo(repoPath, tag: "1.0.0")
+
+            let provider = GitRepositoryProvider()
+            let repoSpec = RepositorySpecifier(path: repoPath)
+            let clonePath = path.appending("clone")
+            try await provider.fetch(repository: repoSpec, to: clonePath)
+            let checkoutPath = path.appending("checkout")
+            let workingCopy = try await provider.createWorkingCopy(
+                repository: repoSpec,
+                sourcePath: clonePath,
+                at: checkoutPath,
+                editable: false
+            )
+            let repo = try XCTUnwrap(workingCopy as? GitRepository)
+            try repo.checkout(tag: "1.0.0")
+
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for _ in 0..<20 {
+                    group.addTask {
+                        _ = try await repo.getTags()
+                        _ = try await repo.getCurrentRevision()
+                        _ = try await repo.hasUncommittedChanges()
+                        _ = try await repo.hasLFSTrackedFiles()
+                        _ = try await repo.getCurrentTag()
+                        try await repo.fetch()
+                    }
+                    group.addTask {
+                        try await Task.detachNewThread {
+                            Result {
+                                _ = try repo.getTags()
+                                _ = try repo.getCurrentRevision()
+                                _ = repo.hasUncommittedChanges()
+                                _ = try repo.hasLFSTrackedFiles()
+                                _ = repo.getCurrentTag()
+                                try repo.fetch()
+                                try repo.checkout(tag: "1.0.0")
+                            }
+                        }.get()
+                    }
+                }
+                try await group.waitForAll()
+            }
+
+            let tags = try await repo.getTags()
+            XCTAssertEqual(tags, ["1.0.0"])
+        }
+    }
+
     /// Test full Git LFS workflow: fetch LFS objects and verify content is not a pointer.
     /// This test requires git-lfs to be installed and will skip if unavailable.
     func testGitLFSFetchAndPull() async throws {
