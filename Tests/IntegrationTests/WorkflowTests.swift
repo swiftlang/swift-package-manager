@@ -28,6 +28,122 @@ import Testing
 )
 struct DeveloperWorkflowTests {
 
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/7098", relationship: .verifies),
+        .requireHostOS(.macOS),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func buildTaskLocalInSandboxWithoutSandBox(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "TaskLocal/ExecutableTarget") { fixturePath in
+            // GIVEN we have a command line that builds a package with `--disable-sanbox`
+            let commandPrefix = [
+                "/usr/bin/sandbox-exec",
+                "-p",
+                "(version 1)(allow default)",
+            ]
+            let cmd = getBuildSystemArgs(for: buildSystem) + configuration.buildArgs + [
+                "--disable-sandbox",
+                "--verbose",
+            ]
+
+            // WHEN we execute the command
+            // THEN we expect it to build successfully.
+            await #expect(throws: Never.self) {
+                let (stdout, stderr) = try await SwiftPM.Build.execute(
+                    cmd,
+                    packagePath: fixturePath,
+                    throwIfCommandFails: true,
+                    commandPrefix: commandPrefix,
+                )
+
+                let swiftcInvocations = (stdout + stderr).split { $0.isNewline }.map(String.init).filter { $0.contains("swiftc") }
+
+                // AND we expect there to be at least 1 swiftc invocation
+                #expect(
+                    swiftcInvocations.isEmpty == false,
+                    "There should be at least 1 swiftc invocation",
+                )
+
+                // AND at least one of the swiftc invocations should contain `-disable-sandbox`
+                let linesContainsExpectedDisableSandboxCompilerFlag = swiftcInvocations.filter { $0.contains("-disable-sandbox") }
+                try #require(
+                    linesContainsExpectedDisableSandboxCompilerFlag.isEmpty == false,
+                    "There should be at least 1 swiftc invocation with `-disable-sandbox`",
+                )
+                // AND the number of invocation that have `-disable-sandbox` should not be more than the total number of `swiftc` invocations
+                #expect(
+                    linesContainsExpectedDisableSandboxCompilerFlag.count <= swiftcInvocations.count,
+                )
+            }
+        }
+    }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10122", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func addTargetDependencies(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withTemporaryDirectory(removeTreeOnDeinit: false) { packageRoot in
+            let packageName = "MyPackage"
+            try await executeSwiftPackage(
+                packageRoot,
+                configuration: .debug,
+                extraArgs: [
+                    "init",
+                    "--type",
+                    "library",
+                    "--name",
+                    packageName,
+                ],
+                buildSystem: buildSystem,
+            )
+
+            for name in ["TargetOne", "TargetTwo", "TargetThree"] {
+                try await executeSwiftPackage(
+                    packageRoot,
+                    configuration: .debug,
+                    extraArgs: [
+                        "add-target",
+                        name,
+                    ],
+                    buildSystem: buildSystem,
+                )
+            }
+            for (target, pkgName) in [
+                ("TargetOne", "MyPackage"),
+                ("TargetTwo", "MyPackage"),
+                ("TargetOne", "TargetThree"),
+            ] {
+                try await executeSwiftPackage(
+                    packageRoot,
+                    configuration: .debug,
+                    extraArgs: [
+                        "add-target-dependency",
+                        target,
+                        pkgName,
+                    ],
+                    buildSystem: buildSystem,
+                )
+            }
+
+            await #expect(throws: Never.self) {
+                try await executeSwiftPackage(
+                    packageRoot,
+                    configuration: .debug,
+                    extraArgs: [
+                        "dump-package",
+                    ],
+                    buildSystem: buildSystem,
+                )
+            }
+        }
+    }
+
     @Test
     func scratchPathContainsSentinelFiles() async throws {
         try await withTemporaryDirectory(removeTreeOnDeinit: false) { tmpDir in

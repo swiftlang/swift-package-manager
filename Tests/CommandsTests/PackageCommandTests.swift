@@ -7192,6 +7192,58 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .requireHostOS(.linux),
+            .tags(
+                .Feature.Command.Package.CommandPlugin,
+            ),
+        )
+        func commandPluginBuildingTestProductArtifacts() async throws {
+            try await fixture(name: "CommandPluginTestProductArtifacts") { fixturePath in
+                let umbrellaTestProduct = "CommandPluginTestProductArtifactsPackageTests"
+
+                func expectArtifact(_ stdout: String, named name: String, sourceLocation: SourceLocation = #_sourceLocation) {
+                    #expect(stdout.split(separator: "\n").contains {
+                        $0.hasPrefix("artifact-path:") && $0.contains(name)
+                    }, "output did not reference artifact named '\(name)': \(stdout)")
+                }
+
+                do {
+                    let (stdout, _) = try await execute(
+                        ["dump-artifacts-plugin", "all"],
+                        packagePath: fixturePath,
+                        configuration: .debug,
+                        buildSystem: .swiftbuild
+                    )
+                    #expect(stdout.contains("succeeded: true"))
+                    expectArtifact(stdout, named: "MyLibrary")
+                    expectArtifact(stdout, named: "FirstTests")
+                    expectArtifact(stdout, named: "SecondTests")
+                }
+
+                do {
+                    let (stdout, _) = try await execute(
+                        ["dump-artifacts-plugin", "product", umbrellaTestProduct],
+                        packagePath: fixturePath,
+                        configuration: .debug,
+                        buildSystem: .swiftbuild
+                    )
+                    #expect(stdout.contains("succeeded: true"))
+                    expectArtifact(stdout, named: "FirstTests")
+                    expectArtifact(stdout, named: "SecondTests")
+                }
+
+                let (stdout, _) = try await execute(
+                    ["dump-artifacts-plugin", "product", "FirstTests"],
+                    packagePath: fixturePath,
+                    configuration: .debug,
+                    buildSystem: .swiftbuild
+                )
+                #expect(stdout.contains("succeeded: true"))
+                expectArtifact(stdout, named: "FirstTests")
+            }
+        }
+
+        @Test(
             .requiresSwiftConcurrencySupport,
             // Depending on how the test is running, the `llvm-profdata` and `llvm-cov` tool might be unavailable.
             .requiresLLVMProfData,

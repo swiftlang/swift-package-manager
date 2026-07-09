@@ -145,6 +145,7 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
             ),
             delegate: delegate,
             scratchDirectory: self.swiftCommandState.scratchDirectory,
+            shouldDisableSandbox: self.swiftCommandState.shouldDisableSandbox,
         )
     }
 }

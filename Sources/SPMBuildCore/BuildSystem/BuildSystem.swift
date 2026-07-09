@@ -150,12 +150,30 @@ public struct SymbolGraphResult {
 public typealias CLIArguments = [String]
 
 public struct BuildResult {
+    public struct BuiltArtifact {
+        public let name: String
+
+        public let artifact: PluginInvocationBuildResult.BuiltArtifact
+
+        public let umbrellaTestProductName: String?
+
+        public init(
+            name: String,
+            artifact: PluginInvocationBuildResult.BuiltArtifact,
+            umbrellaTestProductName: String?
+        ) {
+            self.name = name
+            self.artifact = artifact
+            self.umbrellaTestProductName = umbrellaTestProductName
+        }
+    }
+
     package init(
         serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>,
         symbolGraph: SymbolGraphResult? = nil,
         buildPlan: BuildPlan? = nil,
         replArguments: CLIArguments?,
-        builtArtifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]? = nil,
+        builtArtifacts: [BuiltArtifact]? = nil,
         // TODO: echeng3805, there's probably a better type for this?
         dependencyGraph: [String: [String]]? = nil
     ) {
@@ -173,7 +191,7 @@ public struct BuildResult {
     public let dependencyGraph: [String: [String]]?
 
     public var serializedDiagnosticPathsByTargetName: Result<[String: [AbsolutePath]], Error>
-    public var builtArtifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]?
+    public var builtArtifacts: [BuiltArtifact]?
 }
 
 public protocol ProductBuildDescription {

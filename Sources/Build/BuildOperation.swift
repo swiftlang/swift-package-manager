@@ -502,7 +502,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let buildResultBuildPlan = buildOutputs.contains(.buildPlan) ? try buildPlan : nil
         let buildResultReplArgs = buildOutputs.contains(.replArguments) ? try buildPlan.createREPLArguments() : nil
 
-        let artifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]?
+        let artifacts: [BuildResult.BuiltArtifact]?
         if buildOutputs.contains(.builtArtifacts) {
             let builtProducts = try buildPlan.buildProducts
             artifacts = try builtProducts.compactMap {
@@ -513,12 +513,17 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                         case .dynamic: artifactKind = .dynamicLibrary
                         case .static, .automatic: artifactKind = .staticLibrary
                     }
-                    return try ($0.product.name, .init(
-                        path: $0.binaryPath.pathString,
-                        kind: artifactKind)
+                    return try BuildResult.BuiltArtifact(
+                        name: $0.product.name,
+                        artifact: .init(path: $0.binaryPath.pathString, kind: artifactKind),
+                        umbrellaTestProductName: nil
                     )
                 case .executable:
-                    return try ($0.product.name, .init(path: $0.binaryPath.pathString, kind: .executable))
+                    return try BuildResult.BuiltArtifact(
+                        name: $0.product.name,
+                        artifact: .init(path: $0.binaryPath.pathString, kind: .executable),
+                        umbrellaTestProductName: nil
+                    )
                 default:
                     return nil
                 }

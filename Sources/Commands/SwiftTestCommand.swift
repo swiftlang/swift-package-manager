@@ -41,6 +41,7 @@ import enum TSCBasic.JSON
 import var TSCBasic.stdoutStream
 import class TSCBasic.SynchronizedQueue
 import class TSCBasic.Thread
+import func TSCBasic.withTemporaryDirectory
 
 #if os(Windows)
 import WinSDK // for ERROR_NOT_FOUND
@@ -665,6 +666,14 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             let commandLineArguments = CommandLine.arguments.dropFirst()
             var swiftTestingArgs = ["--testing-library", "swift-testing", "--enable-swift-testing"]
 
+            for pattern in options.filter {
+                swiftTestingArgs += ["--filter", pattern]
+            }
+
+            for pattern in options._testCaseSkip {
+                swiftTestingArgs += ["--skip", pattern]
+            }
+
             if let separatorIndex = commandLineArguments.firstIndex(of: "--") {
                 let offset = commandLineArguments.distance(from: commandLineArguments.startIndex, to: separatorIndex)
                 swiftTestingArgs += Array(commandLineArguments.dropFirst(offset + 1))
@@ -710,6 +719,67 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         library: TestingLibrary,
         buildSystem: any BuildSystem
     ) async throws -> [TestProductResult] {
+        // Each Swift Testing binary opens the `--xunit-output` file with `fopen(path, "wb")`,
+        // which truncates any previous content. With multiple test products, the last product
+        // to run would wipe every prior product's results. Route each product's output to a
+        // distinct per-product path in a temp dir, then merge into the caller-specified path.
+        if library == .swiftTesting,
+           let xUnitOutput = options.xUnitOutput,
+           testProducts.count > 1
+        {
+            let destination = swiftTestingXUnitDestinationPath(
+                from: xUnitOutput,
+                swiftCommandState: swiftCommandState,
+            )
+            return try await withTemporaryDirectory(
+                prefix: "swiftpm-xunit-",
+                removeTreeOnDeinit: true,
+            ) { tempDir in
+                var results: [TestProductResult] = []
+                var perProductPaths: [AbsolutePath] = []
+                for (index, product) in testProducts.enumerated() {
+                    let perProductPath = tempDir.appending("xunit-\(index)-\(product.productName).xml")
+                    perProductPaths.append(perProductPath)
+                    let productResults = try await self.runTestProductsInSingleInvocation(
+                        [product],
+                        additionalArguments: additionalArguments,
+                        productsBuildParameters: productsBuildParameters,
+                        swiftCommandState: swiftCommandState,
+                        library: library,
+                        buildSystem: buildSystem,
+                        xUnitOutputOverride: perProductPath,
+                    )
+                    results.append(contentsOf: productResults)
+                }
+                try XUnitXMLMerger.merge(
+                    sources: perProductPaths,
+                    into: destination,
+                    fileSystem: localFileSystem,
+                )
+                return results
+            }
+        }
+
+        return try await runTestProductsInSingleInvocation(
+            testProducts,
+            additionalArguments: additionalArguments,
+            productsBuildParameters: productsBuildParameters,
+            swiftCommandState: swiftCommandState,
+            library: library,
+            buildSystem: buildSystem,
+            xUnitOutputOverride: nil,
+        )
+    }
+
+    private func runTestProductsInSingleInvocation(
+        _ testProducts: [BuiltTestProduct],
+        additionalArguments: [String],
+        productsBuildParameters: BuildParameters,
+        swiftCommandState: SwiftCommandState,
+        library: TestingLibrary,
+        buildSystem: any BuildSystem,
+        xUnitOutputOverride: AbsolutePath?,
+    ) async throws -> [TestProductResult] {
         // Pass through all arguments from the command line to Swift Testing.
         var additionalArguments = additionalArguments
         if library == .swiftTesting {
@@ -727,18 +797,10 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             }
             additionalArguments += commandLineArguments
 
-            if var xunitPath = options.xUnitOutput {
-                if options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
-                    // You are running Swift Testing, XCTest is also running in this session, and an xUnit path
-                    // was specified. Make sure you don't stomp on XCTest's XML output by having Swift Testing
-                    // write to a different path.
-                    var xunitFileName = "\(xunitPath.basenameWithoutExt)-swift-testing"
-                    if let ext = xunitPath.extension {
-                        xunitFileName = "\(xunitFileName).\(ext)"
-                    }
-                    xunitPath = xunitPath.parentDirectory.appending(xunitFileName)
-                }
-                additionalArguments += ["--xunit-output", xunitPath.pathString]
+            let effectiveXUnitPath = xUnitOutputOverride
+                ?? options.xUnitOutput.map { swiftTestingXUnitDestinationPath(from: $0, swiftCommandState: swiftCommandState) }
+            if let effectiveXUnitPath {
+                additionalArguments += ["--xunit-output", effectiveXUnitPath.pathString]
             }
 
             // Forward along --maximum-repetitions as --repetitions
@@ -775,6 +837,23 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             // ie "swift test" should output to stdout
             print($0, terminator: "")
         })
+    }
+
+    private func swiftTestingXUnitDestinationPath(
+        from xUnitOutput: AbsolutePath,
+        swiftCommandState: SwiftCommandState,
+    ) -> AbsolutePath {
+        guard options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) else {
+            return xUnitOutput
+        }
+        // You are running Swift Testing, XCTest is also running in this session, and an xUnit path
+        // was specified. Make sure you don't stomp on XCTest's XML output by having Swift Testing
+        // write to a different path.
+        var xunitFileName = "\(xUnitOutput.basenameWithoutExt)-swift-testing"
+        if let ext = xUnitOutput.extension {
+            xunitFileName = "\(xunitFileName).\(ext)"
+        }
+        return xUnitOutput.parentDirectory.appending(xunitFileName)
     }
 
     private static func handleTestOutput(productsBuildParameters: BuildParameters, packagePath: AbsolutePath, buildSystem: any BuildSystem) async throws {

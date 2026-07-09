@@ -536,7 +536,7 @@ struct TestCommandTests {
     }
 
     /// Regression: `--xunit-output=PATH` must be stripped when forwarding argv to Swift Testing so only
-    /// SPM's suffixed path is passed; otherwise the helper receives duplicate `--xunit-output` flags and
+    /// SwiftPM's suffixed path is passed; otherwise the helper receives duplicate `--xunit-output` flags and
     /// overwrites the XCTest JUnit file. See discussion in swift-package-manager around combined forms.
     @Test(
         .tags(
@@ -592,6 +592,199 @@ struct TestCommandTests {
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
+        }
+    }
+
+    /// Regression: when a package has multiple test products, each Swift Testing binary opens the
+    /// `--xunit-output` path in truncating mode (`fopen(path, "wb")`), so the last product to run
+    /// wipes every prior product's results. All products' Swift Testing results must survive.
+    @Test(
+        .tags(
+            .Feature.CommandLineArguments.TestOutputXunit,
+            .Feature.CommandLineArguments.TestDisableXCTest,
+            .Feature.CommandLineArguments.TestEnableSwiftTesting,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10261", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func swiftTestXunitOutputAggregatesResultsAcrossMultipleTestProducts(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
+            let xUnitOutput = fixturePath.appending("result.xml")
+
+            _ = try await execute(
+                [
+                    "--disable-xctest",
+                    "--enable-swift-testing",
+                    "--xunit-output",
+                    xUnitOutput.pathString,
+                ],
+                packagePath: fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+
+            try requireFileExists(at: xUnitOutput, "\(xUnitOutput) does not exist")
+            let contents: String = try localFileSystem.readFileContents(xUnitOutput)
+
+            #expect(
+                contents.contains("libAGreeting"),
+                "Swift Testing test from LibATests product must survive the merge; got:\n\(contents)",
+            )
+            #expect(
+                contents.contains("libBGreeting"),
+                "Swift Testing test from LibBTests product must survive the merge; got:\n\(contents)",
+            )
+            let testsuiteCount = contents.components(separatedBy: "<testsuite ").count - 1
+            let expectedMinTestSuites: Int
+            switch buildSystem {
+                case .native: expectedMinTestSuites = 1
+                case .swiftbuild: expectedMinTestSuites = 2
+                case .xcode:
+                    Issue.record("Test exepectation is not set.")
+                    expectedMinTestSuites = -1
+            }
+            #expect(
+                testsuiteCount >= expectedMinTestSuites,
+                "Expected at least \(expectedMinTestSuites) <testsuite> per test product; got \(testsuiteCount) in:\n\(contents)",
+            )
+        }
+    }
+
+    /// Multi-product companion to `swiftTestParallelXunitOutputCombinedEqualsForm`: with both
+    /// XCTest and Swift Testing enabled on a package that has multiple test products, the base
+    /// `--xunit-output` file must contain XCTest results from every product and the
+    /// `-swift-testing` suffixed file must contain Swift Testing results from every product.
+    @Test(
+        .tags(
+            .Feature.CommandLineArguments.TestParallel,
+            .Feature.CommandLineArguments.TestOutputXunit,
+            .Feature.CommandLineArguments.TestEnableXCTest,
+            .Feature.CommandLineArguments.TestEnableSwiftTesting,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10261", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func swiftTestXunitOutputAggregatesXCTestAndSwiftTestingAcrossMultipleTestProducts(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
+            let xUnitOutput = fixturePath.appending("result.xml")
+            let swiftTestingXUnitOutput = fixturePath.appending("result-swift-testing.xml")
+
+            _ = try await execute(
+                [
+                    "--parallel",
+                    "--enable-xctest",
+                    "--enable-swift-testing",
+                    "--xunit-output",
+                    xUnitOutput.pathString,
+                ],
+                packagePath: fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+
+            try requireFileExists(at: xUnitOutput, "\(xUnitOutput) does not exist")
+            try requireFileExists(at: swiftTestingXUnitOutput, "\(swiftTestingXUnitOutput) does not exist")
+
+            // XCTest side: SwiftPM's ParallelTestRunner accumulates results across all products
+            // in memory and writes them to the base xUnit file via XUnitGenerator. Both
+            // products' XCTest cases must land there.
+            let xctestContents: String = try localFileSystem.readFileContents(xUnitOutput)
+            #expect(
+                xctestContents.contains(#"classname="LibATests.LibAXCTests""#),
+                "XCTest case from LibATests product must appear in base xUnit file; got:\n\(xctestContents)",
+            )
+            #expect(
+                xctestContents.contains(#"classname="LibBTests.LibBXCTests""#),
+                "XCTest case from LibBTests product must appear in base xUnit file; got:\n\(xctestContents)",
+            )
+
+            // Swift Testing side: per-product-path + merge must produce a `-swift-testing`
+            // file containing results from every test product.
+            let swiftTestingContents: String = try localFileSystem.readFileContents(swiftTestingXUnitOutput)
+            #expect(
+                swiftTestingContents.contains("libAGreeting"),
+                "Swift Testing test from LibATests product must appear in suffixed xUnit file; got:\n\(swiftTestingContents)",
+            )
+            #expect(
+                swiftTestingContents.contains("libBGreeting"),
+                "Swift Testing test from LibBTests product must appear in suffixed xUnit file; got:\n\(swiftTestingContents)",
+            )
+            let swiftTestingSuiteCount = swiftTestingContents.components(separatedBy: "<testsuite ").count - 1
+            let expectedMinSwiftTestingSuites: Int
+            switch buildSystem {
+                case .native: expectedMinSwiftTestingSuites = 1
+                case .swiftbuild: expectedMinSwiftTestingSuites = 2
+                case .xcode:
+                    Issue.record("Test expectation is not set.")
+                    expectedMinSwiftTestingSuites = -1
+            }
+            #expect(
+                swiftTestingSuiteCount >= expectedMinSwiftTestingSuites,
+                "Expected at least \(expectedMinSwiftTestingSuites) <testsuite> per test product in the Swift Testing merged file; got \(swiftTestingSuiteCount) in:\n\(swiftTestingContents)",
+            )
+        }
+    }
+
+    /// XCTest-only multi-product coverage. SwiftPM's `ParallelTestRunner` collects XCTest results
+    /// across every test product in memory and hands them to `XUnitGenerator` for a single
+    /// write, so all products' XCTest cases must appear in the base xUnit file.
+    @Test(
+        .tags(
+            .Feature.CommandLineArguments.TestParallel,
+            .Feature.CommandLineArguments.TestOutputXunit,
+            .Feature.CommandLineArguments.TestEnableXCTest,
+            .Feature.CommandLineArguments.TestDisableSwiftTesting,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10261", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func swiftTestXunitOutputAggregatesXCTestOnlyAcrossMultipleTestProducts(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
+            let xUnitOutput = fixturePath.appending("result.xml")
+            let swiftTestingXUnitOutput = fixturePath.appending("result-swift-testing.xml")
+
+            _ = try await execute(
+                [
+                    "--parallel",
+                    "--enable-xctest",
+                    "--disable-swift-testing",
+                    "--xunit-output",
+                    xUnitOutput.pathString,
+                ],
+                packagePath: fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+
+            try requireFileExists(at: xUnitOutput, "\(xUnitOutput) does not exist")
+            // With Swift Testing disabled there should be no `-swift-testing` sibling file.
+            expectFileDoesNotExist(
+                at: swiftTestingXUnitOutput,
+                "\(swiftTestingXUnitOutput) should not exist when --disable-swift-testing is set",
+            )
+            // #expect(
+            //     !localFileSystem.exists(swiftTestingXUnitOutput),
+            //     "\(swiftTestingXUnitOutput) should not exist when --disable-swift-testing is set",
+            // )
+
+            let contents: String = try localFileSystem.readFileContents(xUnitOutput)
+            #expect(
+                contents.contains(#"classname="LibATests.LibAXCTests""#),
+                "XCTest case from LibATests product must appear in xUnit file; got:\n\(contents)",
+            )
+            #expect(
+                contents.contains(#"classname="LibBTests.LibBXCTests""#),
+                "XCTest case from LibBTests product must appear in xUnit file; got:\n\(contents)",
+            )
         }
     }
 
@@ -1967,6 +2160,66 @@ struct TestCommandTests {
                 // Windows lldb ships without python310.dll on PATH, so it crashes
                 // with access violation when the failbreak `command script import`
                 // runs, and swift-test exits abnormally before producing any output.
+                ProcessInfo.hostOperatingSystem == .windows
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms
+        )
+        func debuggerFlagForwardsSkipToSwiftTesting(buildSystem: BuildSystemProvider.Kind) async throws {
+            let configuration = BuildConfiguration.debug
+            try await withKnownIssue {
+                try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--disable-xctest", "--verbose", "--skip", "calculatorAdditionPasses"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
+                    )
+
+                    #expect(
+                        !stderr.contains("error: --debugger cannot be used with"),
+                        "got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    #expect(
+                        stdout.contains("settings append target.run-args \"--skip\"") &&
+                        stdout.contains("settings append target.run-args \"calculatorAdditionPasses\""),
+                        "Expected --skip to be forwarded to Swift Testing run-args, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                }
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms
+        )
+        func debuggerFlagForwardsFilterToSwiftTesting(buildSystem: BuildSystemProvider.Kind) async throws {
+            let configuration = BuildConfiguration.debug
+            try await withKnownIssue {
+                try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
+                    let (stdout, stderr) = try await execute(
+                        ["--debugger", "--disable-xctest", "--verbose", "--filter", "calculatorAdditionPasses"],
+                        packagePath: fixturePath,
+                        configuration: configuration,
+                        buildSystem: buildSystem,
+                    )
+
+                    #expect(
+                        !stderr.contains("error: --debugger cannot be used with"),
+                        "got stdout: \(stdout), stderr: \(stderr)",
+                    )
+
+                    #expect(
+                        stdout.contains("settings append target.run-args \"--filter\"") &&
+                        stdout.contains("settings append target.run-args \"calculatorAdditionPasses\""),
+                        "Expected --filter to be forwarded to Swift Testing run-args, got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                }
+            } when: {
                 ProcessInfo.hostOperatingSystem == .windows
             }
         }

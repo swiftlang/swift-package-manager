@@ -253,6 +253,7 @@ public final class PIFBuilder {
     ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] {
         let pluginScriptRunner = self.parameters.pluginScriptRunner
         let outputDir = self.parameters.pluginWorkingDirectory.appending("outputs")
+        let treatWarningsAsErrors = WarningControlFlags.containsWarningsAsErrors(buildParameters.flags.swiftCompilerFlags.map(\.value))
 
         let pluginsPerModule = graph.pluginsPerModule(
             satisfying: buildParameters.buildEnvironment // .buildEnvironment(for: .host)
@@ -443,7 +444,8 @@ public final class PIFBuilder {
                     self.diagnoseUnhandledFiles(
                         package: package,
                         module: module,
-                        buildToolPluginInvocationResults: buildToolPluginResults
+                        buildToolPluginInvocationResults: buildToolPluginResults,
+                        treatWarningsAsErrors: treatWarningsAsErrors
                     )
                 }
 
@@ -476,6 +478,7 @@ public final class PIFBuilder {
                 shouldPreserveSymlinks: self.parameters.shouldPreserveSymlinks,
                 packageDisplayVersion: package.manifest.displayName,
                 pkgConfigDirectories: self.parameters.pkgConfigDirectories,
+                treatWarningsAsErrors: treatWarningsAsErrors,
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,
             )
@@ -627,7 +630,8 @@ public final class PIFBuilder {
     private func diagnoseUnhandledFiles(
         package: ResolvedPackage,
         module: ResolvedModule,
-        buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
+        buildToolPluginInvocationResults: [BuildToolPluginInvocationResult],
+        treatWarningsAsErrors: Bool
     ) {
         guard package.manifest.toolsVersion >= .v5_3 else {
             return
@@ -653,7 +657,8 @@ public final class PIFBuilder {
             return metadata
         }
 
-        diagnosticsEmitter.emit(.unhandledFiles(unhandledFiles))
+        let diagnostic = Basics.Diagnostic.unhandledFiles(unhandledFiles)
+        diagnosticsEmitter.emit(severity: treatWarningsAsErrors ? .error : .warning, message: diagnostic.message)
     }
 }
 
