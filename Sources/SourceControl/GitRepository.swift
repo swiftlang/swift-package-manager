@@ -83,46 +83,6 @@ private struct GitShellHelper {
         }
     }
 
-    /// Async variant of `run` that does not block the calling cooperative
-    /// thread while waiting for the subprocess to finish.
-    func run(
-        _ args: [String],
-        environment: Environment = .init(Git.environmentBlock),
-        outputRedirection: AsyncProcess.OutputRedirection = .collect
-    ) async throws -> String {
-        let arguments = gitNetworkTimeoutOverrides(environment: environment) + args
-        let process = AsyncProcess(
-            arguments: [Git.tool] + arguments,
-            environment: environment,
-            outputRedirection: outputRedirection
-        )
-        do {
-            guard let terminationKey = self.cancellator.register(process) else {
-                throw CancellationError()
-            }
-            defer { self.cancellator.deregister(terminationKey) }
-            try process.launch()
-            let result = try await process.waitUntilExit()
-            guard result.exitStatus == .terminated(code: 0) else {
-                throw GitShellError(result: result)
-            }
-            return try result.utf8Output().spm_chomp()
-        } catch let error as CancellationError {
-            throw error
-        } catch let error as GitShellError {
-            throw error
-        } catch {
-            let result = AsyncProcessResult(
-                arguments: process.arguments,
-                environment: process.environment,
-                exitStatus: .terminated(code: -1),
-                output: .failure(error),
-                stderrOutput: .failure(error)
-            )
-            throw GitShellError(result: result)
-        }
-    }
-
     // MARK: - LFS Support
 
     private func shouldSkipLFSOperations() -> Bool {
@@ -269,18 +229,14 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         progress: FetchProgress.Handler? = nil
     ) throws -> String {
         if let progress {
-            let stdoutBytes = ThreadSafeArrayStore<UInt8>()
-            let stderrBytes = ThreadSafeArrayStore<UInt8>()
+            var stdoutBytes: [UInt8] = [], stderrBytes: [UInt8] = []
             do {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
                 // handler. We count on it being line-buffered.
-                let outputHandler = AsyncProcess.OutputRedirection.stream(
-                    stdout: { stdoutBytes.append(contentsOf: $0) },
-                    stderr: {
-                        stderrBytes.append(contentsOf: $0)
-                        gitFetchStatusFilter($0, progress: progress)
-                    }
-                )
+                let outputHandler = AsyncProcess.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
+                    stderrBytes += $0
+                    gitFetchStatusFilter($0, progress: progress)
+                })
                 return try self.git.run(
                     args + ["--progress"],
                     environment: environment,
@@ -291,14 +247,10 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
                     arguments: error.result.arguments,
                     environment: error.result.environment,
                     exitStatus: error.result.exitStatus,
-                    output: .success(stdoutBytes.get()),
-                    stderrOutput: .success(stderrBytes.get())
+                    output: .success(stdoutBytes),
+                    stderrOutput: .success(stderrBytes)
                 )
-                throw GitCloneError(
-                    repository: repository,
-                    message: failureMessage,
-                    result: result
-                )
+                throw GitCloneError(repository: repository, message: failureMessage, result: result)
             }
         } else {
             do {
@@ -611,10 +563,6 @@ public final class GitRepository: Repository, WorkingCheckout {
     // lock to protect concurrent modifications to the repository
     private let lock = NSLock()
 
-    /// Serializes async git operations on this repository. NSLock can't be
-    /// held across `await`, so async methods use this serial queue instead.
-    private let asyncQueue = AsyncOperationQueue(concurrentTasks: 1)
-
     /// If this repo is a work tree repo (checkout) as opposed to a bare repo.
     private let isWorkingRepo: Bool
 
@@ -650,46 +598,9 @@ public final class GitRepository: Repository, WorkingCheckout {
         gitLocationArguments(self.path.pathString, bare: !self.isWorkingRepo)
     }
 
-    // Captures stdout/stderr so a streamed (progress) invocation can still build a full
-    // AsyncProcessResult on failure. Returns the redirection and the byte stores it writes to.
-    private func progressRedirection(
-        _ progress: @escaping FetchProgress.Handler
-    ) -> (AsyncProcess.OutputRedirection, stdout: ThreadSafeArrayStore<UInt8>, stderr: ThreadSafeArrayStore<UInt8>) {
-        let stdoutBytes = ThreadSafeArrayStore<UInt8>()
-        let stderrBytes = ThreadSafeArrayStore<UInt8>()
-        // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr
-        // to the handler. We count on it being line-buffered.
-        let handler = AsyncProcess.OutputRedirection.stream(
-            stdout: { stdoutBytes.append(contentsOf: $0) },
-            stderr: {
-                stderrBytes.append(contentsOf: $0)
-                gitFetchStatusFilter($0, progress: progress)
-            }
-        )
-        return (handler, stdoutBytes, stderrBytes)
-    }
-
-    // Wraps a GitShellError as a GitRepositoryError, reconstructing the result from streamed bytes
-    // when the invocation was capturing progress.
-    private func gitRepositoryError(
-        _ error: GitShellError,
-        failureMessage: String,
-        stdout: ThreadSafeArrayStore<UInt8>? = nil,
-        stderr: ThreadSafeArrayStore<UInt8>? = nil
-    ) -> GitRepositoryError {
-        guard let stdout, let stderr else {
-            return GitRepositoryError(path: self.path, message: failureMessage, result: error.result)
-        }
-        let result = AsyncProcessResult(
-            arguments: error.result.arguments,
-            environment: error.result.environment,
-            exitStatus: error.result.exitStatus,
-            output: .success(stdout.get()),
-            stderrOutput: .success(stderr.get())
-        )
-        return GitRepositoryError(path: self.path, message: failureMessage, result: result)
-    }
-
+    /// Private function to invoke the Git tool with its default environment and given set of arguments, specifying the
+    /// path of the repository as the one to operate on.  The specified failure message is used only in case of error.
+    /// This function waits for the invocation to finish and returns the output as a string.
     @discardableResult
     private func callGit(
         _ args: String...,
@@ -698,40 +609,33 @@ public final class GitRepository: Repository, WorkingCheckout {
         progress: FetchProgress.Handler? = nil
     ) throws -> String {
         if let progress {
-            let (handler, out, err) = self.progressRedirection(progress)
+            var stdoutBytes: [UInt8] = [], stderrBytes: [UInt8] = []
             do {
-                return try self.git.run(self.repositoryLocationArguments + args, environment: environment, outputRedirection: handler)
+                // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
+                // handler. We count on it being line-buffered.
+                let outputHandler = AsyncProcess.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
+                    stderrBytes += $0
+                    gitFetchStatusFilter($0, progress: progress)
+                })
+                return try self.git.run(
+                    self.repositoryLocationArguments + args,
+                    environment: environment,
+                    outputRedirection: outputHandler
+                )
             } catch let error as GitShellError {
-                throw self.gitRepositoryError(error, failureMessage: failureMessage, stdout: out, stderr: err)
+                let result = AsyncProcessResult(
+                    arguments: error.result.arguments,
+                    environment: error.result.environment,
+                    exitStatus: error.result.exitStatus,
+                    output: .success(stdoutBytes),
+                    stderrOutput: .success(stderrBytes))
+                throw GitRepositoryError(path: self.path, message: failureMessage, result: result)
             }
         } else {
             do {
                 return try self.git.run(self.repositoryLocationArguments + args, environment: environment)
             } catch let error as GitShellError {
-                throw self.gitRepositoryError(error, failureMessage: failureMessage)
-            }
-        }
-    }
-
-    @discardableResult
-    private func callGit(
-        _ args: String...,
-        environment: Environment = .init(Git.environmentBlock),
-        failureMessage: String = "",
-        progress: FetchProgress.Handler? = nil
-    ) async throws -> String {
-        if let progress {
-            let (handler, out, err) = self.progressRedirection(progress)
-            do {
-                return try await self.git.run(self.repositoryLocationArguments + args, environment: environment, outputRedirection: handler)
-            } catch let error as GitShellError {
-                throw self.gitRepositoryError(error, failureMessage: failureMessage, stdout: out, stderr: err)
-            }
-        } else {
-            do {
-                return try await self.git.run(self.repositoryLocationArguments + args, environment: environment)
-            } catch let error as GitShellError {
-                throw self.gitRepositoryError(error, failureMessage: failureMessage)
+                throw GitRepositoryError(path: self.path, message: failureMessage, result: error.result)
             }
         }
     }
@@ -832,6 +736,16 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     // MARK: Repository Interface
 
+    /// Runs blocking git work on a dedicated thread, off the concurrency pool.
+    private func runOnDedicatedThread<T: Sendable>(
+        _ name: String,
+        _ body: @Sendable @escaping () throws -> T
+    ) async throws -> T {
+        try await Task.detachNewThread(name: name) {
+            Result(catching: body)
+        }.get()
+    }
+
     /// Returns the tags present in repository.
     public func getTags() throws -> [String] {
         // Get the contents using `ls-tree`.
@@ -848,7 +762,9 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     public func getTags() async throws -> [String] {
-        try await asyncQueue.withOperation { try self.getTags() }
+        try await runOnDedicatedThread("git-getTags") {
+            try self.getTags()
+        }
     }
 
     public func resolveRevision(tag: String) throws -> Revision {
@@ -881,18 +797,8 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     public func fetch(progress: FetchProgress.Handler? = nil) async throws {
-        try await asyncQueue.withOperation {
-            try await self.callGit(
-                "remote",
-                "-v",
-                "update",
-                "-p",
-                failureMessage: "Couldn’t fetch updates from remote repositories",
-                progress: progress
-            )
-            self.cachedTags.clear()
-            self.cachedHasLFS.clear()
-            try self.fetchLFSIfNecessaryWithoutLock()
+        try await runOnDedicatedThread("git-fetch") {
+            try self.fetch(progress: progress)
         }
     }
 
@@ -908,7 +814,9 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     public func hasUncommittedChanges() async throws -> Bool {
-        try await asyncQueue.withOperation { self.hasUncommittedChanges() }
+        try await runOnDedicatedThread("git-hasUncommittedChanges") {
+            self.hasUncommittedChanges()
+        }
     }
 
     public func openFileView(revision: Revision) throws -> FileSystem {
@@ -946,17 +854,25 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     public func getCurrentRevision() async throws -> Revision {
-        try await asyncQueue.withOperation { try self.getCurrentRevision() }
+        try await runOnDedicatedThread("git-getCurrentRevision") {
+            try self.getCurrentRevision()
+        }
     }
 
-    public func getCurrentTag() async throws -> String? {
-        try await asyncQueue.withOperation {
-            try? await self.callGit(
+    public func getCurrentTag() -> String? {
+        self.lock.withLock {
+            try? callGit(
                 "describe",
                 "--exact-match",
                 "--tags",
                 failureMessage: "Couldn’t get current tag"
             )
+        }
+    }
+
+    public func getCurrentTag() async throws -> String? {
+        try await runOnDedicatedThread("git-getCurrentTag") {
+            self.getCurrentTag()
         }
     }
 
@@ -1019,6 +935,12 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// Checks if the repository uses Git LFS by examining .gitattributes
     /// - Returns: true if the repository has LFS-tracked files
     func hasLFSTrackedFiles() throws -> Bool {
+        try self.lock.withLock {
+            try self.hasLFSTrackedFilesWithoutLock()
+        }
+    }
+
+    private func hasLFSTrackedFilesWithoutLock() throws -> Bool {
         try self.cachedHasLFS.memoize {
             do {
                 let output = try callGit(
@@ -1041,7 +963,9 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     func hasLFSTrackedFiles() async throws -> Bool {
-        try await asyncQueue.withOperation { try self.hasLFSTrackedFiles() }
+        try await runOnDedicatedThread("git-hasLFS") {
+            try self.hasLFSTrackedFiles()
+        }
     }
 
     /// Clears the cached LFS detection result
@@ -1057,7 +981,7 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     private func fetchLFSIfNecessaryWithoutLock() throws {
         guard !self.isWorkingRepo else { return }
-        guard try self.hasLFSTrackedFiles() else { return }
+        guard try self.hasLFSTrackedFilesWithoutLock() else { return }
         _ = try self.git.fetchLFS(at: self.path)
     }
 
@@ -1073,7 +997,8 @@ public final class GitRepository: Repository, WorkingCheckout {
     private func pullLFSIfNecessary() throws {
         guard self.isWorkingRepo else { return }
 
-        if try self.hasLFSTrackedFiles() {
+        // Callers already hold `self.lock`
+        if try self.hasLFSTrackedFilesWithoutLock() {
             do {
                 try self.git.pullLFS(at: self.path)
             } catch let error as GitLFSError {

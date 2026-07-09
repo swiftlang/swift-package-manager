@@ -68,15 +68,18 @@ final class ContainerProvider {
     }
 
     func promoteWarmContainers(excluding overriddenPackages: some Collection<PackageReference>) {
-        let overriddenIdentities = Set(overriddenPackages.map(\.identity))
+        let overrides = Dictionary(overriddenPackages.map { ($0.identity, $0) }, uniquingKeysWith: { first, _ in first })
         for (ref, container) in self.warmCache.get() {
-            if !overriddenIdentities.contains(ref.identity) {
+            if overrides[ref.identity] == nil {
                 self.containersCache[ref] = container
             }
         }
         _ = self.warmCache.clear()
-        for ref in self.containersCache.get().keys where overriddenIdentities.contains(ref.identity) {
-            self.containersCache[ref] = nil
+        // Evict only when the override changes location; a same-location override (e.g. branch/revision pin) keeps its container.
+        for (ref, container) in self.containersCache.get() {
+            if let override = overrides[ref.identity], !container.package.equalsIncludingLocation(override) {
+                self.containersCache[ref] = nil
+            }
         }
     }
 
