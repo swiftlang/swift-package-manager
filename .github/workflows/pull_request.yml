@@ -42,7 +42,43 @@ jobs:
       fail-fast: false
       matrix:
         windows_with_docker: [true, false]
-    name: "Build and Test ${{ case(matrix.windows_with_docker, 'with', 'without') }} Docker"
+        testTarget:
+          - _AsyncFileSystemTests
+          - SourceKitLSPAPITests
+          - BasicsTests
+          - BuildTests
+          # - LLBuildManifestTests
+          # - WorkspaceTests
+          # - PackageDescriptionTests
+          # - SPMBuildCoreTests
+          # - PackageLoadingTests
+          # - PackageModelTests
+          # - PackageGraphTests
+          # - PackageGraphPerformanceTests
+          # - PackageCollectionsModelTests
+          # - PackageCollectionsSigningTests
+          # - PackageCollectionsTests
+          # - PackageFingerprintTests
+          # - PackagePluginAPITests
+          # - PackageRegistryTests
+          # - PackageSigningTests
+          # - SBOMModelTests
+          # - QueryEngineTests
+          # - SourceControlTests
+          # - SwiftFixItTests
+          # - BinarySymbolsTests
+          # - XCBuildSupportTests
+          # - FunctionalPerformanceTests
+          # - SwiftBuildSupportTests
+          # - BuildMetalTests
+          # - SwiftPMWebAssemblyIntegrationTests
+          # - SwiftPMStaticLinuxIntegrationTests
+          # - FunctionalTests
+          # - _InternalTestSupportTests
+          # - IntegrationTests
+          # - CommandsTests
+          # - SwiftPMBuildServerTests
+    name: "Build and Test ${{ case(matrix.windows_with_docker, 'with', 'without') }} Docker (Target: ${{ matrix.testTarget }})"
     uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.11
     with:
       enable_cross_pr_testing: false
@@ -54,7 +90,8 @@ jobs:
       windows_build_timeout: 480
       windows_swift_versions: ${{ case(matrix.windows_with_docker,'["nightly-main", "nightly-6.4.x", "nightly-6.3", "6.3.0"]', '["nightly-main", "nightly-6.4.x"]') }}
       windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1 -SkipAndroid'
-      windows_build_command: 'Invoke-Program swift --version ; Invoke-Program swift test -Xlinker /ignore:4217 --parallel --experimental-xunit-message-failure --xunit-output windows-xunit.xml' # --filter BasicsTests'
+      windows_build_command: 'Invoke-Program swift --version ; Invoke-Program swift test -Xlinker /ignore:4217 --parallel --experimental-xunit-message-failure --xunit-output windows-xunit.xml --filter ${{ matrix.testTarget }}'
+
 
   soundness:
     name: Soundness
