@@ -502,6 +502,24 @@ struct SwiftBuildSystemMessageHandlerTests {
         let output = self.outputStream.bytes.description
         #expect(output.contains("Compile Foo\n"))
     }
+
+    @Test
+    func testVerboseTaskOutputIsNotDuplicated() throws {
+        let messageHandler = self.messageHandler.debug
+
+        let events: [SwiftBuildMessage] = [
+            .taskStartedInfo(executionDescription: "Compile Foo"),
+            .taskCompleteInfo(result: .success)
+        ]
+
+        for event in events {
+            _ = try messageHandler.emitEvent(event)
+        }
+
+        let output = self.outputStream.bytes.description
+        let occurrences = output.components(separatedBy: "Compile Foo").count - 1
+        #expect(occurrences == 1)
+    }
 }
 
 private func data(_ message: String) -> Data {
