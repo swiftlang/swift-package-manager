@@ -4510,9 +4510,12 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
                 let url = request.url
                 let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
                 let queryItems = components?.queryItems ?? []
-                #expect(queryItems.contains(where: { $0.name == "q" && $0.value == "author:Mona networking" }))
-                #expect(queryItems.contains(where: { $0.name == "limit" && $0.value == "50" }))
-                #expect(queryItems.contains(where: { $0.name == "offset" && $0.value == "10" }))
+                let hasQuery = queryItems.contains { $0.name == "q" && $0.value == "author:Mona networking" }
+                let hasLimit = queryItems.contains { $0.name == "limit" && $0.value == "50" }
+                let hasOffset = queryItems.contains { $0.name == "offset" && $0.value == "10" }
+                #expect(hasQuery)
+                #expect(hasLimit)
+                #expect(hasOffset)
                 return Self.responseBody(Self.searchBody)
             default:
                 throw StringError("unexpected request: \(request.method) \(request.url)")
