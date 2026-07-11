@@ -269,6 +269,7 @@ extension PackagePIFProjectBuilder {
         precondition(sourceModule.isSourceModule)
 
         let productType: ProjectModel.Target.ProductType
+        var productName = "$(EXECUTABLE_NAME)"
 
         switch desiredModuleType {
         case .dynamicLibrary:
@@ -276,6 +277,7 @@ extension PackagePIFProjectBuilder {
             if pifBuilder.createDylibForDynamicProducts {
                 productType = .dynamicLibrary
             } else {
+                productName = "$(WRAPPER_NAME)"
                 productType = .framework
             }
 
@@ -305,7 +307,7 @@ extension PackagePIFProjectBuilder {
                 id: sourceModule.pifTargetGUID(suffix: targetSuffix),
                 productType: productType,
                 name: sourceModule.name,
-                productName: "$(EXECUTABLE_NAME)",
+                productName: productName,
                 approvedByUser: approvedByUser
             )
         }

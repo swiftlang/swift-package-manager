@@ -479,8 +479,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             throw Diagnostics.fatalError
         }
 
+        let graph = try await getPackageGraph()
         return try await startSWBuildOperation(
-            pifTargetName: subset.pifTargetName,
+            pifTargetName: subset.pifTargetName(for: graph),
             buildOutputs: buildOutputs,
         )
     }

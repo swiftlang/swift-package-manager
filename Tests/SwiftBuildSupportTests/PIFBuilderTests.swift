@@ -431,6 +431,124 @@ struct PIFBuilderTests {
         }
     }
 
+    struct ModuleAliasTestData {
+        let fixtureName: String
+        let packageName: String
+        let projectName: String
+        let verify: [Verify]
+
+        struct Verify {
+            let targetName: String
+            let expectedAliases: [String]
+        }
+    }
+    @Test(
+        arguments: [
+            ModuleAliasTestData(
+                fixtureName: "ModuleAliasing/Executable",
+                packageName: "App",
+                projectName: "App",
+                verify: [
+                    ModuleAliasTestData.Verify(
+                        targetName: "App-product",
+                        expectedAliases: ["Utils=AppUtils"],
+                    ),
+                ],
+            ),
+        ]
+    )
+    func moduleAliasesPropagateToExecutableProduct(
+        data: ModuleAliasTestData,
+    ) async throws {
+        try await withGeneratedPIF(
+            fromFixture: data.fixtureName,
+            withPackage: data.packageName,
+        ) { pif, observabilitySystem, fixturePath in
+            let project = try pif.workspace.project(named: data.projectName)
+            for v in data.verify {
+                let productConfig = try project
+                    .target(named: v.targetName)
+                    .buildConfig(named: .debug)
+
+                #expect(
+                    productConfig.settings[.SWIFT_MODULE_ALIASES] == v.expectedAliases,
+                    "Project name \(data.projectName) and target name \(v.targetName) does not have expected module aliases",
+                )
+            }
+        }
+    }
+
+    struct ModuleAliasTargetTestData {
+        let fixtureName: String
+        let packageName: String
+        /// Expected `SWIFT_MODULE_ALIASES` entries (formatted as `"OriginalName=AliasName"`)
+        /// that must appear across the union of every `PACKAGE-TARGET:` target in the generated PIF.
+        let expectedAliasEntries: Set<String>
+    }
+    @Test(
+        arguments: [
+            ModuleAliasTargetTestData(
+                fixtureName: "ModuleAliasing/DirectDeps1",
+                packageName: "AppPkg",
+                expectedAliasEntries: ["Utils=GameUtils"],
+            ),
+            ModuleAliasTargetTestData(
+                fixtureName: "ModuleAliasing/DirectDeps2",
+                packageName: "AppPkg",
+                expectedAliasEntries: ["Utils=AUtils", "Utils=BUtils"],
+            ),
+            ModuleAliasTargetTestData(
+                fixtureName: "ModuleAliasing/Executable",
+                packageName: "App",
+                expectedAliasEntries: ["Utils=AppUtils"],
+            ),
+            ModuleAliasTargetTestData(
+                fixtureName: "ModuleAliasing/NestedDeps1",
+                packageName: "AppPkg",
+                expectedAliasEntries: [
+                    "FooUtils=AFooUtils",
+                    "FooUtils=XFooUtils",
+                    "Utils=CarUtils",
+                    "Utils=XUtils",
+                ],
+            ),
+            ModuleAliasTargetTestData(
+                fixtureName: "ModuleAliasing/NestedDeps2",
+                packageName: "AppPkg",
+                expectedAliasEntries: [
+                    "Utils=BUtils",
+                    "Utils=CUtils",
+                    "Utils=XUtils",
+                ],
+            ),
+        ]
+    )
+    func moduleAliasesPropagateToPackageTargets(
+        data: ModuleAliasTargetTestData,
+    ) async throws {
+        try await withGeneratedPIF(
+            fromFixture: data.fixtureName,
+            withPackage: data.packageName,
+        ) { pif, _, _ in
+            var seenAliasEntries: Set<String> = []
+            for project in pif.workspace.projects {
+                for target in project.underlying.targets {
+                    guard target.common.id.value.hasPrefix("PACKAGE-TARGET:") else { continue }
+                    for config in target.common.buildConfigs {
+                        guard let aliases = config.settings[.SWIFT_MODULE_ALIASES] else { continue }
+                        for entry in aliases {
+                            seenAliasEntries.insert(entry)
+                        }
+                    }
+                }
+            }
+            #expect(
+                seenAliasEntries.isSuperset(of: data.expectedAliasEntries),
+                "\(data.fixtureName): PACKAGE-TARGET SWIFT_MODULE_ALIASES missing expected entries; expected superset of \(data.expectedAliasEntries), got \(seenAliasEntries)",
+            )
+        }
+    }
+
     @Test
     func emitUnhandledFilesOnlyForRootPackages() async throws {
         try await withGeneratedPIF(
@@ -643,6 +761,83 @@ struct PIFBuilderTests {
 
             let config = try target.buildConfig(named: configuration)
             #expect(config.settings[.EXECUTABLE_PREFIX] == nil)
+        }
+    }
+
+    @Test(arguments: [true, false])
+    func dynamicVariantProductName(createDylibForDynamicProducts: Bool) async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(
+            emptyFiles: [
+                "/MyPkg/Sources/MyLib/MyLib.swift",
+            ]
+        )
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "MyPkg",
+                    path: "/MyPkg",
+                    toolsVersion: .v6_2,
+                    products: [
+                        .init(name: "MyLibDynamic", type: .library(.dynamic), targets: ["MyLib"]),
+                    ],
+                    targets: [
+                        .init(name: "MyLib"),
+                    ]
+                )
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root,
+                addLocalRpaths: .always,
+                shouldCreateDylibForDynamicProducts: createDylibForDynamicProducts
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "MyPkg")
+
+        let moduleVariant = try #require(
+            project.underlying.targets.first {
+                $0.common.name == "MyLib" && $0.common.id.value.hasSuffix("-dynamic")
+            }
+        )
+        guard case .target(let moduleTarget) = moduleVariant else {
+            Issue.record("Expected a regular target for the dynamic module variant, got \(moduleVariant)")
+            return
+        }
+
+        let productVariant = try project.target(named: "MyLibDynamic-product")
+        guard case .target(let productTarget) = productVariant else {
+            Issue.record("Expected a regular target for the dynamic product, got \(productVariant)")
+            return
+        }
+
+        if createDylibForDynamicProducts {
+            #expect(moduleTarget.productType == .dynamicLibrary)
+            #expect(moduleTarget.productName == "$(EXECUTABLE_NAME)")
+
+            #expect(productTarget.productType == .dynamicLibrary)
+            #expect(productTarget.productName == "$(EXECUTABLE_NAME)")
+        } else {
+            #expect(moduleTarget.productType == .framework)
+            #expect(moduleTarget.productName == "$(WRAPPER_NAME)")
+
+            #expect(productTarget.productType == .framework)
+            #expect(productTarget.productName == "$(WRAPPER_NAME)")
         }
     }
 
