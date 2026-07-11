@@ -173,16 +173,13 @@ final class PluginInvocationTests: XCTestCase {
                 workers: UInt32,
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
-                callbackQueue: DispatchQueue,
                 delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate
             ) async throws -> Int32 {
                 // Check that we were given the right sources.
                 XCTAssertEqual(sourceFiles, ["/Foo/Plugins/FooPlugin/source.swift"])
 
                 // Pretend the plugin emitted some output.
-                callbackQueue.sync {
-                    delegate.handleOutput(data: Data("Hello Plugin!".utf8))
-                }
+                delegate.handleOutput(Array("Hello Plugin!".utf8))
 
                 // Pretend it emitted a warning.
                 let warning = Data("""
@@ -317,9 +314,7 @@ final class PluginInvocationTests: XCTestCase {
 
     /// Verifies that a `definePrebuildCommand` message is handled and surfaced as a prebuild command.
     ///
-    /// This exercises the `callbackQueue.sync` hop in `ScriptRunnerDelegate.handleMessage` that must run
-    /// on the invocation delegate's queue to satisfy its `dispatchPrecondition(.onQueue(delegateQueue))` —
-    /// `testBasics` only covers that hop for `emitDiagnostic`/`defineBuildCommand`, not the prebuild path.
+    /// `testBasics` only covers `emitDiagnostic`/`defineBuildCommand`, not the prebuild path.
     func testPrebuildCommand() async throws {
         struct MockPluginScriptRunner: PluginScriptRunner {
             var hostTriple: Triple {
@@ -361,7 +356,6 @@ final class PluginInvocationTests: XCTestCase {
                 workers: UInt32,
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
-                callbackQueue: DispatchQueue,
                 delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate
             ) async throws -> Int32 {
                 let message = PluginToHostMessage.definePrebuildCommand(
@@ -449,7 +443,6 @@ final class PluginInvocationTests: XCTestCase {
                 workers: UInt32,
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
-                callbackQueue: DispatchQueue,
                 delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate
             ) async throws -> Int32 {
                 // The default `PluginInvocationDelegate.pluginRequestedBuildOperation` throws, so the

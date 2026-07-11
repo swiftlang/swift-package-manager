@@ -138,7 +138,6 @@ import SwiftBuild
                 workers: UInt32,
                 fileSystem: any Basics.FileSystem,
                 observabilityScope: Basics.ObservabilityScope,
-                callbackQueue: DispatchQueue,
                 delegate: any SPMBuildCore.PluginScriptCompilerDelegate & SPMBuildCore.PluginScriptRunnerDelegate
             ) async throws -> Int32 {
                 let decoder = JSONDecoder.makeWithDefaults()

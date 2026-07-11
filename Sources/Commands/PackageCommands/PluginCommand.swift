@@ -365,7 +365,6 @@ struct PluginCommand: AsyncSwiftCommand {
 
         // Set up a delegate to handle callbacks from the command plugin.
         let pluginDelegate = PluginDelegate(swiftCommandState: swiftCommandState, buildSystem: buildSystemKind, plugin: pluginTarget)
-        let delegateQueue = DispatchQueue(label: "plugin-invocation")
 
         // Run the command plugin.
 
@@ -391,7 +390,6 @@ struct PluginCommand: AsyncSwiftCommand {
             fileSystem: swiftCommandState.fileSystem,
             modulesGraph: packageGraph,
             observabilityScope: swiftCommandState.observabilityScope,
-            callbackQueue: delegateQueue,
             delegate: pluginDelegate
         )
 

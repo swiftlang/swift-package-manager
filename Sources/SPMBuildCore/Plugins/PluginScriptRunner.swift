@@ -65,7 +65,6 @@ public protocol PluginScriptRunner {
         workers: UInt32,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
         delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate
     ) async throws -> Int32
 
@@ -116,8 +115,8 @@ public protocol PluginScriptCompilerDelegate {
 /// Protocol by which `PluginScriptRunner` communicates back to the caller as it runs plugins.
 public protocol PluginScriptRunnerDelegate {
     /// Called for each piece of textual output data emitted by the plugin. Note that there is no guarantee that the data begins and ends on a UTF-8 byte sequence boundary (much less on a line boundary) so the delegate should buffer partial data as appropriate.
-    func handleOutput(data: Data)
-    
+    func handleOutput(_ bytes: [UInt8])
+
     /// Called for each length-delimited message received from the plugin. Returns an optional reply message to send back to the plugin.
     func handleMessage(data: Data) async throws -> Data?
 }

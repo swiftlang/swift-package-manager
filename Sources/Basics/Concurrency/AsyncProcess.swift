@@ -179,6 +179,14 @@ package final class AsyncProcess {
 
     package typealias ReadableStream = AsyncStream<[UInt8]>
 
+    /// A chunk of merged process output, tagged by its originating stream, as delivered by
+    /// ``AsyncProcess/launchAsyncStream(_:)``. Order within a single stream is preserved; interleaving across
+    /// the two streams reflects arrival order.
+    package enum OutputChunk: Sendable, Equatable {
+        case stdout([UInt8])
+        case stderr([UInt8])
+    }
+
     package enum OutputRedirection: Sendable {
         /// Do not redirect the output
         case none
@@ -191,14 +199,10 @@ package final class AsyncProcess {
         /// be redirected to `stdout`.
         case stream(stdout: OutputClosure, stderr: OutputClosure, redirectStderr: Bool)
 
-        /// Stream stdout and stderr as `AsyncSequence` provided as an argument to closures passed to
-        /// ``AsyncProcess/launch(stdoutStream:stderrStream:)``.
-        case asyncStream(
-            stdoutStream: ReadableStream,
-            stdoutContinuation: ReadableStream.Continuation,
-            stderrStream: ReadableStream,
-            stderrContinuation: ReadableStream.Continuation
-        )
+        /// Stream stdout and stderr as a merged, backpressured ``AsyncProcess/OutputChunk`` sequence via
+        /// ``AsyncProcess/launchAsyncStream(_:)``. stdout and stderr stay separate fds delivered as distinct
+        /// tagged chunks; stderr is never merged into stdout in this mode.
+        case asyncStream
 
         /// Default collect OutputRedirection that defaults to not redirect stderr. Provided for API compatibility.
         package static let collect: Self = .collect(redirectStderr: false)
@@ -222,10 +226,8 @@ package final class AsyncProcess {
             case let .stream(stdoutClosure, stderrClosure, _):
                 (stdoutClosure: stdoutClosure, stderrClosure: stderrClosure)
 
-            case let .asyncStream(_, stdoutContinuation, _, stderrContinuation):
-                (stdoutClosure: { stdoutContinuation.yield($0) }, stderrClosure: { stderrContinuation.yield($0) })
-
-            case .collect, .none:
+            // `.asyncStream` reads its fds directly via `launchAsyncStream`, not through output closures.
+            case .collect, .none, .asyncStream:
                 nil
             }
         }
@@ -558,6 +560,127 @@ package final class AsyncProcess {
         try process.run()
         return stdinPipe.fileHandleForWriting
         #elseif(!canImport(Darwin) || os(macOS))
+        let spawned = try self.spawnPOSIX(executablePath: executablePath)
+        let stdinPipe = spawned.stdinPipe
+        let outputPipe = spawned.outputPipe
+        let stderrPipe = spawned.stderrPipe
+        let stdinStream = spawned.stdinStream
+
+        do {
+            // Close the local read end of the input pipe.
+            try close(fd: stdinPipe[0])
+
+            let group = DispatchGroup()
+            if !self.outputRedirection.redirectsOutput {
+                // no stdout or stderr in this case
+                self.stateLock.withLock {
+                    self.state = .outputReady(stdout: .success([]), stderr: .success([]))
+                }
+            } else {
+                var pending: Result<[UInt8], Swift.Error>?
+                let pendingLock = NSLock()
+
+                let outputClosures = self.outputRedirection.outputClosures
+
+                // Close the local write end of the output pipe.
+                try close(fd: outputPipe[1])
+
+                // Create a thread and start reading the output on it.
+                group.enter()
+                let stdoutThread = Thread { [weak self] in
+                    if let readResult = self?.readOutput(
+                        onFD: outputPipe[0],
+                        outputClosure: outputClosures?.stdoutClosure
+                    ) {
+                        pendingLock.withLock {
+                            if let stderrResult = pending {
+                                self?.stateLock.withLock {
+                                    self?.state = .outputReady(stdout: readResult, stderr: stderrResult)
+                                }
+                            } else {
+                                pending = readResult
+                            }
+                        }
+                        group.leave()
+                    } else if let stderrResult = (pendingLock.withLock { pending }) {
+                        // TODO: this is more of an error
+                        self?.stateLock.withLock {
+                            self?.state = .outputReady(stdout: .success([]), stderr: stderrResult)
+                        }
+                        group.leave()
+                    }
+                }
+
+                // Only schedule a thread for stderr if no redirect was requested.
+                var stderrThread: Thread? = nil
+                if !self.outputRedirection.redirectStderr {
+                    // Close the local write end of the stderr pipe.
+                    try close(fd: stderrPipe[1])
+
+                    // Create a thread and start reading the stderr output on it.
+                    group.enter()
+                    stderrThread = Thread { [weak self] in
+                        if let readResult = self?.readOutput(
+                            onFD: stderrPipe[0],
+                            outputClosure: outputClosures?.stderrClosure
+                        ) {
+                            pendingLock.withLock {
+                                if let stdoutResult = pending {
+                                    self?.stateLock.withLock {
+                                        self?.state = .outputReady(stdout: stdoutResult, stderr: readResult)
+                                    }
+                                } else {
+                                    pending = readResult
+                                }
+                            }
+                            group.leave()
+                        } else if let stdoutResult = (pendingLock.withLock { pending }) {
+                            // TODO: this is more of an error
+                            self?.stateLock.withLock {
+                                self?.state = .outputReady(stdout: stdoutResult, stderr: .success([]))
+                            }
+                            group.leave()
+                        }
+                    }
+                } else {
+                    pendingLock.withLock {
+                        pending = .success([]) // no stderr in this case
+                    }
+                }
+
+                // first set state then start reading threads
+                self.stateLock.withLock {
+                    self.state = .readingOutput(sync: group)
+                }
+
+                stdoutThread.start()
+                stderrThread?.start()
+            }
+
+            return stdinStream
+        } catch {
+            throw AsyncProcessResult.Error.systemError(arguments: self.arguments, underlyingError: error)
+        }
+        #else
+        preconditionFailure("Process spawning is not available")
+        #endif // POSIX implementation
+    }
+
+    #if !os(Windows) && (!canImport(Darwin) || os(macOS))
+    /// The pipes and stdin stream produced by ``spawnPOSIX(executablePath:)``. `outputPipe`/`stderrPipe` are
+    /// `[-1, -1]` when their pipe was not opened; element 0 is the read end, element 1 the write end. The
+    /// caller owns closing the parent-side write ends.
+    private struct SpawnedProcess {
+        let stdinStream: LocalFileOutputByteStream
+        let stdinPipe: [Int32]
+        let outputPipe: [Int32]
+        let stderrPipe: [Int32]
+    }
+
+    /// Performs the mode-independent POSIX spawn and returns the parent-side pipe ends. It does not touch
+    /// `self.state`, start readers, or close the parent-side write ends; callers own the reading strategy and
+    /// the write-end closes.
+    private func spawnPOSIX(executablePath: AbsolutePath) throws -> SpawnedProcess {
         // Initialize the spawn attributes.
         #if os(Android)
         var attributes: posix_spawnattr_t! = nil
@@ -686,105 +809,154 @@ package final class AsyncProcess {
             throw SystemError.posix_spawn(rv, self.arguments)
         }
 
+        return SpawnedProcess(
+            stdinStream: stdinStream,
+            stdinPipe: stdinPipe,
+            outputPipe: outputPipe,
+            stderrPipe: stderrPipe
+        )
+    }
+    #endif
+
+    /// Launch the process in `.asyncStream` mode, run `body` with the child's stdin stream and a merged
+    /// ``OutputChunk`` channel, then terminate and reap the child, returning `body`'s result and the process
+    /// result. The returned ``AsyncProcessResult/output`` and ``AsyncProcessResult/stderrOutput`` are always
+    /// `.success([])` in this mode: output is delivered through the channel, not accumulated. Backpressure is
+    /// the channel's rendezvous `send`, which suspends a reader until `body` takes the chunk. POSIX-only.
+    @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
+    package func launchAsyncStream<R>(
+        _ body: (_ stdin: LocalFileOutputByteStream, _ output: AsyncChannel<OutputChunk>) async throws -> R
+    ) async throws -> (result: R, processResult: AsyncProcessResult) {
+        guard case .asyncStream = self.outputRedirection else {
+            preconditionFailure("launchAsyncStream() requires .asyncStream output redirection")
+        }
+        #if os(Windows) || (canImport(Darwin) && !os(macOS))
+        preconditionFailure("AsyncProcess.launchAsyncStream is not available on this platform")
+        #else
+        precondition(
+            self.arguments.count > 0 && !self.arguments[0].isEmpty,
+            "Need at least one argument to launch the process."
+        )
+        self.launchedLock.withLock {
+            precondition(!self._launched, "It is not allowed to launch the same process object again.")
+            self._launched = true
+        }
+        if let loggingHandler = self.loggingHandler {
+            loggingHandler(self.arguments.map { $0.spm_shellEscaped() }.joined(separator: " "))
+        }
+        let executable = self.arguments[0]
+        guard let executablePath = AsyncProcess.findExecutable(executable, workingDirectory: workingDirectory) else {
+            throw AsyncProcess.Error.missingExecutableProgram(program: executable)
+        }
+
+        let spawned: SpawnedProcess
         do {
-            // Close the local read end of the input pipe.
-            try close(fd: stdinPipe[0])
-
-            let group = DispatchGroup()
-            if !self.outputRedirection.redirectsOutput {
-                // no stdout or stderr in this case
-                self.stateLock.withLock {
-                    self.state = .outputReady(stdout: .success([]), stderr: .success([]))
-                }
-            } else {
-                var pending: Result<[UInt8], Swift.Error>?
-                let pendingLock = NSLock()
-
-                let outputClosures = self.outputRedirection.outputClosures
-
-                // Close the local write end of the output pipe.
-                try close(fd: outputPipe[1])
-
-                // Create a thread and start reading the output on it.
-                group.enter()
-                let stdoutThread = Thread { [weak self] in
-                    if let readResult = self?.readOutput(
-                        onFD: outputPipe[0],
-                        outputClosure: outputClosures?.stdoutClosure
-                    ) {
-                        pendingLock.withLock {
-                            if let stderrResult = pending {
-                                self?.stateLock.withLock {
-                                    self?.state = .outputReady(stdout: readResult, stderr: stderrResult)
-                                }
-                            } else {
-                                pending = readResult
-                            }
-                        }
-                        group.leave()
-                    } else if let stderrResult = (pendingLock.withLock { pending }) {
-                        // TODO: this is more of an error
-                        self?.stateLock.withLock {
-                            self?.state = .outputReady(stdout: .success([]), stderr: stderrResult)
-                        }
-                        group.leave()
-                    }
-                }
-
-                // Only schedule a thread for stderr if no redirect was requested.
-                var stderrThread: Thread? = nil
-                if !self.outputRedirection.redirectStderr {
-                    // Close the local write end of the stderr pipe.
-                    try close(fd: stderrPipe[1])
-
-                    // Create a thread and start reading the stderr output on it.
-                    group.enter()
-                    stderrThread = Thread { [weak self] in
-                        if let readResult = self?.readOutput(
-                            onFD: stderrPipe[0],
-                            outputClosure: outputClosures?.stderrClosure
-                        ) {
-                            pendingLock.withLock {
-                                if let stdoutResult = pending {
-                                    self?.stateLock.withLock {
-                                        self?.state = .outputReady(stdout: stdoutResult, stderr: readResult)
-                                    }
-                                } else {
-                                    pending = readResult
-                                }
-                            }
-                            group.leave()
-                        } else if let stdoutResult = (pendingLock.withLock { pending }) {
-                            // TODO: this is more of an error
-                            self?.stateLock.withLock {
-                                self?.state = .outputReady(stdout: stdoutResult, stderr: .success([]))
-                            }
-                            group.leave()
-                        }
-                    }
-                } else {
-                    pendingLock.withLock {
-                        pending = .success([]) // no stderr in this case
-                    }
-                }
-
-                // first set state then start reading threads
-                self.stateLock.withLock {
-                    self.state = .readingOutput(sync: group)
-                }
-
-                stdoutThread.start()
-                stderrThread?.start()
-            }
-
-            return stdinStream
+            spawned = try self.spawnPOSIX(executablePath: executablePath)
         } catch {
             throw AsyncProcessResult.Error.systemError(arguments: self.arguments, underlyingError: error)
         }
-        #else
-        preconditionFailure("Process spawning is not available")
-        #endif // POSIX implementation
+        try? close(fd: spawned.stdinPipe[0])
+        try? close(fd: spawned.outputPipe[1])
+        try? close(fd: spawned.stderrPipe[1])
+        let stdoutFD = spawned.outputPipe[0]
+        let stderrFD = spawned.stderrPipe[0]
+
+        let channel = AsyncChannel<OutputChunk>()
+        let queue = DispatchQueue.processConcurrent
+
+        let syncGroup = DispatchGroup()
+        syncGroup.enter()
+        self.stateLock.withLock { self.state = .readingOutput(sync: syncGroup) }
+
+        do {
+            let bodyResult = try await withThrowingTaskGroup(of: Void.self) { group -> R in
+                // The nested pump group's scope exit means both pumps finished (no shared counter); the
+                // coordinator then advances state, ends the stream, and releases waiters exactly once.
+                group.addTask {
+                    await withTaskGroup(of: Void.self) { pumps in
+                        pumps.addTask { await AsyncProcess.pumpFD(stdoutFD, wrap: { .stdout($0) }, into: channel, queue: queue) }
+                        pumps.addTask { await AsyncProcess.pumpFD(stderrFD, wrap: { .stderr($0) }, into: channel, queue: queue) }
+                    }
+                    self.stateLock.withLock {
+                        if case .readingOutput = self.state {
+                            self.state = .outputReady(stdout: .success([]), stderr: .success([]))
+                        }
+                    }
+                    channel.finish()
+                    syncGroup.leave()     // releases waitUntilExit()'s sync.notify/group.wait
+                }
+                do {
+                    let r = try await body(spawned.stdinStream, channel)
+                    group.cancelAll()          // if body returned before EOF, stop the pumps
+                    return r
+                } catch {
+                    self.terminateIfRunning(SIGKILL)   // body threw: kill so pumps hit EOF and the group can finish
+                    group.cancelAll()
+                    throw error
+                }
+            }
+            // Force-terminate a child that abandoned early (body returned before draining) so waitUntilExit()
+            // cannot hang.
+            self.terminateIfRunning(SIGKILL)
+            let processResult = try await self.waitUntilExit()
+            return (result: bodyResult, processResult: processResult)
+        } catch {
+            self.terminateIfRunning(SIGKILL)
+            _ = try? await self.waitUntilExit()
+            throw error
+        }
+        #endif
     }
+
+    #if !os(Windows) && (!canImport(Darwin) || os(macOS))
+    /// Suspends until `fd` is readable, returning `true`; returns `false` if cancelled while suspended.
+    private static func waitForReadable(fd: Int32, queue: DispatchQueue) async -> Bool {
+        if Task.isCancelled { return false }
+        let source = DispatchSource.makeReadSource(fileDescriptor: fd, queue: queue)
+        return await withTaskCancellationHandler {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+                // The cancel handler is the sole resumer and GCD runs it exactly once, so no resume guard is
+                // needed: readability cancels the source, cancellation also cancels it, and either way the
+                // single cancel handler reports which happened via Task.isCancelled.
+                source.setEventHandler { source.cancel() }
+                source.setCancelHandler { continuation.resume(returning: !Task.isCancelled) }
+                source.resume()
+            }
+        } onCancel: {
+            source.cancel()
+        }
+    }
+
+    /// Reads `fd` non-blocking, tagging each chunk via `wrap` and sending it into `channel` (rendezvous
+    /// backpressure). Drains all available bytes each pass, closes `fd` and returns at EOF, or returns early on
+    /// cancellation or a read error.
+    private static func pumpFD(
+        _ fd: Int32,
+        wrap: @Sendable @escaping ([UInt8]) -> OutputChunk,
+        into channel: AsyncChannel<OutputChunk>,
+        queue: DispatchQueue
+    ) async {
+        let existingFlags = fcntl(fd, F_GETFL)
+        if existingFlags != -1 { _ = fcntl(fd, F_SETFL, existingFlags | O_NONBLOCK) }
+        defer { close(fd) }
+        let bufferSize = 4096
+        var buffer = [UInt8](repeating: 0, count: bufferSize)
+        while !Task.isCancelled {
+            let n = buffer.withUnsafeMutableBytes { read(fd, $0.baseAddress, bufferSize) }
+            if n > 0 {
+                await channel.send(wrap(Array(buffer[0 ..< n])))
+            } else if n == 0 {
+                return
+            } else if errno == EINTR {
+                continue
+            } else if errno == EAGAIN || errno == EWOULDBLOCK {
+                if await AsyncProcess.waitForReadable(fd: fd, queue: queue) == false { return }
+            } else {
+                return // read error: end this stream
+            }
+        }
+    }
+    #endif
 
     /// Executes the process I/O state machine, returning the result when finished.
     @available(macOS 10.15, iOS 13.0, tvOS 13.0, watchOS 6.0, *)
@@ -928,6 +1100,25 @@ package final class AsyncProcess {
         assert(self.launched, "The process is not yet launched.")
         kill(self.startNewProcessGroup ? -self.processID : self.processID, signal)      //ignore-unacceptable-language
         #endif
+    }
+
+    /// Signals the child only while it has not yet been reaped, holding `stateLock` so the check and the signal
+    /// are serialized with `waitUntilExit`'s `.outputReady` reap (which holds `stateLock` across its `waitpid`).
+    /// Once the process is `.complete` this is a no-op, so a recycled PID is never signalled. Used by
+    /// `launchAsyncStream` teardown, which can race a concurrent reap from a registered `Cancellator`.
+    func terminateIfRunning(_ signal: Int32) {
+        self.stateLock.withLock {
+            if case .complete = self.state { return }
+            #if os(Windows)
+            if signal == SIGINT {
+                self._process?.interrupt()
+            } else {
+                self._process?.terminate()
+            }
+            #else
+            kill(self.startNewProcessGroup ? -self.processID : self.processID, signal)  //ignore-unacceptable-language
+            #endif
+        }
     }
 }
 

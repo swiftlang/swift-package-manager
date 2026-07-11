@@ -100,7 +100,6 @@ extension PluginModule {
         fileSystem: FileSystem,
         modulesGraph: ModulesGraph,
         observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
         delegate: PluginInvocationDelegate
     ) async throws -> Bool {
         // Create the plugin's output directory if needed (but don't do anything with it if it already exists).
@@ -234,15 +233,9 @@ extension PluginModule {
             /// If this is true, we exited early with an error.
             var exitEarly = false
 
-            /// Queue on which the invocation delegate expects to be called. The synchronous portions of
-            /// `handleMessage` hop onto it so they observe the same serialization as `handleOutput`, which
-            /// the caller already dispatches on this queue.
-            let callbackQueue: DispatchQueue
-
-            init(invocationDelegate: PluginInvocationDelegate, observabilityScope: ObservabilityScope, callbackQueue: DispatchQueue) {
+            init(invocationDelegate: PluginInvocationDelegate, observabilityScope: ObservabilityScope) {
                 self.invocationDelegate = invocationDelegate
                 self.observabilityScope = observabilityScope
-                self.callbackQueue = callbackQueue
             }
 
             func willCompilePlugin(commandLine: [String], environment: [String: String]) {
@@ -257,9 +250,9 @@ extension PluginModule {
                 invocationDelegate.pluginCompilationWasSkipped(cachedResult: cachedResult)
             }
 
-            /// Invoked when the plugin emits arbitrary data on its stdout/stderr. There is no guarantee that the data is split on UTF-8 character encoding boundaries etc.  The script runner delegate just passes it on to the invocation delegate. Callers dispatch this on `callbackQueue`.
-            func handleOutput(data: Data) {
-                invocationDelegate.pluginEmittedOutput(data)
+            /// Invoked when the plugin emits arbitrary data on its stdout/stderr. There is no guarantee that the data is split on UTF-8 character encoding boundaries etc.  The script runner delegate just passes it on to the invocation delegate.
+            func handleOutput(_ bytes: [UInt8]) {
+                invocationDelegate.pluginEmittedOutput(bytes)
             }
 
             /// Invoked when the plugin emits a message. Returns an optional reply message to send back to the plugin.
@@ -268,66 +261,58 @@ extension PluginModule {
                 switch message {
 
                 case .emitDiagnostic(let severity, let message, let file, let line):
-                    callbackQueue.sync {
-                        let metadata: ObservabilityMetadata? = file.map {
-                            var metadata = ObservabilityMetadata()
-                            // FIXME: We should probably report some kind of protocol error if the path isn't valid.
-                            metadata.fileLocation = try? .init(.init(validating: $0), line: line)
-                            return metadata
-                        }
-                        let diagnostic: Basics.Diagnostic
-                        switch severity {
-                        case .error:
-                            diagnostic = .error(message, metadata: metadata)
-                            hasReportedError = true
-                        case .warning:
-                            diagnostic = .warning(message, metadata: metadata)
-                        case .remark:
-                            diagnostic = .info(message, metadata: metadata)
-                        }
-                        self.invocationDelegate.pluginEmittedDiagnostic(diagnostic)
+                    let metadata: ObservabilityMetadata? = file.map {
+                        var metadata = ObservabilityMetadata()
+                        // FIXME: We should probably report some kind of protocol error if the path isn't valid.
+                        metadata.fileLocation = try? .init(.init(validating: $0), line: line)
+                        return metadata
                     }
+                    let diagnostic: Basics.Diagnostic
+                    switch severity {
+                    case .error:
+                        diagnostic = .error(message, metadata: metadata)
+                        hasReportedError = true
+                    case .warning:
+                        diagnostic = .warning(message, metadata: metadata)
+                    case .remark:
+                        diagnostic = .info(message, metadata: metadata)
+                    }
+                    self.invocationDelegate.pluginEmittedDiagnostic(diagnostic)
                     return nil
 
                 case .emitProgress(let message):
-                    callbackQueue.sync {
-                        self.invocationDelegate.pluginEmittedProgress(message)
-                    }
+                    self.invocationDelegate.pluginEmittedProgress(message)
                     return nil
 
                 case .defineBuildCommand(let config, let inputFiles, let outputFiles):
                     if config.version != 2 {
                         throw PluginEvaluationError.pluginUsesIncompatibleVersion(expected: 2, actual: config.version)
                     }
-                    try callbackQueue.sync {
-                        self.invocationDelegate.pluginDefinedBuildCommand(
-                            displayName: config.displayName,
-                            executable: try config.executable.filePath,
-                            arguments: config.arguments,
-                            environment: config.environment,
-                            workingDirectory: try config.workingDirectory.map{ try $0.filePath },
-                            inputFiles: try inputFiles.map{ try $0.filePath },
-                            outputFiles: try outputFiles.map{ try $0.filePath })
-                    }
+                    self.invocationDelegate.pluginDefinedBuildCommand(
+                        displayName: config.displayName,
+                        executable: try config.executable.filePath,
+                        arguments: config.arguments,
+                        environment: config.environment,
+                        workingDirectory: try config.workingDirectory.map{ try $0.filePath },
+                        inputFiles: try inputFiles.map{ try $0.filePath },
+                        outputFiles: try outputFiles.map{ try $0.filePath })
                     return nil
 
                 case .definePrebuildCommand(let config, let outputFilesDir):
                     if config.version != 2 {
                         throw PluginEvaluationError.pluginUsesIncompatibleVersion(expected: 2, actual: config.version)
                     }
-                    try callbackQueue.sync {
-                        let success = self.invocationDelegate.pluginDefinedPrebuildCommand(
-                            displayName: config.displayName,
-                            executable: try config.executable.filePath,
-                            arguments: config.arguments,
-                            environment: config.environment,
-                            workingDirectory: try config.workingDirectory.map{ try $0.filePath },
-                            outputFilesDirectory: try outputFilesDir.filePath)
+                    let success = self.invocationDelegate.pluginDefinedPrebuildCommand(
+                        displayName: config.displayName,
+                        executable: try config.executable.filePath,
+                        arguments: config.arguments,
+                        environment: config.environment,
+                        workingDirectory: try config.workingDirectory.map{ try $0.filePath },
+                        outputFilesDirectory: try outputFilesDir.filePath)
 
-                        if !success {
-                            exitEarly = true
-                            hasReportedError = true
-                        }
+                    if !success {
+                        exitEarly = true
+                        hasReportedError = true
                     }
                     return nil
 
@@ -361,7 +346,7 @@ extension PluginModule {
                 }
             }
         }
-        let runnerDelegate = ScriptRunnerDelegate(invocationDelegate: delegate, observabilityScope: observabilityScope, callbackQueue: callbackQueue)
+        let runnerDelegate = ScriptRunnerDelegate(invocationDelegate: delegate, observabilityScope: observabilityScope)
 
         // Call the plugin script runner to actually invoke the plugin.
         let exitCode = try await scriptRunner.runPluginScript(
@@ -376,7 +361,6 @@ extension PluginModule {
             workers: workers,
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
-            callbackQueue: callbackQueue,
             delegate: runnerDelegate
         )
 
@@ -419,17 +403,15 @@ extension PluginModule {
 
         // Set up a delegate to handle callbacks from the build tool plugin.
         // We'll capture free-form text output as well as defined commands and diagnostics.
-        let delegateQueue = DispatchQueue(label: "plugin-invocation")
 
         // Determine additional input dependencies for any plugin commands,
         // based on any executables the plugin target depends on.
         let toolPaths = accessibleTools.values.map(\.path).sorted()
-        
+
         let builtToolPaths = accessibleTools.values.filter({ $0.source == .built }).map((\.path)).sorted()
 
         let delegate = DefaultPluginInvocationDelegate(
             fileSystem: fileSystem,
-            delegateQueue: delegateQueue,
             toolPaths: toolPaths,
             builtToolPaths: builtToolPaths
         )
@@ -456,7 +438,6 @@ extension PluginModule {
                 fileSystem: fileSystem,
                 modulesGraph: modulesGraph,
                 observabilityScope: observabilityScope,
-                callbackQueue: delegateQueue,
                 delegate: delegate
             )
             invocationError = nil
@@ -752,7 +733,7 @@ public protocol PluginInvocationDelegate {
     func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult)
 
     /// Called for each piece of textual output data emitted by the plugin. Note that there is no guarantee that the data begins and ends on a UTF-8 byte sequence boundary (much less on a line boundary) so the delegate should buffer partial data as appropriate.
-    func pluginEmittedOutput(_: Data)
+    func pluginEmittedOutput(_: [UInt8])
 
     /// Called when a plugin emits a diagnostic through the PackagePlugin APIs.
     func pluginEmittedDiagnostic(_: Basics.Diagnostic)
@@ -778,22 +759,19 @@ public protocol PluginInvocationDelegate {
 
 final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
     let fileSystem: FileSystem
-    let delegateQueue: DispatchQueue
     let toolPaths: [AbsolutePath]
     let builtToolPaths: [AbsolutePath]
-    var outputData = Data()
+    var outputData = [UInt8]()
     var diagnostics = [Basics.Diagnostic]()
     var buildCommands = [BuildToolPluginInvocationResult.BuildCommand]()
     var prebuildCommands = [BuildToolPluginInvocationResult.PrebuildCommand]()
 
     package init(
         fileSystem: FileSystem,
-        delegateQueue: DispatchQueue,
         toolPaths: [AbsolutePath],
         builtToolPaths: [AbsolutePath]
     ) {
         self.fileSystem = fileSystem
-        self.delegateQueue = delegateQueue
         self.toolPaths = toolPaths
         self.builtToolPaths = builtToolPaths
     }
@@ -804,15 +782,13 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
 
     func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult) {}
 
-    func pluginEmittedOutput(_ data: Data) {
-        dispatchPrecondition(condition: .onQueue(self.delegateQueue))
-        self.outputData.append(contentsOf: data)
+    func pluginEmittedOutput(_ bytes: [UInt8]) {
+        self.outputData.append(contentsOf: bytes)
     }
 
     func pluginEmittedProgress(_: String) {}
 
     func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
-        dispatchPrecondition(condition: .onQueue(self.delegateQueue))
         self.diagnostics.append(diagnostic)
     }
 
@@ -825,7 +801,6 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
         inputFiles: [AbsolutePath],
         outputFiles: [AbsolutePath]
     ) {
-        dispatchPrecondition(condition: .onQueue(self.delegateQueue))
         self.buildCommands.append(.init(
             configuration: .init(
                 displayName: displayName,
@@ -847,7 +822,6 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
         workingDirectory: AbsolutePath?,
         outputFilesDirectory: AbsolutePath
     ) -> Bool {
-        dispatchPrecondition(condition: .onQueue(self.delegateQueue))
         // executable must exist before running prebuild command
         if builtToolPaths.contains(executable) {
             self.diagnostics

@@ -2594,10 +2594,9 @@ private struct NoOpPluginScriptRunner: PluginScriptRunner {
         workers: UInt32,
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
         delegate: any PluginScriptCompilerDelegate & PluginScriptRunnerDelegate
     ) async throws -> Int32 {
-        return 0
+        0
     }
 
     var hostTriple: Triple {

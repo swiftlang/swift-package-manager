@@ -27,13 +27,13 @@ final class PluginDelegate: PluginInvocationDelegate {
     let swiftCommandState: SwiftCommandState
     let buildSystem: BuildSystemProvider.Kind
     let plugin: PluginModule
-    var lineBufferedOutput: Data
+    var lineBufferedOutput: [UInt8]
 
     init(swiftCommandState: SwiftCommandState, buildSystem: BuildSystemProvider.Kind, plugin: PluginModule) {
         self.swiftCommandState = swiftCommandState
         self.buildSystem = buildSystem
         self.plugin = plugin
-        self.lineBufferedOutput = Data()
+        self.lineBufferedOutput = []
     }
 
     func pluginCompilationStarted(commandLine: [String], environment: [String: String]) {
@@ -45,12 +45,12 @@ final class PluginDelegate: PluginInvocationDelegate {
     func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult) {
     }
 
-    func pluginEmittedOutput(_ data: Data) {
-        lineBufferedOutput += data
+    func pluginEmittedOutput(_ bytes: [UInt8]) {
+        lineBufferedOutput += bytes
         while let newlineIdx = lineBufferedOutput.firstIndex(of: UInt8(ascii: "\n")) {
             let lineData = lineBufferedOutput.prefix(upTo: newlineIdx)
             print(String(decoding: lineData, as: UTF8.self))
-            lineBufferedOutput = lineBufferedOutput.suffix(from: newlineIdx.advanced(by: 1))
+            lineBufferedOutput = Array(lineBufferedOutput.suffix(from: newlineIdx.advanced(by: 1)))
         }
     }
 
