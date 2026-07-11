@@ -65,10 +65,8 @@ public protocol PluginScriptRunner {
         workers: UInt32,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate,
-        completion: @escaping (Result<Int32, Error>) -> Void
-    )
+        delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate
+    ) async throws -> Int32
 
     /// Returns the Triple that represents the host for which plugin script tools should be built, or for which binary
     /// tools should be selected.
@@ -117,10 +115,10 @@ public protocol PluginScriptCompilerDelegate {
 /// Protocol by which `PluginScriptRunner` communicates back to the caller as it runs plugins.
 public protocol PluginScriptRunnerDelegate {
     /// Called for each piece of textual output data emitted by the plugin. Note that there is no guarantee that the data begins and ends on a UTF-8 byte sequence boundary (much less on a line boundary) so the delegate should buffer partial data as appropriate.
-    func handleOutput(data: Data)
-    
+    func handleOutput(_ bytes: [UInt8])
+
     /// Called for each length-delimited message received from the plugin. The `responder` is closure that can be used to send one or more messages in reply.
-    func handleMessage(data: Data, responder: @escaping (Data) -> Void) throws
+    func handleMessage(data: Data, responder: @escaping (Data) -> Void) async throws
 }
 
 /// The result of compiling a plugin. The executable path will only be present if the compilation succeeds, while the other properties are present in all cases.

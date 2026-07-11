@@ -138,31 +138,22 @@ import SwiftBuild
                 workers: UInt32,
                 fileSystem: any Basics.FileSystem,
                 observabilityScope: Basics.ObservabilityScope,
-                callbackQueue: DispatchQueue,
-                delegate: any SPMBuildCore.PluginScriptCompilerDelegate & SPMBuildCore.PluginScriptRunnerDelegate,
-                completion: @escaping (Result<Int32, any Error>) -> Void)
-            {
-                callbackQueue.sync {
-                    do {
-                        let decoder = JSONDecoder.makeWithDefaults()
-                        let encoder = JSONEncoder(outputFormatting: .prettyPrinted)
+                delegate: any SPMBuildCore.PluginScriptCompilerDelegate & SPMBuildCore.PluginScriptRunnerDelegate
+            ) async throws -> Int32 {
+                let decoder = JSONDecoder.makeWithDefaults()
+                let encoder = JSONEncoder(outputFormatting: .prettyPrinted)
 
-                        let initial = try decoder.decode(HostToPluginMessage.self, from: initialMessage)
-                        guard case let .createBuildToolCommands(context: context, rootPackageId: _, targetId: _, pluginGeneratedSources: _, pluginGeneratedResources: _) = initial else {
-                            completion(.failure(StringError("Invalid initial message")))
-                            return
-                        }
-                        let workDir = try context.url(for: context.pluginWorkDirId)
-
-                        for message in genMessages(sourceFiles, workDir) {
-                            let data = try encoder.encode(message)
-                            try delegate.handleMessage(data: data, responder: { _ in })
-                        }
-                        completion(.success(0))
-                    } catch {
-                        completion(.failure(error))
-                    }
+                let initial = try decoder.decode(HostToPluginMessage.self, from: initialMessage)
+                guard case let .createBuildToolCommands(context: context, rootPackageId: _, targetId: _, pluginGeneratedSources: _, pluginGeneratedResources: _) = initial else {
+                    throw StringError("Invalid initial message")
                 }
+                let workDir = try context.url(for: context.pluginWorkDirId)
+
+                for message in genMessages(sourceFiles, workDir) {
+                    let data = try encoder.encode(message)
+                    try await delegate.handleMessage(data: data, responder: { _ in })
+                }
+                return 0
             }
 
             var hostTriple: Triple {

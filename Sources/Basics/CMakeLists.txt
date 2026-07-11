@@ -82,7 +82,11 @@ add_library(Basics
   Version+Extensions.swift
   WritableByteStream+Extensions.swift
   Vendor/Triple.swift
-  Vendor/Triple+Platforms.swift)
+  Vendor/Triple+Platforms.swift
+  Vendor/AsyncChannel/AsyncChannel.swift
+  Vendor/AsyncChannel/ChannelStateMachine.swift
+  Vendor/AsyncChannel/ChannelStorage.swift
+  Vendor/AsyncChannel/Locking.swift)
 target_link_libraries(Basics PUBLIC
   _AsyncFileSystem
   SwiftCollections::OrderedCollections

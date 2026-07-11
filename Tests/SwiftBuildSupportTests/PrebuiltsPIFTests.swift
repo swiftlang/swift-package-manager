@@ -405,13 +405,9 @@ struct PrebuiltsPIFTests {
                 workers: UInt32,
                 fileSystem: any FileSystem,
                 observabilityScope: ObservabilityScope,
-                callbackQueue: DispatchQueue,
-                delegate: any PluginScriptCompilerDelegate & PluginScriptRunnerDelegate,
-                completion: @escaping (Result<Int32, any Error>) -> Void
-            ) {
-                callbackQueue.sync {
-                    completion(.success(0))
-                }
+                delegate: any PluginScriptCompilerDelegate & PluginScriptRunnerDelegate
+            ) async throws -> Int32 {
+                0
             }
 
             var hostTriple: Triple {

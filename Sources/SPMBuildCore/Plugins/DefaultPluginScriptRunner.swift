@@ -56,7 +56,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         self.verboseOutput = verboseOutput
     }
 
-    /// Starts evaluating a plugin by compiling it and running it as a subprocess. The name is used as the basename for the executable and auxiliary files.  The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not the package containing the target to which it is being applied). This function returns immediately and then repeated calls the output handler on the given callback queue as plain-text output is received from the plugin, and then eventually calls the completion handler on the given callback queue once the plugin is done.
+    /// Starts evaluating a plugin by compiling it and running it as a subprocess. The name is used as the basename for the executable and auxiliary files.  The tools version controls the availability of APIs in PackagePlugin, and should be set to the tools version of the package that defines the plugin (not the package containing the target to which it is being applied). It drives the plugin subprocess, delivering plain-text output and length-delimited messages to the delegate, and returns the plugin's exit code.
     public func runPluginScript(
         sourceFiles: [Basics.AbsolutePath],
         pluginName: String,
@@ -69,46 +69,30 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         workers: UInt32,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate,
-        completion: @escaping (Result<Int32, Error>) -> Void
-    ) {
-        // If needed, compile the plugin script to an executable (asynchronously). Compilation is skipped if the plugin hasn't changed since it was last compiled.
-        self.compilePluginScript(
+        delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate
+    ) async throws -> Int32 {
+        // If needed, compile the plugin script to an executable. Compilation is skipped if the plugin hasn't changed since it was last compiled.
+        let result = try await self.compilePluginScript(
             sourceFiles: sourceFiles,
             pluginName: pluginName,
             toolsVersion: toolsVersion,
             workers: workers,
             observabilityScope: observabilityScope,
             callbackQueue: DispatchQueue.sharedConcurrent,
-            delegate: delegate,
-            completion: {
-                dispatchPrecondition(condition: .onQueue(DispatchQueue.sharedConcurrent))
-                switch $0 {
-                case .success(let result):
-                    if result.succeeded {
-                        // Compilation succeeded, so run the executable. We are already running on an asynchronous queue.
-                        self.invoke(
-                            compiledExec: result.executableFile,
-                            workingDirectory: workingDirectory,
-                            writableDirectories: writableDirectories,
-                            readOnlyDirectories: readOnlyDirectories,
-                            allowNetworkConnections: allowNetworkConnections,
-                            initialMessage: initialMessage,
-                            observabilityScope: observabilityScope,
-                            callbackQueue: callbackQueue,
-                            delegate: delegate,
-                            completion: completion)
-                    }
-                    else {
-                        // Compilation failed, so throw an error.
-                        callbackQueue.async { completion(.failure(DefaultPluginScriptRunnerError.compilationFailed(result))) }
-                    }
-                case .failure(let error):
-                    // Compilation failed, so just call the callback block on the appropriate queue.
-                    callbackQueue.async { completion(.failure(error)) }
-                }
-            }
+            delegate: delegate
+        )
+        guard result.succeeded else {
+            throw DefaultPluginScriptRunnerError.compilationFailed(result)
+        }
+        return try await self.invoke(
+            compiledExec: result.executableFile,
+            workingDirectory: workingDirectory,
+            writableDirectories: writableDirectories,
+            readOnlyDirectories: readOnlyDirectories,
+            allowNetworkConnections: allowNetworkConnections,
+            initialMessage: initialMessage,
+            observabilityScope: observabilityScope,
+            delegate: delegate
         )
     }
 
@@ -454,40 +438,25 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         allowNetworkConnections: [SandboxNetworkPermission],
         initialMessage: Data,
         observabilityScope: ObservabilityScope,
-        callbackQueue: DispatchQueue,
-        delegate: PluginScriptRunnerDelegate,
-        completion: @escaping (Result<Int32, Error>) -> Void
-    ) {
-#if canImport(Darwin) && !os(macOS)
-        callbackQueue.async {
-            completion(.failure(DefaultPluginScriptRunnerError.pluginUnavailable(reason: "subprocess invocations are unavailable on this platform")))
-        }
+        delegate: PluginScriptRunnerDelegate
+    ) async throws -> Int32 {
+#if os(Windows) || (canImport(Darwin) && !os(macOS))
+        throw DefaultPluginScriptRunnerError.pluginUnavailable(reason: "subprocess invocations are unavailable on this platform")
 #else
         // Construct the command line. Currently we just invoke the executable built from the plugin without any parameters.
         var command = [compiledExec.pathString]
 
         // Optionally wrap the command in a sandbox, which places some limits on what it can do. In particular, it blocks network access and restricts the paths to which the plugin can make file system changes. It does allow writing to temporary directories.
         if self.enableSandbox {
-            do {
-                command = try Sandbox.apply(
-                    command: command,
-                    fileSystem: self.fileSystem,
-                    strictness: .writableTemporaryDirectory,
-                    writableDirectories: writableDirectories + [self.cacheDir],
-                    readOnlyDirectories: readOnlyDirectories,
-                    allowNetworkConnections: allowNetworkConnections
-                )
-            } catch {
-                return callbackQueue.async {
-                    completion(.failure(error))
-                }
-            }
+            command = try Sandbox.apply(
+                command: command,
+                fileSystem: self.fileSystem,
+                strictness: .writableTemporaryDirectory,
+                writableDirectories: writableDirectories + [self.cacheDir],
+                readOnlyDirectories: readOnlyDirectories,
+                allowNetworkConnections: allowNetworkConnections
+            )
         }
-
-        // Create and configure a Process. We set the working directory to the cache directory, so that relative paths end up there.
-        let process = Foundation.Process()
-        process.executableURL = URL(fileURLWithPath: command[0])
-        process.arguments = Array(command.dropFirst())
 
         var env = Environment.current
 
@@ -509,127 +478,70 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         let pluginLibraryPath = self.toolchain.swiftPMLibrariesLocation.pluginLibraryPath.pathString
         env.prependPath(key: .path, value: pluginLibraryPath)
 #endif
-        process.environment = .init(env)
 
-        process.currentDirectoryURL = workingDirectory.asURL
+        let process = AsyncProcess(
+            arguments: command,
+            environment: env,
+            workingDirectory: workingDirectory,
+            outputRedirection: .asyncStream
+        )
 
-        // Set up a pipe for sending structured messages to the plugin on its stdin.
-        let stdinPipe = Pipe()
-        let outputHandle = stdinPipe.fileHandleForWriting
-        let outputQueue = DispatchQueue(label: "plugin-send-queue")
-        process.standardInput = stdinPipe
+        // A nil key means the cancellator is already cancelling; nothing is running to leak.
+        guard let cancellationKey = self.cancellator.register(process) else {
+            throw CancellationError()
+        }
+        defer { self.cancellator.deregister(cancellationKey) }
 
-        // Set up a pipe for receiving messages from the plugin on its stdout.
-        let stdoutPipe = Pipe()
-        let stdoutLock = NSLock()
-        stdoutPipe.fileHandleForReading.readabilityHandler = { fileHandle in
-            // Receive the next message and pass it on to the delegate.
-            stdoutLock.withLock {
-                do {
-                    while let message = try fileHandle.readPluginMessage() {
-                        // FIXME: We should handle errors here.
-                        callbackQueue.async {
+        // Accumulated stderr, reported in the signalled/framing-error messages below.
+        let stderr = ThreadSafeBox<[UInt8]>([])
+
+        let result: AsyncProcessResult
+        do {
+            (_, result) = try await process.launchAsyncStream { stdin, output in
+                stdin.write(framed(initialMessage))
+                stdin.flush()
+                var reassembler = FrameReassembler()
+                for await chunk in output {
+                    switch chunk {
+                    case .stdout(let bytes):
+                        // A framing error desyncs the byte stream irrecoverably: throw so launchAsyncStream
+                        // SIGKILLs and reaps the child. A single bad message is recoverable (logged, skipped).
+                        for message in try reassembler.push(bytes) {
                             do {
-                                try delegate.handleMessage(data: message, responder: { data in
-                                    outputQueue.async {
-                                        do {
-                                            try outputHandle.writePluginMessage(data)
-                                        }
-                                        catch {
-                                            print("error while trying to send message to plugin: \(error.interpolationDescription)")
-                                        }
-                                    }
+                                try await delegate.handleMessage(data: message, responder: { data in
+                                    stdin.write(framed(data))
+                                    stdin.flush()
                                 })
-                            }
-                            catch DecodingError.keyNotFound(let key, _) where key.stringValue == "version" {
-                                print("message from plugin did not contain a 'version' key, likely an incompatible plugin library is being loaded by the plugin")
-                            }
-                            catch {
-                                print("error while trying to handle message from plugin: \(error.interpolationDescription)")
+                            } catch {
+                                observabilityScope.emit(error: "error while trying to handle message from plugin: \(error.interpolationDescription)")
                             }
                         }
+                    case .stderr(let bytes):
+                        stderr.mutate { $0.append(contentsOf: bytes) }
+                        delegate.handleOutput(bytes)
                     }
                 }
-                catch {
-                    print("error while trying to read message from plugin: \(error.interpolationDescription)")
-                }
+                try reassembler.finish()
             }
-        }
-        process.standardOutput = stdoutPipe
-
-        // Set up a pipe for receiving free-form text output from the plugin on its stderr.
-        let stderrPipe = Pipe()
-        let stderrLock = NSLock()
-        var stderrData = Data()
-        let stderrHandler = { (data: Data) in
-            // Pass on any available data to the delegate.
-            if data.isEmpty { return }
-            stderrData.append(contentsOf: data)
-            callbackQueue.async { delegate.handleOutput(data: data) }
-        }
-        stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in
-            // Read and pass on any available free-form text output from the plugin.
-            // We need the lock since we could run concurrently with the termination handler.
-            stderrLock.withLock { stderrHandler(fileHandle.availableData) }
-        }
-        process.standardError = stderrPipe
-        
-        // Add it to the list of currently running plugin processes, so it can be cancelled if the host is interrupted.
-        guard let cancellationKey = self.cancellator.register(process) else {
-            return callbackQueue.async {
-                completion(.failure(CancellationError()))
-            }
+        } catch let error as PluginMessageFramingError {
+            // launchAsyncStream already SIGKILLed and reaped the child.
+            throw DefaultPluginScriptRunnerError.pluginCommunicationError(
+                message: "error reading messages from plugin: \(error.interpolationDescription)",
+                command: command,
+                output: String(decoding: stderr.get(), as: UTF8.self))
+        } catch {
+            // Spawn or I/O failure from launchAsyncStream; preserve the command context.
+            throw DefaultPluginScriptRunnerError.invocationFailed(error: error, command: command)
         }
 
-        // Set up a handler to deal with the exit of the plugin process.
-        process.terminationHandler = { process in
-            // Remove the process from the list of currently running ones.
-            self.cancellator.deregister(cancellationKey)
-
-            // Close the output handle through which we talked to the plugin.
-            try? outputHandle.close()
-
-            // Read and pass on any remaining free-form text output from the plugin.
-            // We need the lock since we could run concurrently with the readability handler.
-            stderrLock.withLock {
-                try? stderrPipe.fileHandleForReading.readToEnd().map{ stderrHandler($0) }
-            }
-
-            // Read and pass on any remaining messages from the plugin.
-            let handle = stdoutPipe.fileHandleForReading
-            if let handler = handle.readabilityHandler {
-                handler(handle)
-            }
-
-            // Call the completion block with a result that depends on how the process ended.
-            callbackQueue.async {
-                completion(Result {
-                    // We throw an error if the plugin ended with a signal.
-                    if process.terminationReason == .uncaughtSignal {
-                        throw DefaultPluginScriptRunnerError.invocationEndedBySignal(
-                            signal: process.terminationStatus,
-                            command: command,
-                            output: String(decoding: stderrData, as: UTF8.self))
-                    }
-                    // Otherwise return the termination satatus.
-                    return process.terminationStatus
-                })
-            }
-        }
- 
-        // Start the plugin process.
-        do {
-            try process.run()
-        }
-        catch {
-            callbackQueue.async {
-                completion(.failure(DefaultPluginScriptRunnerError.invocationFailed(error: error, command: command)))
-            }
-        }
-
-        /// Send the initial message to the plugin.
-        outputQueue.async {
-            try? outputHandle.writePluginMessage(initialMessage)
+        switch result.exitStatus {
+        case .terminated(let code):
+            return code
+        case .signalled(let signal):
+            throw DefaultPluginScriptRunnerError.invocationEndedBySignal(
+                signal: signal,
+                command: command,
+                output: String(decoding: stderr.get(), as: UTF8.self))
         }
 #endif
     }
@@ -686,40 +598,3 @@ public enum DefaultPluginScriptRunnerError: Error, CustomStringConvertible {
     }
 }
 
-fileprivate extension FileHandle {
-    
-    func writePluginMessage(_ message: Data) throws {
-        // Write the header (a 64-bit length field in little endian byte order).
-        var length = UInt64(littleEndian: UInt64(message.count))
-        let header = Swift.withUnsafeBytes(of: &length) { Data($0) }
-        assert(header.count == 8)
-        try self.write(contentsOf: header)
-        
-        // Write the payload.
-        try self.write(contentsOf: message)
-    }
-    
-    func readPluginMessage() throws -> Data? {
-        // Read the header (a 64-bit length field in little endian byte order).
-        guard let header = try self.read(upToCount: 8) else { return nil }
-        guard header.count == 8 else {
-            throw PluginMessageError.truncatedHeader
-        }
-        let length = header.withUnsafeBytes{ $0.loadUnaligned(as: UInt64.self).littleEndian }
-        guard length >= 2 else {
-            throw PluginMessageError.invalidPayloadSize
-        }
-
-        // Read and return the message.
-        guard let message = try self.read(upToCount: Int(length)), message.count == length else {
-            throw PluginMessageError.truncatedPayload
-        }
-        return message
-    }
-
-    enum PluginMessageError: Swift.Error {
-        case truncatedHeader
-        case invalidPayloadSize
-        case truncatedPayload
-    }
-}

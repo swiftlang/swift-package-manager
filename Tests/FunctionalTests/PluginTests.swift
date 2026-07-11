@@ -687,14 +687,10 @@ struct PluginTests {
             #expect(libraryTarget.type == .library)
 
             // Set up a delegate to handle callbacks from the command plugin.
-            let delegateQueue = DispatchQueue(label: "plugin-invocation")
             class PluginDelegate: PluginInvocationDelegate {
-                let delegateQueue: DispatchQueue
                 var diagnostics: [Basics.Diagnostic] = []
 
-                init(delegateQueue: DispatchQueue) {
-                    self.delegateQueue = delegateQueue
-                }
+                init() {}
 
                 func pluginCompilationStarted(commandLine: [String], environment: [String: String]) {
                 }
@@ -705,10 +701,9 @@ struct PluginTests {
                 func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult) {
                 }
 
-                func pluginEmittedOutput(_ data: Data) {
+                func pluginEmittedOutput(_ bytes: [UInt8]) {
                     // Add each line of emitted output as a `.info` diagnostic.
-                    dispatchPrecondition(condition: .onQueue(delegateQueue))
-                    let textlines = String(decoding: data, as: UTF8.self).split(whereSeparator: { $0.isNewline })
+                    let textlines = String(decoding: bytes, as: UTF8.self).split(whereSeparator: { $0.isNewline })
                     print(textlines.map{ "[TEXT] \($0)" }.joined(separator: "\n"))
                     diagnostics.append(contentsOf: textlines.map{
                         Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
@@ -717,7 +712,6 @@ struct PluginTests {
 
                 func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
                     // Add the diagnostic as-is.
-                    dispatchPrecondition(condition: .onQueue(delegateQueue))
                     print("[DIAG] \(diagnostic)")
                     diagnostics.append(diagnostic)
                 }
@@ -750,7 +744,7 @@ struct PluginTests {
                 }
 
                 let pluginDir = tmpPath.appending(components: package.identity.description, plugin.name)
-                let delegate = PluginDelegate(delegateQueue: delegateQueue)
+                let delegate = PluginDelegate()
                 do {
                     let scriptRunner = DefaultPluginScriptRunner(
                         fileSystem: localFileSystem,
@@ -759,8 +753,7 @@ struct PluginTests {
                     )
 
                     let toolSearchDirectories = [try UserToolchain.default.swiftCompilerPath.parentDirectory]
-                    let success = try await withCheckedThrowingContinuation { continuation in
-                      plugin.invoke(
+                    let success = try await plugin.invoke(
                         action: .performCommand(package: package, arguments: arguments),
                         buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
                         workers: 1,
@@ -777,13 +770,8 @@ struct PluginTests {
                         fileSystem: localFileSystem,
                         modulesGraph: packageGraph,
                         observabilityScope: observability.topScope,
-                        callbackQueue: delegateQueue,
-                        delegate: delegate,
-                        completion: {
-                          continuation.resume(with: $0)
-                        }
-                      )
-                    }
+                        delegate: delegate
+                    )
                     if expectFailure {
                         #expect(!success, "expected command to fail, but it succeeded")
                     }
@@ -1010,30 +998,32 @@ struct PluginTests {
                 func pluginCompilationWasSkipped(cachedResult: PluginCompilationResult) {
                 }
 
-                func pluginEmittedOutput(_ data: Data) {
+                func pluginEmittedOutput(_ bytes: [UInt8]) {
                     // Add each line of emitted output as a `.info` diagnostic.
-                    dispatchPrecondition(condition: .onQueue(delegateQueue))
-                    let textlines = String(decoding: data, as: UTF8.self).split(whereSeparator: { $0.isNewline })
-                    diagnostics.append(contentsOf: textlines.map{
-                        Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
-                    })
+                    let textlines = String(decoding: bytes, as: UTF8.self).split(whereSeparator: { $0.isNewline })
+                    self.delegateQueue.sync {
+                        diagnostics.append(contentsOf: textlines.map{
+                            Basics.Diagnostic(severity: .info, message: String($0), metadata: .none)
+                        })
 
-                    // If we don't already have the process identifier, we try to find it.
-                    if parsedProcessIdentifier == .none {
-                        func parseProcessIdentifier(_ string: String) -> Int? {
-                            guard let match = try? NSRegularExpression(pattern: "pid: (\\d+)", options: []).firstMatch(in: string, options: [], range: NSRange(location: 0, length: string.count)) else { return .none }
-                            // We have a match, so extract the process identifier.
-                            assert(match.numberOfRanges == 2)
-                            return Int((string as NSString).substring(with: match.range(at: 1)))
+                        // If we don't already have the process identifier, we try to find it.
+                        if parsedProcessIdentifier == .none {
+                            func parseProcessIdentifier(_ string: String) -> Int? {
+                                guard let match = try? NSRegularExpression(pattern: "pid: (\\d+)", options: []).firstMatch(in: string, options: [], range: NSRange(location: 0, length: string.count)) else { return .none }
+                                // We have a match, so extract the process identifier.
+                                assert(match.numberOfRanges == 2)
+                                return Int((string as NSString).substring(with: match.range(at: 1)))
+                            }
+                            parsedProcessIdentifier = textlines.compactMap{ parseProcessIdentifier(String($0)) }.first
                         }
-                        parsedProcessIdentifier = textlines.compactMap{ parseProcessIdentifier(String($0)) }.first
                     }
                 }
 
                 func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
                     // Add the diagnostic as-is.
-                    dispatchPrecondition(condition: .onQueue(delegateQueue))
-                    diagnostics.append(diagnostic)
+                    self.delegateQueue.sync {
+                        diagnostics.append(diagnostic)
+                    }
                 }
 
                 func pluginEmittedProgress(_ message: String) {}
@@ -1072,7 +1062,6 @@ struct PluginTests {
                         fileSystem: localFileSystem,
                         modulesGraph: packageGraph,
                         observabilityScope: observability.topScope,
-                        callbackQueue: delegateQueue,
                         delegate: delegate
                     )
                 } onCancel: {
