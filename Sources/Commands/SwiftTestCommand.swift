@@ -250,7 +250,7 @@ struct TestCommandOptions: ParsableArguments {
 }
 
 /// Tests filtering the specifier, which is used to filter tests to run.
-public enum TestCaseSpecifier {
+public enum TestCaseSpecifier: Equatable {
     /// No filtering.
     case none
 
@@ -1827,27 +1827,37 @@ extension SwiftCommandState {
 }
 
 extension TestCaseSpecifier {
-    /// Normalizes the arguments passed to XCTest by processing any prefixes that are Swift Testing-specific.
+    /// Normalizes filter/skip arguments for XCTest, which only understands test ID patterns.
     ///
-    /// In particular, anything prefixed with `id:` should be treated as if the argument to the prefix were passed in
-    /// directly (e.g. `--filter id:foo` becomes `--filter foo`). Any other prefixes indicate behaviors unsupported by
-    /// xctest and so should be dropped (e.g. `--filter tag:integrationTest` will be dropped).
+    /// `id:foo` and bare `foo` match a test ID, so the prefix is stripped and applied normally. Any other prefix
+    /// (e.g. `tag:`) is a Swift Testing-only concept no XCTest can match.
     func normalizedForXCTest() -> TestCaseSpecifier {
         switch self {
         case .none, .specific:
             return self
         case .regex(let array):
-            let normalizedPatterns = array.compactMap(Self.stripPrefixesAndFilterForXCTest(_:))
-            if normalizedPatterns.isEmpty { return .none }
+            // Encountering _any_ prefix other than `id:` (such as `tag:`) means that no XCTest test could match
+            // against it (because, for example, it's impossible for an XCTest to have a tag). Functionally, this means
+            // that if we encounter any such filters, we automatically know that we shouldn't run any XCTests. We
+            // represent this by returning `.regex([])` which no XCTest matches.
+            var normalizedPatterns = [String]()
+            for pattern in array {
+                guard let stripped = Self.strippedIDPatternForXCTest(pattern) else {
+                    return .regex([])
+                }
+                normalizedPatterns.append(stripped)
+            }
             return .regex(normalizedPatterns)
         case .skip(let array):
-            let normalizedPatterns = array.compactMap(Self.stripPrefixesAndFilterForXCTest(_:))
+            let normalizedPatterns = array.compactMap(Self.strippedIDPatternForXCTest(_:))
             if normalizedPatterns.isEmpty { return .none }
             return .skip(normalizedPatterns)
         }
     }
 
-    private static func stripPrefixesAndFilterForXCTest(_ pattern: String) -> String? {
+    /// The XCTest ID pattern for `pattern` (stripping any `id:` prefix), or `nil` if it carries a
+    /// non-`id:` prefix that XCTest can never match.
+    private static func strippedIDPatternForXCTest(_ pattern: String) -> String? {
         let idPrefix = #/^id:/#
         let genericTagPrefix = #/^[a-zA-Z]+:/#
         if pattern.contains(idPrefix) {
