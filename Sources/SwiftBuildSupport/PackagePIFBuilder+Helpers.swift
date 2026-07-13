@@ -26,6 +26,7 @@ import class Basics.ThreadSafeArrayStore
 
 import enum PackageModel.BuildConfiguration
 import enum PackageModel.BuildSettings
+import struct PackageModel.ClangModuleInfo
 import class PackageModel.ClangModule
 import struct PackageModel.ConfigurationCondition
 import class PackageModel.Manifest
@@ -492,16 +493,22 @@ extension PackageGraph.ResolvedModule {
         try! AbsolutePath(validating: self.sources.root.pathString)
     }
 
-    /// Absolute paths to each of the header files  (*only* applies to C-language modules).
-    var headerFileAbsolutePaths: [AbsolutePath] {
-        guard let clangTarget = self.underlying as? ClangModule else { return [] }
-        return clangTarget.headers
+    private var clangModuleInfo: ClangModuleInfo? {
+        if let clangModule = self.underlying as? ClangModule {
+            return clangModule.clangModuleInfo
+        }
+        return (self.underlying as? SwiftModule)?.clangModuleInfo
     }
 
-    /// Relative path of the `include` directory (*only* applies to C-language modules).
+    /// Absolute paths to each of the header files.
+    var headerFileAbsolutePaths: [AbsolutePath] {
+        self.clangModuleInfo?.headers ?? []
+    }
+
+    /// Relative path of the `include` directory (applies to C-language and mixed-language modules).
     var includeDirRelativePath: RelativePath? {
-        guard let clangModule = self.underlying as? ClangModule else { return nil }
-        let relativePath = clangModule.includeDir.relative(to: self.sources.root).pathString
+        guard let includeDir = self.clangModuleInfo?.includeDir else { return nil }
+        let relativePath = includeDir.relative(to: self.sources.root).pathString
         return try! RelativePath(validating: relativePath)
     }
 
@@ -511,28 +518,30 @@ extension PackageGraph.ResolvedModule {
         return self.sourceDirAbsolutePath.appending(includeDirRelativePath)
     }
 
-    /// Module map type (*only* applies to C-language modules).
+    /// Module map type.
     var moduleMapType: ModuleMapType? {
-        guard let clangModule = self.underlying as? ClangModule else { return nil }
-        return clangModule.moduleMapType
+        self.clangModuleInfo?.moduleMapType
     }
 
-    /// The C language standard for which the module is configured (*only* applies to C-language modules).
+    /// The C language standard for which the module is configured.
     var cLanguageStandard: String? {
-        guard let clangModule = self.underlying as? ClangModule else { return nil }
-        return clangModule.cLanguageStandard
+        self.clangModuleInfo?.cLanguageStandard
     }
 
-    /// The C++ language standard for which the module is configured (*only* applies to C-language modules).
+    /// The C++ language standard for which the module is configured.
     var cxxLanguageStandard: String? {
-        guard let clangTarget = self.underlying as? ClangModule else { return nil }
-        return clangTarget.cxxLanguageStandard
+        self.clangModuleInfo?.cxxLanguageStandard
     }
 
-    /// Whether or not this module contains C++ sources (*only* applies to C-language modules).
+    /// Whether or not this module contains C++ sources.
     var isCxx: Bool {
-        guard let clangTarget = self.underlying as? ClangModule else { return false }
-        return clangTarget.isCXX
+        if let clangModule = self.underlying as? ClangModule {
+            return clangModule.isCXX
+        }
+        if let swiftModule = self.underlying as? SwiftModule {
+            return swiftModule.containsCXX
+        }
+        return false
     }
 
     /// The list of swift versions declared by the manifest.
@@ -544,6 +553,11 @@ extension PackageGraph.ResolvedModule {
     /// Is this a Swift module?
     var usesSwift: Bool {
         self.declaredSwiftVersions != nil
+    }
+
+    /// Whether this module mixes Swift and C-family sources.
+    var isMixedLanguageModule: Bool {
+        (self.underlying as? SwiftModule)?.isMixedLanguage ?? false
     }
 
     /// Swift language version for which the module is configured.
