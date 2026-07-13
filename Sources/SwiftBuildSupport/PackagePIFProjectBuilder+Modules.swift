@@ -256,6 +256,102 @@ extension PackagePIFProjectBuilder {
         return FileReference(id: id, path: binaryModule.artifactPath.pathString, fileType: fileTypeIdentifier)
     }
 
+    /// Configures module map settings for a Swift-only or mixed-source source target.
+    func configureSwiftTargetModuleMap(
+        for sourceModule: PackageGraph.ResolvedModule,
+        targetSuffix: TargetSuffix?,
+        settings: inout BuildSettings,
+        impartedSettings: inout BuildSettings
+    ) throws -> (contents: String?, path: String?) {
+        // The generated header should be adjacent to the generated module map.
+        settings[.SWIFT_OBJC_INTERFACE_HEADER_DIR] = "$(GENERATED_MODULEMAP_DIR)"
+        settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME] = "\(sourceModule.name)-Swift.h"
+
+        // Ensure the generated module map of the testable variant of an executable/macro does not conflict with the
+        // primary copy.
+        let moduleMapFileName = "\(sourceModule.name)\(targetSuffix.uniqueDescription(forName: sourceModule.name)).modulemap"
+        let generatedModuleMapPath = try RelativePath(
+            validating: "$(GENERATED_MODULEMAP_DIR)/\(moduleMapFileName)"
+        ).pathString
+
+        var cUmbrellaDeclaration: String? = nil
+        switch sourceModule.moduleMapType {
+        case .umbrellaHeader(let path):
+            log(.debug, "\(package.name).\(sourceModule.name) generated umbrella header")
+            cUmbrellaDeclaration = "umbrella header \"\(path.escapedPathString)\""
+        case .umbrellaDirectory(let path):
+            log(.debug, "\(package.name).\(sourceModule.name) generated umbrella directory")
+            cUmbrellaDeclaration = "umbrella \"\(path.escapedPathString)\""
+        case .custom(let customModuleMapPath):
+            let customModuleMapPathString = customModuleMapPath.pathString
+            settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                $0.append(contentsOf: [
+                    "-import-underlying-module",
+                    "-Xcc", "-fmodule-map-file=\(customModuleMapPathString)",
+                ])
+            }
+            self.impartModuleMap(at: customModuleMapPathString, to: &impartedSettings)
+            return (nil, customModuleMapPathString)
+        case nil, .some(.none):
+            break
+        }
+
+        let moduleMapFileContents: String
+        if let cUmbrellaDeclaration {
+            // If the target has a public C interface, set the top-level module map contents and allow
+            // Swift Build to inject the submodule for the generated header.
+            settings[.SWIFT_INSTALL_OBJC_HEADER] = "YES"
+            // Opt into Swift Build extending these provided module map contents (the underlying C
+            // module) with the generated `.Swift` submodule, forming a single mixed-language module.
+            settings[.SWIFT_EXTEND_MODULEMAP_FILE_CONTENTS] = "YES"
+            moduleMapFileContents = """
+            module \(sourceModule.c99name) {
+            \(cUmbrellaDeclaration)
+            export *
+            }
+            """
+            // The target must be able to load its own underlying Clang module when compiling Swift sources.
+            settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                $0.append(contentsOf: ["-Xcc", "-fmodule-map-file=\(generatedModuleMapPath)"])
+            }
+        } else {
+            // In a target with no public C interface, only the generated header is exposed via the Clang module.
+            moduleMapFileContents = """
+            module \(sourceModule.c99name) {
+            header "\(sourceModule.name)-Swift.h"
+            export *
+            }
+            """
+        }
+
+        self.impartModuleMap(at: generatedModuleMapPath, to: &impartedSettings)
+
+        return (moduleMapFileContents, generatedModuleMapPath)
+    }
+
+    private func impartModuleMap(at moduleMapPath: String, to impartedSettings: inout BuildSettings) {
+        // Impart the module map to Clang clients.
+        impartedSettings[.OTHER_CFLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+            $0.append("-fmodule-map-file=\(moduleMapPath)")
+        }
+
+        // Whether to impart the module map to Swift dependents in addition to Clang dependents.
+        // Previously, SwiftPM would only impart the module map for the Swift-generated header on the clang
+        // compiles of transitive dependencies. This prevented use of generated C/ObjC interfaces in the API
+        // of a Clang target imported by Swift. For example, if:
+        // - TargetA is Swift-only and produces a generated header exposing type Foo
+        // - TargetB is Clang-only and exposes a function bar which returns a value of type Foo
+        // - TargetC is Swift-only and calls bar
+        // then TargetA must impart settings on TargetC allowing it to load the underlying Clang module of TargetA. When
+        // using the experimentalMultiLang flag, we impart settings such that this now works.
+        let impartsModuleMapToSwiftClients = self.package.manifest.toolsVersion.experimentalMultiLang
+        if impartsModuleMapToSwiftClients {
+            impartedSettings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                $0.append(contentsOf: ["-Xcc", "-fmodule-map-file=\(moduleMapPath)"])
+            }
+        }
+    }
+
     /// Constructs a *PIF target* for building a *module* as a particular type.
     /// An optional target identifier suffix is passed when building variants of a target.
     @discardableResult
@@ -403,21 +499,13 @@ extension PackagePIFProjectBuilder {
         let moduleMapFileContents: String?
         let moduleMapPath: String?
 
-        if sourceModule.usesSwift && desiredModuleType != .macro {
-            // Generate ObjC compatibility header for Swift library targets.
-            settings[.SWIFT_OBJC_INTERFACE_HEADER_DIR] = "$(GENERATED_MODULEMAP_DIR)"
-            settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME] = "\(sourceModule.name)-Swift.h"
-
-            moduleMapFileContents = """
-            module \(sourceModule.c99name) {
-            header "\(sourceModule.name)-Swift.h"
-            export *
-            }
-            """
-            let generatedModuleMapPath = try RelativePath(validating:"$(GENERATED_MODULEMAP_DIR)/\(sourceModule.name).modulemap").pathString
-            moduleMapPath = generatedModuleMapPath
-            // We only need to impart this to C clients.
-            impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(generatedModuleMapPath)", "$(inherited)"]
+        if sourceModule.usesSwift {
+            (moduleMapFileContents, moduleMapPath) = try self.configureSwiftTargetModuleMap(
+                for: sourceModule,
+                targetSuffix: targetSuffix,
+                settings: &settings,
+                impartedSettings: &impartedSettings
+            )
         } else {
             // Otherwise, this is a C library module and we generate a modulemap if one is already not provided.
             if let pluginGeneratedModuleMapPath = generatedFiles.moduleMaps.first {
@@ -582,6 +670,13 @@ extension PackagePIFProjectBuilder {
             }
         }
 
+        // A mixed-language target's Objective-C sources may import its own Swift-generated header, which is emitted into `$(GENERATED_MODULEMAP_DIR)`.
+        if sourceModule.usesSwift && sourceModule.isMixedLanguageModule {
+            settings[.HEADER_SEARCH_PATHS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                $0.append("$(GENERATED_MODULEMAP_DIR)")
+            }
+        }
+
         // Additional settings for the linker.
         let enableDuplicateLinkageCulling = UserDefaults.standard.bool(
             forKey: "IDESwiftPackagesEnableDuplicateLinkageCulling",
@@ -590,19 +685,7 @@ extension PackagePIFProjectBuilder {
         if enableDuplicateLinkageCulling {
             impartedSettings[.LD_WARN_DUPLICATE_LIBRARIES] = "NO"
         }
-        if sourceModule.isCxx {
-            for platform in ProjectModel.BuildSettings.Platform.allCases {
-                // darwin & freebsd
-                switch platform {
-                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
-                        impartedSettings[.OTHER_LDFLAGS, platform] = ["-lc++", "$(inherited)"]
-                    case .android, .linux, .wasi, .openbsd:
-                        impartedSettings[.OTHER_LDFLAGS, platform] = ["-lstdc++", "$(inherited)"]
-                    case .windows, ._iOSDevice:
-                        break
-                }
-            }
-        }
+        self.addCxxStandardLibraryLinkSettings(for: sourceModule, to: &impartedSettings)
         // This should be only for dynamic targets, but that isn't possible today.
         // Improvement is tracked by rdar://77403529 (Only impart `PackageFrameworks` search paths to clients of dynamic
         // package targets and products).
@@ -961,6 +1044,29 @@ extension PackagePIFProjectBuilder {
         )
 
         return (moduleOrProduct, resourceBundleName)
+    }
+
+    func addCxxStandardLibraryLinkSettings(
+        for module: ResolvedModule,
+        to settings: inout ProjectModel.BuildSettings
+    ) {
+        guard module.isCxx else { return }
+
+        for platform in ProjectModel.BuildSettings.Platform.allCases {
+            let standardLibraryFlag: String
+            switch platform {
+                case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
+                    // darwin & freebsd
+                    standardLibraryFlag = "-lc++"
+                case .android, .linux, .wasi, .openbsd:
+                    standardLibraryFlag = "-lstdc++"
+                case .windows, ._iOSDevice:
+                    continue
+            }
+            settings[.OTHER_LDFLAGS, platform].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                $0.append(standardLibraryFlag)
+            }
+        }
     }
 
     private func applyPackageCompatibilityWorkarounds(for sourceModule: ResolvedModule, to settings: inout BuildSettings) {

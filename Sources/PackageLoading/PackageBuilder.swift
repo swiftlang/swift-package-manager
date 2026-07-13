@@ -1007,6 +1007,34 @@ public final class PackageBuilder {
 
         // Create and return the right kind of target depending on what kind of sources we found.
         if sources.hasSwiftSources {
+            var clangModuleInfo: ClangModuleInfo? = nil
+            // If this is a mixed source target, we also need to compute the clang module info.
+            let hasPublicHeaders = self.fileSystem.exists(publicHeadersPath)
+            let hasHeaderOnlyCModule = self.manifest.toolsVersion.experimentalMultiLang && hasPublicHeaders
+            if sources.hasClangSources || hasHeaderOnlyCModule {
+                let moduleMapType: ModuleMapType
+                let includeDir: AbsolutePath?
+                if hasPublicHeaders {
+                    let moduleMapGenerator = ModuleMapGenerator(
+                        targetName: potentialModule.name,
+                        moduleName: potentialModule.name.spm_mangledToC99ExtendedIdentifier(),
+                        publicHeadersDir: publicHeadersPath,
+                        fileSystem: self.fileSystem
+                    )
+                    moduleMapType = moduleMapGenerator.determineModuleMapType(observabilityScope: self.observabilityScope)
+                    includeDir = publicHeadersPath
+                } else {
+                    moduleMapType = .none
+                    includeDir = nil
+                }
+                clangModuleInfo = ClangModuleInfo(
+                    includeDir: includeDir,
+                    moduleMapType: moduleMapType,
+                    headers: headers,
+                    cLanguageStandard: self.manifest.cLanguageStandard,
+                    cxxLanguageStandard: self.manifest.cxxLanguageStandard
+                )
+            }
             return try SwiftModule(
                 name: potentialModule.name,
                 potentialBundleName: potentialBundleName,
@@ -1019,6 +1047,7 @@ public final class PackageBuilder {
                 dependencies: dependencies,
                 packageAccess: potentialModule.packageAccess,
                 declaredSwiftVersions: self.declaredSwiftVersions(),
+                clangModuleInfo: clangModuleInfo,
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings,
                 // unsafe flags check disabled in 6.2
@@ -1823,28 +1852,6 @@ extension Manifest {
 }
 
 extension Sources {
-    public var hasSwiftSources: Bool {
-        paths.contains { path in
-            guard let ext = path.extension else { return false }
-
-            return FileRuleDescription.swift.fileTypes.contains(ext)
-        }
-    }
-
-    public var hasClangSources: Bool {
-        let supportedClangFileExtensions = FileRuleDescription.clang.fileTypes.union(FileRuleDescription.asm.fileTypes)
-
-        return paths.contains { path in
-            guard let ext = path.extension else { return false }
-
-            return supportedClangFileExtensions.contains(ext)
-        }
-    }
-
-    public var containsMixedLanguage: Bool {
-        self.hasSwiftSources && self.hasClangSources
-    }
-
     /// Determine module type based on the sources.
     fileprivate func computeModuleKind() -> Module.Kind {
         let isLibrary = !relativePaths.contains { path in

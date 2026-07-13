@@ -1,0 +1,4 @@
+module MixedLib {
+    header "bridge.h"
+    export *
+}
