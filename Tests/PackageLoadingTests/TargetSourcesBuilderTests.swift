@@ -266,6 +266,36 @@ final class TargetSourcesBuilderTests: XCTestCase {
         }
     }
 
+    func testLiterateSwiftSources() throws {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: [],
+            sources: nil,
+            resources: [],
+            publicHeadersPath: nil,
+            type: .regular
+        )
+
+        let files: [AbsolutePath] = [
+            "/Foo.swift",
+            "/Bar.md",
+            "/Baz.rst",
+            "/Qux.tex",
+        ]
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: AbsolutePath.root, files: files.map(\.pathString))
+
+        build(target: target, toolsVersion: .v5, fs: fs) { sources, _, _, _, _, _, _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            XCTAssertEqual(
+                sources.paths.sorted(),
+                files.sorted()
+            )
+        }
+    }
+
     func testResourceConflicts() throws {
         // Conflict between processed resources.
 

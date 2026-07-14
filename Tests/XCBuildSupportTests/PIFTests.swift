@@ -231,6 +231,21 @@ class PIFTests: XCTestCase {
         XCTAssertEqual(originalString, decodedString)
     }
 
+    func testLiterateSwiftFileTypeIdentifiers() throws {
+        XCTAssertEqual(
+            PIF.FileReference(guid: "md-file-guid", path: "Foo.md").fileType,
+            "sourcecode.swift.literate.markdown"
+        )
+        XCTAssertEqual(
+            PIF.FileReference(guid: "rst-file-guid", path: "Foo.rst").fileType,
+            "sourcecode.swift.literate.restructuredtext"
+        )
+        XCTAssertEqual(
+            PIF.FileReference(guid: "tex-file-guid", path: "Foo.tex").fileType,
+            "sourcecode.swift.literate.tex"
+        )
+    }
+
     func testEncodable() throws {
         let encoder = JSONEncoder.makeWithDefaults()
         encoder.userInfo[.encodeForXCBuild] = true
