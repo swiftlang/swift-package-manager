@@ -981,6 +981,23 @@ struct BuildCommandTestCases {
     }
 
     @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10285", relationship: .defect)
+    )
+    func docCBundleDoesNotEmitUnhandledFilesWarning() async throws {
+        try await fixture(name: "Miscellaneous/LibraryWithDocC") { fixturePath in
+            let (_, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                buildSystem: .swiftbuild
+            )
+
+            #expect(
+                stderr.contains("Documentation.docc") == false,
+                "Unexpected warning for the DocC bundle: \(stderr)"
+            )
+        }
+    }
+
+    @Test(
         .tags(
             .Feature.BuildCache,
         ),
