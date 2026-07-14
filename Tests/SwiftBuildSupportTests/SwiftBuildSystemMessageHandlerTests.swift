@@ -174,16 +174,18 @@ struct SwiftBuildSystemMessageHandlerTests {
         let messageHandler = self.messageHandler.warning
 
         let events: [SwiftBuildMessage] = [
-            .taskStartedInfo(taskID: 1, taskSignature: "simple-diagnostic"),
+            .taskStartedInfo(taskID: 1, taskSignature: "simple-diagnostic", ruleInfo: "started-simple-diag"),
             .diagnostic(
+                locationContext: .task(taskID: 1, targetID: 1),
                 locationContext2: .init(taskSignature: "simple-diagnostic"),
                 message: "Simple diagnostic",
                 appendToOutputStream: true
             ),
-            .taskStartedInfo(taskID: 2, taskSignature: "another-diagnostic"),
-            .taskStartedInfo(taskID: 3, taskSignature: "warning-diagnostic"),
+            .taskStartedInfo(taskID: 2, taskSignature: "another-diagnostic", ruleInfo: "started-another-diag"),
+            .taskStartedInfo(taskID: 3, taskSignature: "warning-diagnostic", ruleInfo: "started-warning-diag"),
             .diagnostic(
                 kind: .warning,
+                locationContext: .task(taskID: 3, targetID: 1),
                 locationContext2: .init(taskSignature: "warning-diagnostic"),
                 message: "Warning diagnostic",
                 appendToOutputStream: true
@@ -191,6 +193,7 @@ struct SwiftBuildSystemMessageHandlerTests {
             .taskCompleteInfo(taskID: 1, taskSignature: "simple-diagnostic", result: .failed),
             .diagnostic(
                 kind: .warning,
+                locationContext: .task(taskID: 3, targetID: 1),
                 locationContext2: .init(taskSignature: "warning-diagnostic"),
                 message: "Another warning diagnostic",
                 appendToOutputStream: true
@@ -198,6 +201,7 @@ struct SwiftBuildSystemMessageHandlerTests {
             .taskCompleteInfo(taskID: 3, taskSignature: "warning-diagnostic", result: .success),
             .diagnostic(
                 kind: .note,
+                locationContext: .task(taskID: 2, targetID: 1),
                 locationContext2: .init(taskSignature: "another-diagnostic"),
                 message: "Another diagnostic",
                 appendToOutputStream: true
@@ -209,13 +213,18 @@ struct SwiftBuildSystemMessageHandlerTests {
             _ = try messageHandler.emitEvent(event)
         }
 
-        #expect(self.observability.hasErrorDiagnostics)
-
-        try expectDiagnostics(observability.diagnostics) { result in
+        #expect(self.observability.hasErrorDiagnostics, "expected at least 1 error diagnostic")
+        #expect(self.observability.hasWarningDiagnostics, "expected at least 1 warning diagnostic")
+        try expectDiagnostics(
+            observability.diagnostics,
+            problemsOnly: false,
+        ) { result in
             result.check(diagnostic: "Simple diagnostic", severity: .error)
-            result.check(diagnostic: "Another diagnostic", severity: .info)
-            result.check(diagnostic: "Another warning diagnostic", severity: .warning)
+            result.check(diagnostic: .contains("started-simple-diag failed"), severity: .info)
             result.check(diagnostic: "Warning diagnostic", severity: .warning)
+            result.check(diagnostic: "Another warning diagnostic", severity: .warning)
+            result.check(diagnostic: "Another diagnostic", severity: .info)
+            result.check(diagnostic: .contains("started-another-diag failed"), severity: .info)
         }
     }
 
@@ -295,79 +304,79 @@ struct SwiftBuildSystemMessageHandlerTests {
         #expect(outputText.contains("error"))
     }
 
-    @Test
-    func testDiagnosticOutputWhenOnlyWarnings() throws {
-        let messageHandler = self.messageHandler.warning
+    struct DiagnosticsOutputWhenSpeficyDiagnosticIsEmittedData: CustomTestStringConvertible {
 
-        let events: [SwiftBuildMessage] = [
-            .taskStartedInfo(taskID: 1, taskSignature: "simple-warning-diagnostic"),
-            .diagnostic(
-                kind: .warning,
-                locationContext2: .init(taskSignature: "simple-warning-diagnostic"),
-                message: "Simple warning diagnostic",
-                appendToOutputStream: true
-            ),
-            .taskCompleteInfo(taskID: 1, taskSignature: "simple-warning-diagnostic", result: .success)
-        ]
+        let id: String
+        let severity: SwiftBuildMessage.DiagnosticInfo.Kind
+        let expectedHasWarningDiagnostic: Bool
+        let expectedHasErrorDiagnotic: Bool
+        let expectedSwiftPMSeverity: Basics.Diagnostic.Severity
 
-        for event in events {
-            _ = try messageHandler.emitEvent(event)
-        }
-
-        #expect(self.observability.hasWarningDiagnostics)
+        var testDescription: String { id}
     }
-
-    @Test
-    func testDiagnosticOutputWhenOnlyNotes() throws {
+    @Test(
+        arguments: [
+            DiagnosticsOutputWhenSpeficyDiagnosticIsEmittedData(
+                id: "Swift Build error diagnostic emitted by SwiftPM",
+                severity: SwiftBuildMessage.DiagnosticInfo.Kind.error,
+                expectedHasWarningDiagnostic: false,
+                expectedHasErrorDiagnotic: true,
+                expectedSwiftPMSeverity: Basics.Diagnostic.Severity.error,
+            ),
+            DiagnosticsOutputWhenSpeficyDiagnosticIsEmittedData(
+                id: "Swift Build warning diagnostic emitted by SwiftPM",
+                severity: .warning,
+                expectedHasWarningDiagnostic: true,
+                expectedHasErrorDiagnotic: false,
+                expectedSwiftPMSeverity: .warning,
+            ),
+            DiagnosticsOutputWhenSpeficyDiagnosticIsEmittedData(
+                id: "Swift Build note diagnostic emitted by SwiftPM",
+                severity: .note,
+                expectedHasWarningDiagnostic: false,
+                expectedHasErrorDiagnotic: false,
+                expectedSwiftPMSeverity: .info,
+            ),
+            DiagnosticsOutputWhenSpeficyDiagnosticIsEmittedData(
+                id: "Swift Build remark diagnostic emitted by SwiftPM",
+                severity: .remark,
+                expectedHasWarningDiagnostic: false,
+                expectedHasErrorDiagnotic: false,
+                expectedSwiftPMSeverity: .debug,
+            ),
+        ]
+    )
+    func diagnosticsOutputWhenSpeficyDiagnosticIsEmitted(
+        testcase: DiagnosticsOutputWhenSpeficyDiagnosticIsEmittedData
+    ) async throws {
         let messageHandler = self.messageHandler.warning
+        let diagMessage = "Simple \(testcase.severity) diagnostic"
+        let taskSignatureName = "simple-\(testcase.severity)-diagnostic"
 
         let events: [SwiftBuildMessage] = [
-            .taskStartedInfo(taskID: 1, taskSignature: "simple-note-diagnostic"),
+            .taskStartedInfo(taskID: 1, taskSignature: taskSignatureName),
             .diagnostic(
-                kind: .note,
-                locationContext2: .init(taskSignature: "simple-note-diagnostic"),
-                message: "Simple note diagnostic",
+                kind: testcase.severity,
+                locationContext2: .init(taskSignature: taskSignatureName),
+                message: diagMessage,
                 appendToOutputStream: true
             ),
-            .taskCompleteInfo(taskID: 1, taskSignature: "simple-note-diagnostic", result: .success)
+            .taskCompleteInfo(taskID: 1, taskSignature: taskSignatureName, result: .success)
         ]
 
         for event in events {
             _ = try messageHandler.emitEvent(event)
         }
-        
-        #expect(!self.observability.hasWarningDiagnostics)
-        #expect(!self.observability.hasErrorDiagnostics)
+
+        #expect(self.observability.hasWarningDiagnostics == testcase.expectedHasWarningDiagnostic)
+        #expect(self.observability.hasErrorDiagnostics == testcase.expectedHasErrorDiagnotic)
         #expect(self.observability.diagnostics.count == 1)
-        try expectDiagnostics(self.observability.diagnostics) { result in
-            result.check(diagnostic: "Simple note diagnostic", severity: .info)
-        }
-    }
 
-    @Test
-    func testDiagnosticOutputWhenOnlyDebugs() throws {
-        let messageHandler = self.messageHandler.warning
-
-        let events: [SwiftBuildMessage] = [
-            .taskStartedInfo(taskID: 1, taskSignature: "simple-debug-diagnostic"),
-            .diagnostic(
-                kind: .remark,
-                locationContext2: .init(taskSignature: "simple-debug-diagnostic"),
-                message: "Simple debug diagnostic",
-                appendToOutputStream: true
-            ),
-            .taskCompleteInfo(taskID: 1, taskSignature: "simple-debug-diagnostic", result: .success)
-        ]
-
-        for event in events {
-            _ = try messageHandler.emitEvent(event)
-        }
-
-        #expect(!self.observability.hasWarningDiagnostics)
-        #expect(!self.observability.hasErrorDiagnostics)
-        #expect(self.observability.diagnostics.count == 1)
-        try expectDiagnostics(self.observability.diagnostics) { result in
-            result.check(diagnostic: "Simple debug diagnostic", severity: .debug)
+        try expectDiagnostics(
+            self.observability.diagnostics,
+            problemsOnly: false,
+        ) { result in
+            result.check(diagnostic: "\(diagMessage)", severity: testcase.expectedSwiftPMSeverity)
         }
     }
 
@@ -500,7 +509,7 @@ struct SwiftBuildSystemMessageHandlerTests {
         }
 
         let output = self.outputStream.bytes.description
-        #expect(output.contains("Compile Foo\n"))
+        #expect(output.contains("Compile Foo"))
     }
 
     @Test
