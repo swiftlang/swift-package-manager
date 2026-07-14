@@ -21,6 +21,7 @@ import PackageSigning
 import SourceControl
 import SPMBuildCore
 @testable import Workspace
+import Testing
 import XCTest
 
 import struct TSCBasic.ByteString

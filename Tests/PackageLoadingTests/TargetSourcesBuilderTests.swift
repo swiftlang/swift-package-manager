@@ -15,6 +15,7 @@ import Foundation
 import PackageModel
 import PackageLoading
 import _InternalTestSupport
+import Testing
 import XCTest
 
 final class TargetSourcesBuilderTests: XCTestCase {

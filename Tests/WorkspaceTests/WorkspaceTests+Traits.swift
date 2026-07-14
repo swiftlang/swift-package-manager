@@ -13,6 +13,7 @@
 import _InternalTestSupport
 import Basics
 import PackageModel
+import Testing
 import XCTest
 
 extension WorkspaceTests {

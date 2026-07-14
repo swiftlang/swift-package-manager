@@ -12,6 +12,7 @@
 
 @testable import Basics
 import _InternalTestSupport
+import Testing
 import XCTest
 
 import class Basics.AsyncProcess
