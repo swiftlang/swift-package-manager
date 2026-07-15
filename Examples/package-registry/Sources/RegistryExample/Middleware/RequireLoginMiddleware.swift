@@ -12,32 +12,32 @@
 
 import Vapor
 
-/// Middleware that admits a request only when some user is logged in.
+/// Middleware that admits a request only when it carries valid credentials.
 public struct RequireLoginMiddleware: AsyncMiddleware {
-    let session: LoginSession
+    let authenticator: UserAuthenticator
 
-    /// Creates the middleware backed by the given login session.
+    /// Creates the middleware backed by the given authenticator.
     ///
-    /// - Parameter session: The session consulted for a logged-in user.
-    public init(session: LoginSession) {
-        self.session = session
+    /// - Parameter authenticator: Verifies the credentials presented on each
+    ///   request.
+    public init(authenticator: UserAuthenticator) {
+        self.authenticator = authenticator
     }
 
-    /// Forwards the request downstream only when a user is logged in.
+    /// Forwards the request downstream only when it presents valid
+    /// credentials, re-verifying them on every request rather than trusting
+    /// a prior login.
     ///
     /// - Parameters:
     ///   - request: The incoming request.
-    ///   - next: The downstream responder invoked when a user is logged in.
+    ///   - next: The downstream responder invoked when the credentials are
+    ///     valid.
     /// - Returns: The downstream response.
-    /// - Throws: ``ProblemDetails`` `401 Unauthorized` when no user is
-    ///   logged in.
+    /// - Throws: ``ProblemDetails`` `401 Unauthorized` when credentials are
+    ///   absent or invalid, or `501 Not Implemented` when the authentication
+    ///   method is unsupported.
     public func respond(to request: Request, chainingTo next: any AsyncResponder) async throws -> Response {
-        // Users don't own packages in this example registry, 
-        // We don't track which user is logged in to the registry
-        // As long as some user is logged in during this session, publishing is allowed
-        guard await session.hasActiveUser else {
-            throw ProblemDetails.unauthorized("login required to publish")
-        }
+        _ = try await authenticator.authenticate(request)
         return try await next.respond(to: request)
     }
 }

@@ -19,9 +19,10 @@ import NIOSSL
 /// - Parameters:
 ///   - app: The application to configure.
 ///   - authEnabled: When `true`, the publish endpoint is gated behind
-///     ``RequireLoginMiddleware`` so that only a logged-in user may publish.
-///     Defaults to `false`, leaving publishing open, matching the server's
-///     `--enable-auth` command-line flag.
+///     ``RequireLoginMiddleware``, which re-verifies the credentials
+///     presented on every publish request. Defaults to `false`, leaving
+///     publishing open, matching the server's `--enable-auth` command-line
+///     flag.
 public func configure(_ app: Application, authEnabled: Bool = false) async throws {
     app.middleware = Middlewares()
     app.middleware.use(ProblemErrorMiddleware())
@@ -31,20 +32,20 @@ public func configure(_ app: Application, authEnabled: Bool = false) async throw
 
     try configureTLS(app)
 
-    let loginSession = LoginSession()
-
     let store = app.registryStore
+    let userStore = app.userStore
+    let authenticator = UserAuthenticator(store: userStore)
+
     AvailabilityRoutes().register(app)
     IdentifiersRoutes(store: store).register(app)
     let publishRouter: any RoutesBuilder = authEnabled
-        ? app.grouped(RequireLoginMiddleware(session: loginSession))
+        ? app.grouped(RequireLoginMiddleware(authenticator: authenticator))
         : app
     PublishRoutes(publisher: ReleasePublisher(store: store)).register(publishRouter)
     MetadataRoutes(store: store).register(app)
 
-    let userStore = app.userStore
     UserRoutes(registrar: UserRegistrar(store: userStore)).register(app)
-    LoginRoutes(authenticator: UserAuthenticator(store: userStore), session: loginSession).register(app)
+    LoginRoutes(authenticator: authenticator).register(app)
 }
 
 private func configureTLS(_ app: Application) throws {
