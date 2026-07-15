@@ -12,28 +12,48 @@
 
 import Vapor
 
-extension UserAuthenticator {
+extension UserAuthenticator: AsyncRequestAuthenticator {
+    /// Populates `request.auth` with an ``AuthenticatedUser`` when the
+    /// request carries valid credentials.
+    ///
+    /// This follows Vapor's authenticator contract: a missing `Authorization`
+    /// header or credentials that fail to verify leave the request
+    /// *unauthenticated* rather than failing here. Rejecting such requests is
+    /// the job of a downstream guard — `AuthenticatedUser.guardMiddleware()`
+    /// on the publish group, or `request.auth.require(_:)` in the login
+    /// handler — which surfaces the absence as `401 Unauthorized`.
+    ///
+    /// The single exception is an *unsupported scheme*, which cannot be
+    /// modeled as "unauthenticated": it is thrown as `501 Not Implemented` so
+    /// the registry distinguishes an authentication method it does not
+    /// support from credentials it rejects.
+    ///
     /// - Parameter request: The request whose `Authorization` header is
-    ///   verified.
-    /// - Returns: The authenticated user's normalized ``EmailAddress``.
-    /// - Throws: ``ProblemDetails`` `401 Unauthorized` when the header is
-    ///   absent or the credentials are invalid, or `501 Not Implemented`
-    ///   when the authentication method is unsupported.
-    func authenticate(_ request: Request) async throws -> EmailAddress {
-        if let bearer = request.headers.bearerAuthorization {
-            guard let email = await authenticate(token: bearer.token) else {
-                throw ProblemDetails.unauthorized("Bearer authentication failed: invalid credentials")
-            }
-            return email
+    ///   inspected.
+    /// - Throws: ``ProblemDetails`` `501 Not Implemented` when the
+    ///   authentication scheme is unsupported.
+    public func authenticate(request: Request) async throws {
+        guard let authHeader = request.headers.first(name: .authorization) else {
+            return
         }
 
-        if let basic = request.headers.basicAuthorization{
-            guard let email = await authenticate(email: basic.username, password: basic.password) else {
-                throw ProblemDetails.unauthorized("Basic authentication failed: invalid credentials")
-            }
-            return email
-        }
+        let scheme = authHeader.prefix(while: { !$0.isWhitespace }).lowercased()
 
-        throw ProblemDetails.unauthorized("Authentication required")
+        switch scheme {
+        case "basic":
+            guard let basic = request.headers.basicAuthorization,
+                  let email = await authenticate(email: basic.username, password: basic.password)
+            else { return }
+            request.auth.login(AuthenticatedUser(email: email))
+
+        case "bearer":
+            guard let bearer = request.headers.bearerAuthorization,
+                  let email = await authenticate(token: bearer.token)
+            else { return }
+            request.auth.login(AuthenticatedUser(email: email))
+
+        default:
+            throw ProblemDetails.notImplemented("Unsupported authentication scheme: \(scheme)")
+        }
     }
 }

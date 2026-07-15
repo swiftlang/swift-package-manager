@@ -23,32 +23,35 @@ import Vapor
 ///   supported by this registry.
 ///
 /// This registry supports HTTP Basic (`Authorization: Basic <base64
-/// email:password>`) and Bearer (`Authorization: Bearer <token>`). The
-/// scheme dispatch and the `401`-vs-`501` distinction are shared with the
-/// publish gate via ``UserAuthenticator/authenticate(_:)``, so the same
-/// credentials that log in also authorize publishing.
+/// email:password>`) and Bearer (`Authorization: Bearer <token>`).
+/// Verification is performed by ``UserAuthenticator`` acting as an
+/// `AsyncRequestAuthenticator` middleware on the route group: it logs in an
+/// ``AuthenticatedUser`` when the credentials are valid, or throws
+/// `501 Not Implemented` for an unsupported scheme. The handler then
+/// *requires* that authenticated user, so missing or invalid credentials
+/// surface as `401 Unauthorized`. The same middleware gates publishing, so
+/// the credentials that log in also authorize publishing.
 ///
-/// All failures are thrown as ``ProblemDetails`` so the error carries the
-/// `application/problem+json` body (and, for `401`, the `WWW-Authenticate`
-/// header) that the registry error contract requires.
+/// Failures reach the client as ``ProblemDetails`` (via
+/// ``ProblemErrorMiddleware``), carrying the `application/problem+json`
+/// body — and, for `401`, the `WWW-Authenticate` header — that the registry
+/// error contract requires.
 public struct LoginRoutes: Sendable {
-    let authenticator: UserAuthenticator
-
     /// Creates a `LoginRoutes` handler.
-    ///
-    /// - Parameter authenticator: Verifies the presented credentials.
-    public init(authenticator: UserAuthenticator) {
-        self.authenticator = authenticator
-    }
+    public init() {}
 
     /// Registers `POST /login` on `router`.
+    ///
+    /// - Parameter router: A router expected to be gated by
+    ///   ``UserAuthenticator``, so a request reaching ``login(req:)`` with
+    ///   valid credentials already carries an ``AuthenticatedUser``.
     public func register(_ router: any RoutesBuilder) {
         router.post("login", use: login)
     }
 
     @Sendable
     func login(req: Request) async throws -> Response {
-        _ = try await authenticator.authenticate(req)
+        _ = try req.auth.require(AuthenticatedUser.self)
         return Response(status: .ok)
     }
 }
