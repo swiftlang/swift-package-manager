@@ -1366,6 +1366,31 @@ struct PackageCommandTests {
     )
     struct CompletionToolCommandTests {
         @Test(
+            arguments: [
+                "generate-bash-script",
+                "generate-zsh-script",
+                "generate-fish-script",
+            ]
+        )
+        func generateScriptDoesNotCreateScratchDirectory(mode: String) async throws {
+            try await withTemporaryDirectory { temporaryDirectory in
+                let process = AsyncProcess(
+                    arguments: [
+                        SwiftPM.Package.xctestBinaryPath.pathString,
+                        "completion-tool",
+                        mode,
+                    ],
+                    workingDirectory: temporaryDirectory
+                )
+                try process.launch()
+                let result = try await process.waitUntilExit()
+
+                #expect(result.exitStatus == .terminated(code: 0))
+                #expect(!localFileSystem.exists(temporaryDirectory.appending(".build")))
+            }
+        }
+
+        @Test(
             arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func completionToolListSnippets(
