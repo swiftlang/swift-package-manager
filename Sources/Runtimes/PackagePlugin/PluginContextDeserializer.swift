@@ -158,6 +158,42 @@ internal struct PluginContextDeserializer {
                 pluginGeneratedResources: pluginGeneratedResources
             )
 
+        case let .mixedSourceModuleInfo(moduleName, kind, sourceFiles, compilationConditions, preprocessorDefinitions, headerSearchPaths, publicHeadersDirId, linkedLibraries, linkedFrameworks):
+            let publicHeadersDir = try publicHeadersDirId.map { try self.url(for: $0) }
+            let sourceFiles = FileList(try sourceFiles.map {
+                let path = try self.url(for: $0.basePathId).appendingPathComponent($0.name)
+                let type: FileType
+                switch $0.type {
+                case .source:
+                    type = .source
+                case .header:
+                    type = .header
+                case .resource:
+                    type = .resource
+                case .unknown:
+                    type = .unknown
+                }
+                return File(url: path, type: type)
+            })
+            target = try ConcreteSourceModuleTarget(
+                id: String(id),
+                name: wireTarget.name,
+                kind: .init(kind),
+                directory: Path(url: directory),
+                directoryURL: directory,
+                dependencies: dependencies,
+                moduleName: moduleName,
+                sourceFiles: sourceFiles,
+                swiftCompilationConditions: compilationConditions,
+                clangPreprocessorDefinitions: preprocessorDefinitions,
+                headerSearchPaths: headerSearchPaths,
+                publicHeadersDirectoryURL: publicHeadersDir,
+                linkedLibraries: linkedLibraries,
+                linkedFrameworks: linkedFrameworks,
+                pluginGeneratedSources: pluginGeneratedSources,
+                pluginGeneratedResources: pluginGeneratedResources
+            )
+
         case let .binaryArtifactInfo(kind, origin, artifactId):
             let artifact = try self.url(for: artifactId)
             let artifactKind: BinaryArtifactTarget.Kind

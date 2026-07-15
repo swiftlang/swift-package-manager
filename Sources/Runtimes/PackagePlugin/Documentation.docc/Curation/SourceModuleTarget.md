@@ -12,3 +12,7 @@
 - ``pluginGeneratedResources``
 - ``sourceFiles``
 - ``sourceFiles(withSuffix:)``
+- ``swiftCompilationConditions``
+- ``clangPreprocessorDefinitions``
+- ``headerSearchPaths``
+- ``publicHeadersDirectoryURL``
