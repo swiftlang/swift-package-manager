@@ -2725,6 +2725,42 @@ struct PackageBuilderTests {
     }
 
     @Test
+    func macroCanDeclareCSettings() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/MyMacro/MyMacro.swift",
+            "/Sources/MyMacro/helper.c"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: try #require(ToolsVersion(string: "6.4.0", experimentalFeatures: [.experimentalMultiLang])),
+            targets: [
+                try TargetDescription(
+                    name: "MyMacro",
+                    type: .macro,
+                    settings: [
+                        .init(tool: .c, kind: .define("MACRO_C_DEFINE")),
+                        .init(tool: .cxx, kind: .define("MACRO_CXX_DEFINE")),
+                        .init(tool: .c, kind: .headerSearchPath("Sources/MyMacro/shims")),
+                    ]
+                ),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("MyMacro") { package in
+                let scope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(scope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS) == ["MACRO_C_DEFINE", "MACRO_CXX_DEFINE"])
+                #expect(scope.evaluate(.HEADER_SEARCH_PATHS) == ["Sources/MyMacro/shims"])
+            }
+            package.checkProduct("MyMacro")
+        }
+    }
+
+    @Test
     func bridgingHeaderBuildSetting() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/exe/main.swift",
