@@ -104,6 +104,32 @@ extension PackageRegistryCommand {
                 throw ValidationError.invalidPackageIdentity(self.packageIdentity)
             }
 
+            // warn if the name component of the package identity does not match the
+            // name declared in the package manifest, and confirm before continuing if they differ.
+            // This compares against the manifest the current toolchain resolves, which may be a
+            // version-specific variant (e.g. Package@swift-6.1.swift).
+            let workspace = try swiftCommandState.getActiveWorkspace()
+            let rootManifests = try await workspace.loadRootManifests(
+                packages: [packageDirectory],
+                observabilityScope: swiftCommandState.observabilityScope
+            )
+            if let manifest = rootManifests[packageDirectory],
+               registryIdentity.name.description.caseInsensitiveCompare(manifest.displayName) != .orderedSame
+            {
+                swiftCommandState.observabilityScope.emit(
+                    warning: "the package name '\(registryIdentity.name)' does not match the name '\(manifest.displayName)' declared in \(manifest.path.basename)"
+                )
+
+                if swiftCommandState.outputStream.isTTY {
+                    swiftCommandState.outputStream.write("Publish anyway? (yes/no): ".utf8)
+                    swiftCommandState.outputStream.flush()
+                    let answer = readLine(strippingNewline: true)?.lowercased()
+                    guard answer == "yes" || answer == "y" else {
+                        throw StringError("Publishing cancelled.")
+                    }
+                }
+            }
+
             // compute and validate registry URL
             let registryURL = self.registryURL ?? configuration.registry(for: registryIdentity.scope)?.url
             guard let registryURL else {
