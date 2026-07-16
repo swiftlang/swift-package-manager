@@ -391,6 +391,34 @@ struct MixedLanguagePIFTests {
         let ownSwiftFlags = try #require(config.settings[.OTHER_SWIFT_FLAGS])
         #expect(ownSwiftFlags.contains("-fmodule-map-file=$(GENERATED_MODULEMAP_DIR)/MacroImpl.modulemap"))
     }
+
+    @Test func macroWithCSettings() async throws {
+        let project = try await makeProject(
+            packageName: "MacroWithCSettings",
+            files: [
+                "/MacroWithCSettings/Sources/MacroImpl/Plugin.swift",
+                "/MacroWithCSettings/Sources/MacroImpl/helper.c",
+                "/MacroWithCSettings/Sources/MacroImpl/include/helper.h",
+            ],
+            targets: [
+                TargetDescription(
+                    name: "MacroImpl",
+                    type: .macro,
+                    settings: [
+                        .init(tool: .c, kind: .define("MACRO_C_DEFINE")),
+                        .init(tool: .cxx, kind: .define("MACRO_CXX_DEFINE")),
+                    ]
+                ),
+            ],
+            toolsVersion: try mixedLanguageToolsVersion(),
+        )
+        let macro = try project.requireTarget(named: "MacroImpl")
+        let config = try macro.buildConfig(named: .debug)
+
+        let defines = try #require(config.settings[.GCC_PREPROCESSOR_DEFINITIONS])
+        #expect(defines.contains("MACRO_C_DEFINE"))
+        #expect(defines.contains("MACRO_CXX_DEFINE"))
+    }
 }
 
 extension SwiftBuildSupport.PIF.Project {
