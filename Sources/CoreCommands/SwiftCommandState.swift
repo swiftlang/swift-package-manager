@@ -1350,7 +1350,7 @@ extension BuildSystemProvider.Kind {
         case .xcode:
             FileRuleDescription.xcbuildFileTypes
         case .swiftbuild:
-            FileRuleDescription.xcbuildFileTypes + [.docc]
+            FileRuleDescription.swiftBuildFileTypes
         case .native:
             FileRuleDescription.swiftpmFileTypes
         }
