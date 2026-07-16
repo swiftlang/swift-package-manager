@@ -981,7 +981,7 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/10285", relationship: .defect)
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10285", relationship: .verifies)
     )
     func docCBundleDoesNotEmitUnhandledFilesWarning() async throws {
         try await fixture(name: "Miscellaneous/LibraryWithDocC") { fixturePath in
