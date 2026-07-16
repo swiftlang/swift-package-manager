@@ -19,6 +19,8 @@ public enum BuildSettings {
             .init("SWIFT_ACTIVE_COMPILATION_CONDITIONS")
         public static let OTHER_SWIFT_FLAGS: Declaration = .init("OTHER_SWIFT_FLAGS")
         public static let SWIFT_VERSION: Declaration = .init("SWIFT_VERSION")
+        public static let SWIFT_OBJC_BRIDGING_HEADER: Declaration = .init("SWIFT_OBJC_BRIDGING_HEADER")
+        public static let SWIFT_BRIDGING_HEADER_IS_INTERNAL: Declaration = .init("SWIFT_BRIDGING_HEADER_IS_INTERNAL")
 
         // C family.
         public static let GCC_PREPROCESSOR_DEFINITIONS: Declaration = .init("GCC_PREPROCESSOR_DEFINITIONS")

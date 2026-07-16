@@ -75,6 +75,18 @@ public enum ModuleError: Swift.Error {
     /// Invalid header search path.
     case invalidHeaderSearchPath(String)
 
+    /// Invalid bridging header path.
+    case invalidBridgingHeaderPath(target: String, path: String)
+
+    /// A bridging header was placed inside the target's public headers directory.
+    case bridgingHeaderInPublicHeadersDirectory(target: String, path: String)
+
+    /// A library target attempted to use a public bridging header.
+    case publicBridgingHeaderInLibraryTarget(target: String)
+
+    /// More than one bridging header was specified for a target.
+    case multipleBridgingHeaders(target: String)
+
     /// Default localization not set in the presence of localized resources.
     case defaultLocalizationNotSet
 
@@ -145,6 +157,14 @@ extension ModuleError: CustomStringConvertible {
             return "invalid custom path '\(path)' for target '\(target)'"
         case .invalidHeaderSearchPath(let path):
             return "invalid header search path '\(path)'; header search path should not be outside the package root"
+        case .invalidBridgingHeaderPath(let target, let path):
+            return "invalid bridging header '\(path)' in target '\(target)'; the bridging header should not be outside the package root"
+        case .bridgingHeaderInPublicHeadersDirectory(let target, let path):
+            return "invalid bridging header '\(path)' in target '\(target)'; the bridging header must not be inside the target's public headers directory"
+        case .publicBridgingHeaderInLibraryTarget(let target):
+            return "library target '\(target)' cannot use a bridging header with '.public' visibility; only '.internal' visibility is supported in libraries"
+        case .multipleBridgingHeaders(let target):
+            return "target '\(target)' has more than one bridging header specified"
         case .defaultLocalizationNotSet:
             return "manifest property 'defaultLocalization' not set; it is required in the presence of localized resources"
         case .pluginCapabilityNotDeclared(let target):
@@ -1120,6 +1140,15 @@ public final class PackageBuilder {
 
         table.add(versionAssignment, for: .SWIFT_VERSION)
 
+        // A target may configure at most one bridging header.
+        let bridgingHeaderCount = target.settings.filter {
+            if case .bridgingHeader = $0.kind { return true }
+            return false
+        }.count
+        if bridgingHeaderCount > 1 {
+            throw ModuleError.multipleBridgingHeaders(target: target.name)
+        }
+
         // Process each setting.
         for setting in target.settings {
             if let traits = setting.condition?.traits, traits.intersection(self.enabledTraits.names).isEmpty {
@@ -1196,6 +1225,37 @@ public final class PackageBuilder {
                 } else {
                     values = []
                 }
+
+            case .bridgingHeader(let path, let visibility):
+                switch setting.tool {
+                case .c, .cxx, .linker:
+                    throw InternalError("only Swift supports bridging headers")
+                case .swift:
+                    decl = .SWIFT_OBJC_BRIDGING_HEADER
+                }
+
+                if target.type == .regular && visibility == .public {
+                    throw ModuleError.publicBridgingHeaderInLibraryTarget(target: target.name)
+                }
+
+                let bridgingHeaderPath = try AbsolutePath(validating: path, relativeTo: targetRoot)
+                guard bridgingHeaderPath.isDescendantOfOrEqual(to: self.packagePath) else {
+                    throw ModuleError.invalidBridgingHeaderPath(target: target.name, path: path)
+                }
+
+                let publicHeadersDir = try targetRoot.appending(
+                    RelativePath(validating: target.publicHeadersPath ?? "include")
+                )
+                if bridgingHeaderPath.isDescendantOfOrEqual(to: publicHeadersDir) {
+                    throw ModuleError.bridgingHeaderInPublicHeadersDirectory(target: target.name, path: path)
+                }
+
+                values = [bridgingHeaderPath.pathString]
+
+                var visibilityAssignment = BuildSettings.Assignment()
+                visibilityAssignment.values = [visibility == .internal ? "YES" : "NO"]
+                visibilityAssignment.conditions = self.buildConditions(from: setting.condition)
+                table.add(visibilityAssignment, for: .SWIFT_BRIDGING_HEADER_IS_INTERNAL)
 
             case .unsafeFlags(let _values):
                 values = _values

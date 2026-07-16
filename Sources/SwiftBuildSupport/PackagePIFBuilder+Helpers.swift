@@ -367,6 +367,9 @@ extension PackageModel.BuildSettings.Declaration {
         case .SWIFT_VERSION:
             false
 
+        case .SWIFT_OBJC_BRIDGING_HEADER, .SWIFT_BRIDGING_HEADER_IS_INTERNAL:
+            false
+
         // C family.
         case .GCC_PREPROCESSOR_DEFINITIONS, .HEADER_SEARCH_PATHS, .OTHER_CFLAGS, .OTHER_CPLUSPLUSFLAGS:
             true
@@ -1238,6 +1241,10 @@ extension ProjectModel.BuildSettings.SingleValueSetting {
         switch declaration {
         case .SWIFT_VERSION:
             self = .SWIFT_VERSION
+        case .SWIFT_OBJC_BRIDGING_HEADER:
+            self = .SWIFT_OBJC_BRIDGING_HEADER
+        case .SWIFT_BRIDGING_HEADER_IS_INTERNAL:
+            self = .SWIFT_BRIDGING_HEADER_IS_INTERNAL
         default:
             return nil
         }

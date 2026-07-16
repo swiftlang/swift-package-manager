@@ -2725,6 +2725,132 @@ struct PackageBuilderTests {
     }
 
     @Test
+    func bridgingHeaderBuildSetting() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/exe/main.swift",
+            "/Sources/lib/lib.swift"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            targets: [
+                try TargetDescription(
+                    name: "exe",
+                    type: .executable,
+                    settings: [
+                        .init(tool: .swift, kind: .bridgingHeader("Bridging.h", .public)),
+                    ]
+                ),
+                try TargetDescription(
+                    name: "lib",
+                    settings: [
+                        .init(
+                            tool: .swift,
+                            kind: .bridgingHeader("Shims.h", .internal),
+                            condition: .init(platformNames: ["macos"])
+                        ),
+                    ]
+                ),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("exe") { package in
+                let scope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(scope.evaluate(.SWIFT_OBJC_BRIDGING_HEADER) == ["/Sources/exe/Bridging.h"])
+                #expect(scope.evaluate(.SWIFT_BRIDGING_HEADER_IS_INTERNAL) == ["NO"])
+            }
+
+            try package.checkModule("lib") { package in
+                let macOSScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macOSScope.evaluate(.SWIFT_OBJC_BRIDGING_HEADER) == ["/Sources/lib/Shims.h"])
+                #expect(macOSScope.evaluate(.SWIFT_BRIDGING_HEADER_IS_INTERNAL) == ["YES"])
+
+                let linuxScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .linux, configuration: .debug)
+                )
+                #expect(linuxScope.evaluate(.SWIFT_OBJC_BRIDGING_HEADER) == [])
+                #expect(linuxScope.evaluate(.SWIFT_BRIDGING_HEADER_IS_INTERNAL) == [])
+            }
+
+            package.checkProduct("exe")
+        }
+    }
+
+    @Test
+    func bridgingHeaderInLibraryMustBeInternal() throws {
+        let fs = InMemoryFileSystem(emptyFiles: "/Sources/lib/lib.swift")
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            targets: [
+                try TargetDescription(
+                    name: "lib",
+                    settings: [.init(tool: .swift, kind: .bridgingHeader("Bridging.h", .public))]
+                ),
+            ]
+        )
+        try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+            diagnostics.check(
+                diagnostic: .contains("library target 'lib' cannot use a bridging header with '.public' visibility"),
+                severity: .error
+            )
+        }
+    }
+
+    @Test
+    func bridgingHeaderMustNotBeInPublicHeadersDirectory() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/lib/lib.swift",
+            "/Sources/lib/include/Public.h"
+        )
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            targets: [
+                try TargetDescription(
+                    name: "lib",
+                    settings: [.init(tool: .swift, kind: .bridgingHeader("include/Public.h", .internal))]
+                ),
+            ]
+        )
+        try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+            diagnostics.check(
+                diagnostic: .contains("the bridging header must not be inside the target's public headers directory"),
+                severity: .error
+            )
+        }
+    }
+
+    @Test
+    func testAtMostOneBridgingHeader() throws {
+        let fs = InMemoryFileSystem(emptyFiles: "/Sources/lib/lib.swift")
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            targets: [
+                try TargetDescription(
+                    name: "lib",
+                    settings: [
+                        .init(tool: .swift, kind: .bridgingHeader("A.h", .internal)),
+                        .init(tool: .swift, kind: .bridgingHeader("B.h", .internal)),
+                    ]
+                ),
+            ]
+        )
+        try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+            diagnostics.check(
+                diagnostic: .contains("target 'lib' has more than one bridging header specified"),
+                severity: .error
+            )
+        }
+    }
+
+    @Test
     func testEmptyUnsafeFlagsAreAllowed() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo/foo.swift",
