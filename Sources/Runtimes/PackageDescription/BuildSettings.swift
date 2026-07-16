@@ -606,6 +606,34 @@ public struct SwiftSetting: Sendable {
           name: "interoperabilityMode", value: [mode.rawValue], condition: condition)
     }
 
+    /// The visibility of a bridging header's imported declarations.
+    @available(_PackageDescription, introduced: 999.0)
+    public enum BridgingHeaderVisibility: String {
+        /// Declarations imported via the bridging header may appear in the target's public API.
+        case `public`
+        /// Declarations imported via the bridging header may only be used internally.
+        case `internal`
+    }
+
+    /// Configures a bridging header for the target's Swift sources.
+    ///
+    /// A bridging header allows Swift code to import non-modular C/C++/Objective-C code.
+    ///
+    /// - Parameters:
+    ///   - path: The path of the bridging header, relative to the target's sources directory.
+    ///   - visibility: Whether declarations imported via the bridging header may appear in the
+    /// target's public API. Library targets may only use `.internal` visibility.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func bridgingHeader(
+      _ path: String,
+      visibility: BridgingHeaderVisibility,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+          name: "bridgingHeader", value: [path, visibility.rawValue], condition: condition)
+    }
+
     /// Defines a `-swift-version` to pass  to the
     /// corresponding build tool.
     ///
