@@ -14,14 +14,9 @@ import Vapor
 
 /// The identity established once a request's credentials verify.
 ///
-/// ``UserAuthenticator``, acting as an `AsyncRequestAuthenticator`
-/// middleware, logs a value of this type into `request.auth` after
-/// validating the presented credentials. Downstream handlers retrieve it
-/// with `request.auth.require(AuthenticatedUser.self)`.
-///
-/// Like ``User``, the registry keeps nothing here but the account's
-/// ``EmailAddress`` — the request has already been authenticated, so the
-/// credential material is neither needed nor retained.
+/// Different from the User model since this struct is only used when
+/// the user is authenticated. The User model is for all users who 
+/// have ever logged in.
 public struct AuthenticatedUser: Authenticatable, Sendable, Equatable {
     /// The normalized email identifying the authenticated account.
     public let email: EmailAddress
