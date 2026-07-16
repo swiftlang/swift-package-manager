@@ -38,6 +38,27 @@ jobs:
       enable_ios_checks: false
       # ios_build_command: 'swift run swift-build --build-tests  --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
 
+  test-example-package-registry:
+    strategy:
+      fail-fast: false
+    name: Build and Test Example Package Registry
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.12
+    with:
+      enable_cross_pr_testing: false
+      enable_linux_checks: true
+      linux_swift_versions: '["nightly-main", "nightly-6.4.x"]'
+      linux_build_command: 'set -x; cd Examples/package-registry && swift test --parallel; set +x'
+      enable_windows_checks: false  # https://github.com/swiftlang/swift-package-manager/issues/10326
+      windows_swift_versions: '["nightly-main"]'
+      # windows_swift_versions: '["nightly-main", "nightly-6.4.x"]'
+      windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1 -InstallZlib -SkipAndroid'
+      windows_build_timeout: 180
+      windows_build_command: 'cd Examples\package-registry; Invoke-program swift test --parallel'
+      enable_macos_checks: true
+      macos_xcode_versions: "['27.b2']"
+      macos_build_command: 'set -x; cd Examples/package-registry && xcrun swift test --parallel; set +x'
+      enable_ios_checks: false
+
   soundness:
     name: Soundness
     uses: swiftlang/github-workflows/.github/workflows/soundness.yml@0.0.13
@@ -82,6 +103,7 @@ jobs:
     runs-on: ubuntu-latest
     needs:
       - build
+      - test-example-package-registry
       - soundness
       - integration-tests
     if: always()  # Runs even if previous jobs fail so it can evaluate them
