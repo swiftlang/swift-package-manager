@@ -221,6 +221,7 @@ enum Serialization {
         let publicHeadersPath: String?
         let type: TargetType
         let packageAccess: Bool
+        let literate: Bool
         let pkgConfig: String?
         let providers: [SystemPackageProvider]?
         let pluginCapability: PluginCapability?

@@ -274,6 +274,37 @@ final class TargetSourcesBuilderTests: XCTestCase {
             sources: nil,
             resources: [],
             publicHeadersPath: nil,
+            type: .regular,
+            literate: true
+        )
+
+        let files: [AbsolutePath] = [
+            "/Foo.swift",
+            "/Bar.md",
+            "/Baz.rst",
+            "/Qux.tex",
+        ]
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: AbsolutePath.root, files: files.map(\.pathString))
+
+        build(target: target, toolsVersion: .vNext, fs: fs) { sources, _, _, _, _, _, _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            XCTAssertEqual(
+                sources.paths.sorted(),
+                files.sorted()
+            )
+        }
+    }
+
+    func testLiterateSwiftSourcesRequiresOptIn() throws {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: [],
+            sources: nil,
+            resources: [],
+            publicHeadersPath: nil,
             type: .regular
         )
 
@@ -287,11 +318,42 @@ final class TargetSourcesBuilderTests: XCTestCase {
         let fs = InMemoryFileSystem()
         fs.createEmptyFiles(at: AbsolutePath.root, files: files.map(\.pathString))
 
-        build(target: target, toolsVersion: .v5, fs: fs) { sources, _, _, _, _, _, _, diagnostics in
+        build(target: target, toolsVersion: .vNext, fs: fs) { sources, _, _, _, _, _, _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             XCTAssertEqual(
                 sources.paths.sorted(),
-                files.sorted()
+                ["/Foo.swift"]
+            )
+        }
+    }
+
+    func testLiterateSwiftSourcesRequiresToolsVersion() throws {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: [],
+            sources: nil,
+            resources: [],
+            publicHeadersPath: nil,
+            type: .regular,
+            literate: true
+        )
+
+        let files: [AbsolutePath] = [
+            "/Foo.swift",
+            "/Bar.md",
+            "/Baz.rst",
+            "/Qux.tex",
+        ]
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: AbsolutePath.root, files: files.map(\.pathString))
+
+        build(target: target, toolsVersion: .v6_4, fs: fs) { sources, _, _, _, _, _, _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            XCTAssertEqual(
+                sources.paths.sorted(),
+                ["/Foo.swift"]
             )
         }
     }

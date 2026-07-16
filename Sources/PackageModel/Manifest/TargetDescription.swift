@@ -104,6 +104,9 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
     /// APIs is not allowed from outside.
     public let packageAccess: Bool
 
+    /// If true, Markdown, reStructuredText, and TeX source files in the target are treated as literate Swift sources.
+    public let literate: Bool
+
     /// The custom path of the target.
     public let path: String?
 
@@ -205,6 +208,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         publicHeadersPath: String? = nil,
         type: TargetKind = .regular,
         packageAccess: Bool = true,
+        literate: Bool = false,
         pkgConfig: String? = nil,
         providers: [SystemPackageProviderDescription]? = nil,
         pluginCapability: PluginCapability? = nil,
@@ -455,6 +459,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         self.resources = resources
         self.type = type
         self.packageAccess = packageAccess
+        self.literate = literate
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.pluginCapability = pluginCapability

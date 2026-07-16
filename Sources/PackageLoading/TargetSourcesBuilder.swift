@@ -79,7 +79,7 @@ public struct TargetSourcesBuilder {
         self.target = target
         self.defaultLocalization = defaultLocalization
         self.targetPath = path
-        self.rules = Self.rules(additionalFileRules: additionalFileRules, toolsVersion: toolsVersion)
+        self.rules = Self.rules(additionalFileRules: additionalFileRules, toolsVersion: toolsVersion, literate: target.literate)
         self.toolsVersion = toolsVersion
         let excludedPaths = target.exclude.compactMap { try? AbsolutePath(validating: $0, relativeTo: path) }
         self.excludedPaths = Set(excludedPaths)
@@ -136,10 +136,14 @@ public struct TargetSourcesBuilder {
       #endif
     }
 
-    private static func rules(additionalFileRules: [FileRuleDescription], toolsVersion: ToolsVersion) -> [FileRuleDescription] {
+    private static func rules(additionalFileRules: [FileRuleDescription], toolsVersion: ToolsVersion, literate: Bool) -> [FileRuleDescription] {
         // In version 5.4 and earlier, SwiftPM did not support `additionalFileRules` and always implicitly included XCBuild file types.
         let actualAdditionalRules = (toolsVersion <= .v5_4 ? FileRuleDescription.xcbuildFileTypes : additionalFileRules)
-        return FileRuleDescription.builtinRules + actualAdditionalRules
+        var rules = FileRuleDescription.builtinRules + actualAdditionalRules
+        if literate {
+            rules.append(FileRuleDescription.literateSwift)
+        }
+        return rules
     }
 
     @discardableResult
@@ -234,7 +238,7 @@ public struct TargetSourcesBuilder {
                                     toolsVersion: ToolsVersion,
                                     additionalFileRules: [FileRuleDescription],
                                     observabilityScope: ObservabilityScope) -> FileRuleDescription.Rule {
-        let rules = Self.rules(additionalFileRules: additionalFileRules, toolsVersion: toolsVersion)
+        let rules = Self.rules(additionalFileRules: additionalFileRules, toolsVersion: toolsVersion, literate: false)
         // For now, we are not passing in any declared resources or sources here and instead handle any generated files automatically at the callsite. Eventually, we will want the ability to declare opinions for generated files in the manifest as well.
         return Self.computeRule(for: path, toolsVersion: toolsVersion, rules: rules, declaredResources: [], declaredSources: nil, observabilityScope: observabilityScope)
     }
@@ -470,8 +474,15 @@ public struct TargetSourcesBuilder {
                 }
             }
 
-            // Ignore README files.
-            if path.basename.hasPrefix("README") { continue}
+            // Ignore README et al.
+            let ignoredFiles = [
+                "README", "LICENSE", "CHANGELOG", "CONTRIBUTING",
+                "CODE_OF_CONDUCT", "NOTICE", "AUTHORS", "SECURITY",
+                "CODEOWNERS", "CLAUDE", "AGENTS"
+            ]
+            if ignoredFiles.contains(path.basenameWithoutExt) {
+                continue
+            }
 
             // Ignore if this is an excluded path.
             if self.excludedPaths.contains(path) { continue }
@@ -729,7 +740,16 @@ public struct FileRuleDescription: Sendable {
         .init(
             rule: .compile,
             toolsVersion: .minimumRequired,
-            fileTypes: ["swift", "md", "rst", "tex"]
+            fileTypes: ["swift"]
+        )
+    }()
+
+    /// The rule for literate Swift sources (Markdown, reStructuredText, and TeX).
+    public static let literateSwift: FileRuleDescription = {
+        .init(
+            rule: .compile,
+            toolsVersion: .vNext,
+            fileTypes: ["md", "rst", "tex"]
         )
     }()
 
