@@ -68,6 +68,57 @@ struct MixedLanguagePIFTests {
         try #require(ToolsVersion(string: "6.4.0", experimentalFeatures: [.experimentalMultiLang]))
     }
 
+    @Test func bridgingHeaderPublicVisibility() async throws {
+        let project = try await makeProject(
+            packageName: "BridgeApp",
+            files: [
+                "/BridgeApp/Sources/App/main.swift",
+                "/BridgeApp/Sources/App/Bridging.h",
+            ],
+            targets: [
+                TargetDescription(
+                    name: "App",
+                    type: .executable,
+                    settings: [.init(tool: .swift, kind: .bridgingHeader("Bridging.h", .public))]
+                ),
+            ],
+            toolsVersion: try mixedLanguageToolsVersion(),
+        )
+        let target = try project.requireTarget(named: "App")
+        let config = try target.buildConfig(named: .debug)
+        #expect(config.settings[.SWIFT_OBJC_BRIDGING_HEADER] == "/BridgeApp/Sources/App/Bridging.h")
+        #expect(config.settings[.SWIFT_BRIDGING_HEADER_IS_INTERNAL] == "NO")
+    }
+
+    @Test func bridgingHeaderInternalConditional() async throws {
+        let project = try await makeProject(
+            packageName: "BridgeLib",
+            files: [
+                "/BridgeLib/Sources/Lib/lib.swift",
+                "/BridgeLib/Sources/Lib/Shims.h",
+            ],
+            targets: [
+                TargetDescription(
+                    name: "Lib",
+                    settings: [
+                        .init(
+                            tool: .swift,
+                            kind: .bridgingHeader("Shims.h", .internal),
+                            condition: .init(platformNames: ["macos"])
+                        ),
+                    ]
+                ),
+            ],
+            toolsVersion: try mixedLanguageToolsVersion(),
+        )
+        let target = try project.requireTarget(named: "Lib")
+        let config = try target.buildConfig(named: .debug)
+
+        #expect(config.settings[.SWIFT_OBJC_BRIDGING_HEADER, .macOS] == "/BridgeLib/Sources/Lib/Shims.h")
+        #expect(config.settings[.SWIFT_BRIDGING_HEADER_IS_INTERNAL, .macOS] == "YES")
+        #expect(config.settings[.SWIFT_OBJC_BRIDGING_HEADER] == nil)
+    }
+
     @Test func mixedSwiftCLibrary() async throws {
         let project = try await makeProject(
             packageName: "MixedSwiftCLibrary",
