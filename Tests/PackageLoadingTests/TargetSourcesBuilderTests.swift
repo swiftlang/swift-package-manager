@@ -16,6 +16,7 @@ import PackageModel
 import PackageLoading
 import _InternalTestSupport
 import XCTest
+import Testing
 
 final class TargetSourcesBuilderTests: XCTestCase {
     func testBasicFileContentsComputation() throws {
@@ -729,7 +730,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
-    
+
     func testMissingResource() throws {
         let target = try TargetDescription(
             name: "Foo",
@@ -797,7 +798,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
         }
     }
 
-    
+
     func testMissingSource() throws {
         let target = try TargetDescription(
             name: "Foo",

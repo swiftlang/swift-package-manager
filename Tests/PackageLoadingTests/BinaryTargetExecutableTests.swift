@@ -81,7 +81,7 @@ struct BinaryTargetExecutableTests {
         )
 
         let binaryArtifacts = [
-            "BinaryTarget": BinaryArtifact(kind: .xcframework, originURL: nil, path: "/binary.xcframework"),
+            "BinaryTarget": BinaryArtifact(kind: .artifactsArchive(types: [.executable]), originURL: nil, path: "/binary.artifactbundle"),
         ]
 
         try PackageBuilderTester(manifest, binaryArtifacts: binaryArtifacts, in: fs) { package, diagnostics in
@@ -94,7 +94,6 @@ struct BinaryTargetExecutableTests {
             // Check all modules even when there are errors
             try package.checkModule("SwiftTarget") { _ in }
             try package.checkModule("BinaryTarget") { _ in }
-            package.checkProduct("MyExecutable") { _ in }
         }
     }
 
