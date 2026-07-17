@@ -11,7 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+#if canImport(CryptoKit)
 import CryptoKit
+#else
+import Crypto
+#endif
 import NIOCore
 
 /// Errors that ``ReleasePublisher/publish(identifier:version:body:contentType:signatureFormat:)``
