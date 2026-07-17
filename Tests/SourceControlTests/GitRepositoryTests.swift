@@ -1524,7 +1524,7 @@ class GitRepositoryTests: XCTestCase {
 
     /// Sync and async git operations share one lock, so exercising both concurrently on the
     /// same instance must serialize on the working tree without deadlocking. A double acquire
-    /// of the non-reentrant lock (e.g. a wrong `WithoutLock` split) would hang here.
+    /// of the non-reentrant lock (e.g. a wrong `WithoutLock` split) would not complete.
     func testConcurrentSyncAndAsyncGitOperations() async throws {
         try await testWithTemporaryDirectory { path in
             let repoPath = path.appending("repo")
