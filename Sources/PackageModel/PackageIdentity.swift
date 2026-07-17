@@ -52,25 +52,24 @@ public struct PackageIdentity: CustomStringConvertible, Sendable {
         self.init(urlString: url.absoluteString, type: type)
     }
 
-    /// Creates a package identity from a URL.
+    /// Creates a package identity from a URL, used by archives.
     /// - Parameter urlString: The package's URL.
-    // FIXME: deprecate this
-    public init(urlString: String, type: PackageType?) {
-        self.type = type ?? .swift
+    public init(urlString: String, type: PackageType = .swift) {
+        self.type = type
         self.name = PackageIdentityParser(urlString).description
     }
 
     /// Creates a package identity from a file path.
     /// - Parameter path: An absolute path to the package.
-    public init(path: Basics.AbsolutePath, type: PackageType? = nil) {
-        self.type = type ?? .swift
+    public init(path: Basics.AbsolutePath, type: PackageType = .swift) {
+        self.type = type
         self.name = PackageIdentityParser(path.pathString).description
     }
 
     /// Creates a plain package identity for a root package
     /// - Parameter value: A string used to identify a package, will be used unmodified
-    public static func plain(_ value: String, type: PackageType? = nil) -> PackageIdentity {
-        .init(value, type: type ?? .swift)
+    public static func plain(_ value: String, type: PackageType = .swift) -> PackageIdentity {
+        .init(value, type: type)
     }
 
     @available(*, deprecated, message: "use .registry instead")

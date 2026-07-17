@@ -1254,7 +1254,7 @@ private class DuplicateProductsChecker {
             let useProductIDs = pkgBuilder.package.manifest.disambiguateByProductIDs || lookupByProductIDs
             let depProductRefs = pkgBuilder.package.modules.map(\.dependencies).flatMap { $0 }.compactMap(\.product)
             for depRef in depProductRefs {
-                if let depPkg = depRef.package.map({ PackageIdentity.plain($0, type: .swift) }) {
+                if let depPkg = depRef.package.map({ PackageIdentity.plain($0) }) {
                     if !self.checkedPkgIDs.contains(depPkg) {
                         self.checkedPkgIDs.append(depPkg)
                     }

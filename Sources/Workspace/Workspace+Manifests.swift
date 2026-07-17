@@ -720,7 +720,7 @@ extension Workspace {
             {
                 observabilityScope
                     .emit(
-                        error: "unable to override package '\(node.manifest.displayName)' because its identity '\(PackageIdentity(urlString: node.manifest.packageLocation, type: .swift))' doesn't match override's identity (directory name) '\(PackageIdentity(urlString: override.packageLocation, type: .swift))'"
+                        error: "unable to override package '\(node.manifest.displayName)' because its identity '\(PackageIdentity(urlString: node.manifest.packageLocation, type: .swift))' doesn't match override's identity (directory name) '\(PackageIdentity(urlString: override.packageLocation))'"
                     )
             }
         }

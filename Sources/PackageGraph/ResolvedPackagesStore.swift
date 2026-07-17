@@ -529,7 +529,7 @@ extension ResolvedPackagesStore.ResolvedPackage {
     fileprivate init(_ pin: ResolvedPackagesStorage.V1.Pin, mirrors: DependencyMirrors) throws {
         // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
         let location = mirrors.effective(for: pin.repositoryURL)
-        let identity = PackageIdentity(urlString: location, type: .swift) // FIXME: pin store should also encode identity
+        let identity = PackageIdentity(urlString: location) // FIXME: pin store should also encode identity
         var packageRef: PackageReference
         if let path = try? AbsolutePath(validating: location) {
             packageRef = .localSourceControl(identity: identity, path: path)

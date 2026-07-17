@@ -1113,7 +1113,7 @@ extension Workspace {
                     // TODO: this does not use the identity resolver which is probably fine since its the root packages
                     do {
                         let manifest = try await self.loadManifest(
-                            packageIdentity: PackageIdentity(path: package, type: .swift),
+                            packageIdentity: PackageIdentity(path: package),
                             packageKind: .root(package),
                             packagePath: package,
                             packageLocation: package.pathString,

@@ -565,7 +565,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                         let collection = try? self.decoder.decode(Model.CollectionIdentifier.self, from: collectionData) {
                         matches.append((
                             collection: collection,
-                            package: PackageIdentity(urlString: row.string(at: 1), type: .swift),
+                            package: PackageIdentity(urlString: row.string(at: 1)),
                             packageLocation: row.string(at: 1),
                             targetName: row.string(at: 2)
                         ))
@@ -838,7 +838,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                                !collectionsProcessed.contains(collection) {
                                 let collectionPackage = CollectionPackage(
                                     collection: collection,
-                                    package: PackageIdentity(urlString: row.string(at: 1), type: .swift),
+                                    package: PackageIdentity(urlString: row.string(at: 1)),
                                     packageLocation: row.string(at: 1)
                                 )
                                 self.targetTrie.insert(word: targetName.lowercased(), foundIn: collectionPackage)

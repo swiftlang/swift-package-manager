@@ -139,14 +139,14 @@ public struct DefaultDependencyMapper: DependencyMapper {
 // trivial representation for mapping
 public struct MappablePackageDependency {
     public let parentPackagePath: AbsolutePath
-    public let type: PackageIdentity.PackageType?
+    public let type: PackageIdentity.PackageType
     public let kind: Kind
     public let productFilter: ProductFilter
     package let traits: Set<PackageDependency.Trait>?
 
     package init(
         parentPackagePath: AbsolutePath,
-        type: PackageIdentity.PackageType?,
+        type: PackageIdentity.PackageType = .swift,
         kind: Kind,
         productFilter: ProductFilter,
         traits: Set<PackageDependency.Trait>?
@@ -160,7 +160,7 @@ public struct MappablePackageDependency {
 
     public init(
         parentPackagePath: AbsolutePath,
-        type: PackageIdentity.PackageType?,
+        type: PackageIdentity.PackageType = .swift,
         kind: Kind,
         productFilter: ProductFilter
     ) {

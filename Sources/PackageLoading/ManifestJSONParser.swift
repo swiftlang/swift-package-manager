@@ -986,7 +986,7 @@ extension MappablePackageDependency {
         case .fileSystem(let name, let path):
             self.init(
                 parentPackagePath: parentPackagePath,
-                type: seed.type.map({ .init($0) }),
+                type: .init(seed.type ?? .swift),
                 kind: .fileSystem(
                     name: name,
                     path: path
@@ -997,7 +997,7 @@ extension MappablePackageDependency {
         case .sourceControl(let name, let location, let requirement):
             self.init(
                 parentPackagePath: parentPackagePath,
-                type: seed.type.map({ .init($0) }),
+                type: .init(seed.type ?? .swift),
                 kind: .sourceControl(
                     name: name,
                     location: location,
@@ -1009,7 +1009,7 @@ extension MappablePackageDependency {
         case .registry(let id, let requirement):
             self.init(
                 parentPackagePath: parentPackagePath,
-                type: seed.type.map({ .init($0) }),
+                type: .init(seed.type ?? .swift),
                 kind: .registry(
                     id: id,
                     requirement: .init(requirement)
@@ -1020,7 +1020,7 @@ extension MappablePackageDependency {
         case .archive(let name, let location, let checksum):
             self.init(
                 parentPackagePath: parentPackagePath,
-                type: seed.type.map({ .init($0) }),
+                type: .init(seed.type ?? .swift),
                 kind: .archive(
                     name: name,
                     location: location,

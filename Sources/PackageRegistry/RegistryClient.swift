@@ -1105,7 +1105,7 @@ public final class RegistryClient: AsyncCancellable {
                 decoder: self.jsonDecoder
             )
             observabilityScope.emit(debug: "matched identities for \(scmURL): \(packageIdentities)")
-            return Set(packageIdentities.identifiers.map({ PackageIdentity.plain($0, type: .swift) }))
+            return Set(packageIdentities.identifiers.map({ PackageIdentity.plain($0) }))
         case 404:
             // 404 is valid, no identities mapped
             return []

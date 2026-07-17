@@ -102,7 +102,7 @@ public struct PackageGraphRoot {
         self.packages = input.packages.reduce(into: .init(), { partial, inputPath in
             if let manifest = manifests[inputPath]  {
                 let packagePath = manifest.path.parentDirectory
-                let identity = PackageIdentity(path: packagePath, type: .swift) // this does not use the identity resolver which is fine since these are the root packages
+                let identity = PackageIdentity(path: packagePath) // this does not use the identity resolver which is fine since these are the root packages
                 partial[identity] = (.root(identity: identity, path: packagePath), manifest)
             }
         })
