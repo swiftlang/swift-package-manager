@@ -116,6 +116,13 @@ enum Serialization {
 
     // MARK: - package dependency serialization
 
+    enum SourceControlRequirement: Codable {
+        case exact(Version)
+        case range(lowerBound: Version, upperBound: Version)
+        case revision(String)
+        case branch(String)
+    }
+
     struct PackageDependency: Codable {
         struct Trait: Hashable, Codable {
             struct Condition: Hashable, Codable {
@@ -124,12 +131,6 @@ enum Serialization {
 
             var name: String
             var condition: Condition?
-        }
-        enum SourceControlRequirement: Codable {
-            case exact(Version)
-            case range(lowerBound: Version, upperBound: Version)
-            case revision(String)
-            case branch(String)
         }
 
         enum RegistryRequirement: Codable {
@@ -141,9 +142,17 @@ enum Serialization {
             case fileSystem(name: String?, path: String)
             case sourceControl(name: String?, location: String, requirement: SourceControlRequirement)
             case registry(id: String, requirement: RegistryRequirement)
+            case archive(name: String?, location: String, checksum: String)
+        }
+
+        enum PackageType: Codable {
+            case swift
+            case external(products: [Product], targets: [Target], plugins: [PluginUsage])
+            case binary(products: [Product], targets: [Target])
         }
 
         let kind: Kind
+        let type: PackageType?
         let moduleAliases: [String: String]?
         let traits: [Trait]?
     }
@@ -161,15 +170,15 @@ enum Serialization {
 
     // MARK: - target serialization
 
-    enum TargetDependency: Codable {
-        struct Condition: Codable {
-            let platforms: [Platform]?
-            let traits: [String]?
-        }
+    struct TargetDependencyCondition: Codable {
+        let platforms: [Platform]?
+        let traits: [String]?
+    }
 
-        case target(name: String, condition: Condition?)
-        case product(name: String, package: String?, moduleAliases: [String: String]?, condition: Condition?)
-        case byName(name: String, condition: Condition?)
+    enum TargetDependency: Codable {
+        case target(name: String, condition: TargetDependencyCondition?)
+        case product(name: String, package: String?, moduleAliases: [String: String]?, condition: TargetDependencyCondition?)
+        case byName(name: String, condition: TargetDependencyCondition?)
     }
 
     enum TargetType: Codable {
@@ -177,6 +186,7 @@ enum Serialization {
         case executable
         case test
         case system
+        case external
         case binary
         case plugin
         case `macro`
@@ -231,6 +241,7 @@ enum Serialization {
         let linkerSettings: [LinkerSetting]?
         let checksum: String?
         let pluginUsages: [PluginUsage]?
+        let condition: TargetDependencyCondition?
     }
 
     // MARK: - resource serialization
@@ -254,6 +265,7 @@ enum Serialization {
                 case automatic
                 case dynamic
                 case `static`
+                case xcframework
             }
 
             case executable
@@ -304,7 +316,6 @@ enum Serialization {
         let swiftLanguageVersions: [SwiftVersion]?
         let cLanguageStandard: CLanguageStandard?
         let cxxLanguageStandard: CXXLanguageStandard?
-        let pluginUsages: [PluginUsage]?
     }
 }
 

@@ -516,6 +516,9 @@ public final class PackagePIFBuilder {
                 let libraryType = self.delegate.customLibraryType(product: product.underlying) ?? .dynamic
                 try projectBuilder.makeLibraryProduct(product, type: libraryType)
 
+            case .library(.xcframework):
+                fatalError("TODO")
+
             case .library(.automatic):
                 // Check if this is a system library product.
                 if product.isSystemLibraryProduct {
@@ -561,6 +564,9 @@ public final class PackagePIFBuilder {
 
             case .systemModule:
                 try projectBuilder.makeSystemLibraryModule(module)
+
+            case .external:
+                fatalError("TODO")
 
             case .test:
                 if module.isTestSupportModule {
@@ -798,6 +804,9 @@ extension PackagePIFBuilder.LinkedPackageBinary {
 
         case .systemModule, .plugin:
             return nil
+
+        case .external:
+            fatalError("TODO: Not sure what to return here")
         }
     }
 

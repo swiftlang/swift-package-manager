@@ -97,6 +97,8 @@ enum HostToPluginMessage: Codable {
                     case registry(
                         identity: String,
                         displayVersion: String)
+                    case archive(
+                        url: String)
                 }
                 
                 struct ToolsVersion: Codable {
@@ -130,7 +132,8 @@ enum HostToPluginMessage: Codable {
 
                     enum LibraryKind: Codable {
                         case `static`
-                        case `dynamic`
+                        case dynamic
+                        case xcframework
                         case automatic
                     }
                 }

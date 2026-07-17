@@ -208,6 +208,8 @@ extension ResolvedProduct {
             return Build.getLLBuildTargetName(macro: macroModule, buildParameters: buildParameters)
         case .plugin:
             throw InternalError("unexpectedly asked for the llbuild target name of a plugin product")
+        case .library(.xcframework):
+            throw InternalError("xcframework dependencies not supported by native build system")
         }
     }
 }

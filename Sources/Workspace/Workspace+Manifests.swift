@@ -197,11 +197,17 @@ extension Workspace {
             root.packages.map { ($0.key, $0.value.manifest) }.forEach {
                 if manifestsMap[$0.0] == nil {
                     manifestsMap[$0.0] = $0.1
+                    $0.1.externals.forEach {
+                        manifestsMap[$0.packageIdentity] = $0
+                    }
                 }
             }
             dependencies.map { ($0.dependency.packageRef.identity, $0.manifest) }.forEach {
                 if manifestsMap[$0.0] == nil {
                     manifestsMap[$0.0] = $0.1
+                    $0.1.externals.forEach {
+                        manifestsMap[$0.packageIdentity] = $0
+                    }
                 }
             }
 
@@ -574,10 +580,10 @@ extension Workspace {
                 cxxLanguageStandard: manifest.cxxLanguageStandard,
                 swiftLanguageVersions: manifest.swiftLanguageVersions,
                 dependencies: deps,
+                externals: manifest.externals,
                 products: manifest.products,
                 targets: manifest.targets,
                 traits: manifest.traits,
-                pluginUsages: manifest.pluginUsages,
                 pruneDependencies: manifest.pruneDependencies
             )
         }
@@ -609,9 +615,16 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+        let firstLevelExternals: [PackageIdentity: Manifest] = topLevelManifests.values.reduce(into: [:]) {
+            $0[$1.packageIdentity] = $1
+        }
+
         // Continue to load the rest of the manifest for this graph
         // Creates a map of loaded manifests. We do this to avoid reloading the shared nodes.
-        var loadedManifests = firstLevelManifests
+        var loadedManifests = firstLevelManifests.merging(firstLevelExternals, uniquingKeysWith: { lhs, _ in
+            lhs // shouldn't happen
+        })
+
         let successorNodes: (KeyedPair<GraphLoadingNode, PackageIdentity>) async throws -> [KeyedPair<
             GraphLoadingNode,
             PackageIdentity
@@ -630,6 +643,9 @@ extension Workspace {
                 observabilityScope: observabilityScope
             )
             dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
+            // Add in the external packages
+            node.item.manifest.externals.forEach { loadedManifests[$0.packageIdentity] = $0 }
+
             return try dependenciesRequired.compactMap { dependency in
                 return try loadedManifests[dependency.identity].flatMap { manifest in
                     // we also compare the location as this function may attempt to load
@@ -671,6 +687,15 @@ extension Workspace {
                 successors: successorNodes
             ) {
                 allNodes[$0.key] = $0.item
+
+                for external in $0.item.manifest.externals {
+                    allNodes[external.packageIdentity] = try GraphLoadingNode(
+                        identity: external.packageIdentity,
+                        manifest: external,
+                        productFilter: .everything,
+                        enabledTraits: self.enabledTraitsMap[external]
+                    )
+                }
             } onDuplicate: { _, _ in
                 // Nothing we need to compute here.
             }
@@ -684,7 +709,7 @@ extension Workspace {
             try await updateEnabledTraits(for: manifest, observabilityScope: observabilityScope)
         }
 
-        let dependencyManifests = allNodes.filter { !$0.value.manifest.packageKind.isRoot }
+        let dependencyManifests = allNodes.filter { !$0.value.manifest.packageKind.isRoot && $0.value.manifest.packageIdentity.type == .swift }
 
         // TODO: this check should go away when introducing explicit overrides
         // check for overrides attempts with same name but different path
@@ -695,17 +720,17 @@ extension Workspace {
             {
                 observabilityScope
                     .emit(
-                        error: "unable to override package '\(node.manifest.displayName)' because its identity '\(PackageIdentity(urlString: node.manifest.packageLocation))' doesn't match override's identity (directory name) '\(PackageIdentity(urlString: override.packageLocation))'"
+                        error: "unable to override package '\(node.manifest.displayName)' because its identity '\(PackageIdentity(urlString: node.manifest.packageLocation, type: .swift))' doesn't match override's identity (directory name) '\(PackageIdentity(urlString: override.packageLocation, type: .swift))'"
                     )
             }
         }
 
         var dependencies: [(Manifest, ManagedDependency, ProductFilter, FileSystem)] = []
-        for (identity, node) in dependencyManifests {
+        for (identity, node) in dependencyManifests where identity.type == .swift {
             guard let dependency = await self.state.dependencies[identity] else {
                 throw InternalError("dependency not found for \(identity) at \(node.manifest.packageLocation)")
             }
-
+ 
             let packageRef = PackageReference(identity: identity, kind: node.manifest.packageKind)
             let fileSystem = try await self.getFileSystem(
                 package: packageRef,
@@ -731,7 +756,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async throws -> [PackageIdentity: Manifest] {
         try await withThrowingTaskGroup(of: (PackageIdentity, Manifest?).self) { group in
-            for package in Set(packages) {
+            for package in Set(packages) where package.identity.type == .swift {
                 group.addTask {
                     await (
                         package.identity,
@@ -743,6 +768,9 @@ extension Workspace {
                 $0 as? (PackageIdentity, Manifest)
             }.reduce(into: [PackageIdentity: Manifest]()) { partialResult, loadedManifest in
                 partialResult[loadedManifest.0] = loadedManifest.1
+                for external in loadedManifest.1.externals {
+                    partialResult[external.packageIdentity] = external
+                }
             }
         }
     }

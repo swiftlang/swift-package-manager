@@ -16,11 +16,12 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
     public typealias TargetType = TargetKind
 
     /// The target kind.
-    public enum TargetKind: String, Hashable, Encodable, Sendable {
+    public enum TargetKind: Hashable, Encodable, Sendable {
         case regular
         case executable
         case test
         case system
+        case external
         case binary
         case plugin
         case `macro`
@@ -135,6 +136,9 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
     /// The type of target.
     public let type: TargetKind
 
+    /// A condition on the target
+    public let condition: PackageConditionDescription?
+
     /// The pkg-config name of a system library target.
     public let pkgConfig: String?
 
@@ -211,7 +215,8 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         pluginCapability: PluginCapability? = nil,
         settings: [TargetBuildSettingDescription.Setting] = [],
         checksum: String? = nil,
-        pluginUsages: [PluginUsage]? = nil
+        pluginUsages: [PluginUsage]? = nil,
+        condition: PackageConditionDescription? = nil
     ) throws {
         let targetType = String(describing: type)
         switch type {
@@ -301,6 +306,9 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 propertyName: "pluginUsages",
                 value: String(describing: pluginUsages!)
             ) }
+        case .external:
+            // TODO: Add some checks
+            break
         case .binary:
             if path == nil && url == nil { throw Error.binaryTargetRequiresEitherPathOrURL(targetName: name) }
             if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(
@@ -462,6 +470,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         self.settings = settings
         self.checksum = checksum
         self.pluginUsages = pluginUsages
+        self.condition = condition
     }
 }
 

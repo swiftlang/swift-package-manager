@@ -23,16 +23,17 @@
 public final class Target {
 
     /// The different types of a target.
-    public enum TargetType: String {
+    public enum TargetType: Equatable {
         /// A target that contains code for the Swift package's functionality.
         case regular
         /// A target that contains code for an executable's main module.
         case executable
         /// A target that contains tests for the Swift package's other targets.
         case test
-        /// A target that adapts a library on the system to work with Swift
-        /// packages.
+        /// A target that produces a module for a library on the system
         case system
+        /// A target that comes from an external build
+        case external
         /// A target that references a binary artifact.
         case binary
         /// A target that provides a package plug-in.
@@ -120,7 +121,11 @@ public final class Target {
 
     /// A Boolean value that indicates whether this is a test target.
     public var isTest: Bool {
-        return type == .test
+        if case .test = type {
+            return true
+        } else {
+            return false
+        }
     }
 
     /// The target's dependencies on other entities inside or outside the package.
@@ -133,6 +138,9 @@ public final class Target {
 
     /// The type of the target.
     public let type: TargetType
+
+    /// The condition that determines whether the target is included in the build.
+    public let condition: TargetDependencyCondition?
 
     /// If true, access to package declarations from other targets in the package is allowed.
     public let packageAccess: Bool
@@ -163,6 +171,9 @@ public final class Target {
         @available(_PackageDescription, introduced: 5.5)
         case buildTool
 
+        /// A plugin used by an external package source dependency to bulid the
+        /// source and create build artifacts registered as external library targets
+        /// or executable targets.
         case externalBuilder
 
         /// Specifies that the plug-in provides a user command capability.
@@ -241,7 +252,8 @@ public final class Target {
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
         checksum: String? = nil,
-        plugins: [PluginUsage]? = nil
+        plugins: [PluginUsage]? = nil,
+        condition: TargetDependencyCondition? = nil
     ) {
         self.name = name
         self.dependencies = dependencies
@@ -262,6 +274,7 @@ public final class Target {
         self.linkerSettings = linkerSettings
         self.checksum = checksum
         self.plugins = plugins
+        self.condition = condition
 
         switch type {
         case .regular, .executable, .test:
@@ -288,6 +301,19 @@ public final class Target {
                 checksum == nil &&
                 plugins == nil
             )
+        case .external:
+            precondition(
+                url == nil &&
+                dependencies.isEmpty &&
+                exclude.isEmpty &&
+                sources == nil &&
+                resources == nil &&
+                publicHeadersPath == nil &&
+                pluginCapability == nil &&
+                checksum == nil &&
+                plugins == nil
+            )
+
         case .binary:
             precondition(
                 dependencies.isEmpty &&

@@ -478,6 +478,9 @@ extension PackagePIFProjectBuilder {
                         indent: 1,
                         "Added \(shouldLinkProduct ? "linked " : "")dependency on target '\(dependencyGUID)'"
                     )
+
+                case .external:
+                    fatalError("TODO, probably like a system module")
                 }
 
             case .product(let productDependency, let packageConditions):

@@ -55,7 +55,9 @@ public struct ManifestValidator {
     private func validateTargets() -> [Basics.Diagnostic] {
         var diagnostics = [Basics.Diagnostic]()
 
-        let duplicateTargetNames = self.manifest.targets.map({ $0.name }).spm_findDuplicates()
+        // Targets with conditions are allowed to be duplicate
+        // TODO: we should check that the conditions don't overlap
+        let duplicateTargetNames = self.manifest.targets.filter({ $0.condition == nil}).map({ $0.name }).spm_findDuplicates()
         for name in duplicateTargetNames {
             diagnostics.append(.duplicateTargetName(targetName: name))
         }
@@ -421,6 +423,8 @@ extension PackageDependency {
                 }
             case .registry:
                 return .none
+            case .archive(let settings):
+                return "from '\(settings.url.absoluteString)'"
             }
         }() {
             description += " (\(locationsString))"

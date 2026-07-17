@@ -778,8 +778,16 @@ public struct LinkerSetting: Sendable {
         return LinkerSetting(name: "libraryPath", value: [path], condition: condition)
     }
 
-    public static func libraryPath(plugin: PluginUsage, path: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
-        return LinkerSetting(name: "libraryPath", value: [path, plugin.name], condition: condition)
+    public static func libraryPath(_ path: String, package: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
+        return LinkerSetting(name: "packageLibraryPath", value: [path, package], condition: condition)
+    }
+
+    public static func frameworkPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
+        return LinkerSetting(name: "frameworkPath", value: [path], condition: condition)
+    }
+
+    public static func frameworkPath(_ path: String, package: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
+        return LinkerSetting(name: "frameworkPath", value: [path], condition: condition)
     }
 
     /// Sets unsafe flags to pass arbitrary command-line flags to the

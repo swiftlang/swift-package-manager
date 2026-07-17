@@ -54,7 +54,7 @@ public struct DefaultDependencyMapper: DependencyMapper {
         } else if parseScheme(mappedLocationString) != nil {
             // mapped to a URL, we assume a remote SCM location
             let url = SourceControlURL(mappedLocationString)
-            let identity = try self.identityResolver.resolveIdentity(for: url)
+            let identity = try self.identityResolver.resolveIdentity(for: url, type: dependency.type)
             return .remoteSourceControl(
                 identity: identity,
                 nameForTargetDependencyResolutionOnly: dependency.nameForTargetDependencyResolutionOnly,
@@ -68,7 +68,7 @@ public struct DefaultDependencyMapper: DependencyMapper {
         } else {
             // mapped to a path, we assume a local SCM location
             let localPath = try AbsolutePath(validating: mappedLocationString)
-            let identity = try self.identityResolver.resolveIdentity(for: localPath)
+            let identity = try self.identityResolver.resolveIdentity(for: localPath, type: dependency.type)
             return .localSourceControl(
                 identity: identity,
                 nameForTargetDependencyResolutionOnly: dependency.nameForTargetDependencyResolutionOnly,
@@ -90,7 +90,7 @@ public struct DefaultDependencyMapper: DependencyMapper {
     ) throws -> String? {
         switch dependency.kind {
         // nothing to normalize
-        case .registry:
+        case .registry, .archive:
             return .none
         // location may be a relative path so we need to normalize it
         case .fileSystem, .sourceControl:
@@ -139,17 +139,20 @@ public struct DefaultDependencyMapper: DependencyMapper {
 // trivial representation for mapping
 public struct MappablePackageDependency {
     public let parentPackagePath: AbsolutePath
+    public let type: PackageIdentity.PackageType?
     public let kind: Kind
     public let productFilter: ProductFilter
     package let traits: Set<PackageDependency.Trait>?
 
     package init(
         parentPackagePath: AbsolutePath,
+        type: PackageIdentity.PackageType?,
         kind: Kind,
         productFilter: ProductFilter,
         traits: Set<PackageDependency.Trait>?
     ) {
         self.parentPackagePath = parentPackagePath
+        self.type = type
         self.kind = kind
         self.productFilter = productFilter
         self.traits = traits
@@ -157,21 +160,30 @@ public struct MappablePackageDependency {
 
     public init(
         parentPackagePath: AbsolutePath,
+        type: PackageIdentity.PackageType?,
         kind: Kind,
         productFilter: ProductFilter
     ) {
         self.init(
             parentPackagePath: parentPackagePath,
+            type: type,
             kind: kind,
             productFilter: productFilter,
             traits: nil
         )
     }
 
+    public enum PackageType {
+        case swift
+        case external
+        case binary
+    }
+
     public enum Kind {
         case fileSystem(name: String?, path: String)
         case sourceControl(name: String?, location: String, requirement: PackageDependency.SourceControl.Requirement)
         case registry(id: String, requirement: PackageDependency.Registry.Requirement)
+        case archive(name: String?, location: String, checksum: String)
     }
 
     public enum Requirement {
@@ -188,6 +200,7 @@ extension MappablePackageDependency {
         case .fileSystem(let settings):
             self.init(
                 parentPackagePath: parentPackagePath,
+                type: seed.identity.type,
                 kind: .fileSystem(
                     name: settings.nameForTargetDependencyResolutionOnly,
                     path: settings.path.pathString
@@ -205,6 +218,7 @@ extension MappablePackageDependency {
             }
             self.init(
                 parentPackagePath: parentPackagePath,
+                type: seed.identity.type,
                 kind: .sourceControl(
                     name: settings.nameForTargetDependencyResolutionOnly,
                     location: locationString,
@@ -216,6 +230,7 @@ extension MappablePackageDependency {
         case .registry(let settings):
             self.init(
                 parentPackagePath: parentPackagePath,
+                type: seed.identity.type,
                 kind: .registry(
                     id: settings.identity.description,
                     requirement: settings.requirement
@@ -223,6 +238,8 @@ extension MappablePackageDependency {
                 productFilter: settings.productFilter,
                 traits: settings.traits
             )
+        case .archive:
+            fatalError("TODO")
         }
     }
 }
@@ -236,6 +253,8 @@ extension MappablePackageDependency {
             return location
         case .registry(let id, _):
             return id
+        case .archive(_, let location, _):
+            return location
         }
     }
 
@@ -247,6 +266,8 @@ extension MappablePackageDependency {
             return name
         case .registry:
             return .none
+        case .archive(let name, _, _):
+            return name
         }
     }
 
@@ -258,6 +279,8 @@ extension MappablePackageDependency {
             return requirement
         case .registry(_, let requirement):
             return .init(requirement)
+        case .archive:
+            throw DependencyMappingError.invalidMapping("what?")
         }
     }
 
@@ -269,6 +292,8 @@ extension MappablePackageDependency {
             return try .init(requirement, from: location, to: identity)
         case .registry(_, let requirement):
             return requirement
+        case .archive:
+            throw DependencyMappingError.invalidMapping("what?")
         }
     }
 }
@@ -303,7 +328,7 @@ extension PackageDependency {
         case .fileSystem(let name, _):
             let path = try AbsolutePath(validating: newLocationString)
             self = .fileSystem(
-                identity: .init(path: path),
+                identity: .init(path: path, type: seed.type),
                 nameForTargetDependencyResolutionOnly: name,
                 path: path,
                 productFilter: seed.productFilter,
@@ -313,11 +338,11 @@ extension PackageDependency {
             let identity: PackageIdentity
             let location: SourceControl.Location
             if parseScheme(newLocationString) != nil {
-                identity = .init(urlString: newLocationString)
+                identity = .init(urlString: newLocationString, type: seed.type)
                 location = .remote(.init(newLocationString))
             } else {
                 let path = try AbsolutePath(validating: newLocationString)
-                identity = .init(path: path)
+                identity = .init(path: path, type: seed.type)
                 location = .local(path)
             }
             self = .sourceControl(
@@ -331,8 +356,20 @@ extension PackageDependency {
             )
         case .registry(let id, let requirement):
             self = .registry(
-                identity: .plain(id),
+                identity: .plain(id, type: seed.type),
                 requirement: requirement,
+                productFilter: seed.productFilter,
+                traits: seed.traits
+            )
+        case .archive(let name, let location, let checksum):
+            guard let url = URL(string: location) else {
+                throw InternalError("invalid url")
+            }
+            self = .archive(
+                identity: .init(urlString: location, type: seed.type),
+                nameForTargetDependencyResolutionOnly: name,
+                url: url,
+                checksum: checksum,
                 productFilter: seed.productFilter,
                 traits: seed.traits
             )

@@ -83,6 +83,7 @@ struct DescribedPackage: Encodable {
         case fileSystem(identity: PackageIdentity, path: AbsolutePath)
         case sourceControl(identity: PackageIdentity, location: String, requirement: PackageDependency.SourceControl.Requirement)
         case registry(identity: PackageIdentity, requirement: PackageDependency.Registry.Requirement)
+        case archive(identity: PackageIdentity, url: String)
 
         init(from dependency: PackageDependency) {
             switch dependency {
@@ -97,6 +98,8 @@ struct DescribedPackage: Encodable {
                 }
             case .registry(let settings):
                 self = .registry(identity: settings.identity, requirement: settings.requirement)
+            case .archive(let settings):
+                self = .archive(identity: settings.identity, url: settings.url.absoluteString)
             }
         }
 
@@ -112,6 +115,7 @@ struct DescribedPackage: Encodable {
             case fileSystem
             case sourceControl
             case registry
+            case archive
         }
 
         func encode(to encoder: Encoder) throws {
@@ -130,6 +134,10 @@ struct DescribedPackage: Encodable {
                 try container.encode(Kind.registry, forKey: .type)
                 try container.encode(identity, forKey: .identity)
                 try container.encode(requirement, forKey: .requirement)
+            case .archive(let identity, let url):
+                try container.encode(Kind.archive, forKey: .type)
+                try container.encode(identity, forKey: .identity)
+                try container.encode(url, forKey: .url)
             }
         }
     }

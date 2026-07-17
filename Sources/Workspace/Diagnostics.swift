@@ -205,6 +205,8 @@ struct BinaryArtifactsManagerError: Error, CustomStringConvertible {
                 return "'\($0.identity)' from \(url)"
             case .localSourceControl(let path), .fileSystem(let path), .root(let path):
                 return "'\($0.identity)' at \(path)"
+            case .archive(let url):
+                return "'\($0.identity)' from \(url)"
             }
         }
         return .init(

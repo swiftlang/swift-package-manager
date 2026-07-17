@@ -28,6 +28,8 @@ extension PackageDependency {
             }
         case .registry(let settings):
             packageKind = .registry(settings.identity)
+        case .archive(let settings):
+            packageKind = .archive(settings.url)
         }
         return PackageReference(identity: self.identity, kind: packageKind)
     }

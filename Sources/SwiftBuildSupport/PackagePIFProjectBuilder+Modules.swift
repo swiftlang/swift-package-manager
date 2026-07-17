@@ -94,7 +94,7 @@ extension PackagePIFProjectBuilder {
                         )
                     }
 
-                case .library, .systemModule, .test, .binary, .plugin, .macro:
+                case .library, .systemModule, .external, .test, .binary, .plugin, .macro:
                     let dependencyGUID = moduleDependency.pifTargetGUID
                     self.project[keyPath: pluginTargetKeyPath].common.addDependency(
                         on: dependencyGUID,
@@ -804,7 +804,7 @@ extension PackagePIFProjectBuilder {
                     )
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyGUID)'")
 
-                case .library, .test, .macro, .systemModule:
+                case .library, .test, .macro, .systemModule, .external:
                     moduleTarget.common.addDependency(
                         on: moduleDependency.pifTargetGUID,
                         platformFilters: dependencyPlatformFilters,

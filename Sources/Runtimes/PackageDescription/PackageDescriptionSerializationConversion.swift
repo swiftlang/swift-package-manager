@@ -129,7 +129,7 @@ extension Serialization.Version {
     }
 }
 
-extension Serialization.PackageDependency.SourceControlRequirement {
+extension Serialization.SourceControlRequirement {
     init(_ requirement: PackageDescription.Package.Dependency.SourceControlRequirement) {
         switch requirement {
         case .range(let range):
@@ -164,6 +164,28 @@ extension Serialization.PackageDependency.Kind {
             self = .sourceControl(name: name, location: location, requirement: .init(requirement))
         case .registry(let identity, let requirement):
             self = .registry(id: identity, requirement: .init(requirement))
+        case .archive(let name, let location, let checksum):
+            self = .archive(name: name, location: location, checksum: checksum)
+        }
+    }
+}
+
+extension Serialization.PackageDependency.PackageType {
+    init(_ type: PackageDescription.Package.Dependency.PackageType) {
+        switch type {
+        case .swift:
+            self = .swift
+        case .external(let products, let plugins):
+            self = .external(
+                products: products.map({ .init($0.product) }),
+                targets: products.map({ .init($0.target) }),
+                plugins: plugins.map({ .init($0) })
+            )
+        case .binary(let products):
+            self = .binary(
+                products: products.map({ .init($0.product) }),
+                targets: products.map({ .init($0.target) })
+            )
         }
     }
 }
@@ -171,6 +193,7 @@ extension Serialization.PackageDependency.Kind {
 extension Serialization.PackageDependency {
     init(_ dependency: PackageDescription.Package.Dependency) {
         self.kind = .init(dependency.kind)
+        self.type = dependency.type.map({ .init($0) })
         self.moduleAliases = dependency.moduleAliases
         self.traits = dependency.traits.map { Serialization.PackageDependency.Trait.init($0) }
             .sorted { $0.name < $1.name }
@@ -203,7 +226,7 @@ extension Serialization.SupportedPlatform {
     }
 }
 
-extension Serialization.TargetDependency.Condition {
+extension Serialization.TargetDependencyCondition {
     init(_ condition: TargetDependencyCondition) {
         self.platforms = condition.platforms?.map { .init($0) }
         self.traits = condition.traits?.sorted()
@@ -235,6 +258,7 @@ extension Serialization.TargetType {
         case .executable: self = .executable
         case .test: self = .test
         case .system: self = .system
+        case .external: self = .external
         case .binary: self = .binary
         case .plugin: self = .plugin
         case .macro: self = .macro
@@ -318,6 +342,7 @@ extension Serialization.Target {
         self.linkerSettings = target.linkerSettings?.map { .init($0) }
         self.checksum = target.checksum
         self.pluginUsages = target.plugins?.map { .init($0) }
+        self.condition = target.condition.map { .init($0) }
     }
 }
 
@@ -343,6 +368,7 @@ extension Serialization.Product.ProductType.LibraryType {
         switch type {
         case .dynamic: self = .dynamic
         case .static: self = .static
+        case .xcframework: self = .xcframework
         }
     }
 }
@@ -412,7 +438,6 @@ extension Serialization.Package {
         self.swiftLanguageVersions = package.swiftLanguageModes?.map { .init($0) }
         self.cLanguageStandard = package.cLanguageStandard.map { .init($0) }
         self.cxxLanguageStandard = package.cxxLanguageStandard.map { .init($0) }
-        self.pluginUsages = package.plugins?.map { .init($0) }
     }
 }
 

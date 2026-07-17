@@ -178,6 +178,8 @@ extension BuildPlan {
                         product: $0.product,
                         context: $0.destination
                     ) }
+                case .library(.xcframework):
+                    throw InternalError("xcframework dependencies not supported by native build system")
                 case .test, .executable, .snippet, .macro:
                     return []
                 }
@@ -293,6 +295,8 @@ extension BuildPlan {
                 // Add system target to system targets array.
                 case .systemModule:
                     systemModules.append(module)
+                case .external:
+                    fatalError("TODO: not supported")
                 // Add binary to binary paths set.
                 case .binary:
                     guard let binaryTarget = module.underlying as? BinaryModule else {

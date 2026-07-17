@@ -18,7 +18,7 @@ import Foundation
 /// Validator methods that check the correctness of traits and their support as defined in the manifest.
 extension Manifest {
     /// Struct that contains information about a package's identity, as well as its name.
-    public struct PackageIdentifier: Hashable, CustomStringConvertible, Comparable, ExpressibleByStringLiteral {
+    public struct PackageIdentifier: Hashable, CustomStringConvertible, Comparable, ExpressibleByStringLiteral, Sendable {
         public var identity: String
         public var name: String?
 

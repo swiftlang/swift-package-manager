@@ -166,9 +166,9 @@ public final class DependencyMirrors: Equatable {
         if PackageIdentity.plain(location).isRegistry {
             return PackageIdentity.plain(location)
         } else if let path = try? AbsolutePath(validating: location) {
-            return PackageIdentity(path: path)
+            return PackageIdentity(path: path, type: .swift)
         } else {
-            return PackageIdentity(url: SourceControlURL(location))
+            return PackageIdentity(url: SourceControlURL(location), type: .swift)
         }
     }
 }

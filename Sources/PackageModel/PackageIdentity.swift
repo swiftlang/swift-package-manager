@@ -16,38 +16,61 @@ import TSCBasic
 
 /// The canonical identifier for a package, based on its source location.
 public struct PackageIdentity: CustomStringConvertible, Sendable {
+    public enum PackageType: Codable, Sendable {
+        case swift
+        case external
+        case binary
+    }
+
+    /// Type type of the package
+    public let type: PackageType
+
+    private let name: String
+
     /// A textual representation of this instance.
-    public let description: String
+    public var description: String {
+        switch type {
+        case .swift:
+            return name
+        case .external:
+            return "external:" + name
+        case .binary:
+            return "binary:" + name
+        }
+    }
 
     /// Creates a package identity from a string.
     /// - Parameter value: A string used to identify a package.
-    init(_ value: String) {
-        self.description = value
+    init(_ value: String, type: PackageType = .swift) {
+        self.type = type
+        self.name = value
     }
 
     /// Creates a package identity from a URL.
     /// - Parameter url: The package's URL.
-    public init(url: SourceControlURL) {
-        self.init(urlString: url.absoluteString)
+    public init(url: SourceControlURL, type: PackageType = .swift) {
+        self.init(urlString: url.absoluteString, type: type)
     }
 
     /// Creates a package identity from a URL.
     /// - Parameter urlString: The package's URL.
     // FIXME: deprecate this
-    public init(urlString: String) {
-        self.description = PackageIdentityParser(urlString).description
+    public init(urlString: String, type: PackageType?) {
+        self.type = type ?? .swift
+        self.name = PackageIdentityParser(urlString).description
     }
 
     /// Creates a package identity from a file path.
     /// - Parameter path: An absolute path to the package.
-    public init(path: Basics.AbsolutePath) {
-        self.description = PackageIdentityParser(path.pathString).description
+    public init(path: Basics.AbsolutePath, type: PackageType? = nil) {
+        self.type = type ?? .swift
+        self.name = PackageIdentityParser(path.pathString).description
     }
 
     /// Creates a plain package identity for a root package
     /// - Parameter value: A string used to identify a package, will be used unmodified
-    public static func plain(_ value: String) -> PackageIdentity {
-        PackageIdentity(value)
+    public static func plain(_ value: String, type: PackageType? = nil) -> PackageIdentity {
+        .init(value, type: type ?? .swift)
     }
 
     @available(*, deprecated, message: "use .registry instead")
@@ -111,15 +134,22 @@ extension PackageIdentity: Hashable {
 }
 
 extension PackageIdentity: Codable {
+    public enum CodingKeys: CodingKey {
+        case type
+        case description
+    }
+
     public init(from decoder: Decoder) throws {
-        let container = try decoder.singleValueContainer()
-        let description = try container.decode(String.self)
-        self.init(description)
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let description = try container.decode(String.self, forKey: .description)
+        let type = try container.decodeIfPresent(PackageType.self, forKey: .type) ?? .swift
+        self.init(description, type: type)
     }
 
     public func encode(to encoder: Encoder) throws {
-        var container = encoder.singleValueContainer()
-        try container.encode(self.description)
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.description, forKey: .description)
+        try container.encode(self.type, forKey: .type)
     }
 }
 
@@ -307,6 +337,11 @@ struct PackageIdentityParser {
 
     /// Compute the default name of a package given its URL.
     public static func computeDefaultName(fromURL url: SourceControlURL) -> String {
+        Self.computeDefaultName(fromLocation: url.absoluteString)
+    }
+
+    /// Compute the default name of a package given its real URL.
+    public static func computeDefaultName(fromURL url: URL) -> String {
         Self.computeDefaultName(fromLocation: url.absoluteString)
     }
 

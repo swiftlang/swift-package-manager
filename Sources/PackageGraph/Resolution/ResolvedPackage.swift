@@ -39,8 +39,6 @@ public struct ResolvedPackage {
     /// The products produced by the package.
     public let products: [ResolvedProduct]
 
-    public let pluginUsages: [ResolvedModule.Dependency]
-
     /// The enabled traits of this package.
     public let enabledTraits: Set<String>?
 
@@ -67,14 +65,12 @@ public struct ResolvedPackage {
         enabledTraits: Set<String>?,
         modules: IdentifiableSet<ResolvedModule>,
         products: [ResolvedProduct],
-        pluginUsages: [ResolvedModule.Dependency],
         registryMetadata: RegistryReleaseMetadata?,
         platformVersionProvider: PlatformVersionProvider
     ) {
         self.underlying = underlying
         self.products = products
         self.modules = modules
-        self.pluginUsages = pluginUsages
         self.dependencies = dependencies
         self.defaultLocalization = defaultLocalization
         self.supportedPlatforms = supportedPlatforms

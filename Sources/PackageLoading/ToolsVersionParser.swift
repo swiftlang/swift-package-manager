@@ -56,9 +56,9 @@ public struct ToolsVersionParser {
         }
 
         do {
-          return try self.parse(utf8String: manifestContentsDecodedWithUTF8)
+            return try self.parse(utf8String: manifestContentsDecodedWithUTF8)
         } catch Error.malformedToolsVersionSpecification(.commentMarker(.isMissing)) {
-          throw UnsupportedToolsVersion(packageIdentity: .init(path: manifestPath), currentToolsVersion: .current, packageToolsVersion: .v3)
+            throw UnsupportedToolsVersion(packageIdentity: .init(path: manifestPath, type: .swift), currentToolsVersion: .current, packageToolsVersion: .v3)
         }
     }
 

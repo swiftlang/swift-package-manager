@@ -510,8 +510,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 case .library(let kind):
                     let artifactKind: PluginInvocationBuildResult.BuiltArtifact.Kind
                     switch kind {
-                        case .dynamic: artifactKind = .dynamicLibrary
-                        case .static, .automatic: artifactKind = .staticLibrary
+                    case .dynamic: artifactKind = .dynamicLibrary
+                    case .static, .automatic: artifactKind = .staticLibrary
+                    case .xcframework:
+                        throw InternalError("xcframework dependencies not supported by native build system")
                     }
                     return try ($0.product.name, .init(
                         path: $0.binaryPath.pathString,

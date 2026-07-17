@@ -371,6 +371,8 @@ extension PackageGraphError: CustomStringConvertible {
                     description += " (from '\(url)')"
                 case .registry:
                     break
+                case .archive(let url):
+                    description += " (from '\(url)')"
                 }
                 return description
             }
@@ -475,7 +477,7 @@ public func loadModulesGraph(
             into: OrderedCollections
                 .OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()
         ) { partial, item in
-            partial[try identityResolver.resolveIdentity(for: item.packageKind)] = (item, fileSystem)
+            partial[try identityResolver.resolveIdentity(for: item.packageKind, type: .swift)] = (item, fileSystem)
         }
 
     let packages = Array(rootManifests.keys)

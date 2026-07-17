@@ -34,6 +34,9 @@ public struct PackageReference {
         /// A package from  a registry.
         case registry(PackageIdentity)
 
+        /// A source or binary archive containing the package
+        case archive(URL)
+
         // FIXME: we should not need this once we migrate off URLs
         //@available(*, deprecated)
         public var locationString: String {
@@ -49,6 +52,8 @@ public struct PackageReference {
             case .registry(let identity):
                 // FIXME: this is a placeholder
                 return identity.description
+            case .archive(let url):
+                return url.absoluteString
             }
         }
 
@@ -70,6 +75,8 @@ public struct PackageReference {
                 return "remoteSourceControl \(url)"
             case .registry(let identity):
                 return "registry \(identity)"
+            case .archive(let url):
+                return "archive \(url)"
             }
         }
 
@@ -84,7 +91,7 @@ public struct PackageReference {
 
         public var isRemote: Bool {
             switch self {
-            case .registry, .remoteSourceControl, .localSourceControl:
+            case .registry, .remoteSourceControl, .localSourceControl, .archive:
                 return true
             case .root, .fileSystem:
                 return false
@@ -133,6 +140,8 @@ public struct PackageReference {
         case .registry(let identity):
             // FIXME: this is a placeholder
             self.deprecatedName = name ?? identity.description
+        case .archive(let url):
+            self.deprecatedName = name ?? PackageIdentityParser.computeDefaultName(fromURL: url)
         }
     }
 
@@ -212,7 +221,7 @@ extension PackageReference: CustomStringConvertible {
 
 extension PackageReference.Kind: Encodable {
     private enum CodingKeys: String, CodingKey {
-        case root, fileSystem, localSourceControl, remoteSourceControl, registry
+        case root, fileSystem, localSourceControl, remoteSourceControl, registry, archive
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -233,6 +242,9 @@ extension PackageReference.Kind: Encodable {
         case .registry:
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .registry)
             try unkeyedContainer.encode(self.isRoot)
+        case .archive(let url):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .archive)
+            try unkeyedContainer.encode(url)
         }
     }
 }

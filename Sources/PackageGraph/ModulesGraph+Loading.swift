@@ -106,6 +106,16 @@ extension ModulesGraph {
                             key: dependency.identity
                         )
                     }
+                } + node.item.manifest.externals.map { external -> KeyedPair<GraphLoadingNode, PackageIdentity> in
+                    return try KeyedPair(
+                        GraphLoadingNode(
+                            identity: external.packageIdentity,
+                            manifest: external,
+                            productFilter: .everything,
+                            enabledTraits: enabledTraitsMap[external]
+                        ),
+                        key: external.packageIdentity
+                    )
                 }
         }
 
@@ -345,10 +355,12 @@ private func findAllTransitiveDependencies(
     dependency: CanonicalPackageLocation,
     graph: [ResolvedPackageBuilder]
 ) throws -> [[CanonicalPackageLocation]] {
+    let graph = graph.filter({ $0.package.identity.type == .swift })
     let edges = try Dictionary(uniqueKeysWithValues: graph.map { try (
         $0.package.manifest.canonicalPackageLocation,
         Set(
             $0.package.manifest.dependenciesRequired(for: $0.productFilter, $0.enabledTraits)
+                .filter({ $0.identity.type == .swift })
                 .map(\.packageRef.canonicalLocation)
         )
     ) })
@@ -388,7 +400,7 @@ private func createResolvedPackages(
     modulesFilter: ((Module) -> Bool)?
 ) throws -> IdentifiableSet<ResolvedPackage> {
     // Create package builder objects from the input manifests.
-    var packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap { node in
+    let packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap { node in
         guard let package = manifestToPackage[node.manifest] else {
             return nil
         }
@@ -1242,7 +1254,7 @@ private class DuplicateProductsChecker {
             let useProductIDs = pkgBuilder.package.manifest.disambiguateByProductIDs || lookupByProductIDs
             let depProductRefs = pkgBuilder.package.modules.map(\.dependencies).flatMap { $0 }.compactMap(\.product)
             for depRef in depProductRefs {
-                if let depPkg = depRef.package.map(PackageIdentity.plain) {
+                if let depPkg = depRef.package.map({ PackageIdentity.plain($0, type: .swift) }) {
                     if !self.checkedPkgIDs.contains(depPkg) {
                         self.checkedPkgIDs.append(depPkg)
                     }
@@ -1628,21 +1640,6 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         var modules = products.reduce(into: IdentifiableSet()) { $0.formUnion($1.modules) }
         try modules.formUnion(self.modules.map { try $0.construct() })
 
-        let pluginUsages = try self.package.pluginUsages.map { dependency -> ResolvedModule.Dependency in
-            switch dependency {
-            case .module(let module, let conditions):
-                guard let moduleBuilder = self.modules.first(where: { $0.module.name == module.name }), moduleBuilder.module.type == .plugin else {
-                    throw InternalError("module builder for plugin \(module.name) not found")
-                }
-                return try .module(moduleBuilder.construct(), conditions: conditions)
-            case .product(let product, let conditions):
-                guard let productBuilder = self.products.first(where: { $0.product.name == product.name }), productBuilder.product.type == .plugin else {
-                    throw InternalError("product builder for plugin \(product.name) not found")
-                }
-                return try .product(productBuilder.construct(), conditions: conditions)
-            }
-        }
-
         return ResolvedPackage(
             underlying: self.package,
             defaultLocalization: self.defaultLocalization,
@@ -1651,7 +1648,6 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
             enabledTraits: self.enabledTraits.names,
             modules: modules,
             products: products,
-            pluginUsages: pluginUsages,
             registryMetadata: self.registryMetadata,
             platformVersionProvider: self.platformVersionProvider
         )

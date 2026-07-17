@@ -98,6 +98,9 @@ public enum ProductType: Equatable, Hashable, Sendable {
         /// Dynamic library.
         case `dynamic`
 
+        /// xcframework
+        case xcframework
+
         /// The type of library is unspecified and should be decided by package manager.
         case automatic
     }
@@ -210,6 +213,8 @@ extension ProductType: CustomStringConvertible {
                 return "dynamic library"
             case .static:
                 return "static library"
+            case .xcframework:
+                return "xcframework"
             }
         case .plugin:
             return "plugin"

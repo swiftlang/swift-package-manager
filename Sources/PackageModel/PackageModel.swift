@@ -60,8 +60,6 @@ public final class Package {
     /// The products produced by the package.
     public let products: [Product]
 
-    public let pluginUsages: [Module.Dependency]
-
     // The directory containing the targets which did not explicitly specify
     // their path. If all targets are explicit, this is the preferred path for
     // future targets.
@@ -78,7 +76,6 @@ public final class Package {
         path: AbsolutePath,
         targets: [Module],
         products: [Product],
-        pluginUsages: [Module.Dependency],
         targetSearchPath: AbsolutePath,
         testTargetSearchPath: AbsolutePath
     ) {
@@ -87,7 +84,6 @@ public final class Package {
         self.path = path
         self.modules = targets
         self.products = products
-        self.pluginUsages = pluginUsages
         self.targetSearchPath = targetSearchPath
         self.testTargetSearchPath = testTargetSearchPath
     }

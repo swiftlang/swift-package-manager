@@ -43,12 +43,18 @@ enum ManifestJSONParser {
         var pkgConfig: String?
         var swiftLanguageVersions: [SwiftLanguageVersion]?
         var dependencies: [PackageDependency] = []
+        var externals: [External] = []
         var providers: [SystemPackageProviderDescription]?
         var products: [ProductDescription] = []
+        var pluginUsages: [TargetDescription.PluginUsage] = []
         var traits: Set<TraitDescription> = []
-        var pluginUsages: [Manifest.PluginUsage]?
         var cxxLanguageStandard: String?
         var cLanguageStandard: String?
+    }
+
+    struct External {
+        var dependency: PackageDependency
+        var result: Result
     }
 
     static func parse(
@@ -90,7 +96,7 @@ enum ManifestJSONParser {
             // asserting (debug only) to make sure refactoring is correct 11/2023
             assert(packagePath == _packagePath, "expecting package path '\(packagePath)' to be the same as '\(_packagePath)'")
             break
-        case .remoteSourceControl, .registry:
+        case .remoteSourceControl, .registry, .archive:
             // we dont have a more accurate path
             break
         }
@@ -105,6 +111,16 @@ enum ManifestJSONParser {
             )
         }
 
+        let externals = try input.package.dependencies.compactMap {
+            try Self.parseExternal(
+                dependency: $0,
+                identityResolver: identityResolver,
+                parentPackagePath: packagePath,
+                dependencyMapper: dependencyMapper,
+                fileSystem: fileSystem
+            )
+        }
+
         return Result(
             name: input.package.name,
             defaultLocalization: input.package.defaultLocalization?.tag,
@@ -113,12 +129,12 @@ enum ManifestJSONParser {
             pkgConfig: input.package.pkgConfig,
             swiftLanguageVersions: try input.package.swiftLanguageVersions.map { try Self.parseSwiftLanguageVersions($0) },
             dependencies: dependencies,
+            externals: externals,
             providers: input.package.providers?.map { .init($0) },
             products: try input.package.products.map { try .init($0) },
             traits: Set(input.package.traits?.map { TraitDescription($0) } ?? []),
-            pluginUsages: input.package.pluginUsages?.map { TargetDescription.PluginUsage.init($0) },
             cxxLanguageStandard: input.package.cxxLanguageStandard?.rawValue,
-            cLanguageStandard: input.package.cLanguageStandard?.rawValue
+            cLanguageStandard: input.package.cLanguageStandard?.rawValue,
         )
     }
 
@@ -186,6 +202,58 @@ enum ManifestJSONParser {
         }
     }
 
+    private static func parseExternal(
+        dependency: Serialization.PackageDependency,
+        identityResolver: IdentityResolver,
+        parentPackagePath: AbsolutePath,
+        dependencyMapper: DependencyMapper,
+        fileSystem: FileSystem
+    ) throws -> External? {
+        let products: [ProductDescription]
+        let targets: [TargetDescription]
+        let pluginUsages: [TargetDescription.PluginUsage]
+        switch dependency.type {
+        case .external(let externalProducts, let externalTargets, let plugins):
+            products = try externalProducts.map({ try .init($0) })
+            targets = try externalTargets.map({ try Self.parseTarget(target: $0, identityResolver: identityResolver)})
+            pluginUsages = plugins.map({ .init($0) })
+        case .binary(let binaryProducts, let binaryTargets):
+            products = try binaryProducts.map({ try .init($0) })
+            targets = try binaryTargets.map({ try Self.parseTarget(target: $0, identityResolver: identityResolver)})
+            pluginUsages = []
+        default:
+            return nil
+        }
+
+        let name: String
+        // TODO: a better job at picking a secondary name
+        switch dependency.kind {
+        case .fileSystem(let depName, let path):
+            name = depName ?? path
+        case .sourceControl(let depName, let location, _):
+            name = depName ?? location
+        case .registry(let id, _):
+            name = id
+        case .archive(let depName, let location, _):
+            name = depName ?? location
+        }
+
+        let dependency = try dependencyMapper.mappedDependency(
+            MappablePackageDependency(dependency, parentPackagePath: parentPackagePath),
+            fileSystem: fileSystem
+        )
+
+        return External(
+            dependency: dependency,
+            result: .init(
+                name: name,
+                targets: targets,
+                products: products,
+                pluginUsages: pluginUsages
+            )
+        )
+    }
+
     private static func parseTarget(
         target: Serialization.Target,
         identityResolver: IdentityResolver
@@ -215,7 +283,8 @@ enum ManifestJSONParser {
             pluginCapability: pluginCapability,
             settings: try Self.parseBuildSettings(target),
             checksum: target.checksum,
-            pluginUsages: pluginUsages
+            pluginUsages: pluginUsages,
+            condition: target.condition.map({ .init($0) })
         )
     }
 
@@ -273,7 +342,7 @@ extension SystemPackageProviderDescription {
 }
 
 extension PackageDependency.SourceControl.Requirement {
-    init(_ requirement: Serialization.PackageDependency.SourceControlRequirement) {
+    init(_ requirement: Serialization.SourceControlRequirement) {
         switch requirement {
         case .exact(let version):
             self = .exact(.init(version))
@@ -519,6 +588,8 @@ extension ProductType.LibraryType {
             self = .static
         case .automatic:
             self = .automatic
+        case .xcframework:
+            self = .xcframework
         }
     }
 }
@@ -541,7 +612,7 @@ extension TargetDescription.Dependency {
 }
 
 extension PackageConditionDescription {
-    init(_ condition: Serialization.TargetDependency.Condition) {
+    init(_ condition: Serialization.TargetDependencyCondition) {
         self.init(
             platformNames: condition.platforms?.map { $0.name } ?? [],
             traits: condition.traits.map { Set($0) }
@@ -560,6 +631,8 @@ extension TargetDescription.TargetKind {
             self = .test
         case .system:
             self = .system
+        case .external:
+            self = .external
         case .binary:
             self = .binary
         case .plugin:
@@ -898,12 +971,22 @@ extension PackageDependency.Trait.Condition {
     }
 }
 
+extension PackageIdentity.PackageType {
+    init(_ type: Serialization.PackageDependency.PackageType) {
+        switch type {
+        case .swift: self = .swift
+        case .external: self = .external
+        case .binary: self = .binary
+        }
+    }
+}
 extension MappablePackageDependency {
     fileprivate init(_ seed: Serialization.PackageDependency, parentPackagePath: AbsolutePath) {
         switch seed.kind {
         case .fileSystem(let name, let path):
             self.init(
                 parentPackagePath: parentPackagePath,
+                type: seed.type.map({ .init($0) }),
                 kind: .fileSystem(
                     name: name,
                     path: path
@@ -914,6 +997,7 @@ extension MappablePackageDependency {
         case .sourceControl(let name, let location, let requirement):
             self.init(
                 parentPackagePath: parentPackagePath,
+                type: seed.type.map({ .init($0) }),
                 kind: .sourceControl(
                     name: name,
                     location: location,
@@ -925,9 +1009,22 @@ extension MappablePackageDependency {
         case .registry(let id, let requirement):
             self.init(
                 parentPackagePath: parentPackagePath,
+                type: seed.type.map({ .init($0) }),
                 kind: .registry(
                     id: id,
                     requirement: .init(requirement)
+                ),
+                productFilter: .everything,
+                traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
+            )
+        case .archive(let name, let location, let checksum):
+            self.init(
+                parentPackagePath: parentPackagePath,
+                type: seed.type.map({ .init($0) }),
+                kind: .archive(
+                    name: name,
+                    location: location,
+                    checksum: checksum
                 ),
                 productFilter: .everything,
                 traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }

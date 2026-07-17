@@ -697,7 +697,7 @@ public final class SwiftCommandState {
         var targets = [PackageIdentity: [String]]()
 
         for rootManifest in rootManifests {
-            let identity = PackageIdentity(path: rootManifest.key)
+            let identity = PackageIdentity(path: rootManifest.key, type: .swift)
             identities[identity] = rootManifest.value.dependencies.map(\.identity)
             targets[identity] = rootManifest.value.targets.map { $0.name.spm_mangledToC99ExtendedIdentifier() }
         }

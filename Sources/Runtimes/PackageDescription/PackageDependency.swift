@@ -49,11 +49,37 @@ extension Package {
             ///   - id: The package identifier of the dependency.
             ///   - requirement: The version based requirement for a package.
             case registry(id: String, requirement: RegistryRequirement)
+            /// A dependency from a remote archive
+            /// - Parameters:
+            ///   - name: The name of the dependency
+            ///   - location: The URL to the archive
+            ///   - checksum: The sha256 checksum for the archive
+            case archive(name: String?, location: String, checksum: String)
+        }
+
+        /// The type of the package
+        @available(_PackageDescription, introduced: 6.5)
+        public enum PackageType {
+            /// A normal Swift package
+            case swift
+            /// A non-Swift package that will be built using the listed plugin and consumed by the dependant package
+            /// - Parameters:
+            ///   - targets: list of targets provided by the external package
+            ///   - plugins: list of external build plugins use to produce those targets
+            case external(products: [ExternalProduct], plugins: [PluginUsage])
+            /// Prebuilt binaries for a package for a given target condition
+            /// - Parameters:
+            ///   - targets: list of targets provided by the binary package
+            case binary(products: [ExternalProduct])
         }
 
         /// A description of the package dependency.
         @available(_PackageDescription, introduced: 5.6)
         public let kind: Kind
+
+        /// The type of the package in the dependency
+        @available(_PackageDescription, introduced: 6.5)
+        public let type: PackageType?
 
         /// The dependencies traits configuration.
         @available(_PackageDescription, introduced: 6.1)
@@ -73,6 +99,8 @@ extension Package {
                     return name
                 case .registry:
                     return nil
+                case .archive(let name, location: _, checksum: _):
+                    return name
                 }
             }
         }
@@ -87,6 +115,8 @@ extension Package {
                 case .sourceControl(name: _, location: let location, requirement: _):
                     return location
                 case .registry:
+                    return nil
+                case .archive:
                     return nil
                 }
             }
@@ -121,6 +151,8 @@ extension Package {
                     case .range(let range):
                         return .rangeItem(range)
                     }
+                case .archive:
+                    return .localPackageItem
                 }
             }
         }
@@ -135,7 +167,7 @@ extension Package {
         ) {
             switch requirement {
             case .localPackageItem:
-                self.init(name: name, path: url, traits: traits)
+                self.init(name: name, type: .swift, path: url, traits: traits)
             case .branchItem(let branch):
                 self.init(name: name, location: url, requirement: .branch(branch), traits: traits)
             case .exactItem(let version):
@@ -147,13 +179,15 @@ extension Package {
             }
         }
 
-        init(kind: Kind, traits: Set<Trait>?) {
+        init(kind: Kind, type: PackageType, traits: Set<Trait>?) {
             self.kind = kind
+            self.type = type
             self.traits = traits ?? [.defaults]
         }
 
         convenience init(
             name: String?,
+            type: PackageType,
             path: String,
             traits: Set<Trait>?
         ) {
@@ -162,12 +196,14 @@ extension Package {
                     name: name,
                     path: path
                 ),
+                type: type,
                 traits: traits
             )
         }
 
         convenience init(
             name: String?,
+            type: PackageType = .swift,
             location: String,
             requirement: SourceControlRequirement,
             traits: Set<Trait>?
@@ -178,12 +214,14 @@ extension Package {
                     location: location,
                     requirement: requirement
                 ),
+                type: type,
                 traits: traits
             )
         }
 
         convenience init(
             id: String,
+            type: PackageType = .swift,
             requirement: RegistryRequirement,
             traits: Set<Trait>?
         ) {
@@ -192,7 +230,24 @@ extension Package {
                     id: id,
                     requirement: requirement
                 ),
+                type: type,
                 traits: traits
+            )
+        }
+
+        convenience init(
+            name: String,
+            type: PackageType,
+            url: String,
+            checksum: String
+        ) {
+            self.init(
+                kind: .archive(
+                    name: name,
+                    location: url,
+                    checksum: checksum),
+                type: type,
+                traits: nil
             )
         }
     }
@@ -216,7 +271,7 @@ extension Package.Dependency {
     public static func package(
         path: String
     ) -> Package.Dependency {
-        return .init(name: nil, path: path, traits: nil)
+        return .init(name: nil, type: .swift, path: path, traits: nil)
     }
 
     /// Adds a local dependency to a package located at the path and with an optional set of traits you provide.
@@ -235,7 +290,7 @@ extension Package.Dependency {
         path: String,
         traits: Set<Trait> = [.defaults]
     ) -> Package.Dependency {
-        return .init(name: nil, path: path, traits: traits)
+        return .init(name: nil, type: .swift, path: path, traits: traits)
     }
 
     /// Adds a local dependency to a named package located at the path you provide.
@@ -257,7 +312,7 @@ extension Package.Dependency {
         name: String,
         path: String
     ) -> Package.Dependency {
-        return .init(name: name, path: path, traits: nil)
+        return .init(name: name, type: .swift, path: path, traits: nil)
     }
 
     /// Adds a local dependency to a named package located at the path and with an optional set of traits you provide.
@@ -279,7 +334,7 @@ extension Package.Dependency {
         path: String,
         traits: Set<Trait> = [.defaults]
     ) -> Package.Dependency {
-        return .init(name: name, path: path, traits: traits)
+        return .init(name: name, type: .swift, path: path, traits: traits)
     }
 }
 
@@ -1132,6 +1187,43 @@ extension Package.Dependency {
         }
 
         return .init(id: id, requirement: requirement, traits: traits)
+    }
+}
+
+// MARK: - external source
+
+extension Package.Dependency {
+    public static func externalSource(
+        name: String,
+        path: String,
+        products: [ExternalProduct],
+        plugins: [PluginUsage],
+        traits: Set<Trait>? = nil
+    ) -> Package.Dependency {
+        .init(
+            name: name,
+            type: .external(products: products, plugins: plugins),
+            path: path,
+            traits: traits
+        )
+    }
+}
+
+// MARK: - binary archives
+
+extension Package.Dependency {
+    public static func binaryArchive(
+        name: String,
+        url: String,
+        checksum: String,
+        products: [ExternalProduct]
+    ) -> Package.Dependency {
+        .init(
+            name: name,
+            type: .binary(products: products),
+            url: url,
+            checksum: checksum
+        )
     }
 }
 

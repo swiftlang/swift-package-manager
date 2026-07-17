@@ -13,9 +13,6 @@
 import Basics
 import TSCUtility
 
-@available(*, deprecated, renamed: "Module")
-public typealias Target = Module
-
 public class Module {
     /// Description of the module type used in `swift package describe` output. Preserved for backwards compatibility.
     public class var typeDescription: String { fatalError("implement in a subclass") }
@@ -23,7 +20,8 @@ public class Module {
     public enum Kind: String {
         case executable
         case library
-        case systemModule = "system-target"
+        case systemModule
+        case external
         case test
         case binary
         case plugin

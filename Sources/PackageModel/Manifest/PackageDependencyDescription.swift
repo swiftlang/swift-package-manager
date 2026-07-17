@@ -101,7 +101,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
     case fileSystem(FileSystem)
     case sourceControl(SourceControl)
     case registry(Registry)
-    
+    case archive(Archive)
+
     public struct FileSystem: Equatable, Hashable, Encodable, Sendable {
         public let identity: PackageIdentity
         public let nameForTargetDependencyResolutionOnly: String?
@@ -206,6 +207,29 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         }
     }
 
+    public struct Archive: Equatable, Hashable, Encodable, Sendable {
+        public let identity: PackageIdentity
+        public let nameForTargetDependencyResolutionOnly: String?
+        public let url: URL
+        public let checksum: String
+        public let productFilter: ProductFilter
+        package let traits: Set<Trait>?
+
+        private enum CodingKeys: CodingKey {
+            case identity, nameForTargetDependencyResolutionOnly, url, checksum, productFilter, traits
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(identity, forKey: .identity)
+            try container.encodeIfPresent(nameForTargetDependencyResolutionOnly, forKey: .nameForTargetDependencyResolutionOnly)
+            try container.encode(url, forKey: .url)
+            try container.encode(checksum, forKey: .checksum)
+            try container.encode(productFilter, forKey: .productFilter)
+            try container.encodeIfPresent(traits?.sorted { $0.name < $1.name }, forKey: .traits)
+        }
+    }
+
     /// Describes the traits that are enabled for this package, and overrides this dependency's manifest's
     /// default traits.
     package var traits: Set<Trait>? {
@@ -215,6 +239,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         case .sourceControl(let settings):
             return settings.traits
         case .registry(let settings):
+            return settings.traits
+        case .archive(let settings):
             return settings.traits
         }
     }
@@ -227,7 +253,30 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             return settings.identity
         case .registry(let settings):
             return settings.identity
+        case .archive(let settings):
+            return settings.identity
         }
+    }
+
+    /// Create the package reference object for the dependency.
+    public var packageRef: PackageReference {
+        let packageKind: PackageReference.Kind
+        switch self {
+        case .fileSystem(let settings):
+            packageKind = .fileSystem(settings.path)
+        case .sourceControl(let settings):
+            switch settings.location {
+            case .local(let path):
+                packageKind = .localSourceControl(path)
+            case .remote(let url):
+                packageKind = .remoteSourceControl(url)
+            }
+        case .registry(let settings):
+            packageKind = .registry(settings.identity)
+        case .archive(let settings):
+            packageKind = .archive(settings.url)
+        }
+        return PackageReference(identity: self.identity, kind: packageKind)
     }
 
     // FIXME: we should simplify target based dependencies such that this is no longer required
@@ -245,6 +294,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             }
         case .registry:
             return self.identity.description.lowercased()
+        case .archive(let settings):
+            return settings.nameForTargetDependencyResolutionOnly ?? PackageIdentityParser.computeDefaultName(fromURL: settings.url)
         }
     }
 
@@ -258,6 +309,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             return settings.nameForTargetDependencyResolutionOnly
         case .registry:
             return nil
+        case .archive(let settings):
+            return settings.nameForTargetDependencyResolutionOnly
         }
     }
 
@@ -268,6 +321,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         case .sourceControl(let settings):
             return settings.productFilter
         case .registry(let settings):
+            return settings.productFilter
+        case .archive(let settings):
             return settings.productFilter
         }
     }
@@ -296,6 +351,15 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             return .registry(
                 identity: settings.identity,
                 requirement: settings.requirement,
+                productFilter: productFilter,
+                traits: settings.traits
+            )
+        case .archive(let settings):
+            return .archive(
+                identity: settings.identity,
+                nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
+                url: settings.url,
+                checksum: settings.checksum,
                 productFilter: productFilter,
                 traits: settings.traits
             )
@@ -479,6 +543,26 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             )
         )
     }
+
+    public static func archive(
+        identity: PackageIdentity,
+        nameForTargetDependencyResolutionOnly: String?,
+        url: URL,
+        checksum: String,
+        productFilter: ProductFilter,
+        traits: Set<Trait>?
+    ) -> Self {
+        .archive(
+            .init(
+                identity: identity,
+                nameForTargetDependencyResolutionOnly: nameForTargetDependencyResolutionOnly,
+                url: url,
+                checksum: checksum,
+                productFilter: productFilter,
+                traits: traits
+            )
+        )
+    }
 }
 
 extension Range {
@@ -500,6 +584,8 @@ extension PackageDependency: CustomStringConvertible {
             return "sourceControl[\(data)]"
         case .registry(let data):
             return "registry[\(data)]"
+        case .archive(let data):
+            return "archive[\(data)]"
         }
     }
 }
@@ -532,7 +618,7 @@ extension PackageDependency.Registry.Requirement: CustomStringConvertible {
 
 extension PackageDependency: Encodable {
     private enum CodingKeys: String, CodingKey {
-        case local, fileSystem, scm, sourceControl, registry
+        case local, fileSystem, scm, sourceControl, registry, archive
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -546,6 +632,9 @@ extension PackageDependency: Encodable {
             try unkeyedContainer.encode(settings)
         case .registry(let settings):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .registry)
+            try unkeyedContainer.encode(settings)
+        case .archive(let settings):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .archive)
             try unkeyedContainer.encode(settings)
         }
     }

@@ -385,34 +385,12 @@ public final class PackageBuilder {
         // Find the special directory for targets.
         let targetSpecialDirs = self.findTargetSpecialDirs(targets)
 
-        // Get dependencies from the plugin usages of this target.
-        let pluginUsages: [Module.PluginUsage] = manifest.pluginUsages.map {
-            $0.compactMap { usage in
-                switch usage {
-                case .plugin(let name, let package):
-                    if let package {
-                        return .product(Module.ProductReference(name: name, package: package), conditions: [])
-                    } else {
-                        if let target = targets.first(where: { $0.name == name }) {
-                            return .module(target, conditions: [])
-                        } else if let target = products.first(where: { $0.name == name })?.modules.first {
-                            return .module(target, conditions: [])
-                        } else {
-                            self.observabilityScope.emit(.pluginNotFound(name: name))
-                            return nil
-                        }
-                    }
-                }
-            }
-        } ?? []
-
         return Package(
             identity: self.identity,
             manifest: self.manifest,
             path: self.packagePath,
             targets: targets,
             products: products,
-            pluginUsages: pluginUsages,
             targetSearchPath: self.packagePath.appending(component: targetSpecialDirs.targetDir),
             testTargetSearchPath: self.packagePath.appending(component: targetSpecialDirs.testTargetDir)
         )
@@ -715,7 +693,7 @@ public final class PackageBuilder {
                     // has to present, we always expect this target to be present in
                     // potentialModules dictionary.
                     return potentialModuleMap[name]!
-                case .product:
+                case .product: // TODO: anything?
                     return nil
                 case .byName(let name, _):
                     // By name dependency may or may not be a target dependency.
@@ -891,6 +869,19 @@ public final class PackageBuilder {
                 path: potentialModule.path, isImplicit: false,
                 pkgConfig: manifestTarget.pkgConfig,
                 providers: manifestTarget.providers
+            )
+        } else if potentialModule.type == .external {
+            let buildSettings = try self.buildSettings(
+                for: manifestTarget,
+                targetRoot: potentialModule.path, // TODO: need to figure out what's right here
+                toolsSwiftVersion: self.toolsSwiftVersion()
+            )
+
+            return ExternalTarget(
+                name: potentialModule.name,
+                path: potentialModule.path, // TODO: and here
+                buildSettings: buildSettings,
+                buildSettingsDescription: manifestTarget.settings
             )
         } else if potentialModule.type == .binary {
             guard let artifact = self.binaryArtifacts[potentialModule.name] else {
@@ -1751,6 +1742,8 @@ public final class PackageBuilder {
                 }
             }
         }
+
+        // Wrap external libraries in a product
 
         // Create a special REPL product that contains all the library targets.
 

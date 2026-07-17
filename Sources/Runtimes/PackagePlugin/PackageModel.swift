@@ -85,6 +85,8 @@ public enum PackageOrigin {
     /// description of the resolved version or branch name (for display
     /// purposes only).
     case registry(identity: String, displayVersion: String)
+
+    case archive(url: String)
 }
 
 /// A version of Swift package manager on whose semantics a package relies.
@@ -193,6 +195,9 @@ public struct LibraryProduct: Product {
 
         /// Dynamic library, whose code is referenced by its clients.
         case dynamic
+
+        /// A binary xcframework
+        case xcframework
 
         /// The kind of library produced is unspecified and will be determined
         /// by the build system based on how the library is used.

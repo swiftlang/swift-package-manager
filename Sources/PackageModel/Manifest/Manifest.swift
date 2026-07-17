@@ -74,6 +74,9 @@ public final class Manifest: Sendable {
     /// The declared package dependencies.
     public let dependencies: [PackageDependency]
 
+    /// Manifests for the external packages dependencies
+    public let externals: [Manifest]
+
     /// The targets declared in the manifest.
     public let targets: [TargetDescription]
 
@@ -94,9 +97,6 @@ public final class Manifest: Sendable {
 
     /// The supported Swift language versions of the package.
     public let swiftLanguageVersions: [SwiftLanguageVersion]?
-
-    public typealias PluginUsage = TargetDescription.PluginUsage
-    public let pluginUsages: [PluginUsage]?
 
     /// The pkg-config name of a system package.
     public let pkgConfig: String?
@@ -129,10 +129,10 @@ public final class Manifest: Sendable {
         cxxLanguageStandard: String?,
         swiftLanguageVersions: [SwiftLanguageVersion]?,
         dependencies: [PackageDependency] = [],
+        externals: [Manifest] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
         traits: Set<TraitDescription>,
-        pluginUsages: [PluginUsage]?,
         pruneDependencies: Bool = false
     ) {
         self.displayName = displayName
@@ -151,11 +151,11 @@ public final class Manifest: Sendable {
         self.cxxLanguageStandard = cxxLanguageStandard
         self.swiftLanguageVersions = swiftLanguageVersions
         self.dependencies = dependencies
+        self.externals = externals
         self.products = products
         self.targets = targets
         self.targetMap = Dictionary(targets.lazy.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
         self.traits = traits
-        self.pluginUsages = pluginUsages
         self.pruneDependencies = pruneDependencies
     }
 

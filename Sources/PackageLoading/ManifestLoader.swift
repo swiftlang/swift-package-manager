@@ -361,6 +361,29 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             ))
         }
 
+        let externals: [Manifest] = parsedManifest.externals.map {
+            Manifest(
+                displayName: $0.result.name,
+                packageIdentity: $0.dependency.identity,
+                path: manifestPath,
+                packageKind: $0.dependency.packageRef.kind,
+                packageLocation: packageLocation,
+                defaultLocalization: $0.result.defaultLocalization,
+                platforms: $0.result.platforms,
+                version: packageVersion?.version,
+                revision: packageVersion?.revision,
+                toolsVersion: manifestToolsVersion,
+                pkgConfig: $0.result.pkgConfig,
+                providers: $0.result.providers,
+                cLanguageStandard: $0.result.cLanguageStandard,
+                cxxLanguageStandard: $0.result.cxxLanguageStandard,
+                swiftLanguageVersions: $0.result.swiftLanguageVersions,
+                products: $0.result.products,
+                targets: $0.result.targets,
+                traits: $0.result.traits
+            )
+        }
+
         let manifest = Manifest(
             displayName: parsedManifest.name,
             packageIdentity: packageIdentity,
@@ -378,10 +401,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cxxLanguageStandard: parsedManifest.cxxLanguageStandard,
             swiftLanguageVersions: parsedManifest.swiftLanguageVersions,
             dependencies: parsedManifest.dependencies,
+            externals: externals,
             products: products,
             targets: targets,
             traits: parsedManifest.traits,
-            pluginUsages: parsedManifest.pluginUsages,
             pruneDependencies: self.pruneDependencies
         )
 

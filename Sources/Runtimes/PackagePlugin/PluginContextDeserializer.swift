@@ -230,6 +230,8 @@ internal struct PluginContextDeserializer {
                 libraryKind = .static
             case .dynamic:
                 libraryKind = .dynamic
+            case .xcframework:
+                libraryKind = .xcframework
             case .automatic:
                 libraryKind = .automatic
             }
@@ -272,6 +274,8 @@ internal struct PluginContextDeserializer {
                 .repository(url: url, displayVersion: displayVersion, scmRevision: scmRevision)
             case .registry(let identity, let displayVersion):
                 .registry(identity: identity, displayVersion: displayVersion)
+            case .archive(let url):
+                .archive(url: url)
         }
         let package = try Package(
             id: wirePackage.identity,

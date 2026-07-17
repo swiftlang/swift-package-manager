@@ -224,6 +224,8 @@ internal struct PluginContextSerializer {
                 productInfo = .library(kind: .static)
             case .dynamic:
                 productInfo = .library(kind: .dynamic)
+            case .xcframework:
+                productInfo = .library(kind: .xcframework)
             case .automatic:
                 productInfo = .library(kind: .automatic)
             }
@@ -262,6 +264,8 @@ internal struct PluginContextSerializer {
                 return .repository(url: url.absoluteString, displayVersion: package.manifest.version?.description ?? "no version", scmRevision: package.manifest.revision ?? "no revision")
             case .registry(let identity):
                 return .registry(identity: identity.description, displayVersion: package.manifest.version?.description ?? "no version")
+            case .archive(let url):
+                return .archive(url: url.absoluteString)
             }
         }
 
@@ -343,7 +347,7 @@ fileprivate extension WireInput.Target.TargetInfo.SourceModuleKind {
             self = .test
         case .macro:
             self = .macro
-        case .binary, .plugin, .systemModule:
+        case .binary, .plugin, .systemModule, .external:
             throw StringError("unexpected target kind \(kind) for source module")
         }
     }

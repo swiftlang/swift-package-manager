@@ -491,12 +491,19 @@ extension WorkspaceStateStorage {
 
         struct PackageReference: Codable {
             let identity: String
+            let type: PackageType?
             let kind: Kind
             let location: String
             let name: String
 
             init(_ reference: PackageModel.PackageReference) {
                 self.identity = reference.identity.description
+                switch reference.identity.type {
+                case .swift: self.type = .swift
+                case .external: self.type = .external
+                case .binary: self.type = .binary
+                }
+
                 switch reference.kind {
                 case .root(let path):
                     self.kind = .root
@@ -514,6 +521,9 @@ extension WorkspaceStateStorage {
                     self.kind = .registry
                     // FIXME: placeholder
                     self.location = self.identity.description
+                case .archive(let url):
+                    self.kind = .archive
+                    self.location = url.absoluteString
                 }
                 self.name = reference.deprecatedName
             }
@@ -524,6 +534,13 @@ extension WorkspaceStateStorage {
                 case localSourceControl
                 case remoteSourceControl
                 case registry
+                case archive
+            }
+
+            enum PackageType: String, Codable {
+                case swift
+                case external
+                case binary
             }
         }
     }
@@ -568,7 +585,13 @@ extension Workspace.ManagedPrebuilt {
 
 extension PackageModel.PackageReference {
     fileprivate init(_ reference: WorkspaceStateStorage.V7.PackageReference) throws {
-        let identity = PackageIdentity.plain(reference.identity)
+        let type: PackageIdentity.PackageType = switch reference.type {
+        case .swift: .swift
+        case .external: .external
+        case .binary: .binary
+        case .none: .swift
+        }
+        let identity = PackageIdentity.plain(reference.identity, type: type)
         let kind: PackageModel.PackageReference.Kind
         switch reference.kind {
         case .root:
@@ -581,6 +604,11 @@ extension PackageModel.PackageReference {
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
             kind = .registry(identity)
+        case .archive:
+            guard let url = URL(string: reference.location) else {
+                throw InternalError("Bad URL")
+            }
+            kind = .archive(url)
         }
 
         self.init(
@@ -885,6 +913,9 @@ extension WorkspaceStateStorage {
                     self.kind = .registry
                     // FIXME: placeholder
                     self.location = self.identity.description
+                case .archive(let url):
+                    self.kind = .archive
+                    self.location = url.absoluteString
                 }
                 self.name = reference.deprecatedName
             }
@@ -895,6 +926,7 @@ extension WorkspaceStateStorage {
                 case localSourceControl
                 case remoteSourceControl
                 case registry
+                case archive
             }
         }
     }
@@ -937,6 +969,11 @@ extension PackageModel.PackageReference {
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
             kind = .registry(identity)
+        case .archive:
+            guard let url = URL(string: reference.location) else {
+                throw InternalError("Bad URL")
+            }
+            kind = .archive(url)
         }
 
         self.init(
@@ -1211,6 +1248,9 @@ extension WorkspaceStateStorage {
                     self.kind = .registry
                     // FIXME: placeholder
                     self.location = self.identity.description
+                case .archive(let url):
+                    self.kind = .archive
+                    self.location = url.absoluteString
                 }
                 self.name = reference.deprecatedName
             }
@@ -1221,6 +1261,7 @@ extension WorkspaceStateStorage {
                 case localSourceControl
                 case remoteSourceControl
                 case registry
+                case archive
             }
         }
     }
@@ -1264,6 +1305,11 @@ extension PackageModel.PackageReference {
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
             kind = .registry(identity)
+        case .archive:
+            guard let url = URL(string: reference.location) else {
+                throw InternalError("Bad URL")
+            }
+            kind = .archive(url)
         }
 
         self.init(

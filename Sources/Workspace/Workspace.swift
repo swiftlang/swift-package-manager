@@ -1113,7 +1113,7 @@ extension Workspace {
                     // TODO: this does not use the identity resolver which is probably fine since its the root packages
                     do {
                         let manifest = try await self.loadManifest(
-                            packageIdentity: PackageIdentity(path: package),
+                            packageIdentity: PackageIdentity(path: package, type: .swift),
                             packageKind: .root(package),
                             packagePath: package,
                             packageLocation: package.pathString,
@@ -1221,7 +1221,7 @@ extension Workspace {
     ) {
         self.loadRootManifest(at: path, observabilityScope: observabilityScope) { result in
             let result = result.tryMap { manifest -> Package in
-                let identity = try self.identityResolver.resolveIdentity(for: manifest.packageKind)
+                let identity = try self.identityResolver.resolveIdentity(for: manifest.packageKind, type: .swift)
 
                 // radar/82263304
                 // compute binary artifacts for the sake of constructing a project model
@@ -1435,6 +1435,8 @@ extension Workspace {
             try await self.removeRepository(dependency: dependencyToRemove)
         case .registry:
             try self.removeRegistryArchive(for: dependencyToRemove)
+        case .archive:
+            fatalError("TODO")
         }
 
         // Save the state.
@@ -1511,6 +1513,8 @@ extension PackageDependency {
         case .sourceControl:
             false
         case .registry:
+            false
+        case .archive:
             false
         }
     }

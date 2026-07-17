@@ -45,6 +45,20 @@ public protocol BuildToolPlugin: Plugin {
         context: PluginContext,
         target: Target
     ) async throws -> [Command]
+
+    /// Create package level build commands that feed into the package build and consumes
+    /// products from the package build.
+    func createPackageBuildCommands(
+        context: PluginContext
+    ) async throws -> [Command]
+}
+
+extension BuildToolPlugin {
+    public func createPackageBuildCommands(
+        context: PluginContext
+    ) async throws -> [Command] {
+        []
+    }
 }
 
 /// The plugin protocol that defines functionality for all plugins that have a command capability.
@@ -77,19 +91,4 @@ extension CommandPlugin {
 public struct BuildContext {
     public let triple: String
     public let sdkPath: URL?
-}
-
-public protocol ExternalBuilderPlugin: Plugin {
-    func build(context: PluginContext, arguments: [String], buildContext: BuildContext) async throws
-    func test(context: PluginContext, arguments: [String]) async throws
-    func install(context: PluginContext, path: URL, arguments: [String]) async throws
-}
-
-/// test and install are optional
-extension ExternalBuilderPlugin {
-    public func test(context: PluginContext, arguments: [String]) async throws {
-    }
-
-    public func install(context: PluginContext, path: URL, arguments: [String]) async throws {
-    }
 }

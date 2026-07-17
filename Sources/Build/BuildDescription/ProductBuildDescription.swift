@@ -211,6 +211,8 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         case .library(.static):
             // No arguments for static libraries.
             return []
+        case .library(.xcframework):
+            throw InternalError("xcframework dependencies not supported by native build system")
         case .test:
             // Test products are bundle when using Objective-C, executable when using test entry point.
             switch self.buildParameters.testProductStyle {
