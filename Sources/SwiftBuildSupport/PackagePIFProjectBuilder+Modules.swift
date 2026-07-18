@@ -324,6 +324,11 @@ extension PackagePIFProjectBuilder {
             """
         }
 
+        if let includeDirAbsolutePath = sourceModule.includeDirAbsolutePath {
+            settings[.GENERATED_HEADER_UNDERLYING_MODULE_INCLUDE_BASE] =
+                includeDirAbsolutePath.pathString
+        }
+
         self.impartModuleMap(at: generatedModuleMapPath, to: &impartedSettings)
 
         return (moduleMapFileContents, generatedModuleMapPath)
