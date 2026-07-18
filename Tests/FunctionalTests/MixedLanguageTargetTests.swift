@@ -209,4 +209,15 @@ struct MixedLanguageTargetTests {
     func objCImplementationInSwift() async throws {
         try await testMixedLanguageFixture("CFamilyTargets/ObjCImplementationInSwift")
     }
+
+    /// A Clang-only target that imports a mixed-language library and uses an `@objc` Swift
+    /// subclass whose Objective-C superclass is declared in the library's underlying Clang module.
+    @Test(
+        .requireHostOS(.macOS),
+        .requiresFrontEndFlags(flags: ["generated-header-import-underlying-module-headers-using-quoted-includes-relative-to"]),
+        .tags(.Feature.Command.Build)
+    )
+    func clangTargetUsesMixedSwiftSubclassOfClangSuperclass() async throws {
+        try await testMixedLanguageFixture("CFamilyTargets/MixedClangSuperclassSwiftSubclass")
+    }
 }
