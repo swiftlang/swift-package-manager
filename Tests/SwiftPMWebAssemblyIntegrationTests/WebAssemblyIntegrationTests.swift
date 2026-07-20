@@ -99,6 +99,33 @@ private struct WebAssemblyIntegrationTests {
     @Test(
         .requiresWebAssemblySwiftSDK,
         .tags(
+            .Feature.Command.Build,
+        ),
+    )
+    func macroPackageIncludingTests() async throws {
+        try await fixture(name: "WebAssembly/MinimalWebAssemblyMacroPackage") { fixturePath in
+            let (compilerPath, sdkID) = try #require(try await findCompilerAndSDKIDForTesting(for: .webassembly))
+
+            var env = Environment()
+            env["SWIFT_EXEC"] = compilerPath.pathString
+
+            // Build the tests for WebAssembly. The macro implementation and its helper
+            // target will fail to compile if built for WebAssembly instead of the host platform.
+            let buildOutput = try await executeSwiftBuild(
+                fixturePath,
+                extraArgs: ["--swift-sdk", sdkID, "--build-tests", "-v"],
+                env: env,
+                buildSystem: .swiftbuild,
+            )
+            #expect(buildOutput.stdout.contains("Build complete"))
+
+            _ = try await executeSwiftTest(fixturePath, extraArgs: [], env: env, buildSystem: .swiftbuild)
+        }
+    }
+
+    @Test(
+        .requiresWebAssemblySwiftSDK,
+        .tags(
             .Feature.Command.Run,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
