@@ -788,6 +788,56 @@ struct TestCommandTests {
         }
     }
 
+    /// Regression test for the default (serial / non-parallel) mode: `--xunit-output` was only
+    /// ever written by `ParallelTestRunner`, so a plain `swift test --xunit-output <path>` run
+    /// produced only an empty `-swift-testing` companion file and never the XCTest xUnit XML.
+    @Test(
+        .tags(
+            .Feature.CommandLineArguments.TestOutputXunit,
+            .Feature.CommandLineArguments.TestEnableXCTest,
+            .Feature.CommandLineArguments.TestDisableSwiftTesting,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9961", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func swiftTestXunitOutputWrittenInSerialMode(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
+            let xUnitOutput = fixturePath.appending("result.xml")
+
+            // Deliberately omit `--parallel` so this exercises the serial XCTest path.
+            _ = try await execute(
+                [
+                    "--enable-xctest",
+                    "--disable-swift-testing",
+                    "--xunit-output",
+                    xUnitOutput.pathString,
+                ],
+                packagePath: fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+
+            try requireFileExists(at: xUnitOutput, "\(xUnitOutput) does not exist")
+
+            let contents: String = try localFileSystem.readFileContents(xUnitOutput)
+            #expect(
+                contents.contains(#"classname="LibATests.LibAXCTests""#),
+                "XCTest case from LibATests product must appear in xUnit file when running serially; got:\n\(contents)",
+            )
+            #expect(
+                contents.contains(#"classname="LibBTests.LibBXCTests""#),
+                "XCTest case from LibBTests product must appear in xUnit file when running serially; got:\n\(contents)",
+            )
+            #expect(
+                contents.contains("tests=\"2\""),
+                "Expected 2 XCTest cases counted in xUnit file; got:\n\(contents)",
+            )
+        }
+    }
+
     enum TestRunner {
         case XCTest
         case SwiftTesting
