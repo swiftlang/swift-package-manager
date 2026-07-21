@@ -64,11 +64,20 @@ public struct UserAuthenticator: Sendable {
     /// - Returns: The token user's normalized ``EmailAddress`` if a token user
     ///   whose token hashes to the presented value exists; otherwise `nil`.
     public func authenticate(token: String) async -> EmailAddress? {
-        guard !token.isEmpty else { return nil }
+        guard !token.isEmpty, token.count <= Self.maxTokenLength else { return nil }
         let user = await store.user(tokenHash: TokenHasher.hash(token))
         guard case .token = user?.credential else { return nil }
         return user?.email
     }
+
+    /// The longest presented bearer token this registry will even hash.
+    ///
+    /// A minted token is 43 base64url characters; this generous ceiling
+    /// leaves room for alternate token formats while bounding the work an
+    /// attacker can force with an enormous string — SHA-256 cost is linear in
+    /// input length, so an uncapped token lets a single request (or a flood of
+    /// them) burn CPU hashing megabytes that could never match a real token.
+    static let maxTokenLength = 256
 
     private static func passwordHash(of user: User?) -> String? {
         guard case let .password(hash) = user?.credential else { return nil }

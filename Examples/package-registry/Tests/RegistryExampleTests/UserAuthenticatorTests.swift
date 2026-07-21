@@ -95,6 +95,14 @@ struct UserAuthenticatorTests {
         #expect(await auth.authenticate(token: "") == nil)
     }
 
+    @Test func `an over-long token is rejected`() async throws {
+        let auth = try await seededAuthenticator {
+            _ = try await $0.register(email: "mona@example.com", password: nil)
+        }
+        let longToken = String(repeating: "a", count: UserAuthenticator.maxTokenLength + 1)
+        #expect(await auth.authenticate(token: longToken) == nil)
+    }
+
     // MARK: Cross-credential isolation
 
     @Test func `token user cannot authenticate via basic with the plaintext token`() async throws {
