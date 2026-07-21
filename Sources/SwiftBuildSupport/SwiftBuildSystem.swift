@@ -412,6 +412,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 "FRAMEWORK_SEARCH_PATHS",
             ]
         )
+        let moduleMapPaths = try await getUniqueBuildSettingsIncludingDependencies(
+            of: request.configuredTargets,
+            buildSettings: ["MODULEMAP_PATH"]
+        )
 
         let graph = try await self.getPackageGraph()
         // Link the special REPL product that contains all of the library targets.
@@ -420,9 +424,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // The graph should have the REPL product.
         assert(graph.product(for: replProductName) != nil)
 
-        let arguments = ["repl", "-l\(replProductName)"] + includePaths.map {
-            "-I\($0)"
-        }
+        let arguments = ["repl", "-l\(replProductName)"]
+            + includePaths.map { "-I\($0)" }
+            + moduleMapPaths.filter { !$0.isEmpty }.flatMap { ["-Xcc", "-fmodule-map-file=\($0)"] }
 
         self.outputStream.send("Done.\n")
         return arguments
