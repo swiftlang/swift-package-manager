@@ -155,13 +155,16 @@ curl -skX POST https://localhost:8000/login -H 'Authorization: Bearer kR8f…QeE
 ### Requiring login to publish
 
 By default the publish endpoint is open. Start the server with `--enable-auth`
-to require that a user has logged in first:
+to gate it behind authentication:
 
 ```bash
 swift run PackageRegistryServer --enable-auth
 ```
 
-The set of logged-in users is tracked in memory: a successful `POST /login`
-records the user, and while at least one user is logged in the publish endpoint
-accepts requests. A publish attempt made before anyone has logged in is
-rejected with `401 Unauthorized`. Login state is lost when the server restarts.
+With the gate on, every publish request must carry its own valid credentials —
+an `Authorization` header (HTTP Basic or Bearer) that verifies against a
+registered account. There is no server-side session: credentials are re-checked
+on every request, so a prior `POST /login` does not authorize a later
+credential-less publish, and nothing needs to be remembered across requests or
+survive a restart. A request with missing or invalid credentials is rejected
+with `401 Unauthorized`.
