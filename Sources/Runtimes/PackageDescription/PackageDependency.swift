@@ -111,6 +111,10 @@ extension Package {
                         return .exactItem(version)
                     case .range(let range):
                         return .rangeItem(range)
+                    case .ranges(let ranges):
+                        // The legacy `Requirement` enum cannot represent a union of
+                        // ranges. Approximate it with the range spanning all of them.
+                        return .rangeItem(Self.boundingRange(ranges))
                     case .revision(let revision):
                         return .revisionItem(revision)
                     }
@@ -120,6 +124,8 @@ extension Package {
                         return .exactItem(version)
                     case .range(let range):
                         return .rangeItem(range)
+                    case .ranges(let ranges):
+                        return .rangeItem(Self.boundingRange(ranges))
                     }
                 }
             }
@@ -855,6 +861,37 @@ extension Package.Dependency {
     ) -> Package.Dependency {
         return .init(name: name, location: url, requirement: requirement, traits: traits)
     }
+
+    // MARK: union of versions (source control)
+
+    /// Adds a remote package dependency whose allowable versions are the union of
+    /// the given version ranges.
+    ///
+    /// An allowable version is any version contained in at least one of the given
+    /// ranges. A bare version literal denotes an exact version, so version ranges
+    /// and exact versions can be mixed freely.
+    ///
+    /// The following example allows any version in `1.1.0 ..< 2.0.0` or
+    /// `2.1.0 ..< 3.0.0`, plus exactly `3.3.0` and `5.1.3`:
+    ///
+    /// ```swift
+    /// .package(url: "https://example.com/example-package.git", versions: "1.1.0"..<"2.0.0", "2.1.0"..<"3.0.0", "3.3.0", "5.1.3"),
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - url: The valid Git URL of the package.
+    ///   - versions: The version ranges (or exact versions) whose union forms the requirement.
+    ///   - traits: The trait configuration of this dependency. The default value enables the default traits of the package.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func package(
+        url: String,
+        versions: Range<Version>...,
+        traits: Set<Trait> = [.defaults]
+    ) -> Package.Dependency {
+        return .package(name: nil, url: url, requirement: .ranges(versions), traits: traits)
+    }
 }
 
 // MARK: - registry
@@ -1132,6 +1169,89 @@ extension Package.Dependency {
         }
 
         return .init(id: id, requirement: requirement, traits: traits)
+    }
+
+    // MARK: union of versions (registry)
+
+    /// Adds a registry package dependency whose allowable versions are the union
+    /// of the given version ranges.
+    ///
+    /// An allowable version is any version contained in at least one of the given
+    /// ranges. A bare version literal denotes an exact version, so version ranges
+    /// and exact versions can be mixed freely.
+    ///
+    /// ```swift
+    /// .package(id: "scope.name", versions: "1.1.0"..<"2.0.0", "2.1.0"..<"3.0.0", "3.3.0", "5.1.3"),
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - id: The identity of the package.
+    ///   - versions: The version ranges (or exact versions) whose union forms the requirement.
+    ///   - traits: The trait configuration of this dependency. The default value enables the default traits of the package.
+    ///
+    /// - Returns: A `Package.Dependency` instance.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func package(
+        id: String,
+        versions: Range<Version>...,
+        traits: Set<Trait> = [.defaults]
+    ) -> Package.Dependency {
+        return .package(id: id, requirement: .ranges(versions), traits: traits)
+    }
+}
+
+// MARK: - union of versions support
+
+extension Package.Dependency {
+    /// The smallest range that spans all of the given ranges.
+    ///
+    /// Used only to approximate a union of ranges when it must be represented by
+    /// the legacy, single-range ``Requirement-swift.enum``.
+    fileprivate static func boundingRange(_ ranges: [Range<Version>]) -> Range<Version> {
+        guard let lower = ranges.map(\.lowerBound).min(),
+              let upper = ranges.map(\.upperBound).max()
+        else {
+            return Version(0, 0, 0) ..< Version(0, 0, 0)
+        }
+        return lower ..< upper
+    }
+}
+
+extension Version {
+    /// The half-open range that contains only this version.
+    ///
+    /// This is how an exact version is represented within a union-of-versions
+    /// requirement. `VersionSetSpecifier.union(from:)` collapses such a
+    /// single-version range back to an exact requirement during resolution.
+    fileprivate var exactVersionRange: Range<Version> {
+        return self ..< Version(major, minor, patch + 1)
+    }
+}
+
+/// Allows a bare version string literal to be used where a `Range<Version>` is
+/// expected, denoting the single-version range containing only that version.
+///
+/// This lets the union-of-versions overloads accept a mix of version ranges and
+/// exact versions, e.g. `"1.1.0"..<"2.0.0"` alongside `"3.3.0"`.
+@available(_PackageDescription, introduced: 999.0)
+extension Range: @retroactive ExpressibleByUnicodeScalarLiteral where Bound == Version {
+    public init(unicodeScalarLiteral value: String) {
+        self.init(stringLiteral: value)
+    }
+}
+
+@available(_PackageDescription, introduced: 999.0)
+extension Range: @retroactive ExpressibleByExtendedGraphemeClusterLiteral where Bound == Version {
+    public init(extendedGraphemeClusterLiteral value: String) {
+        self.init(stringLiteral: value)
+    }
+}
+
+@available(_PackageDescription, introduced: 999.0)
+extension Range: @retroactive ExpressibleByStringLiteral where Bound == Version {
+    public init(stringLiteral value: String) {
+        let version = Version(stringLiteral: value)
+        self = version.exactVersionRange
     }
 }
 

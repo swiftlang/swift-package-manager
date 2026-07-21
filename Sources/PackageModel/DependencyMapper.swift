@@ -282,6 +282,8 @@ fileprivate extension PackageDependency.Registry.Requirement {
             self = .exact(value)
         case .range(let value):
             self = .range(value)
+        case .ranges(let value):
+            self = .ranges(value)
         }
     }
 }
@@ -293,6 +295,8 @@ fileprivate extension PackageDependency.SourceControl.Requirement {
             self = .exact(value)
         case .range(let value):
             self = .range(value)
+        case .ranges(let value):
+            self = .ranges(value)
         }
     }
 }

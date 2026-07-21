@@ -134,6 +134,8 @@ extension Serialization.PackageDependency.SourceControlRequirement {
         switch requirement {
         case .range(let range):
             self = .range(lowerBound: .init(range.lowerBound), upperBound: .init(range.upperBound))
+        case .ranges(let ranges):
+            self = .ranges(ranges.map { .init(lowerBound: .init($0.lowerBound), upperBound: .init($0.upperBound)) })
         case .exact(let version):
             self = .exact(.init(version))
         case .revision(let revision):
@@ -151,6 +153,8 @@ extension Serialization.PackageDependency.RegistryRequirement {
             self = .exact(.init(version))
         case .range(let range):
             self = .range(lowerBound: .init(range.lowerBound), upperBound: .init(range.upperBound))
+        case .ranges(let ranges):
+            self = .ranges(ranges.map { .init(lowerBound: .init($0.lowerBound), upperBound: .init($0.upperBound)) })
         }
     }
 }

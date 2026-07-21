@@ -59,4 +59,33 @@ class DependencyResolverTests: XCTestCase {
         XCTAssert(VersionSetSpecifier.empty.intersection(.any) == .empty)
         XCTAssert(VersionSetSpecifier.any.intersection(.any) == .any)
     }
+
+    func testUnionRequirementToConstraint() throws {
+        // A `.ranges` requirement maps to the union of its ranges, normalized by
+        // `VersionSetSpecifier.union(from:)`.
+
+        // Disjoint ranges are preserved as a `.ranges` version set.
+        XCTAssertEqual(
+            try PackageDependency.SourceControl.Requirement.ranges(["1.1.0"..<"2.0.0", "2.1.0"..<"3.0.0"]).toConstraintRequirement(),
+            .versionSet(.ranges(["1.1.0"..<"2.0.0", "2.1.0"..<"3.0.0"]))
+        )
+
+        // A single-version range (how an exact version is represented) collapses to `.exact`.
+        XCTAssertEqual(
+            try PackageDependency.SourceControl.Requirement.ranges(["3.3.0"..<"3.3.1"]).toConstraintRequirement(),
+            .versionSet(.exact("3.3.0"))
+        )
+
+        // Overlapping ranges are merged.
+        XCTAssertEqual(
+            try PackageDependency.SourceControl.Requirement.ranges(["1.0.0"..<"2.0.0", "1.5.0"..<"2.5.0"]).toConstraintRequirement(),
+            .versionSet(.range("1.0.0"..<"2.5.0"))
+        )
+
+        // The registry requirement funnels through the same normalization.
+        XCTAssertEqual(
+            try PackageDependency.Registry.Requirement.ranges(["1.1.0"..<"2.0.0", "3.3.0"..<"3.3.1"]).toConstraintRequirement(),
+            .versionSet(.ranges(["1.1.0"..<"2.0.0", "3.3.0"..<"3.3.1"]))
+        )
+    }
 }
