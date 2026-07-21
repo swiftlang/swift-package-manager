@@ -187,6 +187,23 @@ public class Product {
     ) -> Product {
         return Plugin(name: name, targets: targets)
     }
+
+    fileprivate static func template(
+        name: String
+    ) -> Product {
+        return Executable(name: name, targets: [name], settings: [])
+    }
+}
+
+public extension [Product] {
+    /// Defines a template that the package provides to generate new Swift projects.
+    @available(_PackageDescription, introduced: 6.3.0)
+    static func template(
+        name: String,
+    ) -> [Product] {
+        let templatePluginName = "\(name)Plugin"
+        return [Product.plugin(name: templatePluginName, targets: [templatePluginName]), Product.template(name: name)]
+    }
 }
 
 

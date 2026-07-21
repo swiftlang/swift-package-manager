@@ -38,6 +38,8 @@ import struct Basics.AsyncProcessResult
 
 import enum TSCUtility.Git
 
+@_spi(SwiftPMCoreCommandsTestSupport) import CoreCommands
+
 @_exported import enum TSCTestSupport.StringPattern
 
 @available(*, deprecated, message: "Use CiEnvironment.runningInSmokeTestPipeline")
@@ -71,6 +73,20 @@ public let duplicateSymbolRegex: Regex<AnyRegexOutput>? = {
         return nil
     }
 }()
+
+/// Wrapper function for tests that need task-local working directory isolation.
+/// This prevents process pollution in parallel tests by using @TaskLocal instead of ProcessEnv.chdir().
+///
+/// - Parameters:
+///   - path: The working directory to set for the duration of the operation
+///   - operation: The closure to execute with the task-local working directory
+/// - Returns: The result of the operation
+public func withTaskLocalWorkingDirectory<T>(
+    _ path: AbsolutePath,
+    operation: () async throws -> T
+) async rethrows -> T {
+    return try await SwiftCommandState.TestContext.$currentWorkingDirectory.withValue(path, operation: operation)
+}
 
 /// Test helper utility for executing a block with a temporary directory.
 public func testWithTemporaryDirectory(

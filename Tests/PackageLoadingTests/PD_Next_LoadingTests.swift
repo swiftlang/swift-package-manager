@@ -15,6 +15,11 @@ import PackageLoading
 import PackageModel
 import _InternalTestSupport
 import XCTest
+import Basics
+import PackageLoading
+import PackageModel
+import _InternalTestSupport
+import Testing
 
 final class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
@@ -39,4 +44,49 @@ final class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             }
         }
     }
+
+    func testTemplate() async throws {
+        let content = """
+        // swift-tools-version:6.3.0
+        import PackageDescription
+
+        let package = Package(
+            name: "SimpleTemplateExample",
+            products: .template(name: "ExecutableTemplate"),
+            dependencies: [
+                .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0"),
+                .package(url: "https://github.com/apple/swift-system.git", from: "1.4.2"),
+            ],
+            targets: .template(
+                name: "ExecutableTemplate",
+                dependencies: [
+                    .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                    .product(name: "SystemPackage", package: "swift-system"),
+                ],
+
+                initialPackageType: .executable,
+                description: "This is a simple template that uses Swift string interpolation."
+            )
+        )    
+        """
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let (_, validationDiagnostics) = try await PackageDescriptionLoadingTests
+            .loadAndValidateManifest(
+                content,
+                toolsVersion: .vNext,
+                packageKind: .fileSystem(.root),
+                manifestLoader: ManifestLoader(
+                    toolchain: try! UserToolchain.default
+                ),
+                observabilityScope: observability.topScope
+            )
+        try expectDiagnostics(validationDiagnostics) { results in
+            results.checkIsEmpty()
+        }
+        try expectDiagnostics(observability.diagnostics) { results in
+            results.checkIsEmpty()
+        }
+    }
 }
+

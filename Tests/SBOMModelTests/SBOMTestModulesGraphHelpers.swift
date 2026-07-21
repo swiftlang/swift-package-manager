@@ -143,6 +143,7 @@ enum SBOMTestModulesGraph {
             dependencies: dependencies,
             packageAccess: packageAccess,
             usesUnsafeFlags: false,
+            template: false,
             implicit: false
         )
     }
