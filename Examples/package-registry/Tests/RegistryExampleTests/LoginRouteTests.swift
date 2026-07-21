@@ -154,6 +154,9 @@ struct LoginRouteTests {
             ) { res async in
                 #expect(res.status == .notImplemented)
                 #expect(res.headers.first(name: .contentType) == "application/problem+json")
+                // The client-supplied scheme must not be reflected back.
+                #expect(!res.body.string.lowercased().contains("digest"))
+                #expect(!res.body.string.contains("mona"))
             }
         }
     }

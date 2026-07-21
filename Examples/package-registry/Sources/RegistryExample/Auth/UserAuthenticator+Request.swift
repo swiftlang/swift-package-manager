@@ -64,7 +64,7 @@ extension UserAuthenticator: AsyncRequestAuthenticator {
             request.auth.login(AuthenticatedUser(email: email))
 
         case nil:
-            throw ProblemDetails.notImplemented("Unsupported authentication scheme: \(scheme)")
+            throw ProblemDetails.notImplemented("Unsupported authentication scheme")
         }
     }
 }
