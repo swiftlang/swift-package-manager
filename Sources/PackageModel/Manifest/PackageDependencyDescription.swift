@@ -248,19 +248,6 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         }
     }
 
-    // FIXME: we should simplify target based dependencies such that this is no longer required
-    // A name to be used *only* for target dependencies resolution
-    public var explicitNameForModuleDependencyResolutionOnly: String? {
-        switch self {
-        case .fileSystem(let settings):
-            return settings.nameForTargetDependencyResolutionOnly
-        case .sourceControl(let settings):
-            return settings.nameForTargetDependencyResolutionOnly
-        case .registry:
-            return nil
-        }
-    }
-
     public var productFilter: ProductFilter {
         switch self {
         case .fileSystem(let settings):
