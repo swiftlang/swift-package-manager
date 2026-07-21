@@ -107,6 +107,11 @@ The registry associates a single credential with an email address — nothing
 else is stored about a user. Passwords are kept as bcrypt hashes and tokens as
 the SHA-256 of the plaintext, so no secret is ever persisted in the clear.
 
+> **Note:** Authorization is coarse-grained. Any authenticated account may
+> publish *any* package — the registry records no per-package ownership and
+> checks nothing beyond "the request carries valid credentials." A production
+> registry would scope which accounts may publish which package identifiers.
+
 ### Create an account
 
 `POST /users` takes a JSON body. Include a `password` to create an HTTP Basic
