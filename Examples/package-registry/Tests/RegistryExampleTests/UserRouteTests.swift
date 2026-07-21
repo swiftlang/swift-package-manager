@@ -81,7 +81,7 @@ struct UserRouteTests {
                 .POST, "/users", body: jsonBody(#"{"email":"not-an-email","password":"hunter2"}"#)
             ) { res async in
                 #expect(res.status == .badRequest)
-                #expect(res.body.string.contains("invalid email"))
+                #expect(res.body.string.contains("the email address is invalid or unavailable"))
             }
         }
     }
@@ -105,7 +105,7 @@ struct UserRouteTests {
         }
     }
 
-    @Test func `duplicate email is rejected with 409`() async throws {
+    @Test func `duplicate email is rejected with the same 400 as a malformed one`() async throws {
         try await withRegistryApp { app in
             let tester = try app.testing()
             try await tester.test(
@@ -116,9 +116,35 @@ struct UserRouteTests {
             try await tester.test(
                 .POST, "/users", body: jsonBody(#"{"email":"mona@example.com","password":"other"}"#)
             ) { res async in
-                #expect(res.status == .conflict)
+                #expect(res.status == .badRequest)
                 #expect(res.headers.first(name: .contentType) == "application/problem+json")
             }
+        }
+    }
+
+    @Test func `malformed and duplicate emails are indistinguishable to the client`() async throws {
+        try await withRegistryApp { app in
+            let tester = try app.testing()
+            try await tester.test(
+                .POST, "/users", body: jsonBody(#"{"email":"mona@example.com","password":"hunter2"}"#)
+            ) { res async in
+                #expect(res.status == .created)
+            }
+            var malformedBody = ""
+            var duplicateBody = ""
+            try await tester.test(
+                .POST, "/users", body: jsonBody(#"{"email":"not-an-email","password":"hunter2"}"#)
+            ) { res async in
+                #expect(res.status == .badRequest)
+                malformedBody = res.body.string
+            }
+            try await tester.test(
+                .POST, "/users", body: jsonBody(#"{"email":"mona@example.com","password":"other"}"#)
+            ) { res async in
+                #expect(res.status == .badRequest)
+                duplicateBody = res.body.string
+            }
+            #expect(malformedBody == duplicateBody)
         }
     }
 
@@ -133,7 +159,7 @@ struct UserRouteTests {
             try await tester.test(
                 .POST, "/users", body: jsonBody(#"{"email":"  mona@example.com ","password":"other"}"#)
             ) { res async in
-                #expect(res.status == .conflict)
+                #expect(res.status == .badRequest)
             }
         }
     }
