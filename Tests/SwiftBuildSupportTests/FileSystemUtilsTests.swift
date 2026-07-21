@@ -69,18 +69,18 @@ struct CreateBuildSymbolicLinkFunction {
         // Arrange
         struct FileSystemDouble: FileSystem {
             func createSymbolicLink(_ path: TSCBasic.AbsolutePath, pointingAt destination: TSCBasic.AbsolutePath, relative: Bool) throws {
-                throw StringError("Purposely failing in \(#function)")
+                throw StringError("Purposely failing in the test in function \(#function)")
             }
 
             func removeFileTree(_ path: TSCBasic.AbsolutePath) throws {
-                throw StringError("Purposely failing in \(#function)")
+                throw StringError("Purposely failing in the test in function \(#function)")
             }
 
             func removeFileTree(_ path: AbsolutePath) throws {
-                throw StringError("Purposely failing in \(#function)")
+                throw StringError("Purposely failing in the test in function \(#function)")
             }
             func createSymbolicLink( source: AbsolutePath, pointingAt target: AbsolutePath ) throws {
-                throw StringError("Purposely failing in \(#function)")
+                throw StringError("Purposely failing in the test in function \(#function)")
             }
 
             func move(from sourcePath: TSCBasic.AbsolutePath, to destinationPath: TSCBasic.AbsolutePath) throws {}
@@ -105,8 +105,8 @@ struct CreateBuildSymbolicLinkFunction {
             func isExecutableFile(_ path: TSCBasic.AbsolutePath) -> Bool { false }
             func isFile(_ path: TSCBasic.AbsolutePath) -> Bool { false }
             func isDirectory(_ path: TSCBasic.AbsolutePath) -> Bool { false }
-            func exists(_ path: TSCBasic.AbsolutePath, followSymlink: Bool) -> Bool { false }
-            func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool { false }
+            func exists(_ path: TSCBasic.AbsolutePath, followSymlink: Bool) -> Bool { true }
+            func exists(_ path: AbsolutePath, followSymlink: Bool) -> Bool { true }
         }
 
         let fs = FileSystemDouble(
@@ -135,7 +135,6 @@ struct CreateBuildSymbolicLinkFunction {
                 diagnostic: .contains("unable to create symbolic link"),
                 severity: .warning
             )
-
         }
     }
 
