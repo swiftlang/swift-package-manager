@@ -970,8 +970,8 @@ extension PackageGraph.ResolvedProduct {
 }
 
 extension PackageGraph.ResolvedModule {
-    func recursivelyTraverseTransitiveLinkageDependencies(includeMacroDependencies: Bool, with block: (ResolvedModule.Dependency) -> Void) {
-        [self].recursivelyTraverseTransitiveLinkageDependencies(includeMacroDependencies: includeMacroDependencies, with: block)
+    func recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: Set<ResolvedModule.ID>, with block: (ResolvedModule.Dependency) -> Void) {
+        [self].recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: includeDependenciesOfMacros, with: block)
     }
 
     func addParseAsLibrarySettings(to settings: inout BuildSettings, toolsVersion: ToolsVersion, fileSystem: FileSystem) {
@@ -999,7 +999,7 @@ extension PackageGraph.ResolvedModule {
 extension Collection<PackageGraph.ResolvedModule> {
     /// Recursively applies a block to each of the linkage dependencies of the given module, in topological sort order.
     /// Each module or product dependency is visited only once.
-    func recursivelyTraverseTransitiveLinkageDependencies(includeMacroDependencies: Bool, with block: (ResolvedModule.Dependency) -> Void) {
+    func recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: Set<ResolvedModule.ID>, with block: (ResolvedModule.Dependency) -> Void) {
         var moduleIDsSeen: Set<ResolvedModule.ID> = []
         var productIDsSeen: Set<ResolvedProduct.ID> = []
 
@@ -1015,7 +1015,7 @@ extension Collection<PackageGraph.ResolvedModule> {
                 let stopTraversal: Bool
                 switch moduleDependency.type {
                 case .macro:
-                    stopTraversal = !includeMacroDependencies
+                    stopTraversal = !includeDependenciesOfMacros.contains(moduleDependency.id)
                 case .plugin:
                     stopTraversal = true
                 default:

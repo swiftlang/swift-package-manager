@@ -1415,7 +1415,7 @@ struct PIFBuilderTests {
         }
     }
 
-    @Test func macroPackageTestDependencies() async throws {
+    @Test func testTargetWithTransitiveMacroImplementationDependency() async throws {
         try await withGeneratedPIF(fromFixture: "Macros/MinimalMacroPackage") { pif, observabilitySystem, _ in
             #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
 
@@ -1430,15 +1430,34 @@ struct PIFBuilderTests {
 
             let depIDs = testTarget.common.dependencies.map(\.targetId.value)
 
-            // The test bundle should link both the testable variant of the macro target, and its transitive dependency.
-            #expect(
-                depIDs.contains { $0.hasPrefix("PACKAGE-TARGET:MacroImpl-") && $0.hasSuffix("-testable") },
-                "Expected test bundle to link testable variant of MacroImpl, found dependencies: \(depIDs)"
-            )
-            #expect(
-                depIDs.contains("PACKAGE-TARGET:MacroImplHelpers"),
-                "Expected test bundle to link MacroImplHelpers, found dependencies: \(depIDs)"
-            )
+            // The macro implementation is a transitive dependency of the tests. The PIF should represent this
+            // dependency, but it should not be a linkage dependency, and the macro helpers also should not be
+            // linked.
+            #expect(depIDs.contains("PACKAGE-TARGET:MacroImpl"))
+            #expect(!depIDs.contains { $0.hasPrefix("PACKAGE-TARGET:MacroImpl-") && $0.hasSuffix("-testable") })
+            #expect(!depIDs.contains("PACKAGE-TARGET:MacroImplHelpers"))
+        }
+    }
+
+    @Test func testTargetWithDirectMacroImplementationDependency() async throws {
+        try await withGeneratedPIF(fromFixture: "Macros/MacroWithDirectTestDependency") { pif, observabilitySystem, _ in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+
+            let project = try pif.workspace.project(named: "MacroWithDirectTestDependency")
+
+            let testProduct = try project.target(named: "MacroImplTests-product")
+            guard case .target(let testTarget) = testProduct else {
+                Issue.record("Expected MacroImplTests-product to be a regular target")
+                return
+            }
+            #expect(testTarget.productType == .unitTest)
+
+            let depIDs = testTarget.common.dependencies.map(\.targetId.value)
+
+            // The macro implementation is a direct dependency of the test target. Ensure the testable variant and
+            // the helpers are linkage dependencies.
+            #expect(depIDs.contains { $0.hasPrefix("PACKAGE-TARGET:MacroImpl-") && $0.hasSuffix("-testable") })
+            #expect(depIDs.contains("PACKAGE-TARGET:MacroImplHelpers"))
         }
     }
 
