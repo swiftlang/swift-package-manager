@@ -125,7 +125,7 @@ extension PackagePIFProjectBuilder {
             settings[.SWIFT_MODULE_ALIASES] = list.isEmpty ? nil : list
         }
 
-        if product.type == .executable {
+        if pifProductType == .executable {
             // Don't install the Swift module of the executable product, lest it conflict with the testable variant.
             // The contents of the testable variant's module will exactly match the binary linked by dependencies (test targets).
             // Also, multiple executable products may incorporate sources from the same executable target, while the testable
