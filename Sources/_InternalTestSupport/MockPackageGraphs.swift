@@ -294,6 +294,95 @@ package func macrosTestsPackageGraph() throws -> MockPackageGraph {
     return (graph, fs, observability.topScope)
 }
 
+/// A package with a build-tool plugin whose executable tool has a private
+/// local dependency. Both are reachable only through the plugin, so
+/// both must build for the host only, never the cross-compilation target.
+package func pluginToolPackageGraph() throws -> MockPackageGraph {
+    let fs = InMemoryFileSystem(emptyFiles:
+        "/swift-js/Sources/ForTarget/source.swift",
+        "/swift-js/Plugins/MyBuildPlugin/source.swift",
+        "/swift-js/Sources/MyBuildTool/source.swift",
+        "/swift-js/Sources/MyBuildToolCore/source.swift",
+        "/swift-syntax/Sources/SwiftSyntax/source.swift"
+    )
+
+    let observability = ObservabilitySystem.makeForTesting()
+    let graph = try loadModulesGraph(
+        fileSystem: fs,
+        manifests: [
+            Manifest.createRootManifest(
+                displayName: "swift-js",
+                path: "/swift-js",
+                dependencies: [
+                    .localSourceControl(
+                        path: "/swift-syntax",
+                        requirement: .upToNextMajor(from: "1.0.0")
+                    )
+                ],
+                products: [
+                    ProductDescription(
+                        name: "ForTarget",
+                        type: .library(.automatic),
+                        targets: ["ForTarget"]
+                    ),
+                    ProductDescription(
+                        name: "MyBuildPlugin",
+                        type: .plugin,
+                        targets: ["MyBuildPlugin"]
+                    ),
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "ForTarget",
+                        dependencies: []
+                    ),
+                    TargetDescription(
+                        name: "MyBuildPlugin",
+                        dependencies: ["MyBuildTool"],
+                        type: .plugin,
+                        pluginCapability: .buildTool
+                    ),
+                    TargetDescription(
+                        name: "MyBuildTool",
+                        dependencies: [
+                            .target(name: "MyBuildToolCore"),
+                            .product(name: "SwiftSyntax", package: "swift-syntax"),
+                        ],
+                        type: .executable
+                    ),
+                    TargetDescription(
+                        name: "MyBuildToolCore",
+                        dependencies: []
+                    ),
+                ],
+                traits: []
+            ),
+            Manifest.createFileSystemManifest(
+                displayName: "swift-syntax",
+                path: "/swift-syntax",
+                products: [
+                    ProductDescription(
+                        name: "SwiftSyntax",
+                        type: .library(.automatic),
+                        targets: ["SwiftSyntax"]
+                    )
+                ],
+                targets: [
+                    TargetDescription(name: "SwiftSyntax", dependencies: []),
+                ],
+                traits: []
+            ),
+        ],
+        observabilityScope: observability.topScope,
+        traitConfiguration: .default,
+        enabledTraitsMap: .init()
+    )
+
+    XCTAssertNoDiagnostics(observability.diagnostics)
+
+    return (graph, fs, observability.topScope)
+}
+
 package func trivialPackageGraph() throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(
         emptyFiles:

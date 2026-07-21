@@ -246,11 +246,11 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
         )
         let result = try BuildPlanResult(plan: plan)
         result.checkProductsCount(3)
-        result.checkTargetsCount(10)
+        result.checkTargetsCount(9)
 
         XCTAssertTrue(try result.allTargets(named: "SwiftSyntax")
             .map { try $0.swift() }
-            .contains { $0.destination == .host })
+            .allSatisfy { $0.destination == .host })
         try result.check(destination: .host, triple: toolsTriple, for: "MMIOMacros")
         try result.check(destination: .target, triple: destinationTriple, for: "MMIO")
         try result.check(destination: .target, triple: destinationTriple, for: "Core")
@@ -309,7 +309,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
 
         let result = try BuildPlanResult(plan: plan)
         result.checkProductsCount(3)
-        result.checkTargetsCount(20)
+        result.checkTargetsCount(16)
 
         XCTAssertTrue(try result.allTargets(named: "SwiftSyntax")
             .map { try $0.swift() }
@@ -366,12 +366,12 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
                 observabilityScope: scope
             )
             let result = try BuildPlanResult(plan: plan)
-            result.checkProductsCount(4)
-            result.checkTargetsCount(6)
+            result.checkProductsCount(3)
+            result.checkTargetsCount(5)
 
             XCTAssertTrue(try result.allTargets(named: "SwiftSyntax")
                 .map { try $0.swift() }
-                .contains { $0.destination == .host })
+                .allSatisfy { $0.destination == .host })
 
             try result.check(destination: .host, triple: toolsTriple, for: "swift-mmioPackageTests")
             try result.check(destination: .host, triple: toolsTriple, for: "swift-mmioPackageDiscoveredTests")
@@ -384,7 +384,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
             XCTAssertEqual(macroProduct.buildParameters.triple, toolsTriple)
 
             let swiftSyntaxProducts = result.allProducts(named: "SwiftSyntax")
-            XCTAssertEqual(swiftSyntaxProducts.count, 2)
+            XCTAssertEqual(swiftSyntaxProducts.count, 1)
             let swiftSyntaxToolsProduct = try XCTUnwrap(swiftSyntaxProducts.first { $0.destination == .host })
             let archiveArguments = try swiftSyntaxToolsProduct.archiveArguments()
 

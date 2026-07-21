@@ -1407,7 +1407,7 @@ struct PIFBuilderTests {
                 let id = target.common.id.value
                 let config = try target.buildConfig(named: .debug)
                 let platforms = config.settings[.SUPPORTED_PLATFORMS]
-                if id == "PACKAGE-TARGET:MacroImpl" {
+                if id.hasPrefix("PACKAGE-TARGET:MacroImpl") {
                     #expect(platforms == ["$(HOST_PLATFORM)"], "target \(id) did not have the expected supported platform setting")
                 } else {
                     #expect(platforms == nil, "target \(id) has supported platforms set, unexpectedly")
@@ -1713,6 +1713,81 @@ struct PIFBuilderTests {
             pluginTarget.common.dependencies.contains { $0.targetId == pluginToolProductTarget.common.id },
             "Expected MyPlugin to depend on plugin-tool-product (the explicit product). Actual dependencies: \(pluginTarget.common.dependencies.map(\.targetId.value))"
         )
+    }
+
+    /// A build-tool plugin and its executable tool live in the *root* package. The tool is
+    /// host-only, so neither its module target nor its `-product` target may appear in the
+    /// top-level aggregates; otherwise a whole-package `swift build` specializes the tool for
+    /// the destination platform and fails on host-only imports.
+    @Test func hostOnlyBuildToolExcludedFromAggregates() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/RootLib/RootLib.swift",
+            "/Root/Sources/PluginTool/main.swift",
+            "/Root/Plugins/MyPlugin/plugin.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v5_9,
+                    products: [
+                        // Product name differs from the target name, so the tool's PIF target is
+                        // "plugin-tool-product", which also exercises the product-name resolution.
+                        ProductDescription(name: "plugin-tool", type: .executable, targets: ["PluginTool"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "RootLib",
+                            pluginUsages: [.plugin(name: "MyPlugin", package: nil)]
+                        ),
+                        TargetDescription(name: "PluginTool", type: .executable),
+                        TargetDescription(
+                            name: "MyPlugin",
+                            dependencies: ["PluginTool"],
+                            type: .plugin,
+                            pluginCapability: .buildTool
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always,
+                pluginScriptRunner: NoOpPluginScriptRunner()
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+
+        let errors = observability.diagnostics.filter { $0.severity == .error }
+        #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+        let rootProject = try pif.workspace.project(named: "Root")
+        let rootLibID = try rootProject.target(named: "RootLib").common.id.value
+        let toolModuleID = try rootProject.target(named: "PluginTool").common.id.value
+        let toolProductID = try rootProject.target(named: "plugin-tool-product").common.id.value
+
+        let aggregate = try pif.workspace.project(named: "Aggregate")
+        for aggregateName in [PIFBuilder.allExcludingTestsTargetName, PIFBuilder.allIncludingTestsTargetName] {
+            let deps = Set(try aggregate.target(named: aggregateName).common.dependencies.map(\.targetId.value))
+            // The shipped library is a genuine top-level target and stays in the aggregate.
+            #expect(deps.contains(rootLibID), "\(aggregateName) should build the shipped library RootLib")
+            // The host-only tool must not be a top-level destination build, as either target.
+            #expect(!deps.contains(toolModuleID), "\(aggregateName) must not build the host-only tool module")
+            #expect(!deps.contains(toolProductID), "\(aggregateName) must not build the host-only tool product")
+        }
     }
 
     /// Tests the cross-package case: the build tool plugin lives in one package and its

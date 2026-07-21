@@ -167,6 +167,56 @@ struct BuildPlanTraversalTests {
     }
 
     @Test
+    func pluginToolBuildsForHostOnly() async throws {
+        // A build-tool plugin's executable tool, and anything reachable only through it,
+        // must be planned for the host only, even under a whole-package cross-compilation
+        // build that seeds every module for the target. Regression test for host-only tool
+        // modules being built for the target platform.
+        let destinationTriple = Triple.arm64Linux
+        let toolsTriple = Triple.x86_64MacOS
+
+        let (graph, fs, scope) = try pluginToolPackageGraph()
+        let plan = try await BuildPlan(
+            destinationBuildParameters: mockBuildParameters(
+                destination: .target,
+                buildSystemKind: .native,
+                triple: destinationTriple
+            ),
+            toolsBuildParameters: mockBuildParameters(
+                destination: .host,
+                buildSystemKind: .native,
+                triple: toolsTriple
+            ),
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: scope
+        )
+
+        let tool = try #require(graph.module(for: "MyBuildTool"))
+        let toolCore = try #require(graph.module(for: "MyBuildToolCore"))
+        let jsKit = try #require(graph.module(for: "ForTarget"))
+
+        // The tool and its private dependency are planned for the host...
+        #expect(plan.description(for: tool, context: .host) != nil)
+        #expect(plan.description(for: toolCore, context: .host) != nil)
+
+        // ...and never for the cross-compilation target.
+        #expect(plan.description(for: tool, context: .target) == nil)
+        #expect(plan.description(for: toolCore, context: .target) == nil)
+
+        // A regular library still builds for the target.
+        #expect(plan.description(for: jsKit, context: .target) != nil)
+
+        // Cross-check via the full traversal: neither host-only tool module appears at .target.
+        var results: [Result] = []
+        plan.traverseModules {
+            results.append(Result(parent: $1, module: $0))
+        }
+        #expect(self.getResults(for: "MyBuildTool", with: .target, in: results).isEmpty)
+        #expect(self.getResults(for: "MyBuildToolCore", with: .target, in: results).isEmpty)
+    }
+
+    @Test
     func recursiveDependencyTraversal() async throws {
         let destinationTriple = Triple.arm64Linux
         let toolsTriple = Triple.x86_64MacOS
