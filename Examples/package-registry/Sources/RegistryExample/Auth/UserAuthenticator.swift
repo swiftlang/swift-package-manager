@@ -78,6 +78,15 @@ public struct UserAuthenticator: Sendable {
         return result ?? false
     }
 
-    private static let decoyHash: String =
-        (try? Bcrypt.hash("decoy value for constant-time credential verification")) ?? ""
+    /// A precomputed, valid bcrypt hash used as the constant-time decoy for
+    /// unknown (or token-only) accounts on the Basic path.
+    ///
+    /// Hardcoding a known-good hash — rather than computing one at launch with
+    /// a `try?` that could fall back to an empty string — guarantees the Basic
+    /// path always runs a full bcrypt verification. An empty or malformed
+    /// decoy would let `Bcrypt.verify` short-circuit cheaply for a missing
+    /// account, reopening the timing side-channel this decoy exists to close.
+    /// The plaintext behind the hash is irrelevant and unrecoverable; its
+    /// random salt means no real password can ever verify against it.
+    static let decoyHash = "$2y$12$VR4mlQAwtp/g2T1HgvFYDOCUbNVVZ07E5VavY/sIAHo4hs4Ukr/9m"
 }

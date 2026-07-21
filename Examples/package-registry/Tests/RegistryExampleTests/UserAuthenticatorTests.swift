@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Testing
+import Vapor
 @testable import RegistryExample
 
 @Suite("UserAuthenticator")
@@ -57,6 +58,18 @@ struct UserAuthenticatorTests {
             _ = try await $0.register(email: "mona@example.com", password: "hunter2")
         }
         #expect(await auth.authenticate(email: "mona@example.com", password: "") == nil)
+    }
+
+    @Test func `the decoy hash is a non-empty, verifiable bcrypt hash`() throws {
+        // Guards the constant-time Basic path: an empty or malformed decoy
+        // would let bcrypt short-circuit for an unknown account, leaking its
+        // absence through response timing. Also confirms Vapor's Bcrypt
+        // accepts the hash's revision.
+        #expect(!UserAuthenticator.decoyHash.isEmpty)
+        #expect(try Bcrypt.verify(
+            "decoy value for constant-time credential verification",
+            created: UserAuthenticator.decoyHash
+        ))
     }
 
     // MARK: Bearer
