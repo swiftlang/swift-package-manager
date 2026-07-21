@@ -12,12 +12,6 @@
 
 import Vapor
 
-/// The authentication schemes this registry understands, matched
-/// case-insensitively against the leading token of an `Authorization`
-/// header. Modeling the supported set as a type (rather than comparing bare
-/// string literals) keeps the `switch` in ``UserAuthenticator/authenticate(request:)``
-/// exhaustively checked: adding a scheme is a compile-time obligation, not a
-/// literal that can be misspelled.
 private enum AuthorizationScheme: String {
     case basic
     case bearer
