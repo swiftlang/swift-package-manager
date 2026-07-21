@@ -27,6 +27,7 @@ import struct PackageGraph.Assignment
 import enum PackageGraph.BoundVersion
 import enum PackageGraph.ContainerUpdateStrategy
 import protocol PackageGraph.CustomPackageContainer
+import protocol PackageGraph.PackageContainer
 import struct PackageGraph.DependencyResolverBinding
 import protocol PackageGraph.DependencyResolverDelegate
 import struct PackageGraph.Incompatibility
@@ -182,8 +183,15 @@ extension Workspace {
             }
         } else {
             // Resolve the dependencies.
+            let (packagesToWarm, prefetchedContainers) = await self.prefetchContainers(
+                rootManifests: rootManifests,
+                rootDependencies: root.dependencies,
+                observabilityScope: observabilityScope
+            )
             let resolver = try self.createResolver(
                 resolvedPackages: resolvedPackages,
+                prefetchPackages: packagesToWarm,
+                prefetchedContainers: prefetchedContainers,
                 observabilityScope: observabilityScope
             )
             self.activeResolver = resolver
@@ -714,7 +722,17 @@ extension Workspace {
 
 
         // Perform dependency resolution.
-        let resolver = try self.createResolver(resolvedPackages: resolvedPackagesStore.resolvedPackages, observabilityScope: observabilityScope)
+        let (packagesToWarm, prefetchedContainers) = await self.prefetchContainers(
+            rootManifests: rootManifests,
+            rootDependencies: root.dependencies,
+            observabilityScope: observabilityScope
+        )
+        let resolver = try self.createResolver(
+            resolvedPackages: resolvedPackagesStore.resolvedPackages,
+            prefetchPackages: packagesToWarm,
+            prefetchedContainers: prefetchedContainers,
+            observabilityScope: observabilityScope
+        )
         self.activeResolver = resolver
 
         let result = await self.resolveDependencies(
@@ -882,7 +900,7 @@ extension Workspace {
                 // FIXME: We need to get the revision here, and we don't have a
                 // way to get it back out of the resolver which is very
                 // annoying. Maybe we should make an SPI on the provider for this?
-                guard let tag = container.getTag(for: version) else {
+                guard let tag = await container.getTag(for: version) else {
                     throw try await InternalError(
                         "unable to get tag for \(package) \(version); available versions \(container.versionsDescending())"
                     )
@@ -1268,6 +1286,8 @@ extension Workspace {
         provider: PackageContainerProvider? = nil,
         resolvedPackages: ResolvedPackagesStore.ResolvedPackages,
         skipUpdateForResolvedPackages: Bool = false,
+        prefetchPackages: [PackageReference] = [],
+        prefetchedContainers: [PackageReference: any PackageContainer] = [:],
         observabilityScope: ObservabilityScope
     ) throws -> PubGrubDependencyResolver {
         var delegate: DependencyResolverDelegate
@@ -1286,12 +1306,137 @@ extension Workspace {
         return PubGrubDependencyResolver(
             provider: provider ?? packageContainerProvider,
             resolvedPackages: resolvedPackages,
+            prefetchPackages: prefetchPackages,
+            prefetchedContainers: prefetchedContainers,
             skipDependenciesUpdates: self.configuration.skipDependenciesUpdates,
             skipUpdateForResolvedPackages: skipUpdateForResolvedPackages,
             prefetchBasedOnResolvedFile: self.configuration.prefetchBasedOnResolvedFile,
             observabilityScope: observabilityScope,
             delegate: delegate
         )
+    }
+
+    /// Builds the list of packages to prefetch before PubGrub runs.
+    /// Reads `Package.resolved` from disk for the full transitive closure
+    /// (even during `swift package update` which clears the resolver's pins).
+    /// Falls back to root manifest direct deps on fresh checkout.
+    internal func prefetchPackages(
+        rootManifests: [AbsolutePath: Manifest],
+        rootDependencies: [PackageDependency] = [],
+        observabilityScope: ObservabilityScope
+    ) -> [PackageReference] {
+        // Current root URLs by identity (override deps win), to skip warming packages whose URL changed.
+        let rootRemoteLocations = Dictionary(
+            (rootManifests.values.flatMap(\.dependencies) + rootDependencies).compactMap { dep -> (PackageIdentity, String)? in
+                guard case .sourceControl(let settings) = dep,
+                      case .remote(let url) = settings.location else { return nil }
+                return (settings.identity, url.absoluteString)
+            },
+            uniquingKeysWith: { _, last in last }
+        )
+
+        // Identities overridden to a non-remote dependency must not be warmed as remote.
+        let locallyOverriddenIdentities = Set(rootDependencies.compactMap { dep -> PackageIdentity? in
+            if case .sourceControl(let settings) = dep, case .remote = settings.location { return nil }
+            return dep.identity
+        })
+
+        // Prefer Package.resolved on disk — full transitive closure.
+        do {
+            let store = try self.resolvedPackagesStore.load()
+            let packages = store.resolvedPackages.values.compactMap { resolved -> PackageReference? in
+                switch resolved.state {
+                case .branch, .revision:
+                    return nil
+                case .version:
+                    // Only remote packages need warming; a local one clobbers overrides.
+                    guard case .remoteSourceControl(let resolvedURL) = resolved.packageRef.kind else { return nil }
+                    if locallyOverriddenIdentities.contains(resolved.packageRef.identity) {
+                        return nil // overridden to a local/non-remote dependency
+                    }
+                    if let rootURL = rootRemoteLocations[resolved.packageRef.identity],
+                       rootURL != resolvedURL.absoluteString {
+                        // URL changed since Package.resolved; skip so the warm container can't pin the stale location.
+                        observabilityScope.emit(
+                            debug: "not prefetching '\(resolved.packageRef.identity)': root URL '\(rootURL)' differs from resolved '\(resolvedURL.absoluteString)'"
+                        )
+                        return nil
+                    }
+                    return resolved.packageRef
+                }
+            }
+            if !packages.isEmpty {
+                return packages
+            }
+        } catch {
+            observabilityScope.emit(
+                info: "unable to load Package.resolved for prefetching; falling back to root manifest dependencies",
+                underlyingError: error
+            )
+        }
+
+        // Fresh checkout: no Package.resolved. Use root manifest deps.
+        return rootManifests.values.flatMap(\.dependencies).compactMap { dep in
+            guard case .sourceControl(let settings) = dep,
+                  case .remote(let url) = settings.location else { return nil }
+            guard !locallyOverriddenIdentities.contains(settings.identity) else { return nil }
+            switch settings.requirement {
+            case .branch, .revision:
+                return nil
+            case .exact, .range:
+                return PackageReference.remoteSourceControl(
+                    identity: settings.identity, url: url
+                )
+            }
+        }
+    }
+
+    internal func prefetchContainers(
+        rootManifests: [AbsolutePath: Manifest],
+        rootDependencies: [PackageDependency] = [],
+        observabilityScope: ObservabilityScope
+    ) async -> (packagesToWarm: [PackageReference], prefetchedContainers: [PackageReference: any PackageContainer]) {
+        let editedIdentities = await Set(self.state.dependencies.filter {
+            if case .edited = $0.state { return true }
+            return false
+        }.map(\.packageRef.identity))
+        let packagesToWarm = self.prefetchPackages(
+            rootManifests: rootManifests,
+            rootDependencies: rootDependencies,
+            observabilityScope: observabilityScope
+        ).filter { !editedIdentities.contains($0.identity) }
+
+        guard self.configuration.prefetchBasedOnResolvedFile else {
+            return (packagesToWarm, [:])
+        }
+
+        let updateStrategy: ContainerUpdateStrategy = self.configuration.skipDependenciesUpdates ? .never : .always
+        let prefetched = await withTaskGroup(of: (PackageReference, (any PackageContainer)?).self) { group in
+            for package in packagesToWarm {
+                group.addTask {
+                    do {
+                        let container = try await self.getContainer(
+                            for: package,
+                            updateStrategy: updateStrategy,
+                            observabilityScope: observabilityScope
+                        )
+                        return (package, container)
+                    } catch {
+                        observabilityScope.emit(
+                            debug: "prefetch failed for '\(package.identity)'",
+                            underlyingError: error
+                        )
+                        return (package, nil)
+                    }
+                }
+            }
+            var result = [PackageReference: any PackageContainer]()
+            for await (ref, container) in group {
+                if let container { result[ref] = container }
+            }
+            return result
+        }
+        return (packagesToWarm, prefetched)
     }
 
     /// Runs the dependency resolver based on constraints provided and returns the results.

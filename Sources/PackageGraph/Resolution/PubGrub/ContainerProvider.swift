@@ -37,14 +37,20 @@ final class ContainerProvider {
     //// Store cached containers
     private var containersCache = ThreadSafeKeyValueStore<PackageReference, PubGrubPackageContainer>()
 
+    /// Containers from workspace-level prefetch, held here until overridden
+    /// packages are known. Call `promoteWarmContainers(excluding:)` to move
+    /// survivors into `containersCache`.
+    private var warmCache = ThreadSafeKeyValueStore<PackageReference, PubGrubPackageContainer>()
+
     //// Store prefetches synchronization
     private var prefetches = ThreadSafeKeyValueStore<PackageReference, DispatchGroup>()
 
     init(
         provider underlying: PackageContainerProvider,
         skipUpdate: Bool,
-        skipUpdateForResolvedPackages: Bool,
+        skipUpdateForResolvedPackages: Bool = false,
         resolvedPackages: ResolvedPackagesStore.ResolvedPackages,
+        prefetchedContainers: [PackageReference: any PackageContainer] = [:],
         observabilityScope: ObservabilityScope
     ) {
         self.underlying = underlying
@@ -52,6 +58,29 @@ final class ContainerProvider {
         self.skipUpdateForResolvedPackages = skipUpdateForResolvedPackages
         self.resolvedPackages = resolvedPackages
         self.observabilityScope = observabilityScope
+        for (ref, container) in prefetchedContainers {
+            self.warmCache[ref] = PubGrubPackageContainer(
+                underlying: container,
+                resolvedPackages: resolvedPackages,
+                trustPinnedVersions: self.trustPinnedVersions(for: ref)
+            )
+        }
+    }
+
+    func promoteWarmContainers(excluding overriddenPackages: some Collection<PackageReference>) {
+        let overrides = Dictionary(overriddenPackages.map { ($0.identity, $0) }, uniquingKeysWith: { first, _ in first })
+        for (ref, container) in self.warmCache.get() {
+            if overrides[ref.identity] == nil {
+                self.containersCache[ref] = container
+            }
+        }
+        _ = self.warmCache.clear()
+        // Evict only when the override changes location; a same-location override (e.g. branch/revision pin) keeps its container.
+        for (ref, container) in self.containersCache.get() {
+            if let override = overrides[ref.identity], !container.package.equalsIncludingLocation(override) {
+                self.containersCache[ref] = nil
+            }
+        }
     }
 
     private func updateStrategy(for package: PackageReference) -> ContainerUpdateStrategy {
@@ -93,6 +122,13 @@ final class ContainerProvider {
     ) {
         // Return the cached container, if available.
         if let container = self.containersCache[comparingLocation: package] {
+            return completion(.success(container))
+        }
+
+        // Check warm cache (workspace-prefetched, not yet promoted).
+        // Promote on hit so subsequent lookups take the fast path above.
+        if let container = self.warmCache[comparingLocation: package] {
+            self.containersCache[package] = container
             return completion(.success(container))
         }
 
@@ -138,6 +174,10 @@ final class ContainerProvider {
     func prefetch(containers identifiers: [PackageReference]) {
         // Process each container.
         for identifier in identifiers {
+            if self.containersCache[comparingLocation: identifier] != nil
+                || self.warmCache[comparingLocation: identifier] != nil {
+                continue
+            }
             var needsFetching = false
             self.prefetches.memoize(identifier) {
                 let group = DispatchGroup()

@@ -73,7 +73,10 @@ public actor AsyncThrowingValueMemoizer<Value: Sendable> {
                 result = .failure(error)
             }
             if case .inProgress(let array) = self.stored {
-                self.stored = .complete(result)
+                switch result {
+                case .success: self.stored = .complete(result)
+                case .failure: self.stored = nil
+                }
                 array.forEach { $0.resume(with: result)}
             }
             return try result.get()
