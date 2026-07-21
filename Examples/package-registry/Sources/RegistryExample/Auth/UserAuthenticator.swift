@@ -25,8 +25,12 @@ import Vapor
 /// account existence: an unknown email (or a token-only user) is verified
 /// against a fixed decoy hash so a bcrypt computation is always performed,
 /// closing the timing side-channel that would otherwise let an attacker
-/// enumerate registered emails. bcrypt runs on the shared thread pool so
-/// it never blocks the event loop.
+/// enumerate registered emails. The account lookup itself is a hash-indexed
+/// dictionary access in ``UserStore`` — not a linear scan that could
+/// terminate early on a match — so it contributes no email-dependent timing
+/// of its own; the only credential-dependent work is the bcrypt step, which
+/// the decoy forces to run on every attempt. bcrypt runs on the shared
+/// thread pool so it never blocks the event loop.
 public struct UserAuthenticator: Sendable {
     let store: UserStore
 
