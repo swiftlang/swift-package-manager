@@ -96,7 +96,7 @@ struct UserAuthenticatorTests {
             _ = try await $0.register(email: "mona@example.com", password: nil)
         }
         let hash = TokenHasher.hash("the-token")
-        #expect(await auth.authenticate(email: "mona@example.com", password: hash) == nil)
+        #expect(await auth.authenticate(email: "mona@example.com", password: hash.value) == nil)
     }
 
     @Test func `password user cannot authenticate via bearer`() async throws {

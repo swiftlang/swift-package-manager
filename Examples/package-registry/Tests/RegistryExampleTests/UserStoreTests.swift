@@ -28,9 +28,9 @@ struct UserStoreTests {
 
     @Test func `round-trips a token user by token hash`() async throws {
         let store = UserStore()
-        let mona = User(email: try email("mona@example.com"), credential: .token(hash: "abc123"))
+        let mona = User(email: try email("mona@example.com"), credential: .token(hash: TokenHasher.hash("abc123")))
         try await store.create(mona)
-        #expect(await store.user(tokenHash: "abc123") == mona)
+        #expect(await store.user(tokenHash: TokenHasher.hash("abc123")) == mona)
     }
 
     @Test func `duplicate email throws emailAlreadyExists`() async throws {
@@ -43,23 +43,23 @@ struct UserStoreTests {
 
     @Test func `token collision throws and leaves no partial state`() async throws {
         let store = UserStore()
-        try await store.create(User(email: try email("a@example.com"), credential: .token(hash: "shared")))
+        try await store.create(User(email: try email("a@example.com"), credential: .token(hash: TokenHasher.hash("shared"))))
         await #expect(throws: UserStoreError.tokenAlreadyExists) {
-            try await store.create(User(email: try email("b@example.com"), credential: .token(hash: "shared")))
+            try await store.create(User(email: try email("b@example.com"), credential: .token(hash: TokenHasher.hash("shared"))))
         }
         #expect(await store.user(email: try email("b@example.com")) == nil)
-        #expect(await store.user(tokenHash: "shared")?.email == (try email("a@example.com")))
+        #expect(await store.user(tokenHash: TokenHasher.hash("shared"))?.email == (try email("a@example.com")))
     }
 
     @Test func `password users are absent from the token index`() async throws {
         let store = UserStore()
         try await store.create(User(email: try email("mona@example.com"), credential: .password(hash: "h")))
-        #expect(await store.user(tokenHash: "h") == nil)
+        #expect(await store.user(tokenHash: TokenHasher.hash("h")) == nil)
     }
 
     @Test func `unknown lookups return nil`() async throws {
         let store = UserStore()
         #expect(await store.user(email: try email("nobody@example.com")) == nil)
-        #expect(await store.user(tokenHash: "missing") == nil)
+        #expect(await store.user(tokenHash: TokenHasher.hash("missing")) == nil)
     }
 }

@@ -46,6 +46,6 @@ public struct User: Sendable, Equatable {
         case password(hash: String)
         /// The hex-encoded SHA-256 of the user's token, matched on Bearer
         /// login.
-        case token(hash: String)
+        case token(hash: TokenHash)
     }
 }

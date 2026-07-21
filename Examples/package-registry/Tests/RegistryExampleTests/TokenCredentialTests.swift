@@ -16,7 +16,7 @@ import Testing
 @Suite("TokenHasher")
 struct TokenHasherTests {
     @Test func `matches the known SHA-256 vector for the empty string`() {
-        #expect(TokenHasher.hash("") == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
+        #expect(TokenHasher.hash("").value == "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855")
     }
 
     @Test func `is deterministic`() {
@@ -28,7 +28,7 @@ struct TokenHasherTests {
     }
 
     @Test func `emits 64 lowercase hex characters`() {
-        let hash = TokenHasher.hash("anything")
+        let hash = TokenHasher.hash("anything").value
         #expect(hash.count == 64)
         #expect(hash.allSatisfy { $0.isHexDigit && !$0.isUppercase })
     }

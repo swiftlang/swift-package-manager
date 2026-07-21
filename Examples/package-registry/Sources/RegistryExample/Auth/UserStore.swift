@@ -36,7 +36,7 @@ public enum UserStoreError: Error, Equatable, Sendable {
 /// succeed. All state is ephemeral.
 public actor UserStore {
     private var usersByEmail: [EmailAddress: User] = [:]
-    private var emailByTokenHash: [String: EmailAddress] = [:]
+    private var emailByTokenHash: [TokenHash: EmailAddress] = [:]
 
     /// Creates an empty user store.
     public init() {}
@@ -67,7 +67,7 @@ public actor UserStore {
 
     /// Returns the token user whose token hashes to `tokenHash`, or `nil`
     /// if no token user matches.
-    public func user(tokenHash: String) -> User? {
+    public func user(tokenHash: TokenHash) -> User? {
         guard let email = emailByTokenHash[tokenHash] else { return nil }
         return usersByEmail[email]
     }
