@@ -43,9 +43,7 @@ public struct UserRoutes: Sendable {
         do {
             let result = try await registrar.register(email: body.email, password: body.password)
             let payload = CreateUserResponse(email: result.user.email.value, token: result.token)
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.withoutEscapingSlashes]
-            let data = try encoder.encode(payload)
+            let data = try JSONEncoder.registry.encode(payload)
             let response = Response(status: .created, body: .init(data: data))
             response.headers.replaceOrAdd(name: .contentType, value: "application/json")
             return response
