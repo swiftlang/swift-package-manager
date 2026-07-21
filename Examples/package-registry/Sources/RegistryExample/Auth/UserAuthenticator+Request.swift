@@ -12,6 +12,17 @@
 
 import Vapor
 
+/// The authentication schemes this registry understands, matched
+/// case-insensitively against the leading token of an `Authorization`
+/// header. Modeling the supported set as a type (rather than comparing bare
+/// string literals) keeps the `switch` in ``UserAuthenticator/authenticate(request:)``
+/// exhaustively checked: adding a scheme is a compile-time obligation, not a
+/// literal that can be misspelled.
+private enum AuthorizationScheme: String {
+    case basic
+    case bearer
+}
+
 extension UserAuthenticator: AsyncRequestAuthenticator {
     /// Populates `request.auth` with an ``AuthenticatedUser`` when the
     /// request carries valid credentials.
@@ -39,20 +50,20 @@ extension UserAuthenticator: AsyncRequestAuthenticator {
 
         let scheme = authHeader.prefix(while: { !$0.isWhitespace }).lowercased()
 
-        switch scheme {
-        case "basic":
+        switch AuthorizationScheme(rawValue: scheme) {
+        case .basic:
             guard let basic = request.headers.basicAuthorization,
                   let email = await authenticate(email: basic.username, password: basic.password)
             else { return }
             request.auth.login(AuthenticatedUser(email: email))
 
-        case "bearer":
+        case .bearer:
             guard let bearer = request.headers.bearerAuthorization,
                   let email = await authenticate(token: bearer.token)
             else { return }
             request.auth.login(AuthenticatedUser(email: email))
 
-        default:
+        case nil:
             throw ProblemDetails.notImplemented("Unsupported authentication scheme: \(scheme)")
         }
     }
