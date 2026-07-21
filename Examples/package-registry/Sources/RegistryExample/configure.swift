@@ -24,6 +24,14 @@ import NIOSSL
 ///     credentials presented on every publish request. Defaults to `false`,
 ///     leaving publishing open, matching the server's `--enable-auth`
 ///     command-line flag.
+///
+///     The open default is a deliberate choice for this *example*: it keeps
+///     the README quick-start — publish the HelloWorld fixture without first
+///     creating an account — friction-free. A production registry should
+///     invert this and be *secure by default*, requiring authentication
+///     unless explicitly opened, since a permissive default is a classic
+///     source of unintentionally exposed services. Pass `--enable-auth` to
+///     opt into that behavior here.
 public func configure(_ app: Application, authEnabled: Bool = false) async throws {
     app.middleware = Middlewares()
     app.middleware.use(ProblemErrorMiddleware())
