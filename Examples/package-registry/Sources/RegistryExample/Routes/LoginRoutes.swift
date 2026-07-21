@@ -51,7 +51,19 @@ public struct LoginRoutes: Sendable {
 
     @Sendable
     func login(req: Request) async throws -> Response {
-        _ = try req.auth.require(AuthenticatedUser.self)
-        return Response(status: .ok)
+        let user = try req.auth.require(AuthenticatedUser.self)
+        let data = try JSONEncoder.registry.encode(LoginResponse(email: user.email.value))
+        let response = Response(status: .ok, body: .init(data: data))
+        response.headers.replaceOrAdd(name: .contentType, value: "application/json")
+        return response
     }
+}
+
+/// The `POST /login` success body, echoing the identity that authenticated.
+///
+/// SwiftPM's `login` subcommand keys only off the status code, so the body is
+/// advisory — but returning the resolved email lets a caller confirm *which*
+/// account a credential maps to.
+struct LoginResponse: Encodable {
+    var email: String
 }

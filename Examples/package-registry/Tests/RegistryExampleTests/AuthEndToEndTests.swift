@@ -65,12 +65,24 @@ struct AuthEndToEndTests {
         try await withRegistryApp { app in
             let tester = try app.testing()
             let mona = try await register(tester, body: #"{"email":"mona@example.com"}"#)
-            _ = try await register(tester, body: #"{"email":"tim@example.com"}"#)
+            let tim = try await register(tester, body: #"{"email":"tim@example.com"}"#)
             let monaToken = try #require(mona.token)
+            let timToken = try #require(tim.token)
 
+            var monaBody = ""
             try await tester.test(.POST, "/login", headers: bearerHeaders(monaToken)) { res async in
                 #expect(res.status == .ok)
+                monaBody = res.body.string
             }
+            #expect(try JSONDecoder().decode(RegisteredUser.self, from: Data(monaBody.utf8)).email == "mona@example.com")
+
+            var timBody = ""
+            try await tester.test(.POST, "/login", headers: bearerHeaders(timToken)) { res async in
+                #expect(res.status == .ok)
+                timBody = res.body.string
+            }
+            #expect(try JSONDecoder().decode(RegisteredUser.self, from: Data(timBody.utf8)).email == "tim@example.com")
+
             try await tester.test(.POST, "/login", headers: bearerHeaders("\(monaToken)-tampered")) { res async in
                 #expect(res.status == .unauthorized)
             }
