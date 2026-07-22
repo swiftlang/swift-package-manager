@@ -132,8 +132,10 @@ curl -skX POST https://localhost:8000/users \
 # → 201 {"email":"harry@hogwarts.com","token":"kR8f…QeE"}
 ```
 
-Registration rejects a malformed or duplicate email (`400`/`409`) and an empty
-`password` (`400`).
+Registration returns the same `400` for a malformed or already-registered
+email, so the response cannot be used to probe which addresses already have
+accounts (account enumeration). An empty `password` is rejected with its own
+`400`.
 
 ### Log in
 
