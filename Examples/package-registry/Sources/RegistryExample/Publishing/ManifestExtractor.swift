@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import ZIPFoundation
 
 /// Errors that can be thrown while extracting manifests from a published
 /// source archive.
@@ -54,9 +53,13 @@ public enum ManifestExtractorError: Error, Equatable, Sendable {
 public enum ManifestExtractor {
     /// Extracts the package manifests from a source archive.
     ///
-    /// - Parameter archiveData: The raw bytes of the source archive
-    ///   (typically the `source-archive` multipart part of a publish
-    ///   request).
+    /// - Parameters:
+    ///   - archiveData: The raw bytes of the source archive (typically the
+    ///     `source-archive` multipart part of a publish request).
+    ///   - maxManifestBytes: The maximum decompressed size of a single
+    ///     manifest. Entries that inflate beyond this cap throw
+    ///     ``ManifestExtractorError/manifestTooLarge`` instead of being
+    ///     buffered in full.
     /// - Returns: A dictionary mapping manifest keys to file contents. The
     ///   default `Package.swift` manifest is stored under the empty-string
     ///   key `""`; version-qualified manifests are stored under their
@@ -66,35 +69,38 @@ public enum ManifestExtractor {
     ///     not a readable zip archive.
     ///   - ``ManifestExtractorError/manifestMissing`` if no `Package.swift`
     ///     is found at depth 1 or 2 within the archive.
-    ///   - Any error thrown by ZIPFoundation while reading entry
-    ///     contents.
+    ///   - ``ManifestExtractorError/manifestTooLarge`` if a manifest's
+    ///     decompressed size exceeds `maxManifestBytes`.
     public static func extract(
         from archiveData: Data,
         maxManifestBytes: Int = 1_048_576
     ) throws -> [String: String] {
-        let archive: Archive
-        do {
-            archive = try Archive(data: archiveData, accessMode: .read)
-        } catch {
-            throw ManifestExtractorError.invalidArchive
-        }
+        let workingDirectory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("registry-manifest-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: workingDirectory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: workingDirectory) }
 
-        var candidates: [(depth: Int, key: String, path: String, entry: Entry)] = []
-        for entry in archive where entry.type == .file {
-            let path = entry.path
+        let archiveURL = workingDirectory.appendingPathComponent("source.zip", isDirectory: false)
+        try archiveData.write(to: archiveURL)
+
+        var candidates: [(depth: Int, key: String, path: String)] = []
+        for path in try listEntries(in: archiveURL) {
             let components = path.split(separator: "/")
             guard let filename = components.last.map(String.init) else { continue }
             let depth = components.count
             guard depth <= 2 else { continue }
             guard let key = manifestKey(from: filename) else { continue }
-            candidates.append((depth, key, path, entry))
+            candidates.append((depth, key, path))
         }
         candidates.sort { $0.depth < $1.depth || ($0.depth == $1.depth && $0.path < $1.path) }
 
         var manifests: [String: String] = [:]
         for candidate in candidates where manifests[candidate.key] == nil {
-            let contents = try readEntry(candidate.entry, from: archive, maxBytes: maxManifestBytes)
-            manifests[candidate.key] = contents
+            manifests[candidate.key] = try readEntry(
+                candidate.path,
+                from: archiveURL,
+                maxBytes: maxManifestBytes
+            )
         }
 
         guard manifests[""] != nil else {
@@ -121,21 +127,135 @@ public enum ManifestExtractor {
         return parts.allSatisfy { !$0.isEmpty && $0.allSatisfy(\.isNumber) }
     }
 
-    private static func readEntry(_ entry: Entry, from archive: Archive, maxBytes: Int) throws -> String {
-        var buffer = Data()
-        var overflow = false
-        _ = try archive.extract(entry) { chunk in
-            if overflow { return }
-            let room = maxBytes - buffer.count
-            if chunk.count <= room {
-                buffer.append(chunk)
-            } else {
-                overflow = true
-            }
+    /// Lists every entry path stored in the archive by shelling out to the
+    /// platform's zip tooling.
+    ///
+    /// A non-zero exit status means the tool could not read the file as a
+    /// zip archive, which is surfaced as ``ManifestExtractorError/invalidArchive``.
+    private static func listEntries(in archiveURL: URL) throws -> [String] {
+        let result = try run(listArguments(for: archiveURL))
+        guard result.exitCode == 0 else {
+            throw ManifestExtractorError.invalidArchive
         }
-        if overflow {
+        return String(decoding: result.standardOutput, as: UTF8.self)
+            .split(whereSeparator: \.isNewline)
+            .map(String.init)
+    }
+
+    /// Extracts a single archive entry to standard output, capping the
+    /// number of bytes read so a maliciously inflating manifest cannot be
+    /// buffered without bound.
+    private static func readEntry(_ path: String, from archiveURL: URL, maxBytes: Int) throws -> String {
+        let result = try run(extractArguments(for: archiveURL, entry: path), byteLimit: maxBytes)
+        if result.overflowed {
             throw ManifestExtractorError.manifestTooLarge
         }
-        return String(decoding: buffer, as: UTF8.self)
+        guard result.exitCode == 0 else {
+            throw ManifestExtractorError.invalidArchive
+        }
+        return String(decoding: result.standardOutput, as: UTF8.self)
+    }
+
+    #if os(Windows)
+    /// The libarchive-based `tar` bundled with Windows, which can read zip
+    /// archives. Resolved out of `System32` to avoid picking up an
+    /// incompatible `tar` earlier on `PATH` (e.g. from MSYS/Git for Windows).
+    private static let archiveTool: String = {
+        let command = "tar.exe"
+        guard let systemRoot = ProcessInfo.processInfo.environment["SystemRoot"] else {
+            return command
+        }
+        return systemRoot + "\\System32\\" + command
+    }()
+
+    private static func listArguments(for archiveURL: URL) -> [String] {
+        [archiveTool, "-tf", archiveURL.path]
+    }
+
+    private static func extractArguments(for archiveURL: URL, entry: String) -> [String] {
+        [archiveTool, "-xOf", archiveURL.path, entry]
+    }
+    #else
+    private static func listArguments(for archiveURL: URL) -> [String] {
+        ["unzip", "-Z1", archiveURL.path]
+    }
+
+    private static func extractArguments(for archiveURL: URL, entry: String) -> [String] {
+        ["unzip", "-p", archiveURL.path, entry]
+    }
+    #endif
+
+    private struct CommandResult {
+        let exitCode: Int32
+        let standardOutput: Data
+        /// `true` when reading was stopped because standard output exceeded
+        /// the configured byte limit.
+        let overflowed: Bool
+    }
+
+    /// Runs a command and captures its standard output.
+    ///
+    /// - Parameters:
+    ///   - arguments: The command to run, where the first element is the
+    ///     executable. On Unix a bare executable name is resolved via
+    ///     `/usr/bin/env`, matching how `unzip` is expected to be on `PATH`.
+    ///   - byteLimit: When set, reading stops once standard output would
+    ///     exceed this many bytes and the process is terminated. The result's
+    ///     `overflowed` flag is then `true`.
+    private static func run(_ arguments: [String], byteLimit: Int? = nil) throws -> CommandResult {
+        let process = Process()
+        let executable = arguments[0]
+        #if os(Windows)
+        process.executableURL = URL(fileURLWithPath: executable)
+        process.arguments = Array(arguments.dropFirst())
+        #else
+        if executable.contains("/") {
+            process.executableURL = URL(fileURLWithPath: executable)
+            process.arguments = Array(arguments.dropFirst())
+        } else {
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+            process.arguments = arguments
+        }
+        #endif
+
+        let standardOutput = Pipe()
+        let standardError = Pipe()
+        process.standardOutput = standardOutput
+        process.standardError = standardError
+
+        do {
+            try process.run()
+        } catch {
+            throw ManifestExtractorError.invalidArchive
+        }
+
+        let outputHandle = standardOutput.fileHandleForReading
+        var collected = Data()
+        var overflowed = false
+        while true {
+            let chunk = outputHandle.availableData
+            if chunk.isEmpty { break }
+            guard let byteLimit else {
+                collected.append(chunk)
+                continue
+            }
+            let room = byteLimit - collected.count
+            if chunk.count <= room {
+                collected.append(chunk)
+            } else {
+                overflowed = true
+                process.terminate()
+                break
+            }
+        }
+
+        _ = try? standardError.fileHandleForReading.readToEnd()
+        process.waitUntilExit()
+
+        return CommandResult(
+            exitCode: process.terminationStatus,
+            standardOutput: collected,
+            overflowed: overflowed
+        )
     }
 }
