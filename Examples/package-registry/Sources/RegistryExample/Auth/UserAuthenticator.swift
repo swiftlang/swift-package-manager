@@ -33,12 +33,17 @@ import Vapor
 /// thread pool so it never blocks the event loop.
 public struct UserAuthenticator: Sendable {
     let store: UserStore
+    let passwordVerifier: PasswordVerifier
 
     /// Creates an authenticator backed by `store`.
     ///
-    /// - Parameter store: The user store to verify against.
-    public init(store: UserStore) {
+    /// - Parameters:
+    ///   - store: The user store to verify against.
+    ///   - passwordVerifier: The Basic-path verification seam. Defaults to
+    ///     bcrypt; tests inject a recording double.
+    public init(store: UserStore, passwordVerifier: PasswordVerifier = .bcrypt) {
         self.store = store
+        self.passwordVerifier = passwordVerifier
     }
 
     /// Verifies an HTTP Basic credential.
@@ -54,7 +59,7 @@ public struct UserAuthenticator: Sendable {
         guard let email = EmailAddress(rawEmail) else { return nil }
         let user = await store.user(email: email)
         let storedHash = Self.passwordHash(of: user)
-        let verified = await Self.verify(password, against: storedHash ?? Self.decoyHash)
+        let verified = await passwordVerifier.verify(password, against: storedHash ?? Self.decoyHash)
         return (storedHash != nil && verified) ? email : nil
     }
 
@@ -82,13 +87,6 @@ public struct UserAuthenticator: Sendable {
     private static func passwordHash(of user: User?) -> String? {
         guard case let .password(hash) = user?.credential else { return nil }
         return hash
-    }
-
-    private static func verify(_ password: String, against hash: String) async -> Bool {
-        let result = try? await NIOThreadPool.singleton.runIfActive {
-            try Bcrypt.verify(password, created: hash)
-        }
-        return result ?? false
     }
 
     /// A precomputed, valid bcrypt hash used as the constant-time decoy for
