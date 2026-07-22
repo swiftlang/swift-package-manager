@@ -1048,11 +1048,8 @@ final class URLSessionHTTPClientTest: XCTestCase {
         try await testWithTemporaryDirectory { temporaryDirectory in
             let url = URL("https://async-downloader-tests.com/testServerErrorWithBody.zip")
             let destination = temporaryDirectory.appending("download")
-            var options = HTTPClientRequest.Options()
-            options.validResponseCodes = [200]
             let request = HTTPClient.Request.download(
                 url: url,
-                options: options,
                 fileSystem: localFileSystem,
                 destination: destination
             )
@@ -1068,27 +1065,30 @@ final class URLSessionHTTPClientTest: XCTestCase {
             """.utf8)
 
             MockURLProtocol.onRequest(request) { request in
-                MockURLProtocol.sendResponse(statusCode: 500, headers: ["Content-Type": "application/json", "Content-Length": "\(errorJson.count)"], for: request)
-                // Send error response body - this should be downloaded to temp file but then deleted
+                MockURLProtocol.sendResponse(
+                    statusCode: 500,
+                    headers: ["Content-Type": "application/json", "Content-Length": "\(errorJson.count)"],
+                    for: request
+                )
+                // Send an error response body, which should be preserved without being moved to the destination.
                 MockURLProtocol.sendData(errorJson, for: request)
                 MockURLProtocol.sendCompletion(for: request)
             }
 
-            do {
-                _ = try await httpClient.execute(
-                    request,
-                    progress: { _, _ in
-                        // Progress may be called as data is downloaded, even for error responses
-                        // This is expected behavior
-                    }
-                )
-                XCTFail("unexpected success")
-            } catch {
-                XCTAssertEqual(error as? HTTPClientError, HTTPClientError.badResponseStatusCode(500))
-                // Verify that no file was created at the destination for bad response codes
-                // even though a response body was sent
-                XCTAssertFalse(localFileSystem.exists(destination), "Destination file should not exist for bad response codes, even when response body is present")
-            }
+            let response = try await httpClient.execute(
+                request,
+                progress: { _, _ in
+                    // Progress may be called as data is downloaded, even for error responses.
+                    // This is expected behavior.
+                }
+            )
+
+            XCTAssertEqual(response.statusCode, 500)
+            XCTAssertEqual(response.body, errorJson)
+            XCTAssertFalse(
+                localFileSystem.exists(destination),
+                "Destination file should not exist for bad response codes, even when response body is present"
+            )
         }
     }
 }
