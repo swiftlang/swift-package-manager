@@ -414,15 +414,17 @@ private func createResolvedPackages(
 
     // Resolve module aliases, if specified, for modules and their dependencies
     // across packages. Aliasing will result in module renaming.
-    let moduleAliasingUsed = try resolveModuleAliases(
-        packageBuilders: packageBuilders,
-        observabilityScope: observabilityScope
-    )
+//    let moduleAliasingUsed = try resolveModuleAliases(
+//        packageBuilders: packageBuilders,
+//        observabilityScope: observabilityScope
+//    )
 
     var moduleAliasTracker2 = try ModuleAliasTracker2(
         packages: packageBuilders.map(\.package),
         observabilityScope
     )
+
+    let moduleAliasingUsed = moduleAliasTracker2.moduleAliasingUsed
 
     // TODO bp module alias tracker stuff here;
     // already walking the graph
