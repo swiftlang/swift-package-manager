@@ -143,11 +143,13 @@ the registry does not support. It accepts both schemes:
 
 ```bash
 # HTTP Basic (email:password)
-swift package-registry login https://localhost:8000/login \
-  --username harry@hogwarts.com --password ginny!
+SWIFTPM_REGISTRY_LOGIN=harry@hogwarts.com 
+SWIFTPM_REGISTRY_PASSWORD=ginny!
+swift package-registry login https://localhost:8000/login
 
 # Bearer token
-swift package-registry login https://localhost:8000/login --token kR8f…QeE
+SWIFTPM_REGISTRY_TOKEN=kR8f…QeE
+swift package-registry login https://localhost:8000/login
 ```
 
 Equivalently with curl:
