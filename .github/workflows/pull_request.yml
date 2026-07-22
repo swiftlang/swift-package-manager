@@ -48,10 +48,9 @@ jobs:
       enable_linux_checks: true
       linux_swift_versions: '["nightly-main", "nightly-6.4.x"]'
       linux_build_command: 'set -x; cd Examples/package-registry && swift test --parallel; set +x'
-      enable_windows_checks: false  # https://github.com/swiftlang/swift-package-manager/issues/10326
+      enable_windows_checks: true
       windows_swift_versions: '["nightly-main"]'
       # windows_swift_versions: '["nightly-main", "nightly-6.4.x"]'
-      windows_pre_build_command: 'Invoke-Program .\.github\scripts\prebuild.ps1 -InstallZlib -SkipAndroid'
       windows_build_timeout: 180
       windows_build_command: 'cd Examples\package-registry; Invoke-program swift test --parallel'
       enable_macos_checks: true
