@@ -2454,6 +2454,45 @@ struct PackageBuilderTests {
     }
 
     @Test
+    func testBadExecutableProductDeclWithExecutableTargetSupport() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Application/application.swift",
+            "/Sources/Support/support.swift"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "MyPackage",
+            toolsVersion: .v5_4,
+            products: [
+                try ProductDescription(name: "single", type: .executable, targets: ["Application"]),
+                try ProductDescription(name: "multiple", type: .executable, targets: ["Application", "Support"]),
+            ],
+            targets: [
+                try TargetDescription(name: "Application"),
+                try TargetDescription(name: "Support"),
+            ]
+        )
+        try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            try package.checkModule("Application") { _ in }
+            try package.checkModule("Support") { _ in }
+            diagnostics.check(
+                diagnostic: """
+                    executable product 'single' expects target 'Application' to be executable; use \
+                    'executableTarget()' to declare the target as executable
+                    """,
+                severity: .error
+            )
+            diagnostics.check(
+                diagnostic: """
+                    executable product 'multiple' should have one executable target; use \
+                    'executableTarget()' to declare a target as executable
+                    """,
+                severity: .error
+            )
+        }
+    }
+
+    @Test
     func testLibraryProductDiagnostics() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/MyLibrary/library.swift",
