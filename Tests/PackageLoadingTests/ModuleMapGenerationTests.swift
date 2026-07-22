@@ -15,6 +15,7 @@ import PackageLoading
 import PackageModel
 import _InternalTestSupport
 import XCTest
+import Testing
 
 final class ModuleMapGeneration: XCTestCase {
     func testModuleNameHeaderInInclude() throws {
@@ -182,7 +183,7 @@ func ModuleMapTester(_ targetName: String, includeDir: String = "include", in fi
     // Create a module map generator, and determine the type of module map to use for the header directory.  This may emit diagnostics.
     let moduleMapGenerator = ModuleMapGenerator(targetName: targetName, moduleName: targetName.spm_mangledToC99ExtendedIdentifier(), publicHeadersDir: AbsolutePath.root.appending(component: includeDir), fileSystem: fileSystem)
     let moduleMapType = moduleMapGenerator.determineModuleMapType(observabilityScope: observability.topScope)
-    
+
     // Generate a module map and capture any emitted diagnostics.
     let generatedModuleMapPath = AbsolutePath.root.appending(components: "module.modulemap")
     observability.topScope.trap {
@@ -190,11 +191,11 @@ func ModuleMapTester(_ targetName: String, includeDir: String = "include", in fi
             try moduleMapGenerator.generateModuleMap(type: generatedModuleMapType, at: generatedModuleMapPath)
         }
     }
-    
+
     // Invoke the closure to check the results.
     let result = ModuleMapResult(diagnostics: observability.diagnostics, path: generatedModuleMapPath, fs: fileSystem)
     body(result)
-    
+
     // Check for any unexpected diagnostics (the ones the closure didn't check for).
     result.validateDiagnostics()
 }

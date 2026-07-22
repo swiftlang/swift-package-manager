@@ -20,6 +20,7 @@ let package = Package(
         .package(url: "https://github.com/vapor/vapor.git", from: "4.121.0"),
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", from: "0.9.19"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.8.2"),
+        .package(url: "https://github.com/apple/swift-crypto.git", "3.0.0" ..< "5.0.0"),
     ],
     targets: [
         .target(
@@ -27,6 +28,11 @@ let package = Package(
             dependencies: [
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "ZIPFoundation", package: "ZIPFoundation"),
+                .product(
+                    name: "Crypto",
+                    package: "swift-crypto",
+                    condition: .when(platforms: [.linux, .android, .windows, .wasi, .openbsd])
+                ),
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),

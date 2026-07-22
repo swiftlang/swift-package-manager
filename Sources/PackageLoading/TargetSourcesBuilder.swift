@@ -870,6 +870,11 @@ public struct FileRuleDescription: Sendable {
         xcprivacyIgnored,
     ]
 
+    /// List of file types that apply to the SwiftBuild build system.
+    public static let swiftBuildFileTypes: [FileRuleDescription] = xcbuildFileTypes + [
+        docc,
+    ]
+
     /// List of file directory extensions that should be treated as opaque, non source, directories.
     public static var opaqueDirectoriesExtensions: Set<String> {
         let types = Self.xcbuildFileTypes + Self.swiftpmFileTypes

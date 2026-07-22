@@ -15,6 +15,7 @@ import PackageModel
 import SourceControl
 import _InternalTestSupport
 import XCTest
+import Testing
 
 final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
@@ -93,7 +94,7 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
     }
 
     private func loadRootManifestWithBasicGitRepository(
-        manifestContent: String, 
+        manifestContent: String,
         validator: (Manifest, TestingObservability) throws -> ()
     ) async throws {
         let observability = ObservabilitySystem.makeForTesting()
