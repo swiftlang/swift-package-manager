@@ -120,7 +120,7 @@ account:
 
 ```bash
 curl -skX POST https://localhost:8000/users \
-  -d '{"email": "harry@hogwarts.com", "password": "ginny!"}'
+  -d '{"email": "harry@hogwarts.com", "password": "ginny"}'
 # → 201 {"email":"harry@hogwarts.com"}
 ```
 
@@ -146,19 +146,18 @@ the registry does not support. It accepts both schemes:
 
 ```bash
 # HTTP Basic (email:password)
-SWIFTPM_REGISTRY_LOGIN=harry@hogwarts.com 
-SWIFTPM_REGISTRY_PASSWORD=ginny!
+export SWIFTPM_NETRC_DATA="machine localhost login harry@hogwarts.com password ginny"
 swift package-registry login https://localhost:8000/login
 
 # Bearer token
-SWIFTPM_REGISTRY_TOKEN=kR8f…QeE
+export SWIFTPM_NETRC_DATA="machine localhost login token password gkR8f…QeE"
 swift package-registry login https://localhost:8000/login
 ```
 
 Equivalently with curl:
 
 ```bash
-curl -skX POST https://localhost:8000/login -u 'harry@hogwarts.com:ginny!'   # → 200
+curl -skX POST https://localhost:8000/login -u 'harry@hogwarts.com:ginny'   # → 200
 curl -skX POST https://localhost:8000/login -H 'Authorization: Bearer kR8f…QeE'  # → 200
 ```
 
