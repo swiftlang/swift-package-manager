@@ -175,11 +175,11 @@ extension Serialization.PackageDependency.PackageType {
         switch type {
         case .swift:
             self = .swift
-        case .external(let products, let plugins):
+        case .external(let products, let builder):
             self = .external(
                 products: products.map({ .init($0.product) }),
                 targets: products.map({ .init($0.target) }),
-                plugins: plugins.map({ .init($0) })
+                builder: .init(builder)
             )
         case .binary(let products):
             self = .binary(
@@ -258,7 +258,7 @@ extension Serialization.TargetType {
         case .executable: self = .executable
         case .test: self = .test
         case .system: self = .system
-        case .external: self = .external
+        case .externalLibrary: self = .externalLibrary
         case .binary: self = .binary
         case .plugin: self = .plugin
         case .macro: self = .macro

@@ -370,52 +370,19 @@ public final class PIFBuilder {
 
                     guard result.succeeded else {
                         observabilityScope.emit(error: "build planning stopped due to build-tool plugin failures")
+                        // TODO: How do we get this output to the user?
+                        print(result.textOutput)
                         throw Diagnostics.fatalError
                     }
 
                     prebuildCommands.append(contentsOf: result.prebuildCommands)
 
-                    buildCommands.append(contentsOf: result.buildCommands.map( { buildCommand in
-                        var newEnv: Environment = buildCommand.configuration.environment
-
-                        // FIXME: This is largely a workaround for improper rpath setup on Linux. It should be
-                        // removed once the Swift Build backend switches to use swiftc as the linker driver
-                        // for targets with Swift sources. For now, limit the scope to non-macOS, so that
-                        // plugins do not inadvertently use the toolchain stdlib instead of the OS stdlib
-                        // when built with a Swift.org toolchain.
-                        #if !os(macOS)
-                        let runtimeLibPaths = buildParameters.toolchain.runtimeLibraryPaths
-
-                        // Add paths to swift standard runtime libraries to the library path so that they can be found at runtime
-                        for libPath in runtimeLibPaths {
-                            newEnv.appendPath(key: .libraryPath, value: libPath.pathString)
-                        }
-                        #endif
-
-                        // Append the system path at the end so that necessary system tool paths can be found
-                        if let pathValue = Environment.current[EnvironmentKey.path] {
-                            newEnv.appendPath(key: .path, value: pathValue)
-                        }
-
-                        let writableDirectories: [AbsolutePath] = [pluginOutputDir]
-
-                        return PackagePIFBuilder.CustomBuildCommand(
-                            displayName: buildCommand.configuration.displayName,
-                            executable: buildCommand.configuration.executable.pathString,
-                            arguments: buildCommand.configuration.arguments,
-                            environment: .init(newEnv),
-                            workingDir: package.path,
-                            inputPaths: buildCommand.inputFiles,
-                            outputPaths: buildCommand.outputFiles.map(\.pathString),
+                    buildCommands.append(contentsOf: result.buildCommands.map({ buildCommand in
+                        .init(
+                            buildCommand: buildCommand,
+                            package: package,
                             pluginOutputDir: pluginOutputDir,
-                            sandboxProfile:
-                                self.parameters.disableSandbox ?
-                            nil :
-                                    .init(
-                                        strictness: .writableTemporaryDirectory,
-                                        writableDirectories: writableDirectories,
-                                        readOnlyDirectories: buildCommand.inputFiles
-                                    )
+                            disableSandbox: parameters.disableSandbox
                         )
                     }))
                 }
@@ -450,6 +417,70 @@ public final class PIFBuilder {
                 }
             }
 
+            // Run external source package plugin
+            let externalBuilderResults: PackagePIFBuilder.BuildToolPluginInvocationResult?
+            if let builder = package.builder, let builderPlugin = builder.underlying as? PluginModule {
+                let pluginOutputDirectory = builder.pluginOutputPath(packageIdentity: package.identity, pluginRoot: parameters.pluginWorkingDirectory)
+
+                var targetNameToProductName: [String: String] = [:]
+                for package in graph.packages {
+                    for product in package.products where product.type == .executable {
+                        if let executableModule = product.modules.first(where: { $0.type == .executable }),
+                           executableModule.name != product.name {
+                            targetNameToProductName[executableModule.name] = product.name
+                        }
+                    }
+                }
+
+                let hostTriple = try pluginScriptRunner.hostTriple
+
+                let accessibleTools = try await builder.preparePluginTools(
+                    fileSystem: fileSystem,
+                    environment: buildParameters.buildEnvironment,
+                    for: hostTriple
+                ) { name, path in
+                    // `name` is the product name (for .product dependencies) or target name (for
+                    // .module dependencies). `path` is always derived from the underlying target name.
+                    // SwiftBuild produces the binary at the product name, so use targetNameToProductName
+                    // to find the correct name when a target is wrapped in a differently-named product.
+                    let binaryName = targetNameToProductName[name] ?? name
+                    return self.parameters.hostBuildProductsPath.appending(
+                        try RelativePath(validating: binaryName + hostTriple.executableExtension)
+                    )
+                }
+
+                let results = try await builderPlugin.invoke(
+                    module: builder,
+                    action: .externalBuild(package: package),
+                    buildEnvironment: buildParameters.buildEnvironment,
+                    workers: buildParameters.workers,
+                    scriptRunner: pluginScriptRunner,
+                    workingDirectory: package.path,
+                    outputDirectory: pluginOutputDirectory,
+                    toolSearchDirectories: [],
+                    accessibleTools: accessibleTools,
+                    writableDirectories: [pluginOutputDirectory],
+                    readOnlyDirectories: [package.path],
+                    allowNetworkConnections: [],
+                    pkgConfigDirectories: [],
+                    sdkRootPath: buildParameters.toolchain.sdkRootPath,
+                    fileSystem: fileSystem,
+                    modulesGraph: graph,
+                    observabilityScope: observabilityScope
+                )
+                let buildCommands: [PackagePIFBuilder.CustomBuildCommand] = results.externalBuildCommands.map {
+                    .init(
+                        externalBuildCommand: $0,
+                        package: package,
+                        pluginOutputDir: pluginOutputDirectory,
+                        disableSandbox: self.parameters.disableSandbox
+                    )
+                }
+                externalBuilderResults = .init(prebuildCommandOutputPaths: [], buildCommands: buildCommands)
+            } else {
+                externalBuilderResults = nil
+            }
+
             let packagePIFBuilderDelegate = PackagePIFBuilderDelegate(
                 package: package
             )
@@ -459,6 +490,7 @@ public final class PIFBuilder {
                 packageManifest: package.manifest,
                 delegate: packagePIFBuilderDelegate,
                 buildToolPluginResultsByTargetName: buildToolPluginResultsByTargetName,
+                externalBuilderResults: externalBuilderResults,
                 createDylibForDynamicProducts: self.parameters.shouldCreateDylibForDynamicProducts,
                 materializeStaticArchiveProductsForRootPackages: self.parameters.materializeStaticArchiveProductsForRootPackages,
                 createDynamicVariantsForLibraryProducts: self.parameters.createDynamicVariantsForLibraryProducts,
@@ -961,5 +993,98 @@ extension Basics.AbsolutePath {
                 plugin.name,
             ]
         )
+    }
+}
+
+extension PackagePIFBuilder.CustomBuildCommand {
+    public init(
+        buildCommand: SPMBuildCore.BuildToolPluginInvocationResult.BuildCommand,
+        package: ResolvedPackage,
+        pluginOutputDir: AbsolutePath,
+        disableSandbox: Bool
+    ) {
+        var newEnv: Environment = buildCommand.configuration.environment
+
+        // FIXME: This is largely a workaround for improper rpath setup on Linux. It should be
+        // removed once the Swift Build backend switches to use swiftc as the linker driver
+        // for targets with Swift sources. For now, limit the scope to non-macOS, so that
+        // plugins do not inadvertently use the toolchain stdlib instead of the OS stdlib
+        // when built with a Swift.org toolchain.
+        #if !os(macOS)
+        let runtimeLibPaths = buildParameters.toolchain.runtimeLibraryPaths
+
+        // Add paths to swift standard runtime libraries to the library path so that they can be found at runtime
+        for libPath in runtimeLibPaths {
+            newEnv.appendPath(key: .libraryPath, value: libPath.pathString)
+        }
+        #endif
+
+        // Append the system path at the end so that necessary system tool paths can be found
+        if let pathValue = Environment.current[EnvironmentKey.path] {
+            newEnv.appendPath(key: .path, value: pathValue)
+        }
+
+        let writableDirectories: [AbsolutePath] = [pluginOutputDir]
+
+        self.init(
+            displayName: buildCommand.configuration.displayName,
+            executable: buildCommand.configuration.executable.pathString,
+            arguments: buildCommand.configuration.arguments,
+            environment: .init(newEnv),
+            workingDir: package.path,
+            inputPaths: buildCommand.inputFiles,
+            outputPaths: buildCommand.outputFiles.map(\.pathString),
+            pluginOutputDir: pluginOutputDir,
+            sandboxProfile: disableSandbox ? nil : .init(
+                strictness: .writableTemporaryDirectory,
+                writableDirectories: writableDirectories,
+                readOnlyDirectories: buildCommand.inputFiles
+            )
+        )
+    }
+
+    public init(
+        externalBuildCommand: SPMBuildCore.BuildToolPluginInvocationResult.ExternalBuildCommand,
+        package: ResolvedPackage,
+        pluginOutputDir: AbsolutePath,
+        disableSandbox: Bool
+    ) {
+        var newEnv: Environment = externalBuildCommand.configuration.environment
+
+        // FIXME: This is largely a workaround for improper rpath setup on Linux. It should be
+        // removed once the Swift Build backend switches to use swiftc as the linker driver
+        // for targets with Swift sources. For now, limit the scope to non-macOS, so that
+        // plugins do not inadvertently use the toolchain stdlib instead of the OS stdlib
+        // when built with a Swift.org toolchain.
+        #if !os(macOS)
+        let runtimeLibPaths = buildParameters.toolchain.runtimeLibraryPaths
+
+        // Add paths to swift standard runtime libraries to the library path so that they can be found at runtime
+        for libPath in runtimeLibPaths {
+            newEnv.appendPath(key: .libraryPath, value: libPath.pathString)
+        }
+        #endif
+
+        // Append the system path at the end so that necessary system tool paths can be found
+        if let pathValue = Environment.current[EnvironmentKey.path] {
+            newEnv.appendPath(key: .path, value: pathValue)
+        }
+
+        self.init(
+            displayName: externalBuildCommand.configuration.displayName,
+            executable: externalBuildCommand.configuration.executable.pathString,
+            arguments: externalBuildCommand.configuration.arguments,
+            environment: .init(newEnv),
+            workingDir: package.path,
+            inputPaths: [],
+            outputPaths: [],
+            pluginOutputDir: pluginOutputDir,
+            sandboxProfile: disableSandbox ? nil : .init(
+                strictness: .writableTemporaryDirectory,
+                writableDirectories: [pluginOutputDir],
+                readOnlyDirectories: [package.path]
+            )
+        )
+
     }
 }

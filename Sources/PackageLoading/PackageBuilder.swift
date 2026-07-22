@@ -287,6 +287,9 @@ public final class PackageBuilder {
     /// The manifest for the package being constructed.
     private let manifest: Manifest
 
+    /// For an external package, the parent of this package
+    private let parentPackage: Package?
+
     /// The product filter to apply to the package.
     private let productFilter: ProductFilter
 
@@ -348,6 +351,7 @@ public final class PackageBuilder {
     public init(
         identity: PackageIdentity,
         manifest: Manifest,
+        parentPackage: Package? = nil,
         productFilter: ProductFilter,
         path: AbsolutePath,
         additionalFileRules: [FileRuleDescription],
@@ -362,6 +366,7 @@ public final class PackageBuilder {
     ) {
         self.identity = identity
         self.manifest = manifest
+        self.parentPackage = parentPackage
         self.productFilter = productFilter
         self.packagePath = path
         self.additionalFileRules = additionalFileRules
@@ -385,12 +390,34 @@ public final class PackageBuilder {
         // Find the special directory for targets.
         let targetSpecialDirs = self.findTargetSpecialDirs(targets)
 
+        let builder: Module.Dependency?
+        if let parentPackage {
+            // Find plugin usages relative to the parent package
+            switch manifest.builder {
+            case .plugin(let name, let package):
+                if let package {
+                    builder = .product(.init(name: name, package: package), conditions: [])
+                } else {
+                    if let pluginModule = parentPackage.modules.first(where: { $0.type == .plugin && $0.name == name }) {
+                        builder = .module(pluginModule, conditions: [])
+                    } else {
+                        builder = nil
+                    }
+                }
+            case .none:
+                builder = nil
+            }
+        } else {
+            builder = nil
+        }
+
         return Package(
             identity: self.identity,
             manifest: self.manifest,
             path: self.packagePath,
             targets: targets,
             products: products,
+            builder: builder,
             targetSearchPath: self.packagePath.appending(component: targetSpecialDirs.targetDir),
             testTargetSearchPath: self.packagePath.appending(component: targetSpecialDirs.testTargetDir)
         )
@@ -870,14 +897,14 @@ public final class PackageBuilder {
                 pkgConfig: manifestTarget.pkgConfig,
                 providers: manifestTarget.providers
             )
-        } else if potentialModule.type == .external {
+        } else if potentialModule.type == .externalLibrary {
             let buildSettings = try self.buildSettings(
                 for: manifestTarget,
                 targetRoot: potentialModule.path, // TODO: need to figure out what's right here
                 toolsSwiftVersion: self.toolsSwiftVersion()
             )
 
-            return ExternalTarget(
+            return ExternalLibrary(
                 name: potentialModule.name,
                 path: potentialModule.path, // TODO: and here
                 buildSettings: buildSettings,

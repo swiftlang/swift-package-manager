@@ -147,7 +147,7 @@ enum Serialization {
 
         enum PackageType: Codable {
             case swift
-            case external(products: [Product], targets: [Target], plugins: [PluginUsage])
+            case external(products: [Product], targets: [Target], builder: PluginUsage)
             case binary(products: [Product], targets: [Target])
         }
 
@@ -186,7 +186,8 @@ enum Serialization {
         case executable
         case test
         case system
-        case external
+        case externalLibrary
+        // TODO: external executables
         case binary
         case plugin
         case `macro`

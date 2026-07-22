@@ -21,7 +21,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         case executable
         case test
         case system
-        case external
+        case externalLibrary
         case binary
         case plugin
         case `macro`
@@ -306,7 +306,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 propertyName: "pluginUsages",
                 value: String(describing: pluginUsages!)
             ) }
-        case .external:
+        case .externalLibrary:
             // TODO: Add some checks
             break
         case .binary:

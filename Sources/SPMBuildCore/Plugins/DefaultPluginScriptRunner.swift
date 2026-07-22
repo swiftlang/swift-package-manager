@@ -570,6 +570,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             // Pass on any available data to the delegate.
             if data.isEmpty { return }
             stderrData.append(contentsOf: data)
+            print(String(data: data, encoding: .utf8)!)
             callbackQueue.async { delegate.handleOutput(data: data) }
         }
         stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in

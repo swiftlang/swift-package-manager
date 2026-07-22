@@ -295,7 +295,7 @@ extension BuildPlan {
                 // Add system target to system targets array.
                 case .systemModule:
                     systemModules.append(module)
-                case .external:
+                case .externalLibrary:
                     fatalError("TODO: not supported")
                 // Add binary to binary paths set.
                 case .binary:

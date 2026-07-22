@@ -256,16 +256,16 @@ extension PackageModel.Module {
         switch self.type {
         case .executable, .snippet:
             true
-        case .library, .test, .macro, .systemModule, .plugin, .binary, .external:
+        case .library, .test, .macro, .systemModule, .plugin, .binary, .externalLibrary:
             false
         }
     }
 
     var isBinary: Bool {
         switch self.type {
-        case .binary, .external:
+        case .binary:
             true
-        case .library, .executable, .snippet, .test, .plugin, .macro, .systemModule:
+        case .library, .executable, .snippet, .test, .plugin, .macro, .systemModule, .externalLibrary:
             false
         }
     }
@@ -275,7 +275,7 @@ extension PackageModel.Module {
         switch self.type {
         case .library, .executable, .snippet, .test, .macro:
             true
-        case .systemModule, .plugin, .binary, .external:
+        case .systemModule, .plugin, .binary, .externalLibrary:
             false
         }
     }

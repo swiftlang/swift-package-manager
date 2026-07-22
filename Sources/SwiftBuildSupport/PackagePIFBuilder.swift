@@ -173,6 +173,9 @@ public final class PackagePIFBuilder {
     /// Records the results of applying build tool plugins to modules in the package.
     let buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]]
 
+    /// The results from the external builder plugin
+    let externalBuilderResults: PackagePIFBuilder.BuildToolPluginInvocationResult?
+
     /// Whether to create dynamic libraries for dynamic products.
     ///
     /// This tracks removing this *user default* once clients stop relying on this implementation detail:
@@ -232,6 +235,7 @@ public final class PackagePIFBuilder {
         packageManifest: PackageModel.Manifest,
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: [BuildToolPluginInvocationResult]],
+        externalBuilderResults: BuildToolPluginInvocationResult?,
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
@@ -247,6 +251,7 @@ public final class PackagePIFBuilder {
         self.modulesGraph = modulesGraph
         self.delegate = delegate
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName
+        self.externalBuilderResults = externalBuilderResults
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
         self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
@@ -264,6 +269,7 @@ public final class PackagePIFBuilder {
         packageManifest: PackageModel.Manifest,
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
+        externalBuilderResults: BuildToolPluginInvocationResult?,
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
@@ -279,6 +285,7 @@ public final class PackagePIFBuilder {
         self.modulesGraph = modulesGraph
         self.delegate = delegate
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName.mapValues { [$0] }
+        self.externalBuilderResults = externalBuilderResults
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
         self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
@@ -565,8 +572,8 @@ public final class PackagePIFBuilder {
             case .systemModule:
                 try projectBuilder.makeSystemLibraryModule(module)
 
-            case .external:
-                fatalError("TODO")
+            case .externalLibrary:
+                try projectBuilder.makeExternalLibraryTarget(module)
 
             case .test:
                 if module.isTestSupportModule {
@@ -805,8 +812,9 @@ extension PackagePIFBuilder.LinkedPackageBinary {
         case .systemModule, .plugin:
             return nil
 
-        case .external:
-            fatalError("TODO: Not sure what to return here")
+        case .externalLibrary:
+            // TODO: is it the same as a system library?
+            return nil
         }
     }
 

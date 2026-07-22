@@ -401,7 +401,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             try self.addLibraryTarget(for: target)
         case .systemModule:
             try self.addSystemTarget(for: target)
-        case .external:
+        case .externalLibrary:
             // TODO: Should be very similar to the system target except no sources but impart the settings
             fatalError("TODO this is for the money")
         case .executable, .snippet, .test:

@@ -77,6 +77,9 @@ public final class Manifest: Sendable {
     /// Manifests for the external packages dependencies
     public let externals: [Manifest]
 
+    /// When this is an external source package, the builder that will build it
+    public let builder: TargetDescription.PluginUsage?
+
     /// The targets declared in the manifest.
     public let targets: [TargetDescription]
 
@@ -130,6 +133,7 @@ public final class Manifest: Sendable {
         swiftLanguageVersions: [SwiftLanguageVersion]?,
         dependencies: [PackageDependency] = [],
         externals: [Manifest] = [],
+        builder: TargetDescription.PluginUsage? = nil,
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
         traits: Set<TraitDescription>,
@@ -152,6 +156,7 @@ public final class Manifest: Sendable {
         self.swiftLanguageVersions = swiftLanguageVersions
         self.dependencies = dependencies
         self.externals = externals
+        self.builder = builder
         self.products = products
         self.targets = targets
         self.targetMap = Dictionary(targets.lazy.map { ($0.name, $0) }, uniquingKeysWith: { $1 })

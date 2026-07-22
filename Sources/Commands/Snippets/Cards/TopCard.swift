@@ -172,8 +172,8 @@ fileprivate extension Module.Kind {
             return "libraries"
         case .systemModule:
             return "system modules"
-        case .external:
-            return "external targets"
+        case .externalLibrary:
+            return "external libraries"
         case .test:
             return "tests"
         case .binary:

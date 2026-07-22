@@ -106,16 +106,6 @@ extension ModulesGraph {
                             key: dependency.identity
                         )
                     }
-                } + node.item.manifest.externals.map { external -> KeyedPair<GraphLoadingNode, PackageIdentity> in
-                    return try KeyedPair(
-                        GraphLoadingNode(
-                            identity: external.packageIdentity,
-                            manifest: external,
-                            productFilter: .everything,
-                            enabledTraits: enabledTraitsMap[external]
-                        ),
-                        key: external.packageIdentity
-                    )
                 }
         }
 
@@ -186,6 +176,25 @@ extension ModulesGraph {
                 )
                 let package = try builder.construct()
                 manifestToPackage[manifest] = package
+
+                // Create packages for externals
+                for external in manifest.externals {
+                    let builder = PackageBuilder(
+                        identity: external.packageIdentity,
+                        manifest: external,
+                        parentPackage: package,
+                        productFilter: node.productFilter,
+                        path: .root, // TODO: where?
+                        additionalFileRules: additionalFileRules,
+                        binaryArtifacts: [:],
+                        fileSystem: fileSystem,
+                        observabilityScope: nodeObservabilityScope,
+                        enabledTraits: enabledTraits // TODO: traits for externals?
+                    )
+
+                    let package = try builder.construct()
+                    manifestToPackage[external] = package
+                }
 
                 // Throw if any of the non-root package is empty.
                 if package.modules.isEmpty // System packages have modules in the package but not the manifest.
@@ -400,7 +409,7 @@ private func createResolvedPackages(
     modulesFilter: ((Module) -> Bool)?
 ) throws -> IdentifiableSet<ResolvedPackage> {
     // Create package builder objects from the input manifests.
-    let packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap { node in
+    var packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap { node in
         guard let package = manifestToPackage[node.manifest] else {
             return nil
         }
@@ -417,6 +426,25 @@ private func createResolvedPackages(
             prebuilts: prebuilts[package.identity]
         )
     }
+
+    // Create package builders for external packages
+    packageBuilders.append(contentsOf: packageBuilders.flatMap { parent in
+        parent.externalPackages = parent.package.manifest.externals.compactMap { external in
+            guard let package = manifestToPackage[external] else {
+                return nil
+            }
+
+            return ResolvedPackageBuilder(
+                package,
+                productFilter: parent.productFilter,
+                enabledTraits: parent.enabledTraits, // TODO: traits for external?
+                isAllowedToVendUnsafeProducts: true,
+                allowedToOverride: false,
+                platformVersionProvider: parent.platformVersionProvider
+            )
+        }
+        return parent.externalPackages
+    })
 
     // Create a map of package builders keyed by the package identity.
     // This is guaranteed to be unique so we can use spm_createDictionary
@@ -623,6 +651,18 @@ private func createResolvedPackages(
             moduleBuilder.supportedPlatforms = packageBuilder.supportedPlatforms
         }
 
+        // Hook up external source package builder plugin module
+        for external in packageBuilder.externalPackages {
+            switch external.package.builder {
+            case .module(let moduleDependency, let conditions):
+                if let moduleBuilder = modulesMap[moduleDependency] {
+                    external.builder = moduleBuilder
+                }
+            case .product, .none:
+                break
+            }
+        }
+
         // Create product builders for each product in the package. A product can only contain a module present in the
         // same package.
         let products: [Product] = if let productsFilter {
@@ -794,6 +834,20 @@ private func createResolvedPackages(
                 }
 
                 moduleBuilder.dependencies.append(.product(product, conditions: conditions))
+            }
+        }
+
+        // Hook up external package plugin modules
+        for external in packageBuilder.externalPackages {
+            switch external.package.builder {
+            case .product(let productRef,_):
+                let product = lookupByProductIDs ? productDependencyMap[productRef.identity] :
+                productDependencyMap[productRef.name]
+                if let product {
+                    external.builder = product.moduleBuilders.first
+                }
+            case .module, .none:
+                break
             }
         }
     }
@@ -1598,6 +1652,12 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     /// The dependencies of this package.
     var dependencies: [ResolvedPackageBuilder] = []
 
+    /// For an external package, the parent package
+    var externalPackages: [ResolvedPackageBuilder] = []
+
+    /// For an external package, the plugin from the parent package that will build it
+    var builder: ResolvedModuleBuilder? = nil
+
     /// The prebuilt libraries for this package
     var prebuilts: [String: PrebuiltLibrary]?
 
@@ -1624,7 +1684,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         isAllowedToVendUnsafeProducts: Bool,
         allowedToOverride: Bool,
         platformVersionProvider: PlatformVersionProvider,
-        prebuilts: [String: PrebuiltLibrary]?
+        prebuilts: [String: PrebuiltLibrary]? = [:]
     ) {
         self.package = package
         self.productFilter = productFilter
@@ -1639,12 +1699,14 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         let products = try self.products.map { try $0.construct() }
         var modules = products.reduce(into: IdentifiableSet()) { $0.formUnion($1.modules) }
         try modules.formUnion(self.modules.map { try $0.construct() })
+        let builder = try self.builder?.construct()
 
         return ResolvedPackage(
             underlying: self.package,
             defaultLocalization: self.defaultLocalization,
             supportedPlatforms: self.supportedPlatforms,
             dependencies: self.dependencies.map(\.package.identity),
+            builder: builder,
             enabledTraits: self.enabledTraits.names,
             modules: modules,
             products: products,

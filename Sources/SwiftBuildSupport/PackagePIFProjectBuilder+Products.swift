@@ -464,23 +464,33 @@ extension PackagePIFProjectBuilder {
                         log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependencyGUID)'")
                     }
 
-                case .library, .systemModule, .test:
-                    let shouldLinkProduct = moduleDependency.type != .systemModule
+                case .library, .test:
                     let dependencyGUID = moduleDependency.pifTargetGUID
                     mainModuleTarget.common.addDependency(
                         on: dependencyGUID,
                         platformFilters: packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
-                        linkProduct: shouldLinkProduct
+                        linkProduct: true
                     )
                     log(
                         .debug,
                         indent: 1,
-                        "Added \(shouldLinkProduct ? "linked " : "")dependency on target '\(dependencyGUID)'"
+                        "Added linked dependency on target '\(dependencyGUID)'"
                     )
 
-                case .external:
-                    fatalError("TODO, probably like a system module")
+                case .systemModule, .externalLibrary:
+                    let dependencyGUID = moduleDependency.pifTargetGUID
+                    mainModuleTarget.common.addDependency(
+                        on: dependencyGUID,
+                        platformFilters: packageConditions
+                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        linkProduct: false
+                    )
+                    log(
+                        .debug,
+                        indent: 1,
+                        "Added dependency on target '\(dependencyGUID)'"
+                    )
                 }
 
             case .product(let productDependency, let packageConditions):

@@ -41,10 +41,7 @@ enum HostToPluginMessage: Codable {
 
     case externalBuild(
         context: InputContext,
-        rootPackageId: InputContext.Package.Id,
-        arguments: [String],
-        triple: String,
-        sdkPath: URL?
+        rootPackageId: InputContext.Package.Id
     )
 
         struct InputContext: Codable {
@@ -354,7 +351,9 @@ enum PluginToHostMessage: Codable {
 
     /// The plugin defines a prebuild command.
     case definePrebuildCommand(configuration: CommandConfiguration, outputFilesDirectory: URL)
-    
+
+    case defineExternalBuildCommand(configuration: CommandConfiguration)
+
         struct CommandConfiguration: Codable {
             var version = 2
             var displayName: String?

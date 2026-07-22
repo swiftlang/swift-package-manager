@@ -12,7 +12,7 @@
 
 import Basics
 
-public class ExternalTarget: Module {
+public class ExternalLibrary: Module {
     public init(
         name: String,
         path: AbsolutePath,
@@ -21,7 +21,7 @@ public class ExternalTarget: Module {
     ) {
         super.init(
             name: name,
-            type: .external,
+            type: .externalLibrary,
             path: path,
             sources: .init(paths: [], root: path),
             dependencies: [],
@@ -33,3 +33,5 @@ public class ExternalTarget: Module {
         )
     }
 }
+
+// TODO: External Executable that is prebuilt and can be used by plugins

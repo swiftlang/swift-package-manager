@@ -65,8 +65,8 @@ extension Package {
             /// A non-Swift package that will be built using the listed plugin and consumed by the dependant package
             /// - Parameters:
             ///   - targets: list of targets provided by the external package
-            ///   - plugins: list of external build plugins use to produce those targets
-            case external(products: [ExternalProduct], plugins: [PluginUsage])
+            ///   - builder: plugin that will do the build
+            case external(products: [ExternalProduct], builder: PluginUsage)
             /// Prebuilt binaries for a package for a given target condition
             /// - Parameters:
             ///   - targets: list of targets provided by the binary package
@@ -1197,12 +1197,12 @@ extension Package.Dependency {
         name: String,
         path: String,
         products: [ExternalProduct],
-        plugins: [PluginUsage],
+        builder: PluginUsage,
         traits: Set<Trait>? = nil
     ) -> Package.Dependency {
         .init(
             name: name,
-            type: .external(products: products, plugins: plugins),
+            type: .external(products: products, builder: builder),
             path: path,
             traits: traits
         )

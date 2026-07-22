@@ -21,8 +21,6 @@ import Foundation
 ///
 /// For example, the way to instantiate and run a plugin.
 public protocol Plugin {
-
-
     /// Instantiates the plugin.
     ///
     /// This happens once per invocation of the plugin.
@@ -45,20 +43,6 @@ public protocol BuildToolPlugin: Plugin {
         context: PluginContext,
         target: Target
     ) async throws -> [Command]
-
-    /// Create package level build commands that feed into the package build and consumes
-    /// products from the package build.
-    func createPackageBuildCommands(
-        context: PluginContext
-    ) async throws -> [Command]
-}
-
-extension BuildToolPlugin {
-    public func createPackageBuildCommands(
-        context: PluginContext
-    ) async throws -> [Command] {
-        []
-    }
 }
 
 /// The plugin protocol that defines functionality for all plugins that have a command capability.
@@ -88,7 +72,25 @@ extension CommandPlugin {
     }
 }
 
-public struct BuildContext {
-    public let triple: String
-    public let sdkPath: URL?
+/// The plugin protocol that defines functionality for all plugins that have an external builder capability
+public protocol ExternalBuilderPlugin: Plugin {
+    /// Invoked by the package manager to create the command that will perform the
+    /// external build for the package.
+    func createExternalBuildCommand(
+        context: PluginContext,
+    ) async throws -> ExternalBuildCommand
+}
+
+public struct ExternalBuildCommand {
+    var displayName: String?
+    var executable: URL
+    var arguments: [String]
+    var environment: [String: String]
+
+    public init(displayName: String? = nil, executable: URL, arguments: [String], environment: [String : String] = [:]) {
+        self.displayName = displayName
+        self.executable = executable
+        self.arguments = arguments
+        self.environment = environment
+    }
 }

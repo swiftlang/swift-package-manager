@@ -46,7 +46,7 @@ enum ManifestJSONParser {
         var externals: [External] = []
         var providers: [SystemPackageProviderDescription]?
         var products: [ProductDescription] = []
-        var pluginUsages: [TargetDescription.PluginUsage] = []
+        var builder: TargetDescription.PluginUsage? = nil
         var traits: Set<TraitDescription> = []
         var cxxLanguageStandard: String?
         var cLanguageStandard: String?
@@ -211,16 +211,16 @@ enum ManifestJSONParser {
     ) throws -> External? {
         let products: [ProductDescription]
         let targets: [TargetDescription]
-        let pluginUsages: [TargetDescription.PluginUsage]
+        let builder: TargetDescription.PluginUsage?
         switch dependency.type {
-        case .external(let externalProducts, let externalTargets, let plugins):
+        case .external(let externalProducts, let externalTargets, let externalBuilder):
             products = try externalProducts.map({ try .init($0) })
             targets = try externalTargets.map({ try Self.parseTarget(target: $0, identityResolver: identityResolver)})
-            pluginUsages = plugins.map({ .init($0) })
+            builder = .init(externalBuilder)
         case .binary(let binaryProducts, let binaryTargets):
             products = try binaryProducts.map({ try .init($0) })
             targets = try binaryTargets.map({ try Self.parseTarget(target: $0, identityResolver: identityResolver)})
-            pluginUsages = []
+            builder = nil
         default:
             return nil
         }
@@ -249,7 +249,7 @@ enum ManifestJSONParser {
                 name: name,
                 targets: targets,
                 products: products,
-                pluginUsages: pluginUsages
+                builder: builder
             )
         )
     }
@@ -631,8 +631,8 @@ extension TargetDescription.TargetKind {
             self = .test
         case .system:
             self = .system
-        case .external:
-            self = .external
+        case .externalLibrary:
+            self = .externalLibrary
         case .binary:
             self = .binary
         case .plugin:

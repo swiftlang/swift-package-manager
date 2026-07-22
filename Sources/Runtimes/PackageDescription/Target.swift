@@ -32,8 +32,9 @@ public final class Target {
         case test
         /// A target that produces a module for a library on the system
         case system
-        /// A target that comes from an external build
-        case external
+        /// A library target that comes from an external build
+        /// TODO: external executable
+        case externalLibrary
         /// A target that references a binary artifact.
         case binary
         /// A target that provides a package plug-in.
@@ -301,7 +302,7 @@ public final class Target {
                 checksum == nil &&
                 plugins == nil
             )
-        case .external:
+        case .externalLibrary:
             precondition(
                 url == nil &&
                 dependencies.isEmpty &&

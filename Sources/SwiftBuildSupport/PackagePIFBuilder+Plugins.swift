@@ -16,9 +16,16 @@ import protocol TSCBasic.FileSystem
 
 import enum Basics.Sandbox
 import struct Basics.AbsolutePath
+import struct Basics.Environment
+import struct Basics.EnvironmentKey
 import struct Basics.SourceControlURL
 
 import enum SwiftBuild.ProjectModel
+
+@_spi(SwiftPMInternal)
+import SPMBuildCore
+
+import struct PackageGraph.ResolvedPackage
 
 extension PackagePIFBuilder {
     /// Contains all of the information resulting from applying a build tool plugin to a package target thats affect how

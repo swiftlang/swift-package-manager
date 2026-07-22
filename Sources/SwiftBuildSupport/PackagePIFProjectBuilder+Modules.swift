@@ -22,6 +22,7 @@ import struct Basics.SourceControlURL
 import class PackageModel.Manifest
 import class PackageModel.Module
 import class PackageModel.BinaryModule
+import struct PackageModel.PackageIdentity
 import class PackageModel.PluginModule
 import enum PackageModel.PrebuiltsPlatform
 import class PackageModel.Product
@@ -94,7 +95,7 @@ extension PackagePIFProjectBuilder {
                         )
                     }
 
-                case .library, .systemModule, .external, .test, .binary, .plugin, .macro:
+                case .library, .systemModule, .externalLibrary, .test, .binary, .plugin, .macro:
                     let dependencyGUID = moduleDependency.pifTargetGUID
                     self.project[keyPath: pluginTargetKeyPath].common.addDependency(
                         on: dependencyGUID,
@@ -804,7 +805,7 @@ extension PackagePIFProjectBuilder {
                     )
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyGUID)'")
 
-                case .library, .test, .macro, .systemModule, .external:
+                case .library, .test, .macro, .systemModule, .externalLibrary:
                     moduleTarget.common.addDependency(
                         on: moduleDependency.pifTargetGUID,
                         platformFilters: dependencyPlatformFilters,
@@ -1034,5 +1035,45 @@ extension PackagePIFProjectBuilder {
             toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(systemModule)
+    }
+
+    // MARK: - External Libraries
+
+    mutating func makeExternalLibraryTarget(_ resolvedExternalLibrary: PackageGraph.ResolvedModule) throws {
+        // Like a system module, the library comes from somewhere else.
+        // But that place is an external package so we can't generate a module for it.
+        // We just want to add the library dependency and make sure the proper settings
+        // are imparted to find it.
+        precondition(resolvedExternalLibrary.type == .externalLibrary)
+
+        // Find the build output path for the external package that owns this library.
+        // For external source packages, this will be the output directory for the external build plugin.
+        // For binary packages, this will be the directory where it was extracted.
+
+        guard let builderPlugin = package.builder else {
+            return
+        }
+
+        let outputPath: AbsolutePath
+        switch package.identity.type {
+        case .external:
+            outputPath = builderPlugin.pluginOutputPath(packageIdentity: package.identity, pluginRoot: pifBuilder.pluginWorkingDirectory)
+        case .binary:
+            fatalError("TODO")
+        default:
+            return
+        }
+
+        fatalError("TODO")
+    }
+}
+
+extension ResolvedModule {
+    func pluginOutputPath(packageIdentity: PackageIdentity, pluginRoot: AbsolutePath) -> AbsolutePath {
+        pluginRoot.appending(components: [
+            "package",
+            packageIdentity.c99name,
+            self.name
+        ])
     }
 }

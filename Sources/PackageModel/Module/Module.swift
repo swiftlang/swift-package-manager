@@ -21,7 +21,8 @@ public class Module {
         case executable
         case library
         case systemModule
-        case external
+        case externalLibrary
+        // TODO: externalExecutable
         case test
         case binary
         case plugin

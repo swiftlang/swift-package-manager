@@ -47,7 +47,7 @@ extension ExternalProduct {
                 exclude: [],
                 sources: nil,
                 publicHeadersPath: nil,
-                type: .external,
+                type: .externalLibrary,
                 packageAccess: false,
                 cSettings: cSettings,
                 cxxSettings: cxxSettings,
