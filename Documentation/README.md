@@ -5,5 +5,5 @@ The sources for the documentation content are in the [Sources/PackageManagerDocs
 
 For documentation on developing the Swift Package Manager itself, see the [contribution guide](../CONTRIBUTING.md).
 
-This directory continues to retain legacy [design notes](Design), [release notes](ReleaseNotes), details about
+This directory continues to retain legacy [design notes](Design), details about
 the [Package Registry API](PackageRegistry), and [libSwiftPM](libSwiftPM.md).
