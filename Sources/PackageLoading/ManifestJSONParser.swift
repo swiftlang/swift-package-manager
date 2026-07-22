@@ -588,8 +588,6 @@ extension ProductType.LibraryType {
             self = .static
         case .automatic:
             self = .automatic
-        case .xcframework:
-            self = .xcframework
         }
     }
 }

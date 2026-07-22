@@ -523,9 +523,6 @@ public final class PackagePIFBuilder {
                 let libraryType = self.delegate.customLibraryType(product: product.underlying) ?? .dynamic
                 try projectBuilder.makeLibraryProduct(product, type: libraryType)
 
-            case .library(.xcframework):
-                fatalError("TODO")
-
             case .library(.automatic):
                 // Check if this is a system library product.
                 if product.isSystemLibraryProduct {

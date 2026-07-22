@@ -294,9 +294,6 @@ extension LLBuildManifestBuilder {
                         try addStaticTargetInputs(module, description)
                     }
 
-                case .library(.xcframework):
-                    throw InternalError("xcframework dependencies not supported by native build system")
-
                 case .test:
                     break
                 }

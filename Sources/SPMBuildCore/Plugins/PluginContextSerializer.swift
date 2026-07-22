@@ -224,8 +224,6 @@ internal struct PluginContextSerializer {
                 productInfo = .library(kind: .static)
             case .dynamic:
                 productInfo = .library(kind: .dynamic)
-            case .xcframework:
-                productInfo = .library(kind: .xcframework)
             case .automatic:
                 productInfo = .library(kind: .automatic)
             }

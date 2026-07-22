@@ -178,8 +178,6 @@ extension BuildPlan {
                         product: $0.product,
                         context: $0.destination
                     ) }
-                case .library(.xcframework):
-                    throw InternalError("xcframework dependencies not supported by native build system")
                 case .test, .executable, .snippet, .macro:
                     return []
                 }

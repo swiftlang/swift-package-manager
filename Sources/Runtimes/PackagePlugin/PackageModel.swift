@@ -196,9 +196,6 @@ public struct LibraryProduct: Product {
         /// Dynamic library, whose code is referenced by its clients.
         case dynamic
 
-        /// A binary xcframework
-        case xcframework
-
         /// The kind of library produced is unspecified and will be determined
         /// by the build system based on how the library is used.
         case automatic

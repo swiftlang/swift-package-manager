@@ -266,7 +266,6 @@ enum Serialization {
                 case automatic
                 case dynamic
                 case `static`
-                case xcframework
             }
 
             case executable

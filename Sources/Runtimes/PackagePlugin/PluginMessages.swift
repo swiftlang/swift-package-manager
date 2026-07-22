@@ -130,7 +130,6 @@ enum HostToPluginMessage: Codable {
                     enum LibraryKind: Codable {
                         case `static`
                         case dynamic
-                        case xcframework
                         case automatic
                     }
                 }

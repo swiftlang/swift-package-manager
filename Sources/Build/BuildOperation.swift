@@ -512,8 +512,6 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                     switch kind {
                     case .dynamic: artifactKind = .dynamicLibrary
                     case .static, .automatic: artifactKind = .staticLibrary
-                    case .xcframework:
-                        throw InternalError("xcframework dependencies not supported by native build system")
                     }
                     return try ($0.product.name, .init(
                         path: $0.binaryPath.pathString,

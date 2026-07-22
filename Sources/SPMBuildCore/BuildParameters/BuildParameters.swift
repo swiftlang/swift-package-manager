@@ -320,8 +320,6 @@ public struct BuildParameters: Encodable {
             return try RelativePath(validating: "lib\(product.name)\(self.suffix)\(self.triple.staticLibraryExtension)")
         case .library(.dynamic):
             return try dynamicLibraryPath(for: product.name)
-        case .library(.xcframework):
-            fatalError("TODO")
         case .library(.automatic), .plugin:
             fatalError("\(#file):\(#line) - Illegal call of function \(#function) with automatica library and plugin")
         case .test:

@@ -91,8 +91,6 @@ public class Product {
             case `static`
             /// A dynamically linked library.
             case dynamic
-            /// xcframework
-            case xcframework
         }
 
         /// The names of the targets in this product.

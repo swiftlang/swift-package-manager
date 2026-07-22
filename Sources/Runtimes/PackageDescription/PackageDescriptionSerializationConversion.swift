@@ -368,7 +368,6 @@ extension Serialization.Product.ProductType.LibraryType {
         switch type {
         case .dynamic: self = .dynamic
         case .static: self = .static
-        case .xcframework: self = .xcframework
         }
     }
 }

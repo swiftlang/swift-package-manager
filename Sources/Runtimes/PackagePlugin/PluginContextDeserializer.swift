@@ -230,8 +230,6 @@ internal struct PluginContextDeserializer {
                 libraryKind = .static
             case .dynamic:
                 libraryKind = .dynamic
-            case .xcframework:
-                libraryKind = .xcframework
             case .automatic:
                 libraryKind = .automatic
             }
