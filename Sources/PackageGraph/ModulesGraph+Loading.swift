@@ -904,37 +904,16 @@ private func markHostOnlyModules(packageBuilders: [ResolvedPackageBuilder]) {
     // Pass 1: pin every macro/plugin and its whole dependency closure to `.host`. Nothing
     // is `.all` yet, so this also pins modules a shipped target depends on; pass 2 fixes them.
     for moduleBuilder in allModules where moduleBuilder.isHostOnly {
-        func markHost(_ depModule: ResolvedModuleBuilder) -> Bool {
-            switch depModule.platformConstraint {
-            case .all:
-                return false
-            case .host:
-                return true
-            case .none:
-                break
+        func markHost(_ depModule: ResolvedModuleBuilder) {
+            guard depModule.platformConstraint != .host else {
+                return
             }
-
             for dep in depModule.allModuleDependencies {
-                if !markHost(dep) {
-                    // Depends on something already pinned to the target; unwind so a single
-                    // chain doesn't mix host and target.
-                    func markExternal(_ depModule: ResolvedModuleBuilder) {
-                        guard depModule.platformConstraint == .host else {
-                            return
-                        }
-                        depModule.platformConstraint = .all
-                        for dep in depModule.allModuleDependencies {
-                            markExternal(dep)
-                        }
-                    }
-                    markExternal(depModule)
-                    return false
-                }
+                markHost(dep)
             }
             depModule.platformConstraint = .host
-            return true
         }
-        _ = markHost(moduleBuilder)
+        markHost(moduleBuilder)
     }
 
     // Pass 2: seed from every genuine target root (a non-test module pass 1 didn't pin to
