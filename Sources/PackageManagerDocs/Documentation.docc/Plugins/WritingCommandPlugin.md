@@ -72,6 +72,23 @@ In the above example, the plugin declares its purpose is source code formatting,
 The package manager runs plugins in a sandbox that prevents network access and most file system access.
 Package manager allows additional permissions to allow network access or file system acess when you declare them after it receives approval from the user.
 
+### Command plugin tool dependencies
+
+Declare command-line tools as direct dependencies of the plugin target when the
+plugin needs to work in SwiftPM, IDEs, and other hosts. Pass an executable
+target's name, an executable product's name, or an executable artifact's name to
+`PluginContext.tool(named:)`, as appropriate for the declared dependency.
+Executable dependencies are built for the host platform, and binary artifact
+bundles must provide a variant that supports the host platform.
+
+When SwiftPM invokes a command plugin from the command line and no declared
+dependency matches, it searches the directory containing the selected Swift
+compiler followed by the directories in the invoking process's `PATH`. This
+fallback is specific to the SwiftPM command-line interface; IDEs and other hosts
+may provide different search directories. If a command plugin intentionally
+requires a user-installed tool, document that requirement and report a clear
+diagnostic when `PluginContext.tool(named:)` can't find it.
+
 ### Implementing the command plugin script
 
 The source that implements command plugins should be located under the `Plugins` subdirectory in the package.
