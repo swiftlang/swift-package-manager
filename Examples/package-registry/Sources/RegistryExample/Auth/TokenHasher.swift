@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import CryptoKit
+import Vapor
 
 /// The hex-encoded SHA-256 of a bearer token: the stored form of a token
 /// credential and the key of the ``UserStore``'s token index.
