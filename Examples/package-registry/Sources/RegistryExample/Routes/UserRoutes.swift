@@ -47,12 +47,11 @@ public struct UserRoutes: Sendable {
             let response = Response(status: .created, body: .init(data: data))
             response.headers.replaceOrAdd(name: .contentType, value: "application/json")
             return response
-        } catch let error as RegistrationError where error == .invalidEmail || error == .emailAlreadyRegistered {
-            // One indistinguishable response for both a malformed address and
-            // an already-registered one. A distinct "already exists" error
-            // would let an attacker enumerate which emails have accounts, so
-            // the specific cause is kept to the server log.
-            req.logger.debug("registration rejected: \(error)")
+        } catch RegistrationError.invalidEmail {
+            // A single response for both a malformed address and an
+            // already-registered one. ``UserRegistrar`` collapses the two into
+            // one error precisely so this endpoint cannot be used to enumerate
+            // which emails have accounts.
             throw ProblemDetails.badRequest("the email address is invalid or unavailable")
         } catch RegistrationError.emptyPassword {
             throw ProblemDetails.badRequest("password must not be empty")

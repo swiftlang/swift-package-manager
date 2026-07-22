@@ -52,10 +52,10 @@ struct UserRegistrarTests {
         }
     }
 
-    @Test func `duplicate email is rejected even across casing and whitespace`() async throws {
+    @Test func `duplicate email throws the same error as an invalid one, across casing and whitespace`() async throws {
         let registrar = UserRegistrar(store: UserStore())
         _ = try await registrar.register(email: "Mona@Example.com", password: "hunter2")
-        await #expect(throws: RegistrationError.emailAlreadyRegistered) {
+        await #expect(throws: RegistrationError.invalidEmail) {
             _ = try await registrar.register(email: "  mona@example.com ", password: "other")
         }
     }

@@ -14,16 +14,13 @@ import Vapor
 
 /// Errors thrown by ``UserRegistrar/register(email:password:)``.
 public enum RegistrationError: Error, Equatable, Sendable {
-    /// The supplied email is not syntactically valid. Surfaced as
-    /// `400 Bad Request`.
+    /// Surfaced as `400 Bad Request`
     case invalidEmail
-    /// A `password` field was present but empty. Surfaced as
+    /// A `password` field was present but empty. Also surfaced as
     /// `400 Bad Request` — distinct from an absent password, which mints a
     /// token user.
+    /// The distinction between the two cases is for internal logging only
     case emptyPassword
-    /// A user with the same normalized email already exists. Surfaced as
-    /// `409 Conflict`.
-    case emailAlreadyRegistered
 }
 
 /// The outcome of a successful registration.
@@ -71,8 +68,10 @@ public struct UserRegistrar: Sendable {
     ///   - password: The chosen password, or `nil` to mint a token.
     /// - Returns: The created user, plus the one-time token for token
     ///   users.
-    /// - Throws: ``RegistrationError`` for invalid input or a duplicate
-    ///   email; ``UserStoreError/tokenAlreadyExists`` on a token collision.
+    /// - Throws: ``RegistrationError/invalidEmail`` for an invalid or
+    ///   already-registered email, ``RegistrationError/emptyPassword`` for an
+    ///   empty password; ``UserStoreError/tokenAlreadyExists`` on a token
+    ///   collision.
     public func register(email rawEmail: String, password: String?) async throws -> RegistrationResult {
         guard let email = EmailAddress(rawEmail) else {
             throw RegistrationError.invalidEmail
@@ -82,7 +81,7 @@ public struct UserRegistrar: Sendable {
         do {
             try await store.create(user)
         } catch UserStoreError.emailAlreadyExists {
-            throw RegistrationError.emailAlreadyRegistered
+            throw RegistrationError.invalidEmail
         }
         return RegistrationResult(user: user, token: prepared.token)
     }
