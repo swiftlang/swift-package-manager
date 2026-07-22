@@ -16,6 +16,7 @@ import PackageModel
 import SourceControl
 import _InternalTestSupport
 import XCTest
+import Testing
 
 @available(macOS 13, iOS 16, tvOS 16, watchOS 9, *)
 final class ManifestLoaderCacheTests: XCTestCase {

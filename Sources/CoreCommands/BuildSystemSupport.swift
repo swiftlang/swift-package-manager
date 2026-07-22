@@ -133,7 +133,7 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
                 )
             },
             packageManagerResourcesDirectory: swiftCommandState.packageManagerResourcesDirectory,
-            additionalFileRules: FileRuleDescription.swiftpmFileTypes + FileRuleDescription.xcbuildFileTypes,
+            additionalFileRules: FileRuleDescription.swiftBuildFileTypes,
             outputStream: outputStream ?? self.swiftCommandState.outputStream,
             logLevel: logLevel ?? self.swiftCommandState.logLevel,
             fileSystem: self.swiftCommandState.fileSystem,

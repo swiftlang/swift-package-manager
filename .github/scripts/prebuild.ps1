@@ -12,11 +12,26 @@
 
 param (
     [switch]$SkipAndroid,
-    [switch]$InstallCMake
+    [switch]$InstallCMake,
+    [switch]$InstallVcpkg,
+    [switch]$InstallZlib
 )
 
 # winget isn't easily made available in containers, so use chocolatey
 Set-ExecutionPolicy Bypass -Scope Process -Force; [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+if ($InstallVcpkg -or $InstallZlib) {
+    Write-Output "Installing vcpkg ..."
+    git clone --depth 1 https://github.com/microsoft/vcpkg.git
+    .\vcpkg\bootstrap-vcpkg.bat
+    # $PWD is a PathInfo object; use .Path to get the string
+    $currentDir = $PWD.Path
+    $env:VCPKG_ROOT = "${currentDir}\vcpkg"
+    $env:PATH = "$env:VCPKG_ROOT;$env:PATH"
+
+    Write-Output "VCPKG_ROOT: $env:VCPKG_ROOT"
+    Write-Output "PATH: $env:PATH"
+}
 
 if ($InstallCMake) {
     choco install -y cmake --installargs 'ADD_CMAKE_TO_PATH=System' --apply-install-arguments-to-dependencies
@@ -37,4 +52,9 @@ if (-not $SkipAndroid) {
 
     # Work around a bug in the package causing the env var to be set incorrectly
     $env:ANDROID_NDK_ROOT = $env:ANDROID_NDK_ROOT.replace('-windows.zip','')
+}
+
+if ($InstallZlib) {
+    Write-Output "Installing zlib ..."
+    vcpkg install zlib
 }
