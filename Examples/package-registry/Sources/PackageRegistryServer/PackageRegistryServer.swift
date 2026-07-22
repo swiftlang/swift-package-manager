@@ -22,17 +22,17 @@ struct PackageRegistryServer: ArgumentParser.AsyncParsableCommand {
     )
 
     @ArgumentParser.Flag(
-        name: .customLong("enable-auth"),
-        help: "Require a logged-in user to publish releases (POST /login first)."
+        name: .customLong("disable-auth"),
+        help: "Open the publish endpoint to unauthenticated clients. Authentication is required by default."
     )
-    var enableAuth = false
+    var disableAuth = false
 
     func run() async throws {
-        var env = try Environment.detect(arguments: CommandLine.arguments.filter { $0 != "--enable-auth" })
+        var env = try Environment.detect(arguments: CommandLine.arguments.filter { $0 != "--disable-auth" })
         try LoggingSystem.bootstrap(from: &env)
         let app = try await Application.make(env)
         do {
-            try await configure(app, authEnabled: enableAuth)
+            try await configure(app, authEnabled: !disableAuth)
             try await app.execute()
         } catch {
             try? await app.asyncShutdown()

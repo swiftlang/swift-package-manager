@@ -55,6 +55,24 @@ struct PublishAuthTests {
         }
     }
 
+    @Test func `configure requires auth by default`() async throws {
+        let app = try await Application.make(.testing)
+        app.logger.logLevel = .warning
+        do {
+            try await configure(app)
+            try await app.asyncBoot()
+            try await app.testing().test(
+                .PUT, "/catalogdev/HelloWorld/1.0.0", headers: publishHeaders(), body: try publishBody()
+            ) { res async in
+                #expect(res.status == .unauthorized)
+            }
+        } catch {
+            try? await app.asyncShutdown()
+            throw error
+        }
+        try await app.asyncShutdown()
+    }
+
     @Test func `with auth enabled, publishing with no credentials is 401`() async throws {
         try await withRegistryApp(authEnabled: true) { app in
             try await app.testing().test(

@@ -63,11 +63,12 @@ swift run PackageRegistryServer
 If `certs/cert.pem` and `certs/key.pem` are present, the server binds to
 `https://localhost:8000`. Otherwise it falls back to Vapor's default bind.
 
-Pass `--enable-auth` to require a logged-in user before publishing (see
+Publishing requires authentication by default. For a quick, credential-free
+demo you can open the publish endpoint with `--disable-auth` (see
 [Requiring login to publish](#requiring-login-to-publish)):
 
 ```bash
-swift run PackageRegistryServer --enable-auth
+swift run PackageRegistryServer --disable-auth
 ```
 
 ## Publishing the HelloWorld fixture
@@ -161,19 +162,12 @@ curl -skX POST https://localhost:8000/login -u 'harry@hogwarts.com:ginny!'   # �
 curl -skX POST https://localhost:8000/login -H 'Authorization: Bearer kR8f…QeE'  # → 200
 ```
 
-### Requiring login to publish
+### Stateless login
 
-By default the publish endpoint is open. Start the server with `--enable-auth`
-to gate it behind authentication:
-
-```bash
-swift run PackageRegistryServer --enable-auth
-```
-
-With the gate on, every publish request must carry its own valid credentials —
-an `Authorization` header (HTTP Basic or Bearer) that verifies against a
-registered account. There is no server-side session: credentials are re-checked
-on every request, so a prior `POST /login` does not authorize a later
+When auth is enabled, every publish request must carry its own valid
+credentials — an `Authorization` header (HTTP Basic or Bearer) that verifies
+against a registered account. There is no server-side session: credentials are
+re-checked on every request, so a prior `POST /login` does not authorize a later
 credential-less publish, and nothing needs to be remembered across requests or
 survive a restart. A request with missing or invalid credentials is rejected
 with `401 Unauthorized`.
