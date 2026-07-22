@@ -559,7 +559,7 @@ extension PackagePIFProjectBuilder {
         self.builtModulesAndProducts.append(moduleOrProduct)
 
         if moduleOrProductType == .unitTest {
-            try makeTestRunnerProduct(for: moduleOrProduct)
+            try makeTestRunnerProduct(for: moduleOrProduct, unitTestModule: mainModule)
         }
     }
 
@@ -1068,7 +1068,7 @@ extension PackagePIFProjectBuilder {
     }
 
     // MARK: - Test Runners
-    mutating func makeTestRunnerProduct(for unitTestProduct: PackagePIFBuilder.ModuleOrProduct) throws {
+    mutating func makeTestRunnerProduct(for unitTestProduct: PackagePIFBuilder.ModuleOrProduct, unitTestModule: ResolvedModule) throws {
         // Only generate a test runner for root packages with tests.
         guard pifBuilder.delegate.isRootPackage else {
             return
@@ -1101,7 +1101,6 @@ extension PackagePIFProjectBuilder {
         settings[.PRODUCT_BUNDLE_IDENTIFIER] = "\(self.package.identity).\(name)"
             .spm_mangledToBundleIdentifier()
         settings[.SKIP_INSTALL] = "NO"
-        settings[.SWIFT_VERSION] = "5.0"
         // This should eventually be set universally for all package targets/products.
         settings[.LINKER_DRIVER] = "swiftc"
 
@@ -1139,11 +1138,22 @@ extension PackagePIFProjectBuilder {
             linkProduct: true
         )
 
+        // Apply user-specified settings on the test target to the test runner. This is especially important
+        // of e.g. linker settings specify a linked library external to the package.
+        var debugSettings: ProjectModel.BuildSettings = settings
+        var releaseSettings: ProjectModel.BuildSettings = settings
+        let allBuildSettings = unitTestModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
+        allBuildSettings.apply(to: &debugSettings, for: .debug)
+        allBuildSettings.apply(to: &releaseSettings, for: .release)
+
+        debugSettings[.SWIFT_VERSION] = "5.0"
+        releaseSettings[.SWIFT_VERSION] = "5.0"
+
         self.project[keyPath: testRunnerTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(
                 id: id,
                 name: "Debug",
-                settings: settings,
+                settings: debugSettings,
                 impartedBuildSettings: impartedSettings
             )
         }
@@ -1151,7 +1161,7 @@ extension PackagePIFProjectBuilder {
             BuildConfig(
                 id: id,
                 name: "Release",
-                settings: settings,
+                settings: releaseSettings,
                 impartedBuildSettings: impartedSettings
             )
         }

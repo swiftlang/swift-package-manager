@@ -913,6 +913,71 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10225", relationship: .verifies),
+        arguments: BuildConfiguration.allCases
+    )
+    func testRunnerInheritsUnitTestLinkerFlags(configuration: BuildConfiguration) async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/Lib/Lib.swift",
+            "/Root/Tests/LibTests/LibTests.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_2,
+                    targets: [
+                        TargetDescription(name: "Lib"),
+                        TargetDescription(
+                            name: "LibTests",
+                            dependencies: ["Lib"],
+                            type: .test,
+                            settings: [
+                                .init(tool: .linker, kind: .unsafeFlags(["-L", "/Vendor"])),
+                                .init(tool: .linker, kind: .linkedLibrary("helper")),
+                            ]
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "Root")
+
+        let runnerTarget = try #require(
+            project.underlying.targets.first {
+                guard case .target(let target) = $0 else { return false }
+                return target.productType == .swiftpmTestRunner
+            }
+        )
+
+        let ldFlags = try #require(try runnerTarget.buildConfig(named: configuration).settings[.OTHER_LDFLAGS])
+        #expect(ldFlags.contains("-lhelper"))
+        #expect(ldFlags.contains("-L") && ldFlags.contains("/Vendor"))
+    }
+
     @Test func impartedModuleMaps() async throws {
         try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem, fixturePath in
             #expect(observabilitySystem.diagnostics.filter {
