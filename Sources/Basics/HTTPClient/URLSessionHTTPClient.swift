@@ -307,20 +307,19 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         do {
             let path = try AbsolutePath(validating: location.path)
 
-            // Only proceed to move the file if status code is within 200-299 range.
+            // `URLSession` removes `location` after this callback returns, so consume it synchronously.
             if let response = downloadTask.response as? HTTPURLResponse,
-               response.statusCode < 200 || response.statusCode >= 300 {
-                throw HTTPClientError.badResponseStatusCode(response.statusCode)
+               response.statusCode < 200 || response.statusCode >= 300
+            {
+                // Preserve an unsuccessful response for the caller without moving it to the download destination.
+                task.responseBody = try Data(contentsOf: location)
+            } else {
+                try task.fileSystem.move(from: path, to: task.destination)
             }
-
-            // Always using synchronous `localFileSystem` here since `URLSession` requires temporary `location`
-            // to be moved from synchronously. Otherwise the file will be immediately cleaned up after returning
-            // from this delegate method.
-            try task.fileSystem.move(from: path, to: task.destination)
         } catch {
-            task.moveFileError = error
-            self.tasks[downloadTask.taskIdentifier] = task
+            task.fileOperationError = error
         }
+        self.tasks[downloadTask.taskIdentifier] = task
     }
 
     public func urlSession(
@@ -335,10 +334,10 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         do {
             if let error {
                 throw HTTPClientError.downloadError(error.interpolationDescription)
-            } else if let error = task.moveFileError {
+            } else if let error = task.fileOperationError {
                 throw error
             } else if let response = downloadTask.response as? HTTPURLResponse {
-                task.completionHandler(.success(response.response(body: nil)))
+                task.completionHandler(.success(response.response(body: task.responseBody)))
             } else {
                 throw HTTPClientError.invalidResponse
             }
@@ -377,7 +376,8 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
         let completionHandler: LegacyHTTPClient.CompletionHandler
         let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
 
-        var moveFileError: Error?
+        var responseBody: Data?
+        var fileOperationError: Error?
 
         init(
             task: URLSessionDownloadTask,
