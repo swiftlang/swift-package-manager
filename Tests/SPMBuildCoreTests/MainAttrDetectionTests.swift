@@ -220,6 +220,20 @@ struct MainAttrDetectionTests {
                 fileContent: """
                 /*
                 This is a multi-line comment
+                */ @main
+                struct MyApp {
+                    static func main() {
+                        print("Hello, World!")
+                    }
+                }
+                """,
+                expected: true,
+                id: "Multi-line comment end on a line containing @main",
+            ),
+            ContainsAtMainReturnsExpectedValueTestData(
+                fileContent: """
+                /*
+                This is a multi-line comment
                 that spans multiple lines
                 @main should be ignored here
                 */
@@ -240,34 +254,6 @@ struct MainAttrDetectionTests {
         data: ContainsAtMainReturnsExpectedValueTestData,
     ) async throws {
         try await self._testImplementation_containsAtMainReturnsExpectedValue(data: data)
-    }
-
-    @Test(
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/9685", relationship: .defect),
-        arguments: [
-            ContainsAtMainReturnsExpectedValueTestData(
-                fileContent: """
-                /*
-                This is a multi-line comment
-                /* @main
-                struct MyApp {
-                    static func main() {
-                        print("Hello, World!")
-                    }
-                }
-                """,
-                expected: true,
-                id: "Multi-line comment end on a line containing @main",
-            )
-
-        ],
-    )
-    func containsAtMainReturnsExpectedValueCurrentlyFails(
-        data: ContainsAtMainReturnsExpectedValueTestData,
-    ) async throws {
-        await withKnownIssue {
-            try await self._testImplementation_containsAtMainReturnsExpectedValue(data: data)
-        }
     }
 
     fileprivate func _testImplementation_containsAtMainReturnsExpectedValue(
