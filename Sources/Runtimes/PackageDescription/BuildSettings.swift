@@ -289,6 +289,20 @@ public struct CSetting: Sendable {
         return CSetting(
             name: "disableWarning", value: [name], condition: condition)
     }
+
+    /// Inherit default settings.
+    ///
+    /// - Since: First available in PackageDescription 6.5.
+    ///
+    /// This setting is a placeholder that will be substituted with any value set by `defaultCSettings`.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func inherited() -> CSetting {
+        return CSetting(
+            name: "inherited",
+            value: ["placeholder"],
+            condition: nil
+        )
+    }
 }
 
 /// A CXX-language build setting.
@@ -444,6 +458,20 @@ public struct CXXSetting: Sendable {
     ) -> CXXSetting {
         return CXXSetting(
             name: "disableWarning", value: [name], condition: condition)
+    }
+
+    /// Inherit default settings.
+    ///
+    /// - Since: First available in PackageDescription 6.5.
+    ///
+    /// This setting is a placeholder that will be substituted with any value set by `defaultCXXSettings`.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func inherited() -> CXXSetting {
+        return CXXSetting(
+            name: "inherited",
+            value: ["placeholder"],
+            condition: nil
+        )
     }
 }
 
@@ -714,6 +742,20 @@ public struct SwiftSetting: Sendable {
         return SwiftSetting(
             name: "defaultIsolation", value: [isolationString], condition: condition)
     }
+
+    /// Inherit default settings.
+    ///
+    /// - Since: First available in PackageDescription 6.5.
+    ///
+    /// This setting is a placeholder that will be substituted with any value set by `defaultSwiftSettings`.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func inherited() -> SwiftSetting {
+        return SwiftSetting(
+            name: "inherited",
+            value: ["placeholder"],
+            condition: nil
+        )
+    }
 }
 
 /// A linker build setting.
@@ -777,5 +819,19 @@ public struct LinkerSetting: Sendable {
     @available(_PackageDescription, introduced: 5.0)
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
         return LinkerSetting(name: "unsafeFlags", value: flags, condition: condition)
+    }
+
+    /// Inherit default settings.
+    ///
+    /// - Since: First available in PackageDescription 6.5.
+    ///
+    /// This setting is a placeholder that will be substituted with any value set by `defaultLinkerSettings`.
+    @available(_PackageDescription, introduced: 6.2)
+    public static func inherited() -> LinkerSetting {
+        return LinkerSetting(
+            name: "inherited",
+            value: ["placeholder"],
+            condition: nil
+        )
     }
 }
