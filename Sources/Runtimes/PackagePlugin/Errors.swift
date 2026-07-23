@@ -14,11 +14,11 @@
 public enum PluginContextError: Error {
     /// Could not find a tool with the given name.
     ///
-    /// This could be either because
-    /// it doesn't exist, or because the plugin doesn't have a dependency on it.
+    /// No plugin dependency or host-provided search directory contains an
+    /// executable with the given name.
     case toolNotFound(name: String)
 
-    /// The tool is not supported on the target platform
+    /// A declared binary tool has no variant that supports the host platform.
     case toolNotSupportedOnTargetPlatform(name: String)
 
     /// Could not find a target with the given name.

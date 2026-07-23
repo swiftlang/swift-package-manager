@@ -100,6 +100,19 @@ Note that this does not necessarily mean that _SomeTool_ will have been built wh
 Executable dependencies are built for the host platform as part of the build, while binary dependencies are references to `artifactbundle` archives that contains prebuilt binaries (see [SE-305](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0305-swiftpm-binary-target-improvements.md)).
 Binary targets are often used when the tool is built using a different build system than package manager, or when building it on demand is prohibitively expensive or requires a special build environment.
 
+Pass an executable target's name, an executable product's name, or an executable
+artifact's name to `PluginContext.tool(named:)`, as appropriate for the declared
+dependency. Binary artifact bundles must contain a variant that supports the
+host platform, because build tools run on the host even when the package is
+being cross-compiled.
+
+Declaring a dependency is the portable way to make a tool available to a build
+tool plugin. SwiftPM also searches the directory containing the selected Swift
+compiler, which makes tools in the active toolchain available, but it doesn't
+search the user's `PATH` for build tool plugins. IDEs and other hosts may provide
+different search directories. Don't require users to install a build tool on
+`PATH`; provide it through an executable or binary dependency instead.
+
 ### Implementing the build tool plugin script
 
 By default, Swift Package Manager looks for the implementation of a declared plugin in a subdirectory of the `Plugins` directory named with the same name as the plugin target.
