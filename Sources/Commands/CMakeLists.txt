@@ -87,7 +87,8 @@ target_link_libraries(Commands PUBLIC
   SwiftBuild::SwiftBuild
   SwiftToolsProtocols::BuildServerProtocol
   SwiftToolsProtocols::LanguageServerProtocol
-  SwiftToolsProtocols::LanguageServerProtocolTransport)
+  SwiftToolsProtocols::LanguageServerProtocolTransport
+  SwiftSubprocess::Subprocess)
 target_link_libraries(Commands PRIVATE
   DriverSupport
   $<$<NOT:$<PLATFORM_ID:Darwin>>:FoundationXML>)
