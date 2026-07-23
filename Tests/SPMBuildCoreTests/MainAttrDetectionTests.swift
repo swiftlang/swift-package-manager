@@ -247,9 +247,21 @@ struct MainAttrDetectionTests {
         arguments: [
             ContainsAtMainReturnsExpectedValueTestData(
                 fileContent: """
+                /* docstring */ @main
+                struct MyApp {
+                    static func main() {
+                        print("Hello, World!")
+                    }
+                }
+                """,
+                expected: true,
+                id: "@main on the same line as a single-line block comment end",
+            ),
+            ContainsAtMainReturnsExpectedValueTestData(
+                fileContent: """
                 /*
                 This is a multi-line comment
-                /* @main
+                */ @main
                 struct MyApp {
                     static func main() {
                         print("Hello, World!")
@@ -258,16 +270,43 @@ struct MainAttrDetectionTests {
                 """,
                 expected: true,
                 id: "Multi-line comment end on a line containing @main",
-            )
-
+            ),
+            ContainsAtMainReturnsExpectedValueTestData(
+                fileContent: """
+                /* a */ /* b */ @main
+                struct MyApp {}
+                """,
+                expected: true,
+                id: "@main after two single-line block comments on the same line",
+            ),
+            ContainsAtMainReturnsExpectedValueTestData(
+                fileContent: """
+                /* outer /* inner */ @main */
+                struct MyApp {}
+                """,
+                expected: false,
+                id: "Nested block comment keeps @main inside the outer comment",
+            ),
+            ContainsAtMainReturnsExpectedValueTestData(
+                fileContent: """
+                let s = "/*"
+                @main
+                struct MyApp {}
+                """,
+                expected: true,
+                id: "Block-comment opener inside a string literal does not start a comment",
+            ),
+            ContainsAtMainReturnsExpectedValueTestData(
+                fileContent: "// header\r\n@main\r\nstruct MyApp {}\r\n",
+                expected: true,
+                id: "@main on a CRLF-separated line is detected",
+            ),
         ],
     )
-    func containsAtMainReturnsExpectedValueCurrentlyFails(
+    func containsAtMainHandlesBlockCommentEnds(
         data: ContainsAtMainReturnsExpectedValueTestData,
     ) async throws {
-        await withKnownIssue {
-            try await self._testImplementation_containsAtMainReturnsExpectedValue(data: data)
-        }
+        try await self._testImplementation_containsAtMainReturnsExpectedValue(data: data)
     }
 
     fileprivate func _testImplementation_containsAtMainReturnsExpectedValue(
