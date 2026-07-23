@@ -653,6 +653,62 @@ struct TestCommandTests {
         }
     }
 
+    /// Regression: when a package has multiple test products, each Swift Testing binary opens the
+    /// `--event-stream-output-path` file in truncating mode (`fopen(path, "wb")`), so the last
+    /// product to run wipes every prior product's events. All products' events must survive.
+    @Test(
+        .tags(
+            .Feature.CommandLineArguments.TestOutputEventStream,
+            .Feature.CommandLineArguments.TestDisableXCTest,
+            .Feature.CommandLineArguments.TestEnableSwiftTesting,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10336", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func swiftTestEventStreamOutputAggregatesResultsAcrossMultipleTestProducts(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
+            let eventStreamOutput = fixturePath.appending("events.jsonl")
+
+            _ = try await execute(
+                [
+                    "--disable-xctest",
+                    "--enable-swift-testing",
+                    "--event-stream-version", "0",
+                    "--event-stream-output-path", eventStreamOutput.pathString,
+                ],
+                packagePath: fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+
+            try requireFileExists(at: eventStreamOutput, "\(eventStreamOutput) does not exist")
+            let contents: String = try localFileSystem.readFileContents(eventStreamOutput)
+
+            // Every merged line must remain a self-contained JSON record: a concatenation that
+            // glued records together (or otherwise corrupted the stream) would fail to parse.
+            let lines = contents.split(separator: "\n", omittingEmptySubsequences: true).map(String.init)
+            #expect(!lines.isEmpty, "merged event stream must not be empty")
+            for line in lines {
+                #expect(
+                    (try? JSONSerialization.jsonObject(with: Data(line.utf8))) != nil,
+                    "every merged line must be a valid JSON record; offending line:\n\(line)",
+                )
+            }
+
+            #expect(
+                contents.contains("LibA greeting works"),
+                "Swift Testing event from LibATests product must survive the merge; got:\n\(contents)",
+            )
+            #expect(
+                contents.contains("LibB greeting works"),
+                "Swift Testing event from LibBTests product must survive the merge; got:\n\(contents)",
+            )
+        }
+    }
+
     /// Multi-product companion to `swiftTestParallelXunitOutputCombinedEqualsForm`: with both
     /// XCTest and Swift Testing enabled on a package that has multiple test products, the base
     /// `--xunit-output` file must contain XCTest results from every product and the

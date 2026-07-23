@@ -158,6 +158,7 @@ extension Tag.Feature.CommandLineArguments {
     @Tag public static var TestParallel: Tag
     @Tag public static var TestNoParallel: Tag
     @Tag public static var TestOutputXunit: Tag
+    @Tag public static var TestOutputEventStream: Tag
     @Tag public static var TestEnableSwiftTesting: Tag
     @Tag public static var TestDisableSwiftTesting: Tag
     @Tag public static var TestEnableXCTest: Tag
