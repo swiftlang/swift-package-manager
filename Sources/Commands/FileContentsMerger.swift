@@ -20,7 +20,7 @@ import Foundation
 /// Multiple Swift Testing binaries (one per test product) each write their own
 /// event stream; without merging, later invocations would truncate earlier ones
 /// via `fopen(path, "wb")`.
-enum EventStreamMerger {
+enum FileContentsMerger {
     static func merge(
         sources: [AbsolutePath],
         into destination: AbsolutePath,

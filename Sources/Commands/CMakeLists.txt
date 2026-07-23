@@ -49,7 +49,7 @@ add_library(Commands
   SwiftRunCommand.swift
   SwiftTestCommand.swift
   CommandWorkspaceDelegate.swift
-  EventStreamMerger.swift
+  FileContentsMerger.swift
   XUnitXMLMerger.swift
   Utilities/APIDigester.swift
   Utilities/DependenciesSerializer.swift

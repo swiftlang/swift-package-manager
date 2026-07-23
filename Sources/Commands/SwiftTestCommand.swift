@@ -838,7 +838,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                     destination: eventStreamOutput.path,
                     perProductFileName: { index, productName in "event-stream-\(index)-\(productName).jsonl" },
                     merge: { sources, destination in
-                        try EventStreamMerger.merge(sources: sources, into: destination, fileSystem: localFileSystem)
+                        try FileContentsMerger.merge(sources: sources, into: destination, fileSystem: localFileSystem)
                     },
                 )
             )
