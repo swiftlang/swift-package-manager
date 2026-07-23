@@ -151,7 +151,7 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
 }
 
 extension SwiftCommandState {
-    public var defaultBuildSystemProvider: BuildSystemProvider {
+    var defaultBuildSystemProvider: BuildSystemProvider {
         .init(providers: [
             .native: NativeBuildSystemFactory(swiftCommandState: self),
             .swiftbuild: SwiftBuildSystemFactory(swiftCommandState: self),
