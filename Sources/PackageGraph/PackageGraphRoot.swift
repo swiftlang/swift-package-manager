@@ -97,6 +97,7 @@ public struct PackageGraphRoot {
         explicitProduct: String? = nil,
         dependencyMapper: DependencyMapper? = nil,
         observabilityScope: ObservabilityScope,
+        implicitDependencies: [ImplicitDependency],
         enabledTraitsMap: EnabledTraitsMap = .init()
     ) throws {
         self.packages = input.packages.reduce(into: .init(), { partial, inputPath in
@@ -128,6 +129,11 @@ public struct PackageGraphRoot {
                 return true
             }
         })
+
+        // Add implicit dependencies.
+        for implicitDependency in implicitDependencies {
+            adjustedDependencies.append(implicitDependency.package)
+        }
 
         if let explicitProduct {
             // FIXME: `dependenciesRequired` modifies manifests and prevents conversion of `Manifest` to a value type
