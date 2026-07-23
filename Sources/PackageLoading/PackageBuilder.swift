@@ -57,6 +57,9 @@ public enum ModuleError: Swift.Error {
     /// The public headers directory is at an invalid path.
     case invalidPublicHeadersDirectory(String)
 
+    /// The required public headers directory does not exist.
+    case missingPublicHeadersDirectory(target: String, path: String)
+
     /// The sources of a target are overlapping with another target.
     case overlappingSources(target: String, sources: [AbsolutePath])
 
@@ -125,7 +128,10 @@ extension ModuleError: CustomStringConvertible {
                 (cycle.path + cycle.cycle).joined(separator: " -> ") +
                 " -> " + cycle.cycle[0]
         case .invalidPublicHeadersDirectory(let name):
-            return "public headers (\"include\") directory path for '\(name)' is invalid or not contained in the target"
+            return "public headers directory path for target '\(name)' must be contained within the target directory"
+        case .missingPublicHeadersDirectory(let target, let path):
+            return "target '\(target)' is missing required public headers directory '\(path)'; " +
+                "create it or configure 'publicHeadersPath' in Package.swift"
         case .overlappingSources(let target, let sources):
             return "target '\(target)' has overlapping sources: " +
                 sources.map(\.description).joined(separator: ", ")
@@ -1042,8 +1048,11 @@ public final class PackageBuilder {
                 )
                 moduleMapType = moduleMapGenerator.determineModuleMapType(observabilityScope: self.observabilityScope)
             } else if moduleKind == .library, self.manifest.toolsVersion >= .v5_5 {
-                // If this clang target is a library, it must contain "include" directory.
-                throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
+                // If this clang target is a library, it must contain a public headers directory.
+                throw ModuleError.missingPublicHeadersDirectory(
+                    target: potentialModule.name,
+                    path: publicHeaderComponent
+                )
             } else {
                 moduleMapType = .none
             }
