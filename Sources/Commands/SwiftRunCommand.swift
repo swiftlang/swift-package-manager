@@ -190,9 +190,10 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                 } else {
                     let pathRelativeToWorkingDirectory = productAbsolutePath.relative(to: swiftCommandState.originalWorkingDirectory)
                     let lldbPath = try swiftCommandState.getTargetToolchain().getLLDB()
+                    let lldbMessage = #"script print("LLDB is ready. Type 'run' or 'r' to start execution.")"#
                     try safeExec(
                         path: lldbPath.pathString,
-                        args: ["--", pathRelativeToWorkingDirectory.pathString] + options.arguments,
+                        args: ["lldb", "-o", lldbMessage, "--", pathRelativeToWorkingDirectory.pathString] + options.arguments,
                         observabilityScope: swiftCommandState.observabilityScope
                     )
                 }
