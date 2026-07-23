@@ -1,0 +1,4 @@
+module MixedCore {
+    header "cadd.h"
+    export *
+}

@@ -331,12 +331,9 @@ public final class Target {
             precondition(
                 url == nil &&
                 resources == nil &&
-                publicHeadersPath == nil &&
                 pkgConfig == nil &&
                 providers == nil &&
-                pluginCapability == nil &&
-                cSettings == nil &&
-                cxxSettings == nil
+                pluginCapability == nil
             )
         }
     }
@@ -985,7 +982,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target.
-    @available(_PackageDescription, introduced: 5.9)
+    @available(_PackageDescription, introduced: 5.9, obsoleted: 999)
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -1008,6 +1005,64 @@ public final class Target {
             sources: sources,
             resources: resources,
             publicHeadersPath: nil,
+            type: .test,
+            packageAccess: packageAccess,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins
+        )
+    }
+
+    /// Creates a test target.
+    ///
+    /// Write test targets using the Swift Testing or XCTest testing frameworks.
+    /// Test targets generally declare a dependency on the targets they test.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
+    ///   - path: The custom path for the target. By default, Swift Package Manager requires a target's sources to reside at predefined search paths;
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that Swift Package Manager shouldn't consider to be source or resource files.
+    ///       A path is relative to the target's directory.
+    ///       This parameter has precedence over the ``sources`` parameter.
+    ///   - sources: An explicit list of source files. If you provide a path to a directory,
+    ///       Swift Package Manager searches for valid source files recursively.
+    ///   - resources: An explicit list of resources files.
+    ///   - publicHeadersPath: The directory containing public headers of a target that contains C-family sources.
+    ///   - packageAccess: Allows access to package symbols from other targets in the package.
+    ///   - cSettings: The C settings for this target.
+    ///   - cxxSettings: The C++ settings for this target.
+    ///   - swiftSettings: The Swift settings for this target.
+    ///   - linkerSettings: The linker settings for this target.
+    ///   - plugins: The plug-ins used by this target.
+    @available(_PackageDescription, introduced: 999)
+    public static func testTarget(
+        name: String,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        resources: [Resource]? = nil,
+        publicHeadersPath: String? = nil,
+        packageAccess: Bool = true,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            resources: resources,
+            publicHeadersPath: publicHeadersPath,
             type: .test,
             packageAccess: packageAccess,
             cSettings: cSettings,
