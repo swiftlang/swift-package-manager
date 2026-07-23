@@ -36,6 +36,7 @@ fileprivate var downloadURL = URL("\(registryURL)/\(identity.registry!.scope)/\(
 fileprivate var identifiersURL = URL("\(registryURL)/identifiers?url=\(packageURL.absoluteString)")
 fileprivate var publishURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
 fileprivate var availabilityURL = URL("\(registryURL)/availability")
+fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
 
 @Suite("Package Metadata") struct PackageMetadata {
     @Test func getPackageMetadata() async throws {
@@ -4068,7 +4069,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         )
 
         let status = try await registryClient.checkAvailability(registry: registry)
-        #expect(status == .available)
+        #expect(status == .available())
 
         let syncStatus = try await withCheckedThrowingContinuation { continuation in
             registryClient.checkAvailability(
@@ -4078,7 +4079,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
                 completion: { continuation.resume(with: $0) }
             )
         }
-        #expect(syncStatus == .available)
+        #expect(syncStatus == .available())
     }
 
     @Test func handleNotAvailable() async throws {
@@ -4229,6 +4230,313 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
             let count = await counter.value
             #expect(count == 1)
         }
+    }
+}
+
+@Suite("Registry Capabilities") struct RegistryCapabilities {
+    private static func okJSON(_ body: String) -> HTTPClient.Response {
+        .init(
+            statusCode: 200,
+            headers: .init([
+                .init(name: "Content-Type", value: "application/json"),
+            ]),
+            body: Data(body.utf8)
+        )
+    }
+
+    @Test func discoversAdvertisedCapability() async throws {
+        let handler: HTTPClient.Implementation = { request, _ in
+            switch (request.method, request.url) {
+            case (.get, availabilityURL):
+                return Self.okJSON(#"{"capabilities":{"search":{}}}"#)
+            default:
+                throw StringError("method and url should match")
+            }
+        }
+
+        let registry = Registry(url: registryURL, supportsAvailability: true)
+        let registryClient = makeRegistryClient(
+            configuration: .init(),
+            httpClient: HTTPClient(implementation: handler)
+        )
+
+        let capabilities = try await registryClient.withAvailabilityCheck(
+            registry: registry,
+            requiring: .search,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+        #expect(capabilities == ["search"])
+    }
+
+    @Test func missingCapabilityThrows() async throws {
+        let handler: HTTPClient.Implementation = { request, _ in
+            switch (request.method, request.url) {
+            case (.get, availabilityURL):
+                return Self.okJSON(#"{"capabilities":{"publish":{}}}"#)
+            default:
+                throw StringError("method and url should match")
+            }
+        }
+
+        let registry = Registry(url: registryURL, supportsAvailability: true)
+        let registryClient = makeRegistryClient(
+            configuration: .init(),
+            httpClient: HTTPClient(implementation: handler)
+        )
+
+        await #expect {
+            try await registryClient.withAvailabilityCheck(
+                registry: registry,
+                requiring: .search,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+        } throws: { error in
+            guard case RegistryError.capabilityNotSupported(_, let capability) = error else { return false }
+            return capability == .search
+        }
+    }
+
+    @Test func emptyBodyHasNoCapabilities() async throws {
+        let handler: HTTPClient.Implementation = { request, _ in
+            switch (request.method, request.url) {
+            case (.get, availabilityURL):
+                return .okay()
+            default:
+                throw StringError("method and url should match")
+            }
+        }
+
+        let registry = Registry(url: registryURL, supportsAvailability: true)
+        let registryClient = makeRegistryClient(
+            configuration: .init(),
+            httpClient: HTTPClient(implementation: handler)
+        )
+
+        let capabilities = try await registryClient.withAvailabilityCheck(
+            registry: registry,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+        #expect(capabilities.isEmpty)
+
+        await #expect {
+            try await registryClient.withAvailabilityCheck(
+                registry: registry,
+                requiring: .search,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+        } throws: { error in
+            if case RegistryError.capabilityNotSupported = error { return true }
+            return false
+        }
+    }
+
+    @Test func registryWithoutAvailabilityFailsCapabilityRequirement() async throws {
+        let handler: HTTPClient.Implementation = { _, _ in
+            throw StringError("availability check should not be issued")
+        }
+        let registry = Registry(url: registryURL, supportsAvailability: false)
+        let registryClient = makeRegistryClient(
+            configuration: .init(),
+            httpClient: HTTPClient(implementation: handler)
+        )
+
+        await #expect {
+            try await registryClient.withAvailabilityCheck(
+                registry: registry,
+                requiring: .search,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+        } throws: { error in
+            if case RegistryError.capabilityNotSupported = error { return true }
+            return false
+        }
+    }
+}
+
+@Suite("Registry Search") struct RegistrySearch {
+    private static let searchBody = #"""
+    {
+        "results": [
+            {
+                "identity": "mona.LinkedList",
+                "summary": "One thing links to another.",
+                "latestVersion": "1.1.1",
+                "author": "Mona Lisa Octocat",
+                "licenseURL": "https://example.com/LICENSE",
+                "url": "https://packages.example.com/mona/LinkedList"
+            }
+        ],
+        "total": 1,
+        "offset": 0,
+        "limit": 20
+    }
+    """#
+
+    private static func responseBody(_ body: String, statusCode: Int = 200) -> HTTPClient.Response {
+        .init(
+            statusCode: statusCode,
+            headers: .init([
+                .init(name: "Content-Type", value: "application/json"),
+                .init(name: "Content-Version", value: "1"),
+            ]),
+            body: Data(body.utf8)
+        )
+    }
+
+    @Test func decodesResults() async throws {
+        let handler: HTTPClient.Implementation = { request, _ in
+            switch (request.method, request.url) {
+            case (.get, availabilityURL):
+                return .init(
+                    statusCode: 200,
+                    headers: .init([.init(name: "Content-Type", value: "application/json")]),
+                    body: Data(#"{"capabilities":{"search":{}}}"#.utf8)
+                )
+            case (.get, searchURL):
+                #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+json")
+                return Self.responseBody(Self.searchBody)
+            default:
+                throw StringError("unexpected request: \(request.method) \(request.url)")
+            }
+        }
+
+        let registry = Registry(url: registryURL, supportsAvailability: true)
+        let registryClient = makeRegistryClient(
+            configuration: .init(),
+            httpClient: HTTPClient(implementation: handler)
+        )
+
+        let results = try await registryClient.search(
+            query: "foo",
+            registry: registry,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+        #expect(results.total == 1)
+        #expect(results.offset == 0)
+        #expect(results.limit == 20)
+        #expect(results.results.count == 1)
+        let first = try #require(results.results.first)
+        #expect(first.identity == "mona.LinkedList")
+        #expect(first.summary == "One thing links to another.")
+        #expect(first.latestVersion == "1.1.1")
+        #expect(first.author == "Mona Lisa Octocat")
+        #expect(first.licenseURL?.absoluteString == "https://example.com/LICENSE")
+        #expect(first.url?.absoluteString == "https://packages.example.com/mona/LinkedList")
+    }
+
+    @Test func notFoundFromSearchEndpointMapsToCapabilityNotSupported() async throws {
+        let handler: HTTPClient.Implementation = { request, _ in
+            switch (request.method, request.url) {
+            case (.get, availabilityURL):
+                return .init(
+                    statusCode: 200,
+                    headers: .init([.init(name: "Content-Type", value: "application/json")]),
+                    body: Data(#"{"capabilities":{"search":{}}}"#.utf8)
+                )
+            case (.get, searchURL):
+                return .notFound()
+            default:
+                throw StringError("unexpected request: \(request.method) \(request.url)")
+            }
+        }
+
+        let registry = Registry(url: registryURL, supportsAvailability: true)
+        let registryClient = makeRegistryClient(
+            configuration: .init(),
+            httpClient: HTTPClient(implementation: handler)
+        )
+
+        await #expect {
+            _ = try await registryClient.search(
+                query: "foo",
+                registry: registry,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+        } throws: { error in
+            if case RegistryError.capabilityNotSupported(_, let capability) = error {
+                return capability == .search
+            }
+            return false
+        }
+    }
+
+    @Test func serverErrorIsWrappedAsSearchFailed() async throws {
+        let handler: HTTPClient.Implementation = { request, _ in
+            switch (request.method, request.url) {
+            case (.get, availabilityURL):
+                return .init(
+                    statusCode: 200,
+                    headers: .init([.init(name: "Content-Type", value: "application/json")]),
+                    body: Data(#"{"capabilities":{"search":{}}}"#.utf8)
+                )
+            case (.get, searchURL):
+                return Self.responseBody(#"{"detail":"query too long"}"#, statusCode: 400)
+            default:
+                throw StringError("unexpected request: \(request.method) \(request.url)")
+            }
+        }
+
+        let registry = Registry(url: registryURL, supportsAvailability: true)
+        let registryClient = makeRegistryClient(
+            configuration: .init(),
+            httpClient: HTTPClient(implementation: handler)
+        )
+
+        await #expect {
+            _ = try await registryClient.search(
+                query: "foo",
+                registry: registry,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+        } throws: { error in
+            if case RegistryError.searchFailed = error { return true }
+            return false
+        }
+    }
+
+    @Test func encodesQueryParameters() async throws {
+        let counter = SendableBox(0)
+        let handler: HTTPClient.Implementation = { request, _ in
+            await counter.increment()
+            switch request.method {
+            case .get where request.url == availabilityURL:
+                return .init(
+                    statusCode: 200,
+                    headers: .init([.init(name: "Content-Type", value: "application/json")]),
+                    body: Data(#"{"capabilities":{"search":{}}}"#.utf8)
+                )
+            case .get:
+                // Verify query string contains expected components
+                let url = request.url
+                let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+                let queryItems = components?.queryItems ?? []
+                let hasQuery = queryItems.contains { $0.name == "q" && $0.value == "author:Mona networking" }
+                let hasLimit = queryItems.contains { $0.name == "limit" && $0.value == "50" }
+                let hasOffset = queryItems.contains { $0.name == "offset" && $0.value == "10" }
+                #expect(hasQuery)
+                #expect(hasLimit)
+                #expect(hasOffset)
+                return Self.responseBody(Self.searchBody)
+            default:
+                throw StringError("unexpected request: \(request.method) \(request.url)")
+            }
+        }
+
+        let registry = Registry(url: registryURL, supportsAvailability: true)
+        let registryClient = makeRegistryClient(
+            configuration: .init(),
+            httpClient: HTTPClient(implementation: handler)
+        )
+
+        _ = try await registryClient.search(
+            query: "author:Mona networking",
+            limit: 50,
+            offset: 10,
+            registry: registry,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+        let count = await counter.value
+        #expect(count == 2) // availability + search
     }
 }
 

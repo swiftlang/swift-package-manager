@@ -28,6 +28,7 @@ public func configure(_ app: Application) async throws {
     IdentifiersRoutes(store: store).register(app)
     PublishRoutes(publisher: ReleasePublisher(store: store)).register(app)
     MetadataRoutes(store: store).register(app)
+    SearchRoutes(store: store).register(app)
 }
 
 private func configureTLS(_ app: Application) throws {

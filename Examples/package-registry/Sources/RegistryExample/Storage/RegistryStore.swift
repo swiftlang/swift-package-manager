@@ -120,4 +120,61 @@ public actor RegistryStore {
         }
         return matched.sorted { $0.storageKey < $1.storageKey }
     }
+
+    /// Searches published packages for those matching `query`.
+    ///
+    /// Each package is represented by its highest-precedence release, the same
+    /// one ``list(_:)`` returns first; its metadata supplies the summary,
+    /// author, and license. A package matches when the query hits its identity,
+    /// description, or author, subject to any qualifier terms. Results are
+    /// sorted by ``PackageIdentifier/storageKey`` so pagination is stable.
+    ///
+    /// - Parameters:
+    ///   - query: The parsed query. An empty query matches nothing.
+    ///   - limit: The maximum number of hits to return.
+    ///   - offset: The number of leading hits to skip.
+    /// - Returns: The requested page of hits and the total number of matching
+    ///   packages (before `offset`/`limit` are applied).
+    public func search(_ query: SearchQuery, limit: Int, offset: Int) -> (hits: [SearchHit], total: Int) {
+        guard !query.isEmpty else { return ([], 0) }
+        let sorted = releases.compactMap { identifier, versions -> SearchHit? in
+            guard let latest = versions.values.max(by: { $0.version < $1.version }) else {
+                return nil
+            }
+            let metadata = latest.metadata
+            guard query.matches(
+                scope: identifier.scope,
+                name: identifier.name,
+                description: metadata?.description,
+                author: metadata?.author?.name
+            ) else { return nil }
+            return SearchHit(
+                identifier: identifier,
+                summary: metadata?.description,
+                latestVersion: latest.version.description,
+                author: metadata?.author?.name,
+                licenseURL: metadata?.licenseURL
+            )
+        }.sorted { $0.identifier.storageKey < $1.identifier.storageKey }
+        guard offset < sorted.count else { return ([], sorted.count) }
+        let end = min(offset + limit, sorted.count)
+        return (Array(sorted[offset..<end]), sorted.count)
+    }
+}
+
+/// A single package match returned by ``RegistryStore/search(_:limit:offset:)``.
+///
+/// The fields are derived from the package's highest-precedence release; all
+/// but ``identifier`` may be absent when the release carries no metadata.
+public struct SearchHit: Sendable {
+    /// The matching package's identifier.
+    public let identifier: PackageIdentifier
+    /// The package's free-form description, if any.
+    public let summary: String?
+    /// The version string of the highest-precedence release.
+    public let latestVersion: String?
+    /// The author's name, if any.
+    public let author: String?
+    /// The URL of the release's license document, if any.
+    public let licenseURL: URL?
 }
