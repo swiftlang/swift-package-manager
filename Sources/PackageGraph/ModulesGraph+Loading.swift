@@ -916,25 +916,44 @@ private func markHostOnlyModules(packageBuilders: [ResolvedPackageBuilder]) {
         markHost(moduleBuilder)
     }
 
-    // Pass 2: seed from every genuine target root (a non-test module pass 1 didn't pin to
-    // host) and walk its dependencies, flipping any dual-use module back to `.all` so it
-    // can build for both.
+    // Pass 2: flip every dual-use module back to `.all` so it builds for both. A module is
+    // dual-use when it is reachable both through a build tool (pass 1 pinned it `.host`) and
+    // from something that ships to the target.
+    func markExternal(_ depModule: ResolvedModuleBuilder) {
+        guard depModule.platformConstraint != .all else {
+            return
+        }
+        guard !depModule.isHostOnly else {
+            // Never pull a macro or plugin itself onto the target.
+            return
+        }
+        depModule.platformConstraint = .all
+        for dep in depModule.allModuleDependencies {
+            markExternal(dep)
+        }
+    }
+
+    // Seed from every genuine target root a non-test module pass 1 did not pin to host (this
+    // covers shipped executables and product-less library targets), then walk its
+    // dependencies.
     for moduleBuilder in allModules
     where !moduleBuilder.isHostOnly && moduleBuilder.platformConstraint != .host {
-        func markExternal(_ depModule: ResolvedModuleBuilder) {
-            guard depModule.platformConstraint != .all else {
-                return
+        markExternal(moduleBuilder)
+    }
+
+    // Also seed from the modules of a root package's library products. A library product
+    // ships for the target, so it must build for the target even when a plugin's build-time
+    // tool also depends on it. Pass 1 would otherwise leave such a library pinned `.host`
+    // with nothing above to flip it back.
+    for packageBuilder in packageBuilders where packageBuilder.package.manifest.packageKind.isRoot {
+        for productBuilder in packageBuilder.products {
+            guard case .library = productBuilder.product.type else {
+                continue
             }
-            guard !depModule.isHostOnly else {
-                // Never pull a macro or plugin itself onto the target.
-                return
-            }
-            depModule.platformConstraint = .all
-            for dep in depModule.allModuleDependencies {
-                markExternal(dep)
+            for moduleBuilder in productBuilder.moduleBuilders {
+                markExternal(moduleBuilder)
             }
         }
-        markExternal(moduleBuilder)
     }
 }
 

@@ -309,7 +309,7 @@ final class CrossCompilationBuildPlanTests: XCTestCase {
 
         let result = try BuildPlanResult(plan: plan)
         result.checkProductsCount(3)
-        result.checkTargetsCount(16)
+        result.checkTargetsCount(20)
 
         XCTAssertTrue(try result.allTargets(named: "SwiftSyntax")
             .map { try $0.swift() }
