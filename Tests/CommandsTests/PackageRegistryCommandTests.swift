@@ -911,6 +911,99 @@ struct PackageRegistryCommandTests {
 
     @Test(
         .requiresWorkingDirectorySupport,
+        .tags(
+            .TestSize.large,
+            .Feature.Command.PackageRegistry.Publish,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func publishingWarnsWhenIdentityNameDoesNotMatchManifestName(
+        buildSystem: BuildSystemProvider.Kind,
+    ) throws {
+        let config = BuildConfiguration.debug
+        let version = "0.1.0"
+        let registryURL = "https://packages.example.com"
+        let mismatchMarker = "does not match the name"
+
+        // The name component of the package identity does not match the manifest
+        // name: a warning is emitted (and, non-interactively, publishing proceeds).
+        _ = try withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+            expectFileExists(at: packageDirectory.appending("Package.swift"))
+
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+            try localFileSystem.createDirectory(workingDirectory)
+
+            let (stdout, stderr) = try await executeSwiftPackageRegistry(
+                packageDirectory,
+                configuration: config,
+                extraArgs: [
+                    "publish",
+                    "test.wrong-name",
+                    version,
+                    "--url=\(registryURL)",
+                    "--scratch-directory=\(workingDirectory.pathString)",
+                    "--dry-run",
+                ],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                (stdout + stderr).contains(mismatchMarker),
+                "expected a name-mismatch warning, got stdout: '\(stdout)', stderr: '\(stderr)'"
+            )
+        }
+
+        // The name component of the package identity matches the manifest name
+        // (case-insensitively): no warning is emitted.
+        _ = try withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+            expectFileExists(at: packageDirectory.appending("Package.swift"))
+
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+            try localFileSystem.createDirectory(workingDirectory)
+
+            let (stdout, stderr) = try await executeSwiftPackageRegistry(
+                packageDirectory,
+                configuration: config,
+                extraArgs: [
+                    "publish",
+                    "test.mypackage",
+                    version,
+                    "--url=\(registryURL)",
+                    "--scratch-directory=\(workingDirectory.pathString)",
+                    "--dry-run",
+                ],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                !(stdout + stderr).contains(mismatchMarker),
+                "expected no name-mismatch warning, got stdout: '\(stdout)', stderr: '\(stderr)'"
+            )
+        }
+    }
+
+    @Test(
+        .requiresWorkingDirectorySupport,
         .requiresSwiftConcurrencySupport,
         .tags(
             .TestSize.large,
