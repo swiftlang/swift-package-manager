@@ -783,6 +783,41 @@ public final class SwiftCommandState {
         }
     }
 
+    /// The default on-disk location for the build cache, used when caching
+    /// is enabled but no explicit cache path is configured.
+    public var defaultBuildCacheDirectory: AbsolutePath {
+        self.sharedCacheDirectory.appending("build-cache")
+    }
+
+    /// Resolve the effective build cache configuration by merging, in
+    /// decreasing order of precedence: command-line flags, the local (per
+    /// package) configuration, and the shared (global) configuration.
+    public func resolveBuildCacheConfiguration() throws -> BuildCacheConfiguration {
+        try self._buildCacheConfiguration.get()
+    }
+
+    private lazy var _buildCacheConfiguration: Result<BuildCacheConfiguration, Swift.Error> = Result(catching: {
+        let cliConfiguration = try self.options.buildCaching.resolved()
+
+        let localBuildCacheFile = (try? self.getLocalConfigurationDirectory())
+            .map { Workspace.DefaultLocations.buildCacheConfigurationFile(at: $0) }
+
+        let configuration = try Workspace.Configuration.BuildCache(
+            fileSystem: self.fileSystem,
+            localBuildCacheFile: localBuildCacheFile,
+            sharedBuildCacheFile: Workspace.DefaultLocations
+                .buildCacheConfigurationFile(at: self.sharedConfigurationDirectory)
+        )
+
+        var resolved = cliConfiguration.merging(over: configuration.configuration)
+
+        if resolved.enabled == true, resolved.casPath == nil {
+            resolved.casPath = self.defaultBuildCacheDirectory
+        }
+
+        return resolved
+    })
+
     public func getAuthorizationProvider() throws -> AuthorizationProvider? {
         var authorization = Workspace.Configuration.Authorization.default
         if !self.options.security.netrc {
@@ -1043,6 +1078,18 @@ public final class SwiftCommandState {
             case (true, true): .noLazy
             }
 
+        let buildCaching = try self.resolveBuildCacheConfiguration()
+        // Build caching is only honored by the swiftbuild build system. Warn
+        // once (for the target destination) if it is requested with another one.
+        if destination == .target,
+           self.options.build.buildSystem != .swiftbuild,
+           !buildCaching.isEmpty
+        {
+            self.observabilityScope.emit(
+                warning: "build caching is only supported by the 'swiftbuild' build system and will be ignored"
+            )
+        }
+
         return try BuildParameters(
             destination: destination,
             dataPath: dataPath,
@@ -1108,6 +1155,7 @@ public final class SwiftCommandState {
             ),
             stripProducts: self.options.build.stripProducts,
             shouldPreserveSymlinks: options.locations.skipResolvingPackagePaths,
+            buildCaching: buildCaching,
         )
     }
 

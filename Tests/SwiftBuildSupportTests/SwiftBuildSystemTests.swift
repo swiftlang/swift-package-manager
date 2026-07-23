@@ -844,3 +844,113 @@ struct SwiftBuildSystemTests {
         }
     }
 }
+
+
+@Suite(
+    .tags(
+        .TestSize.small,
+    ),
+)
+struct BuildCacheSettingsTests {
+    @Test
+    func emptyConfigurationProducesNoSettings() {
+        #expect(SwiftBuildSystem.constructBuildCacheSettingsOverrides(from: .none, usingXcodeDeveloperDirectory: false).isEmpty)
+    }
+
+    @Test
+    func enablingCachingAlsoEnablesExplicitModulesAndPrefixMapping() {
+        let result = SwiftBuildSystem.constructBuildCacheSettingsOverrides(
+            from: BuildCacheConfiguration(enabled: true),
+            usingXcodeDeveloperDirectory: false
+        )
+        #expect(result["SWIFT_ENABLE_COMPILE_CACHE"] == "YES")
+        #expect(result["CLANG_ENABLE_COMPILE_CACHE"] == "YES")
+        // Build caching requires explicit modules, so they are turned on implicitly.
+        #expect(result["SWIFT_ENABLE_EXPLICIT_MODULES"] == "YES")
+        #expect(result["CLANG_ENABLE_EXPLICIT_MODULES"] == "YES")
+        // With no explicit preference, prefix mapping follows the caching state.
+        #expect(result["CLANG_ENABLE_PREFIX_MAPPING"] == "YES")
+        #expect(result["SWIFT_ENABLE_PREFIX_MAPPING"] == "YES")
+        #expect(result["CLANG_ENABLE_PROJECT_PREFIX_MAPPING"] == "YES")
+        #expect(result["SWIFT_ENABLE_PROJECT_PREFIX_MAPPING"] == "YES")
+        // No plugin path and not an Xcode developer directory, so the plugin isn't enabled.
+        #expect(result["COMPILATION_CACHE_ENABLE_PLUGIN"] == nil)
+    }
+
+    @Test
+    func disablingCachingSetsNoOverrides() throws {
+        let result = SwiftBuildSystem.constructBuildCacheSettingsOverrides(
+            from: BuildCacheConfiguration(
+                enabled: false,
+                casPath: try AbsolutePath(validating: "/tmp/cache"),
+                sizeLimit: .size("10G"),
+                enableDiagnosticRemarks: true,
+                enablePrefixMapping: true
+            ),
+            usingXcodeDeveloperDirectory: true
+        )
+        #expect(result.isEmpty)
+    }
+
+    @Test(arguments: [true, false])
+    func explicitPrefixMappingOverridesCachingDefault(prefixMapping: Bool) {
+        let expected = prefixMapping ? "YES" : "NO"
+        let result = SwiftBuildSystem.constructBuildCacheSettingsOverrides(
+            from: BuildCacheConfiguration(enabled: true, enablePrefixMapping: prefixMapping),
+            usingXcodeDeveloperDirectory: false
+        )
+        #expect(result["CLANG_ENABLE_PREFIX_MAPPING"] == expected)
+        #expect(result["SWIFT_ENABLE_PREFIX_MAPPING"] == expected)
+        #expect(result["CLANG_ENABLE_PROJECT_PREFIX_MAPPING"] == expected)
+        #expect(result["SWIFT_ENABLE_PROJECT_PREFIX_MAPPING"] == expected)
+    }
+
+    @Test
+    func absoluteSizeLimitMapsToLimitSize() {
+        let result = SwiftBuildSystem.constructBuildCacheSettingsOverrides(
+            from: BuildCacheConfiguration(enabled: true, sizeLimit: .size("10G")),
+            usingXcodeDeveloperDirectory: false
+        )
+        #expect(result["COMPILATION_CACHE_LIMIT_SIZE"] == "10G")
+        #expect(result["COMPILATION_CACHE_LIMIT_PERCENT"] == nil)
+    }
+
+    @Test
+    func percentSizeLimitMapsToLimitPercent() {
+        let result = SwiftBuildSystem.constructBuildCacheSettingsOverrides(
+            from: BuildCacheConfiguration(enabled: true, sizeLimit: .percent(50)),
+            usingXcodeDeveloperDirectory: false
+        )
+        #expect(result["COMPILATION_CACHE_LIMIT_PERCENT"] == "50")
+        #expect(result["COMPILATION_CACHE_LIMIT_SIZE"] == nil)
+    }
+
+    @Test(arguments: [true, false])
+    func diagnosticRemarksMapToSetting(diagnosticRemarks: Bool) {
+        let result = SwiftBuildSystem.constructBuildCacheSettingsOverrides(
+            from: BuildCacheConfiguration(enabled: true, enableDiagnosticRemarks: diagnosticRemarks),
+            usingXcodeDeveloperDirectory: false
+        )
+        #expect(result["COMPILATION_CACHE_ENABLE_DIAGNOSTIC_REMARKS"] == (diagnosticRemarks ? "YES" : "NO"))
+    }
+
+    @Test
+    func pluginPathEnablesPlugin() throws {
+        let result = SwiftBuildSystem.constructBuildCacheSettingsOverrides(
+            from: BuildCacheConfiguration(enabled: true, pluginPath: try AbsolutePath(validating: "/tmp/plugin")),
+            usingXcodeDeveloperDirectory: false
+        )
+        #expect(result["COMPILATION_CACHE_PLUGIN_PATH"] == "/tmp/plugin")
+        #expect(result["COMPILATION_CACHE_ENABLE_PLUGIN"] == "YES")
+    }
+
+    @Test
+    func xcodeDeveloperDirectoryEnablesPlugin() {
+        let result = SwiftBuildSystem.constructBuildCacheSettingsOverrides(
+            from: BuildCacheConfiguration(enabled: true),
+            usingXcodeDeveloperDirectory: true
+        )
+        #expect(result["COMPILATION_CACHE_ENABLE_PLUGIN"] == "YES")
+        #expect(result["COMPILATION_CACHE_PLUGIN_PATH"] == nil)
+    }
+}
