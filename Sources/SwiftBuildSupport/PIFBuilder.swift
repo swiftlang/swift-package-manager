@@ -11,14 +11,18 @@
 //===----------------------------------------------------------------------===//
 
 @_spi(SwiftPMInternal) import Basics
+import struct Basics.AbsolutePath
+import struct Basics.Environment
+
 import Foundation
 import PackageGraph
 import PackageLoading
 import PackageModel
 import TSCUtility
 
-@_spi(SwiftPMInternal)
-import SPMBuildCore
+import SWBUtil
+
+@_spi(SwiftPMInternal) import SPMBuildCore
 
 import func TSCBasic.topologicalSort
 import var TSCBasic.stdoutStream
