@@ -63,7 +63,7 @@ extension PackagePIFProjectBuilder {
         // Add the dependencies.
         var pluginTarget = self.project[keyPath: pluginTargetKeyPath]
         let mainModuleProducts = self.package.products.filter(\.isMainModuleProduct)
-        pluginModule.recursivelyTraverseTransitiveLinkageDependencies(includeMacroDependencies: false) { dependency in
+        pluginModule.recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: []) { dependency in
             switch dependency {
             case .module(let moduleDependency, let packageConditions):
                 // This assertion is temporarily disabled since we may see targets from
@@ -527,6 +527,23 @@ extension PackagePIFProjectBuilder {
 
                 // on windows modules are libraries, so we need to add a search path so the linker finds them
                 impartedSettings[.LIBRARY_SEARCH_PATHS, .windows] = ["$(inherited)", "$(TARGET_BUILD_DIR)/ExecutableModules"]
+
+                // If the executable is promoted to a non-executable PIF product (e.g. a Swift Playgrounds
+                // application), the product target installs the Swift module itself, so suppress this testable
+                // variant's copy to avoid both writing BUILT_PRODUCTS_DIR/<module>.swiftmodule, which produces
+                // a build error of "Multiple commands produce...".
+                let productInstallsOwnModule = self.package.products.contains { product in
+                    guard product.isMainModuleProduct,
+                          product.mainModule?.name == sourceModule.name,
+                          [.executable, .snippet].contains(product.type) else {
+                        return false
+                    }
+                    let pifType = pifBuilder.delegate.customProductType(forExecutable: product.underlying) ?? .executable
+                    return pifType != .executable
+                }
+                if productInstallsOwnModule {
+                    settings[.SWIFT_INSTALL_MODULE] = "NO"
+                }
             }
 
             if let aliases = sourceModule.moduleAliases {
@@ -749,7 +766,7 @@ extension PackagePIFProjectBuilder {
         let shouldLinkProduct = (desiredModuleType == .dynamicLibrary) || (desiredModuleType == .macro)
         var moduleTarget = self.project[keyPath: sourceModuleTargetKeyPath]
         let moduleMainProducts = self.package.products.filter(\.isMainModuleProduct)
-        sourceModule.recursivelyTraverseTransitiveLinkageDependencies(includeMacroDependencies: false) { dependency in
+        sourceModule.recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: []) { dependency in
             switch dependency {
             case .module(let moduleDependency, let packageConditions):
                 // This assertion is temporarily disabled since we may see targets from

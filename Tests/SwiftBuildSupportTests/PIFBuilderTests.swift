@@ -914,6 +914,71 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10225", relationship: .verifies),
+        arguments: BuildConfiguration.allCases
+    )
+    func testRunnerInheritsUnitTestLinkerFlags(configuration: BuildConfiguration) async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/Lib/Lib.swift",
+            "/Root/Tests/LibTests/LibTests.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_2,
+                    targets: [
+                        TargetDescription(name: "Lib"),
+                        TargetDescription(
+                            name: "LibTests",
+                            dependencies: ["Lib"],
+                            type: .test,
+                            settings: [
+                                .init(tool: .linker, kind: .unsafeFlags(["-L", "/Vendor"])),
+                                .init(tool: .linker, kind: .linkedLibrary("helper")),
+                            ]
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "Root")
+
+        let runnerTarget = try #require(
+            project.underlying.targets.first {
+                guard case .target(let target) = $0 else { return false }
+                return target.productType == .swiftpmTestRunner
+            }
+        )
+
+        let ldFlags = try #require(try runnerTarget.buildConfig(named: configuration).settings[.OTHER_LDFLAGS])
+        #expect(ldFlags.contains("-lhelper"))
+        #expect(ldFlags.contains("-L") && ldFlags.contains("/Vendor"))
+    }
+
     @Test func impartedModuleMaps() async throws {
         try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem, fixturePath in
             #expect(observabilitySystem.diagnostics.filter {
@@ -1416,7 +1481,7 @@ struct PIFBuilderTests {
         }
     }
 
-    @Test func macroPackageTestDependencies() async throws {
+    @Test func testTargetWithTransitiveMacroImplementationDependency() async throws {
         try await withGeneratedPIF(fromFixture: "Macros/MinimalMacroPackage") { pif, observabilitySystem, _ in
             #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
 
@@ -1431,15 +1496,34 @@ struct PIFBuilderTests {
 
             let depIDs = testTarget.common.dependencies.map(\.targetId.value)
 
-            // The test bundle should link both the testable variant of the macro target, and its transitive dependency.
-            #expect(
-                depIDs.contains { $0.hasPrefix("PACKAGE-TARGET:MacroImpl-") && $0.hasSuffix("-testable") },
-                "Expected test bundle to link testable variant of MacroImpl, found dependencies: \(depIDs)"
-            )
-            #expect(
-                depIDs.contains("PACKAGE-TARGET:MacroImplHelpers"),
-                "Expected test bundle to link MacroImplHelpers, found dependencies: \(depIDs)"
-            )
+            // The macro implementation is a transitive dependency of the tests. The PIF should represent this
+            // dependency, but it should not be a linkage dependency, and the macro helpers also should not be
+            // linked.
+            #expect(depIDs.contains("PACKAGE-TARGET:MacroImpl"))
+            #expect(!depIDs.contains { $0.hasPrefix("PACKAGE-TARGET:MacroImpl-") && $0.hasSuffix("-testable") })
+            #expect(!depIDs.contains("PACKAGE-TARGET:MacroImplHelpers"))
+        }
+    }
+
+    @Test func testTargetWithDirectMacroImplementationDependency() async throws {
+        try await withGeneratedPIF(fromFixture: "Macros/MacroWithDirectTestDependency") { pif, observabilitySystem, _ in
+            #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
+
+            let project = try pif.workspace.project(named: "MacroWithDirectTestDependency")
+
+            let testProduct = try project.target(named: "MacroImplTests-product")
+            guard case .target(let testTarget) = testProduct else {
+                Issue.record("Expected MacroImplTests-product to be a regular target")
+                return
+            }
+            #expect(testTarget.productType == .unitTest)
+
+            let depIDs = testTarget.common.dependencies.map(\.targetId.value)
+
+            // The macro implementation is a direct dependency of the test target. Ensure the testable variant and
+            // the helpers are linkage dependencies.
+            #expect(depIDs.contains { $0.hasPrefix("PACKAGE-TARGET:MacroImpl-") && $0.hasSuffix("-testable") })
+            #expect(depIDs.contains("PACKAGE-TARGET:MacroImplHelpers"))
         }
     }
 
@@ -1880,5 +1964,220 @@ extension ProjectModel.Group {
             }
         }
         return nil
+    }
+}
+
+// MARK: - Promoted Executable Product Tests
+
+/// A `PackagePIFBuilder.BuildDelegate` that lets a test control `customProductType(forExecutable:)`
+/// while returning the same defaults as the production delegate for everything else.
+private final class PromotingBuildDelegate: PackagePIFBuilder.BuildDelegate {
+    let package: ResolvedPackage
+    let promotedProductType: ProjectModel.Target.ProductType?
+
+    init(package: ResolvedPackage, promotedProductType: ProjectModel.Target.ProductType?) {
+        self.package = package
+        self.promotedProductType = promotedProductType
+    }
+
+    var isRootPackage: Bool { self.package.manifest.packageKind.isRoot }
+    var isRemote: Bool { self.package.manifest.packageKind.isRemote }
+    var hostsOnlyPackages: Bool { false }
+    var isUserManaged: Bool { true }
+    var isBranchOrRevisionBased: Bool { false }
+    var isPluginExecutionSandboxingDisabled: Bool { false }
+
+    func customProductType(forExecutable product: PackageModel.Product) -> ProjectModel.Target.ProductType? {
+        self.promotedProductType
+    }
+
+    func deviceFamilyIDs() -> Set<Int> { [] }
+    func shouldPackagesBuildForARM64e(platform: PackageModel.Platform) -> Bool { false }
+    func configureProjectBuildSettings(_ buildSettings: inout ProjectModel.BuildSettings) {}
+    func configureSourceModuleBuildSettings(sourceModule: ResolvedModule, settings: inout ProjectModel.BuildSettings) {}
+    func customInstallPath(product: PackageModel.Product) -> String? { nil }
+    func customProductName(forFramework product: PackageModel.Product) -> String? { nil }
+    func customBundleIdentifierPrefix(forFramework product: PackageModel.Product) -> String? { nil }
+    func customLibraryType(product: PackageModel.Product) -> PackageModel.ProductType.LibraryType? { nil }
+    func customSDKOptions(forPlatform: PackageModel.Platform) -> [String] { [] }
+
+    func addCustomTargets(pifProject: inout ProjectModel.Project) throws -> [PackagePIFBuilder.ModuleOrProduct] { [] }
+
+    func shouldSuppressProductDependency(
+        product: PackageModel.Product,
+        buildSettings: inout ProjectModel.BuildSettings
+    ) -> Bool { false }
+
+    func shouldSetInstallPathForDynamicLib(productName: String) -> Bool { false }
+
+    func configureLibraryProduct(
+        product: PackageModel.Product,
+        project: inout ProjectModel.Project,
+        target: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
+        additionalFiles: WritableKeyPath<ProjectModel.Group, ProjectModel.Group>
+    ) {}
+
+    func suggestAlignedPlatformVersionGiveniOSVersion(
+        platform: PackageModel.Platform,
+        iOSVersion: PackageModel.PlatformVersion
+    ) -> String? { nil }
+
+    func validateMacroFingerprint(for macroModule: ResolvedModule) -> Bool { true }
+}
+
+/// Builds the PIF project for a package that has an executable product (module `AppModule`) and a unit
+/// test target that depends on it, promoting the executable to `promotedProductType` via the delegate.
+private func buildAppProject(
+    promotedProductType: ProjectModel.Target.ProductType?
+) async throws -> ProjectModel.Project {
+    let observability = ObservabilitySystem.makeForTesting()
+
+    let fs = InMemoryFileSystem(emptyFiles: [
+        "/App/Sources/AppModule/main.swift",
+        "/App/Tests/AppTests/AppTests.swift",
+    ])
+
+    let graph = try loadModulesGraph(
+        fileSystem: fs,
+        manifests: [
+            Manifest.createRootManifest(
+                displayName: "App",
+                path: "/App",
+                toolsVersion: .v5_9,
+                products: [
+                    ProductDescription(name: "App", type: .executable, targets: ["AppModule"]),
+                ],
+                targets: [
+                    TargetDescription(name: "AppModule", type: .executable),
+                    TargetDescription(name: "AppTests", dependencies: ["AppModule"], type: .test),
+                ]
+            ),
+        ],
+        observabilityScope: observability.topScope
+    )
+
+    let rootPackage = try #require(graph.rootPackages.first)
+
+    let delegate = PromotingBuildDelegate(package: rootPackage, promotedProductType: promotedProductType)
+    let builder = PackagePIFBuilder(
+        modulesGraph: graph,
+        resolvedPackage: rootPackage,
+        packageManifest: rootPackage.manifest,
+        delegate: delegate,
+        buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]](),
+        packageDisplayVersion: rootPackage.manifest.displayName,
+        pkgConfigDirectories: [],
+        fileSystem: fs,
+        observabilityScope: observability.topScope
+    )
+    _ = try builder.build()
+
+    #expect(!observability.hasErrorDiagnostics, "Unexpected errors: \(observability.errors)")
+
+    // Keep the delegate alive for the duration of the build (`PackagePIFBuilder` holds it `unowned`).
+    withExtendedLifetime(delegate) {}
+
+    return builder.pifProject
+}
+
+extension ProjectModel.Project {
+    /// The main-module product target for a product, e.g. `App-product`.
+    fileprivate func productTarget(named name: String) throws -> ProjectModel.Target {
+        try self.onlyTarget {
+            guard case .target(let t) = $0 else { return false }
+            return t.common.name == name
+        }
+    }
+
+    /// The testable variant target for an executable module, e.g. `PACKAGE-TARGET:AppModule-<hash>-testable`.
+    fileprivate func testableVariantTarget(forModule moduleName: String) throws -> ProjectModel.Target {
+        try self.onlyTarget {
+            guard case .target(let t) = $0 else { return false }
+            return t.id.value.hasPrefix("PACKAGE-TARGET:\(moduleName)") && t.id.value.hasSuffix("-testable")
+        }
+    }
+
+    private func onlyTarget(where predicate: (ProjectModel.BaseTarget) -> Bool) throws -> ProjectModel.Target {
+        let matches = self.targets.filter(predicate)
+        guard let match = matches.only, case .target(let target) = match else {
+            throw StringError("Expected exactly one matching target, found \(matches.count)")
+        }
+        return target
+    }
+}
+
+extension ProjectModel.Target {
+    fileprivate func debugSettings() throws -> ProjectModel.BuildSettings {
+        guard let config = self.common.buildConfigs.first(where: { $0.name == "Debug" }) else {
+            throw StringError("No Debug build config in target \(self.id.value)")
+        }
+        return config.settings
+    }
+}
+
+@Suite(
+    .tags(
+        .TestSize.medium,
+        .FunctionalArea.PIF
+    )
+)
+struct PromotedExecutableProductPIFTests {
+    @Test
+    func promotedAppProductInstallsItsOwnSwiftModule() async throws {
+        // When an executable product is promoted to a non-executable PIF product (e.g. a mac catalyst app),
+        // the product target must install its own Swift module so downstream tooling (Previews)
+        // can find `<module>.swiftmodule`. A genuine executable product suppresses module installation to avoid
+        // conflicting with its testable variant.
+
+        // Promoted to an application: the product installs its module (setting is left unset).
+        let promotedProject = try await buildAppProject(promotedProductType: .application)
+        let promotedProductSettings = try promotedProject.productTarget(named: "App-product").debugSettings()
+        #expect(
+            promotedProductSettings[.SWIFT_INSTALL_MODULE] != "NO",
+            "A promoted (non-executable) product must install its own Swift module"
+        )
+
+        // A genuine executable product does not install its module — the testable variant does.
+        let executableProject = try await buildAppProject(promotedProductType: nil)
+        let executableProductSettings = try executableProject.productTarget(named: "App-product").debugSettings()
+        #expect(
+            executableProductSettings[.SWIFT_INSTALL_MODULE] == "NO",
+            "A genuine executable product must not install its Swift module"
+        )
+    }
+
+    @Test
+    func promotedAppWithUnitTestsInstallsModuleExactlyOnce() async throws {
+        // When a promoted app also has unit tests, the executable gains a testable variant that would install a
+        // module of the same name to the same location as the product target — producing a "Multiple commands
+        // produce <module>.swiftmodule" build error. The testable variant's module installation must be suppressed
+        // so exactly one target installs the module.
+        let project = try await buildAppProject(promotedProductType: .application)
+
+        let productSettings = try project.productTarget(named: "App-product").debugSettings()
+        let testableVariantSettings = try project.testableVariantTarget(forModule: "AppModule").debugSettings()
+
+        // The product installs the module; the testable variant is suppressed. Exactly one installer, no collision.
+        #expect(
+            productSettings[.SWIFT_INSTALL_MODULE] != "NO",
+            "The promoted product target must remain the sole module installer"
+        )
+        #expect(
+            testableVariantSettings[.SWIFT_INSTALL_MODULE] == "NO",
+            "The testable variant must suppress module installation when the product installs its own"
+        )
+    }
+
+    @Test
+    func genuineExecutableTestableVariantStillInstallsModule() async throws {
+        // A genuine executable's testable variant keeps installing its module. Multiple executable products can
+        // share one executable target, so the per-target testable variant remains the installer. This guards against
+        // over-suppressing the fix above.
+        let project = try await buildAppProject(promotedProductType: nil)
+        let testableVariantSettings = try project.testableVariantTarget(forModule: "AppModule").debugSettings()
+        #expect(
+            testableVariantSettings[.SWIFT_INSTALL_MODULE] != "NO",
+            "A genuine executable's testable variant must still install its Swift module"
+        )
     }
 }
