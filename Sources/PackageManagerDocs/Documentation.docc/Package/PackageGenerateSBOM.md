@@ -340,7 +340,7 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 
 - term **--traits=\<traits\>**:
 
-*Enables the passed traits of the package. Multiple traits can be specified by providing a comma separated list, for example, `--traits Trait1,Trait2`. When enabling specific traits the default traits also need to be explictily enabled as well by passing `defaults` to this command.*
+*Enables the passed traits of the package. Multiple traits can be specified by providing a comma separated list, for example, `--traits Trait1,Trait2`. When enabling specific traits the default traits also need to be explicitly enabled as well by passing `defaults` to this command.*
 
 
 - term **--enable-all-traits**:

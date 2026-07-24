@@ -117,7 +117,7 @@ extension PackagePIFProjectBuilder {
         settings[.TARGET_TEMP_DIR_SUFFIX] = "-p"
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"
         settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
-        // We must use the main module name here instead of the product name, because they're not guranteed to be the same, and the users may have authored e.g. tests which rely on an executable's module name.
+        // We must use the main module name here instead of the product name, because they're not guaranteed to be the same, and the users may have authored e.g. tests which rely on an executable's module name.
         settings[.PRODUCT_MODULE_NAME] = mainModule.c99name
 
         if let aliases = mainModule.moduleAliases {

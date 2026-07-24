@@ -200,7 +200,7 @@ struct APIDiff: AsyncSwiftCommand {
         // Build the baseline revision to generate baseline files.
         let modulesWithBaselines = try await generateAPIBaselineUsingIntegratedAPIDigesterSupport(swiftCommandState, baselineRevision: baselineRevision, baselineDir: baselineDir, modulesNeedingBaselines: modulesToDiff)
 
-        // Build the package and run a comparison agains the baselines.
+        // Build the package and run a comparison against the baselines.
         var productsBuildParameters = try swiftCommandState.productsBuildParameters
         productsBuildParameters.apiDigesterMode = .compareToBaselines(
             baselinesDirectory: baselineDir,

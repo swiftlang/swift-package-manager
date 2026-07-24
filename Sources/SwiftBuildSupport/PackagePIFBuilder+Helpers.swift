@@ -779,7 +779,7 @@ extension PackageGraph.ResolvedModule {
                     }
 
                     // Handle imparted settings for OTHER_LDFLAGS and prebuilts include paths (always multiple values)
-                    // TODO: Do we realy need to impart OTHER_LDFLAGS?
+                    // TODO: Do we really need to impart OTHER_LDFLAGS?
                     // TODO: Doing that for the PREBUILT_LIBRARIES was causing duplicate library warnings.
                     if let multipleValueSetting = multipleValueSetting,
                         declaration != .PREBUILT_LIBRARIES,
@@ -947,7 +947,7 @@ extension PackageGraph.ResolvedProduct {
         }
     }
 
-    /// Shoud we link this product dependency?
+    /// Should we link this product dependency?
     var isLinkable: Bool {
         switch self.type {
         case .library, .executable, .snippet, .test, .macro:

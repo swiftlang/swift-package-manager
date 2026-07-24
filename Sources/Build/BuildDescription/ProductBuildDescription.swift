@@ -196,7 +196,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
         var isLinkingStaticStdlib = false
         let triple = self.buildParameters.triple
 
-        // radar://112671586 supress unnecessary warnings
+        // radar://112671586 suppress unnecessary warnings
         if triple.isMacOSX {
             args += ["-Xlinker", "-no_warn_duplicate_libraries"]
         }

@@ -792,7 +792,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                                 case .dynamicLibrary:
                                     .dynamicLibrary
                                 case .framework:
-                                    // We treat frameworks as dylibs here, but the plugin API should grow to accomodate more product types
+                                    // We treat frameworks as dylibs here, but the plugin API should grow to accommodate more product types
                                     .dynamicLibrary
                                 }
                                 var name = target.name

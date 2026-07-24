@@ -120,7 +120,7 @@ public actor HTTPClient {
         return try await self.executeWithStrategies(request: request, requestNumber: 0, observabilityScope, progress)
     }
 
-    /// Cancel all in flight network reqeusts.
+    /// Cancel all in flight network requests.
     public func cancel(deadline: DispatchTime) async {
         for task in activeTasks {
             task.cancel()

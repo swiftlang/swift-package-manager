@@ -895,7 +895,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         // If progress has been printed this will add a newline to separate it from what could be
         // the output of the command. For instance `swift test --skip-build` may print progress for
-        // the Planning Build stage, followed immediately by a list of tests. Without this finialize()
+        // the Planning Build stage, followed immediately by a list of tests. Without this finalize()
         // call the first entry in the list appear on the same line as the Planning Build progress.
         tracker.finalize(success: true)
 
