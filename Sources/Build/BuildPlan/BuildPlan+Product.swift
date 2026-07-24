@@ -294,7 +294,9 @@ extension BuildPlan {
                 case .systemModule:
                     systemModules.append(module)
                 case .externalLibrary:
-                    fatalError("TODO: not supported")
+                    // TODO: proper error handling when trying to use external libraries with native build.
+                    // throw InternalError("external libraries not supported '\(module.name)'")
+                    break
                 // Add binary to binary paths set.
                 case .binary:
                     guard let binaryTarget = module.underlying as? BinaryModule else {
