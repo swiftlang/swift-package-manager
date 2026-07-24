@@ -29,7 +29,7 @@ public final class Cancellator: Cancellable, Sendable {
     private let cancelling = ThreadSafeBox<Bool>(false)
 
     private static let signalHandlerLock = NSLock()
-    private static var isSignalHandlerInstalled = false
+    nonisolated(unsafe) private static var isSignalHandlerInstalled = false
 
     public init(observabilityScope: ObservabilityScope?) {
         self.observabilityScope = observabilityScope
