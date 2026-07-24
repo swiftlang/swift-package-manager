@@ -78,7 +78,7 @@ struct PackageBuilderTests {
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
             path: .root,
-            toolsVersion: try #require(ToolsVersion(string: "6.4.0", experimentalFeatures: [.experimentalMultiLang])),
+            toolsVersion: try #require(ToolsVersion(string: "6.5.0")),
             targets: [
                 try TargetDescription(name: "foo"),
             ]
@@ -115,7 +115,7 @@ struct PackageBuilderTests {
             ]
         )
         try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
-            diagnostics.check(diagnostic: "target at '\(foo)' contains mixed language source files; feature not supported", severity: .error)
+            diagnostics.check(diagnostic: "target at '\(foo)' contains mixed language source files; mixed language targets require a tools version of 6.5 or later", severity: .error)
         }
     }
 
@@ -2772,7 +2772,7 @@ struct PackageBuilderTests {
 
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
-            toolsVersion: try #require(ToolsVersion(string: "6.4.0", experimentalFeatures: [.experimentalMultiLang])),
+            toolsVersion: try #require(ToolsVersion(string: "6.5.0")),
             targets: [
                 try TargetDescription(
                     name: "MyMacro",

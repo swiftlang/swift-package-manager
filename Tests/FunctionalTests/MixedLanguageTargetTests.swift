@@ -153,19 +153,14 @@ struct MixedLanguageTargetTests {
     @Test(.tags(.Feature.Command.Build))
     func nativeBuildSystemRejectsMixedSources() async throws {
         try await fixture(name: "CFamilyTargets/MixedSwiftCLibrary") { fixturePath in
-            do {
+            await expectThrowsCommandExecutionError(
                 try await executeSwiftBuild(
                     fixturePath,
                     configuration: .debug,
                     buildSystem: .native,
                 )
-                Issue.record("expected the native build system to reject the mixed-language target")
-            } catch {
-                #expect(
-                    "\(error)".contains(
-                        "mixed language source files in Swift targets are not supported by the native build system"
-                    )
-                )
+            ) { error in
+                #expect(error.stderr.contains("mixed language source files in Swift targets are not supported by the native build system"))
             }
         }
     }
@@ -176,19 +171,19 @@ struct MixedLanguageTargetTests {
         try await fixture(name: "CFamilyTargets/CrossLanguageObjCType") { fixturePath in
             let manifestPath = fixturePath.appending("Package.swift").pathString
 
-            // Without `experimentalMultiLang`, TargetA does not impart its generated Objective-C
+            // Without a tools version >= 6.5, TargetA does not impart its generated Objective-C
             // header module map to Swift dependents, so TargetC cannot resolve TargetA's type
             // through TargetB and the build fails.
             await #expect(throws: (any Error).self) {
                 try await executeSwiftBuild(fixturePath, configuration: .debug, buildSystem: .swiftbuild)
             }
 
-            // Enabling the experimental feature lets TargetC resolve TargetA's module, so it builds.
+            // A 6.5 tools version lets TargetC resolve TargetA's module, so it builds.
             let manifest = try String(contentsOfFile: manifestPath, encoding: .utf8)
             try manifest
                 .replacingOccurrences(
                     of: "// swift-tools-version: 6.4",
-                    with: "// swift-tools-version: 6.4;(experimentalMultiLang)"
+                    with: "// swift-tools-version: 6.5"
                 )
                 .write(toFile: manifestPath, atomically: true, encoding: .utf8)
 

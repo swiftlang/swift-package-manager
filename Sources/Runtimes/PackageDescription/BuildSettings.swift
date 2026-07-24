@@ -607,7 +607,7 @@ public struct SwiftSetting: Sendable {
     }
 
     /// The visibility of a bridging header's imported declarations.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.5)
     public enum BridgingHeaderVisibility: String {
         /// Declarations imported via the bridging header may appear in the target's public API.
         case `public`
@@ -624,7 +624,7 @@ public struct SwiftSetting: Sendable {
     ///   - visibility: Whether declarations imported via the bridging header may appear in the
     /// target's public API. Library targets may only use `.internal` visibility.
     ///   - condition: A condition that restricts the application of the build setting.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.5)
     public static func bridgingHeader(
       _ path: String,
       visibility: BridgingHeaderVisibility,

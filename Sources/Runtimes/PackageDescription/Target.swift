@@ -982,7 +982,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target.
-    @available(_PackageDescription, introduced: 5.9, obsoleted: 999)
+    @available(_PackageDescription, introduced: 5.9, obsoleted: 6.5)
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -1039,7 +1039,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target.
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 6.5)
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],

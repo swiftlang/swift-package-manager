@@ -65,7 +65,7 @@ struct MixedLanguagePIFTests {
     }
 
     private func mixedLanguageToolsVersion() throws -> ToolsVersion {
-        try #require(ToolsVersion(string: "6.4.0", experimentalFeatures: [.experimentalMultiLang]))
+        try #require(ToolsVersion(string: "6.5.0"))
     }
 
     @Test func bridgingHeaderPublicVisibility() async throws {
@@ -423,9 +423,10 @@ struct MixedLanguagePIFTests {
 
 extension SwiftBuildSupport.PIF.Project {
     fileprivate func requireTarget(named name: String) throws -> ProjectModel.BaseTarget {
-        if let target = underlying.targets.first(where: { $0.common.name == name }) {
-            return target
-        }
-        throw StringError("no target named '\(name)'; available: \(underlying.targets.map(\.common.name))")
+        let target = try #require(
+            underlying.targets.first(where: { $0.common.name == name }),
+            "no target named '\(name)'; available: \(underlying.targets.map(\.common.name))",
+        )
+        return target
     }
 }
