@@ -153,19 +153,14 @@ struct MixedLanguageTargetTests {
     @Test(.tags(.Feature.Command.Build))
     func nativeBuildSystemRejectsMixedSources() async throws {
         try await fixture(name: "CFamilyTargets/MixedSwiftCLibrary") { fixturePath in
-            do {
+            await expectThrowsCommandExecutionError(
                 try await executeSwiftBuild(
                     fixturePath,
                     configuration: .debug,
                     buildSystem: .native,
                 )
-                Issue.record("expected the native build system to reject the mixed-language target")
-            } catch {
-                #expect(
-                    "\(error)".contains(
-                        "mixed language source files in Swift targets are not supported by the native build system"
-                    )
-                )
+            ) { error in
+                #expect(error.stderr.contains("mixed language source files in Swift targets are not supported by the native build system"))
             }
         }
     }
