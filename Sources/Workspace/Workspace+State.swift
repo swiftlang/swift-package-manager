@@ -455,7 +455,7 @@ extension WorkspaceStateStorage {
                     case .xcframework:
                         return .xcframework
                     case .artifactsArchive:
-                        // For backwards compatiblity reasons we assume an empty types array which in the worst case
+                        // For backwards compatibility reasons we assume an empty types array which in the worst case
                         // results in a need for a clean build but we won't fail decoding the JSON.
                         return .artifactsArchive(types: [])
                     case .typedArtifactsArchive(let types):

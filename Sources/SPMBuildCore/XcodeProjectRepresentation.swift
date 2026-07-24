@@ -12,7 +12,7 @@
 
 import Basics
 
-/// Represents a simplifed view of an Xcode project to a plugin.
+/// Represents a simplified view of an Xcode project to a plugin.
 public struct XcodeProjectRepresentation: Equatable, Hashable {
     public var displayName: String
     public var directoryPath: AbsolutePath

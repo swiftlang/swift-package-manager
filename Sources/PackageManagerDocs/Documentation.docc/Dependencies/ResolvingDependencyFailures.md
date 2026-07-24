@@ -10,7 +10,7 @@ Prior to running a build or test, or when you run <doc:PackageResolve>, the pack
 It then attempts to choose a version of each dependency that fits within the constraints of your package, and any constraints provided by your dependencies.
 
 If all the dependencies are available and resolved, the versions are recorded locally in the file `Package.resolved`.
-You can view these dependencies using the command <doc:PackageShowDependencies>, which provides a succint list of the entire set of dependencies.
+You can view these dependencies using the command <doc:PackageShowDependencies>, which provides a succinct list of the entire set of dependencies.
 
 If the dependencies can't be resolved, for example when the packages your package depends on have conflicting constraints, the package manager returns an error, describing the conflicting constraint: 
 ```

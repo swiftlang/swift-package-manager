@@ -126,7 +126,7 @@ The SwiftPM devcontainer is based on the `swiftlang/swift:nightly-main` Docker i
 
 ### Building and Testing in the Container
 
-Once you've opened the project in VS Code, choose `> Dev Containers: Build and Reopen in Container` from the command pallete. Once the container finishes building it will open and you can develop as if you are on Linux using VS Code.
+Once you've opened the project in VS Code, choose `> Dev Containers: Build and Reopen in Container` from the command palette. Once the container finishes building it will open and you can develop as if you are on Linux using VS Code.
 
 All the commands described in the "Local Development" section below will work in the container environment.
 

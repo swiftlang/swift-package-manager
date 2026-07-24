@@ -15,7 +15,7 @@
 // Any proposal that adds such a facility should also add initializers
 // to set those values as plugin properties.
 
-/// A protocol that defines functionality common to all package manger plugins.
+/// A protocol that defines functionality common to all package manager plugins.
 ///
 /// For example, the way to instantiate and run a plugin.
 public protocol Plugin {

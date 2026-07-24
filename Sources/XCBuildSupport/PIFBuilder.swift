@@ -45,7 +45,7 @@ struct PIFBuilderParameters {
     /// The toolchain's SDK root path.
     let sdkRootPath: AbsolutePath?
 
-    /// The Swift language versions supported by the XCBuild being used for the buid.
+    /// The Swift language versions supported by the XCBuild being used for the build.
     let supportedSwiftVersions: [SwiftLanguageVersion]
 }
 
@@ -725,7 +725,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             impartedSettings[.OTHER_LDFLAGS, default: ["$(inherited)"]].append("-lc++")
         }
 
-        // radar://112671586 supress unnecessary warnings
+        // radar://112671586 suppress unnecessary warnings
         impartedSettings[.OTHER_LDFLAGS, default: ["$(inherited)"]].append("-Wl,-no_warn_duplicate_libraries")
 
         self.addSources(target.sources, to: pifTarget)

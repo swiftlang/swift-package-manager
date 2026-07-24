@@ -289,7 +289,7 @@ private func checkAllDependenciesAreUsed(
 
             // Skip this check if traits are enabled since it is valid to add a dependency just
             // to enable traits on it. This is useful if there is a transitive dependency in the graph
-            // that can be configured by enabling traits e.g. the depdency has a trait for its logging
+            // that can be configured by enabling traits e.g. the dependency has a trait for its logging
             // behaviour. This allows the root package to configure traits of transitive dependencies
             // without emitting an unused dependency warning.
             if dependency.manifest.supportsTraits {
@@ -1012,7 +1012,7 @@ private func handlePrebuilts(packageBuilders: [ResolvedPackageBuilder], root: Pa
 
             // Add build settings to hook up the prebuilts
             // TODO: prebuilts should really be modules e.g system libraries
-            // TODO: so we don't have to alter the underyling modules build settings
+            // TODO: so we don't have to alter the underlying modules build settings
             let prebuiltLibraries = prebuiltDeps.reduce(into: [String: PrebuiltLibrary]()) {
                 guard let prebuilt = $1.packageBuilder.prebuilts?[$1.product.name] else {
                     return
