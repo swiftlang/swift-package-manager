@@ -204,6 +204,8 @@ extension PackageDependency.SourceControl.Requirement {
         switch self {
         case .range(let range):
             return .versionSet(.range(range))
+        case .ranges(let ranges):
+            return .versionSet(.union(from: ranges))
         case .revision(let identifier):
             return .revision(identifier)
         case .branch(let name):
@@ -220,6 +222,8 @@ extension PackageDependency.Registry.Requirement {
         switch self {
         case .range(let range):
             return .versionSet(.range(range))
+        case .ranges(let ranges):
+            return .versionSet(.union(from: ranges))
         case .exact(let version):
             return .versionSet(.exact(version))
         }

@@ -279,6 +279,12 @@ extension PackageDependency.SourceControl.Requirement {
             let lower: TSCUtility.Version = .init(lowerBound)
             let upper: TSCUtility.Version = .init(upperBound)
             self = .range(lower..<upper)
+        case .ranges(let ranges):
+            self = .ranges(ranges.map {
+                let lower: TSCUtility.Version = .init($0.lowerBound)
+                let upper: TSCUtility.Version = .init($0.upperBound)
+                return lower..<upper
+            })
         case .revision(let revision):
             self = .revision(revision)
         case .branch(let branch):
@@ -296,6 +302,12 @@ extension PackageDependency.Registry.Requirement {
             let lower: TSCUtility.Version = .init(lowerBound)
             let upper: TSCUtility.Version = .init(upperBound)
             self = .range(lower..<upper)
+        case .ranges(let ranges):
+            self = .ranges(ranges.map {
+                let lower: TSCUtility.Version = .init($0.lowerBound)
+                let upper: TSCUtility.Version = .init($0.upperBound)
+                return lower..<upper
+            })
         }
     }
 }
