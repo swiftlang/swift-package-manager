@@ -1556,6 +1556,53 @@ struct PluginTests {
     }
 
     @Test(
+        "Build-tool plugin crashes surface invocation failure details",
+        .requiresSwiftConcurrencySupport,
+        .issue(
+            "https://github.com/swiftlang/swift-package-manager/issues/10042",
+            relationship: .defect
+        ),
+        .tags(
+            .Feature.Command.Build,
+            .Feature.CommandLineArguments.BuildSystem
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms
+    )
+    func testBuildToolPluginCrash(
+        buildSystem: BuildSystemProvider.Kind
+    ) async throws {
+        try await fixture(name: "Miscellaneous/Plugins/BuildToolPluginCrash") { fixturePath in
+            let error = try await #require(
+                throws: SwiftPMError.self,
+                "Expected the build to fail when the build-tool plugin crashes"
+            ) {
+                try await executeSwiftBuild(
+                    fixturePath,
+                    buildSystem: buildSystem
+                )
+            }
+
+            guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
+                Issue.record("Unexpected error type: \(error.interpolationDescription)")
+                return
+            }
+
+            #expect(
+                stderr.contains("plugin process ended by an uncaught signal"),
+                "stderr:\n\(stderr)"
+            )
+            #expect(
+                stderr.contains("intentional build-tool plugin crash"),
+                "stderr:\n\(stderr)"
+            )
+            #expect(
+                stderr.contains("build planning stopped due to build-tool plugin failures"),
+                "stderr:\n\(stderr)"
+            )
+        }
+    }
+
+    @Test(
         .requiresSwiftConcurrencySupport,
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
