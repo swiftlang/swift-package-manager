@@ -234,7 +234,7 @@ extension Module.Error: CustomStringConvertible {
         case .invalidName(let path, let problem):
             "invalid target name at '\(path)'; \(problem)"
         case .mixedSources(let path):
-            "target at '\(path)' contains mixed language source files; feature not supported"
+            "target at '\(path)' contains mixed language source files; mixed language targets require a tools version of 6.5 or later"
         }
     }
 }
@@ -1030,7 +1030,7 @@ public final class PackageBuilder {
             var clangModuleInfo: ClangModuleInfo? = nil
             // If this is a mixed source target, we also need to compute the clang module info.
             let hasPublicHeaders = self.fileSystem.exists(publicHeadersPath)
-            let hasHeaderOnlyCModule = self.manifest.toolsVersion.experimentalMultiLang && hasPublicHeaders
+            let hasHeaderOnlyCModule = self.manifest.toolsVersion >= .v6_5 && hasPublicHeaders
             if sources.hasClangSources || hasHeaderOnlyCModule {
                 let moduleMapType: ModuleMapType
                 let includeDir: AbsolutePath?

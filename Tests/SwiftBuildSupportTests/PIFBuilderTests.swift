@@ -1986,7 +1986,7 @@ struct PIFBuilderTests {
                 Manifest.createRootManifest(
                     displayName: "Pkg",
                     path: "/Pkg",
-                    toolsVersion: try #require(ToolsVersion(string: "6.4.0", experimentalFeatures: [.experimentalMultiLang])),
+                    toolsVersion: try #require(ToolsVersion(string: "6.5.0")),
                     targets: [
                         TargetDescription(name: "lib"),
                     ]

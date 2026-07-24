@@ -281,19 +281,19 @@ public protocol SourceModuleTarget: Target {
     var pluginGeneratedResources: [URL] { get }
 
     /// Any custom compilation conditions for the Swift sources of the module.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.5)
     var swiftCompilationConditions: [String] { get }
 
     /// Any preprocessor definitions for the C-family sources of the module.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.5)
     var clangPreprocessorDefinitions: [String] { get }
 
     /// Any custom header search paths.
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.5)
     var headerSearchPaths: [String] { get }
 
     /// The directory containing public headers
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.5)
     var publicHeadersDirectoryURL: URL? { get }
 }
 
@@ -314,7 +314,7 @@ public enum ModuleKind {
 }
 
 /// A target consisting of a source code module compiled using Swift.
-@available(_PackageDescription, deprecated: 999.0, message: "Use SourceModuleTarget directly instead of casting to a concrete type")
+@available(_PackageDescription, deprecated: 6.5, message: "Use SourceModuleTarget directly instead of casting to a concrete type")
 public struct SwiftSourceModuleTarget: SourceModuleTarget {
     /// Unique identifier for the target.
     public let id: ID
@@ -375,21 +375,21 @@ public struct SwiftSourceModuleTarget: SourceModuleTarget {
     @available(_PackageDescription, introduced: 6.0)
     public let pluginGeneratedResources: [URL]
 
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.5)
     public var swiftCompilationConditions: [String] { self.compilationConditions }
 
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.5)
     public var clangPreprocessorDefinitions: [String] { [] }
 
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.5)
     public var headerSearchPaths: [String] { [] }
 
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.5)
     public var publicHeadersDirectoryURL: URL? { nil }
 }
 
 /// A target consisting of a source code module compiled using Clang.
-@available(_PackageDescription, deprecated: 999.0, message: "Use SourceModuleTarget directly instead of casting to a concrete type")
+@available(_PackageDescription, deprecated: 6.5, message: "Use SourceModuleTarget directly instead of casting to a concrete type")
 public struct ClangSourceModuleTarget: SourceModuleTarget {
     /// Unique identifier for the target.
     public let id: ID
@@ -466,10 +466,10 @@ public struct ClangSourceModuleTarget: SourceModuleTarget {
     @available(_PackageDescription, introduced: 6.0)
     public let pluginGeneratedResources: [URL]
 
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.5)
     public var swiftCompilationConditions: [String] { [] }
 
-    @available(_PackageDescription, introduced: 999.0)
+    @available(_PackageDescription, introduced: 6.5)
     public var clangPreprocessorDefinitions: [String] { self.preprocessorDefinitions }
 }
 

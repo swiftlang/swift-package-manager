@@ -349,8 +349,8 @@ extension PackagePIFProjectBuilder {
         // - TargetB is Clang-only and exposes a function bar which returns a value of type Foo
         // - TargetC is Swift-only and calls bar
         // then TargetA must impart settings on TargetC allowing it to load the underlying Clang module of TargetA. When
-        // using the experimentalMultiLang flag, we impart settings such that this now works.
-        let impartsModuleMapToSwiftClients = self.package.manifest.toolsVersion.experimentalMultiLang
+        // using a new enough tools version, we impart settings such that this now works.
+        let impartsModuleMapToSwiftClients = self.package.manifest.toolsVersion >= .v6_5
         if impartsModuleMapToSwiftClients {
             impartedSettings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
                 $0.append(contentsOf: ["-Xcc", "-fmodule-map-file=\(moduleMapPath)"])

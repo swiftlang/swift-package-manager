@@ -13,7 +13,7 @@
 @_spi(PackageDescriptionInternal) import PackageDescription
 
 public extension Target {
-    @available(_PackageDescription, introduced: 5.9, obsoleted: 999)
+    @available(_PackageDescription, introduced: 5.9, obsoleted: 6.5)
     static func macro(
         name: String,
         dependencies: [Dependency] = [],
@@ -40,7 +40,7 @@ public extension Target {
         )
     }
 
-    @available(_PackageDescription, introduced: 999)
+    @available(_PackageDescription, introduced: 6.5)
     static func macro(
         name: String,
         dependencies: [Dependency] = [],

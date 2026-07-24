@@ -1,4 +1,4 @@
-// swift-tools-version: 999.0;(experimentalMultiLang)
+// swift-tools-version: 6.5
 import PackageDescription
 
 let package = Package(
