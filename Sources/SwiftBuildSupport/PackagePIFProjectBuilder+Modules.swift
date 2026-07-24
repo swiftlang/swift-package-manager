@@ -660,7 +660,12 @@ extension PackagePIFProjectBuilder {
         var moduleTargetForSources = self.project[keyPath: sourceModuleTargetKeyPath]
         for sourcePath in sourceModule.sourceFileRelativePaths {
             let sourceFileRef = sourceFileGroup.addFileReference { id in
-                FileReference(id: id, path: sourcePath.pathString, pathBase: .groupDir)
+                FileReference(
+                    id: id,
+                    path: sourcePath.pathString,
+                    pathBase: .groupDir,
+                    fileType: literateSwiftFileTypeIdentifier(forPathExtension: sourcePath.pathString.pathExtension)
+                )
             }
             moduleTargetForSources.addSourceFile { id in
                 BuildFile(id: id, fileRef: sourceFileRef)
@@ -700,7 +705,12 @@ extension PackagePIFProjectBuilder {
         // Add any additional source files emitted by custom build commands.
         for path in generatedFiles.sources {
             let sourceFileRef = sourceFileGroup.addFileReference { id in
-                FileReference(id: id, path: path.pathString, pathBase: .absolute)
+                FileReference(
+                    id: id,
+                    path: path.pathString,
+                    pathBase: .absolute,
+                    fileType: literateSwiftFileTypeIdentifier(forPathExtension: path.pathString.pathExtension)
+                )
             }
             moduleTargetForSources.addSourceFile { id in
                 BuildFile(id: id, fileRef: sourceFileRef)

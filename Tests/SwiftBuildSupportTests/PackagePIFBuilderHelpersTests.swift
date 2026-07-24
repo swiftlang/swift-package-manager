@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Testing
-import SwiftBuildSupport
+@testable import SwiftBuildSupport
 
 @Suite(
     .tags(
@@ -234,5 +234,18 @@ struct PackagePIFBuilderHelpersTests {
                 "Module target '\(targetName)' should be recognized as a module"
             )
         }
+    }
+
+    // MARK: - literateSwiftFileTypeIdentifier(forPathExtension:) Tests
+
+    @Test("literateSwiftFileTypeIdentifier(forPathExtension:) maps literate Swift extensions correctly")
+    func literateSwiftFileTypeIdentifiers() {
+        #expect(literateSwiftFileTypeIdentifier(forPathExtension: "md") == "sourcecode.swift.literate.markdown")
+        #expect(literateSwiftFileTypeIdentifier(forPathExtension: "rst") == "sourcecode.swift.literate.restructuredtext")
+        #expect(literateSwiftFileTypeIdentifier(forPathExtension: "tex") == "sourcecode.swift.literate.tex")
+
+        #expect(literateSwiftFileTypeIdentifier(forPathExtension: "swift") == nil)
+        #expect(literateSwiftFileTypeIdentifier(forPathExtension: "txt") == nil)
+        #expect(literateSwiftFileTypeIdentifier(forPathExtension: "") == nil)
     }
 }

@@ -1824,10 +1824,12 @@ extension Manifest {
 
 extension Sources {
     public var hasSwiftSources: Bool {
-        paths.contains { path in
+        let supportedSwiftFileExtensions = FileRuleDescription.swift.fileTypes.union(FileRuleDescription.literateSwift.fileTypes)
+
+        return paths.contains { path in
             guard let ext = path.extension else { return false }
 
-            return FileRuleDescription.swift.fileTypes.contains(ext)
+            return supportedSwiftFileExtensions.contains(ext)
         }
     }
 

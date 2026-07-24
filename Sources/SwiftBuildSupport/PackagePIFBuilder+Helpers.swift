@@ -1318,6 +1318,23 @@ extension String {
     }
 }
 
+/// Maps the extensions of literate Swift source files (Markdown, reStructuredText and TeX) to the
+/// corresponding SwiftBuild file type identifiers, so that Swift Build knows to compile them as Swift
+/// rather than treating them as plain documentation. Returns `nil` for any other extension, in which case
+/// `FileReference` should be left to infer the file type itself.
+func literateSwiftFileTypeIdentifier(forPathExtension pathExtension: String) -> String? {
+    switch pathExtension {
+    case "md":
+        return "sourcecode.swift.literate.markdown"
+    case "rst":
+        return "sourcecode.swift.literate.restructuredtext"
+    case "tex":
+        return "sourcecode.swift.literate.tex"
+    default:
+        return nil
+    }
+}
+
 extension Optional {
     func unwrap(
         orAssert message: @autoclosure () -> String,

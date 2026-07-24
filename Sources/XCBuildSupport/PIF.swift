@@ -1226,6 +1226,13 @@ extension PIF.FileReference {
         case "y", "ym", "ymm", "ypp", "yp", "yxx":
             return "sourcecode.yacc"
 
+        case "md":
+            return "sourcecode.swift.literate.markdown"
+        case "rst":
+            return "sourcecode.swift.literate.restructuredtext"
+        case "tex":
+            return "sourcecode.swift.literate.tex"
+
         case "xcassets":
             return "folder.assetcatalog"
         case "xcstrings":
