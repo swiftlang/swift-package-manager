@@ -14,7 +14,18 @@ import Foundation
 import Vapor
 import NIOSSL
 
-public func configure(_ app: Application) async throws {
+/// Configures the application's middleware and routes.
+///
+/// - Parameters:
+///   - app: The application to configure.
+///   - authEnabled: When `true` (the default), the publish endpoint is gated
+///     behind ``UserAuthenticator`` (an `AsyncRequestAuthenticator`
+///     middleware) plus `AuthenticatedUser.guardMiddleware()`, together
+///     re-verifying the credentials presented on every publish request.
+///     Authentication is on by default so the registry is secure by default;
+///     pass `authEnabled: false` (the server's `--disable-auth` flag) to open
+///     publishing to unauthenticated clients, e.g. for a quick local demo.
+public func configure(_ app: Application, authEnabled: Bool = true) async throws {
     app.middleware = Middlewares()
     app.middleware.use(ProblemErrorMiddleware())
     app.middleware.use(ContentVersionMiddleware())
@@ -24,10 +35,20 @@ public func configure(_ app: Application) async throws {
     try configureTLS(app)
 
     let store = app.registryStore
+    let userStore = app.userStore
+    let authenticator = UserAuthenticator(store: userStore)
+    let authGroup = app.grouped(authenticator)
+
     AvailabilityRoutes().register(app)
     IdentifiersRoutes(store: store).register(app)
-    PublishRoutes(publisher: ReleasePublisher(store: store)).register(app)
+    let publishRouter: any RoutesBuilder = authEnabled
+        ? authGroup.grouped(AuthenticatedUser.guardMiddleware())
+        : app
+    PublishRoutes(publisher: ReleasePublisher(store: store)).register(publishRouter)
     MetadataRoutes(store: store).register(app)
+
+    UserRoutes(registrar: UserRegistrar(store: userStore)).register(app)
+    LoginRoutes().register(authGroup)
 }
 
 private func configureTLS(_ app: Application) throws {
