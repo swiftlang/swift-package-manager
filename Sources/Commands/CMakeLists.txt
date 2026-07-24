@@ -99,3 +99,8 @@ install(TARGETS Commands
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:Commands>/$<TARGET_FILE_BASE_NAME:Commands>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()

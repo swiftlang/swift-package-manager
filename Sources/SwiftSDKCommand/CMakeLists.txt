@@ -27,3 +27,8 @@ install(TARGETS SwiftSDKCommand
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:SwiftSDKCommand>/$<TARGET_FILE_BASE_NAME:SwiftSDKCommand>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()
