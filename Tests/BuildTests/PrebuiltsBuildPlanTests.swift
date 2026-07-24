@@ -654,4 +654,106 @@ class PrebuiltsBuildPlanTests: XCTestCase {
             XCTAssert(target.module.dependencies.contains(where: { $0.product?.packageIdentity == .plain("swift-syntax") }))
         }
     }
+
+    // Non-mixing case: a build-tool plugin's tool transitively depends on a prebuilt that
+    // NOTHING else in the graph uses (the BridgeJSTool -> swift-syntax shape). Here the
+    // prebuilt stays host-only, so `handlePrebuilts` does NOT wipe and it IS substituted into
+    // the host-only tool. Cross-compiling, the shipped wasm executable that merely *uses* the
+    // plugin must not pick up the host prebuilt.
+    func testPluginOnlyPrebuiltNoLeakCrossCompile() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/MyPackage/Sources/Base/Base.swift",
+            "/MyPackage/Sources/Generator/Generator.swift",
+            "/MyPackage/Plugins/Plugin/Plugin.swift",
+            "/MyRoot/Sources/MyApp/MyApp.swift",
+            "/swift-syntax/Sources/SwiftSyntaxMacros/SwiftSyntaxMacros.swift",
+        ])
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "MyRoot",
+                    path: "/MyRoot",
+                    dependencies: [
+                        .remoteSourceControl(url: "https://github.com/swiftlang/swift-syntax", requirement: .exact("600.0.1")),
+                        .fileSystem(path: "/MyPackage"),
+                    ],
+                    products: [
+                        ProductDescription(name: "MyApp", type: .executable, targets: ["MyApp"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "MyApp",
+                            dependencies: [],
+                            type: .executable,
+                            pluginUsages: [.plugin(name: "Plugin", package: "MyPackage")]
+                        ),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "MyPackage",
+                    path: "/MyPackage",
+                    dependencies: [
+                        .remoteSourceControl(url: "https://github.com/swiftlang/swift-syntax", requirement: .exact("600.0.1")),
+                    ],
+                    products: [
+                        ProductDescription(name: "Plugin", type: .plugin, targets: ["Plugin"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "Base",
+                            dependencies: [.product(name: "SwiftSyntaxMacros", package: "swift-syntax")]
+                        ),
+                        TargetDescription(name: "Generator", dependencies: ["Base"], type: .executable),
+                        TargetDescription(
+                            name: "Plugin",
+                            dependencies: ["Generator"],
+                            type: .plugin,
+                            pluginCapability: .buildTool
+                        ),
+                    ]
+                ),
+                Manifest.createRemoteSourceControlManifest(
+                    displayName: "swift-syntax",
+                    url: "https://github.com/swiftlang/swift-syntax",
+                    path: "/swift-syntax",
+                    products: [
+                        ProductDescription(name: "SwiftSyntaxMacros", type: .library(.automatic), targets: ["SwiftSyntaxMacros"]),
+                    ],
+                    targets: [TargetDescription(name: "SwiftSyntaxMacros")]
+                ),
+            ],
+            prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
+                $0[$1] = prebuiltLibrary
+            }],
+            observabilityScope: observability.topScope
+        )
+
+        let result = try await BuildPlanResult(
+            plan: mockBuildPlan(
+                triple: .wasi,
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+        )
+
+        let modulesDir = prebuiltLibrary.path.appending(component: "Modules").pathString
+        let libDir = prebuiltLibrary.path.appending(component: "lib").pathString
+        let lib = "-l\(prebuiltLibrary.libraryName)"
+
+        // Confirm this is the substitution path, not a `hasHostTargetMixing` wipe: the
+        // host-only tool actually uses the (host) prebuilt, so the case is exercised.
+        let anyUsesPrebuilt = result.targetMap.contains {
+            ((try? $0.swift().compileArguments().contains(modulesDir)) ?? false)
+        }
+        XCTAssert(anyUsesPrebuilt, "expected the host-only tool to use the prebuilt (substitution, not a wipe)")
+
+        // The shipped wasm executable must not reference the host prebuilt.
+        let myApp = try XCTUnwrap(result.productMap.first { $0.product.name == "MyApp" })
+        let myAppLink = try myApp.linkArguments()
+        XCTAssert(!myAppLink.contains(libDir), "MyApp leaked prebuilt libDir")
+        XCTAssert(!myAppLink.contains(lib), "MyApp leaked prebuilt lib")
+    }
 }

@@ -106,7 +106,8 @@ final class PluginInvocationTests: XCTestCase {
             }
         }
 
-        // "FooTool{Lib}" duplicated as it's present for both build host and end target.
+        // FooTool and FooToolLib are only reachable through FooPlugin's tool dependency, so
+        // they build for the host alone, never for the end target.
         do {
             let buildPlanResult = try await BuildPlanResult(plan: mockBuildPlan(
                 graph: graph,
@@ -116,16 +117,13 @@ final class PluginInvocationTests: XCTestCase {
                 fileSystem: fileSystem,
                 observabilityScope: observability.topScope
             ))
-            buildPlanResult.checkProductsCount(3)
-            buildPlanResult.checkTargetsCount(5) // Note: plugins are not included here.
+            buildPlanResult.checkProductsCount(2)
+            buildPlanResult.checkTargetsCount(3) // Note: plugins are not included here.
 
             buildPlanResult.check(destination: .target, for: "Foo")
 
             buildPlanResult.check(destination: .host, for: "FooTool")
-            buildPlanResult.check(destination: .target, for: "FooTool")
-
             buildPlanResult.check(destination: .host, for: "FooToolLib")
-            buildPlanResult.check(destination: .target, for: "FooToolLib")
         }
 
         // A fake PluginScriptRunner that just checks the input conditions and returns canned output.

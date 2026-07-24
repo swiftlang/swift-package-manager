@@ -887,90 +887,94 @@ private func createResolvedPackages(
         }
     }
 
+    markHostOnlyModules(packageBuilders: packageBuilders)
+
     // Adjust the package graph for any prebuilts, removing any that are no longer needed.
-    handlePrebuilts(packageBuilders: packageBuilders, root: root)
+    handlePrebuilts(packageBuilders: packageBuilders)
 
     return try IdentifiableSet(packageBuilders.map { try $0.construct() })
 }
 
-// Adjust the graph to integrate prebuilts
-private func handlePrebuilts(packageBuilders: [ResolvedPackageBuilder], root: PackageGraphRoot) {
-    // Skip this if there are no prebuilts. Modules are unconstrained by default.
-    guard packageBuilders.contains(where: { $0.prebuilts != nil }) else {
-        return
+/// Mark modules that must only ever build for the host: macros, plugins, and anything
+/// reachable "only" through them (a plugin's build-time tool and its private dependencies
+/// but not in the case if the same module is also used by a shipped target).
+private func markHostOnlyModules(packageBuilders: [ResolvedPackageBuilder]) {
+    let allModules = packageBuilders.flatMap(\.modules)
+
+    // Pass 1: pin every macro/plugin and its whole dependency closure to `.host`. Nothing
+    // is `.all` yet, so this also pins modules a shipped target depends on; pass 2 fixes them.
+    for moduleBuilder in allModules where moduleBuilder.isHostOnly {
+        func markHost(_ depModule: ResolvedModuleBuilder) {
+            guard depModule.platformConstraint != .host else {
+                return
+            }
+            for dep in depModule.allModuleDependencies {
+                markHost(dep)
+            }
+            depModule.platformConstraint = .host
+        }
+        markHost(moduleBuilder)
     }
 
-    // First decorate the platform constraints from products in the root packages
-    for packageBuilder in packageBuilders where root.isExporting(packageBuilder.package.identity) {
+    // Pass 2: flip every dual-use module back to `.all` so it builds for both. A module is
+    // dual-use when it is reachable both through a build tool (pass 1 pinned it `.host`) and
+    // from something that ships to the target.
+    func markExternal(_ depModule: ResolvedModuleBuilder) {
+        guard depModule.platformConstraint != .all else {
+            return
+        }
+        guard !depModule.isHostOnly else {
+            // Never pull a macro or plugin itself onto the target.
+            return
+        }
+        depModule.platformConstraint = .all
+        for dep in depModule.allModuleDependencies {
+            markExternal(dep)
+        }
+    }
+
+    // Seed from every genuine target root a non-test module pass 1 did not pin to host (this
+    // covers shipped executables and product-less library targets), then walk its
+    // dependencies.
+    for moduleBuilder in allModules
+    where !moduleBuilder.isHostOnly && moduleBuilder.platformConstraint != .host {
+        markExternal(moduleBuilder)
+    }
+
+    // Also seed from the modules of a root package's library products. A library product
+    // ships for the target, so it must build for the target even when a plugin's build-time
+    // tool also depends on it. Pass 1 would otherwise leave such a library pinned `.host`
+    // with nothing above to flip it back.
+    for packageBuilder in packageBuilders where packageBuilder.package.manifest.packageKind.isRoot {
         for productBuilder in packageBuilder.products {
+            guard case .library = productBuilder.product.type else {
+                continue
+            }
             for moduleBuilder in productBuilder.moduleBuilders {
-                func markExternal(_ depModule: ResolvedModuleBuilder) {
-                    guard depModule.platformConstraint != .all else {
-                        return
-                    }
-                    guard !depModule.isHostOnly else {
-                        // Macros, macro tests, and plugins are host only
-                        return
-                    }
-                    depModule.platformConstraint = .all
-                    for dep in depModule.allModuleDependencies {
-                        markExternal(dep)
-                    }
-                }
                 markExternal(moduleBuilder)
             }
         }
     }
+}
 
-    // Find those not marked that are references from macro and plugins.
-    // For now we can't have host modules depending on .all modules so only
-    // mark as .host if all the deps are .host
-    for packageBuilder in packageBuilders {
-        for moduleBuilder in packageBuilder.modules where moduleBuilder.isHostOnly {
-            func markHost(_ depModule: ResolvedModuleBuilder) -> Bool {
-                switch depModule.platformConstraint {
-                case .all:
-                    return false
-                case .host:
-                    return true
-                case .none:
-                    break
-                }
-
-                for dep in depModule.allModuleDependencies {
-                    if !markHost(dep) {
-                        // Depending on .all, revisit all deps and mark .all so we don't mix
-                        func markExternal(_ depModule: ResolvedModuleBuilder) {
-                            guard depModule.platformConstraint == .host else {
-                                return
-                            }
-                            depModule.platformConstraint = .all
-                            for dep in depModule.allModuleDependencies {
-                                markExternal(dep)
-                            }
-                        }
-                        markExternal(depModule)
-                        return false
-                    }
-                }
-                depModule.platformConstraint = .host
-                return true
-            }
-            _ = markHost(moduleBuilder)
-        }
+// Adjust the graph to integrate prebuilts
+private func handlePrebuilts(packageBuilders: [ResolvedPackageBuilder]) {
+    // Skip this if there are no prebuilts.
+    guard packageBuilders.contains(where: { $0.prebuilts != nil }) else {
+        return
     }
 
-    // Also for now, to ensure we're not mixing prebuilts and not prebuilts in the build graph,
-    // Only use prebuilts if we can use them for all host only modules
-    guard packageBuilders.allSatisfy({
-        $0.modules.allSatisfy { moduleBuilder in
-            guard moduleBuilder.isHostOnly else {
-                return true
-            }
-            return moduleBuilder.platformConstraint == .host
+    // Prebuilts are host-only binaries. If a `.host` module depends on a `.all` module, that
+    // dependency is dual-use, and a host-only prebuilt can't stand in for it without mixing a
+    // prebuilt host build with a from-source target build of the same library. Rather than
+    // mix, drop the marking and build everything from source, as before.
+    let hasHostTargetMixing = packageBuilders.contains { packageBuilder in
+        packageBuilder.modules.contains { moduleBuilder in
+            moduleBuilder.platformConstraint == .host
+                && moduleBuilder.allModuleDependencies.contains { $0.platformConstraint == .all }
         }
-    }) else {
-        // Remove the platform constraints
+    }
+    guard !hasHostTargetMixing else {
         for packageBuilder in packageBuilders {
             for moduleBuilder in packageBuilder.modules {
                 moduleBuilder.platformConstraint = nil
@@ -1472,7 +1476,7 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
     var isTestSupportModule: Bool = false
 
     var isHostOnly: Bool {
-        module.type == .macro || (module.type == .test && dependencies.contains(where: {
+        module.type == .macro || module.type == .plugin || (module.type == .test && dependencies.contains(where: {
                 switch $0 {
                 case .product(let productDependency, _):
                     productDependency.product.type == .macro

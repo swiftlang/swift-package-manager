@@ -837,11 +837,22 @@ fileprivate func buildAggregatePIFProject(
                     continue
                 }
 
+                // Host-only build tools must not be specialized for the destination as top-level
+                // targets. They still build for the host via the edge that pulls them in. This
+                // covers both the module target and the dedicated "-product" target of a host-only
+                // executable, such as a plugin's build-time tool exposed as an explicit product.
                 if let resolvedModule = modulesGraph.module(for: target.name) {
                     guard modulesGraph.isInRootPackages(resolvedModule, satisfying: buildParameters.buildEnvironment) else {
                         // Disconnected target, possibly due to platform when condition that isn't satisfied
                         continue
                     }
+                    if resolvedModule.platformConstraint == .host {
+                        continue
+                    }
+                } else if let productName = PackagePIFBuilder.productName(forTargetName: target.name),
+                          let resolvedProduct = modulesGraph.product(for: productName),
+                          resolvedProduct.platformConstraint == .host {
+                    continue
                 }
 
                 aggregateProject[keyPath: allIncludingTestsTargetKeyPath].common.addDependency(
