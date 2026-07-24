@@ -498,11 +498,7 @@ extension WorkspaceStateStorage {
 
             init(_ reference: PackageModel.PackageReference) {
                 self.identity = reference.identity.description
-                switch reference.identity.type {
-                case .swift: self.type = .swift
-                case .external: self.type = .external
-                case .binary: self.type = .binary
-                }
+                self.type = .init(type: reference.identity.type.type)
 
                 switch reference.kind {
                 case .root(let path):
@@ -537,10 +533,8 @@ extension WorkspaceStateStorage {
                 case archive
             }
 
-            enum PackageType: String, Codable {
-                case swift
-                case external
-                case binary
+            struct PackageType: Codable {
+                let type: String
             }
         }
     }
@@ -585,11 +579,11 @@ extension Workspace.ManagedPrebuilt {
 
 extension PackageModel.PackageReference {
     fileprivate init(_ reference: WorkspaceStateStorage.V7.PackageReference) throws {
-        let type: PackageIdentity.PackageType = switch reference.type {
-        case .swift: .swift
-        case .external: .external
-        case .binary: .binary
-        case .none: .swift
+        let type: PackageIdentity.PackageType
+        if let referenceType = reference.type {
+            type = .init(type: referenceType.type)
+        } else {
+            type = .swift
         }
         let identity = PackageIdentity.plain(reference.identity, type: type)
         let kind: PackageModel.PackageReference.Kind

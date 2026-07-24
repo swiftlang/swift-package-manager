@@ -123,6 +123,12 @@ enum Serialization {
         case branch(String)
     }
 
+    struct PackageType: Codable {
+        let type: String
+
+        static let swift = Self(type: "swift")
+    }
+
     struct PackageDependency: Codable {
         struct Trait: Hashable, Codable {
             struct Condition: Hashable, Codable {
@@ -143,12 +149,6 @@ enum Serialization {
             case sourceControl(name: String?, location: String, requirement: SourceControlRequirement)
             case registry(id: String, requirement: RegistryRequirement)
             case archive(name: String?, location: String, checksum: String)
-        }
-
-        enum PackageType: Codable {
-            case swift
-            case external(products: [Product], targets: [Target], builder: PluginUsage)
-            case binary(products: [Product], targets: [Target])
         }
 
         let kind: Kind
@@ -313,6 +313,8 @@ enum Serialization {
         let products: [Product]
         let traits: [Trait]?
         let dependencies: [PackageDependency]
+        let externals: [Package]
+        let pluginUsages: [PluginUsage]
         let swiftLanguageVersions: [SwiftVersion]?
         let cLanguageStandard: CLanguageStandard?
         let cxxLanguageStandard: CXXLanguageStandard?

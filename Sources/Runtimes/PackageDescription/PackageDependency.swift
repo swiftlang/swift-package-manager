@@ -57,29 +57,13 @@ extension Package {
             case archive(name: String?, location: String, checksum: String)
         }
 
-        /// The type of the package
-        @available(_PackageDescription, introduced: 6.5)
-        public enum PackageType {
-            /// A normal Swift package
-            case swift
-            /// A non-Swift package that will be built using the listed plugin and consumed by the dependant package
-            /// - Parameters:
-            ///   - targets: list of targets provided by the external package
-            ///   - builder: plugin that will do the build
-            case external(products: [ExternalProduct], builder: PluginUsage)
-            /// Prebuilt binaries for a package for a given target condition
-            /// - Parameters:
-            ///   - targets: list of targets provided by the binary package
-            case binary(products: [ExternalProduct])
-        }
-
         /// A description of the package dependency.
         @available(_PackageDescription, introduced: 5.6)
         public let kind: Kind
 
         /// The type of the package in the dependency
         @available(_PackageDescription, introduced: 6.5)
-        public let type: PackageType?
+        public let type: PackageType
 
         /// The dependencies traits configuration.
         @available(_PackageDescription, introduced: 6.1)
@@ -1196,13 +1180,11 @@ extension Package.Dependency {
     public static func externalSource(
         name: String,
         path: String,
-        products: [ExternalProduct],
-        builder: PluginUsage,
         traits: Set<Trait>? = nil
     ) -> Package.Dependency {
         .init(
             name: name,
-            type: .external(products: products, builder: builder),
+            type: .external,
             path: path,
             traits: traits
         )
@@ -1215,12 +1197,11 @@ extension Package.Dependency {
     public static func binaryArchive(
         name: String,
         url: String,
-        checksum: String,
-        products: [ExternalProduct]
+        checksum: String
     ) -> Package.Dependency {
         .init(
             name: name,
-            type: .binary(products: products),
+            type: .binary,
             url: url,
             checksum: checksum
         )

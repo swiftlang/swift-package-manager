@@ -419,7 +419,7 @@ public final class PIFBuilder {
 
             // Run external source package plugin
             let externalBuilderResults: PackagePIFBuilder.BuildToolPluginInvocationResult?
-            if let builder = package.builder, let builderPlugin = builder.underlying as? PluginModule {
+            if let builder = package.pluginUsages.first, let builderPlugin = builder.underlying as? PluginModule {
                 let pluginOutputDirectory = builder.pluginOutputPath(packageIdentity: package.identity, pluginRoot: parameters.pluginWorkingDirectory)
 
                 var targetNameToProductName: [String: String] = [:]

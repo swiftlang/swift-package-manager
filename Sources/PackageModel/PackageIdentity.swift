@@ -16,26 +16,32 @@ import TSCBasic
 
 /// The canonical identifier for a package, based on its source location.
 public struct PackageIdentity: CustomStringConvertible, Sendable {
-    public enum PackageType: Codable, Sendable {
-        case swift
-        case external
-        case binary
+    public struct PackageType: Hashable, Codable, Sendable, CustomStringConvertible {
+        public let type: String
+
+        public var description: String { type }
+
+        public init(type: String) {
+            self.type = type
+        }
+
+        public static let swift = Self(type: "swift")
+        public static let external = Self(type: "external")
+        public static let binary = Self(type: "binary")
     }
 
     /// Type type of the package
     public let type: PackageType
 
-    private let name: String
+    public let name: String
 
     /// A textual representation of this instance.
     public var description: String {
         switch type {
         case .swift:
             return name
-        case .external:
-            return "external:" + name
-        case .binary:
-            return "binary:" + name
+        default:
+            return "\(type):\(name)"
         }
     }
 

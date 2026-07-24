@@ -390,25 +390,25 @@ public final class PackageBuilder {
         // Find the special directory for targets.
         let targetSpecialDirs = self.findTargetSpecialDirs(targets)
 
-        let builder: Module.Dependency?
+        let pluginUsages: [Module.Dependency]
         if let parentPackage {
             // Find plugin usages relative to the parent package
-            switch manifest.builder {
-            case .plugin(let name, let package):
-                if let package {
-                    builder = .product(.init(name: name, package: package), conditions: [])
-                } else {
-                    if let pluginModule = parentPackage.modules.first(where: { $0.type == .plugin && $0.name == name }) {
-                        builder = .module(pluginModule, conditions: [])
+            pluginUsages = manifest.pluginUsages.compactMap {
+                switch $0 {
+                case .plugin(let name, let package):
+                    if let package {
+                        return .product(.init(name: name, package: package), conditions: [])
                     } else {
-                        builder = nil
+                        if let pluginModule = parentPackage.modules.first(where: { $0.type == .plugin && $0.name == name }) {
+                            return .module(pluginModule, conditions: [])
+                        } else {
+                            return nil
+                        }
                     }
                 }
-            case .none:
-                builder = nil
             }
         } else {
-            builder = nil
+            pluginUsages = []
         }
 
         return Package(
@@ -417,7 +417,7 @@ public final class PackageBuilder {
             path: self.packagePath,
             targets: targets,
             products: products,
-            builder: builder,
+            pluginUsages: pluginUsages,
             targetSearchPath: self.packagePath.appending(component: targetSpecialDirs.targetDir),
             testTargetSearchPath: self.packagePath.appending(component: targetSpecialDirs.testTargetDir)
         )

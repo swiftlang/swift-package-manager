@@ -1221,7 +1221,7 @@ extension Workspace {
     ) {
         self.loadRootManifest(at: path, observabilityScope: observabilityScope) { result in
             let result = result.tryMap { manifest -> Package in
-                let identity = try self.identityResolver.resolveIdentity(for: manifest.packageKind, type: .swift)
+                let identity = manifest.packageIdentity
 
                 // radar/82263304
                 // compute binary artifacts for the sake of constructing a project model

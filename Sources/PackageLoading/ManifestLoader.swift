@@ -361,27 +361,33 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             ))
         }
 
-        let externals: [Manifest] = parsedManifest.externals.map {
-            Manifest(
-                displayName: $0.result.name,
-                packageIdentity: $0.dependency.identity,
+        let externals: [Manifest] = parsedManifest.externals.compactMap { external in
+            guard let dependency = parsedManifest.dependencies.first(where: {$0.identity.name == external.name }) else {
+                // TODO: should raise a warning that the external isn't being used
+                return nil
+            }
+            let identity = PackageIdentity.plain(external.name, type: dependency.identity.type)
+
+            return Manifest(
+                displayName: external.name,
+                packageIdentity: identity,
                 path: manifestPath,
-                packageKind: $0.dependency.packageRef.kind,
+                packageKind: dependency.packageRef.kind,
                 packageLocation: packageLocation,
-                defaultLocalization: $0.result.defaultLocalization,
-                platforms: $0.result.platforms,
+                defaultLocalization: external.defaultLocalization,
+                platforms: external.platforms,
                 version: packageVersion?.version,
                 revision: packageVersion?.revision,
                 toolsVersion: manifestToolsVersion,
-                pkgConfig: $0.result.pkgConfig,
-                providers: $0.result.providers,
-                cLanguageStandard: $0.result.cLanguageStandard,
-                cxxLanguageStandard: $0.result.cxxLanguageStandard,
-                swiftLanguageVersions: $0.result.swiftLanguageVersions,
-                builder: $0.result.builder,
-                products: $0.result.products,
-                targets: $0.result.targets,
-                traits: $0.result.traits
+                pkgConfig: external.pkgConfig,
+                providers: external.providers,
+                cLanguageStandard: external.cLanguageStandard,
+                cxxLanguageStandard: external.cxxLanguageStandard,
+                swiftLanguageVersions: external.swiftLanguageVersions,
+                pluginUsages: external.pluginUsages,
+                products: external.products,
+                targets: external.targets,
+                traits: external.traits
             )
         }
 

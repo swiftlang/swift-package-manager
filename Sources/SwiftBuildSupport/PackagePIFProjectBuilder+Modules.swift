@@ -1050,7 +1050,7 @@ extension PackagePIFProjectBuilder {
         // For external source packages, this will be the output directory for the external build plugin.
         // For binary packages, this will be the directory where it was extracted.
 
-        guard let builderPlugin = package.builder else {
+        guard let builderPlugin = package.pluginUsages.first else {
             return
         }
 

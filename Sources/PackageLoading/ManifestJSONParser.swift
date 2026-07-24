@@ -43,18 +43,13 @@ enum ManifestJSONParser {
         var pkgConfig: String?
         var swiftLanguageVersions: [SwiftLanguageVersion]?
         var dependencies: [PackageDependency] = []
-        var externals: [External] = []
+        var externals: [Result] = []
         var providers: [SystemPackageProviderDescription]?
         var products: [ProductDescription] = []
-        var builder: TargetDescription.PluginUsage? = nil
+        var pluginUsages: [TargetDescription.PluginUsage] = []
         var traits: Set<TraitDescription> = []
         var cxxLanguageStandard: String?
         var cLanguageStandard: String?
-    }
-
-    struct External {
-        var dependency: PackageDependency
-        var result: Result
     }
 
     static func parse(
@@ -111,13 +106,21 @@ enum ManifestJSONParser {
             )
         }
 
-        let externals = try input.package.dependencies.compactMap {
-            try Self.parseExternal(
-                dependency: $0,
-                identityResolver: identityResolver,
-                parentPackagePath: packagePath,
-                dependencyMapper: dependencyMapper,
-                fileSystem: fileSystem
+        let externals: [Result] = try input.package.externals.map { external in
+            Result(
+                name: external.name,
+                defaultLocalization: external.defaultLocalization?.tag,
+                platforms: try external.platforms.map { try Self.parsePlatforms($0) } ?? [],
+                targets: try external.targets.map { try Self.parseTarget(target: $0, identityResolver: identityResolver) },
+                pkgConfig: external.pkgConfig,
+                swiftLanguageVersions: try external.swiftLanguageVersions.map { try Self.parseSwiftLanguageVersions($0) },
+                dependencies: [], // TODO: dependencies on other externals
+                providers: external.providers?.map { .init($0) },
+                products: try external.products.map { try .init($0) },
+                pluginUsages: external.pluginUsages.map { .init($0) },
+                traits: Set(external.traits?.map { TraitDescription($0) } ?? []),
+                cxxLanguageStandard: external.cxxLanguageStandard?.rawValue,
+                cLanguageStandard: external.cLanguageStandard?.rawValue,
             )
         }
 
@@ -132,6 +135,7 @@ enum ManifestJSONParser {
             externals: externals,
             providers: input.package.providers?.map { .init($0) },
             products: try input.package.products.map { try .init($0) },
+            pluginUsages: input.package.pluginUsages.map { .init($0) },
             traits: Set(input.package.traits?.map { TraitDescription($0) } ?? []),
             cxxLanguageStandard: input.package.cxxLanguageStandard?.rawValue,
             cLanguageStandard: input.package.cLanguageStandard?.rawValue,
@@ -200,58 +204,6 @@ enum ManifestJSONParser {
         } catch {
             throw ManifestParseError.invalidManifestFormat("\(error.interpolationDescription)", diagnosticFile: nil, compilerCommandLine: nil)
         }
-    }
-
-    private static func parseExternal(
-        dependency: Serialization.PackageDependency,
-        identityResolver: IdentityResolver,
-        parentPackagePath: AbsolutePath,
-        dependencyMapper: DependencyMapper,
-        fileSystem: FileSystem
-    ) throws -> External? {
-        let products: [ProductDescription]
-        let targets: [TargetDescription]
-        let builder: TargetDescription.PluginUsage?
-        switch dependency.type {
-        case .external(let externalProducts, let externalTargets, let externalBuilder):
-            products = try externalProducts.map({ try .init($0) })
-            targets = try externalTargets.map({ try Self.parseTarget(target: $0, identityResolver: identityResolver)})
-            builder = .init(externalBuilder)
-        case .binary(let binaryProducts, let binaryTargets):
-            products = try binaryProducts.map({ try .init($0) })
-            targets = try binaryTargets.map({ try Self.parseTarget(target: $0, identityResolver: identityResolver)})
-            builder = nil
-        default:
-            return nil
-        }
-
-        let name: String
-        // TODO: a better job at picking a secondary name
-        switch dependency.kind {
-        case .fileSystem(let depName, let path):
-            name = depName ?? path
-        case .sourceControl(let depName, let location, _):
-            name = depName ?? location
-        case .registry(let id, _):
-            name = id
-        case .archive(let depName, let location, _):
-            name = depName ?? location
-        }
-
-        let dependency = try dependencyMapper.mappedDependency(
-            MappablePackageDependency(dependency, parentPackagePath: parentPackagePath),
-            fileSystem: fileSystem
-        )
-
-        return External(
-            dependency: dependency,
-            result: .init(
-                name: name,
-                targets: targets,
-                products: products,
-                builder: builder
-            )
-        )
     }
 
     private static func parseTarget(
@@ -970,12 +922,8 @@ extension PackageDependency.Trait.Condition {
 }
 
 extension PackageIdentity.PackageType {
-    init(_ type: Serialization.PackageDependency.PackageType) {
-        switch type {
-        case .swift: self = .swift
-        case .external: self = .external
-        case .binary: self = .binary
-        }
+    init(_ type: Serialization.PackageType) {
+        self.init(type: type.type)
     }
 }
 extension MappablePackageDependency {

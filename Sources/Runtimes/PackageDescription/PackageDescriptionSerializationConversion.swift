@@ -170,30 +170,16 @@ extension Serialization.PackageDependency.Kind {
     }
 }
 
-extension Serialization.PackageDependency.PackageType {
-    init(_ type: PackageDescription.Package.Dependency.PackageType) {
-        switch type {
-        case .swift:
-            self = .swift
-        case .external(let products, let builder):
-            self = .external(
-                products: products.map({ .init($0.product) }),
-                targets: products.map({ .init($0.target) }),
-                builder: .init(builder)
-            )
-        case .binary(let products):
-            self = .binary(
-                products: products.map({ .init($0.product) }),
-                targets: products.map({ .init($0.target) })
-            )
-        }
+extension Serialization.PackageType {
+    init(_ type: PackageDescription.PackageType) {
+        self.type = type.type
     }
 }
 
 extension Serialization.PackageDependency {
     init(_ dependency: PackageDescription.Package.Dependency) {
         self.kind = .init(dependency.kind)
-        self.type = dependency.type.map({ .init($0) })
+        self.type = .init(dependency.type)
         self.moduleAliases = dependency.moduleAliases
         self.traits = dependency.traits.map { Serialization.PackageDependency.Trait.init($0) }
             .sorted { $0.name < $1.name }
@@ -434,6 +420,8 @@ extension Serialization.Package {
         self.traits = package.traits.map { Serialization.Trait($0) }
             .sorted { $0.name < $1.name }
         self.dependencies = package.dependencies.map { .init($0) }
+        self.externals = package.externals.map { .init($0) }
+        self.pluginUsages = package.pluginUsages.map { .init($0) }
         self.swiftLanguageVersions = package.swiftLanguageModes?.map { .init($0) }
         self.cLanguageStandard = package.cLanguageStandard.map { .init($0) }
         self.cxxLanguageStandard = package.cxxLanguageStandard.map { .init($0) }

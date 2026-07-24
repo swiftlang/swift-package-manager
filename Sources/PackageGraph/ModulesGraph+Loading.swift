@@ -653,14 +653,19 @@ private func createResolvedPackages(
 
         // Hook up external source package builder plugin module
         for external in packageBuilder.externalPackages {
-            switch external.package.builder {
-            case .module(let moduleDependency, let conditions):
-                if let moduleBuilder = modulesMap[moduleDependency] {
-                    external.builder = moduleBuilder
+            external.pluginUsages.append(contentsOf: external.package.pluginUsages.compactMap({
+                switch $0 {
+                case .module(let moduleDependency, let conditions):
+                    if let moduleBuilder = modulesMap[moduleDependency] {
+                        return moduleBuilder
+                    } else {
+                        return nil
+                    }
+                default:
+                    return nil
                 }
-            case .product, .none:
-                break
-            }
+                
+            }))
         }
 
         // Create product builders for each product in the package. A product can only contain a module present in the
@@ -734,7 +739,7 @@ private func createResolvedPackages(
 
         let packageDoesNotSupportProductAliases = packageBuilder.package.doesNotSupportProductAliases
         let lookupByProductIDs = !packageDoesNotSupportProductAliases &&
-            (packageBuilder.package.manifest.disambiguateByProductIDs || moduleAliasingUsed)
+        (packageBuilder.package.manifest.disambiguateByProductIDs || moduleAliasingUsed)
 
         // Get all the products from dependencies of this package.
         let productDependencies = packageBuilder.dependencies
@@ -755,7 +760,7 @@ private func createResolvedPackages(
             try Dictionary(uniqueKeysWithValues: productDependencies.map {
                 guard let packageName = packageBuilder
                     .dependencyNamesForModuleDependencyResolutionOnly[$0.packageBuilder.package.identity]
-                else {
+                        else {
                     throw InternalError(
                         "could not determine name for dependency on package '\($0.packageBuilder.package.identity)' from package '\(packageBuilder.package.identity)'"
                     )
@@ -788,7 +793,7 @@ private func createResolvedPackages(
                 // Find the product in this package's dependency products.
                 // Look it up by ID if module aliasing is used, otherwise by name.
                 let product = lookupByProductIDs ? productDependencyMap[productRef.identity] :
-                    productDependencyMap[productRef.name]
+                productDependencyMap[productRef.name]
                 guard let product else {
                     // Only emit a diagnostic if there are no other diagnostics.
                     // This avoids flooding the diagnostics with product not
@@ -839,16 +844,20 @@ private func createResolvedPackages(
 
         // Hook up external package plugin modules
         for external in packageBuilder.externalPackages {
-            switch external.package.builder {
-            case .product(let productRef,_):
-                let product = lookupByProductIDs ? productDependencyMap[productRef.identity] :
-                productDependencyMap[productRef.name]
-                if let product {
-                    external.builder = product.moduleBuilders.first
+            external.pluginUsages.append(contentsOf: external.package.pluginUsages.compactMap({
+                switch $0 {
+                case .product(let productRef,_):
+                    let product = lookupByProductIDs ? productDependencyMap[productRef.identity] :
+                    productDependencyMap[productRef.name]
+                    if let product {
+                        return product.moduleBuilders.first
+                    } else {
+                        return nil
+                    }
+                default:
+                    return nil
                 }
-            case .module, .none:
-                break
-            }
+            }))
         }
     }
 
@@ -1656,7 +1665,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     var externalPackages: [ResolvedPackageBuilder] = []
 
     /// For an external package, the plugin from the parent package that will build it
-    var builder: ResolvedModuleBuilder? = nil
+    var pluginUsages: [ResolvedModuleBuilder] = []
 
     /// The prebuilt libraries for this package
     var prebuilts: [String: PrebuiltLibrary]?
@@ -1699,14 +1708,14 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         let products = try self.products.map { try $0.construct() }
         var modules = products.reduce(into: IdentifiableSet()) { $0.formUnion($1.modules) }
         try modules.formUnion(self.modules.map { try $0.construct() })
-        let builder = try self.builder?.construct()
+        let pluginUsages = try self.pluginUsages.map { try $0.construct() }
 
         return ResolvedPackage(
             underlying: self.package,
             defaultLocalization: self.defaultLocalization,
             supportedPlatforms: self.supportedPlatforms,
             dependencies: self.dependencies.map(\.package.identity),
-            builder: builder,
+            pluginUsages: pluginUsages,
             enabledTraits: self.enabledTraits.names,
             modules: modules,
             products: products,

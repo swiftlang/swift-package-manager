@@ -61,7 +61,7 @@ public final class Package {
     public let products: [Product]
 
     /// For an external source package, the builder that will build it
-    public let builder: Module.Dependency?
+    public let pluginUsages: [Module.Dependency]
 
     // The directory containing the targets which did not explicitly specify
     // their path. If all targets are explicit, this is the preferred path for
@@ -79,7 +79,7 @@ public final class Package {
         path: AbsolutePath,
         targets: [Module],
         products: [Product],
-        builder: Module.Dependency?,
+        pluginUsages: [Module.Dependency],
         targetSearchPath: AbsolutePath,
         testTargetSearchPath: AbsolutePath
     ) {
@@ -88,7 +88,7 @@ public final class Package {
         self.path = path
         self.modules = targets
         self.products = products
-        self.builder = builder
+        self.pluginUsages = pluginUsages
         self.targetSearchPath = targetSearchPath
         self.testTargetSearchPath = testTargetSearchPath
     }

@@ -32,7 +32,7 @@ public final class Target {
         case test
         /// A target that produces a module for a library on the system
         case system
-        /// A library target that comes from an external build
+        /// A library target that comes from an external package
         /// TODO: external executable
         case externalLibrary
         /// A target that references a binary artifact.
@@ -314,7 +314,6 @@ public final class Target {
                 checksum == nil &&
                 plugins == nil
             )
-
         case .binary:
             precondition(
                 dependencies.isEmpty &&
@@ -1069,6 +1068,43 @@ public final class Target {
             packageAccess: false,
             pkgConfig: pkgConfig,
             providers: providers)
+    }
+
+    /// Creates an external library target.
+    ///
+    /// External library targets represent libraries made available by external packages.
+    /// They are not modules so would still need to be wrapped by a target in the
+    /// parent package to produce the module map.
+    ///
+    /// - Parameters:
+    ///   - name: name of the target.
+    ///   - path: the path to the library binary relative to the binary output path of the package.
+    ///   - cSettings: settings consuming targets use to make use of the library
+    ///   - cxxSettings: settings consuming targets use to make use of the library
+    ///   - swiftSettings: settings consuming targets use to make use of the library
+    ///   - linkerSettings: settings consuming targets use to make use of the library
+    public static func externalLibrary(
+        name: String,
+        path: String? = nil,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: [],
+            path: path,
+            exclude: [],
+            sources: nil,
+            publicHeadersPath: nil,
+            type: .externalLibrary,
+            packageAccess: false,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings
+        )
     }
 
     /// Creates a binary target that references a remote artifact.

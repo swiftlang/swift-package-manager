@@ -472,12 +472,12 @@ public func loadModulesGraph(
     enabledTraitsMap: EnabledTraitsMap = .init()
 ) throws -> ModulesGraph {
     let rootManifests = manifests.filter(\.packageKind.isRoot).spm_createDictionary { ($0.path, $0) }
-    let externalManifests = try manifests.filter { !$0.packageKind.isRoot }
+    let externalManifests = manifests.filter { !$0.packageKind.isRoot }
         .reduce(
             into: OrderedCollections
                 .OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()
         ) { partial, item in
-            partial[try identityResolver.resolveIdentity(for: item.packageKind, type: .swift)] = (item, fileSystem)
+            partial[item.packageIdentity] = (item, fileSystem)
         }
 
     let packages = Array(rootManifests.keys)
