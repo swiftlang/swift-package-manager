@@ -154,7 +154,7 @@ extension ModulesGraph {
                 // Create a package from the manifest and sources.
 
                 // Special case to handle: if the traits enabled for this node is simply ["default"],
-                // this means that we don't have any defined traits for this package and should there
+                // this means that we don't have any defined traits for this package and should therefore
                 // flatten the set to be empty for the PackageBuilder.
                 var enabledTraits = node.enabledTraits
                 if enabledTraits == ["default"] {
