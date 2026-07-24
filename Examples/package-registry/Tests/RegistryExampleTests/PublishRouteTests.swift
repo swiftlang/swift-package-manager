@@ -14,7 +14,6 @@ import Testing
 import Foundation
 import Vapor
 import VaporTesting
-import ZIPFoundation
 @testable import RegistryExample
 
 @Suite("Publish endpoint")

@@ -12,7 +12,6 @@
 
 import Testing
 import Foundation
-import ZIPFoundation
 @testable import RegistryExample
 
 @Suite("ManifestExtractor")
@@ -82,20 +81,35 @@ struct ManifestExtractorTests {
     }
 }
 
+/// Builds a zip archive from in-memory entries using the system `zip`
+/// tool, so tests exercise the same command-line tooling that
+/// ``ManifestExtractor`` reads with (rather than a third-party zip
+/// library that does not build on Windows).
 func makeZip(entries: [String: String]) throws -> Data {
-    let archive = try Archive(accessMode: .create)
+    let fileManager = FileManager.default
+    let stagingDirectory = fileManager.temporaryDirectory
+        .appendingPathComponent("registry-makezip-\(UUID().uuidString)", isDirectory: true)
+    try fileManager.createDirectory(at: stagingDirectory, withIntermediateDirectories: true)
+    defer { try? fileManager.removeItem(at: stagingDirectory) }
+
     for (path, contents) in entries {
-        let data = Data(contents.utf8)
-        try archive.addEntry(
-            with: path,
-            type: .file,
-            uncompressedSize: Int64(data.count),
-            compressionMethod: .deflate
-        ) { position, size in
-            let start = Int(position)
-            let end = min(start + size, data.count)
-            return data.subdata(in: start..<end)
-        }
+        let fileURL = stagingDirectory.appendingPathComponent(path, isDirectory: false)
+        try fileManager.createDirectory(
+            at: fileURL.deletingLastPathComponent(),
+            withIntermediateDirectories: true
+        )
+        try Data(contents.utf8).write(to: fileURL)
     }
-    return archive.data ?? Data()
+
+    let archiveURL = stagingDirectory.appendingPathComponent("archive.zip", isDirectory: false)
+    let topLevelEntries = Set(entries.keys.compactMap { $0.split(separator: "/").first.map(String.init) })
+
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+    process.currentDirectoryURL = stagingDirectory
+    process.arguments = ["zip", "-qr", archiveURL.path] + topLevelEntries.sorted()
+    try process.run()
+    process.waitUntilExit()
+
+    return try Data(contentsOf: archiveURL)
 }
