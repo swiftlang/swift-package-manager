@@ -459,6 +459,22 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             return result
         }
 
+        let generatedSourceFileProtection = GeneratedSourceFileProtection(
+            fileSystem: self.fileSystem,
+            pluginWorkDirectory: self.pluginConfiguration.workDirectory
+        )
+        try generatedSourceFileProtection.prepareForBuild()
+        defer {
+            do {
+                try generatedSourceFileProtection.protectGeneratedSources()
+            } catch {
+                self.observabilityScope.emit(
+                    warning: "unable to make generated source files read-only",
+                    underlyingError: error
+                )
+            }
+        }
+
         if let stripProdduct = self.buildParameters.stripProducts, self.buildParameters.configuration != .release {
             self.observabilityScope.emit(
                 Basics.Diagnostic.unsupportedStripProductsConfigurationFlag(
