@@ -4943,6 +4943,52 @@ struct PackageCommandTests {
                 }
             }
         }
+
+        @Test(
+            .tags(
+              .Feature.Command.Build,
+              .Feature.PackageType.BuildToolPlugin
+            ),
+            .requiresSwiftConcurrencySupport,
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func buildToolPluginCompilerErrorIsVisible(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            let config = BuildConfiguration.debug
+            try await fixture(name: "Miscellaneous/Plugins/BuildToolPluginCompilationError") { packageDir in
+                try localFileSystem.writeFileContents(
+                    packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"),
+                    string: """
+                    import PackagePlugin
+
+                    @main
+                    struct MyBuildToolPlugin: BuildToolPlugin {
+                        func createBuildCommands(
+                            context: PluginContext,
+                            target: Target
+                        ) throws -> [Command] {
+                            let _ = intentionalCompilerError
+                            return []
+                        }
+                    }
+                    """
+                )
+
+                await expectThrowsCommandExecutionError(
+                    try await executeSwiftBuild(
+                        packageDir,
+                        configuration: config,
+                        buildSystem: buildSystem,
+                    )
+                ) { error in
+                    #expect(
+                        error.consoleOutput.contains("intentionalCompilerError"),
+                        "Plugin compiler diagnostic was not shown: \(error.consoleOutput)"
+                    )
+                }
+            }
+        }
     }
 
     @Suite(
