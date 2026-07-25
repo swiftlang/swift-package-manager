@@ -719,27 +719,29 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         library: TestingLibrary,
         buildSystem: any BuildSystem
     ) async throws -> [TestProductResult] {
-        // Each Swift Testing binary opens the `--xunit-output` file with `fopen(path, "wb")`,
-        // which truncates any previous content. With multiple test products, the last product
-        // to run would wipe every prior product's results. Route each product's output to a
-        // distinct per-product path in a temp dir, then merge into the caller-specified path.
-        if library == .swiftTesting,
-           let xUnitOutput = options.xUnitOutput,
-           testProducts.count > 1
-        {
-            let destination = swiftTestingXUnitDestinationPath(
-                from: xUnitOutput,
-                swiftCommandState: swiftCommandState,
-            )
+        // Each Swift Testing binary opens its output files (`--xunit-output`,
+        // `--event-stream-output-path`) with `fopen(path, "wb")`, which truncates any previous
+        // content. With multiple test products, the last product to run would wipe every prior
+        // product's output. Route each product's output to distinct per-product paths in a temp
+        // dir, then merge into the caller-specified path for the flag.
+        let mergeableOutputs = self.mergeableTestOutputs(library: library, swiftCommandState: swiftCommandState)
+
+        if testProducts.count > 1, !mergeableOutputs.isEmpty {
             return try await withTemporaryDirectory(
-                prefix: "swiftpm-xunit-",
+                prefix: "swiftpm-test-output-",
                 removeTreeOnDeinit: true,
             ) { tempDir in
+                let perProductSources: [[AbsolutePath]] = mergeableOutputs.enumerated().map { _, output in
+                    testProducts.enumerated().map { productIndex, product in
+                        tempDir.appending(output.perProductFileName(productIndex, product.productName))
+                    }
+                }
+
                 var results: [TestProductResult] = []
-                var perProductPaths: [AbsolutePath] = []
                 for (index, product) in testProducts.enumerated() {
-                    let perProductPath = tempDir.appending("xunit-\(index)-\(product.productName).xml")
-                    perProductPaths.append(perProductPath)
+                    let forwardedOutputs = mergeableOutputs.enumerated().map { outputIndex, output in
+                        ForwardedTestOutput(flag: output.flag, path: perProductSources[outputIndex][index])
+                    }
                     let productResults = try await self.runTestProductsInSingleInvocation(
                         [product],
                         additionalArguments: additionalArguments,
@@ -747,15 +749,13 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                         swiftCommandState: swiftCommandState,
                         library: library,
                         buildSystem: buildSystem,
-                        xUnitOutputOverride: perProductPath,
+                        forwardedOutputs: forwardedOutputs,
                     )
                     results.append(contentsOf: productResults)
                 }
-                try XUnitXMLMerger.merge(
-                    sources: perProductPaths,
-                    into: destination,
-                    fileSystem: localFileSystem,
-                )
+                for (outputIndex, output) in mergeableOutputs.enumerated() {
+                    try output.merge(perProductSources[outputIndex], output.destination)
+                }
                 return results
             }
         }
@@ -767,8 +767,83 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             swiftCommandState: swiftCommandState,
             library: library,
             buildSystem: buildSystem,
-            xUnitOutputOverride: nil,
+            forwardedOutputs: mergeableOutputs.map { ForwardedTestOutput(flag: $0.flag, path: $0.destination) },
         )
+    }
+
+    /// An output flag SwiftPM rewrites and forwards to a single Swift Testing invocation.
+    private struct ForwardedTestOutput {
+        let flag: String
+        let path: AbsolutePath
+    }
+
+    /// A Swift Testing output whose per-product files must be routed to distinct paths and merged
+    /// into a single caller-specified destination.
+    ///
+    /// Swift Testing truncates each output file on open (`fopen(path, "wb")`), so when SwiftPM runs
+    /// one process per test product they cannot share a path. Each entry describes one such output:
+    /// the flag to forward, the destination to merge into, how to name each product's file, and how
+    /// to merge them.
+    private struct MergeableTestOutput {
+        /// The flag forwarded to Swift Testing
+        let flag: String
+        /// The caller-visible path the per-product outputs are merged into.
+        let destination: AbsolutePath
+        /// Builds the per-product file name for the given product index and name.
+        let perProductFileName: (_ index: Int, _ productName: String) -> String
+        /// Merges the per-product outputs into the destination.
+        let merge: (_ sources: [AbsolutePath], _ destination: AbsolutePath) throws -> Void
+    }
+
+    /// The mergeable outputs requested on the command line. Empty unless Swift Testing is in use
+    /// and an output path was requested.
+    ///
+    /// The formalized `--event-stream-output-path` and the legacy `--experimental-event-stream-output`
+    /// both bind to the same feature; the flag the user chose is preserved so it can be forwarded to
+    /// Swift Testing under the same name.
+    private func mergeableTestOutputs(
+        library: TestingLibrary,
+        swiftCommandState: SwiftCommandState,
+    ) -> [MergeableTestOutput] {
+        guard library == .swiftTesting else { return [] }
+
+        var outputs: [MergeableTestOutput] = []
+        if let xUnitOutput = options.xUnitOutput {
+            outputs.append(
+                MergeableTestOutput(
+                    flag: "--xunit-output",
+                    destination: swiftTestingXUnitDestinationPath(from: xUnitOutput, swiftCommandState: swiftCommandState),
+                    perProductFileName: { index, productName in "xunit-\(index)-\(productName).xml" },
+                    merge: { sources, destination in
+                        try XUnitXMLMerger.merge(sources: sources, into: destination, fileSystem: localFileSystem)
+                    },
+                )
+            )
+        }
+
+        // The formalized flag and the legacy experimental alias bind to the same feature; forward
+        // whichever the user specified.
+        let eventStreamOutput: (flag: String, path: AbsolutePath)?
+        if let path = options.testEventStreamOptions.eventStreamOutputPath {
+            eventStreamOutput = (flag: "--event-stream-output-path", path: path)
+        } else if let path = options.testEventStreamOptions.experimentalEventStreamOutputPath {
+            eventStreamOutput = (flag: "--experimental-event-stream-output", path: path)
+        } else {
+            eventStreamOutput = nil
+        }
+        if let eventStreamOutput {
+            outputs.append(
+                MergeableTestOutput(
+                    flag: eventStreamOutput.flag,
+                    destination: eventStreamOutput.path,
+                    perProductFileName: { index, productName in "event-stream-\(index)-\(productName).jsonl" },
+                    merge: { sources, destination in
+                        try FileContentsMerger.merge(sources: sources, into: destination, fileSystem: localFileSystem)
+                    },
+                )
+            )
+        }
+        return outputs
     }
 
     private func runTestProductsInSingleInvocation(
@@ -778,29 +853,32 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         swiftCommandState: SwiftCommandState,
         library: TestingLibrary,
         buildSystem: any BuildSystem,
-        xUnitOutputOverride: AbsolutePath?,
+        forwardedOutputs: [ForwardedTestOutput],
     ) async throws -> [TestProductResult] {
         // Pass through all arguments from the command line to Swift Testing.
         var additionalArguments = additionalArguments
         if library == .swiftTesting {
-            // Reconstruct the arguments list. If an xUnit path or maximum-repetition value was specified, remove it.
+            // Reconstruct the arguments list, dropping the output-path flags whose values SwiftPM
+            // rewrites per-product (both the `--flag value` and `--flag=value` forms), plus
+            // `--maximum-repetitions`. SwiftPM re-adds the ones it owns below with per-product-aware
+            // values.
+            let rewrittenFlags = Set(forwardedOutputs.map(\.flag))
             var commandLineArguments = [String]()
             var originalCommandLineArguments = CommandLine.arguments.dropFirst().makeIterator()
             while let arg = originalCommandLineArguments.next() {
-                if arg == "--xunit-output" || arg == "--maximum-repetitions" {
+                if arg == "--maximum-repetitions" || rewrittenFlags.contains(arg) {
                     _ = originalCommandLineArguments.next()
-                } else if arg.hasPrefix("--xunit-output=") {
-                    // Drop the combined form so it isn't passed through in addition to SPM's `--xunit-output`.
+                } else if rewrittenFlags.contains(where: { arg.hasPrefix("\($0)=") }) {
+                    // Drop the combined form so it isn't passed through in addition to SPM's own flag.
                 } else {
                     commandLineArguments.append(arg)
                 }
             }
             additionalArguments += commandLineArguments
 
-            let effectiveXUnitPath = xUnitOutputOverride
-                ?? options.xUnitOutput.map { swiftTestingXUnitDestinationPath(from: $0, swiftCommandState: swiftCommandState) }
-            if let effectiveXUnitPath {
-                additionalArguments += ["--xunit-output", effectiveXUnitPath.pathString]
+            // Re-add each rewritten output flag with its per-product-aware path.
+            for output in forwardedOutputs {
+                additionalArguments += [output.flag, output.path.pathString]
             }
 
             // Forward along --maximum-repetitions as --repetitions
