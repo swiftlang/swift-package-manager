@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+import struct TSCBasic.OrderedSet
 import TSCUtility
 
 import struct Basics.AbsolutePath
@@ -679,7 +680,7 @@ extension PackagePIFProjectBuilder {
             indexableFileURLs.append(SourceControlURL(fileURLWithPath: resource.path))
         }
 
-        let headerFiles = Set(sourceModule.headerFileAbsolutePaths)
+        let headerFiles = OrderedSet(sourceModule.headerFileAbsolutePaths)
 
         // Add the header files with project visibility for the purpose of exposing them
         // for symbol graph generation. For non-swift API that will be done using TAPI and
@@ -946,7 +947,7 @@ extension PackagePIFProjectBuilder {
             moduleName: sourceModule.c99name,
             pifTarget: .target(self.project[keyPath: sourceModuleTargetKeyPath]),
             indexableFileURLs: indexableFileURLs,
-            headerFiles: headerFiles,
+            headerFiles: Set(headerFiles.contents),
             doccCatalogs: doccCatalogs,
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: sourceModule.packageSwiftLanguageVersion(manifest: packageManifest),
