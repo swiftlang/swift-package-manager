@@ -99,6 +99,45 @@ private struct WebAssemblyIntegrationTests {
     @Test(
         .requiresWebAssemblySwiftSDK,
         .tags(
+            .Feature.Command.Build,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func genericMetadataInstantiationParity(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await fixture(name: "WebAssembly/GenericMetadataParity") { fixturePath in
+            let (compilerPath, sdkID) = try #require(try await findCompilerAndSDKIDForTesting(for: .webassembly))
+
+            var env = Environment()
+            env["SWIFT_EXEC"] = compilerPath.pathString
+
+            _ = try await executeSwiftBuild(
+                fixturePath,
+                extraArgs: ["--swift-sdk", sdkID],
+                env: env,
+                buildSystem: buildSystem,
+            )
+
+            let wasmBinary = try await getBinPath(
+                fixturePath,
+                extraArgs: ["--swift-sdk", sdkID],
+                env: env,
+                buildSystem: buildSystem,
+            ).appending(component: "MetadataConsumer.wasm")
+            #expect(localFileSystem.exists(wasmBinary), "Expected .wasm binary at \(wasmBinary) for \(buildSystem)")
+
+            let wasmkitPath = try #require(try findWasmKit(sdkID: sdkID), "wasmkit not found in Swift SDK \(sdkID)")
+            let result = try await AsyncProcess.popen(
+                arguments: [wasmkitPath.pathString, "run", wasmBinary.pathString]
+            )
+            let stdout = try result.utf8Output().trimmingCharacters(in: .whitespacesAndNewlines)
+            #expect(result.exitStatus == .terminated(code: 0), "wasmkit trapped or exited non-zero for \(buildSystem)")
+            #expect(stdout == "ok", "Unexpected output for \(buildSystem): \(stdout)")
+        }
+    }
+
+    @Test(
+        .requiresWebAssemblySwiftSDK,
+        .tags(
             .Feature.Command.Run,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
