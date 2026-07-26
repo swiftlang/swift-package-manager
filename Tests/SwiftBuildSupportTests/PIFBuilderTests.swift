@@ -2065,6 +2065,7 @@ private func buildAppProject(
         packageManifest: rootPackage.manifest,
         delegate: delegate,
         buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]](),
+        shouldPreserveSymlinks: false,
         packageDisplayVersion: rootPackage.manifest.displayName,
         pkgConfigDirectories: [],
         fileSystem: fs,
