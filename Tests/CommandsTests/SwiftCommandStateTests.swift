@@ -30,6 +30,7 @@ import enum TSCBasic.SystemError
 import var TSCBasic.stderrStream
 
 import Testing
+import struct Foundation.URL
 
 @Suite()
 struct SwiftCommandStateTestSuites {
@@ -93,6 +94,34 @@ struct SwiftCommandStateTestSuites {
             contents == "\(buildData.buildSystem)",
             "Actual is not as expected",
         )
+    }
+
+    @Test
+    func resolvesPrebuiltLocationsRelativeToScratchDirectory() throws {
+        let scratchDirectory = AbsolutePath.root.appending(components: "package", ".build")
+        var options = CachingOptions()
+
+        options.prebuiltsDownloadURL = "file:swift-syntax-prebuilt/feed"
+        options.prebuiltsRootCertPath = "swift-syntax-prebuilt/root.cer"
+
+        let expectedDownloadPath = scratchDirectory.appending(components: "swift-syntax-prebuilt", "feed")
+        #expect(
+            try options.resolvedPrebuiltsDownloadURL(relativeTo: scratchDirectory)
+                == URL(fileURLWithPath: expectedDownloadPath.pathString).absoluteString
+        )
+        #expect(
+            try options.resolvedPrebuiltsRootCertPath(relativeTo: scratchDirectory)
+                == scratchDirectory.appending(components: "swift-syntax-prebuilt", "root.cer").pathString
+        )
+
+        let absoluteDownloadURL = URL(fileURLWithPath: expectedDownloadPath.pathString).absoluteString
+        options.prebuiltsDownloadURL = absoluteDownloadURL
+        options.prebuiltsRootCertPath = expectedDownloadPath.pathString
+        #expect(try options.resolvedPrebuiltsDownloadURL(relativeTo: scratchDirectory) == absoluteDownloadURL)
+        #expect(try options.resolvedPrebuiltsRootCertPath(relativeTo: scratchDirectory) == expectedDownloadPath.pathString)
+
+        options.prebuiltsDownloadURL = "https://example.com/prebuilts"
+        #expect(try options.resolvedPrebuiltsDownloadURL(relativeTo: scratchDirectory) == options.prebuiltsDownloadURL)
     }
 }
 
