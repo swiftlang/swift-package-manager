@@ -43,6 +43,7 @@ public final class Manifest: Sendable {
 
     // FIXME: deprecate this, this is not part of the manifest information, we just use it as a container for this data
     // FIXME: This doesn't belong here, we want the Manifest to be purely tied
+    // TODO: No, really, it is time.
     // to the repository state, it shouldn't matter where it is.
     //
     /// The repository URL the manifest was loaded from.

@@ -490,15 +490,14 @@ extension WorkspaceStateStorage {
         }
 
         struct PackageReference: Codable {
-            let identity: String
-            let type: PackageType?
+            // TODO: This needs a new version
+            let identity: PackageIdentity
             let kind: Kind
             let location: String
             let name: String
 
             init(_ reference: PackageModel.PackageReference) {
-                self.identity = reference.identity.description
-                self.type = .init(type: reference.identity.type.type)
+                self.identity = reference.identity
 
                 switch reference.kind {
                 case .root(let path):
@@ -531,10 +530,6 @@ extension WorkspaceStateStorage {
                 case remoteSourceControl
                 case registry
                 case archive
-            }
-
-            struct PackageType: Codable {
-                let type: String
             }
         }
     }
@@ -579,13 +574,6 @@ extension Workspace.ManagedPrebuilt {
 
 extension PackageModel.PackageReference {
     fileprivate init(_ reference: WorkspaceStateStorage.V7.PackageReference) throws {
-        let type: PackageIdentity.PackageType
-        if let referenceType = reference.type {
-            type = .init(type: referenceType.type)
-        } else {
-            type = .swift
-        }
-        let identity = PackageIdentity.plain(reference.identity, type: type)
         let kind: PackageModel.PackageReference.Kind
         switch reference.kind {
         case .root:
@@ -597,7 +585,7 @@ extension PackageModel.PackageReference {
         case .remoteSourceControl:
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
-            kind = .registry(identity)
+            kind = .registry(reference.identity)
         case .archive:
             guard let url = URL(string: reference.location) else {
                 throw InternalError("Bad URL")
@@ -606,7 +594,7 @@ extension PackageModel.PackageReference {
         }
 
         self.init(
-            identity: identity,
+            identity: reference.identity,
             kind: kind,
             name: reference.name
         )

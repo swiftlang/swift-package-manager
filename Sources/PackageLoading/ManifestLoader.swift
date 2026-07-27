@@ -366,11 +366,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 // TODO: should raise a warning that the external isn't being used
                 return nil
             }
-            let identity = PackageIdentity.plain(external.name, type: dependency.identity.type)
 
             return Manifest(
                 displayName: external.name,
-                packageIdentity: identity,
+                packageIdentity: dependency.identity,
                 path: manifestPath,
                 packageKind: dependency.packageRef.kind,
                 packageLocation: packageLocation,

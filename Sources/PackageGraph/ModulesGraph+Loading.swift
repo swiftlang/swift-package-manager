@@ -495,9 +495,9 @@ private func createResolvedPackages(
 
                 // check if the resolved package location is the same as the dependency one
                 // if not, this means that the dependencies share the same identity
-                // which only allowed when overriding
-                if resolvedPackage.package.manifest.canonicalPackageLocation != dependencyPackageRef
-                    .canonicalLocation && !resolvedPackage.allowedToOverride
+                // which only allowed when overriding. Manifests for non-swift packages don't have a location.
+                if resolvedPackage.package.manifest.canonicalPackageLocation != dependencyPackageRef.canonicalLocation
+                    && !resolvedPackage.allowedToOverride && resolvedPackage.package.identity.type == .swift
                 {
                     let rootPackages = packageBuilders.filter { $0.allowedToOverride == true }
                     let dependenciesPaths = try rootPackages.map { try findAllTransitiveDependencies(
