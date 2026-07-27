@@ -68,27 +68,33 @@ final class URLSessionHTTPClient: Sendable {
         self.init(configuration: configuration, proxyConfiguration: proxyConfig)
     }
 
-    /// Loads proxy configuration from the filesystem.
+    /// Loads proxy configuration from the filesystem, falling back to environment variables.
     ///
-    /// Returns `nil` if no configuration file exists or if it cannot be read.
+    /// Priority order:
+    /// 1. `proxy.json` configuration file (explicit per-user/per-project config)
+    /// 2. Environment variables (`http_proxy`, `https_proxy`, `no_proxy`)
+    /// 3. macOS system proxy (implicit URLSession behavior when no dictionary is set)
+    ///
+    /// Returns `nil` if no configuration is found, allowing system proxy fallback.
     private static func loadProxyConfiguration(fileSystem: FileSystem) -> HTTPProxyConfiguration? {
-        guard let configDir = try? fileSystem.swiftPMConfigurationDirectory else {
-            return nil
+        // 1. Try proxy.json file first
+        if let configDir = try? fileSystem.swiftPMConfigurationDirectory {
+            let proxyFile = configDir.appending("proxy.json")
+            if fileSystem.exists(proxyFile) {
+                do {
+                    let data: Data = try fileSystem.readFileContents(proxyFile)
+                    let decoder = JSONDecoder.makeWithDefaults()
+                    let config = try decoder.decode(HTTPProxyConfiguration.self, from: data)
+                    try config.validate()
+                    return config
+                } catch {
+                    // If the configuration file is malformed, log and proceed to env vars
+                }
+            }
         }
-        let proxyFile = configDir.appending("proxy.json")
-        guard fileSystem.exists(proxyFile) else {
-            return nil
-        }
-        do {
-            let data: Data = try fileSystem.readFileContents(proxyFile)
-            let decoder = JSONDecoder.makeWithDefaults()
-            let config = try decoder.decode(HTTPProxyConfiguration.self, from: data)
-            try config.validate()
-            return config
-        } catch {
-            // If the configuration file is malformed, log and proceed without proxy
-            return nil
-        }
+
+        // 2. Fall back to environment variables
+        return HTTPProxyConfiguration.loadFromEnvironment()
     }
 
     /// Builds a `connectionProxyDictionary` from an `HTTPProxyConfiguration`.

@@ -194,6 +194,53 @@ extension HTTPProxyConfiguration {
     }
 }
 
+// MARK: - Environment variable loading
+
+extension HTTPProxyConfiguration {
+    /// Loads proxy configuration from environment variables.
+    ///
+    /// Reads the standard proxy environment variables:
+    /// - `http_proxy` / `HTTP_PROXY` — proxy URL for HTTP requests
+    /// - `https_proxy` / `HTTPS_PROXY` — proxy URL for HTTPS requests
+    /// - `no_proxy` / `NO_PROXY` — comma-separated list of hosts to bypass
+    ///
+    /// Lowercase variants take precedence over uppercase (consistent with curl behavior).
+    ///
+    /// - Parameter environment: A dictionary of environment variables (defaults to `ProcessInfo`).
+    /// - Returns: A proxy configuration if any proxy variables are set, `nil` otherwise.
+    public static func loadFromEnvironment(
+        _ environment: [String: String] = ProcessInfo.processInfo.environment
+    ) -> HTTPProxyConfiguration? {
+        let httpProxy = environment["http_proxy"] ?? environment["HTTP_PROXY"]
+        let httpsProxy = environment["https_proxy"] ?? environment["HTTPS_PROXY"]
+        let noProxyValue = environment["no_proxy"] ?? environment["NO_PROXY"]
+
+        // If no proxy variables are set, return nil
+        guard httpProxy != nil || httpsProxy != nil else {
+            return nil
+        }
+
+        var config = HTTPProxyConfiguration(version: 1)
+
+        if let httpProxy, !httpProxy.isEmpty {
+            config.http = ProtocolProxy(proxy: httpProxy)
+        }
+
+        if let httpsProxy, !httpsProxy.isEmpty {
+            config.https = ProtocolProxy(proxy: httpsProxy)
+        }
+
+        if let noProxyValue, !noProxyValue.isEmpty {
+            config.noProxy = noProxyValue
+                .split(separator: ",")
+                .map { $0.trimmingCharacters(in: .whitespaces) }
+                .filter { !$0.isEmpty }
+        }
+
+        return config.isEmpty ? nil : config
+    }
+}
+
 // MARK: - Parsed proxy URL components
 
 extension HTTPProxyConfiguration {

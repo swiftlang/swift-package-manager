@@ -302,4 +302,80 @@ final class HTTPProxyConfigurationTests: XCTestCase {
     func testParseProxyURLInvalid() {
         XCTAssertThrowsError(try HTTPProxyConfiguration.parseProxyURL("not a url"))
     }
+
+    // MARK: - Environment Variable Loading
+
+    func testLoadFromEnvironmentHTTPProxy() {
+        let env = ["http_proxy": "http://proxy.corp:3128"]
+        let config = HTTPProxyConfiguration.loadFromEnvironment(env)
+        XCTAssertNotNil(config)
+        XCTAssertEqual(config?.http?.proxy, "http://proxy.corp:3128")
+        XCTAssertNil(config?.https)
+        XCTAssertNil(config?.noProxy)
+    }
+
+    func testLoadFromEnvironmentHTTPSProxy() {
+        let env = ["https_proxy": "http://secure-proxy:8443"]
+        let config = HTTPProxyConfiguration.loadFromEnvironment(env)
+        XCTAssertNotNil(config)
+        XCTAssertNil(config?.http)
+        XCTAssertEqual(config?.https?.proxy, "http://secure-proxy:8443")
+    }
+
+    func testLoadFromEnvironmentBothProxies() {
+        let env = [
+            "http_proxy": "http://proxy:3128",
+            "https_proxy": "http://proxy:3129",
+            "no_proxy": "localhost,127.0.0.1,.internal.corp"
+        ]
+        let config = HTTPProxyConfiguration.loadFromEnvironment(env)
+        XCTAssertNotNil(config)
+        XCTAssertEqual(config?.http?.proxy, "http://proxy:3128")
+        XCTAssertEqual(config?.https?.proxy, "http://proxy:3129")
+        XCTAssertEqual(config?.noProxy, ["localhost", "127.0.0.1", ".internal.corp"])
+    }
+
+    func testLoadFromEnvironmentLowercaseTakesPrecedence() {
+        let env = [
+            "http_proxy": "http://lower:3128",
+            "HTTP_PROXY": "http://upper:3128"
+        ]
+        let config = HTTPProxyConfiguration.loadFromEnvironment(env)
+        XCTAssertEqual(config?.http?.proxy, "http://lower:3128")
+    }
+
+    func testLoadFromEnvironmentUppercaseFallback() {
+        let env = ["HTTP_PROXY": "http://upper:3128", "HTTPS_PROXY": "http://upper:3129"]
+        let config = HTTPProxyConfiguration.loadFromEnvironment(env)
+        XCTAssertEqual(config?.http?.proxy, "http://upper:3128")
+        XCTAssertEqual(config?.https?.proxy, "http://upper:3129")
+    }
+
+    func testLoadFromEnvironmentNoProxyParsing() {
+        let env = [
+            "http_proxy": "http://proxy:3128",
+            "NO_PROXY": "  localhost , .example.com , 10.0.0.0/8  "
+        ]
+        let config = HTTPProxyConfiguration.loadFromEnvironment(env)
+        XCTAssertEqual(config?.noProxy, ["localhost", ".example.com", "10.0.0.0/8"])
+    }
+
+    func testLoadFromEnvironmentEmpty() {
+        let env: [String: String] = [:]
+        let config = HTTPProxyConfiguration.loadFromEnvironment(env)
+        XCTAssertNil(config)
+    }
+
+    func testLoadFromEnvironmentEmptyValues() {
+        let env = ["http_proxy": "", "https_proxy": ""]
+        let config = HTTPProxyConfiguration.loadFromEnvironment(env)
+        XCTAssertNil(config)
+    }
+
+    func testLoadFromEnvironmentOnlyNoProxy() {
+        // no_proxy alone without any proxy URL should return nil
+        let env = ["no_proxy": "localhost"]
+        let config = HTTPProxyConfiguration.loadFromEnvironment(env)
+        XCTAssertNil(config)
+    }
 }

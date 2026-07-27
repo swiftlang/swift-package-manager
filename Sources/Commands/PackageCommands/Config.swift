@@ -186,6 +186,21 @@ extension SwiftPackageCommand.Config {
                 if let noProxy = config.noProxy, !noProxy.isEmpty {
                     print("No proxy:    \(noProxy.joined(separator: ", ")) (user: \(configPath))")
                 }
+            } else if let envConfig = HTTPProxyConfiguration.loadFromEnvironment(), !envConfig.isEmpty {
+                // Show environment variable configuration
+                let env = ProcessInfo.processInfo.environment
+                if let httpProxy = envConfig.http?.proxy {
+                    let varName = env["http_proxy"] != nil ? "http_proxy" : "HTTP_PROXY"
+                    print("HTTP proxy:  \(httpProxy) (environment: \(varName))")
+                }
+                if let httpsProxy = envConfig.https?.proxy {
+                    let varName = env["https_proxy"] != nil ? "https_proxy" : "HTTPS_PROXY"
+                    print("HTTPS proxy: \(httpsProxy) (environment: \(varName))")
+                }
+                if let noProxy = envConfig.noProxy, !noProxy.isEmpty {
+                    let varName = env["no_proxy"] != nil ? "no_proxy" : "NO_PROXY"
+                    print("No proxy:    \(noProxy.joined(separator: ", ")) (environment: \(varName))")
+                }
             } else {
                 // Check for macOS system proxy
                 #if canImport(SystemConfiguration)
