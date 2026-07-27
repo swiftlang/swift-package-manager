@@ -720,21 +720,10 @@ extension TargetBuildSettingDescription.Kind {
             }
             return .headerSearchPath(value)
         case "publicHeaderPath":
-            guard let name = values.first else {
+            guard let value = values.first else {
                 throw InternalError("invalid (empty) build settings value")
             }
-            let pluginName: String?
-            if values.count > 1 {
-                pluginName = values[1]
-            } else {
-                pluginName = nil
-            }
-            return .publicHeaderPath(name, pluginName)
-        case "bridgingHeader":
-            guard values.count == 2, let visibility = TargetBuildSettingDescription.Visibility(rawValue: values[1]) else {
-                throw InternalError("invalid values")
-            }
-            return .bridgingHeader(values[0], visibility)
+            return .publicHeaderPath(value)
         case "define":
             guard let value = values.first else {
                 throw InternalError("invalid (empty) build settings value")
@@ -750,17 +739,6 @@ extension TargetBuildSettingDescription.Kind {
                 throw InternalError("invalid (empty) build settings value")
             }
             return .linkedFramework(value)
-        case "libraryPath":
-            guard let name = values.first else {
-                throw InternalError("invalid (empty) build settings value")
-            }
-            let pluginName: String?
-            if values.count > 1 {
-                pluginName = values[1]
-            } else {
-                pluginName = nil
-            }
-            return .libraryPath(name, pluginName)
         case "interoperabilityMode":
             guard let rawLang = values.first else {
                 throw InternalError("invalid (empty) build settings value")

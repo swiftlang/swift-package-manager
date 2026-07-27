@@ -367,10 +367,20 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 return nil
             }
 
+            // Sneak the path to the extracted package into the manifest
+            // TODO: must be a better way to get this through to the build system
+            let packagePath: AbsolutePath
+            switch dependency {
+            case .fileSystem(let fileSystem):
+                packagePath = fileSystem.path
+            default:
+                fatalError("TODO: figure out where the package got extracted to")
+            }
+
             return Manifest(
                 displayName: external.name,
                 packageIdentity: dependency.identity,
-                path: manifestPath,
+                path: packagePath,
                 packageKind: dependency.packageRef.kind,
                 packageLocation: packageLocation,
                 defaultLocalization: external.defaultLocalization,

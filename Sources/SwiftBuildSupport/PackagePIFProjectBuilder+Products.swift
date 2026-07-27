@@ -518,7 +518,7 @@ extension PackagePIFProjectBuilder {
         // Apply target-specific build settings defined in the manifest.
         let allBuildSettings = mainModule.computeAllBuildSettings(
             observabilityScope: pifBuilder.observabilityScope,
-            pluginWorkingDirectory: pifBuilder.pluginWorkingDirectory,
+            packagePath: self.package.path,
             forRemotePackage: pifBuilder.delegate.isRemote
         )
 
@@ -1016,7 +1016,16 @@ extension PackagePIFProjectBuilder {
             )
         }
 
-        // TODO: depend on the external library target
+        guard let module = product.modules.first else {
+            // TODO: Shouldn't happen
+            return
+        }
+
+        self.project[keyPath: externalLibraryTargetKeyPath].common.addDependency(
+            on: module.pifTargetGUID,
+            platformFilters: [],
+            linkProduct: false
+        )
     }
 
     // MARK: - Plugin Product

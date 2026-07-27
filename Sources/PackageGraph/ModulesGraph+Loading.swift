@@ -184,7 +184,7 @@ extension ModulesGraph {
                         manifest: external,
                         parentPackage: package,
                         productFilter: node.productFilter,
-                        path: .root, // TODO: where?
+                        path: external.path,
                         additionalFileRules: additionalFileRules,
                         binaryArtifacts: [:],
                         fileSystem: fileSystem,

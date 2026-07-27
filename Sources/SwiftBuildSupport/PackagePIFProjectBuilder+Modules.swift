@@ -876,7 +876,7 @@ extension PackagePIFProjectBuilder {
 
         let allBuildSettings = sourceModule.computeAllBuildSettings(
             observabilityScope: pifBuilder.observabilityScope,
-            pluginWorkingDirectory: pifBuilder.pluginWorkingDirectory,
+            packagePath: self.package.path,
             forRemotePackage: pifBuilder.delegate.isRemote)
 
         // Apply target-specific build settings defined in the manifest.
@@ -1073,6 +1073,32 @@ extension PackagePIFProjectBuilder {
             log(
                 .debug,
                 "Created aggregate target '\(externalLibraryTarget.id)' with name '\(externalLibraryTarget.name)'"
+            )
+        }
+
+        let allBuildSettings = resolvedExternalLibrary.computeAllBuildSettings(
+            observabilityScope: pifBuilder.observabilityScope,
+            packagePath: self.package.path,
+            forRemotePackage: pifBuilder.delegate.isRemote)
+
+        var impartedSettings = ProjectModel.BuildSettings()
+
+        allBuildSettings.applyImparted(to: &impartedSettings)
+
+        self.project[keyPath: externalLibraryTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(
+                id: id,
+                name: "Debug",
+                settings: .init(),
+                impartedBuildSettings: impartedSettings
+            )
+        }
+        self.project[keyPath: externalLibraryTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(
+                id: id,
+                name: "Release",
+                settings: .init(),
+                impartedBuildSettings: impartedSettings
             )
         }
 

@@ -36,20 +36,13 @@ public enum TargetBuildSettingDescription {
         case nonisolated
     }
 
-    public enum Visibility: String, Codable, Sendable {
-        case `public`
-        case `internal`
-    }
-
     /// The kind of the build setting, with associate configuration
     public enum Kind: Codable, Hashable, Sendable {
         case headerSearchPath(String)
-        case publicHeaderPath(String, String?)
-        case bridgingHeader(String, Visibility)
+        case publicHeaderPath(String)
         case define(String)
         case linkedLibrary(String)
         case linkedFramework(String)
-        case libraryPath(String, String?)
 
         case interoperabilityMode(InteroperabilityMode)
 

@@ -162,12 +162,10 @@ public struct CSetting: Sendable {
         return CSetting(name: "headerSearchPath", value: [path], condition: condition)
     }
 
+    /// A header path also used by consumers of this target to find it's header files.
+    @available(_PackageDescription, introduced: 6.5)
     public static func publicHeaderPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> CSetting {
         return CSetting(name: "publicHeaderPath", value: [path], condition: condition)
-    }
-
-    public static func publicHeaderPath(plugin: PluginUsage, path: String, _ condition: BuildSettingCondition? = nil) -> CSetting {
-        return CSetting(name: "publicHeaderPath", value: [path, plugin.name], condition: condition)
     }
 
     /// Defines a value for a macro.
@@ -490,15 +488,6 @@ public struct SwiftSetting: Sendable {
         return SwiftSetting(name: "define", value: [name], condition: condition)
     }
 
-    public enum Visibility: String {
-        case `public`
-        case `internal`
-    }
-
-    public static func bridgingHeader(_ path: String, visibility: Visibility = .internal, _ condition: BuildSettingCondition? = nil) -> SwiftSetting {
-        return SwiftSetting(name: "bridgingHeader", value: [path, visibility.rawValue], condition: condition)
-    }
-
     /// Set unsafe flags to pass arbitrary command-line flags to the
     /// corresponding build tool.
     ///
@@ -772,22 +761,6 @@ public struct LinkerSetting: Sendable {
     @available(_PackageDescription, introduced: 5.0)
     public static func linkedFramework(_ framework: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
         return LinkerSetting(name: "linkedFramework", value: [framework], condition: condition)
-    }
-
-    public static func libraryPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
-        return LinkerSetting(name: "libraryPath", value: [path], condition: condition)
-    }
-
-    public static func libraryPath(_ path: String, package: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
-        return LinkerSetting(name: "packageLibraryPath", value: [path, package], condition: condition)
-    }
-
-    public static func frameworkPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
-        return LinkerSetting(name: "frameworkPath", value: [path], condition: condition)
-    }
-
-    public static func frameworkPath(_ path: String, package: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
-        return LinkerSetting(name: "frameworkPath", value: [path], condition: condition)
     }
 
     /// Sets unsafe flags to pass arbitrary command-line flags to the

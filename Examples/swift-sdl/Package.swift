@@ -1,4 +1,4 @@
-// swift-tools-version: 6.5
+// swift-tools-version: 6.5;(experimentalCGen)
 
 import PackageDescription
 
