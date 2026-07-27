@@ -30,6 +30,7 @@ import _InternalTestSupport
 func withInstantiatedSwiftBuildSystem(
     fromFixture fixtureName: String,
     buildParameters: BuildParameters? = nil,
+    createREPLProduct: Bool = false,
     logLevel: Basics.Diagnostic.Severity = .warning,
     do doIt: @escaping (SwiftBuildSupport.SwiftBuildSystem, SWBBuildService, SWBBuildServiceSession, TestingObservability, BuildParameters,) async throws -> (),
 ) async throws {
@@ -41,12 +42,20 @@ func withInstantiatedSwiftBuildSystem(
             let buildParameters = if let buildParameters {
                 buildParameters
             } else {
-                mockBuildParameters(destination: .host, toolchain: toolchain, buildSystemKind: .swiftbuild)
+                mockBuildParameters(
+                    destination: .host,
+                    buildPath: tmpDir.appending("build"),
+                    toolchain: toolchain,
+                    buildSystemKind: .swiftbuild,
+                )
             }
             let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting()
+            var workspaceConfiguration = WorkspaceConfiguration.default
+            workspaceConfiguration.createREPLProduct = createREPLProduct
             let workspace = try Workspace(
                 fileSystem: fileSystem,
                 forRootPackage: fixturePath,
+                configuration: workspaceConfiguration,
                 customManifestLoader: ManifestLoader(toolchain: toolchain),
             )
             let rootInput = PackageGraphRootInput(packages: [fixturePath], dependencies: [])
@@ -141,6 +150,26 @@ extension PackageModel.Sanitizer {
     .requireCompiledWith6_3OrLater(because: "https://github.com/swiftlang/swift-corelibs-foundation/pull/5269")
 )
 struct SwiftBuildSystemTests {
+
+    @Test
+    func replIncludesGeneratedModuleMaps() async throws {
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "CFamilyTargets/ModuleMapGenerationCases",
+            createREPLProduct: true,
+        ) { swiftBuild, _, _, _, _ in
+            let result = try await swiftBuild.build(
+                subset: .allExcludingTests,
+                buildOutputs: [.replArguments],
+            )
+            let replArguments = try #require(result.replArguments)
+
+            #expect(replArguments.contains("-Xcc"))
+            #expect(!replArguments.contains("-fmodule-map-file="))
+            #expect(replArguments.contains {
+                $0.hasSuffix("/FlatInclude.modulemap") && $0.hasPrefix("-fmodule-map-file=")
+            })
+        }
+    }
 
     @Suite(
         .tags(
