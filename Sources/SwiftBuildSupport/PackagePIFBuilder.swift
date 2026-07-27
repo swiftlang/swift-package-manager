@@ -173,8 +173,8 @@ public final class PackagePIFBuilder {
     /// Records the results of applying build tool plugins to modules in the package.
     let buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]]
 
-    /// The results from the external builder plugin
-    let externalBuilderResults: PackagePIFBuilder.BuildToolPluginInvocationResult?
+    /// The results from the external builder plugin keyed by the plugin module name
+    let externalBuilderResults: [String: PackagePIFBuilder.BuildToolPluginInvocationResult]
 
     /// Whether to create dynamic libraries for dynamic products.
     ///
@@ -235,7 +235,7 @@ public final class PackagePIFBuilder {
         packageManifest: PackageModel.Manifest,
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: [BuildToolPluginInvocationResult]],
-        externalBuilderResults: BuildToolPluginInvocationResult?,
+        externalBuilderResults: [String: BuildToolPluginInvocationResult],
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
@@ -269,7 +269,7 @@ public final class PackagePIFBuilder {
         packageManifest: PackageModel.Manifest,
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
-        externalBuilderResults: BuildToolPluginInvocationResult?,
+        externalBuilderResults: [String: BuildToolPluginInvocationResult],
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
@@ -517,6 +517,11 @@ public final class PackagePIFBuilder {
 
         // For each of the **products** in the package we create a corresponding `PIFTarget` of the appropriate type.
         for product in self.package.products {
+            if product.isExternal {
+                try projectBuilder.makeExternalLibraryProduct(product)
+                continue
+            }
+
             switch product.type {
             case .library(.static):
                 let libraryType = self.delegate.customLibraryType(product: product.underlying) ?? .static

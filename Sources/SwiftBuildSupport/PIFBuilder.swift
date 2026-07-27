@@ -419,7 +419,7 @@ public final class PIFBuilder {
 
             // Run external source package plugin
             // TODO: what does it mean to have more than one externalBuild plugin?
-            let externalBuilderResults: PackagePIFBuilder.BuildToolPluginInvocationResult?
+            var externalBuilderResults: [String: PackagePIFBuilder.BuildToolPluginInvocationResult] = [:]
             if let builder = package.externalBuilders.first {
                 guard let builderPlugin = builder.underlying as? PluginModule else {
                     throw InternalError("but it's supposed to be a plugin module")
@@ -480,9 +480,7 @@ public final class PIFBuilder {
                         disableSandbox: self.parameters.disableSandbox
                     )
                 }
-                externalBuilderResults = .init(prebuildCommandOutputPaths: [], buildCommands: buildCommands)
-            } else {
-                externalBuilderResults = nil
+                externalBuilderResults[builderPlugin.name] = .init(prebuildCommandOutputPaths: [], buildCommands: buildCommands)
             }
 
             let packagePIFBuilderDelegate = PackagePIFBuilderDelegate(

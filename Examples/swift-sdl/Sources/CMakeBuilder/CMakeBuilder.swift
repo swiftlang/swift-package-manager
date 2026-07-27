@@ -1,8 +1,12 @@
-import PackagePlugin
 import Foundation
 
 @main
-struct CMakeBuilder: ExternalBuilderPlugin {
+struct CMakeBuilder {
+    static func main() async throws {
+        print(CommandLine.arguments)
+    }
+
+    /*
     func build(context: PluginContext, arguments: [String], buildContext: BuildContext) async throws {
         let toolchainFile = context.pluginWorkDirectoryURL.appending(path: "toolchain.cmake")
         if !FileManager.default.fileExists(atPath: toolchainFile.path) {
@@ -88,7 +92,7 @@ struct CMakeBuilder: ExternalBuilderPlugin {
         return true
     }
 
-    func run(title: String, command: [String]) throws -> Bool {
+    func run2(title: String, command: [String]) throws -> Bool {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
         process.arguments = command
@@ -101,6 +105,7 @@ struct CMakeBuilder: ExternalBuilderPlugin {
             return true
         }
     }
+    */
 }
 
 enum CMakeErrors: Error {

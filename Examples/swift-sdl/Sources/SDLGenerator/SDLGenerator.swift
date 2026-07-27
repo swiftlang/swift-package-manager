@@ -1,5 +1,4 @@
 import Foundation
-import SwiftBridging
 
 public func run() throws {
 /*    let libraryName = CommandLine.arguments[1]

@@ -4,8 +4,8 @@ import Foundation
 struct SDLAPIGenerator {
     static func main() throws {
         let moduleMap = """
-        module CSDL3 [system] {
-            header "SDL3.h"
+        module CSDL [system] {
+            header "CSDL.h"
             export *
         }
         """

@@ -998,6 +998,27 @@ extension PackagePIFProjectBuilder {
         self.builtModulesAndProducts.append(systemLibrary)
     }
 
+    mutating func makeExternalLibraryProduct(_ product: PackageGraph.ResolvedProduct) throws {
+        let externalLibraryTargetKeyPath = try self.project.addTarget { _ in
+            ProjectModel.Target(
+                id: product.pifTargetGUID,
+                productType: .packageProduct,
+                name: product.targetName(),
+                productName: product.name
+            )
+        }
+        do {
+            let systemLibraryTarget = self.project[keyPath: externalLibraryTargetKeyPath]
+            log(
+                .debug,
+                "Created target '\(systemLibraryTarget.id)' of type '\(systemLibraryTarget.productType)' " +
+                "with name '\(systemLibraryTarget.name)' and product name '\(systemLibraryTarget.productName)'"
+            )
+        }
+
+        // TODO: depend on the external library target
+    }
+
     // MARK: - Plugin Product
 
     mutating func makePluginProduct(_ pluginProduct: PackageGraph.ResolvedProduct) throws {

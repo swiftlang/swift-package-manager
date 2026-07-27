@@ -523,43 +523,49 @@ struct PackagePIFProjectBuilder {
     }
 
     mutating func addExternalBuildComands() throws {
-        guard let results = pifBuilder.externalBuilderResults else {
-            return
-        }
-
-        // Create target for the external build
-        let package = self.package
-        let externalTargetKeyPath = try self.project.addAggregateTarget { _ in
-            ProjectModel.AggregateTarget(
-                id: package.pifTargetGUID,
-                name: package.name
-            )
-        }
-        do {
-            let externalTarget = self.project[keyPath: externalTargetKeyPath]
-            log(.debug, "Created aggregate target '\(externalTarget.id) with name \(externalTarget.name)")
-        }
-
-        // Add in the custom task for the build commands
-        for command in results.buildCommands {
-            var commandLine = [command.executable] + command.arguments
-            if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
-                commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
+        for pluginName in pifBuilder.externalBuilderResults.keys {
+            guard let results = pifBuilder.externalBuilderResults[pluginName] else {
+                continue
             }
 
-            self.project[keyPath: externalTargetKeyPath].customTasks.append(
-                ProjectModel.CustomTask(
-                    commandLine: commandLine,
-                    environment: command.environment.map { Pair($0, $1) }.sorted(by: <),
-                    workingDirectory: command.workingDir?.pathString,
-                    executionDescription: command.displayName ?? "Performing external build",
-                    inputFilePaths: [command.executable] + command.inputPaths.map(\.pathString),
-                    outputFilePaths: command.outputPaths,
-                    enableSandboxing: true,
-                    preparesForIndexing: false,
-                    alwaysOutOfDate: true
+            // Create target for the external build
+            let package = self.package
+            let externalTargetKeyPath = try self.project.addAggregateTarget { _ in
+                ProjectModel.AggregateTarget(
+                    id: package.pifTargetGUID,
+                    name: package.name
                 )
-            )
+            }
+            do {
+                let externalTarget = self.project[keyPath: externalTargetKeyPath]
+                log(.debug, "Created aggregate target '\(externalTarget.id) with name \(externalTarget.name)")
+            }
+
+            // Add in the custom task for the build commands
+            for command in results.buildCommands {
+                var commandLine = [command.executable] + command.arguments
+                // Add in the standard arguments for external builders
+                commandLine += [
+                    "--output-dir", "$(OBJROOT)/\(package.name).build/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/\(pluginName)"
+                ]
+                if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
+                    commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
+                }
+
+                self.project[keyPath: externalTargetKeyPath].customTasks.append(
+                    ProjectModel.CustomTask(
+                        commandLine: commandLine,
+                        environment: command.environment.map { Pair($0, $1) }.sorted(by: <),
+                        workingDirectory: command.workingDir?.pathString,
+                        executionDescription: command.displayName ?? "Performing external build",
+                        inputFilePaths: [command.executable] + command.inputPaths.map(\.pathString),
+                        outputFilePaths: command.outputPaths,
+                        enableSandboxing: true,
+                        preparesForIndexing: false,
+                        alwaysOutOfDate: true
+                    )
+                )
+            }
         }
     }
 

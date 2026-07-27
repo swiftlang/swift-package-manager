@@ -796,6 +796,22 @@ extension PackagePIFProjectBuilder {
                     }
                     log(.debug, indent: 1, "Added use of binary library '\(moduleDependency.path)'")
 
+                case .externalLibrary:
+                    // Add dependency on the external library target
+                    moduleTarget.common.addDependency(
+                        on: moduleDependency.pifTargetGUID,
+                        platformFilters: dependencyPlatformFilters,
+                        linkProduct: shouldLinkProduct
+                    )
+                    log(
+                        .debug,
+                        indent: 1,
+                        "Added \(shouldLinkProduct ? "linked " : "")dependency on target '\(moduleDependency.pifTargetGUID)'"
+                    )
+                    if shouldLinkProduct {
+                        // Add in the build file for the library
+                    }
+
                 case .plugin:
                     let dependencyGUID = moduleDependency.pifTargetGUID
                     moduleTarget.common.addDependency(
@@ -1040,32 +1056,27 @@ extension PackagePIFProjectBuilder {
     // MARK: - External Libraries
 
     mutating func makeExternalLibraryTarget(_ resolvedExternalLibrary: PackageGraph.ResolvedModule) throws {
-        // Like a system module, the library comes from somewhere else.
+        // Like a system module, the external library comes from somewhere else.
         // But that place is an external package so we can't generate a module for it.
         // We just want to add the library dependency and make sure the proper settings
         // are imparted to find it.
         precondition(resolvedExternalLibrary.type == .externalLibrary)
 
-        // Find the build output path for the external package that owns this library.
-        // For external source packages, this will be the output directory for the external build plugin.
-        // For binary packages, this will be the directory where it was extracted.
-
-        guard let builderPlugin = package.pluginUsages.first else {
-            return
+        let externalLibraryTargetKeyPath = try self.project.addAggregateTarget { _ in
+            ProjectModel.AggregateTarget(
+                id: resolvedExternalLibrary.pifTargetGUID,
+                name: resolvedExternalLibrary.name
+            )
+        }
+        do {
+            let externalLibraryTarget = self.project[keyPath: externalLibraryTargetKeyPath]
+            log(
+                .debug,
+                "Created aggregate target '\(externalLibraryTarget.id)' with name '\(externalLibraryTarget.name)'"
+            )
         }
 
-        let outputPath: AbsolutePath
-        switch package.identity.type {
-        case .external:
-            outputPath = builderPlugin.pluginOutputPath(packageIdentity: package.identity, pluginRoot: pifBuilder.pluginWorkingDirectory)
-        case .binary:
-            fatalError("TODO")
-        default:
-            return
-        }
-
-        // TODO: hook it up
-        print("TODO: hook up target for \(resolvedExternalLibrary.name)")
+        // TODO: add dependency to external build plugin targets and build settings from the library
     }
 }
 

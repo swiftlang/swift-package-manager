@@ -4,7 +4,7 @@ import Foundation
 struct SwiftSDLGenerator {
     static func main() throws {
         let bindings = """
-        @_exported import CSDL3
+        @_exported import CSDL
         """
 
         let bindingsFile = URL(fileURLWithPath: CommandLine.arguments[1])
