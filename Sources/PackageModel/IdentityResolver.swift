@@ -15,9 +15,9 @@ import Foundation
 
 // TODO: refactor this when adding registry support
 public protocol IdentityResolver {
-    func resolveIdentity(for packageKind: PackageReference.Kind, name: String?, type: PackageIdentity.PackageType) throws -> PackageIdentity
-    func resolveIdentity(for url: SourceControlURL, name: String?, type: PackageIdentity.PackageType) throws -> PackageIdentity
-    func resolveIdentity(for path: AbsolutePath, name: String?, type: PackageIdentity.PackageType) throws -> PackageIdentity
+    func resolveIdentity(for packageKind: PackageReference.Kind, type: PackageIdentity.PackageType) throws -> PackageIdentity
+    func resolveIdentity(for url: SourceControlURL, type: PackageIdentity.PackageType) throws -> PackageIdentity
+    func resolveIdentity(for path: AbsolutePath, type: PackageIdentity.PackageType) throws -> PackageIdentity
     func mappedLocation(for location: String) -> String
     func mappedIdentity(for identity: PackageIdentity) throws -> PackageIdentity
 }
@@ -34,27 +34,24 @@ public struct DefaultIdentityResolver: IdentityResolver {
         self.identityMapper = identityMapper
     }
 
-    public func resolveIdentity(for packageKind: PackageReference.Kind, name: String?, type: PackageIdentity.PackageType) throws -> PackageIdentity {
+    public func resolveIdentity(for packageKind: PackageReference.Kind, type: PackageIdentity.PackageType) throws -> PackageIdentity {
         switch packageKind {
         case .root(let path):
-            return try self.resolveIdentity(for: path, name: name, type: type)
+            return try self.resolveIdentity(for: path, type: type)
         case .fileSystem(let path):
-            return try self.resolveIdentity(for: path, name: name, type: type)
+            return try self.resolveIdentity(for: path, type: type)
         case .localSourceControl(let path):
-            return try self.resolveIdentity(for: path, name: name, type: type)
+            return try self.resolveIdentity(for: path, type: type)
         case .remoteSourceControl(let url):
-            return try self.resolveIdentity(for: url, name: name, type: type)
+            return try self.resolveIdentity(for: url, type: type)
         case .registry(let identity):
             return identity
         case .archive(let url):
-            return try self.resolveIdentity(for: url, name: name, type: type)
+            return try self.resolveIdentity(for: url, type: type)
         }
     }
 
-    public func resolveIdentity(for url: SourceControlURL, name: String?, type: PackageIdentity.PackageType) throws -> PackageIdentity {
-        if let name, type != .swift {
-            return PackageIdentity(name, type: type)
-        }
+    public func resolveIdentity(for url: SourceControlURL, type: PackageIdentity.PackageType) throws -> PackageIdentity {
         let location = self.mappedLocation(for: url.absoluteString)
         if let path = try? AbsolutePath(validating: location) {
             return PackageIdentity(path: path, type: type)
@@ -63,10 +60,7 @@ public struct DefaultIdentityResolver: IdentityResolver {
         }
     }
 
-    public func resolveIdentity(for url: URL, name: String?, type: PackageIdentity.PackageType) throws -> PackageIdentity {
-        if let name, type != .swift {
-            return PackageIdentity(name, type: type)
-        }
+    public func resolveIdentity(for url: URL, type: PackageIdentity.PackageType) throws -> PackageIdentity {
         let location = self.mappedLocation(for: url.absoluteString)
         if let path = try? AbsolutePath(validating: location) {
             return PackageIdentity(path: path, type: type)
@@ -75,10 +69,7 @@ public struct DefaultIdentityResolver: IdentityResolver {
         }
     }
 
-    public func resolveIdentity(for path: AbsolutePath, name: String?, type: PackageIdentity.PackageType) throws -> PackageIdentity {
-        if let name, type != .swift {
-            return PackageIdentity(name, type: type)
-        }
+    public func resolveIdentity(for path: AbsolutePath, type: PackageIdentity.PackageType) throws -> PackageIdentity {
         let location = self.mappedLocation(for: path.pathString)
         if let path = try? AbsolutePath(validating: location) {
             return PackageIdentity(path: path, type: type)

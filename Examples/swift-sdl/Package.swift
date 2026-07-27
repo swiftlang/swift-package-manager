@@ -93,8 +93,7 @@ let package = Package(
             dependencies: ["SDL"]
         ),
         .executableTarget(
-            name: "CMakeBuilder",
-            path: "src/swift/CMakeBuilder"
+            name: "CMakeBuilder"
         ),
         .plugin(
             name: "CMakeBuilderPlugin",

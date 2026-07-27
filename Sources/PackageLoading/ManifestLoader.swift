@@ -362,7 +362,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         }
 
         let externals: [Manifest] = parsedManifest.externals.compactMap { external in
-            guard let dependency = parsedManifest.dependencies.first(where: {$0.identity.name == external.name }) else {
+            guard let dependency = parsedManifest.dependencies.first(where: { $0.nameForModuleDependencyResolutionOnly == external.name }) else {
                 // TODO: should raise a warning that the external isn't being used
                 return nil
             }

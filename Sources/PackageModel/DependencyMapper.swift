@@ -54,7 +54,7 @@ public struct DefaultDependencyMapper: DependencyMapper {
         } else if parseScheme(mappedLocationString) != nil {
             // mapped to a URL, we assume a remote SCM location
             let url = SourceControlURL(mappedLocationString)
-            let identity = try self.identityResolver.resolveIdentity(for: url, name: dependency.name, type: dependency.type)
+            let identity = try self.identityResolver.resolveIdentity(for: url, type: dependency.type)
             return .remoteSourceControl(
                 identity: identity,
                 nameForTargetDependencyResolutionOnly: dependency.nameForTargetDependencyResolutionOnly,
@@ -68,7 +68,7 @@ public struct DefaultDependencyMapper: DependencyMapper {
         } else {
             // mapped to a path, we assume a local SCM location
             let localPath = try AbsolutePath(validating: mappedLocationString)
-            let identity = try self.identityResolver.resolveIdentity(for: localPath, name: dependency.name, type: dependency.type)
+            let identity = try self.identityResolver.resolveIdentity(for: localPath, type: dependency.type)
             return .localSourceControl(
                 identity: identity,
                 nameForTargetDependencyResolutionOnly: dependency.nameForTargetDependencyResolutionOnly,
@@ -327,14 +327,8 @@ extension PackageDependency {
         switch seed.kind {
         case .fileSystem(let name, _):
             let path = try AbsolutePath(validating: newLocationString)
-            let identity: PackageIdentity
-            if let name = seed.name, seed.type != .swift {
-                identity = .plain(name, type: seed.type)
-            } else {
-                identity = .init(path: path, type: seed.type)
-            }
             self = .fileSystem(
-                identity: identity,
+                identity: .init(path: path, type: seed.type),
                 nameForTargetDependencyResolutionOnly: name,
                 path: path,
                 productFilter: seed.productFilter,
@@ -343,23 +337,13 @@ extension PackageDependency {
         case .sourceControl(let name, _, let requirement):
             let identity: PackageIdentity
             let location: SourceControl.Location
-            if let name = seed.name, seed.type != .swift {
-                identity = .plain(name, type: seed.type)
-                if parseScheme(newLocationString) != nil {
-                    location = .remote(.init(newLocationString))
-                } else {
-                    let path = try AbsolutePath(validating: newLocationString)
-                    location = .local(path)
-                }
+            if parseScheme(newLocationString) != nil {
+                identity = .init(urlString: newLocationString, type: seed.type)
+                location = .remote(.init(newLocationString))
             } else {
-                if parseScheme(newLocationString) != nil {
-                    identity = .init(urlString: newLocationString, type: seed.type)
-                    location = .remote(.init(newLocationString))
-                } else {
-                    let path = try AbsolutePath(validating: newLocationString)
-                    identity = .init(path: path, type: seed.type)
-                    location = .local(path)
-                }
+                let path = try AbsolutePath(validating: newLocationString)
+                identity = .init(path: path, type: seed.type)
+                location = .local(path)
             }
             self = .sourceControl(
                 identity: identity,
@@ -381,15 +365,8 @@ extension PackageDependency {
             guard let url = URL(string: location) else {
                 throw InternalError("invalid url")
             }
-            let identity: PackageIdentity
-            if let name = seed.name, seed.type != .swift {
-                identity = .plain(name, type: seed.type)
-            } else {
-                identity = .init(urlString: location, type: seed.type)
-            }
-
             self = .archive(
-                identity: identity,
+                identity: .init(urlString: location, type: seed.type),
                 nameForTargetDependencyResolutionOnly: name,
                 url: url,
                 checksum: checksum,
@@ -439,20 +416,4 @@ private func parseScheme(_ location: String) -> String? {
     }
 
     return nil
-}
-
-extension MappablePackageDependency {
-    var name: String? {
-        switch kind {
-        case .fileSystem(let name, _):
-            return name
-        case .sourceControl(let name, _, _):
-            return name
-        case .archive(let name, _, _):
-            return name
-        case .registry:
-            // Doesn't have a separate name
-            return nil
-        }
-    }
 }
