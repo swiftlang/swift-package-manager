@@ -830,10 +830,7 @@ fileprivate func buildAggregatePIFProject(
         for target in packageProject.targets {
             switch target {
             case .target(let target):
-                guard !target.id.hasSuffix(.dynamic) else {
-                    // Otherwise we hit a bunch of "Unknown multiple commands produce: ..." errors,
-                    // as the build artifacts from "PACKAGE-TARGET:Foo"
-                    // conflicts with those from "PACKAGE-TARGET:Foo-dynamic".
+                guard !target.id.hasSuffix(.dynamic) && !target.id.hasSuffix(.testable) else {
                     continue
                 }
 

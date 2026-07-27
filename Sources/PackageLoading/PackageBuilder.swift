@@ -1342,7 +1342,7 @@ public final class PackageBuilder {
         }
 
         // For each trait we are now generating an additional define
-        for trait in self.enabledTraits {
+        for trait in self.enabledTraits.sorted() {
             var assignment = BuildSettings.Assignment()
             assignment.values = ["\(trait)"]
             assignment.conditions = []
