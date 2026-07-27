@@ -373,10 +373,16 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             // We are now on our caller's requested callback queue, so we just call the completion handler directly.
             dispatchPrecondition(condition: .onQueue(callbackQueue))
             completion($0.tryMap { process in
-                // Emit the compiler output as observable info.
+                // Always show compiler output on failure, but only show successful
+                // compiler output at verbose log levels.
                 let compilerOutput = ((try? process.utf8Output()) ?? "") + ((try? process.utf8stderrOutput()) ?? "")
                 if !compilerOutput.isEmpty {
-                    observabilityScope.emit(info: compilerOutput)
+                    observabilityScope.print(
+                        compilerOutput,
+                        condition: process.exitStatus == .terminated(code: 0)
+                            ? .onlyWhenVerbose
+                            : .always
+                    )
                 }
 
                 // Save the persisted compilation state for possible reuse next time.
