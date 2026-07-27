@@ -220,7 +220,7 @@ extension Package {
         }
 
         convenience init(
-            name: String,
+            name: String?,
             type: PackageType,
             url: String,
             checksum: String
@@ -1178,7 +1178,7 @@ extension Package.Dependency {
 
 extension Package.Dependency {
     public static func externalSource(
-        name: String,
+        name: String? = nil,
         path: String,
         traits: Set<Trait>? = nil
     ) -> Package.Dependency {
@@ -1195,7 +1195,7 @@ extension Package.Dependency {
 
 extension Package.Dependency {
     public static func binaryArchive(
-        name: String,
+        name: String? = nil,
         url: String,
         checksum: String
     ) -> Package.Dependency {

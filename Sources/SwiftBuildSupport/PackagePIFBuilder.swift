@@ -510,6 +510,9 @@ public final class PackagePIFBuilder {
         // the structure of the client(s).
         //
 
+        // Add the package level external build commands
+        try projectBuilder.addExternalBuildComands()
+
         self.log(.debug, "Processing \(package.products.count) products:")
 
         // For each of the **products** in the package we create a corresponding `PIFTarget` of the appropriate type.

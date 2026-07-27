@@ -133,6 +133,22 @@ extension PackageGraph.ResolvedProduct {
     }
 }
 
+extension PackageModel.Package {
+    var pifTargetGUID: GUID { pifTargetGUID(suffix: nil) }
+
+    func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
+        PackagePIFBuilder.targetGUID(forPackageName: self.name, suffix: suffix)
+    }
+}
+
+extension PackageGraph.ResolvedPackage {
+    var pifTargetGUID: GUID { pifTargetGUID(suffix: nil) }
+
+    func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
+        self.underlying.pifTargetGUID(suffix: suffix)
+    }
+}
+
 extension PackagePIFBuilder {
     /// Helper function to consistently generate a PIF target identifier string for a module in a package.
     ///
@@ -150,6 +166,11 @@ extension PackagePIFBuilder {
     public static func targetGUID(forProductName name: String, withId id: String, suffix: TargetSuffix? = nil) -> GUID {
         let suffixDescription: String = suffix.uniqueDescription(forName: name)
         return "PACKAGE-PRODUCT:\(id).\(name)\(suffixDescription)"
+    }
+
+    public static func targetGUID(forPackageName name: String, suffix: TargetSuffix? = nil) -> GUID {
+        let suffixDescription: String = suffix.uniqueDescription(forName: name)
+        return "PACKAGE-PLUGIN:\(name)\(suffixDescription)"
     }
 
     /// Helper function to consistently generate a target name string for a product in a package.

@@ -1064,7 +1064,8 @@ extension PackagePIFProjectBuilder {
             return
         }
 
-        fatalError("TODO")
+        // TODO: hook it up
+        print("TODO: hook up target for \(resolvedExternalLibrary.name)")
     }
 }
 

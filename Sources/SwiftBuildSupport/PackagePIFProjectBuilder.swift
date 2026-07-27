@@ -522,6 +522,47 @@ struct PackagePIFProjectBuilder {
         )
     }
 
+    mutating func addExternalBuildComands() throws {
+        guard let results = pifBuilder.externalBuilderResults else {
+            return
+        }
+
+        // Create target for the external build
+        let package = self.package
+        let externalTargetKeyPath = try self.project.addAggregateTarget { _ in
+            ProjectModel.AggregateTarget(
+                id: package.pifTargetGUID,
+                name: package.name
+            )
+        }
+        do {
+            let externalTarget = self.project[keyPath: externalTargetKeyPath]
+            log(.debug, "Created aggregate target '\(externalTarget.id) with name \(externalTarget.name)")
+        }
+
+        // Add in the custom task for the build commands
+        for command in results.buildCommands {
+            var commandLine = [command.executable] + command.arguments
+            if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
+                commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
+            }
+
+            self.project[keyPath: externalTargetKeyPath].customTasks.append(
+                ProjectModel.CustomTask(
+                    commandLine: commandLine,
+                    environment: command.environment.map { Pair($0, $1) }.sorted(by: <),
+                    workingDirectory: command.workingDir?.pathString,
+                    executionDescription: command.displayName ?? "Performing external build",
+                    inputFilePaths: [command.executable] + command.inputPaths.map(\.pathString),
+                    outputFilePaths: command.outputPaths,
+                    enableSandboxing: true,
+                    preparesForIndexing: false,
+                    alwaysOutOfDate: true
+                )
+            )
+        }
+    }
+
     /// Processes the paths of plugin-generated files for a particular package target,
     /// returning paths of those that should be treated as sources vs resources.
     private func process(

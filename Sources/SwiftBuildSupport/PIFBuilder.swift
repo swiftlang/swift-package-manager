@@ -418,8 +418,12 @@ public final class PIFBuilder {
             }
 
             // Run external source package plugin
+            // TODO: what does it mean to have more than one externalBuild plugin?
             let externalBuilderResults: PackagePIFBuilder.BuildToolPluginInvocationResult?
-            if let builder = package.pluginUsages.first, let builderPlugin = builder.underlying as? PluginModule {
+            if let builder = package.externalBuilders.first {
+                guard let builderPlugin = builder.underlying as? PluginModule else {
+                    throw InternalError("but it's supposed to be a plugin module")
+                }
                 let pluginOutputDirectory = builder.pluginOutputPath(packageIdentity: package.identity, pluginRoot: parameters.pluginWorkingDirectory)
 
                 var targetNameToProductName: [String: String] = [:]
@@ -1086,5 +1090,16 @@ extension PackagePIFBuilder.CustomBuildCommand {
             )
         )
 
+    }
+}
+
+extension ResolvedPackage {
+    var externalBuilders: [ResolvedModule] {
+        self.pluginUsages.filter {
+            guard let pluginModule = $0.underlying as? PluginModule else {
+                return false
+            }
+            return pluginModule.capability == .externalBuilder
+        }
     }
 }
