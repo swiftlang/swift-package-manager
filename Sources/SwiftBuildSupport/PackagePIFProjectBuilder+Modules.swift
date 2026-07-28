@@ -339,7 +339,7 @@ extension PackagePIFProjectBuilder {
             let (result, resourceBundle) = try addResourceBundle(
                 for: sourceModule,
                 targetKeyPath: sourceModuleTargetKeyPath,
-                generatedResourceFiles: generatedFiles.resources.keys.map(\.pathString)
+                generatedResourceFiles: generatedFiles.sortedResourcePaths.map(\.pathString)
             )
             if let resourceBundle { self.builtModulesAndProducts.append(resourceBundle) }
 
@@ -377,7 +377,7 @@ extension PackagePIFProjectBuilder {
                 sourceModuleTargetKeyPath: sourceModuleTargetKeyPath,
                 resourceBundleTargetKeyPath: resourceBundleTargetKeyPath,
                 sourceFilePaths: generatedFiles.sources.map(\.self),
-                resourceFilePaths: generatedFiles.resources.keys.map(\.pathString)
+                resourceFilePaths: generatedFiles.sortedResourcePaths.map(\.pathString)
             )
         }
 
