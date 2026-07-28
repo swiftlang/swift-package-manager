@@ -529,6 +529,7 @@ struct PackagePIFProjectBuilder {
             }
 
             // Create target for the external build
+            // TODO: Should this be one per plugin?
             let package = self.package
             let externalTargetKeyPath = try self.project.addAggregateTarget { _ in
                 ProjectModel.AggregateTarget(
@@ -543,14 +544,15 @@ struct PackagePIFProjectBuilder {
 
             // Add in the custom task for the build commands
             for command in results.buildCommands {
-                var commandLine = [command.executable] + command.arguments
-                // Add in the standard arguments for external builders
-                commandLine += [
-                    "--output-dir", "$(OBJROOT)/\(package.name).build/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/\(pluginName)"
+                let outputDir = "\(command.pluginOutputDir)/\(package.name).build/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)"
+
+                var commandLine = [command.executable] + command.arguments + [
+                    "--output-dir", outputDir
                 ]
-                if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
-                    commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
-                }
+
+//                if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
+//                    commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
+//                }
 
                 self.project[keyPath: externalTargetKeyPath].customTasks.append(
                     ProjectModel.CustomTask(
@@ -559,13 +561,31 @@ struct PackagePIFProjectBuilder {
                         workingDirectory: command.workingDir?.pathString,
                         executionDescription: command.displayName ?? "Performing external build",
                         inputFilePaths: [command.executable] + command.inputPaths.map(\.pathString),
-                        outputFilePaths: command.outputPaths,
-                        enableSandboxing: true,
+                        outputFilePaths: command.outputPaths + [outputDir + "/libSDL.a"],
+                        enableSandboxing: false,
                         preparesForIndexing: false,
                         alwaysOutOfDate: true
                     )
                 )
             }
+
+            // Add in the build configs
+            self.project[keyPath: externalTargetKeyPath].common.addBuildConfig { id in
+                BuildConfig(
+                    id: id,
+                    name: "Debug",
+                    settings: .init()
+                )
+            }
+
+            self.project[keyPath: externalTargetKeyPath].common.addBuildConfig { id in
+                BuildConfig(
+                    id: id,
+                    name: "Release",
+                    settings: .init(),
+                )
+            }
+
         }
     }
 

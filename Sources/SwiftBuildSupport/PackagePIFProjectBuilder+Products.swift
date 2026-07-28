@@ -1016,16 +1016,13 @@ extension PackagePIFProjectBuilder {
             )
         }
 
-        guard let module = product.modules.first else {
-            // TODO: Shouldn't happen
-            return
+        for module in product.modules {
+            self.project[keyPath: externalLibraryTargetKeyPath].common.addDependency(
+                on: module.pifTargetGUID,
+                platformFilters: [],
+                linkProduct: false
+            )
         }
-
-        self.project[keyPath: externalLibraryTargetKeyPath].common.addDependency(
-            on: module.pifTargetGUID,
-            platformFilters: [],
-            linkProduct: false
-        )
     }
 
     // MARK: - Plugin Product

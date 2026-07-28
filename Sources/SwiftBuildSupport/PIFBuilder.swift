@@ -1051,7 +1051,7 @@ extension PackagePIFBuilder.CustomBuildCommand {
         pluginOutputDir: AbsolutePath,
         disableSandbox: Bool
     ) {
-        var newEnv: Environment = externalBuildCommand.configuration.environment
+        var newEnv: Environment = .current // externalBuildCommand.configuration.environment
 
         // FIXME: This is largely a workaround for improper rpath setup on Linux. It should be
         // removed once the Swift Build backend switches to use swiftc as the linker driver

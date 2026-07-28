@@ -1093,6 +1093,7 @@ extension PackagePIFProjectBuilder {
                 impartedBuildSettings: impartedSettings
             )
         }
+
         self.project[keyPath: externalLibraryTargetKeyPath].common.addBuildConfig { id in
             BuildConfig(
                 id: id,
@@ -1102,7 +1103,12 @@ extension PackagePIFProjectBuilder {
             )
         }
 
-        // TODO: add dependency to external build plugin targets and build settings from the library
+        // Add dependency on external builders
+        self.project[keyPath: externalLibraryTargetKeyPath].common.addDependency(
+            on: self.package.pifTargetGUID,
+            platformFilters: [],
+            linkProduct: false
+        )
     }
 }
 

@@ -10,7 +10,7 @@ struct CMakeBuilderPlugin: ExternalBuilderPlugin {
         return .init(
             displayName: "CMake Build",
             executable: builder.url,
-            arguments: [context.pluginWorkDirectoryURL.path]
+            arguments: []
         )
     }
 }

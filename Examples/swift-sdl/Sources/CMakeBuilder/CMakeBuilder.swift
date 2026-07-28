@@ -1,10 +1,50 @@
 import Foundation
+import ArgumentParser
+import Subprocess
+import TSCBasic
 
 @main
-struct CMakeBuilder {
-    static func main() async throws {
-        print(CommandLine.arguments)
+struct CMakeBuilder: AsyncParsableCommand {
+    @Option
+    var outputDir: String
+
+    func run() async throws {
+        print("Running CMake")
+
+        let result = try await Subprocess.run(
+            .name("cmake"),
+            arguments: [
+                "-G", "Ninja",
+                "-B", outputDir,
+                "-DSDL_STATIC=ON",
+                "-DSDL_SHARED=OFF",
+            ],
+            output: .currentStandardOutput,
+            error: .currentStandardOutput
+        )
+        guard result.terminationStatus.isSuccess else {
+            print("CMakeBuilder failed")
+            Darwin.exit(1)
+        }
+
+        print("CMakeBuilder complete")
     }
+
+       /*
+        run
+           guard try run(title: "cmake configure", command: [
+                "cmake",
+                "-S", context.package.directoryURL.path,
+                "-B", context.pluginWorkDirectoryURL.path,
+                "-G", "Ninja",
+                "--toolchain", toolchainFile.path,
+                "-DSDL_STATIC=ON",
+                "-DSDL_SHARED=OFF",
+            ]) else {
+                return
+            }
+        */
+    
 
     /*
     func build(context: PluginContext, arguments: [String], buildContext: BuildContext) async throws {
