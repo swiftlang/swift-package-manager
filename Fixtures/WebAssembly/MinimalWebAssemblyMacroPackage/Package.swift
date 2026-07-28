@@ -11,7 +11,9 @@ let package = Package(
         .package(path: "MacroImplHelpers"),
     ],
     targets: [
+        .target(name: "MacroImplSupport"),
         .macro(name: "MacroImpl", dependencies: [
+            "MacroImplSupport",
             .product(name: "MacroImplHelpers", package: "MacroImplHelpers"),
         ]),
         .target(name: "MacroDef", dependencies: ["MacroImpl"]),

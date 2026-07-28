@@ -21,6 +21,8 @@ import TSCUtility
 import SPMBuildCore
 
 import func TSCBasic.topologicalSort
+import func TSCBasic.transitiveClosure
+import struct TSCBasic.OrderedSet
 import var TSCBasic.stdoutStream
 
 import enum SwiftBuild.ProjectModel
@@ -771,6 +773,97 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     }
 }
 
+/// Determine the list of modules in the modules graph which should not be added to the top level aggregate for the root package (which would cause them to always build for the destination platform).
+fileprivate func computeHostOnlyModuleIDsInRootPackages(in modulesGraph: ModulesGraph) -> Set<ResolvedModule.ID> {
+    // Macros and plugins always build only for the host platform. Dependencies of macros and plugins might build for
+    // only the host platform, or both the host and destination platform.
+    func hasHostOnlyModuleKind(_ module: ResolvedModule) -> Bool {
+        switch module.type {
+        case .macro, .plugin:
+            true
+        default:
+            false
+        }
+    }
+
+    // Collect modules from root packages. We only consider root packages here because only targets from root packages
+    // are ever added to the top level build request. Targets from dependencies are only ever added via dependency edges
+    // from a root package, so we don't need to worry about unnecessary specializations for the destination platform.
+    var rootPackageModulesByID: [ResolvedModule.ID: ResolvedModule] = [:]
+    var hostOnlyModulesInRootPackageIDs: Set<ResolvedModule.ID> = []
+    for package in modulesGraph.rootPackages {
+        for module in package.modules {
+            rootPackageModulesByID[module.id] = module
+            if hasHostOnlyModuleKind(module) {
+                hostOnlyModulesInRootPackageIDs.insert(module.id)
+            }
+        }
+    }
+
+    // Find the transitive closure covered by host-only targets. These are modules which should be excluded from
+    // the top level build request unless they specifically need to build for the destination. Again, we only consider
+    // root packages.
+    let modulesInRootPackagesReachableFromHostOnlyModuleIDs = transitiveClosure(Array(hostOnlyModulesInRootPackageIDs), successors: { moduleID in
+        guard let module = rootPackageModulesByID[moduleID] else {
+            return []
+        }
+        return module.dependencies.flatMap { dependency in
+            switch dependency {
+            case .module(let moduleDependency, _):
+                return [moduleDependency.id]
+            case .product(let productDependency, _):
+                return Array(productDependency.modules.map(\.id))
+            }
+        }.filter {
+            rootPackageModulesByID.keys.contains($0)
+        }
+    }).union(hostOnlyModulesInRootPackageIDs)
+
+    // Determine the list of targets in the root package which can be reached without traversing an edge to a macro or plugin.
+    // These are targets which must build for the destination, and cannot be excluded from the top level build request. The roots
+    // of the traversal are:
+    // 1. Any target which is part of an explicit executable/library product in the manifest
+    // 2. Any target which is not reachable from any macro/plugin
+    var modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs: Set<ResolvedModule.ID> = []
+    // If a module is in the root package and not in the closure of a host only module, it's considered top-level
+    modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs.formUnion(Set(rootPackageModulesByID.keys).subtracting(modulesInRootPackagesReachableFromHostOnlyModuleIDs))
+    // If a module is included in a non-implicit product, it's considered top-level
+    for package in modulesGraph.rootPackages {
+        for product in package.products where !product.underlying.isImplicit {
+            for module in product.modules {
+                if !hasHostOnlyModuleKind(module) {
+                    modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs.insert(module.id)
+                }
+            }
+        }
+    }
+    // If a module in the root package is reachable from one of the ones we've discovered so far, without traversing an edge to a host-only module, it's considered top-level.
+    modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs.formUnion(transitiveClosure(Array(modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs), successors: { moduleID in
+        guard let module = rootPackageModulesByID[moduleID] else {
+            return []
+        }
+        // A test target which depends on an otherwise host-only target should not cause that dependency to be
+        // included in the top-level build request. It should only be specialized for the destination when building
+        // the tests.
+        guard module.type != .test else {
+            return []
+        }
+        return module.dependencies.flatMap { dependency in
+            switch dependency {
+            case .module(let moduleDependency, _):
+                return [moduleDependency]
+            case .product(let productDependency, _):
+                return Array(productDependency.modules)
+            }
+        }.filter {
+            rootPackageModulesByID.keys.contains($0.id) && !hasHostOnlyModuleKind($0)
+        }.map(\.id)
+    }))
+
+
+    return Set(rootPackageModulesByID.keys).subtracting(modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs)
+}
+
 fileprivate func buildAggregatePIFProject(
     packagesAndProjects: [(package: ResolvedPackage, project: ProjectModel.Project)],
     observabilityScope: ObservabilityScope,
@@ -826,6 +919,8 @@ fileprivate func buildAggregatePIFProject(
     addEmptyBuildConfig(to: allExcludingTestsTargetKeyPath, name: "Debug")
     addEmptyBuildConfig(to: allExcludingTestsTargetKeyPath, name: "Release")
 
+    let hostOnlyModuleIDs = computeHostOnlyModuleIDsInRootPackages(in: modulesGraph)
+
     for (package, packageProject) in packagesAndProjects where package.manifest.packageKind.isRoot {
         for target in packageProject.targets {
             switch target {
@@ -839,6 +934,14 @@ fileprivate func buildAggregatePIFProject(
                         // Disconnected target, possibly due to platform when condition that isn't satisfied
                         continue
                     }
+                    if hostOnlyModuleIDs.contains(resolvedModule.id) {
+                        continue
+                    }
+                } else if let productName = PackagePIFBuilder.productName(forTargetName: target.name),
+                          let resolvedProduct = modulesGraph.product(for: productName),
+                          !resolvedProduct.modules.isEmpty,
+                          resolvedProduct.modules.allSatisfy({ hostOnlyModuleIDs.contains($0.id) }) {
+                    continue
                 }
 
                 aggregateProject[keyPath: allIncludingTestsTargetKeyPath].common.addDependency(

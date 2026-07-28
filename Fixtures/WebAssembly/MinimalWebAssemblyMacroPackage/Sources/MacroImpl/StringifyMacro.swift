@@ -1,5 +1,6 @@
 import Foundation
 import MacroImplHelpers
+import MacroImplSupport
 
 #if os(WASI)
 #error("MacroImpl must not be compiled for WebAssembly.")
@@ -45,7 +46,7 @@ struct MacroPlugin {
             } else if json.keys.contains("expandFreestandingMacro") {
                 let response: [String: Any] = [
                     "expandMacroResult": [
-                        "expandedSource": "\"\(macroImplHelper())\"",
+                        "expandedSource": quoted(macroImplHelper()),
                         "diagnostics": []
                     ]
                 ]
