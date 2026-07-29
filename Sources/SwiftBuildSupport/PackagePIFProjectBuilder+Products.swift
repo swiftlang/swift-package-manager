@@ -545,7 +545,7 @@ extension PackagePIFProjectBuilder {
         let moduleOrProduct = PackagePIFBuilder.ModuleOrProduct(
             type: moduleOrProductType,
             name: product.name,
-            moduleName: product.c99name,
+            moduleName: mainModule.c99name,
             pifTarget: .target(self.project[keyPath: mainModuleTargetKeyPath]),
             indexableFileURLs: indexableFileURLs,
             headerFiles: headerFiles,

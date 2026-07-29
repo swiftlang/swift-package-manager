@@ -840,6 +840,53 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test
+    func mainModuleProductMetadataUsesMainModuleName() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(
+            emptyFiles: [
+                "/MyPkg/Sources/MyAppModule/main.swift",
+            ]
+        )
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "MyPkg",
+                    path: "/MyPkg",
+                    toolsVersion: .v6_2,
+                    products: [
+                        .init(name: "my-exec", type: .executable, targets: ["exec"]),
+                    ],
+                    targets: [
+                        .init(name: "exec", type: .executable),
+                    ]
+                )
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root,
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (_, metadata) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let product = try #require(metadata.first { $0.name == "my-exec" })
+        #expect(product.moduleName == "exec")
+    }
+
     @Test(
         arguments: BuildConfiguration.allCases,
     )
