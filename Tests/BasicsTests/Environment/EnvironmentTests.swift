@@ -126,7 +126,10 @@ struct EnvironmentTests {
         let pathEnvVarName = "PATH"
         #endif
 
-        #expect(Environment.current["PATH"] == ProcessInfo.processInfo.environment[pathEnvVarName])
+        #expect(
+            Environment.current["PATH"] == ProcessInfo.processInfo.environment[pathEnvVarName],
+            "Environment.current should be equal to ProcessInfo.processInfo.environment.  ProcessInfo.processInfo.environment:\n - \(ProcessInfo.processInfo.environment.map { "\($0.key)=\($0.value)" }.joined(separator: "\n -"))"
+        )
     }
 
     /// Important: This test is inherently race-prone, if it is proven to be
