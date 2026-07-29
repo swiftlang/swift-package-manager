@@ -393,7 +393,6 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 cLanguageStandard: external.cLanguageStandard,
                 cxxLanguageStandard: external.cxxLanguageStandard,
                 swiftLanguageVersions: external.swiftLanguageVersions,
-                pluginUsages: external.pluginUsages,
                 products: external.products,
                 targets: external.targets,
                 traits: external.traits

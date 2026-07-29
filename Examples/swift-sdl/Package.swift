@@ -46,11 +46,11 @@ let package = Package(
                         .linkedFramework("Metal", .when(platforms: [.macOS])),
                         .linkedFramework("QuartzCore", .when(platforms: [.macOS])),
                         .linkedFramework("CoreHaptics", .when(platforms: [.macOS]))
+                    ],
+                    plugins: [
+                        "CMakeBuilderPlugin"
                     ]
                 ),
-            ],
-            pluginUsages: [
-                "CMakeBuilderPlugin",
             ]
         ),
     ],

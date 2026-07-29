@@ -28,6 +28,7 @@ public class ExternalLibrary: Module {
             packageAccess: false,
             buildSettings: buildSettings,
             buildSettingsDescription: buildSettingsDescription,
+            pluginUsages: [],
             usesUnsafeFlags: false,
             implicit: false
         )

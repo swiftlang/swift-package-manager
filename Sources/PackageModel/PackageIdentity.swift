@@ -153,7 +153,7 @@ extension PackageIdentity: Codable {
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        try container.encode(self.description, forKey: .description)
+        try container.encode(self.name, forKey: .description)
         try container.encode(self.type, forKey: .type)
     }
 }

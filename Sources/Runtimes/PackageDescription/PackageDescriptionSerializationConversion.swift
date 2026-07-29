@@ -421,7 +421,6 @@ extension Serialization.Package {
             .sorted { $0.name < $1.name }
         self.dependencies = package.dependencies.map { .init($0) }
         self.externals = package.externals.map { .init($0) }
-        self.pluginUsages = package.pluginUsages.map { .init($0) }
         self.swiftLanguageVersions = package.swiftLanguageModes?.map { .init($0) }
         self.cLanguageStandard = package.cLanguageStandard.map { .init($0) }
         self.cxxLanguageStandard = package.cxxLanguageStandard.map { .init($0) }

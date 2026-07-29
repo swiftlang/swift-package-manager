@@ -314,7 +314,6 @@ enum Serialization {
         let traits: [Trait]?
         let dependencies: [PackageDependency]
         let externals: [Package]
-        let pluginUsages: [PluginUsage]
         let swiftLanguageVersions: [SwiftVersion]?
         let cLanguageStandard: CLanguageStandard?
         let cxxLanguageStandard: CXXLanguageStandard?

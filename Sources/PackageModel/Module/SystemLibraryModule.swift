@@ -44,6 +44,7 @@ public final class SystemLibraryModule: Module {
             packageAccess: false,
             buildSettings: .init(),
             buildSettingsDescription: [],
+            pluginUsages: [],
             usesUnsafeFlags: false,
             implicit: isImplicit
         )

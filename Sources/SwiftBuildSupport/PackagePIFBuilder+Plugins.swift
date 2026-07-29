@@ -57,6 +57,10 @@ extension PackagePIFBuilder {
         }
     }
 
+    public struct ExternalBuilderPluginInvocationResult: Equatable {
+        public let buildCommands: [CustomBuildCommand]
+    }
+
     /// A command provided by a build tool plugin.
     /// Build tool plugins are evaluated after package graph resolution (and subsequently, when conditions change).
     ///

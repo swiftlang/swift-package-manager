@@ -46,7 +46,6 @@ enum ManifestJSONParser {
         var externals: [Result] = []
         var providers: [SystemPackageProviderDescription]?
         var products: [ProductDescription] = []
-        var pluginUsages: [TargetDescription.PluginUsage] = []
         var traits: Set<TraitDescription> = []
         var cxxLanguageStandard: String?
         var cLanguageStandard: String?
@@ -117,7 +116,6 @@ enum ManifestJSONParser {
                 dependencies: [], // TODO: dependencies on other externals
                 providers: external.providers?.map { .init($0) },
                 products: try external.products.map { try .init($0) },
-                pluginUsages: external.pluginUsages.map { .init($0) },
                 traits: Set(external.traits?.map { TraitDescription($0) } ?? []),
                 cxxLanguageStandard: external.cxxLanguageStandard?.rawValue,
                 cLanguageStandard: external.cLanguageStandard?.rawValue,
@@ -135,7 +133,6 @@ enum ManifestJSONParser {
             externals: externals,
             providers: input.package.providers?.map { .init($0) },
             products: try input.package.products.map { try .init($0) },
-            pluginUsages: input.package.pluginUsages.map { .init($0) },
             traits: Set(input.package.traits?.map { TraitDescription($0) } ?? []),
             cxxLanguageStandard: input.package.cxxLanguageStandard?.rawValue,
             cLanguageStandard: input.package.cLanguageStandard?.rawValue,

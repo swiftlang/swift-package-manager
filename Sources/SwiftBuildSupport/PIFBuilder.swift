@@ -249,7 +249,8 @@ public final class PIFBuilder {
         let pluginScriptRunner = self.parameters.pluginScriptRunner
 
         let pluginsPerModule = graph.pluginsPerModule(
-            satisfying: buildParameters.buildEnvironment // .buildEnvironment(for: .host)
+            satisfying: buildParameters.buildEnvironment, // .buildEnvironment(for: .host)
+            capability: .buildTool
         )
 
         let availablePluginTools = try await availableBuildPluginTools(
@@ -274,7 +275,7 @@ public final class PIFBuilder {
                 var buildCommands: [PackagePIFBuilder.CustomBuildCommand] = []
                 var prebuildCommands: [BuildToolPluginInvocationResult.PrebuildCommand] = []
 
-                for plugin in module.pluginDependencies(satisfying: buildParameters.buildEnvironment) {
+                for plugin in module.pluginDependencies(satisfying: buildParameters.buildEnvironment, capability: .buildTool) {
                     let pluginModule = plugin.underlying as! PluginModule
 
                     // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
@@ -417,10 +418,19 @@ public final class PIFBuilder {
                 }
             }
 
-            // Run external source package plugin
-            // TODO: what does it mean to have more than one externalBuild plugin?
-            var externalBuilderResults: [String: PackagePIFBuilder.BuildToolPluginInvocationResult] = [:]
-            if let builder = package.externalBuilders.first {
+            // Run external build plugins if they are used by the targets
+            var externalBuilderResults: [String: PackagePIFBuilder.ExternalBuilderPluginInvocationResult] = [:]
+            var externalBuilders: IdentifiableSet<ResolvedModule> = []
+            var externalBuilderMap: [ResolvedModule.ID: [ResolvedModule]] = [:] // plugin id to modules that use it
+            for module in package.modules {
+                // TODO: a module should only allow one external builder plugin?
+                for plugin in module.pluginDependencies(satisfying: buildParameters.buildEnvironment, capability: .externalBuilder) {
+                    externalBuilders.insert(plugin)
+                    externalBuilderMap[plugin.id, default: []].append(module)
+                }
+            }
+
+            for builder in externalBuilders {
                 guard let builderPlugin = builder.underlying as? PluginModule else {
                     throw InternalError("but it's supposed to be a plugin module")
                 }
@@ -480,7 +490,7 @@ public final class PIFBuilder {
                         disableSandbox: self.parameters.disableSandbox
                     )
                 }
-                externalBuilderResults[builderPlugin.name] = .init(prebuildCommandOutputPaths: [], buildCommands: buildCommands)
+                externalBuilderResults[builderPlugin.name] = .init(buildCommands: buildCommands)
             }
 
             let packagePIFBuilderDelegate = PackagePIFBuilderDelegate(
@@ -1088,16 +1098,5 @@ extension PackagePIFBuilder.CustomBuildCommand {
             )
         )
 
-    }
-}
-
-extension ResolvedPackage {
-    var externalBuilders: [ResolvedModule] {
-        self.pluginUsages.filter {
-            guard let pluginModule = $0.underlying as? PluginModule else {
-                return false
-            }
-            return pluginModule.capability == .externalBuilder
-        }
     }
 }

@@ -45,9 +45,6 @@ public struct ResolvedPackage {
     /// The dependencies of the package.
     public let dependencies: [PackageIdentity]
 
-    /// Plugins for this package
-    public let pluginUsages: [ResolvedModule]
-
     /// The default localization for resources.
     public let defaultLocalization: String?
 
@@ -65,7 +62,6 @@ public struct ResolvedPackage {
         defaultLocalization: String?,
         supportedPlatforms: [SupportedPlatform],
         dependencies: [PackageIdentity],
-        pluginUsages: [ResolvedModule],
         enabledTraits: Set<String>?,
         modules: IdentifiableSet<ResolvedModule>,
         products: [ResolvedProduct],
@@ -76,7 +72,6 @@ public struct ResolvedPackage {
         self.products = products
         self.modules = modules
         self.dependencies = dependencies
-        self.pluginUsages = pluginUsages
         self.defaultLocalization = defaultLocalization
         self.supportedPlatforms = supportedPlatforms
         self.registryMetadata = registryMetadata

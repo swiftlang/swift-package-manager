@@ -764,7 +764,8 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // `BuildPlan`.
         if let pluginConfiguration: PluginConfiguration, !self.config.shouldSkipBuilding(for: .target) {
             let pluginsPerModule = graph.pluginsPerModule(
-                satisfying: self.config.buildEnvironment(for: .host)
+                satisfying: self.config.buildEnvironment(for: .host),
+                capability: .buildTool
             )
 
             pluginTools = try await buildPluginTools(

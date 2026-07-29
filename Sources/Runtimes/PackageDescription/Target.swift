@@ -311,8 +311,7 @@ public final class Target {
                 resources == nil &&
                 publicHeadersPath == nil &&
                 pluginCapability == nil &&
-                checksum == nil &&
-                plugins == nil
+                checksum == nil
             )
         case .binary:
             precondition(
@@ -1089,7 +1088,8 @@ public final class Target {
         cSettings: [CSetting]? = nil,
         cxxSettings: [CXXSetting]? = nil,
         swiftSettings: [SwiftSetting]? = nil,
-        linkerSettings: [LinkerSetting]? = nil
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil
     ) -> Target {
         return Target(
             name: name,
@@ -1103,7 +1103,8 @@ public final class Target {
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
-            linkerSettings: linkerSettings
+            linkerSettings: linkerSettings,
+            plugins: plugins
         )
     }
 

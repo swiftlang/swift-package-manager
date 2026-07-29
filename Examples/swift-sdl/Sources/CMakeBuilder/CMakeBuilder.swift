@@ -11,6 +11,24 @@ struct CMakeBuilder: AsyncParsableCommand {
     func run() async throws {
         print("Running CMake")
 
+        if !FileManager.default.fileExists(atPath: outputDir + "/build.ninja") {
+            try await configure()
+        }
+
+        _ = try await Subprocess.run(
+            .name("cmake"),
+            arguments: [
+                "--build", outputDir,
+                "--target", "SDL3-static"
+            ],
+            output: .currentStandardOutput,
+            error: .currentStandardOutput
+        )
+
+        print("CMakeBuilder complete")
+    }
+
+    func configure() async throws {
         let result = try await Subprocess.run(
             .name("cmake"),
             arguments: [
@@ -23,11 +41,8 @@ struct CMakeBuilder: AsyncParsableCommand {
             error: .currentStandardOutput
         )
         guard result.terminationStatus.isSuccess else {
-            print("CMakeBuilder failed")
-            Darwin.exit(1)
+            throw CMakeError.configureError(result.terminationStatus)
         }
-
-        print("CMakeBuilder complete")
     }
 
        /*
@@ -148,6 +163,6 @@ struct CMakeBuilder: AsyncParsableCommand {
     */
 }
 
-enum CMakeErrors: Error {
-    case configureError(Int32)
+enum CMakeError: Error {
+    case configureError(TerminationStatus)
 }

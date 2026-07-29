@@ -21,6 +21,7 @@ import struct Basics.SourceControlURL
 import PackageLoading
 
 import class PackageModel.BinaryModule
+import class PackageModel.ExternalLibrary
 import class PackageModel.Manifest
 import enum PackageModel.PackageCondition
 import enum PackageModel.PrebuiltsPlatform
@@ -689,6 +690,7 @@ extension PackagePIFProjectBuilder {
                 log(.debug, indent: 1, "Added use of binary library '\(binaryTarget.artifactPath)'")
                 continue
             }
+            // TODO: Hook up external libraries
             // We add these as linked dependencies; because the product type is `.packageProduct`,
             // SwiftBuild won't actually link them, but will instead impart linkage to any clients that
             // link against the package product.

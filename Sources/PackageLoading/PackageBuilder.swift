@@ -390,34 +390,12 @@ public final class PackageBuilder {
         // Find the special directory for targets.
         let targetSpecialDirs = self.findTargetSpecialDirs(targets)
 
-        let pluginUsages: [Module.Dependency]
-        if let parentPackage {
-            // Find plugin usages relative to the parent package
-            pluginUsages = manifest.pluginUsages.compactMap {
-                switch $0 {
-                case .plugin(let name, let package):
-                    if let package {
-                        return .product(.init(name: name, package: package), conditions: [])
-                    } else {
-                        if let pluginModule = parentPackage.modules.first(where: { $0.type == .plugin && $0.name == name }) {
-                            return .module(pluginModule, conditions: [])
-                        } else {
-                            return nil
-                        }
-                    }
-                }
-            }
-        } else {
-            pluginUsages = []
-        }
-
         return Package(
             identity: self.identity,
             manifest: self.manifest,
             path: self.packagePath,
             targets: targets,
             products: products,
-            pluginUsages: pluginUsages,
             targetSearchPath: self.packagePath.appending(component: targetSpecialDirs.targetDir),
             testTargetSearchPath: self.packagePath.appending(component: targetSpecialDirs.testTargetDir)
         )
@@ -813,13 +791,26 @@ public final class PackageBuilder {
                         if let package {
                             return .product(Module.ProductReference(name: name, package: package), conditions: [])
                         } else {
-                            if let target = targets[name] {
-                                return .module(target, conditions: [])
-                            } else if let targetName = pluginTargetName(for: name), let target = targets[targetName] {
-                                return .module(target, conditions: [])
+                            if let parentPackage {
+                                if let target = parentPackage.modules.first(where: { $0.name == name }) {
+                                    return .module(target, conditions: [])
+                                } else if let product = parentPackage.products.first(where: { $0.type == .plugin && $0.name == name }),
+                                          let target = product.modules.first
+                                {
+                                    return .module(target, conditions: [])
+                                } else {
+                                    self.observabilityScope.emit(.pluginNotFound(name: name))
+                                    return nil
+                                }
                             } else {
-                                self.observabilityScope.emit(.pluginNotFound(name: name))
-                                return nil
+                                if let target = targets[name] {
+                                    return .module(target, conditions: [])
+                                } else if let targetName = pluginTargetName(for: name), let target = targets[targetName] {
+                                    return .module(target, conditions: [])
+                                } else {
+                                    self.observabilityScope.emit(.pluginNotFound(name: name))
+                                    return nil
+                                }
                             }
                         }
                     }

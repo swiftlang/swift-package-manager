@@ -523,11 +523,7 @@ struct PackagePIFProjectBuilder {
     }
 
     mutating func addExternalBuildComands() throws {
-        for pluginName in pifBuilder.externalBuilderResults.keys {
-            guard let results = pifBuilder.externalBuilderResults[pluginName] else {
-                continue
-            }
-
+        for (pluginName, results) in pifBuilder.externalBuilderResults {
             // Create target for the external build
             // TODO: Should this be one per plugin?
             let package = self.package
@@ -544,15 +540,15 @@ struct PackagePIFProjectBuilder {
 
             // Add in the custom task for the build commands
             for command in results.buildCommands {
-                let outputDir = "\(command.pluginOutputDir)/\(package.name).build/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)"
+                let outputDir = "\(command.pluginOutputDir)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)"
 
                 var commandLine = [command.executable] + command.arguments + [
                     "--output-dir", outputDir
                 ]
 
-//                if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
-//                    commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
-//                }
+                if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
+                    commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
+                }
 
                 self.project[keyPath: externalTargetKeyPath].customTasks.append(
                     ProjectModel.CustomTask(
@@ -561,7 +557,7 @@ struct PackagePIFProjectBuilder {
                         workingDirectory: command.workingDir?.pathString,
                         executionDescription: command.displayName ?? "Performing external build",
                         inputFilePaths: [command.executable] + command.inputPaths.map(\.pathString),
-                        outputFilePaths: command.outputPaths + [outputDir + "/libSDL.a"],
+                        outputFilePaths: command.outputPaths,
                         enableSandboxing: false,
                         preparesForIndexing: false,
                         alwaysOutOfDate: true
@@ -585,7 +581,6 @@ struct PackagePIFProjectBuilder {
                     settings: .init(),
                 )
             }
-
         }
     }
 

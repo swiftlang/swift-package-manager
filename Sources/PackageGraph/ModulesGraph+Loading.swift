@@ -651,23 +651,6 @@ private func createResolvedPackages(
             moduleBuilder.supportedPlatforms = packageBuilder.supportedPlatforms
         }
 
-        // Hook up external source package builder plugin module
-        for external in packageBuilder.externalPackages {
-            external.pluginUsages.append(contentsOf: external.package.pluginUsages.compactMap({
-                switch $0 {
-                case .module(let moduleDependency, let conditions):
-                    if let moduleBuilder = modulesMap[moduleDependency] {
-                        return moduleBuilder
-                    } else {
-                        return nil
-                    }
-                default:
-                    return nil
-                }
-                
-            }))
-        }
-
         // Create product builders for each product in the package. A product can only contain a module present in the
         // same package.
         let products: [Product] = if let productsFilter {
@@ -840,24 +823,6 @@ private func createResolvedPackages(
 
                 moduleBuilder.dependencies.append(.product(product, conditions: conditions))
             }
-        }
-
-        // Hook up external package plugin modules
-        for external in packageBuilder.externalPackages {
-            external.pluginUsages.append(contentsOf: external.package.pluginUsages.compactMap({
-                switch $0 {
-                case .product(let productRef,_):
-                    let product = lookupByProductIDs ? productDependencyMap[productRef.identity] :
-                    productDependencyMap[productRef.name]
-                    if let product {
-                        return product.moduleBuilders.first
-                    } else {
-                        return nil
-                    }
-                default:
-                    return nil
-                }
-            }))
         }
     }
 
@@ -1664,9 +1629,6 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     /// For an external package, the parent package
     var externalPackages: [ResolvedPackageBuilder] = []
 
-    /// For an external package, the plugin from the parent package that will build it
-    var pluginUsages: [ResolvedModuleBuilder] = []
-
     /// The prebuilt libraries for this package
     var prebuilts: [String: PrebuiltLibrary]?
 
@@ -1708,14 +1670,12 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         let products = try self.products.map { try $0.construct() }
         var modules = products.reduce(into: IdentifiableSet()) { $0.formUnion($1.modules) }
         try modules.formUnion(self.modules.map { try $0.construct() })
-        let pluginUsages = try self.pluginUsages.map { try $0.construct() }
 
         return ResolvedPackage(
             underlying: self.package,
             defaultLocalization: self.defaultLocalization,
             supportedPlatforms: self.supportedPlatforms,
             dependencies: self.dependencies.map(\.package.identity),
-            pluginUsages: pluginUsages,
             enabledTraits: self.enabledTraits.names,
             modules: modules,
             products: products,
