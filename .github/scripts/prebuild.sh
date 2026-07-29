@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 ##===----------------------------------------------------------------------===##
 ##
 ## This source file is part of the Swift open source project
@@ -91,4 +91,8 @@ elif command -v yum >/dev/null 2>&1 ; then # amazonlinux2
     # Debug symbols
     $sudo yum install -y yum-utils
     $sudo debuginfo-install -y glibc
+elif command -v pkg >/dev/null 2>&1 ; then # freebsd
+    $sudo pkg update
+    # $sudo pkg upgrade -y
+    $sudo pkg install -y databases/sqlite3
 fi
