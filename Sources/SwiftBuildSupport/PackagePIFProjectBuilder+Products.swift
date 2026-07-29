@@ -267,7 +267,7 @@ extension PackagePIFProjectBuilder {
 
         // Add any additional resource files emitted by synthesized build commands
         let generatedResourceFiles: [String] = {
-            var generatedResourceFiles = generatedFiles.resources.keys.map(\.pathString)
+            var generatedResourceFiles = generatedFiles.sortedResourcePaths.map(\.pathString)
             generatedResourceFiles.append(
                 contentsOf: addBuildToolCommands(
                     from: synthesizedResourceGeneratingPluginInvocationResults,
@@ -353,7 +353,7 @@ extension PackagePIFProjectBuilder {
                     sourceModuleTargetKeyPath: mainModuleTargetKeyPath,
                     resourceBundleTargetKeyPath: resourceBundleTargetKeyPath,
                     sourceFilePaths: generatedFiles.sources.map(\.self),
-                    resourceFilePaths: generatedFiles.resources.keys.map(\.pathString)
+                    resourceFilePaths: generatedFiles.sortedResourcePaths.map(\.pathString)
                 )
             } else {
                 // Generated resources always trigger the creation of a bundle accessor.
@@ -370,7 +370,7 @@ extension PackagePIFProjectBuilder {
                     sourceModuleTargetKeyPath: mainModuleTargetKeyPath,
                     resourceBundleTargetKeyPath: mainModuleTargetKeyPath,
                     sourceFilePaths: generatedFiles.sources.map(\.self),
-                    resourceFilePaths: generatedFiles.resources.keys.map(\.pathString)
+                    resourceFilePaths: generatedFiles.sortedResourcePaths.map(\.pathString)
                 )
             }
         }
@@ -545,7 +545,7 @@ extension PackagePIFProjectBuilder {
         let moduleOrProduct = PackagePIFBuilder.ModuleOrProduct(
             type: moduleOrProductType,
             name: product.name,
-            moduleName: product.c99name,
+            moduleName: mainModule.c99name,
             pifTarget: .target(self.project[keyPath: mainModuleTargetKeyPath]),
             indexableFileURLs: indexableFileURLs,
             headerFiles: headerFiles,

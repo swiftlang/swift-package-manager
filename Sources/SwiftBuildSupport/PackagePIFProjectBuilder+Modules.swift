@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+import struct TSCBasic.OrderedSet
 import TSCUtility
 
 import struct Basics.AbsolutePath
@@ -338,7 +339,7 @@ extension PackagePIFProjectBuilder {
             let (result, resourceBundle) = try addResourceBundle(
                 for: sourceModule,
                 targetKeyPath: sourceModuleTargetKeyPath,
-                generatedResourceFiles: generatedFiles.resources.keys.map(\.pathString)
+                generatedResourceFiles: generatedFiles.sortedResourcePaths.map(\.pathString)
             )
             if let resourceBundle { self.builtModulesAndProducts.append(resourceBundle) }
 
@@ -376,7 +377,7 @@ extension PackagePIFProjectBuilder {
                 sourceModuleTargetKeyPath: sourceModuleTargetKeyPath,
                 resourceBundleTargetKeyPath: resourceBundleTargetKeyPath,
                 sourceFilePaths: generatedFiles.sources.map(\.self),
-                resourceFilePaths: generatedFiles.resources.keys.map(\.pathString)
+                resourceFilePaths: generatedFiles.sortedResourcePaths.map(\.pathString)
             )
         }
 
@@ -692,7 +693,7 @@ extension PackagePIFProjectBuilder {
             indexableFileURLs.append(SourceControlURL(fileURLWithPath: resource.path))
         }
 
-        let headerFiles = Set(sourceModule.headerFileAbsolutePaths)
+        let headerFiles = OrderedSet(sourceModule.headerFileAbsolutePaths)
 
         // Add the header files with project visibility for the purpose of exposing them
         // for symbol graph generation. For non-swift API that will be done using TAPI and
@@ -967,7 +968,7 @@ extension PackagePIFProjectBuilder {
             moduleName: sourceModule.c99name,
             pifTarget: .target(self.project[keyPath: sourceModuleTargetKeyPath]),
             indexableFileURLs: indexableFileURLs,
-            headerFiles: headerFiles,
+            headerFiles: Set(headerFiles.contents),
             buildToolPluginInputs: buildToolPluginInputs,
             doccCatalogs: doccCatalogs,
             linkedPackageBinaries: linkedPackageBinaries,
