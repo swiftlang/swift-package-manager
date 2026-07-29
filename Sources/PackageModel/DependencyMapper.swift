@@ -168,7 +168,7 @@ public struct MappablePackageDependency {
         )
     }
 
-    public enum Kind {
+    public enum Kind: Equatable {
         case fileSystem(name: String?, path: String)
         case sourceControl(name: String?, location: String, requirement: PackageDependency.SourceControl.Requirement)
         case registry(id: String, requirement: PackageDependency.Registry.Requirement)
