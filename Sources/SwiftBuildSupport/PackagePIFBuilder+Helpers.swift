@@ -703,7 +703,7 @@ extension PackageGraph.ResolvedModule {
     func computeAllBuildSettings(observabilityScope: ObservabilityScope, forRemotePackage: Bool) -> AllBuildSettings {
         var allSettings = AllBuildSettings()
 
-        for (declaration, settingsAssigments) in self.underlying.buildSettings.assignments {
+        for (declaration, settingsAssigments) in self.underlying.buildSettings.assignments.sorted(by: { $0.key < $1.key }) {
             for settingAssignment in settingsAssigments {
                 // Create a build setting value; in some cases there
                 // isn't a direct mapping to Swift Build build settings.
