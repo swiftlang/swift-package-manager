@@ -3,6 +3,7 @@ import Subprocess
 import SwiftSyntax
 import SwiftParser
 
+// Utility to load up the synthesized interface file for the C module into SwiftSyntax
 public func parseInterface(headerPaths: [URL], moduleDir: URL, moduleName: String) async throws -> SourceFileSyntax {
     guard let sdkPath = try await run(.name("xcrun"), arguments: ["--show-sdk-path"], output: .string(limit: .max))
         .standardOutput?.trimmingCharacters(in: .newlines)

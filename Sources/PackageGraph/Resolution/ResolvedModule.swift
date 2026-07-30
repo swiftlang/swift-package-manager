@@ -107,31 +107,9 @@ public struct ResolvedModule {
     }
 
     /// Collect all of the plugins that the current target depends on.
-    package func pluginDependencies(satisfying environment: BuildEnvironment, capability: PluginCapability) -> [ResolvedModule] {
-        var plugins = IdentifiableSet<ResolvedModule>()
-        for dependency in self.dependencies(satisfying: environment) {
-            switch dependency {
-            case .module(let module, _):
-                if let plugin = module.underlying as? PluginModule, plugin.capability == capability {
-                    plugins.insert(module)
-                }
-            case .product(let product, _):
-                for plugin in product.modules.filter({
-                    guard let plugin = $0.underlying as? PluginModule else {
-                        return false
-                    }
-                    return plugin.capability == capability
-                }) {
-                    plugins.insert(plugin)
-                }
-            }
-        }
-        return Array(plugins)
-    }
-
     package func pluginDependencies(capability: PluginCapability) -> [ResolvedModule] {
         var plugins = IdentifiableSet<ResolvedModule>()
-        for dependency in self.dependencies {
+        for dependency in self.dependencies(satisfying: .host) {
             switch dependency {
             case .module(let module, _):
                 if let plugin = module.underlying as? PluginModule, plugin.capability == capability {

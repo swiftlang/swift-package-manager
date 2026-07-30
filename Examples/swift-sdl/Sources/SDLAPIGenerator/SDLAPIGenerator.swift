@@ -21,5 +21,7 @@ struct SDLAPIGenerator {
 
         let headerFile = URL(fileURLWithPath: CommandLine.arguments[2])
         try header.write(to: headerFile, atomically: true, encoding: .utf8)
+
+        // TODO: Generate an API header to help with the Swift bindings
     } 
 }

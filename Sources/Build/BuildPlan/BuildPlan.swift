@@ -760,7 +760,7 @@ extension BuildPlan {
         // Apply each build tool plugin used by the target in order,
         // creating a list of results (one for each plugin usage).
         var buildToolPluginResults: [BuildToolPluginInvocationResult] = []
-        for plugin in module.pluginDependencies(satisfying: buildParameters.buildEnvironment, capability: .buildTool) {
+        for plugin in module.pluginDependencies(capability: .buildTool) {
             let pluginModule = plugin.underlying as! PluginModule
 
             // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool

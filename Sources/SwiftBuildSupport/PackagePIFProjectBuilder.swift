@@ -543,7 +543,11 @@ struct PackagePIFProjectBuilder {
                 let outputDir = "\(command.pluginOutputDir)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)"
 
                 var commandLine = [command.executable] + command.arguments + [
-                    "--output-dir", outputDir
+                    "--output-dir", outputDir,
+                    "--archs", "$(ARCHS)",
+                    "--vendor", "$(LLVM_TARGET_TRIPLE_VENDOR)",
+                    "--os", "$(LLVM_TARGET_TRIPLE_OS_VERSION)$(LLVM_TARGET_TRIPLE_SUFFIX)",
+                    "--sdk", "$(SYSROOT)",
                 ]
 
                 if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {

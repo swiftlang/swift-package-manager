@@ -8,13 +8,32 @@ struct CMakeBuilder: AsyncParsableCommand {
     @Option
     var outputDir: String
 
+    @Option
+    var archs: String
+
+    @Option
+    var vendor: String
+
+    @Option
+    var os: String
+
+    @Option
+    var sdk: String?
+
     func run() async throws {
-        print("Running CMake")
+        if !FileManager.default.fileExists(atPath: outputDir) {
+            try FileManager.default.createDirectory(atPath: outputDir, withIntermediateDirectories: true)
+        }
 
         if !FileManager.default.fileExists(atPath: outputDir + "/build.ninja") {
             try await configure()
         }
 
+        try await build()
+    }
+
+    // Do the build of the static library (skipping tests and utilities)
+    func build() async throws {
         _ = try await Subprocess.run(
             .name("cmake"),
             arguments: [
@@ -22,85 +41,46 @@ struct CMakeBuilder: AsyncParsableCommand {
                 "--target", "SDL3-static"
             ],
             output: .currentStandardOutput,
-            error: .currentStandardOutput
+            error: .currentStandardError
         )
-
-        print("CMakeBuilder complete")
     }
 
+    // Run the configure step of the CMake build
     func configure() async throws {
+        let toolchainFile = outputDir + "/cmake.toolchain"
+        try generateToolchain(toolchainFile: toolchainFile)
+
         let result = try await Subprocess.run(
             .name("cmake"),
             arguments: [
                 "-G", "Ninja",
                 "-B", outputDir,
+                "--toolchain", toolchainFile,
                 "-DSDL_STATIC=ON",
                 "-DSDL_SHARED=OFF",
             ],
             output: .currentStandardOutput,
-            error: .currentStandardOutput
+            error: .currentStandardError
         )
         guard result.terminationStatus.isSuccess else {
+            print("ouch!!!")
             throw CMakeError.configureError(result.terminationStatus)
         }
     }
-
-       /*
-        run
-           guard try run(title: "cmake configure", command: [
-                "cmake",
-                "-S", context.package.directoryURL.path,
-                "-B", context.pluginWorkDirectoryURL.path,
-                "-G", "Ninja",
-                "--toolchain", toolchainFile.path,
-                "-DSDL_STATIC=ON",
-                "-DSDL_SHARED=OFF",
-            ]) else {
-                return
-            }
-        */
     
-
-    /*
-    func build(context: PluginContext, arguments: [String], buildContext: BuildContext) async throws {
-        let toolchainFile = context.pluginWorkDirectoryURL.appending(path: "toolchain.cmake")
-        if !FileManager.default.fileExists(atPath: toolchainFile.path) {
-            guard try genToolchain(file: toolchainFile, buildContext: buildContext) else {
-                return
-            }
-
-            guard try run(title: "cmake configure", command: [
-                "cmake",
-                "-S", context.package.directoryURL.path,
-                "-B", context.pluginWorkDirectoryURL.path,
-                "-G", "Ninja",
-                "--toolchain", toolchainFile.path,
-                "-DSDL_STATIC=ON",
-                "-DSDL_SHARED=OFF",
-            ]) else {
-                return
-            }
-        }
-
-        _ = try run(title: "cmake build", command: [
-            "cmake",
-            "--build", context.pluginWorkDirectoryURL.path,
-            "--target", "SDL3-static"
-        ])
-    }
-
-    func genToolchain(file: URL, buildContext: BuildContext) throws -> Bool {
+    // Generate the toolchain for the build
+    func generateToolchain(toolchainFile: String) throws {
         let contents: String
-        let tripleComps = buildContext.triple.split(separator: "-")
-        let arch = tripleComps[0]
-        let vendor = tripleComps[1]
-        let os = tripleComps[2]
-        
-        if vendor == "apple", os.hasPrefix("macosx") {
-            let version = os[os.index(os.startIndex, offsetBy: 6)...]
+
+        // TODO multiple archs
+        let arch = archs
+        let triple = "\(arch)-\(vendor)-\(os)"
+
+        if vendor == "apple", os.hasPrefix("macos") {
+            let version = os[os.index(os.startIndex, offsetBy: 5)...]
             
             let sysroot: String
-            if let sdkPath = buildContext.sdkPath?.path {
+            if let sdkPath = sdk {
                 sysroot = "\n\n" + """
                 set(CMAKE_OSX_SYSROOT \(sdkPath))
                 """
@@ -124,9 +104,9 @@ struct CMakeBuilder: AsyncParsableCommand {
             set(CMAKE_SYSTEM_PROCESSOR \(arch))
 
             set(CMAKE_C_COMPILER clang)
-            set(CMAKE_C_COMPILER_TARGET \(buildContext.triple))
+            set(CMAKE_C_COMPILER_TARGET \(triple))
             set(CMAKE_CXX_COMPILER clang++)
-            set(CMAKE_CXX_COMPILER_TARGET \(buildContext.triple))
+            set(CMAKE_CXX_COMPILER_TARGET \(triple))
 
             # Where to find the target's headers/libs
             #set(CMAKE_SYSROOT /path/to/sysroot)
@@ -139,30 +119,14 @@ struct CMakeBuilder: AsyncParsableCommand {
             #set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
             """
         } else {
-            Diagnostics.error("unknown triple: \(buildContext.triple)")
-            return false
+            throw CMakeError.badTriple(triple)
         }
 
-        try contents.write(to: file, atomically: true, encoding: .utf8)
-        return true
+        try contents.write(toFile: toolchainFile, atomically: true, encoding: .utf8)
     }
-
-    func run2(title: String, command: [String]) throws -> Bool {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/env")
-        process.arguments = command
-        try process.run()
-        process.waitUntilExit()
-        if process.terminationStatus != 0 {
-            Diagnostics.error("\(title) failed: \(process.terminationStatus)")
-            return false
-        } else {
-            return true
-        }
-    }
-    */
 }
 
 enum CMakeError: Error {
     case configureError(TerminationStatus)
+    case badTriple(String)
 }

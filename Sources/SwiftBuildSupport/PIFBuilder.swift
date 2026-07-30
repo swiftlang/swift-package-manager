@@ -248,10 +248,7 @@ public final class PIFBuilder {
     ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] {
         let pluginScriptRunner = self.parameters.pluginScriptRunner
 
-        let pluginsPerModule = graph.pluginsPerModule(
-            satisfying: buildParameters.buildEnvironment, // .buildEnvironment(for: .host)
-            capability: .buildTool
-        )
+        let pluginsPerModule = graph.pluginsPerModule(capability: .buildTool)
 
         let availablePluginTools = try await availableBuildPluginTools(
             graph: graph,
@@ -275,7 +272,7 @@ public final class PIFBuilder {
                 var buildCommands: [PackagePIFBuilder.CustomBuildCommand] = []
                 var prebuildCommands: [BuildToolPluginInvocationResult.PrebuildCommand] = []
 
-                for plugin in module.pluginDependencies(satisfying: buildParameters.buildEnvironment, capability: .buildTool) {
+                for plugin in module.pluginDependencies(capability: .buildTool) {
                     let pluginModule = plugin.underlying as! PluginModule
 
                     // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
@@ -379,7 +376,7 @@ public final class PIFBuilder {
                     prebuildCommands.append(contentsOf: result.prebuildCommands)
 
                     buildCommands.append(contentsOf: result.buildCommands.map({ buildCommand in
-                        .init(
+                        PackagePIFBuilder.CustomBuildCommand(
                             buildCommand: buildCommand,
                             package: package,
                             pluginOutputDir: pluginOutputDir,
@@ -424,7 +421,7 @@ public final class PIFBuilder {
             var externalBuilderMap: [ResolvedModule.ID: [ResolvedModule]] = [:] // plugin id to modules that use it
             for module in package.modules {
                 // TODO: a module should only allow one external builder plugin?
-                for plugin in module.pluginDependencies(satisfying: buildParameters.buildEnvironment, capability: .externalBuilder) {
+                for plugin in module.pluginDependencies(capability: .externalBuilder) {
                     externalBuilders.insert(plugin)
                     externalBuilderMap[plugin.id, default: []].append(module)
                 }

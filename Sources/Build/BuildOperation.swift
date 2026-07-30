@@ -763,10 +763,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         // we need to build and invoke all of the build-tool plugins and capture their outputs in
         // `BuildPlan`.
         if let pluginConfiguration: PluginConfiguration, !self.config.shouldSkipBuilding(for: .target) {
-            let pluginsPerModule = graph.pluginsPerModule(
-                satisfying: self.config.buildEnvironment(for: .host),
-                capability: .buildTool
-            )
+            let pluginsPerModule = graph.pluginsPerModule(capability: .buildTool)
 
             pluginTools = try await buildPluginTools(
                 graph: graph,

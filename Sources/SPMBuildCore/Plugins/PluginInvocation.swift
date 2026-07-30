@@ -624,16 +624,10 @@ fileprivate extension PluginToHostMessage {
 }
 
 extension ModulesGraph {
-    public func pluginsPerModule(
-        satisfying buildEnvironment: BuildEnvironment,
-        capability: PluginCapability
-    ) -> [ResolvedModule.ID: [ResolvedModule]] {
+    public func pluginsPerModule(capability: PluginCapability) -> [ResolvedModule.ID: [ResolvedModule]] {
         var pluginsPerModule = [ResolvedModule.ID: [ResolvedModule]]()
         for module in self.allModules.sorted(by: { $0.name < $1.name }) {
-            let pluginDependencies = module.pluginDependencies(
-                satisfying: buildEnvironment,
-                capability: capability
-            )
+            let pluginDependencies = module.pluginDependencies(capability: capability)
             if !pluginDependencies.isEmpty {
                 pluginsPerModule[module.id] = pluginDependencies
             }

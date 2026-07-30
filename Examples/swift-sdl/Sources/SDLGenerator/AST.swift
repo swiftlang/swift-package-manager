@@ -13,6 +13,7 @@ public class ASTNode: Decodable {
     }
 }
 
+// Utility to create a clang AST from the module's umbrella header file
 public func loadAST(headerPaths: [URL], headerFile: URL) async throws -> ASTNode {
     var clangArgs: [String] = [
         "-Xclang", "-ast-dump=json", "-fsyntax-only",
