@@ -898,6 +898,7 @@ public final class PackageBuilder {
             return ExternalLibrary(
                 name: potentialModule.name,
                 path: potentialModule.path, // TODO: and here
+                dependencies: dependencies,
                 buildSettings: buildSettings,
                 buildSettingsDescription: manifestTarget.settings
             )

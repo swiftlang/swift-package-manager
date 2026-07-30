@@ -418,8 +418,8 @@ public final class PIFBuilder {
                 }
             }
 
-            // Run external build plugins if they are used by the targets
-            var externalBuilderResults: [String: PackagePIFBuilder.ExternalBuilderPluginInvocationResult] = [:]
+            // Run external build plugins that are used by this package's modules
+            var externalBuilderResults: [PackagePIFBuilder.ExternalBuilderPluginInvocationResult] = []
             var externalBuilders: IdentifiableSet<ResolvedModule> = []
             var externalBuilderMap: [ResolvedModule.ID: [ResolvedModule]] = [:] // plugin id to modules that use it
             for module in package.modules {
@@ -434,7 +434,7 @@ public final class PIFBuilder {
                 guard let builderPlugin = builder.underlying as? PluginModule else {
                     throw InternalError("but it's supposed to be a plugin module")
                 }
-                let pluginOutputDirectory = builder.pluginOutputPath(packageIdentity: package.identity, pluginRoot: parameters.pluginWorkingDirectory)
+                let pluginOutputDirectory = builder.pluginOutputPath(forPackage: package.identity, pluginWorkingDirectory: parameters.pluginWorkingDirectory)
 
                 var targetNameToProductName: [String: String] = [:]
                 for package in graph.packages {
@@ -490,7 +490,7 @@ public final class PIFBuilder {
                         disableSandbox: self.parameters.disableSandbox
                     )
                 }
-                externalBuilderResults[builderPlugin.name] = .init(buildCommands: buildCommands)
+                externalBuilderResults.append(.init(buildCommands: buildCommands))
             }
 
             let packagePIFBuilderDelegate = PackagePIFBuilderDelegate(

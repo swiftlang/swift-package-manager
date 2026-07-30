@@ -1076,6 +1076,32 @@ extension PackagePIFProjectBuilder {
             )
         }
 
+        let externalFiles: [FileReference] = resolvedExternalLibrary.pluginDependencies(capability: .externalBuilder).map { plugin in
+            let pluginOutputDir = plugin.pluginOutputPath(forPackage: resolvedExternalLibrary.packageIdentity, pluginWorkingDirectory: pifBuilder.pluginWorkingDirectory)
+
+            return self.binaryGroup.addFileReference { id in
+                // TODO: need to support other naming schemes like Windows
+                return FileReference(id: id, path: "\(pluginOutputDir)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/lib\(resolvedExternalLibrary.name).a")
+            }
+        }
+
+        if !externalFiles.isEmpty {
+            self.project[keyPath: externalLibraryTargetKeyPath].common.addCopyFilesBuildPhase { id in
+                var phase = ProjectModel.CopyFilesBuildPhase(
+                    common: .init(id: id),
+                    destinationSubfolder: .builtProductsDir
+                )
+
+                for file in externalFiles {
+                    phase.common.addBuildFile { id in
+                        BuildFile(id: id, fileRef: file)
+                    }
+                }
+
+                return phase
+            }
+        }
+
         let allBuildSettings = resolvedExternalLibrary.computeAllBuildSettings(
             observabilityScope: pifBuilder.observabilityScope,
             packagePath: self.package.path,
@@ -1113,9 +1139,9 @@ extension PackagePIFProjectBuilder {
 }
 
 extension ResolvedModule {
-    func pluginOutputPath(packageIdentity: PackageIdentity, pluginRoot: AbsolutePath) -> AbsolutePath {
-        pluginRoot.appending(components: [
-            "package",
+    func pluginOutputPath(forPackage: PackageIdentity, pluginWorkingDirectory: AbsolutePath) -> AbsolutePath {
+        pluginWorkingDirectory.appending(components: [
+            "external",
             packageIdentity.c99name,
             self.name
         ])

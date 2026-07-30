@@ -50,7 +50,7 @@ extension PackagePIFBuilder {
 
         public init(
             prebuildCommandOutputPaths: [AbsolutePath],
-            buildCommands: [CustomBuildCommand]
+            buildCommands: [CustomBuildCommand],
         ) {
             self.prebuildCommandOutputPaths = prebuildCommandOutputPaths
             self.buildCommands = buildCommands
@@ -58,6 +58,7 @@ extension PackagePIFBuilder {
     }
 
     public struct ExternalBuilderPluginInvocationResult: Equatable {
+        /// Build commands to incorporate into the dependency graph.
         public let buildCommands: [CustomBuildCommand]
     }
 

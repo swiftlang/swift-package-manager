@@ -16,6 +16,7 @@ public class ExternalLibrary: Module {
     public init(
         name: String,
         path: AbsolutePath,
+        dependencies: [Module.Dependency],
         buildSettings: BuildSettings.AssignmentTable,
         buildSettingsDescription: [TargetBuildSettingDescription.Setting]
     ) {
@@ -24,7 +25,7 @@ public class ExternalLibrary: Module {
             type: .externalLibrary,
             path: path,
             sources: .init(paths: [], root: path),
-            dependencies: [],
+            dependencies: dependencies,
             packageAccess: false,
             buildSettings: buildSettings,
             buildSettingsDescription: buildSettingsDescription,

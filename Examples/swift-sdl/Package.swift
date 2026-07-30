@@ -44,8 +44,10 @@ let package = Package(
                         .linkedFramework("Foundation", .when(platforms: [.macOS])),
                         .linkedFramework("GameController", .when(platforms: [.macOS])),
                         .linkedFramework("Metal", .when(platforms: [.macOS])),
+                        .linkedFramework("UserNotifications", .when(platforms: [.macOS])),
                         .linkedFramework("QuartzCore", .when(platforms: [.macOS])),
-                        .linkedFramework("CoreHaptics", .when(platforms: [.macOS]))
+                        .linkedFramework("Security", .when(platforms: [.macOS])),
+                        .linkedFramework("CoreHaptics", .when(platforms: [.macOS])),
                     ],
                     plugins: [
                         "CMakeBuilderPlugin"

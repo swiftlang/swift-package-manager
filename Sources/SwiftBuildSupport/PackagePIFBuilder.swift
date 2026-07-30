@@ -173,8 +173,8 @@ public final class PackagePIFBuilder {
     /// Records the results of applying build tool plugins to modules in the package.
     let buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]]
 
-    /// The results from the external builder plugin keyed by the plugin module name
-    let externalBuilderResults: [String: PackagePIFBuilder.ExternalBuilderPluginInvocationResult]
+    /// The results from the external builder plugins
+    let externalBuilderResults: [PackagePIFBuilder.ExternalBuilderPluginInvocationResult]
 
     /// Whether to create dynamic libraries for dynamic products.
     ///
@@ -235,7 +235,7 @@ public final class PackagePIFBuilder {
         packageManifest: PackageModel.Manifest,
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: [BuildToolPluginInvocationResult]],
-        externalBuilderResults: [String: ExternalBuilderPluginInvocationResult],
+        externalBuilderResults: [ExternalBuilderPluginInvocationResult],
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
@@ -269,7 +269,7 @@ public final class PackagePIFBuilder {
         packageManifest: PackageModel.Manifest,
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
-        externalBuilderResults: [String: ExternalBuilderPluginInvocationResult],
+        externalBuilderResults: [ExternalBuilderPluginInvocationResult],
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,

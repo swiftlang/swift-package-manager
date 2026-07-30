@@ -429,7 +429,7 @@ private func createResolvedPackages(
 
     // Create package builders for external packages
     packageBuilders.append(contentsOf: packageBuilders.flatMap { parent in
-        parent.externalPackages = parent.package.manifest.externals.compactMap { external in
+        parent.package.manifest.externals.compactMap { external in
             guard let package = manifestToPackage[external] else {
                 return nil
             }
@@ -440,10 +440,10 @@ private func createResolvedPackages(
                 enabledTraits: parent.enabledTraits, // TODO: traits for external?
                 isAllowedToVendUnsafeProducts: true,
                 allowedToOverride: false,
-                platformVersionProvider: parent.platformVersionProvider
+                platformVersionProvider: parent.platformVersionProvider,
+                parentPackage: parent
             )
         }
-        return parent.externalPackages
     })
 
     // Create a map of package builders keyed by the package identity.
@@ -635,7 +635,13 @@ private func createResolvedPackages(
                 switch dependency {
                 case .module(let moduleDependency, let conditions):
                     try moduleBuilder.module.validateDependency(module: moduleDependency)
-                    guard let dependencyBuilder = modulesMap[moduleDependency] else {
+                    let dependencyBuilder: ResolvedModuleBuilder?
+                    if let parentPackage = packageBuilder.parentPackage {
+                        dependencyBuilder = parentPackage.modules.first(where: { $0.module == moduleDependency })
+                    } else {
+                        dependencyBuilder = modulesMap[moduleDependency]
+                    }
+                    guard let dependencyBuilder else {
                         throw InternalError("unknown target \(moduleDependency.name)")
                     }
                     if moduleBuilder.module.type == .test && dependencyBuilder.module.type == .test
@@ -1627,7 +1633,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
     var dependencies: [ResolvedPackageBuilder] = []
 
     /// For an external package, the parent package
-    var externalPackages: [ResolvedPackageBuilder] = []
+    var parentPackage: ResolvedPackageBuilder?
 
     /// The prebuilt libraries for this package
     var prebuilts: [String: PrebuiltLibrary]?
@@ -1655,7 +1661,8 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         isAllowedToVendUnsafeProducts: Bool,
         allowedToOverride: Bool,
         platformVersionProvider: PlatformVersionProvider,
-        prebuilts: [String: PrebuiltLibrary]? = [:]
+        prebuilts: [String: PrebuiltLibrary]? = [:],
+        parentPackage: ResolvedPackageBuilder? = nil
     ) {
         self.package = package
         self.productFilter = productFilter
@@ -1664,6 +1671,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         self.allowedToOverride = allowedToOverride
         self.platformVersionProvider = platformVersionProvider
         self.prebuilts = prebuilts
+        self.parentPackage = parentPackage
     }
 
     override func constructImpl() throws -> ResolvedPackage {

@@ -291,6 +291,15 @@ extension PackageModel.Module {
         }
     }
 
+    var isExternalLibrary: Bool {
+        switch self.type {
+        case .externalLibrary:
+            true
+        case .library, .executable, .snippet, .test, .plugin, .macro, .systemModule, .binary:
+            false
+        }
+    }
+
     /// Is this a source module? i.e., one that's compiled into a module from source code.
     var isSourceModule: Bool {
         switch self.type {
@@ -444,6 +453,7 @@ extension PackageGraph.ResolvedPackage {
 extension PackageGraph.ResolvedModule {
     var isExecutable: Bool { self.underlying.isExecutable }
     var isBinary: Bool { self.underlying.isBinary }
+    var isExternalLibrary: Bool { self.underlying.isExternalLibrary }
     var isSourceModule: Bool { self.underlying.isSourceModule }
 
     /// The path of the module.
@@ -1063,7 +1073,7 @@ extension Collection<PackageGraph.ResolvedModule> {
 
                 // We need to visit any binary modules to be able to add direct references to them to any client targets.
                 // This is needed so that XCFramework processing always happens *prior* to building any client targets.
-                for moduleDependency in productDependency.modules where moduleDependency.isBinary {
+                for moduleDependency in productDependency.modules where moduleDependency.isBinary || moduleDependency.isExternalLibrary {
                     if moduleIDsSeen.contains(moduleDependency.id) { continue }
                     block(.module(moduleDependency, conditions: conditions))
                 }

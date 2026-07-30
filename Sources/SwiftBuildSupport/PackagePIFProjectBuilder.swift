@@ -523,7 +523,7 @@ struct PackagePIFProjectBuilder {
     }
 
     mutating func addExternalBuildComands() throws {
-        for (pluginName, results) in pifBuilder.externalBuilderResults {
+        for results in pifBuilder.externalBuilderResults {
             // Create target for the external build
             // TODO: Should this be one per plugin?
             let package = self.package

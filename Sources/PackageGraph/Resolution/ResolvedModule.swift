@@ -113,7 +113,28 @@ public struct ResolvedModule {
             switch dependency {
             case .module(let module, _):
                 if let plugin = module.underlying as? PluginModule, plugin.capability == capability {
-                    assert(plugin.capability == .buildTool)
+                    plugins.insert(module)
+                }
+            case .product(let product, _):
+                for plugin in product.modules.filter({
+                    guard let plugin = $0.underlying as? PluginModule else {
+                        return false
+                    }
+                    return plugin.capability == capability
+                }) {
+                    plugins.insert(plugin)
+                }
+            }
+        }
+        return Array(plugins)
+    }
+
+    package func pluginDependencies(capability: PluginCapability) -> [ResolvedModule] {
+        var plugins = IdentifiableSet<ResolvedModule>()
+        for dependency in self.dependencies {
+            switch dependency {
+            case .module(let module, _):
+                if let plugin = module.underlying as? PluginModule, plugin.capability == capability {
                     plugins.insert(module)
                 }
             case .product(let product, _):

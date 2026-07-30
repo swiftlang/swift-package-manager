@@ -479,7 +479,44 @@ extension PackagePIFProjectBuilder {
                         "Added linked dependency on target '\(dependencyGUID)'"
                     )
 
-                case .systemModule, .externalLibrary:
+                case .systemModule:
+                    let dependencyGUID = moduleDependency.pifTargetGUID
+                    mainModuleTarget.common.addDependency(
+                        on: dependencyGUID,
+                        platformFilters: packageConditions
+                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        linkProduct: false
+                    )
+                    log(
+                        .debug,
+                        indent: 1,
+                        "Added dependency on target '\(dependencyGUID)'"
+                    )
+
+                case .externalLibrary:
+                    let externalFiles: [FileReference] = moduleDependency.pluginDependencies(capability: .externalBuilder).compactMap { plugin in
+                        let pluginOutputDir = plugin.pluginOutputPath(forPackage: moduleDependency.packageIdentity, pluginWorkingDirectory: pifBuilder.pluginWorkingDirectory)
+
+                        return self.binaryGroup.addFileReference { id in
+                            // TODO: need to support other naming schemes like Windows
+                            return FileReference(id: id, path: "\(pluginOutputDir)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/lib\(moduleDependency.name).a")
+                        }
+                    }
+
+                    if !externalFiles.isEmpty {
+                        let toolsVersion = self.package.manifest.toolsVersion
+                        for file in externalFiles {
+                            mainModuleTarget.addLibrary { id in
+                                BuildFile(
+                                    id: id,
+                                    fileRef: file,
+                                    platformFilters: packageConditions.toPlatformFilter(toolsVersion: toolsVersion),
+                                )
+                            }
+                        }
+                        log(.debug, indent: 1, "Added use of external library '\(moduleDependency.path)'")
+                    }
+
                     let dependencyGUID = moduleDependency.pifTargetGUID
                     mainModuleTarget.common.addDependency(
                         on: dependencyGUID,
@@ -690,14 +727,13 @@ extension PackagePIFProjectBuilder {
                 log(.debug, indent: 1, "Added use of binary library '\(binaryTarget.artifactPath)'")
                 continue
             }
-            // TODO: Hook up external libraries
             // We add these as linked dependencies; because the product type is `.packageProduct`,
             // SwiftBuild won't actually link them, but will instead impart linkage to any clients that
             // link against the package product.
             libraryUmbrellaTargetForModules.common.addDependency(
                 on: module.pifTargetGUID,
                 platformFilters: [],
-                linkProduct: true
+                linkProduct: !(module.underlying is ExternalLibrary) // don't link external libs
             )
             log(.debug, indent: 1, "Added linked dependency on target '\(module.pifTargetGUID)'")
         }
@@ -815,6 +851,15 @@ extension PackagePIFProjectBuilder {
                         )
                     }
                     log(.debug, indent: 1, "Added use of binary library '\(binaryTarget.path)'")
+                    return
+                }
+
+                if moduleDependency.type == .externalLibrary {
+                    libraryUmbrellaTarget.common.addDependency(
+                        on: moduleDependency.pifTargetGUID,
+                        platformFilters: packageConditions.toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        linkProduct: false
+                    )
                     return
                 }
 
