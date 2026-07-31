@@ -402,8 +402,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         case .systemModule:
             try self.addSystemTarget(for: target)
         case .externalLibrary:
-            // TODO: Should be very similar to the system target except no sources but impart the settings
-            fatalError("TODO this is for the money")
+            fatalError("Not supported by the xcode builder")
         case .executable, .snippet, .test:
             // Skip executable module targets and test module targets (they will have been dealt with as part of the
             // products to which they belong).

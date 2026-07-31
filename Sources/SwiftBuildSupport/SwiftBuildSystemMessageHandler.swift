@@ -270,9 +270,6 @@ public final class SwiftBuildSystemMessageHandler {
             }
         case .output(let info):
             // Append to buffer-per-task storage
-            if let text = String(data: info.data, encoding: .utf8) {
-                print(text, terminator: "")
-            }
             buildState.appendToBuffer(info)
         case .taskStarted(let info):
             try buildState.started(task: info, self.logLevel)

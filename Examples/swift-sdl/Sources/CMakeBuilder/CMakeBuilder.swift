@@ -1,39 +1,33 @@
 import Foundation
-import ArgumentParser
 import Subprocess
 import TSCBasic
+import Foundation
 
 @main
-struct CMakeBuilder: AsyncParsableCommand {
-    @Option
-    var outputDir: String
+struct CMakeBuilder {
+    static func main() async throws {
+        let outputDir = try CommandLine.arguments[1] + "/" + getEnv("SWIFT_CONFIGURATION") + getEnv("SWIFT_PLATFORM")
 
-    @Option
-    var archs: String
-
-    @Option
-    var vendor: String
-
-    @Option
-    var os: String
-
-    @Option
-    var sdk: String?
-
-    func run() async throws {
         if !FileManager.default.fileExists(atPath: outputDir) {
             try FileManager.default.createDirectory(atPath: outputDir, withIntermediateDirectories: true)
         }
 
         if !FileManager.default.fileExists(atPath: outputDir + "/build.ninja") {
-            try await configure()
+            try await configure(outputDir: outputDir)
         }
 
-        try await build()
+        try await build(outputDir: outputDir)
+    }
+
+    static func getEnv(_ name: String) throws -> String {
+        guard let value = ProcessInfo.processInfo.environment[name] else {
+            throw CMakeError.missingEnvVar(name)
+        }
+        return value
     }
 
     // Do the build of the static library (skipping tests and utilities)
-    func build() async throws {
+    static func build(outputDir: String) async throws {
         _ = try await Subprocess.run(
             .name("cmake"),
             arguments: [
@@ -46,7 +40,7 @@ struct CMakeBuilder: AsyncParsableCommand {
     }
 
     // Run the configure step of the CMake build
-    func configure() async throws {
+    static func configure(outputDir: String) async throws {
         let toolchainFile = outputDir + "/cmake.toolchain"
         try generateToolchain(toolchainFile: toolchainFile)
 
@@ -69,24 +63,20 @@ struct CMakeBuilder: AsyncParsableCommand {
     }
     
     // Generate the toolchain for the build
-    func generateToolchain(toolchainFile: String) throws {
+    static func generateToolchain(toolchainFile: String) throws {
         let contents: String
 
         // TODO multiple archs
-        let arch = archs
-        let triple = "\(arch)-\(vendor)-\(os)"
+        let arch = try getEnv("SWIFT_ARCHS")
+        let vendor = try getEnv("SWIFT_VENDOR")
+        let os = try getEnv("SWIFT_OS")
+        let suffix = try getEnv("SWIFT_SUFFIX")
+        let triple = "\(arch)-\(vendor)-\(os)\(suffix)"
+
+        let sdk = try getEnv("SWIFT_SDK")
 
         if vendor == "apple", os.hasPrefix("macos") {
             let version = os[os.index(os.startIndex, offsetBy: 5)...]
-            
-            let sysroot: String
-            if let sdkPath = sdk {
-                sysroot = "\n\n" + """
-                set(CMAKE_OSX_SYSROOT \(sdkPath))
-                """
-            } else {
-                sysroot = ""
-            }
             
             contents = """
             set(CMAKE_SYSTEM_NAME Darwin)
@@ -94,10 +84,11 @@ struct CMakeBuilder: AsyncParsableCommand {
 
             set(CMAKE_OSX_DEPLOYMENT_TARGET \(version))
             set(CMAKE_OSX_ARCHITECTURES \(arch))
+            set(CMAKE_OSX_SYSROOT \(sdk))
 
             set(CMAKE_C_COMPILER   clang)
             set(CMAKE_CXX_COMPILER clang++)
-            """ + sysroot
+            """
         } else if vendor == "linux" {
             contents = """
             set(CMAKE_SYSTEM_NAME Linux)
@@ -129,4 +120,6 @@ struct CMakeBuilder: AsyncParsableCommand {
 enum CMakeError: Error {
     case configureError(TerminationStatus)
     case badTriple(String)
+    case missingEnvVar(String)
+    case boom
 }

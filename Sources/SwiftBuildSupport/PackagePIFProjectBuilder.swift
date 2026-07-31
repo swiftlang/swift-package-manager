@@ -540,24 +540,25 @@ struct PackagePIFProjectBuilder {
 
             // Add in the custom task for the build commands
             for command in results.buildCommands {
-                let outputDir = "\(command.pluginOutputDir)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)"
-
-                var commandLine = [command.executable] + command.arguments + [
-                    "--output-dir", outputDir,
-                    "--archs", "$(ARCHS)",
-                    "--vendor", "$(LLVM_TARGET_TRIPLE_VENDOR)",
-                    "--os", "$(LLVM_TARGET_TRIPLE_OS_VERSION)$(LLVM_TARGET_TRIPLE_SUFFIX)",
-                    "--sdk", "$(SYSROOT)",
-                ]
+                var commandLine = [command.executable] + command.arguments
 
                 if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
                     commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
                 }
 
+                var environment = command.environment
+                environment["SWIFT_CONFIGURATION"] = "$(CONFIGURATION)"
+                environment["SWIFT_PLATFORM"] = "$(EFFECTIVE_PLATFORM_NAME)"
+                environment["SWIFT_ARCHS"] = "$(ARCHS)"
+                environment["SWIFT_VENDOR"] = "$(LLVM_TARGET_TRIPLE_VENDOR)"
+                environment["SWIFT_OS"] = "$(LLVM_TARGET_TRIPLE_OS_VERSION)"
+                environment["SWIFT_SUFFIX"] = "$(LLVM_TARGET_TRIPLE_SUFFIX)"
+                environment["SWIFT_SDK"] = "$(SYSROOT)"
+
                 self.project[keyPath: externalTargetKeyPath].customTasks.append(
                     ProjectModel.CustomTask(
                         commandLine: commandLine,
-                        environment: command.environment.map { Pair($0, $1) }.sorted(by: <),
+                        environment: environment.map { Pair($0, $1) }.sorted(by: <),
                         workingDirectory: command.workingDir?.pathString,
                         executionDescription: command.displayName ?? "Performing external build",
                         inputFilePaths: [command.executable] + command.inputPaths.map(\.pathString),
