@@ -15,8 +15,8 @@ import Testing
 import X509
 @testable import RegistryExample
 
-@Suite("IdentityProvider")
-struct IdentityProviderTests {
+@Suite("ClientProvider")
+struct ClientProviderTests {
     private struct TestCertificate {
         let pem: String
         let thumbprint: String
@@ -64,78 +64,78 @@ struct IdentityProviderTests {
         User(email: try #require(EmailAddress(raw)), credential: .password(hash: "bcrypt"))
     }
 
-    private func identity(_ user: User, thumbprint: String) -> Identity {
-        Identity(user: user, id: Identity.ID(rootCertificateAuthority: .selfSign, value: thumbprint))
+    private func client(_ user: User, thumbprint: String) -> Client {
+        Client(user: user, id: Client.ID(rootCertificateAuthority: .selfSign, value: thumbprint))
     }
 
-    @Test func `resolves the identity registered under a self-signed certificate's thumbprint`() async throws {
-        let store = IdentityStore()
-        let harrysLaptop = identity(try user("harry@example.com"), thumbprint: harrysLaptopCertificate.thumbprint)
+    @Test func `resolves the client registered under a self-signed certificate's thumbprint`() async throws {
+        let store = ClientStore()
+        let harrysLaptop = client(try user("harry@example.com"), thumbprint: harrysLaptopCertificate.thumbprint)
         try await store.create(harrysLaptop)
-        let provider = IdentityProvider(store: store)
-        let extracted = try await provider.extractIdentity(
+        let provider = ClientProvider(store: store)
+        let extracted = try await provider.extractClient(
             from: try harrysLaptopCertificate.certificate(),
             rootCertificateAuthority: .selfSign
         )
         #expect(extracted == harrysLaptop)
     }
 
-    @Test func `returns nil for a certificate no identity is registered under`() async throws {
-        let store = IdentityStore()
+    @Test func `returns nil for a certificate no client is registered under`() async throws {
+        let store = ClientStore()
         try await store.create(
-            identity(try user("harry@example.com"), thumbprint: harrysLaptopCertificate.thumbprint)
+            client(try user("harry@example.com"), thumbprint: harrysLaptopCertificate.thumbprint)
         )
-        let provider = IdentityProvider(store: store)
-        let extracted = try await provider.extractIdentity(
+        let provider = ClientProvider(store: store)
+        let extracted = try await provider.extractClient(
             from: try hermionesLaptopCertificate.certificate(),
             rootCertificateAuthority: .selfSign
         )
         #expect(extracted == nil)
     }
 
-    @Test func `returns nil when the store holds no identities`() async throws {
-        let provider = IdentityProvider(store: IdentityStore())
-        let extracted = try await provider.extractIdentity(
+    @Test func `returns nil when the store holds no clients`() async throws {
+        let provider = ClientProvider(store: ClientStore())
+        let extracted = try await provider.extractClient(
             from: try harrysLaptopCertificate.certificate(),
             rootCertificateAuthority: .selfSign
         )
         #expect(extracted == nil)
     }
 
-    @Test func `resolves each certificate to its own user's identity`() async throws {
-        let store = IdentityStore()
-        let harrysLaptop = identity(try user("harry@example.com"), thumbprint: harrysLaptopCertificate.thumbprint)
-        let hermionesLaptop = identity(
+    @Test func `resolves each certificate to its own user's client`() async throws {
+        let store = ClientStore()
+        let harrysLaptop = client(try user("harry@example.com"), thumbprint: harrysLaptopCertificate.thumbprint)
+        let hermionesLaptop = client(
             try user("hermione@example.com"),
             thumbprint: hermionesLaptopCertificate.thumbprint
         )
         try await store.create(harrysLaptop)
         try await store.create(hermionesLaptop)
-        let provider = IdentityProvider(store: store)
+        let provider = ClientProvider(store: store)
         #expect(
-            try await provider.extractIdentity(
+            try await provider.extractClient(
                 from: try harrysLaptopCertificate.certificate(),
                 rootCertificateAuthority: .selfSign
             ) == harrysLaptop
         )
         #expect(
-            try await provider.extractIdentity(
+            try await provider.extractClient(
                 from: try hermionesLaptopCertificate.certificate(),
                 rootCertificateAuthority: .selfSign
             ) == hermionesLaptop
         )
     }
 
-    @Test func `the same certificate resolves the same identity on every request`() async throws {
-        let store = IdentityStore()
-        let harrysLaptop = identity(try user("harry@example.com"), thumbprint: harrysLaptopCertificate.thumbprint)
+    @Test func `the same certificate resolves the same client on every request`() async throws {
+        let store = ClientStore()
+        let harrysLaptop = client(try user("harry@example.com"), thumbprint: harrysLaptopCertificate.thumbprint)
         try await store.create(harrysLaptop)
-        let provider = IdentityProvider(store: store)
-        let first = try await provider.extractIdentity(
+        let provider = ClientProvider(store: store)
+        let first = try await provider.extractClient(
             from: try harrysLaptopCertificate.certificate(),
             rootCertificateAuthority: .selfSign
         )
-        let second = try await provider.extractIdentity(
+        let second = try await provider.extractClient(
             from: try harrysLaptopCertificate.certificate(),
             rootCertificateAuthority: .selfSign
         )

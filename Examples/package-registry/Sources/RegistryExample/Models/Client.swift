@@ -10,17 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-public struct Identity: Sendable, Equatable {
-    /// User the identity belongs to
+public struct Client: Sendable, Equatable {
+    /// User the client belongs to
     public let user: User
-    /// The root CA + ID string that uniquely identifies the identity
+    /// The root CA + ID string that uniquely identifies the client
     public let id: ID
 
-    /// An identity makes authenticated requests on behalf of the user
-    /// 
+    /// A client makes authenticated requests on behalf of the user
+    ///
     /// - Parameters:
-    ///   - user: User the identity belongs to
-    ///   - id: The root CA + ID string that uniquely identifies the identity
+    ///   - user: User the client belongs to
+    ///   - id: The root CA + ID string that uniquely identifies the client
     public init(user: User, id: ID) {
         self.user = user
         self.id = id
@@ -29,13 +29,13 @@ public struct Identity: Sendable, Equatable {
     public struct ID: Hashable, Sendable {
         /// An enum of the accepted root CAs for this registry
         public let rootCertificateAuthority: RootCertificateAuthority
-        /// The ID of the identity in the context of the root CA
+        /// The ID of the client in the context of the root CA
         public let value: String
 
-        /// 
+        ///
         /// - Parameters:
         ///   - rootCertificateAuthority: An enum of the accepted root CAs for this registry
-        ///   - value: The ID of the identity in the context of the root CA
+        ///   - value: The ID of the client in the context of the root CA
         public init(rootCertificateAuthority: RootCertificateAuthority, value: String) {
             self.rootCertificateAuthority = rootCertificateAuthority
             self.value = value

@@ -13,22 +13,22 @@
 import Vapor
 
 extension Application {
-    private struct IdentityStoreKey: StorageKey, Sendable {
-        typealias Value = IdentityStore
+    private struct ClientStoreKey: StorageKey, Sendable {
+        typealias Value = ClientStore
     }
 
-    /// The ``IdentityStore`` associated with this `Application`.
+    /// The ``ClientStore`` associated with this `Application`.
     ///
     /// Created on first access during single-threaded boot and cached in
     /// application storage, so every endpoint that resolves or lists
-    /// identities shares one store for the lifetime of the process.
+    /// clients shares one store for the lifetime of the process.
     /// Mirrors ``userStore``.
-    public var identityStore: IdentityStore {
-        if let existing = storage[IdentityStoreKey.self] {
+    public var clientStore: ClientStore {
+        if let existing = storage[ClientStoreKey.self] {
             return existing
         }
-        let store = IdentityStore()
-        storage[IdentityStoreKey.self] = store
+        let store = ClientStore()
+        storage[ClientStoreKey.self] = store
         return store
     }
 }
