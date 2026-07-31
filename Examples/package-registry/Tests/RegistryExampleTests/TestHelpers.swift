@@ -16,12 +16,13 @@ import Vapor
 
 func withRegistryApp(
     logLevel: Logger.Level = .warning,
+    authEnabled: Bool = false,
     _ test: (Application) async throws -> Void
 ) async throws {
     let app = try await Application.make(.testing)
     app.logger.logLevel = logLevel
     do {
-        try await configure(app)
+        try await configure(app, authEnabled: authEnabled)
         try await app.asyncBoot()
         try await test(app)
     } catch {
