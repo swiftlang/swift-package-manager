@@ -11,5 +11,5 @@
 //===----------------------------------------------------------------------===//
 
 public enum RootCertificateAuthority: Sendable, Equatable {
-    case SelfSign
+    case selfSign
 }

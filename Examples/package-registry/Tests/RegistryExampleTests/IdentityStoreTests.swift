@@ -20,7 +20,7 @@ struct IdentityStoreTests {
     }
 
     private func identity(_ user: User, _ value: String) -> Identity {
-        Identity(user: user, id: Identity.ID(rootCertificateAuthority: .SelfSign, value: value))
+        Identity(user: user, id: Identity.ID(rootCertificateAuthority: .selfSign, value: value))
     }
 
     @Test func `round-trips an identity by its ID`() async throws {
@@ -74,7 +74,7 @@ struct IdentityStoreTests {
 
     @Test func `unknown ID returns nil`() async throws {
         let store = IdentityStore()
-        let unknown = Identity.ID(rootCertificateAuthority: .SelfSign, value: "missing")
+        let unknown = Identity.ID(rootCertificateAuthority: .selfSign, value: "missing")
         #expect(await store.identity(id: unknown) == nil)
     }
 
