@@ -2372,64 +2372,64 @@ struct TestCommandTests {
     }
     // MARK: - XCTest Filter Normalization Tests
 
-    /// Unit tests for `TestCaseSpecifier.normalizedForXCTest()`, which rewrites Swift Testing
+    /// Unit tests for `XCTestCaseSpecifier.normalizedForXCTest()`, which rewrites Swift Testing
     /// filter/skip prefixes (e.g. `id:`, `tag:`) for XCTest, which only understands test-ID patterns.
     @Suite
     struct XCTestFilterNormalizationTests {
         @Test
         func idPrefixIsStrippedWhenFiltering() {
-            #expect(TestCaseSpecifier.regex(["id:SomeTests/testFoo"]).normalizedForXCTest() == .regex(["SomeTests/testFoo"]))
+            #expect(XCTestCaseSpecifier.regex(["id:SomeTests/testFoo"]).normalizedForXCTest() == .regex(["SomeTests/testFoo"]))
         }
 
         @Test
         func noPrefixIsLeftUnchangedWhenFiltering() {
-            #expect(TestCaseSpecifier.regex(["SomeTests/testFoo"]).normalizedForXCTest() == .regex(["SomeTests/testFoo"]))
+            #expect(XCTestCaseSpecifier.regex(["SomeTests/testFoo"]).normalizedForXCTest() == .regex(["SomeTests/testFoo"]))
         }
 
         @Test
         func tagPrefixFilterMatchesNoXCTests() {
-            #expect(TestCaseSpecifier.regex(["tag:integration"]).normalizedForXCTest() == .regex([]))
+            #expect(XCTestCaseSpecifier.regex(["tag:integration"]).normalizedForXCTest() == .regex([]))
         }
 
         @Test
         func arbitraryPrefixFilterMatchesNoXCTests() {
-            #expect(TestCaseSpecifier.regex(["foo:bar"]).normalizedForXCTest() == .regex([]))
+            #expect(XCTestCaseSpecifier.regex(["foo:bar"]).normalizedForXCTest() == .regex([]))
         }
 
         @Test
         func mixedIdAndTagFilterMatchesNoXCTests() {
-            #expect(TestCaseSpecifier.regex(["id:SomeTests/testFoo", "tag:integration"]).normalizedForXCTest() == .regex([]))
+            #expect(XCTestCaseSpecifier.regex(["id:SomeTests/testFoo", "tag:integration"]).normalizedForXCTest() == .regex([]))
         }
 
         @Test
         func tagBeforeIdFilterMatchesNoXCTests() {
-            #expect(TestCaseSpecifier.regex(["tag:integration", "id:SomeTests/testFoo"]).normalizedForXCTest() == .regex([]))
+            #expect(XCTestCaseSpecifier.regex(["tag:integration", "id:SomeTests/testFoo"]).normalizedForXCTest() == .regex([]))
         }
 
         @Test
         func barePatternWithTagFilterMatchesNoXCTests() {
-            #expect(TestCaseSpecifier.regex(["SomeTests/testFoo", "tag:integration"]).normalizedForXCTest() == .regex([]))
+            #expect(XCTestCaseSpecifier.regex(["SomeTests/testFoo", "tag:integration"]).normalizedForXCTest() == .regex([]))
         }
 
         @Test
         func idPrefixIsStrippedWhenSkipping() {
-            #expect(TestCaseSpecifier.skip(["id:SomeTests/testFoo"]).normalizedForXCTest() == .skip(["SomeTests/testFoo"]))
+            #expect(XCTestCaseSpecifier.skip(["id:SomeTests/testFoo"]).normalizedForXCTest() == .skip(["SomeTests/testFoo"]))
         }
 
         @Test
         func tagPrefixSkipSkipsNoXCTests() {
-            #expect(TestCaseSpecifier.skip(["tag:integration"]).normalizedForXCTest() == .none)
+            #expect(XCTestCaseSpecifier.skip(["tag:integration"]).normalizedForXCTest() == .none)
         }
 
         @Test
         func mixedIdAndTagSkipKeepsOnlyIdPatterns() {
-            #expect(TestCaseSpecifier.skip(["id:SomeTests/testFoo", "tag:integration"]).normalizedForXCTest() == .skip(["SomeTests/testFoo"]))
+            #expect(XCTestCaseSpecifier.skip(["id:SomeTests/testFoo", "tag:integration"]).normalizedForXCTest() == .skip(["SomeTests/testFoo"]))
         }
 
         @Test
         func noneAndSpecificPassThrough() {
-            #expect(TestCaseSpecifier.none.normalizedForXCTest() == .none)
-            #expect(TestCaseSpecifier.specific("SomeTests/testFoo").normalizedForXCTest() == .specific("SomeTests/testFoo"))
+            #expect(XCTestCaseSpecifier.none.normalizedForXCTest() == .none)
+            #expect(XCTestCaseSpecifier.specific("SomeTests/testFoo").normalizedForXCTest() == .specific("SomeTests/testFoo"))
         }
     }
 }

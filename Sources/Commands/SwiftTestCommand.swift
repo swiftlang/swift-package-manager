@@ -190,7 +190,7 @@ struct TestCommandOptions: ParsableArguments {
           help: "Print the path of the exported code coverage JSON file.")
     var shouldPrintCodeCovPath: Bool = false
 
-    var xctestFilterSpecifier: TestCaseSpecifier {
+    var xctestFilterSpecifier: XCTestCaseSpecifier {
         if !filter.isEmpty {
             return .regex(filter).normalizedForXCTest()
         }
@@ -250,7 +250,7 @@ struct TestCommandOptions: ParsableArguments {
 }
 
 /// Tests filtering the specifier, which is used to filter tests to run.
-public enum TestCaseSpecifier: Equatable {
+public enum XCTestCaseSpecifier: Equatable {
     /// No filtering.
     case none
 
@@ -1681,7 +1681,7 @@ fileprivate extension Dictionary where Key == BuiltTestProduct, Value == [TestSu
     }
 
     /// Return tests matching the provided specifier
-    func filteredTests(specifier: TestCaseSpecifier) throws -> [UnitTest] {
+    func filteredTests(specifier: XCTestCaseSpecifier) throws -> [UnitTest] {
         switch specifier {
         case .none:
             return allTests
@@ -1702,7 +1702,7 @@ fileprivate extension Dictionary where Key == BuiltTestProduct, Value == [TestSu
 
 fileprivate extension Array where Element == UnitTest {
     /// Skip tests matching the provided specifier
-    func skippedTests(specifier: TestCaseSpecifier) throws -> [UnitTest] {
+    func skippedTests(specifier: XCTestCaseSpecifier) throws -> [UnitTest] {
         switch specifier {
         case .none:
             return self
@@ -1826,12 +1826,12 @@ extension SwiftCommandState {
     }
 }
 
-extension TestCaseSpecifier {
+extension XCTestCaseSpecifier {
     /// Normalizes filter/skip arguments for XCTest, which only understands test ID patterns.
     ///
     /// `id:foo` and bare `foo` match a test ID, so the prefix is stripped and applied normally. Any other prefix
     /// (e.g. `tag:`) is a Swift Testing-only concept no XCTest can match.
-    func normalizedForXCTest() -> TestCaseSpecifier {
+    func normalizedForXCTest() -> XCTestCaseSpecifier {
         switch self {
         case .none, .specific:
             return self
@@ -1872,7 +1872,7 @@ extension TestCaseSpecifier {
 
 extension TestCommandOptions {
     /// Returns the specifier used for skipping tests, normalized for XCTest.
-    func xctestSkippedSpecifier(fileSystem: FileSystem) -> TestCaseSpecifier {
+    func xctestSkippedSpecifier(fileSystem: FileSystem) -> XCTestCaseSpecifier {
         // TODO: Remove this once the environment variable is no longer used.
         if let override = skippedTestsOverride(fileSystem: fileSystem) {
             return override.normalizedForXCTest()
@@ -1884,7 +1884,7 @@ extension TestCommandOptions {
     }
 
     /// Returns the test case specifier if overridden in the environment.
-    private func skippedTestsOverride(fileSystem: FileSystem) -> TestCaseSpecifier? {
+    private func skippedTestsOverride(fileSystem: FileSystem) -> XCTestCaseSpecifier? {
         guard let override = Environment.current["_SWIFTPM_SKIP_TESTS_LIST"] else {
             return nil
         }
