@@ -42,6 +42,16 @@ public final class MockManifestLoader: ManifestLoaderProtocol {
             self.url = url
             self.version = version
         }
+
+        public static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.url == rhs.url &&
+                lhs.version.map(VersionIdentifierKey.init) == rhs.version.map(VersionIdentifierKey.init)
+        }
+
+        public func hash(into hasher: inout Hasher) {
+            hasher.combine(self.url)
+            hasher.combine(self.version.map(VersionIdentifierKey.init))
+        }
     }
 
     public let manifests: ThreadSafeKeyValueStore<Key, Manifest>

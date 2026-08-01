@@ -3939,6 +3939,190 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testExactVersionIdentifierResolution() async throws {
+        let sandbox = AbsolutePath("/tmp/exact-version-identifier")
+        let fs = InMemoryFileSystem()
+        let debugVersion: Version = "1.0.0+debug"
+        let debugRevision = "debug-revision"
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [MockTarget(name: "Root", dependencies: ["Foo"])],
+                    dependencies: [
+                        .sourceControl(path: "./Foo", requirement: .exact(debugVersion)),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [MockTarget(name: "Foo")],
+                    products: [MockProduct(name: "Foo", modules: ["Foo"])],
+                    versions: ["1.0.0", debugVersion.description, "1.0.0+release"],
+                    revisionProvider: { version in
+                        version == debugVersion.description ? debugRevision : "revision-\(version)"
+                    }
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version(debugVersion)))
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version(debugVersion)))
+            guard let state = result.store.resolvedPackages["foo"]?.state,
+                  case .version(let version, let revision) = state
+            else {
+                return XCTFail("expected a version pin")
+            }
+            XCTAssertEqual(VersionIdentifierKey(version), VersionIdentifierKey(debugVersion))
+            XCTAssertEqual(revision, debugRevision)
+        }
+
+        try await workspace.closeWorkspace(resetState: true, resetResolvedFile: false)
+        try await workspace.checkPackageGraph(roots: ["Root"], forceResolvedVersions: true) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version(debugVersion)))
+        }
+
+        try await workspace.checkUpdate(roots: ["Root"]) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version(debugVersion)))
+        }
+
+        let missingWorkspace = try await MockWorkspace(
+            sandbox: AbsolutePath("/tmp/exact-version-identifier-missing"),
+            fileSystem: InMemoryFileSystem(),
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [MockTarget(name: "Root", dependencies: ["Foo"])],
+                    dependencies: [
+                        .sourceControl(path: "./Foo", requirement: .exact(debugVersion)),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [MockTarget(name: "Foo")],
+                    products: [MockProduct(name: "Foo", modules: ["Foo"])],
+                    versions: ["1.0.0", "1.0.0+release"]
+                ),
+            ]
+        )
+
+        try await missingWorkspace.checkPackageGraphFailure(roots: ["Root"], deps: []) { diagnostics in
+            XCTAssertTrue(diagnostics.contains {
+                $0.message == "Dependencies could not be resolved because no versions of 'foo' match the requirement 1.0.0+debug and root depends on 'foo' 1.0.0+debug."
+            })
+        }
+    }
+
+    func testExactVersionIdentifierResolutionFromRegistry() async throws {
+        let sandbox = AbsolutePath("/tmp/exact-registry-version-identifier")
+        let debugVersion: Version = "1.0.0+debug"
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: InMemoryFileSystem(),
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "Root",
+                            dependencies: [.product(name: "Foo", package: "org.foo")]
+                        ),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .exact(debugVersion)),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [MockTarget(name: "Foo")],
+                    products: [MockProduct(name: "Foo", modules: ["Foo"])],
+                    versions: ["1.0.0", debugVersion.description, "1.0.0+release"]
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .registryDownload(debugVersion))
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "org.foo", at: .registryDownload(debugVersion))
+        }
+
+        try await workspace.closeWorkspace(resetState: true, resetResolvedFile: false)
+        try await workspace.checkPackageGraph(roots: ["Root"], forceResolvedVersions: true) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .registryDownload(debugVersion))
+        }
+
+        try await workspace.checkUpdate(roots: ["Root"]) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "org.foo", at: .registryDownload(debugVersion))
+        }
+
+        let missingWorkspace = try await MockWorkspace(
+            sandbox: AbsolutePath("/tmp/exact-registry-version-identifier-missing"),
+            fileSystem: InMemoryFileSystem(),
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "Root",
+                            dependencies: [.product(name: "Foo", package: "org.foo")]
+                        ),
+                    ],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .exact(debugVersion)),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [MockTarget(name: "Foo")],
+                    products: [MockProduct(name: "Foo", modules: ["Foo"])],
+                    versions: ["1.0.0", "1.0.0+release"]
+                ),
+            ]
+        )
+
+        try await missingWorkspace.checkPackageGraphFailure(roots: ["Root"], deps: []) { diagnostics in
+            XCTAssertTrue(diagnostics.contains {
+                $0.message == "Dependencies could not be resolved because no versions of 'org.foo' match the requirement 1.0.0+debug and root depends on 'org.foo' 1.0.0+debug."
+            })
+        }
+    }
+
     func testResolvedFileSchemeToolsVersion() async throws {
         for pair in [
             (ToolsVersion.v5_2, ToolsVersion.v5_2),

@@ -749,6 +749,9 @@ extension Package.Dependency {
 
     /// Adds a remote package dependency that uses an exact version requirement.
     ///
+    /// Every parsed version component, including prerelease and build metadata,
+    /// must match the selected package version.
+    ///
     /// Specifying exact version requirements are not recommended as
     /// they can cause conflicts in your dependency graph when other packages depend on this package.
     /// As Swift packages follow the semantic versioning convention,
@@ -776,6 +779,9 @@ extension Package.Dependency {
     }
 
     /// Adds a remote package dependency that uses an exact version requirement.
+    ///
+    /// Every parsed version component, including prerelease and build metadata,
+    /// must match the selected package version.
     ///
     /// Specifying exact version requirements are not recommended as
     /// they can cause conflicts in your dependency graph when other packages depend on this package.
@@ -926,6 +932,9 @@ extension Package.Dependency {
 
     /// Adds a remote package dependency with an exact version requirement.
     ///
+    /// Every parsed version component, including prerelease and build metadata,
+    /// must match the selected package version.
+    ///
     /// Specifying exact version requirements are not recommended as
     /// they can cause conflicts in your dependency graph when multiple other packages depend on a package.
     /// Because Swift packages follow the semantic versioning convention,
@@ -953,6 +962,9 @@ extension Package.Dependency {
     }
 
     /// Adds a remote package dependency with an exact version requirement.
+    ///
+    /// Every parsed version component, including prerelease and build metadata,
+    /// must match the selected package version.
     ///
     /// Specifying exact version requirements are not recommended as
     /// they can cause conflicts in your dependency graph when multiple other packages depend on a package.

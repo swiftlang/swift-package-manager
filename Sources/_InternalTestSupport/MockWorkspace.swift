@@ -1022,7 +1022,12 @@ public final class MockWorkspace {
             case .checkout(let checkoutState):
                 switch (checkoutState, pin.state) {
                 case (.version(let checkoutVersion), .version(let pinVersion, _)):
-                    XCTAssertEqual(pinVersion, checkoutVersion, file: file, line: line)
+                    XCTAssertEqual(
+                        VersionIdentifierKey(pinVersion),
+                        VersionIdentifierKey(checkoutVersion),
+                        file: file,
+                        line: line
+                    )
                 case (.revision(let checkoutRevision), .revision(let pinRevision)):
                     XCTAssertEqual(checkoutRevision, pinRevision, file: file, line: line)
                 case (.branch(let checkoutBranch), .branch(let pinBranch, _)):
@@ -1034,7 +1039,12 @@ public final class MockWorkspace {
                 guard case .version(let pinVersion, _) = pin.state else {
                     return XCTFail("invalid pin state \(pin.state)", file: file, line: line)
                 }
-                XCTAssertEqual(pinVersion, downloadVersion, file: file, line: line)
+                XCTAssertEqual(
+                    VersionIdentifierKey(pinVersion),
+                    VersionIdentifierKey(downloadVersion),
+                    file: file,
+                    line: line
+                )
             case .edited, .local, .custom:
                 XCTFail("Unimplemented", file: file, line: line)
             }

@@ -71,6 +71,8 @@ extension Package.Dependency {
 @available(_PackageDescription, deprecated: 5.6)
 extension Package.Dependency.Requirement {
     /// Returns a requirement for the given exact version.
+    /// Every parsed version component, including prerelease and build metadata,
+    /// must match the selected package version.
     ///
     /// Specifying exact version requirements are not recommended as they can
     /// cause conflicts in your dependency graph when multiple other packages
@@ -179,7 +181,8 @@ extension Package.Dependency {
     /// requirements before publishing a version of your package.
     @available(_PackageDescription, introduced: 5.6)
     public enum SourceControlRequirement {
-        /// An exact version based requirement.
+        /// An exact version based requirement. Every parsed component, including
+        /// prerelease and build metadata, must match.
         case exact(Version)
         /// A requirement based on a range of versions.
         case range(Range<Version>)
@@ -205,7 +208,8 @@ extension Package.Dependency {
     /// visit the [Semantic Versioning 2.0.0](https://semver.org) website.
     @available(_PackageDescription, introduced: 999)
     public enum RegistryRequirement {
-        /// A requirement based on an exact version.
+        /// A requirement based on an exact version. Every parsed component,
+        /// including prerelease and build metadata, must match.
         case exact(Version)
         /// A requirement based on a range of versions.
         case range(Range<Version>)
