@@ -76,16 +76,17 @@ public struct EnabledTraitsMap {
     public typealias Value = EnabledTraits
 
     struct VersionedTraits {
-        var map: [Version: EnabledTraits] = [:]
+        var map: [VersionIdentifierKey: EnabledTraits] = [:]
 
         public func at(_ version: Version) -> EnabledTraits {
-            self.map[version] ?? ["default"]
+            self.map[VersionIdentifierKey(version)] ?? ["default"]
         }
 
         public mutating func set(_ version: Version, enabledTraits: EnabledTraits) {
-            let oldTraits = self.map[version] ?? []
+            let key = VersionIdentifierKey(version)
+            let oldTraits = self.map[key] ?? []
             let newTraits = oldTraits.union(enabledTraits)
-            self.map[version] = newTraits
+            self.map[key] = newTraits
         }
     }
 
@@ -720,4 +721,3 @@ extension IdentifiableSet where Element == EnabledTrait {
         return updatedContents
     }
 }
-

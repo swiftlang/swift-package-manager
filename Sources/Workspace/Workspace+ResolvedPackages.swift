@@ -13,6 +13,7 @@
 import SourceControl
 
 import class Basics.ObservabilityScope
+import struct Basics.VersionIdentifierKey
 import class PackageGraph.ResolvedPackagesStore
 import struct PackageModel.PackageReference
 import struct PackageModel.ToolsVersion
@@ -171,7 +172,8 @@ extension ResolvedPackagesStore.ResolutionState {
     func equals(_ checkoutState: CheckoutState) -> Bool {
         switch (self, checkoutState) {
         case (.version(let lversion, let lrevision), .version(let rversion, let rrevision)):
-            return lversion == rversion && lrevision == rrevision.identifier
+            return VersionIdentifierKey(lversion) == VersionIdentifierKey(rversion) &&
+                lrevision == rrevision.identifier
         case (.branch(let lbranch, let lrevision), .branch(let rbranch, let rrevision)):
             return lbranch == rbranch && lrevision == rrevision.identifier
         case (.revision(let lrevision), .revision(let rrevision)):
@@ -181,10 +183,10 @@ extension ResolvedPackagesStore.ResolutionState {
         }
     }
 
-    func equals(_: Version) -> Bool {
+    func equals(_ otherVersion: Version) -> Bool {
         switch self {
         case .version(let version, _):
-            return version == version
+            return VersionIdentifierKey(version) == VersionIdentifierKey(otherVersion)
         default:
             return false
         }

@@ -34,7 +34,20 @@ public class MockPackageContainer: CustomPackageContainer {
     public var unversionedDeps: [MockPackageContainer.Constraint] = []
 
     /// Contains the versions for which the dependencies were requested by resolver using getDependencies().
-    public var requestedVersions: Set<Version> = []
+    private var requestedVersionsByIdentifier: [VersionIdentifierKey: Version] = [:]
+
+    public var requestedVersions: Set<Version> {
+        Set(self.requestedVersionsByIdentifier.values)
+    }
+
+    package var requestedVersionIdentifiers: [Version] {
+        self.requestedVersionsByIdentifier.values.sorted { lhs, rhs in
+            if lhs == rhs {
+                return lhs.description < rhs.description
+            }
+            return lhs < rhs
+        }
+    }
 
     public let _versions: [Version]
     public func toolsVersionsAppropriateVersionsDescending() async throws -> [Version] {
@@ -46,7 +59,7 @@ public class MockPackageContainer: CustomPackageContainer {
     }
 
     public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) -> [MockPackageContainer.Constraint] {
-        requestedVersions.insert(version)
+        requestedVersionsByIdentifier[VersionIdentifierKey(version)] = version
         return getDependencies(at: version.description, productFilter: productFilter, enabledTraits)
     }
 

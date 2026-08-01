@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import struct TSCUtility.Version
 
 /// A bound version for a package within an assignment.
@@ -29,6 +30,37 @@ public enum BoundVersion: Equatable, Hashable {
 
     /// The package assignment is this revision.
     case revision(String, branch: String? = nil)
+}
+
+extension BoundVersion {
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.excluded, .excluded), (.unversioned, .unversioned):
+            true
+        case (.version(let lhs), .version(let rhs)):
+            VersionIdentifierKey(lhs) == VersionIdentifierKey(rhs)
+        case (.revision(let lhsRevision, let lhsBranch), .revision(let rhsRevision, let rhsBranch)):
+            lhsRevision == rhsRevision && lhsBranch == rhsBranch
+        default:
+            false
+        }
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        switch self {
+        case .excluded:
+            hasher.combine(0)
+        case .version(let version):
+            hasher.combine(1)
+            hasher.combine(VersionIdentifierKey(version))
+        case .unversioned:
+            hasher.combine(2)
+        case .revision(let revision, let branch):
+            hasher.combine(3)
+            hasher.combine(revision)
+            hasher.combine(branch)
+        }
+    }
 }
 
 extension BoundVersion: CustomStringConvertible {

@@ -20,6 +20,7 @@ import struct Basics.RelativePath
 import enum Basics.SignpostName
 import struct Basics.SourceControlURL
 import class Basics.ThreadSafeKeyValueStore
+import struct Basics.VersionIdentifierKey
 import class Dispatch.DispatchGroup
 import struct Dispatch.DispatchTime
 import enum Dispatch.DispatchTimeInterval
@@ -1083,6 +1084,19 @@ extension Workspace {
                     return "\(revision) \(branch ?? "")"
                 case .unversioned:
                     return "unversioned"
+                }
+            }
+
+            public static func == (lhs: Self, rhs: Self) -> Bool {
+                switch (lhs, rhs) {
+                case (.version(let lhs), .version(let rhs)):
+                    return VersionIdentifierKey(lhs) == VersionIdentifierKey(rhs)
+                case (.revision(let lhsRevision, let lhsBranch), .revision(let rhsRevision, let rhsBranch)):
+                    return lhsRevision == rhsRevision && lhsBranch == rhsBranch
+                case (.unversioned, .unversioned):
+                    return true
+                default:
+                    return false
                 }
             }
         }

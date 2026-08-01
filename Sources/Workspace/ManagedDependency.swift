@@ -171,6 +171,25 @@ extension Workspace {
     }
 }
 
+extension Workspace.ManagedDependency.State {
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.fileSystem(let lhs), .fileSystem(let rhs)):
+            return lhs == rhs
+        case (.sourceControlCheckout(let lhs), .sourceControlCheckout(let rhs)):
+            return lhs == rhs
+        case (.registryDownload(let lhsVersion, let lhsURL), .registryDownload(let rhsVersion, let rhsURL)):
+            return VersionIdentifierKey(lhsVersion) == VersionIdentifierKey(rhsVersion) && lhsURL == rhsURL
+        case (.edited(let lhsDependency, let lhsPath), .edited(let rhsDependency, let rhsPath)):
+            return lhsDependency == rhsDependency && lhsPath == rhsPath
+        case (.custom(let lhsVersion, let lhsPath), .custom(let rhsVersion, let rhsPath)):
+            return VersionIdentifierKey(lhsVersion) == VersionIdentifierKey(rhsVersion) && lhsPath == rhsPath
+        default:
+            return false
+        }
+    }
+}
+
 extension Workspace.ManagedDependency: CustomStringConvertible {
     public var description: String {
         return "<ManagedDependency: \(self.packageRef.identity) \(self.state)>"
