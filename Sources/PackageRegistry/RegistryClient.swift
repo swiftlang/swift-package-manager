@@ -418,7 +418,11 @@ public final class RegistryClient: AsyncCancellable {
         timeout: DispatchTimeInterval?,
         observabilityScope: ObservabilityScope
     ) async throws -> Serialization.VersionMetadata {
-        let cacheKey = MetadataCacheKey(registry: registry, package: package, version: version)
+        let cacheKey = MetadataCacheKey(
+            registry: registry,
+            package: package,
+            version: VersionIdentifierKey(version)
+        )
         if let cached = self.metadataCache[cacheKey], cached.expires > .now() {
             return cached.metadata
         }
@@ -1534,7 +1538,7 @@ public final class RegistryClient: AsyncCancellable {
     private struct MetadataCacheKey: Hashable {
         let registry: Registry
         let package: PackageIdentity.RegistryIdentity
-        let version: Version
+        let version: VersionIdentifierKey
     }
 }
 
@@ -2318,7 +2322,11 @@ private struct RegistryClientSignatureValidationDelegate: SignatureValidation.De
         version: TSCUtility.Version,
         completion: (Bool) -> Void
     ) {
-        let responseCacheKey = ResponseCacheKey(registry: registry, package: package, version: version)
+        let responseCacheKey = ResponseCacheKey(
+            registry: registry,
+            package: package,
+            version: VersionIdentifierKey(version)
+        )
         if let cachedResponse = self.onUnsignedResponseCache[responseCacheKey] {
             return completion(cachedResponse)
         }
@@ -2345,7 +2353,11 @@ private struct RegistryClientSignatureValidationDelegate: SignatureValidation.De
         version: TSCUtility.Version,
         completion: (Bool) -> Void
     ) {
-        let responseCacheKey = ResponseCacheKey(registry: registry, package: package, version: version)
+        let responseCacheKey = ResponseCacheKey(
+            registry: registry,
+            package: package,
+            version: VersionIdentifierKey(version)
+        )
         if let cachedResponse = self.onUntrustedResponseCache[responseCacheKey] {
             return completion(cachedResponse)
         }
@@ -2369,7 +2381,7 @@ private struct RegistryClientSignatureValidationDelegate: SignatureValidation.De
     private struct ResponseCacheKey: Hashable {
         let registry: Registry
         let package: PackageModel.PackageIdentity
-        let version: TSCUtility.Version
+        let version: VersionIdentifierKey
     }
 }
 

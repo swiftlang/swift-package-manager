@@ -447,6 +447,66 @@ struct FilePackageSigningEntityStorageTests {
             return true
         }
     }
+
+    @Test
+    func buildMetadataVariantsRoundTripIndependently() throws {
+        let fileSystem = InMemoryFileSystem()
+        let directoryPath = AbsolutePath("/signing")
+        let package = PackageIdentity.plain("mona.LinkedList")
+        let signer = SigningEntity.recognized(
+            type: .adp,
+            name: "Variant Signer",
+            organizationalUnit: "SwiftPM Variant Unit",
+            organization: "SwiftPM Test"
+        )
+        let debug = Version("1.0.0+debug")
+        let release = Version("1.0.0+release")
+
+        let packageSigner = PackageSigner(
+            signingEntity: signer,
+            origins: [.registry(URL("https://example.com"))],
+            versionIdentifiers: [release, debug, debug]
+        )
+        #expect(packageSigner.versionIdentifiers.map(\.description) == [debug.description, release.description])
+        #expect(packageSigner.versions.count == 1)
+
+        let storage = FilePackageSigningEntityStorage(fileSystem: fileSystem, directoryPath: directoryPath)
+        try storage.put(
+            package: package,
+            version: debug,
+            signingEntity: signer,
+            origin: .registry(URL("https://example.com"))
+        )
+        try storage.put(
+            package: package,
+            version: release,
+            signingEntity: signer,
+            origin: .registry(URL("https://example.com"))
+        )
+
+        let reloaded = FilePackageSigningEntityStorage(fileSystem: fileSystem, directoryPath: directoryPath)
+        let packageSigners = try reloaded.get(package: package)
+        #expect(packageSigners.signingEntities(of: debug) == [signer])
+        #expect(packageSigners.signingEntities(of: release) == [signer])
+        #expect(packageSigners.signingEntities(of: Version("1.0.0")).isEmpty)
+        #expect(packageSigners.signers[signer]?.versionIdentifiers.map(\.description) == [
+            debug.description,
+            release.description,
+        ])
+        #expect(packageSigners.signers[signer]?.versions.count == 1)
+
+        let storedData: Data = try fileSystem.readFileContents(
+            directoryPath.appending(component: package.signedVersionsFilename)
+        )
+        let storedJSON = try #require(JSONSerialization.jsonObject(with: storedData) as? [String: Any])
+        let storedSigners = try #require(storedJSON["signers"] as? [[String: Any]])
+        #expect(storedSigners.count == 1)
+        #expect(storedSigners.allSatisfy {
+            Set($0.keys) == ["origins", "signingEntity", "versions"]
+        })
+        let storedVersions = try #require(storedSigners.first?["versions"] as? [String])
+        #expect(storedVersions == [debug.description, release.description])
+    }
 }
 
 extension PackageSigningEntityStorage {

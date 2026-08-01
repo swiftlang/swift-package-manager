@@ -19,14 +19,16 @@ import PackageModel
 import struct TSCUtility.Version
 
 public class MockPackageFingerprintStorage: PackageFingerprintStorage {
-    private var packageFingerprints: [PackageIdentity: [Version: [Fingerprint
+    private var packageFingerprints: [PackageIdentity: [VersionIdentifierKey: [Fingerprint
             .Kind: [Fingerprint.ContentType: Fingerprint]]]]
     private let lock = NSLock()
 
     public init(_ packageFingerprints: [PackageIdentity: [Version: [Fingerprint
             .Kind: [Fingerprint.ContentType: Fingerprint]]]] = [:])
     {
-        self.packageFingerprints = packageFingerprints
+        self.packageFingerprints = packageFingerprints.mapValues { fingerprints in
+            Dictionary(uniqueKeysWithValues: fingerprints.map { (VersionIdentifierKey($0.key), $0.value) })
+        }
     }
 
     public func get(
@@ -34,7 +36,9 @@ public class MockPackageFingerprintStorage: PackageFingerprintStorage {
         version: Version,
         observabilityScope: ObservabilityScope
     ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
-        guard let fingerprints = self.lock.withLock({ self.packageFingerprints[package]?[version] }) else {
+        guard let fingerprints = self.lock.withLock({
+            self.packageFingerprints[package]?[VersionIdentifierKey(version)]
+        }) else {
             throw PackageFingerprintStorageError.notFound
         }
         return fingerprints
@@ -48,7 +52,8 @@ public class MockPackageFingerprintStorage: PackageFingerprintStorage {
     ) throws {
         try self.lock.withLock {
             var versionFingerprints = self.packageFingerprints.removeValue(forKey: package) ?? [:]
-            var fingerprintsForVersion = versionFingerprints.removeValue(forKey: version) ?? [:]
+            let versionKey = VersionIdentifierKey(version)
+            var fingerprintsForVersion = versionFingerprints.removeValue(forKey: versionKey) ?? [:]
             var fingerprintsForKind = fingerprintsForVersion.removeValue(forKey: fingerprint.origin.kind) ?? [:]
 
             if let existing = fingerprintsForKind[fingerprint.contentType] {
@@ -62,7 +67,7 @@ public class MockPackageFingerprintStorage: PackageFingerprintStorage {
 
             fingerprintsForKind[fingerprint.contentType] = fingerprint
             fingerprintsForVersion[fingerprint.origin.kind] = fingerprintsForKind
-            versionFingerprints[version] = fingerprintsForVersion
+            versionFingerprints[versionKey] = fingerprintsForVersion
             self.packageFingerprints[package] = versionFingerprints
         }
     }

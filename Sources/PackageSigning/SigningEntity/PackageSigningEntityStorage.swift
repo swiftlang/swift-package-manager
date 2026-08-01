@@ -98,16 +98,83 @@ extension SigningEntity {
 public struct PackageSigner: Codable {
     public let signingEntity: SigningEntity
     public internal(set) var origins: Set<SigningEntity.Origin>
-    public internal(set) var versions: Set<Version>
+    private var versionsByIdentifier: [VersionIdentifierKey: Version]
+
+    /// Versions signed by this entity, grouped using semantic-version precedence.
+    ///
+    /// SwiftPM uses the complete identifier internally when looking up a signer.
+    public var versions: Set<Version> {
+        Set(self.versionsByIdentifier.values)
+    }
 
     public init(
         signingEntity: SigningEntity,
         origins: Set<SigningEntity.Origin>,
         versions: Set<Version>
     ) {
+        self.init(
+            signingEntity: signingEntity,
+            origins: origins,
+            versionIdentifiers: Array(versions)
+        )
+    }
+
+    /// Creates a signer with versions distinguished by their complete parsed identifiers.
+    public init(
+        signingEntity: SigningEntity,
+        origins: Set<SigningEntity.Origin>,
+        versionIdentifiers: [Version]
+    ) {
         self.signingEntity = signingEntity
         self.origins = origins
-        self.versions = versions
+        self.versionsByIdentifier = Dictionary(
+            versionIdentifiers.map { (VersionIdentifierKey($0), $0) },
+            uniquingKeysWith: { first, _ in first }
+        )
+    }
+
+    /// Versions signed by this entity, distinguished by their complete parsed identifiers.
+    public var versionIdentifiers: [Version] {
+        self.versionsByIdentifier.values.sorted { lhs, rhs in
+            if lhs == rhs {
+                return lhs.description < rhs.description
+            }
+            return lhs < rhs
+        }
+    }
+
+    package func contains(version: Version) -> Bool {
+        self.versionsByIdentifier[VersionIdentifierKey(version)] != nil
+    }
+
+    package mutating func add(version: Version) {
+        self.versionsByIdentifier[VersionIdentifierKey(version)] = version
+    }
+
+    package mutating func add(origin: SigningEntity.Origin) {
+        self.origins.insert(origin)
+    }
+
+    private enum CodingKeys: CodingKey {
+        case signingEntity
+        case origins
+        case versions
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            signingEntity: try container.decode(SigningEntity.self, forKey: .signingEntity),
+            origins: try container.decode(Set<SigningEntity.Origin>.self, forKey: .origins),
+            versionIdentifiers: try container.decode([Version].self, forKey: .versions)
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.signingEntity, forKey: .signingEntity)
+        try container.encode(self.origins, forKey: .origins)
+        try container.encode(self.versionIdentifiers, forKey: .versions)
     }
 }
 
@@ -139,8 +206,18 @@ public struct PackageSigners {
         return versionSigningEntities
     }
 
+    package var versionIdentifierSigningEntities: [VersionIdentifierKey: Set<SigningEntity>] {
+        var versionSigningEntities = [VersionIdentifierKey: Set<SigningEntity>]()
+        for (signingEntity, signer) in self.signers {
+            for version in signer.versionIdentifiers {
+                versionSigningEntities[VersionIdentifierKey(version), default: []].insert(signingEntity)
+            }
+        }
+        return versionSigningEntities
+    }
+
     public func signingEntities(of version: Version) -> Set<SigningEntity> {
-        Set(self.signers.values.filter { $0.versions.contains(version) }.map(\.signingEntity))
+        Set(self.signers.values.filter { $0.contains(version: version) }.map(\.signingEntity))
     }
 }
 

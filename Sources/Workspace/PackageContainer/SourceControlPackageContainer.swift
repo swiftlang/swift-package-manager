@@ -22,7 +22,6 @@ import SourceControl
 
 import struct TSCBasic.RegEx
 
-import enum TSCUtility.Git
 import struct TSCUtility.Version
 
 /// Adaptor to expose an individual repository as a package container.
@@ -71,14 +70,14 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private var dependenciesCache = [String: [ProductFilter: (Manifest, [Constraint])]]()
     private var dependenciesCacheLock = NSLock()
 
-    private var knownVersionsCache = ThreadSafeBox<[Version: String]?>()
+    private var knownVersionsCache = ThreadSafeBox<[VersionIdentifierKey: KnownVersionTag]?>()
     private var manifestsCache = ThrowingAsyncKeyValueMemoizer<String, Manifest>()
-    private var toolsVersionsCache = ThreadSafeKeyValueStore<Version, ToolsVersion>()
+    private var toolsVersionsCache = ThreadSafeKeyValueStore<VersionIdentifierKey, ToolsVersion>()
     private var identityLookupCache: Workspace.IdentityLookupCache
 
     /// This is used to remember if tools version of a particular version is
     /// valid or not.
-    internal var validToolsVersionsCache = ThreadSafeKeyValueStore<Version, Bool>()
+    internal var validToolsVersionsCache = ThreadSafeKeyValueStore<VersionIdentifierKey, Bool>()
 
     init(
         package: PackageReference,
@@ -113,11 +112,16 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     }
 
     // Compute the map of known versions.
-    private func knownVersions() throws -> [Version: String] {
+    private func knownVersions() throws -> [VersionIdentifierKey: KnownVersionTag] {
         try self.knownVersionsCache.memoize {
-            let knownVersionsWithDuplicates = Git.convertTagsToVersionMap(tags: try repository.getTags(), toolsVersion: self.currentToolsVersion)
+            let knownVersionsWithDuplicates = Self.convertTagsToVersionMap(
+                tags: try repository.getTags(),
+                toolsVersion: self.currentToolsVersion
+            )
 
-            return knownVersionsWithDuplicates.mapValues { tags -> String in
+            return knownVersionsWithDuplicates.mapValues { knownVersion -> KnownVersionTag in
+                let tags = knownVersion.tags
+                let tag: String
                 if tags.count > 1 {
                     // FIXME: Warn if the two tags point to different git references.
 
@@ -134,16 +138,18 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                         }
                         return componentCounts.0 < componentCounts.1
                     }
-                    return tagsSortedBySpecificity.last!
+                    tag = tagsSortedBySpecificity.last!
+                } else {
+                    assert(tags.count == 1, "Unexpected number of tags")
+                    tag = tags[0]
                 }
-                assert(tags.count == 1, "Unexpected number of tags")
-                return tags[0]
+                return KnownVersionTag(version: knownVersion.version, tag: tag)
             }
         }
     }
 
     public func versionsAscending() throws -> [Version] {
-        [Version](try self.knownVersions().keys).sorted()
+        try self.knownVersions().values.map(\.version).sorted(by: Self.versionAscending)
     }
 
     /// The available version list (in reverse order).
@@ -151,19 +157,20 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         let reversedVersions = try await self.versionsDescending()
         var appropriateVersions: [Version] = []
         for version in reversedVersions {
-            if let cached = self.validToolsVersionsCache[version] {
+            let key = VersionIdentifierKey(version)
+            if let cached = self.validToolsVersionsCache[key] {
                 if cached { appropriateVersions.append(version) }
                 continue
             }
             let isValid = await self.isToolsVersionCompatible(at: version)
-            self.validToolsVersionsCache[version] = isValid
+            self.validToolsVersionsCache[key] = isValid
             if isValid { appropriateVersions.append(version) }
         }
         return appropriateVersions
     }
 
     public func getTag(for version: Version) -> String? {
-        return try? self.knownVersions()[version]
+        return try? self.knownVersions()[VersionIdentifierKey(version)]?.tag
     }
 
     func checkIntegrity(version: Version, revision: Revision) throws {
@@ -245,8 +252,8 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     }
 
     private func readToolsVersion(for version: Version) throws -> ToolsVersion {
-        try self.toolsVersionsCache.memoize(version) {
-            guard let tag = try self.knownVersions()[version] else {
+        try self.toolsVersionsCache.memoize(VersionIdentifierKey(version)) {
+            guard let tag = try self.knownVersions()[VersionIdentifierKey(version)]?.tag else {
                 throw StringError("unknown tag \(version)")
             }
             let fileSystem = try repository.openFileView(tag: tag)
@@ -259,7 +266,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) async throws -> [Constraint] {
         do {
             return try await self.getCachedDependencies(forIdentifier: version.description, productFilter: productFilter) {
-                guard let tag = try self.knownVersions()[version] else {
+                guard let tag = try self.knownVersions()[VersionIdentifierKey(version)]?.tag else {
                     throw StringError("unknown tag \(version)")
                 }
                 return try await self.loadDependencies(tag: tag, version: version, productFilter: productFilter, enabledTraits: enabledTraits)
@@ -365,7 +372,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         var version: Version?
         switch boundVersion {
         case .version(let v):
-            guard let tag = try self.knownVersions()[v] else {
+            guard let tag = try self.knownVersions()[VersionIdentifierKey(v)]?.tag else {
                 throw StringError("unknown tag \(v)")
             }
             version = v
@@ -386,7 +393,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         var version: Version?
         switch boundVersion {
         case .version(let v):
-            guard let tag = try self.knownVersions()[v] else {
+            guard let tag = try self.knownVersions()[VersionIdentifierKey(v)]?.tag else {
                 throw StringError("unknown tag \(v)")
             }
             version = v
@@ -486,25 +493,46 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     }
 }
 
-extension Git {
-    fileprivate static func convertTagsToVersionMap(tags: [String], toolsVersion: ToolsVersion) -> [Version: [String]] {
+extension SourceControlPackageContainer {
+    private struct KnownVersionTag {
+        let version: Version
+        let tag: String
+    }
+
+    private struct KnownVersionTags {
+        let version: Version
+        var tags: [String]
+    }
+
+    private static func convertTagsToVersionMap(
+        tags: [String],
+        toolsVersion: ToolsVersion
+    ) -> [VersionIdentifierKey: KnownVersionTags] {
         // First, check if we need to restrict the tag set to version-specific tags.
-        var knownVersions: [Version: [String]] = [:]
-        var versionSpecificKnownVersions: [Version: [String]] = [:]
+        var knownVersions: [VersionIdentifierKey: KnownVersionTags] = [:]
+        var versionSpecificKnownVersions: [VersionIdentifierKey: KnownVersionTags] = [:]
 
         for tag in tags {
             for versionSpecificKey in toolsVersion.versionSpecificKeys {
                 if tag.hasSuffix(versionSpecificKey) {
                     let trimmedTag = String(tag.dropLast(versionSpecificKey.count))
                     if let version = Version(tag: trimmedTag) {
-                        versionSpecificKnownVersions[version, default: []].append(tag)
+                        let key = VersionIdentifierKey(version)
+                        versionSpecificKnownVersions[
+                            key,
+                            default: KnownVersionTags(version: version, tags: [])
+                        ].tags.append(tag)
                     }
                     break
                 }
             }
 
             if let version = Version(tag: tag) {
-                knownVersions[version, default: []].append(tag)
+                let key = VersionIdentifierKey(version)
+                knownVersions[
+                    key,
+                    default: KnownVersionTags(version: version, tags: [])
+                ].tags.append(tag)
             }
         }
         // Check if any version specific tags were found.
@@ -515,5 +543,12 @@ extension Git {
         } else {
             return knownVersions
         }
+    }
+
+    private static func versionAscending(_ lhs: Version, _ rhs: Version) -> Bool {
+        if lhs == rhs {
+            return lhs.description < rhs.description
+        }
+        return lhs < rhs
     }
 }

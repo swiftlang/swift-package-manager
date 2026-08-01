@@ -204,7 +204,7 @@ struct PackageSigningEntityTOFU {
             }
         // Or is the package going from having a signer to .none?
         case .none:
-            let versionSigningEntities = packageSigners.versionSigningEntities
+            let versionSigningEntities = packageSigners.versionIdentifierSigningEntities
             // If the given version is semantically newer than any signed version,
             // then it must be signed. (i.e., when a package starts being signed
             // at a version, then all future versions must be signed.)
@@ -223,10 +223,11 @@ struct PackageSigningEntityTOFU {
             //     seen a signed 2.x release yet, so we assume 2.x releases are not signed.
             //     (this might be controversial)
             let olderSignedVersions = versionSigningEntities.keys
+                .map(\.version)
                 .filter { $0.major == version.major && $0 < version }
                 .sorted(by: >)
             for olderSignedVersion in olderSignedVersions {
-                if let olderVersionSigner = versionSigningEntities[olderSignedVersion]?.first {
+                if let olderVersionSigner = versionSigningEntities[VersionIdentifierKey(olderSignedVersion)]?.first {
                     try self.handleSigningEntityForPackageChanged(
                         registry: registry,
                         package: package,

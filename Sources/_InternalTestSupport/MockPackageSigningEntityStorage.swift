@@ -158,16 +158,10 @@ public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
         let packageSigners = self.packageSigners[package] ?? PackageSigners()
 
         let packageSigner: PackageSigner
-        if let existingSigner = packageSigners.signers[signingEntity] {
-            var origins = existingSigner.origins
-            origins.insert(origin)
-            var versions = existingSigner.versions
-            versions.insert(version)
-            packageSigner = PackageSigner(
-                signingEntity: signingEntity,
-                origins: origins,
-                versions: versions
-            )
+        if var existingSigner = packageSigners.signers[signingEntity] {
+            existingSigner.add(origin: origin)
+            existingSigner.add(version: version)
+            packageSigner = existingSigner
         } else {
             packageSigner = PackageSigner(
                 signingEntity: signingEntity,

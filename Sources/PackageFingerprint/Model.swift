@@ -89,6 +89,10 @@ extension Fingerprint {
 
 public typealias PackageFingerprints = [Version: [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]]]
 
+package typealias PackageFingerprintsByVersionIdentifier = [
+    VersionIdentifierKey: [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]]
+]
+
 public enum FingerprintCheckingMode: String {
     case strict
     case warn

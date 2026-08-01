@@ -399,6 +399,38 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         XCTAssertEqual(scmFingerprints?[.sourceCode]?.origin.url, sourceControlURL)
         XCTAssertEqual(scmFingerprints?[.sourceCode]?.value, "gitHash-1.0.0")
     }
+
+    func testBuildMetadataVariantsRoundTripIndependently() throws {
+        let fileSystem = InMemoryFileSystem()
+        let directoryPath = AbsolutePath("/fingerprints")
+        let package = PackageIdentity.plain("mona.LinkedList")
+        let registryURL = URL("https://example.packages.com")
+        let variants: [(Version, String)] = [
+            (Version("1.0.0"), "plain"),
+            (Version("1.0.0+debug"), "debug"),
+            (Version("1.0.0+release"), "release"),
+        ]
+
+        let storage = FilePackageFingerprintStorage(fileSystem: fileSystem, directoryPath: directoryPath)
+        for (version, value) in variants {
+            try storage.put(
+                package: package,
+                version: version,
+                fingerprint: .init(origin: .registry(registryURL), value: value, contentType: .sourceCode)
+            )
+        }
+
+        let reloaded = FilePackageFingerprintStorage(fileSystem: fileSystem, directoryPath: directoryPath)
+        for (version, value) in variants {
+            let fingerprint = try reloaded.get(
+                package: package,
+                version: version,
+                kind: .registry,
+                contentType: .sourceCode
+            )
+            XCTAssertEqual(fingerprint.value, value)
+        }
+    }
 }
 
 extension PackageFingerprintStorage {

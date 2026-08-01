@@ -146,7 +146,7 @@ public struct FilePackageSigningEntityStorage: PackageSigningEntityStorage {
 
         if var existingSigner = packageSigners.signers.removeValue(forKey: signingEntity) {
             existingSigner.origins.insert(origin)
-            existingSigner.versions.insert(version)
+            existingSigner.add(version: version)
             packageSigners.signers[signingEntity] = existingSigner
         } else {
             let signer = PackageSigner(
