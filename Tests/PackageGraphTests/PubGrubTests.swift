@@ -180,6 +180,34 @@ final class PubGrubTests: XCTestCase {
         XCTAssertEqual(Term("¬a^1.5.0").relation(with: "¬a^1.0.0"), .overlap)
     }
 
+    func testMetadataSpecificTermRelations() throws {
+        let node = DependencyResolutionNode.empty(package: "a")
+        let plain = Term(node, .exact("1.0.0"))
+        let debug = Term(node, .exact("1.0.0+debug"))
+        let notPlain = plain.inverse
+        let notDebug = debug.inverse
+        let range = Term(node, .range("1.0.0"..<"2.0.0"))
+
+        XCTAssertEqual(plain.relation(with: debug), .disjoint)
+        XCTAssertEqual(debug.relation(with: plain), .disjoint)
+        XCTAssertEqual(plain.relation(with: range), .subset)
+        XCTAssertEqual(debug.relation(with: notPlain), .subset)
+        XCTAssertEqual(plain.relation(with: notPlain), .disjoint)
+        XCTAssertEqual(notPlain.relation(with: debug), .overlap)
+        XCTAssertEqual(notPlain.relation(with: notDebug), .overlap)
+
+        let rangeWithoutDebug = try XCTUnwrap(range.intersect(with: notDebug))
+        XCTAssertTrue(rangeWithoutDebug.requirement.contains("1.0.0"))
+        XCTAssertFalse(rangeWithoutDebug.requirement.contains("1.0.0+debug"))
+        XCTAssertTrue(rangeWithoutDebug.requirement.contains("1.0.0+release"))
+
+        let excludingBoth = try XCTUnwrap(notPlain.intersect(with: notDebug))
+        XCTAssertFalse(excludingBoth.isPositive)
+        XCTAssertTrue(excludingBoth.requirement.contains("1.0.0"))
+        XCTAssertTrue(excludingBoth.requirement.contains("1.0.0+debug"))
+        XCTAssertFalse(excludingBoth.requirement.contains("1.0.0+release"))
+    }
+
     func testTermIsValidDecision() {
         let solution100_150 = PartialSolution(assignments: [
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 1),

@@ -275,7 +275,7 @@ struct DiagnosticReportBuilder {
         switch term.requirement {
         case .any:
             return true
-        case .empty, .exact, .ranges:
+        case .empty, .exact, .ranges, ._set:
             return false
         case .range(let range):
             // container expected to be cached at this point
@@ -345,6 +345,8 @@ struct DiagnosticReportBuilder {
                 return $0.lowerBound.description + "..<" + $0.upperBound.description
             }.joined(separator: ", ") + "}"
             return "\(name) \(ranges)"
+        case ._set:
+            return "\(name) \(term.requirement.description)"
         }
     }
 
