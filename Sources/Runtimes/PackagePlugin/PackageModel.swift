@@ -295,6 +295,8 @@ public enum ModuleKind {
     /// A module that contains code for a macro.
     @available(_PackageDescription, introduced: 5.9)
     case macro // FIXME: This should really come from `CompilerPluginSupport` somehow, but we lack the infrastructure to allow that currently.
+    @available(_PackageDescription, introduced: 6.5)
+    case custom
 }
 
 /// A target consisting of a source code module compiled using Swift.
@@ -435,6 +437,32 @@ public struct ClangSourceModuleTarget: SourceModuleTarget {
     /// to the given target before the plugin currently being executed.
     @available(_PackageDescription, introduced: 6.0)
     public let pluginGeneratedResources: [URL]
+}
+
+public struct CustomTarget: SourceModuleTarget {
+    public let id: ID
+
+    public let name: String
+
+    public let moduleName: String
+    
+    public let kind: ModuleKind
+    
+    public let linkedLibraries: [String] = []
+
+    public let linkedFrameworks: [String] = []
+
+    public let pluginGeneratedSources: [URL]
+    
+    public let pluginGeneratedResources: [URL]
+    
+    public let directory: Path
+    
+    public let directoryURL: URL
+    
+    public let dependencies: [TargetDependency]
+
+    public let sourceFiles: FileList
 }
 
 /// A target describing an artifact that is distributed as a binary.

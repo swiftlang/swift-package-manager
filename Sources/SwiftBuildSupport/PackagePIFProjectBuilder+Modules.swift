@@ -32,6 +32,7 @@ import struct PackageGraph.ResolvedPackage
 
 import struct PackageLoading.GeneratedFiles
 
+import struct SwiftBuild.Pair
 import enum SwiftBuild.ProjectModel
 
 /// Extension to create PIF **modules** for a given package.
@@ -102,6 +103,9 @@ extension PackagePIFProjectBuilder {
                         platformFilters: dependencyPlatformFilters
                     )
                     log(.debug, indent: 1, "Added dependency on target '\(dependencyGUID)'")
+
+                case .custom:
+                    fatalError("TODO")
                 }
 
             case .product(let productDependency, let packageConditions):
@@ -849,6 +853,9 @@ extension PackagePIFProjectBuilder {
                         indent: 1,
                         "Added \(shouldLinkProduct ? "linked " : "")dependency on target '\(moduleDependency.pifTargetGUID)'"
                     )
+
+                case .custom:
+                    fatalError("TODO")
                 }
 
             case .product(let productDependency, let packageConditions):
@@ -1065,5 +1072,77 @@ extension PackagePIFProjectBuilder {
             toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(systemModule)
+    }
+
+    // MARK: - Custom Targets
+
+    mutating func makeCustomTarget(_ resolvedCustomTarget: PackageGraph.ResolvedModule) throws {
+        precondition(resolvedCustomTarget.type == .custom)
+
+        let customTargetKeyPath = try self.project.addAggregateTarget { _ in
+            ProjectModel.AggregateTarget(
+                id: resolvedCustomTarget.pifTargetGUID,
+                name: resolvedCustomTarget.name
+            )
+        }
+        do {
+            let customLibraryTarget = self.project[keyPath: customTargetKeyPath]
+            log(
+                .debug,
+                "Created aggregate target '\(customLibraryTarget.id)' with name '\(customLibraryTarget.name)'"
+            )
+        }
+
+        let buildSettings = self.package.underlying.packageBaseBuildSettings
+        self.project[keyPath: customTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Debug", settings: buildSettings)
+        }
+        self.project[keyPath: customTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Release", settings: buildSettings)
+        }
+
+        for dependency in resolvedCustomTarget.dependencies {
+            switch dependency {
+            case .module(let module, conditions: _):
+                self.project[keyPath: customTargetKeyPath].common.addDependency(
+                    on: module.pifTargetGUID, platformFilters: .init()
+                )
+            case .product:
+                fatalError("TODO")
+            }
+        }
+
+        if let pluginResults = pifBuilder.buildToolPluginResultsByTargetName[resolvedCustomTarget.name] {
+            for pluginResult in pluginResults {
+                for command in pluginResult.buildCommands {
+                    var commandLine = [command.executable] + command.arguments
+                    if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
+                        commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
+                    }
+
+                    var environment = command.environment
+                    environment["SWIFT_CONFIGURATION"] = "$(CONFIGURATION)"
+                    environment["SWIFT_PLATFORM"] = "$(EFFECTIVE_PLATFORM_NAME)"
+                    environment["SWIFT_ARCHS"] = "$(ARCHS)"
+                    environment["SWIFT_VENDOR"] = "$(LLVM_TARGET_TRIPLE_VENDOR)"
+                    environment["SWIFT_OS"] = "$(LLVM_TARGET_TRIPLE_OS_VERSION)"
+                    environment["SWIFT_SUFFIX"] = "$(LLVM_TARGET_TRIPLE_SUFFIX)"
+                    environment["SWIFT_SDK"] = "$(SYSROOT)"
+
+                    self.project[keyPath: customTargetKeyPath].customTasks.append(
+                        ProjectModel.CustomTask(
+                            commandLine: commandLine,
+                            environment: environment.map { Pair($0, $1) }.sorted(by: <),
+                            workingDirectory: command.workingDir?.pathString,
+                            executionDescription: command.displayName ?? "Performing build tool plugin command",
+                            inputFilePaths: [command.executable] + command.inputPaths.map(\.pathString),
+                            outputFilePaths: command.outputPaths,
+                            enableSandboxing: false,
+                            preparesForIndexing: true
+                        )
+                    )
+                }
+            }
+        }
     }
 }

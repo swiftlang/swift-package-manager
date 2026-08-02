@@ -548,6 +548,9 @@ public final class PackagePIFBuilder {
 
             case .macro:
                 break // TODO: Double-check what's going on here as we skip snippet modules too (rdar://147705448)
+
+            case .custom:
+                try projectBuilder.makeCustomTargetProduct(product)
             }
         }
 
@@ -585,6 +588,9 @@ public final class PackagePIFBuilder {
 
             case .macro:
                 try projectBuilder.makeMacroModule(module)
+
+            case .custom:
+                try projectBuilder.makeCustomTarget(module)
             }
         }
 
@@ -807,7 +813,7 @@ extension PackagePIFBuilder.LinkedPackageBinary {
         case .library, .binary, .macro:
             self.init(module: module.name, packageIdentity: module.packageIdentity)
 
-        case .systemModule, .plugin:
+        case .systemModule, .plugin, .custom:
             return nil
         }
     }
