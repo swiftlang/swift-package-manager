@@ -137,6 +137,10 @@ public final class Target {
     /// If true, access to package declarations from other targets in the package is allowed.
     public let packageAccess: Bool
 
+    /// If true, Markdown, reStructuredText, and TeX source files in the target are treated as literate Swift sources.
+    @available(_PackageDescription, introduced: 999.0)
+    public let literate: Bool
+
     /// The name of the package configuration file, without extension, for the system library target.
     ///
     /// If present, the Swift Package Manager tries every package configuration
@@ -242,6 +246,7 @@ public final class Target {
         publicHeadersPath: String?,
         type: TargetType,
         packageAccess: Bool,
+        literate: Bool = false,
         pkgConfig: String? = nil,
         providers: [SystemPackageProvider]? = nil,
         pluginCapability: PluginCapability? = nil,
@@ -262,6 +267,7 @@ public final class Target {
         self.exclude = exclude
         self.type = type
         self.packageAccess = packageAccess
+        self.literate = literate
         self.pkgConfig = pkgConfig
         self.providers = providers
         self.pluginCapability = pluginCapability
@@ -567,7 +573,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target
-    @available(_PackageDescription, introduced: 5.9)
+    @available(_PackageDescription, introduced: 5.9, obsoleted: 999.0)
     public static func target(
         name: String,
         dependencies: [Dependency] = [],
@@ -593,6 +599,68 @@ public final class Target {
             publicHeadersPath: publicHeadersPath,
             type: .regular,
             packageAccess: packageAccess,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins
+        )
+    }
+
+    /// Creates a library or executable target.
+    ///
+    /// A target can contain either Swift or C-family source files, but not both. The Swift Package Manager
+    /// considers a target to be an executable target if its directory contains a `main.swift`, `main.m`, `main.c`,
+    /// or `main.cpp` file. The Swift Package Manager considers all other targets to be library targets.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
+    ///   - path: The custom path for the target. By default, the Swift Package Manager requires a target's sources to reside at predefined search paths;
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that the Swift Package Manager shouldn't consider to be source or resource files.
+    ///       A path is relative to the target's directory.
+    ///       This parameter has precedence over the ``sources`` parameter.
+    ///   - sources: An explicit list of source files. If you provide a path to a directory,
+    ///       Swift Package Manager searches for valid source files recursively.
+    ///   - resources: An explicit list of resources files.
+    ///   - publicHeadersPath: The directory that contains public headers of a C-family library target.
+    ///   - packageAccess: Allows package symbols from other targets in the package.
+    ///   - literate: If true, treats Markdown, reStructuredText, and TeX source files in the target as literate Swift sources.
+    ///   - cSettings: The C settings for this target.
+    ///   - cxxSettings: The C++ settings for this target.
+    ///   - swiftSettings: The Swift settings for this target.
+    ///   - linkerSettings: The linker settings for this target.
+    ///   - plugins: The plug-ins used by this target
+    @available(_PackageDescription, introduced: 999.0)
+    public static func target(
+        name: String,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        resources: [Resource]? = nil,
+        publicHeadersPath: String? = nil,
+        packageAccess: Bool = true,
+        literate: Bool = false,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            resources: resources,
+            publicHeadersPath: publicHeadersPath,
+            type: .regular,
+            packageAccess: packageAccess,
+            literate: literate,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -739,7 +807,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target
-    @available(_PackageDescription, introduced: 5.9)
+    @available(_PackageDescription, introduced: 5.9, obsoleted: 999.0)
     public static func executableTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -765,6 +833,69 @@ public final class Target {
             publicHeadersPath: publicHeadersPath,
             type: .executable,
             packageAccess: packageAccess,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins
+        )
+    }
+
+    /// Creates an executable target.
+    ///
+    /// An executable target can contain either Swift or C-family source files, but not both. It contains code that
+    /// is built as an executable module for use as the main target of an executable product. The target
+    /// is expected to either have a source file named `main.swift`, `main.m`, `main.c`, or `main.cpp`, or a source
+    /// file that contains the `@main` keyword.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
+    ///   - path: The custom path for the target. By default, Swift Package Manager requires a target's sources to reside at predefined search paths;
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that Swift Package Manager shouldn't consider to be source or resource files.
+    ///       A path is relative to the target's directory.
+    ///       This parameter has precedence over the ``sources`` parameter.
+    ///   - sources: An explicit list of source files. If you provide a path to a directory,
+    ///       Swift Package Manager searches for valid source files recursively.
+    ///   - resources: An explicit list of resources files.
+    ///   - publicHeadersPath: The directory that contains public headers of a C-family library target.
+    ///   - packageAccess: Allows package symbols from other targets in the package.
+    ///   - literate: If true, treats Markdown, reStructuredText, and TeX source files in the target as literate Swift sources.
+    ///   - cSettings: The C settings for this target.
+    ///   - cxxSettings: The C++ settings for this target.
+    ///   - swiftSettings: The Swift settings for this target.
+    ///   - linkerSettings: The linker settings for this target.
+    ///   - plugins: The plug-ins used by this target
+    @available(_PackageDescription, introduced: 999.0)
+    public static func executableTarget(
+        name: String,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        resources: [Resource]? = nil,
+        publicHeadersPath: String? = nil,
+        packageAccess: Bool = true,
+        literate: Bool = false,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            resources: resources,
+            publicHeadersPath: publicHeadersPath,
+            type: .executable,
+            packageAccess: packageAccess,
+            literate: literate,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,
@@ -985,7 +1116,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target.
-    @available(_PackageDescription, introduced: 5.9)
+    @available(_PackageDescription, introduced: 5.9, obsoleted: 999.0)
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -1010,6 +1141,65 @@ public final class Target {
             publicHeadersPath: nil,
             type: .test,
             packageAccess: packageAccess,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins
+        )
+    }
+
+    /// Creates a test target.
+    ///
+    /// Write test targets using the XCTest testing framework.
+    /// Test targets generally declare a dependency on the targets they test.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
+    ///   - path: The custom path for the target. By default, Swift Package Manager requires a target's sources to reside at predefined search paths;
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that Swift Package Manager shouldn't consider to be source or resource files.
+    ///       A path is relative to the target's directory.
+    ///       This parameter has precedence over the ``sources`` parameter.
+    ///   - sources: An explicit list of source files. If you provide a path to a directory,
+    ///       Swift Package Manager searches for valid source files recursively.
+    ///   - resources: An explicit list of resources files.
+    ///   - packageAccess: Allows access to package symbols from other targets in the package.
+    ///   - literate: If true, treats Markdown, reStructuredText, and TeX source files in the target as literate Swift sources.
+    ///   - cSettings: The C settings for this target.
+    ///   - cxxSettings: The C++ settings for this target.
+    ///   - swiftSettings: The Swift settings for this target.
+    ///   - linkerSettings: The linker settings for this target.
+    ///   - plugins: The plug-ins used by this target.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func testTarget(
+        name: String,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        resources: [Resource]? = nil,
+        packageAccess: Bool = true,
+        literate: Bool = false,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            resources: resources,
+            publicHeadersPath: nil,
+            type: .test,
+            packageAccess: packageAccess,
+            literate: literate,
             cSettings: cSettings,
             cxxSettings: cxxSettings,
             swiftSettings: swiftSettings,

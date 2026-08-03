@@ -300,6 +300,7 @@ extension Serialization.Target {
     init(_ target: PackageDescription.Target) {
         self.name = target.name
         self.packageAccess = target.packageAccess
+        self.literate = target.literate
         self.path = target.path
         self.url = target.url
         self.sources = target.sources
