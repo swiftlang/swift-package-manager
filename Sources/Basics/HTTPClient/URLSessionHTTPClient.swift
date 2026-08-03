@@ -68,16 +68,21 @@ final class URLSessionHTTPClient: Sendable {
         self.init(configuration: configuration, proxyConfiguration: proxyConfig)
     }
 
-    /// Loads proxy configuration from the filesystem, falling back to environment variables.
+    /// Loads proxy configuration, checking environment variables first, then the config file.
     ///
     /// Priority order:
-    /// 1. `proxy.json` configuration file (explicit per-user/per-project config)
-    /// 2. Environment variables (`http_proxy`, `https_proxy`, `no_proxy`)
+    /// 1. Environment variables (`http_proxy`, `https_proxy`, `no_proxy`) — highest priority
+    /// 2. `proxy.json` configuration file (per-user/per-project config)
     /// 3. macOS system proxy (implicit URLSession behavior when no dictionary is set)
     ///
     /// Returns `nil` if no configuration is found, allowing system proxy fallback.
     private static func loadProxyConfiguration(fileSystem: FileSystem) -> HTTPProxyConfiguration? {
-        // 1. Try proxy.json file first
+        // 1. Environment variables take highest priority
+        if let envConfig = HTTPProxyConfiguration.loadFromEnvironment() {
+            return envConfig
+        }
+
+        // 2. Fall back to proxy.json file
         if let configDir = try? fileSystem.swiftPMConfigurationDirectory {
             let proxyFile = configDir.appending("proxy.json")
             if fileSystem.exists(proxyFile) {
@@ -88,13 +93,13 @@ final class URLSessionHTTPClient: Sendable {
                     try config.validate()
                     return config
                 } catch {
-                    // If the configuration file is malformed, log and proceed to env vars
+                    // If the configuration file is malformed, proceed without proxy
                 }
             }
         }
 
-        // 2. Fall back to environment variables
-        return HTTPProxyConfiguration.loadFromEnvironment()
+        // 3. Return nil — URLSession will use macOS system proxy
+        return nil
     }
 
     /// Builds a `connectionProxyDictionary` from an `HTTPProxyConfiguration`.

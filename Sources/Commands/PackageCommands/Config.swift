@@ -175,19 +175,8 @@ extension SwiftPackageCommand.Config {
             let storage = try getProxyStorage(swiftCommandState)
             let config = try storage.get()
 
-            if let config, !config.isEmpty {
-                let configPath = try getProxyConfigPath(swiftCommandState)
-                if let httpProxy = config.http?.proxy {
-                    print("HTTP proxy:  \(httpProxy) (user: \(configPath))")
-                }
-                if let httpsProxy = config.https?.proxy {
-                    print("HTTPS proxy: \(httpsProxy) (user: \(configPath))")
-                }
-                if let noProxy = config.noProxy, !noProxy.isEmpty {
-                    print("No proxy:    \(noProxy.joined(separator: ", ")) (user: \(configPath))")
-                }
-            } else if let envConfig = HTTPProxyConfiguration.loadFromEnvironment(), !envConfig.isEmpty {
-                // Show environment variable configuration
+            if let envConfig = HTTPProxyConfiguration.loadFromEnvironment(), !envConfig.isEmpty {
+                // Environment variables take highest priority
                 let env = ProcessInfo.processInfo.environment
                 if let httpProxy = envConfig.http?.proxy {
                     let varName = env["http_proxy"] != nil ? "http_proxy" : "HTTP_PROXY"
@@ -200,6 +189,17 @@ extension SwiftPackageCommand.Config {
                 if let noProxy = envConfig.noProxy, !noProxy.isEmpty {
                     let varName = env["no_proxy"] != nil ? "no_proxy" : "NO_PROXY"
                     print("No proxy:    \(noProxy.joined(separator: ", ")) (environment: \(varName))")
+                }
+            } else if let config, !config.isEmpty {
+                let configPath = try getProxyConfigPath(swiftCommandState)
+                if let httpProxy = config.http?.proxy {
+                    print("HTTP proxy:  \(httpProxy) (user: \(configPath))")
+                }
+                if let httpsProxy = config.https?.proxy {
+                    print("HTTPS proxy: \(httpsProxy) (user: \(configPath))")
+                }
+                if let noProxy = config.noProxy, !noProxy.isEmpty {
+                    print("No proxy:    \(noProxy.joined(separator: ", ")) (user: \(configPath))")
                 }
             } else {
                 // Check for macOS system proxy
