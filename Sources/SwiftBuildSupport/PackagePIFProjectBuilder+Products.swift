@@ -141,6 +141,16 @@ extension PackagePIFProjectBuilder {
         if mainModule.type == .test {
             settings[.BUILD_SERVER_PROTOCOL_TARGET_TAGS, default: ["$(inherited)"]].append("test")
 
+            // A C-language test target does not necessarily define a clang module. However, BSP clients
+            // may infer a module name based on -fmodule-name to disambiguate tests, so always pass the
+            // flag.
+            settings[.OTHER_CFLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                $0.append("-fmodule-name=$(PRODUCT_MODULE_NAME)")
+            }
+            settings[.OTHER_CPLUSPLUSFLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                $0.append("-fmodule-name=$(PRODUCT_MODULE_NAME)")
+            }
+
             // FIXME: we shouldn't always include both the deep and shallow bundle paths here, but for that we'll need rdar://31867023
             if pifBuilder.addLocalRpaths != .never {
                 settings[.LD_RUNPATH_SEARCH_PATHS] = [
