@@ -23,7 +23,7 @@ struct JarBuilder {
             exit(1)
         }
 
-        let classFiles = try inputFiles.flatMap { try findClassFiles(in: $0) }
+        let classFiles = try inputFiles.flatMap { try findClassFiles(in: $0.deletingLastPathComponent()) }
 
         guard !classFiles.isEmpty else {
             print("class files missing")
@@ -34,8 +34,10 @@ struct JarBuilder {
             .name("jar"),
             arguments: .init([
                 "-c",
-                "-f", outputFile.path
-            ] + classFiles.map({ $0.path })),
+                "-f", outputFile.path,
+                // TODO: this should be a build setting so we don't need to hard code it
+                "-e", "HelloWorld",
+            ] + classFiles),
             output: .currentStandardOutput,
             error: .currentStandardError
         )
@@ -48,14 +50,20 @@ struct JarBuilder {
         print("Jar file complete")
     }
 
-    static func findClassFiles(in directoryURL: URL) throws -> [URL] {
-        var classFiles: [URL] = []
+    static func findClassFiles(in directoryURL: URL) throws -> [String] {
+        let baseComponents = directoryURL.standardizedFileURL.pathComponents
+        var classFiles: [String] = ["-C", directoryURL.path]
 
         let classDir = directoryURL.deletingLastPathComponent()
         if let enumerator = FileManager.default.enumerator(at: classDir, includingPropertiesForKeys: [.isRegularFileKey]) {
             for case let fileURL as URL in enumerator {
                 guard fileURL.pathExtension == "class" else { continue }
-                classFiles.append(fileURL)
+
+                // return the relative path to the dir                
+                let components = fileURL.standardizedFileURL.pathComponents
+                guard components.starts(with: baseComponents) else { continue }
+
+                classFiles.append(components.dropFirst(baseComponents.count).joined(separator: "/"))
             }
         }
 
