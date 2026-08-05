@@ -1181,9 +1181,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         swiftCompilerFlags += buildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
         // User arguments (from -Xcc) should follow generated arguments to allow user overrides
         swiftCompilerFlags += buildParameters.flags.cCompilerFlags.asSwiftcCCompilerFlags()
-        // We strip warning control flags (-warnings-as-errors) from the user supplied swift compiler flags.
-        // Per-package toggling of this flag is handled with  SWIFT_TREAT_WARNINGS_AS_ERRORS in the PIF.
-        swiftCompilerFlags = swiftCompilerFlags.filter { !WarningControlFlags.containsWarningsAsErrors([$0.value]) }
+        // We filter out the warning control flags from the user supplied swift compiler flags. If we don't, these global
+        // flags would be inherited by dependent targets, which are compiled with -suppress-warnings, and the
+        // driver rejects that combination (errors with "conflicting options '-Wwarning' and '-suppress-warnings'").
+        // Applying these flags to local targets is handled for individual packages in the PIF.
+        swiftCompilerFlags = WarningControlFlags.filterSwiftWarningControlFlags(swiftCompilerFlags, value: \.value)
         // TODO: Pass -Xcxx flags to swiftc (#6491)
         // Uncomment when downstream support arrives.
         // swiftCompilerFlags += buildParameters.toolchain.extraFlags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()

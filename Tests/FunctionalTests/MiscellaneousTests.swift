@@ -1332,16 +1332,14 @@ struct MiscellaneousTestCase {
             let downstreamPath = path.appending("downstream")
             let (stdout, stderr) = try await executeSwiftBuild(
                 downstreamPath,
-                Xswiftc: ["-warnings-as-errors"],
-                buildSystem: .swiftbuild,
+                Xswiftc: ["-warnings-as-errors", "-Wwarning", "DeprecatedDeclaration"],
+                buildSystem: buildSystem,
             )
             let combined = stdout + stderr
             print(combined)
             #expect(!combined.contains("conflicting options"))
             #expect(!combined.contains("'deprecatedFunction' is deprecated"))
         }
-    }
-
     }
 
     @Test(
@@ -1368,6 +1366,33 @@ struct MiscellaneousTestCase {
             ) { error in
                 #expect((error.stdout + error.stderr).contains("'greet()' is deprecated:"))
             }
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Build,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10192", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func warningGroupFlagsStillApplyToLocalPackage(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/WarningsAsErrorsInLocalPackage") { path in
+            let upstreamPath = path.appending("upstream")
+            initGitRepo(upstreamPath, tag: "1.0.0")
+
+            let downstreamPath = path.appending("downstream")
+            let (stdout, stderr) = try await executeSwiftBuild(
+                downstreamPath,
+                Xswiftc: ["-warnings-as-errors", "-Wwarning", "DeprecatedDeclaration"],
+                buildSystem: buildSystem,
+            )
+            let combined = stdout + stderr
+            print(combined)
+            #expect(!combined.contains("error: 'greet()' is deprecated:"))
+            #expect(combined.contains("'greet()' is deprecated:"))
         }
     }
 
@@ -1426,6 +1451,7 @@ struct MiscellaneousTestCase {
             ProcessInfo.isHostAmazonLinux2() // libFuzzer link issues occur on AL2
         }
     }
+}
 
 @Suite
 struct MiscellaneousSwiftTestingTests {
