@@ -1332,13 +1332,44 @@ struct MiscellaneousTestCase {
             let downstreamPath = path.appending("downstream")
             let (stdout, stderr) = try await executeSwiftBuild(
                 downstreamPath,
-                Xswiftc: ["-warnings-as-errors", "-Wwarning", "DeprecatedDeclaration"],
+                Xswiftc: ["-warnings-as-errors"],
                 buildSystem: buildSystem,
             )
             let combined = stdout + stderr
-            print(combined)
             #expect(!combined.contains("conflicting options"))
             #expect(!combined.contains("'deprecatedFunction' is deprecated"))
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Build,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10192", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func warningGroupFlagsDoNotReachRemoteDependencies(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/WarningsAsErrorsWithRemoteDep") { path in
+            let upstreamPath = path.appending("upstream")
+            initGitRepo(upstreamPath, tag: "1.0.0")
+
+            let downstreamPath = path.appending("downstream")
+            let (stdout, stderr) = try await executeSwiftBuild(
+                downstreamPath,
+                Xswiftc: ["-Werror", "DeprecatedDeclaration"],
+                buildSystem: buildSystem,
+            )
+            let buildOutput = try await getBinPath(
+                downstreamPath,
+                Xswiftc: ["-Werror", "DeprecatedDeclaration"],
+                buildSystem: buildSystem,
+            )
+            expectDirectoryExists(at: buildOutput)
+            let combined = stdout + stderr
+            #expect(!combined.contains("conflicting options"))
+            #expect(!combined.contains("'deprecatedFunction()' is deprecated"))
         }
     }
 
@@ -1393,6 +1424,105 @@ struct MiscellaneousTestCase {
             print(combined)
             #expect(!combined.contains("error: 'greet()' is deprecated:"))
             #expect(combined.contains("'greet()' is deprecated:"))
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Build,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10192", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func manifestWarningControlFlagsDoNotReachRemoteDependencies(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/WarningControlFlagsInManifest") { path in
+            let upstreamPath = path.appending("upstream")
+            initGitRepo(upstreamPath, tag: "1.0.0")
+
+            let downstreamPath = path.appending("downstream")
+            let (stdout, stderr) = try await executeSwiftBuild(
+                downstreamPath,
+                buildSystem: buildSystem,
+            )
+            let combined = stdout + stderr
+            #expect(!combined.contains("conflicting options"))
+            #expect(!combined.contains("'deprecatedFunction()' is deprecated"))
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Build,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10192", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func manifestWarningControlFlagsStillApplyToLocalPackage(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/WarningControlFlagsInManifest") { path in
+            let upstreamPath = path.appending("upstream")
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftBuild(
+                    upstreamPath,
+                    buildSystem: buildSystem,
+                )
+            ) { error in
+                #expect((error.stdout + error.stderr).contains("'deprecatedFunction()' is deprecated:"))
+            }
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Build,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10192", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func manifestClangWarningControlFlagsDoNotReachRemoteDependencies(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/CWarningControlFlagsInManifest") { path in
+            let upstreamPath = path.appending("upstream")
+            initGitRepo(upstreamPath, tag: "1.0.0")
+
+            let downstreamPath = path.appending("downstream")
+            let (stdout, stderr) = try await executeSwiftBuild(
+                downstreamPath,
+                buildSystem: buildSystem,
+            )
+            let buildOutput = try await getBinPath(
+                downstreamPath,
+                buildSystem: buildSystem,
+            )
+            expectDirectoryExists(at: buildOutput)
+            #expect(!(stdout + stderr).contains("non-void function"))
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Build,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10192", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func manifestClangWarningControlFlagsStillApplyToLocalPackage(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/CWarningControlFlagsInManifest") { path in
+            let upstreamPath = path.appending("upstream")
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftBuild(
+                    upstreamPath,
+                    buildSystem: buildSystem,
+                )
+            ) { error in
+                #expect((error.stdout + error.stderr).contains("non-void function"))
+            }
         }
     }
 
