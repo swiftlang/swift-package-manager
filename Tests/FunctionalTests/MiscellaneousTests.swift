@@ -1530,6 +1530,34 @@ struct MiscellaneousTestCase {
         .tags(
             .Feature.Command.Build,
         ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10192", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func clangWarningControlFlagsPassedViaXccDoNotCorruptSwiftFlags(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/Simple") { path in
+            let (stdout, stderr) = try await executeSwiftBuild(
+                path,
+                Xcc: ["-Werror"],
+                buildSystem: buildSystem,
+            )
+            let buildOutput = try await getBinPath(
+                path,
+                Xcc: ["-Werror"],
+                buildSystem: buildSystem,
+            )
+            expectDirectoryExists(at: buildOutput)
+            let combined = stdout + stderr
+            #expect(!combined.contains("unknown argument"))
+            #expect(!combined.contains("-plugin-path"))
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Build,
+        ),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func rootPackageWithConditionals(
