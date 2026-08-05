@@ -114,6 +114,7 @@ extension PackagePIFProjectBuilder {
         // but are in general the ones that are suitable for end-product artifacts such as executables and test bundles.
         var settings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
         settings[.TARGET_NAME] = product.name
+        settings[.BUILD_SERVER_PROTOCOL_TARGET_DISPLAY_NAME] = product.name
         settings[.TARGET_TEMP_DIR_SUFFIX] = "-p"
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "regular"
         settings[.PRODUCT_NAME] = "$(TARGET_NAME)"
@@ -733,6 +734,7 @@ extension PackagePIFProjectBuilder {
         self.project[keyPath: libraryUmbrellaTargetKeyPath] = libraryUmbrellaTargetForModules
 
         var settings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
+        settings[.BUILD_SERVER_PROTOCOL_TARGET_DISPLAY_NAME] = product.name
 
         // Add other build settings when we're building an actual dylib.
         if desiredProductType == .dynamic {
