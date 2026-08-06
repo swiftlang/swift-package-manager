@@ -1717,9 +1717,16 @@ public final class PackageBuilder {
             if executableTargetCount == 0 {
                 if let target = targets.spm_only {
                     self.observabilityScope
-                        .emit(.executableProductTargetNotExecutable(product: product.name, target: target.name))
+                        .emit(.executableProductTargetNotExecutable(
+                            product: product.name,
+                            target: target.name,
+                            toolsVersion: self.manifest.toolsVersion
+                        ))
                 } else {
-                    self.observabilityScope.emit(.executableProductWithoutExecutableTarget(product: product.name))
+                    self.observabilityScope.emit(.executableProductWithoutExecutableTarget(
+                        product: product.name,
+                        toolsVersion: self.manifest.toolsVersion
+                    ))
                 }
             } else {
                 self.observabilityScope.emit(.executableProductWithMoreThanOneExecutableTarget(product: product.name))
