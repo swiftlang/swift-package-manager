@@ -2619,5 +2619,67 @@ struct TestCommandTests {
             return (state, outputStream)
         }
     }
+    // MARK: - XCTest Filter Normalization Tests
+
+    /// Unit tests for `XCTestCaseSpecifier.normalizedForXCTest()`, which rewrites Swift Testing
+    /// filter/skip prefixes (e.g. `id:`, `tag:`) for XCTest, which only understands test-ID patterns.
+    @Suite
+    struct XCTestFilterNormalizationTests {
+        @Test
+        func idPrefixIsStrippedWhenFiltering() {
+            #expect(XCTestCaseSpecifier.regex(["id:SomeTests/testFoo"]).normalizedForXCTest() == .regex(["SomeTests/testFoo"]))
+        }
+
+        @Test
+        func noPrefixIsLeftUnchangedWhenFiltering() {
+            #expect(XCTestCaseSpecifier.regex(["SomeTests/testFoo"]).normalizedForXCTest() == .regex(["SomeTests/testFoo"]))
+        }
+
+        @Test
+        func tagPrefixFilterMatchesNoXCTests() {
+            #expect(XCTestCaseSpecifier.regex(["tag:integration"]).normalizedForXCTest() == .regex([]))
+        }
+
+        @Test
+        func arbitraryPrefixFilterMatchesNoXCTests() {
+            #expect(XCTestCaseSpecifier.regex(["foo:bar"]).normalizedForXCTest() == .regex([]))
+        }
+
+        @Test
+        func mixedIdAndTagFilterMatchesNoXCTests() {
+            #expect(XCTestCaseSpecifier.regex(["id:SomeTests/testFoo", "tag:integration"]).normalizedForXCTest() == .regex([]))
+        }
+
+        @Test
+        func tagBeforeIdFilterMatchesNoXCTests() {
+            #expect(XCTestCaseSpecifier.regex(["tag:integration", "id:SomeTests/testFoo"]).normalizedForXCTest() == .regex([]))
+        }
+
+        @Test
+        func barePatternWithTagFilterMatchesNoXCTests() {
+            #expect(XCTestCaseSpecifier.regex(["SomeTests/testFoo", "tag:integration"]).normalizedForXCTest() == .regex([]))
+        }
+
+        @Test
+        func idPrefixIsStrippedWhenSkipping() {
+            #expect(XCTestCaseSpecifier.skip(["id:SomeTests/testFoo"]).normalizedForXCTest() == .skip(["SomeTests/testFoo"]))
+        }
+
+        @Test
+        func tagPrefixSkipSkipsNoXCTests() {
+            #expect(XCTestCaseSpecifier.skip(["tag:integration"]).normalizedForXCTest() == .none)
+        }
+
+        @Test
+        func mixedIdAndTagSkipKeepsOnlyIdPatterns() {
+            #expect(XCTestCaseSpecifier.skip(["id:SomeTests/testFoo", "tag:integration"]).normalizedForXCTest() == .skip(["SomeTests/testFoo"]))
+        }
+
+        @Test
+        func noneAndSpecificPassThrough() {
+            #expect(XCTestCaseSpecifier.none.normalizedForXCTest() == .none)
+            #expect(XCTestCaseSpecifier.specific("SomeTests/testFoo").normalizedForXCTest() == .specific("SomeTests/testFoo"))
+        }
+    }
 }
 
