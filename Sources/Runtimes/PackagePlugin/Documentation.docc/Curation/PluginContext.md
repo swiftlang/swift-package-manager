@@ -3,12 +3,12 @@
 Use a plugin context to inspect the package and locate the command-line tools
 that a plugin needs.
 
-## Locating Command-Line Tools
+## Locating command-line tools
 
 Call ``tool(named:)`` with a tool's logical name to obtain the URL of an
-executable that runs on the host platform. SwiftPM builds executable dependencies
-for the host platform and selects host-compatible variants from binary artifact
-bundles.
+executable that runs on the host platform. Swift Package Manager builds
+executable dependencies for the host platform and selects host-compatible
+variants from binary artifact bundles.
 
 The lookup name depends on how the plugin declares the tool:
 
@@ -29,10 +29,11 @@ If no declared dependency matches, ``tool(named:)`` checks each host-provided
 search directory in order and returns the first executable file with the
 requested name. On Windows, it appends the `.exe` suffix when searching these
 directories. The directories are an implementation detail of the host and can
-differ between SwiftPM, an IDE, and other package-manager integrations. Declare
-every required executable as a plugin dependency when the plugin needs to work
-across hosts. A plugin that intentionally uses a tool installed on the user's
-system should document the supported host and configuration requirements.
+differ between Swift Package Manager, an IDE, and other package-manager
+integrations. Declare every required executable as a plugin dependency when the
+plugin needs to work across hosts. A plugin that intentionally uses a tool
+installed on the user's system should document the supported host and
+configuration requirements.
 
 ## Topics
 

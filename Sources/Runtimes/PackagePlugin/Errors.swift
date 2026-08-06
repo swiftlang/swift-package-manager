@@ -18,7 +18,8 @@ public enum PluginContextError: Error {
     /// executable with the given name.
     case toolNotFound(name: String)
 
-    /// A declared binary tool has no variant that supports the host platform.
+    /// A declared binary tool has no variant that supports the platform on which
+    /// the plugin runs.
     case toolNotSupportedOnTargetPlatform(name: String)
 
     /// Could not find a target with the given name.

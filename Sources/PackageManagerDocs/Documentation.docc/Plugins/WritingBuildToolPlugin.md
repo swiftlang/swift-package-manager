@@ -107,11 +107,12 @@ host platform, because build tools run on the host even when the package is
 being cross-compiled.
 
 Declaring a dependency is the portable way to make a tool available to a build
-tool plugin. SwiftPM also searches the directory containing the selected Swift
-compiler, which makes tools in the active toolchain available, but it doesn't
-search the user's `PATH` for build tool plugins. IDEs and other hosts may provide
-different search directories. Don't require users to install a build tool on
-`PATH`; provide it through an executable or binary dependency instead.
+tool plugin. Swift Package Manager also searches the directory containing the
+selected Swift compiler, which makes tools in the active toolchain available,
+but it doesn't search the user's `PATH` for build tool plugins. IDEs and other
+hosts may provide different search directories. Don't require users to install
+a build tool on `PATH`; provide it through an executable or binary dependency
+instead.
 
 ### Implementing the build tool plugin script
 
