@@ -160,13 +160,3 @@ Equivalently with curl:
 curl -skX POST https://localhost:8000/login -u 'harry@hogwarts.com:ginny'   # → 200
 curl -skX POST https://localhost:8000/login -H 'Authorization: Bearer kR8f…QeE'  # → 200
 ```
-
-### Stateless login
-
-When auth is enabled, every publish request must carry its own valid
-credentials — an `Authorization` header (HTTP Basic or Bearer) that verifies
-against a registered account. There is no server-side session: credentials are
-re-checked on every request, so a prior `POST /login` does not authorize a later
-credential-less publish, and nothing needs to be remembered across requests or
-survive a restart. A request with missing or invalid credentials is rejected
-with `401 Unauthorized`.
