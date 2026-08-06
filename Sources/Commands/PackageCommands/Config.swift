@@ -134,6 +134,9 @@ extension SwiftPackageCommand.Config {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
+        @Flag(help: "Apply settings to all projects for this user.")
+        var global: Bool = false
+
         @Option(help: "The HTTP proxy URL (e.g., http://proxy:8080).")
         var http: String?
 
@@ -152,7 +155,7 @@ extension SwiftPackageCommand.Config {
                 throw ExitCode.failure
             }
 
-            let storage = try getProxyStorage(swiftCommandState)
+            let storage = try getProxyStorage(swiftCommandState, global: self.global)
 
             // Parse comma-separated noProxy values into individual entries
             let noProxyPatterns: [String]? = noProxy.isEmpty ? nil : noProxy.flatMap {
@@ -171,8 +174,11 @@ extension SwiftPackageCommand.Config {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
+        @Flag(help: "Read only settings applied to all projects for this user.")
+        var global: Bool = false
+
         func run(_ swiftCommandState: SwiftCommandState) throws {
-            let storage = try getProxyStorage(swiftCommandState)
+            let storage = try getProxyStorage(swiftCommandState, global: self.global)
             let config = try storage.get()
 
             if let envConfig = HTTPProxyConfiguration.loadFromEnvironment(), !envConfig.isEmpty {
@@ -191,7 +197,7 @@ extension SwiftPackageCommand.Config {
                     print("No proxy:    \(noProxy.joined(separator: ", ")) (environment: \(varName))")
                 }
             } else if let config, !config.isEmpty {
-                let configPath = try getProxyConfigPath(swiftCommandState)
+                let configPath = try getProxyConfigPath(swiftCommandState, global: self.global)
                 if let httpProxy = config.http?.proxy {
                     print("HTTP proxy:  \(httpProxy) (user: \(configPath))")
                 }
@@ -250,6 +256,9 @@ extension SwiftPackageCommand.Config {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
+        @Flag(help: "Apply settings to all projects for this user.")
+        var global: Bool = false
+
         @Flag(help: "Remove the HTTP proxy setting.")
         var http: Bool = false
 
@@ -260,22 +269,32 @@ extension SwiftPackageCommand.Config {
         var noProxy: Bool = false
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
-            let storage = try getProxyStorage(swiftCommandState)
+            let storage = try getProxyStorage(swiftCommandState, global: self.global)
             try storage.unset(http: http, https: https, noProxy: noProxy)
         }
     }
 
-    static func getProxyStorage(_ swiftCommandState: SwiftCommandState) throws -> Workspace.Configuration.ProxyStorage {
+    static func getProxyStorage(_ swiftCommandState: SwiftCommandState, global: Bool) throws -> Workspace.Configuration.ProxyStorage {
+        if global {
+            let proxyFile = Workspace.DefaultLocations.proxyConfigurationFile(
+                at: swiftCommandState.sharedConfigurationDirectory
+            )
+            return .init(path: proxyFile, fileSystem: swiftCommandState.fileSystem, deleteWhenEmpty: false)
+        }
         let workspace = try swiftCommandState.getActiveWorkspace()
-        let proxyFile = workspace.location.sharedProxyConfigurationFile
-            ?? workspace.location.localProxyConfigurationFile
+        let proxyFile = workspace.location.localProxyConfigurationFile
         return .init(path: proxyFile, fileSystem: swiftCommandState.fileSystem)
     }
 
-    static func getProxyConfigPath(_ swiftCommandState: SwiftCommandState) throws -> String {
+    static func getProxyConfigPath(_ swiftCommandState: SwiftCommandState, global: Bool) throws -> String {
+        if global {
+            let proxyFile = Workspace.DefaultLocations.proxyConfigurationFile(
+                at: swiftCommandState.sharedConfigurationDirectory
+            )
+            return proxyFile.pathString
+        }
         let workspace = try swiftCommandState.getActiveWorkspace()
-        let proxyFile = workspace.location.sharedProxyConfigurationFile
-            ?? workspace.location.localProxyConfigurationFile
+        let proxyFile = workspace.location.localProxyConfigurationFile
         return proxyFile.pathString
     }
 }
