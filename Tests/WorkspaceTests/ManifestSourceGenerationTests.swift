@@ -332,6 +332,29 @@ final class ManifestSourceGenerationTests: XCTestCase {
         XCTAssertTrue(newContents.contains("path: \"\("packages/path/to/MyPkg12".nativePathString(escaped: true))"), newContents)
     }
 
+    func testUnionOfVersionsDependencyRoundTrip() async throws {
+        try XCTSkipOnWindows(because: "Intermittently fails", skipPlatformCi: true)
+        let manifestContents = """
+            // swift-tools-version:999.0
+            import PackageDescription
+
+            let package = Package(
+                name: "MyPackage",
+                dependencies: [
+                   .package(url: "https://example.com/MyPkg1", versions: "1.1.0"..<"2.0.0", "2.1.0"..<"3.0.0", "3.3.0", "5.1.3"),
+                   .package(url: "https://example.com/MyPkg2", versions: "1.0.0"..<"1.5.0", "2.0.0"..<"2.5.0"),
+                ]
+            )
+            """
+        // Round-tripping regenerates the manifest source and reloads it; the helper
+        // asserts the reloaded manifest matches the original.
+        let newContents = try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .vNext)
+
+        // Union requirements are regenerated as a labeled `versions:` variadic (bare
+        // exact versions as single-version ranges).
+        XCTAssertTrue(newContents.contains("versions: \"1.1.0\"..<\"2.0.0\", \"2.1.0\"..<\"3.0.0\", \"3.3.0\"..<\"3.3.1\", \"5.1.3\"..<\"5.1.4\""), newContents)
+    }
+
     func testResources() async throws {
         let manifestContents = """
             // swift-tools-version:5.3

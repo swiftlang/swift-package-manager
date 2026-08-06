@@ -79,6 +79,8 @@ public struct MockDependency {
                     requirement = .exact(value)
                 case .range(let value):
                     requirement = .range(value)
+                case .ranges(let value):
+                    requirement = .ranges(value)
                 }
                 return .registry(
                     identity: identity,
@@ -118,6 +120,8 @@ public struct MockDependency {
                     requirement = .exact(value)
                 case .range(let value):
                     requirement = .range(value)
+                case .ranges(let value):
+                    requirement = .ranges(value)
                 }
                 return .remoteSourceControl(
                     identity: identity,
