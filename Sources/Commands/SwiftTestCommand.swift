@@ -363,6 +363,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                     results += testProducts.lazy
                         .map { TestProductResult(productName: $0.productName, library: .xctest, result: .noMatchingTests) }
                 } else {
+                    let start = DispatchTime.now()
                     let productResults = try await runTestProducts(
                         testProducts,
                         additionalArguments: xctestArgs,
@@ -371,7 +372,19 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                         library: .xctest,
                         buildSystem: buildSystem
                     )
+                    let duration = start.distance(to: .now())
                     results.append(contentsOf: productResults)
+
+                    // `ParallelTestRunner` isn't used in serial mode, so there's no per-test
+                    // breakdown to hand to `generateXUnitOutputIfRequested` above. Build one
+                    // from the enumerated tests so the XCTest xUnit XML is still emitted.
+                    try await generateXUnitOutputForSerialXCTestRunIfRequested(
+                        testProducts: testProducts,
+                        productResults: productResults,
+                        duration: duration,
+                        swiftCommandState: swiftCommandState,
+                        buildSystem: buildSystem
+                    )
                 }
             } else {
                 let testSuites = try await TestingSupport.getTestSuites(
@@ -520,6 +533,59 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             at: xUnitOutput,
             detailedFailureMessage: self.options.shouldShowDetailedFailureMessage
         )
+    }
+
+    /// Generate the xUnit file for a serial (non-parallel) XCTest run, if requested.
+    ///
+    /// `ParallelTestRunner` isn't used in this mode, so there are no per-test results to hand to
+    /// `generateXUnitOutputIfRequested` above; `productResults` only tracks pass/fail per test
+    /// product. Enumerate the tests that were run and attribute each one the result of its
+    /// containing product so the requested xUnit XML is still emitted.
+    private func generateXUnitOutputForSerialXCTestRunIfRequested(
+        testProducts: [BuiltTestProduct],
+        productResults: [TestProductResult],
+        duration: DispatchTimeInterval,
+        swiftCommandState: SwiftCommandState,
+        buildSystem: any BuildSystem
+    ) async throws {
+        guard options.xUnitOutput != nil else {
+            return
+        }
+
+        let testSuites = try await TestingSupport.getTestSuites(
+            in: testProducts,
+            swiftCommandState: swiftCommandState,
+            enableCodeCoverage: options.enableCodeCoverage,
+            shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
+            experimentalTestOutput: options.enableExperimentalTestOutput,
+            sanitizers: globalOptions.build.sanitizers,
+            buildSystem: buildSystem
+        )
+        let tests = try testSuites
+            .filteredTests(specifier: options.testCaseSpecifier)
+            .skippedTests(specifier: options.skippedTests(fileSystem: swiftCommandState.fileSystem))
+
+        guard !tests.isEmpty else {
+            return
+        }
+
+        // Spread the overall run duration evenly across tests so the generated file's total
+        // matches the real elapsed time.
+        let perTestDuration = DispatchTimeInterval.nanoseconds(
+            Int((duration.timeInterval() ?? 0) / Double(tests.count) * 1_000_000_000)
+        )
+
+        let failedProducts = Set(productResults.filter { $0.result == .failure }.map(\.productName))
+        let testResults = tests.map {
+            ParallelTestRunner.TestResult(
+                unitTest: $0,
+                output: "",
+                success: !failedProducts.contains($0.testProduct.productName),
+                duration: perTestDuration
+            )
+        }
+
+        try generateXUnitOutputIfRequested(for: testResults, swiftCommandState: swiftCommandState)
     }
 
     // MARK: - Common implementation
