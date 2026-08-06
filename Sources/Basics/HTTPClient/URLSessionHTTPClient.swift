@@ -24,7 +24,14 @@ final class URLSessionHTTPClient: Sendable {
     private let dataTaskManager: DataTaskManager
     private let downloadTaskManager: DownloadTaskManager
 
-    init(configuration: URLSessionConfiguration = .default) {
+    init(configuration: URLSessionConfiguration = .default, proxyConfiguration: HTTPProxyConfiguration? = nil) {
+        // Apply proxy configuration to the URLSessionConfiguration if provided.
+        // When proxyConfiguration is nil, leave the URLSessionConfiguration untouched
+        // so that macOS system proxy continues to work as a fallback.
+        if let proxyConfiguration {
+            configuration.connectionProxyDictionary = Self.buildProxyDictionary(from: proxyConfiguration)
+        }
+
         let dataDelegateQueue = OperationQueue()
         dataDelegateQueue.name = "org.swift.swiftpm.urlsession-http-client-data-delegate"
         dataDelegateQueue.maxConcurrentOperationCount = 1
@@ -49,6 +56,94 @@ final class URLSessionHTTPClient: Sendable {
     deinit {
         dataSession.finishTasksAndInvalidate()
         downloadSession.finishTasksAndInvalidate()
+    }
+
+    /// Convenience initializer that reads proxy configuration from the filesystem.
+    ///
+    /// Reads from the shared SwiftPM configuration directory (`~/.swiftpm/configuration/proxy.json`).
+    /// If no proxy configuration file exists, falls back to default behavior (no proxy dictionary set,
+    /// allowing macOS system proxy to work).
+    convenience init(configuration: URLSessionConfiguration = .default, fileSystem: FileSystem) {
+        let proxyConfig = Self.loadProxyConfiguration(fileSystem: fileSystem)
+        self.init(configuration: configuration, proxyConfiguration: proxyConfig)
+    }
+
+    /// Loads proxy configuration, checking environment variables first, then the config file.
+    ///
+    /// Priority order:
+    /// 1. Environment variables (`http_proxy`, `https_proxy`, `no_proxy`) — highest priority
+    /// 2. `proxy.json` configuration file (per-user/per-project config)
+    /// 3. macOS system proxy (implicit URLSession behavior when no dictionary is set)
+    ///
+    /// Returns `nil` if no configuration is found, allowing system proxy fallback.
+    private static func loadProxyConfiguration(fileSystem: FileSystem) -> HTTPProxyConfiguration? {
+        // 1. Environment variables take highest priority
+        if let envConfig = HTTPProxyConfiguration.loadFromEnvironment() {
+            return envConfig
+        }
+
+        // 2. Fall back to proxy.json file
+        if let configDir = try? fileSystem.swiftPMConfigurationDirectory {
+            let proxyFile = configDir.appending("proxy.json")
+            if fileSystem.exists(proxyFile) {
+                do {
+                    let data: Data = try fileSystem.readFileContents(proxyFile)
+                    let decoder = JSONDecoder.makeWithDefaults()
+                    let config = try decoder.decode(HTTPProxyConfiguration.self, from: data)
+                    try config.validate()
+                    return config
+                } catch {
+                    // If the configuration file is malformed, proceed without proxy
+                }
+            }
+        }
+
+        // 3. Return nil — URLSession will use macOS system proxy
+        return nil
+    }
+
+    /// Builds a `connectionProxyDictionary` from an `HTTPProxyConfiguration`.
+    private static func buildProxyDictionary(from config: HTTPProxyConfiguration) -> [AnyHashable: Any] {
+        var dict = [AnyHashable: Any]()
+
+        if let httpProxy = config.http {
+            if let parsed = try? HTTPProxyConfiguration.parseProxyURL(httpProxy.proxy) {
+                #if canImport(CoreFoundation)
+                dict[kCFNetworkProxiesHTTPEnable] = 1
+                dict[kCFNetworkProxiesHTTPProxy] = parsed.host
+                dict[kCFNetworkProxiesHTTPPort] = parsed.port
+                #else
+                dict["HTTPEnable"] = 1
+                dict["HTTPProxy"] = parsed.host
+                dict["HTTPPort"] = parsed.port
+                #endif
+            }
+        }
+
+        if let httpsProxy = config.https {
+            if let parsed = try? HTTPProxyConfiguration.parseProxyURL(httpsProxy.proxy) {
+                #if canImport(CoreFoundation)
+                dict[kCFStreamPropertyHTTPSProxyHost as String] = parsed.host
+                dict[kCFStreamPropertyHTTPSProxyPort as String] = parsed.port
+                #else
+                dict["HTTPSProxy"] = parsed.host
+                dict["HTTPSPort"] = parsed.port
+                #endif
+            }
+        }
+
+        // Note: noProxy matching is handled per-request by the caller or by URLSession
+        // when using connectionProxyDictionary. For URLSession, we rely on the
+        // kCFNetworkProxiesExceptionsList key for noProxy support.
+        if let noProxy = config.noProxy, !noProxy.isEmpty {
+            #if canImport(CoreFoundation)
+            dict[kCFNetworkProxiesExceptionsList] = noProxy
+            #else
+            dict["ExceptionsList"] = noProxy
+            #endif
+        }
+
+        return dict
     }
 
     @Sendable

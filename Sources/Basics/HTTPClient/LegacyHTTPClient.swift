@@ -55,7 +55,7 @@ public final class LegacyHTTPClient: Cancellable {
     public init(configuration: LegacyHTTPClientConfiguration = .init(), handler: Handler? = nil) {
         self.configuration = configuration
         // FIXME: inject platform specific implementation here
-        self.underlying = handler ?? URLSessionHTTPClient().execute
+        self.underlying = handler ?? URLSessionHTTPClient(fileSystem: localFileSystem).execute
 
         // this queue and semaphore is used to limit the amount of concurrent http requests taking place
         // the default max number of request chosen to match Concurrency.maxOperations which is the number of active
