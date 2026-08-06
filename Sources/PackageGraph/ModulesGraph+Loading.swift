@@ -497,9 +497,16 @@ private func createResolvedPackages(
                     // 9/2021 this is currently emitting a warning only to support
                     // backwards compatibility with older versions of SwiftPM that had too weak of a validation
                     // we will upgrade this to an error in a few versions to tighten up the validation
-                    if dependency.explicitNameForModuleDependencyResolutionOnly == .none ||
-                        resolvedPackage.package.manifest.displayName == dependency
-                        .explicitNameForModuleDependencyResolutionOnly
+                    let explicitName: String? = switch dependency {
+                    case .fileSystem(let settings):
+                        settings.nameForTargetDependencyResolutionOnly
+                    case .sourceControl(let settings):
+                        settings.nameForTargetDependencyResolutionOnly
+                    case .registry:
+                        nil
+                    }
+                    if explicitName == .none ||
+                        resolvedPackage.package.manifest.displayName == explicitName
                     {
                         packageObservabilityScope
                             .emit(
@@ -522,7 +529,15 @@ private func createResolvedPackages(
 
                 // checks if two dependencies have the same explicit name which can cause module based dependency
                 // package lookup issue
-                if let explicitDependencyName = dependency.explicitNameForModuleDependencyResolutionOnly {
+                let explicitDependencyNameForModuleDependencyResolution: String? = switch dependency {
+                case .fileSystem(let settings):
+                    settings.nameForTargetDependencyResolutionOnly
+                case .sourceControl(let settings):
+                    settings.nameForTargetDependencyResolutionOnly
+                case .registry:
+                    nil
+                }
+                if let explicitDependencyName = explicitDependencyNameForModuleDependencyResolution {
                     if let previouslyResolvedPackage =
                         dependenciesByNameForModuleDependencyResolution[explicitDependencyName]
                     {

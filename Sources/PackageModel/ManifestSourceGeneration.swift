@@ -163,7 +163,15 @@ fileprivate extension SourceCodeFragment {
     /// Instantiates a SourceCodeFragment to represent a single package dependency.
     init(from dependency: PackageDependency, pathAnchor: AbsolutePath) {
         var params: [SourceCodeFragment] = []
-        if let explicitName = dependency.explicitNameForModuleDependencyResolutionOnly {
+        let explicitName: String? = switch dependency {
+        case .fileSystem(let settings):
+            settings.nameForTargetDependencyResolutionOnly
+        case .sourceControl(let settings):
+            settings.nameForTargetDependencyResolutionOnly
+        case .registry:
+            nil
+        }
+        if let explicitName {
             params.append(SourceCodeFragment(key: "name", string: explicitName))
         }
         switch dependency {
