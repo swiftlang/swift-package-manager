@@ -137,6 +137,25 @@ extension FileSystem {
         try self.createSymbolicLink(path.underlying, pointingAt: destination.underlying, relative: relative)
     }
 
+    /// Makes `path` available as a reference to `source`, preferring a symbolic
+    /// link but falling back to a full copy when symlinks are not supported or
+    /// the filesystem denies the operation.
+    ///
+    /// Creates parent directories as needed and replaces any existing symlink
+    /// at `path`. If a non-symlink already exists at `path` this method does
+    /// nothing (the caller is expected to check for that before calling).
+    public func symlinkOrCopy(from source: AbsolutePath, to path: AbsolutePath) throws {
+        try self.createDirectory(path.parentDirectory, recursive: true)
+        if self.isSymlink(path) {
+            try self.removeFileTree(path)
+        }
+        do {
+            try self.createSymbolicLink(path, pointingAt: source, relative: false)
+        } catch {
+            try self.copy(from: source, to: path)
+        }
+    }
+
     /// Get the contents of a file.
     ///
     /// - Returns: The file contents as bytes, or nil if missing.

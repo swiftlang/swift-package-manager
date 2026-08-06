@@ -850,17 +850,25 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             do {
                 let packageDirectory = manifestPath.parentDirectory.pathString
 
+                // Skip git subprocess forks for non-git directories (e.g.
+                // source archive extracts, registry downloads). The three git
+                // calls below each fork a process; checking for .git first
+                // avoids that overhead when the result would always be nil.
                 let gitInformation: ContextModel.GitInformation?
-                do {
-                    let repo = GitRepository(path: manifestPath.parentDirectory)
-                    // These Git operations might block, consider making them async if performance is critical
-                    gitInformation = ContextModel.GitInformation(
-                        currentTag: repo.getCurrentTag(),
-                        currentCommit: try repo.getCurrentRevision().identifier,
-                        hasUncommittedChanges: repo.hasUncommittedChanges()
-                    )
-                } catch {
-                    // Ignore errors getting git info
+                if localFileSystem.exists(manifestPath.parentDirectory.appending(component: ".git")) {
+                    do {
+                        let repo = GitRepository(path: manifestPath.parentDirectory)
+                        // These Git operations might block, consider making them async if performance is critical
+                        gitInformation = ContextModel.GitInformation(
+                            currentTag: repo.getCurrentTag(),
+                            currentCommit: try repo.getCurrentRevision().identifier,
+                            hasUncommittedChanges: repo.hasUncommittedChanges()
+                        )
+                    } catch {
+                        // Ignore errors getting git info
+                        gitInformation = nil
+                    }
+                } else {
                     gitInformation = nil
                 }
 
