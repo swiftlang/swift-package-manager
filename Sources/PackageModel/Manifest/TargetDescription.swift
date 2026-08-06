@@ -24,6 +24,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         case binary
         case plugin
         case `macro`
+        case custom
     }
 
     /// Represents a target's dependency on another entity.
@@ -443,6 +444,9 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 propertyName: "pluginCapability",
                 value: String(describing: pluginCapability!)
             ) }
+        case .custom:
+            // TODO
+            break
         }
 
         self.name = name

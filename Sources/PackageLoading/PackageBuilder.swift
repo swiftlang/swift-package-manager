@@ -961,7 +961,7 @@ public final class PackageBuilder {
         // The name of the bundle, if one is being generated.
         let potentialBundleName = self.manifest.displayName + "_" + potentialModule.name
 
-        if sources.relativePaths.isEmpty && resources.isEmpty && headers.isEmpty {
+        if sources.relativePaths.isEmpty && resources.isEmpty && headers.isEmpty && potentialModule.type != .custom {
             return nil
         }
         try self.validateSourcesOverlapping(forTarget: potentialModule.name, sources: sources.paths)
@@ -983,6 +983,22 @@ public final class PackageBuilder {
                 packageAccess: potentialModule.packageAccess
             )
         }
+
+        if potentialModule.type == .custom {
+            // Combine with others
+            let sources = Sources(paths: sources.paths + others, root: sources.root)
+
+            return CustomTarget(
+                name: potentialModule.name,
+                path: potentialModule.path,
+                sources: sources,
+                resources: resources,
+                dependencies: dependencies,
+                buildSettings: .init(),
+                buildSettingsDescription: []
+            )
+        }
+
 
         /// Determine the module's kind, or leave nil to check the source directory.
         let moduleKind: Module.Kind
@@ -1583,7 +1599,7 @@ public final class PackageBuilder {
                 guard self.validateLibraryProduct(product, with: modules) else {
                     continue
                 }
-            case .test, .macro:
+            case .test, .macro, .custom:
                 break
             case .executable, .snippet:
                 guard self.validateExecutableProduct(product, with: modules) else {
@@ -1605,7 +1621,7 @@ public final class PackageBuilder {
         // for them.
         let explicitProductsModules = Set(self.manifest.products.flatMap { product -> [String] in
             switch product.type {
-            case .library, .plugin, .test, .macro:
+            case .library, .plugin, .test, .macro, .custom:
                 return []
             case .executable, .snippet:
                 return product.targets
@@ -1652,6 +1668,18 @@ public final class PackageBuilder {
                     append(product)
                 }
             }
+        }
+
+        for module in modules where module.type == .custom {
+            // TODO: always explicit? wen merge products and targets?
+            let product = try Product(
+                package: self.identity,
+                name: module.name,
+                type: .custom,
+                modules: [module],
+                isImplicit: true
+            )
+            append(product)
         }
 
         // Create a special REPL product that contains all the library targets.
