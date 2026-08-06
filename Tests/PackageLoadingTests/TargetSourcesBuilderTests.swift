@@ -16,6 +16,7 @@ import PackageModel
 import PackageLoading
 import _InternalTestSupport
 import XCTest
+import Testing
 
 final class TargetSourcesBuilderTests: XCTestCase {
     func testBasicFileContentsComputation() throws {
@@ -729,7 +730,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
-    
+
     func testMissingResource() throws {
         let target = try TargetDescription(
             name: "Foo",
@@ -797,7 +798,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
         }
     }
 
-    
+
     func testMissingSource() throws {
         let target = try TargetDescription(
             name: "Foo",
@@ -978,6 +979,49 @@ final class TargetSourcesBuilderTests: XCTestCase {
         let outputs = try builder.run()
         XCTAssertEqual(outputs.sources.paths, ["/File.swift"])
         XCTAssertEqual(outputs.resources, [])
+        XCTAssertEqual(outputs.ignored, ["/Foo.docc"])
+        XCTAssertEqual(outputs.others, [])
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+    }
+
+    func testSwiftBuildFileTypesDoNotConflict() throws {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: [],
+            sources: ["File.swift"],
+            resources: [],
+            publicHeadersPath: nil,
+            type: .regular
+        )
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: AbsolutePath.root, files: [
+            "/File.swift",
+            "/Foo.docc",
+            "/PrivacyInfo.xcprivacy",
+        ])
+
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let builder = TargetSourcesBuilder(
+            packageIdentity: .plain("test"),
+            packageKind: .root(.root),
+            packagePath: .root,
+            target: target,
+            path: .root,
+            defaultLocalization: nil,
+            additionalFileRules: FileRuleDescription.swiftBuildFileTypes,
+            toolsVersion: .v6_0,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let outputs = try builder.run()
+        XCTAssertEqual(outputs.sources.paths, ["/File.swift"])
+        XCTAssertEqual(outputs.resources, try [
+            .init(rule: .copy, path: .init(validating: "/PrivacyInfo.xcprivacy")),
+        ])
         XCTAssertEqual(outputs.ignored, ["/Foo.docc"])
         XCTAssertEqual(outputs.others, [])
 

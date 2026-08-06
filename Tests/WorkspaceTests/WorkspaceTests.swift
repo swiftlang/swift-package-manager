@@ -23,6 +23,7 @@ import SPMBuildCore
 import Testing
 @testable import Workspace
 import XCTest
+import Testing
 
 import struct TSCBasic.ByteString
 

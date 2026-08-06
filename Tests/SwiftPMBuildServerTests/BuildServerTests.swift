@@ -222,6 +222,39 @@ struct SwiftPMBuildServerTests {
     }
 
     @Test
+    func fileEventsInScratchDirectoryDoNotTriggerPackageReload() async throws {
+        try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple") { connection, notificationCollector, fixturePath in
+            func packageReloadCount() -> Int {
+                notificationCollector.notifications(of: TaskStartNotification.self)
+                    .filter { $0.taskId.id == "package-reloading" }
+                    .count
+            }
+
+            // The initial package load triggers one reload task.
+            #expect(packageReloadCount() == 1)
+
+            // Simulate build output being created inside the '.build' scratch directory. The package should not reload.
+            let resolvedPackagePath = try resolveSymlinks(fixturePath)
+            let scratchFile = resolvedPackagePath.appending(component: ".build").appending(component: "some-build-output.o")
+            connection.send(OnWatchedFilesDidChangeNotification(changes: [
+                .init(uri: .init(.init(filePath: scratchFile.pathString)), type: .created)
+            ]))
+            _ = try await connection.send(WorkspaceWaitForBuildSystemUpdatesRequest())
+            #expect(packageReloadCount() == 1)
+
+            // A change to a source file should still trigger a reload.
+            try localFileSystem.writeFileContents(fixturePath.appending(component: "Bar.swift"), body: {
+                $0.write("public let baz = \"hello\"")
+            })
+            connection.send(OnWatchedFilesDidChangeNotification(changes: [
+                .init(uri: .init(.init(filePath: fixturePath.appending(component: "Bar.swift").pathString)), type: .created)
+            ]))
+            _ = try await connection.send(WorkspaceWaitForBuildSystemUpdatesRequest())
+            #expect(packageReloadCount() == 2)
+        }
+    }
+
+    @Test
     func underlyingBuildServerNotificationsAreForwarded() async throws {
         try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple") { connection, notificationCollector, fixturePath in
             let initialChangeCount = notificationCollector.notifications(of: OnBuildTargetDidChangeNotification.self).count

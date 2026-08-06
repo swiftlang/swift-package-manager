@@ -15,6 +15,7 @@ import PackageLoading
 import PackageModel
 import _InternalTestSupport
 import XCTest
+import Testing
 
 final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {

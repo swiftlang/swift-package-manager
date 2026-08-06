@@ -14,6 +14,7 @@ import _InternalTestSupport
 import Basics
 import PackageModel
 import XCTest
+import Testing
 
 extension WorkspaceTests {
     func testTraitConfigurationExists_NoDefaultTraits() async throws {

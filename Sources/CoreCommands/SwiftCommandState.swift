@@ -1347,10 +1347,12 @@ extension BuildSystemProvider.Kind {
 
     fileprivate var additionalFileRules: [FileRuleDescription] {
         switch self {
-        case .xcode, .swiftbuild:
-            return FileRuleDescription.xcbuildFileTypes
+        case .xcode:
+            FileRuleDescription.xcbuildFileTypes
+        case .swiftbuild:
+            FileRuleDescription.swiftBuildFileTypes
         case .native:
-            return FileRuleDescription.swiftpmFileTypes
+            FileRuleDescription.swiftpmFileTypes
         }
     }
 }

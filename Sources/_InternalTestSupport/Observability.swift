@@ -125,7 +125,7 @@ public func XCTAssertNoDiagnostics(
 ) {
     let diagnostics = problemsOnly ? diagnostics.filter { $0.severity >= .warning } : diagnostics
     if diagnostics.isEmpty { return }
-    
+
     let description = diagnostics.map { "- " + $0.description }.joined(separator: "\n")
     XCTFail("Found unexpected diagnostics: \n\(description)", file: file, line: line)
 }
@@ -198,7 +198,7 @@ public func expectDiagnostics(
     _ diagnostics: [Basics.Diagnostic],
     minSeverity: Basics.Diagnostic.Severity,
     sourceLocation: SourceLocation = #_sourceLocation,
-    handler: (DiagnosticsTestResult) throws -> Void
+    handler: (DiagnosticsTestResult) throws -> Void,
 ) throws {
     let diagnostics = diagnostics.filter { $0.severity >= minSeverity }
     let testResult = DiagnosticsTestResult(diagnostics)
@@ -209,7 +209,7 @@ public func expectDiagnostics(
         Issue.record("unchecked diagnostics \(testResult.uncheckedDiagnostics)", sourceLocation: sourceLocation)
      }
 }
- 
+
 public func testPartialDiagnostics(
     _ diagnostics: [Basics.Diagnostic],
     minSeverity: Basics.Diagnostic.Severity,
@@ -237,9 +237,17 @@ public class DiagnosticsTestResult {
 
     package func checkIsEmpty(
         file: StaticString = #file,
-        line: UInt = #line
+        line: UInt = #line,
+        sourceLocation: SourceLocation = #_sourceLocation,
     ) {
-        XCTAssertTrue(self.uncheckedDiagnostics.isEmpty, file: file, line: line)
+        if Test.current != nil {
+            #expect(
+                self.uncheckedDiagnostics.isEmpty == true,
+                sourceLocation: sourceLocation,
+            )
+        } else {
+            XCTAssertTrue(self.uncheckedDiagnostics.isEmpty, file: file, line: line)
+        }
     }
 
     @discardableResult
@@ -248,20 +256,40 @@ public class DiagnosticsTestResult {
         severity: Basics.Diagnostic.Severity,
         //metadata: ObservabilityMetadata? = .none,
         file: StaticString = #file,
-        line: UInt = #line
+        line: UInt = #line,
+        sourceLocation: SourceLocation = #_sourceLocation,
     ) -> Basics.Diagnostic? {
         guard !self.uncheckedDiagnostics.isEmpty else {
-            XCTFail("No diagnostics left to check", file: file, line: line)
+            let error = "No diagnostics left to check"
+            if Test.current != nil {
+                Issue.record(
+                    "\(error)",
+                    sourceLocation: sourceLocation,
+                )
+            } else {
+                XCTFail(error, file: file, line: line)
+            }
             return nil
         }
 
         let diagnostic: Basics.Diagnostic = self.uncheckedDiagnostics.removeFirst()
-
-        XCTAssertMatch(diagnostic.message, message, file: file, line: line)
-        XCTAssertEqual(diagnostic.severity, severity, file: file, line: line)
-        // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
-        //XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
-        //XCTAssertEqual(diagnostic.metadata?.droppingLegacyKeys(), metadata?.droppingLegacyKeys(), file: file, line: line)
+        if Test.current != nil {
+            expectMatch(
+                diagnostic.message,
+                message,
+                sourceLocation: sourceLocation,
+            )
+            #expect(diagnostic.severity == severity, sourceLocation: sourceLocation)
+            // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
+            //XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
+            //XCTAssertEqual(diagnostic.metadata?.droppingLegacyKeys(), metadata?.droppingLegacyKeys(), file: file, line: line)
+        } else {
+            XCTAssertMatch(diagnostic.message, message, file: file, line: line)
+            XCTAssertEqual(diagnostic.severity, severity, file: file, line: line)
+            // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
+            //XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
+            //XCTAssertEqual(diagnostic.metadata?.droppingLegacyKeys(), metadata?.droppingLegacyKeys(), file: file, line: line)
+        }
 
         return diagnostic
     }
@@ -272,24 +300,42 @@ public class DiagnosticsTestResult {
         severity: Basics.Diagnostic.Severity,
         //metadata: ObservabilityMetadata? = .none,
         file: StaticString = #file,
-        line: UInt = #line
+        line: UInt = #line,
+        sourceLocation: SourceLocation = #_sourceLocation,
     ) -> Basics.Diagnostic? {
         guard !self.uncheckedDiagnostics.isEmpty else {
-            XCTFail("No diagnostics left to check", file: file, line: line)
+            let error = "No diagnostics left to check"
+            if Test.current != nil {
+                Issue.record("\(error)", sourceLocation: sourceLocation)
+            } else {
+                XCTFail(error, file: file, line: line)
+            }
             return nil
         }
 
         let matching = self.uncheckedDiagnostics.indices
             .filter { diagnosticPattern ~= self.uncheckedDiagnostics[$0].message }
         if matching.isEmpty {
-            XCTFail("No diagnostics match \(diagnosticPattern)", file: file, line: line)
+            let error = "No diagnostics match \(diagnosticPattern)"
+            if Test.current != nil {
+                Issue.record("\(error)", sourceLocation: sourceLocation)
+            } else {
+                XCTFail(error, file: file, line: line)
+            }
             return nil
         } else if matching.count == 1, let index = matching.first {
             let diagnostic = self.uncheckedDiagnostics[index]
-            XCTAssertEqual(diagnostic.severity, severity, file: file, line: line)
-            // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
-            //XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
-            //XCTAssertEqual(diagnostic.metadata?.droppingLegacyKeys(), metadata?.droppingLegacyKeys(), file: file, line: line)
+            if Test.current != nil {
+                #expect(diagnostic.severity == severity, sourceLocation: sourceLocation)
+                // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
+                //XCTAssertEqual(diagnostic.metadata == metadata, sourceLocation: sourceLocation)
+                //XCTAssertEqual(diagnostic.metadata.droppingLegacyKeys() == metadata?.droppingLegacyKeys(), sourceLocation: sourceLocation)
+            } else {
+                XCTAssertEqual(diagnostic.severity, severity, file: file, line: line)
+                // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed
+                //XCTAssertEqual(diagnostic.metadata, metadata, file: file, line: line)
+                //XCTAssertEqual(diagnostic.metadata?.droppingLegacyKeys(), metadata?.droppingLegacyKeys(), file: file, line: line)
+            }
             self.uncheckedDiagnostics.remove(at: index)
             return diagnostic
         // FIXME: (diagnostics) compare complete metadata when legacy bridge is removed

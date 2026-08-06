@@ -67,4 +67,23 @@ struct MacroTests {
             #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
         }
     }
+
+    @Test(
+        .tags(
+            Tag.Feature.Command.Build
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func minimalExecutableTestableMacroImplementation(
+        buildSystem: BuildSystemProvider.Kind
+    ) async throws {
+        try await fixture(name: "Macros/MacroWithDirectTestDependency") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(
+                fixturePath,
+                extraArgs: ["--build-tests"],
+                buildSystem: buildSystem
+            )
+            #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+    }
 }

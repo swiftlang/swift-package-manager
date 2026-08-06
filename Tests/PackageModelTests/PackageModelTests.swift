@@ -18,6 +18,7 @@ import Basics
 import _InternalTestSupport
 import func TSCBasic.withTemporaryFile
 import XCTest
+import Testing
 
 import struct TSCBasic.ByteString
 

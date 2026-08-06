@@ -16,6 +16,7 @@ import PackageModel
 import _InternalTestSupport
 @testable import SourceControl
 import XCTest
+import Testing
 
 final class RepositoryManagerTests: XCTestCase {
     func testBasics() async throws {

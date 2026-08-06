@@ -178,7 +178,7 @@ struct ObservabilitySystemTest {
                 #expect(diagnostic_metadata.testKey1 == metadata.testKey1)
             }
             do {
-                let diagnostic = try #require(result.check(diagnostic: "debug", severity: .error))
+                let diagnostic = try #require(result.check(diagnostic: "debug", severity: .debug))
                 let diagnostic_metadata = try #require(diagnostic.metadata)
                 #expect(diagnostic_metadata.testKey1 == metadata.testKey1)
             }
@@ -291,6 +291,56 @@ struct ObservabilitySystemTest {
                 #expect(diagnostic_metadata.testKey3 == diagnosticMergedMetadata.testKey3)
             }
         }
+    }
+
+    @Suite(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10061", relationship: .verifies),
+    )
+    struct DiagnosticsReportingCheckerTests {
+
+        @Test
+        func reportsMismatchedMessage() throws {
+            let collector = Collector()
+            let observabilitySystem = ObservabilitySystem(collector)
+            observabilitySystem.topScope.emit(error: "actual error message")
+
+            try expectDiagnostics(collector.diagnostics) { result in
+                withKnownIssue("a mismatched diagnostic severity must be reported") {
+                    // The result.check is expcted to fail, but Swift Testing doesn't offer API to ensure an expectation
+                    // failed, so we wrap the call in a "withKnownIssue"
+                    result.check(diagnostic: "this message does not match", severity: .error)
+                }
+            }
+        }
+
+        @Test
+        func reportsMismatchedSeverity() throws {
+            let collector = Collector()
+            let observabilitySystem = ObservabilitySystem(collector)
+            observabilitySystem.topScope.emit(error: "actual error message")
+
+            try expectDiagnostics(collector.diagnostics, problemsOnly: false) { result in
+                withKnownIssue("a mismatched diagnostic severity must be reported") {
+                    // The result.check is expcted to fail, but Swift Testing doesn't offer API to ensure an expectation
+                    // failed, so we wrap the call in a "withKnownIssue"
+                    result.check(diagnostic: "actual error message", severity: .warning)
+                }
+            }
+        }
+
+        @Test
+        func diagnosticsCheckUnorderedReportsMismatchedSeverity() throws {
+            let collector = Collector()
+            let observabilitySystem = ObservabilitySystem(collector)
+            observabilitySystem.topScope.emit(error: "actual error message")
+
+            withKnownIssue("a mismatched diagnostic severity must be reported") {
+                try expectDiagnostics(collector.diagnostics, problemsOnly: false) { result in
+                    result.checkUnordered(diagnostic: "actual error message", severity: .warning)
+                }
+            }
+        }
+
     }
 
     struct Collector: ObservabilityHandlerProvider, DiagnosticsHandler {
