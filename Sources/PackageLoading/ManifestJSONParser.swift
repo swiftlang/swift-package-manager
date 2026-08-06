@@ -718,6 +718,14 @@ extension TargetBuildSettingDescription.Kind {
                 throw InternalError("invalid build settings value")
             }
             return .interoperabilityMode(lang)
+        case "bridgingHeader":
+            guard values.count == 2 else {
+                throw InternalError("invalid build settings value")
+            }
+            guard let visibility = TargetBuildSettingDescription.BridgingHeaderVisibility(rawValue: values[1]) else {
+                throw InternalError("unknown bridging header visibility: \(values[1])")
+            }
+            return .bridgingHeader(values[0], visibility)
         case "enableUpcomingFeature":
             guard let value = values.first else {
                 throw InternalError("invalid (empty) build settings value")

@@ -13,7 +13,7 @@
 @_spi(PackageDescriptionInternal) import PackageDescription
 
 public extension Target {
-    @available(_PackageDescription, introduced: 5.9)
+    @available(_PackageDescription, introduced: 5.9, obsoleted: 999)
     static func macro(
         name: String,
         dependencies: [Dependency] = [],
@@ -25,16 +25,50 @@ public extension Target {
         linkerSettings: [LinkerSetting]? = nil,
         plugins: [PluginUsage]? = nil
     ) -> Target {
-        return Target(name: name,
-                      dependencies: dependencies,
-                      path: path,
-                      exclude: exclude,
-                      sources: sources,
-                      publicHeadersPath: nil,
-                      type: .macro,
-                      packageAccess: packageAccess,
-                      swiftSettings: swiftSettings,
-                      linkerSettings: linkerSettings,
-                      plugins: plugins)
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            publicHeadersPath: nil,
+            type: .macro,
+            packageAccess: packageAccess,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins
+        )
+    }
+
+    @available(_PackageDescription, introduced: 999)
+    static func macro(
+        name: String,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        publicHeadersPath: String? = nil,
+        packageAccess: Bool = true,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            publicHeadersPath: publicHeadersPath,
+            type: .macro,
+            packageAccess: packageAccess,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins
+        )
     }
 }
