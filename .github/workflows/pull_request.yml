@@ -42,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
     name: Build and Test Example Package Registry
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.12
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.13
     with:
       enable_cross_pr_testing: false
       enable_linux_checks: true
