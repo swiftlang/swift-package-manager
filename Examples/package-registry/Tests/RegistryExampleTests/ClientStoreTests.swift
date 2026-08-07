@@ -16,51 +16,6 @@ import X509
 
 @Suite("ClientStore")
 struct ClientStoreTests {
-    private struct TestCertificate {
-        let pem: String
-        /// The SHA-256 of the DER encoding, computed outside the test suite
-        /// with `openssl x509 -outform DER | shasum -a 256`.
-        let thumbprint: String
-
-        func certificate() throws -> Certificate {
-            try Certificate(pemEncoded: pem)
-        }
-    }
-
-    private let harrysLaptopCertificate = TestCertificate(
-        pem: """
-            -----BEGIN CERTIFICATE-----
-            MIIBgjCCASegAwIBAgIUUMD/N2rrlgXSBvESoeYaXD3L6CUwCgYIKoZIzj0EAwIw
-            FTETMBEGA1UEAwwKaWRlbnRpdHktMTAgFw0yNjA3MzExNTA0MDNaGA8yMTI2MDcw
-            NzE1MDQwM1owFTETMBEGA1UEAwwKaWRlbnRpdHktMTBZMBMGByqGSM49AgEGCCqG
-            SM49AwEHA0IABEM/guBDzyQMsn1dleF9O3T6TkwWyGxtLrOjIxVXfZP9+wLbFnw9
-            B0Dmo6C0wPVZXpr+Eq72t5myr7JQixOUJu2jUzBRMB0GA1UdDgQWBBRMaiXyxZUG
-            Vm+jJ/NHEdAkKG+JnDAfBgNVHSMEGDAWgBRMaiXyxZUGVm+jJ/NHEdAkKG+JnDAP
-            BgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0kAMEYCIQDSDXL36MHnV1f/0wtx
-            LWkeIYSl2h1ESSNUz3FC2XqAtAIhAKE/SiJpo8tHP04igm73t7Cc8PuyhxARgmAY
-            FjWWqao8
-            -----END CERTIFICATE-----
-            """,
-        thumbprint: "30ec37382a8099c174b534863d253345b5027f99592db88be0c3629a4a6cb798"
-    )
-
-    private let hermionesLaptopCertificate = TestCertificate(
-        pem: """
-            -----BEGIN CERTIFICATE-----
-            MIIBgDCCASegAwIBAgIUTUXy/LZzV3wAZVOsWQ+cYXFTsN0wCgYIKoZIzj0EAwIw
-            FTETMBEGA1UEAwwKaWRlbnRpdHktMjAgFw0yNjA3MzExNTA0MDNaGA8yMTI2MDcw
-            NzE1MDQwM1owFTETMBEGA1UEAwwKaWRlbnRpdHktMjBZMBMGByqGSM49AgEGCCqG
-            SM49AwEHA0IABJ72JAAV2i8A92yi15A89CVEnGiatpyhsE0+Bby1O1NtLTOgTQ+E
-            /QUNuItI7VWRlO+FeE6rgPKSN/oL5enBovyjUzBRMB0GA1UdDgQWBBTZkaEVDkpz
-            IJh8Su+ou2UgxU8p5jAfBgNVHSMEGDAWgBTZkaEVDkpzIJh8Su+ou2UgxU8p5jAP
-            BgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0cAMEQCIBNflqAGnVyHhhN0S9TP
-            xSPRKhRPLCaL8X+r/J/Sm4ldAiANXlxwIyYq3oPDae5/NhU4dj8rbFZ/b/CAGwQR
-            nm+jGw==
-            -----END CERTIFICATE-----
-            """,
-        thumbprint: "2ea1093834f9b724048f1c7a292856271b2244a2f4a44eb6a9aea475925af4f0"
-    )
-
     private func user(_ raw: String) throws -> User {
         User(email: try #require(EmailAddress(raw)), credential: .password(hash: "bcrypt"))
     }
@@ -99,7 +54,7 @@ struct ClientStoreTests {
     @Test func `round-trips a client stored under its certificate`() async throws {
         let store = ClientStore()
         let harrysLaptop = try client(try user("harry@example.com"), certificate: harrysLaptopCertificate)
-        await store.store(harrysLaptop)
+        try await store.store(harrysLaptop)
         let credentials = try credentials(computedFrom: harrysLaptopCertificate)
         #expect(await store.client(ofType: MutualTLS.self, for: credentials) == harrysLaptop)
     }
@@ -107,7 +62,7 @@ struct ClientStoreTests {
     @Test func `resolves a client by a thumbprint computed independently of the store`() async throws {
         let store = ClientStore()
         let harrysLaptop = try client(try user("harry@example.com"), certificate: harrysLaptopCertificate)
-        await store.store(harrysLaptop)
+        try await store.store(harrysLaptop)
         let credentials = MutualTLS.Credentials(
             rootCertificateAuthority: .none,
             id: harrysLaptopCertificate.thumbprint
@@ -122,8 +77,8 @@ struct ClientStoreTests {
             try user("hermione@example.com"),
             certificate: hermionesLaptopCertificate
         )
-        await store.store(harrysLaptop)
-        await store.store(hermionesLaptop)
+        try await store.store(harrysLaptop)
+        try await store.store(hermionesLaptop)
         let harrysCredentials = try credentials(computedFrom: harrysLaptopCertificate)
         let hermionesCredentials = try credentials(computedFrom: hermionesLaptopCertificate)
         #expect(await store.client(ofType: MutualTLS.self, for: harrysCredentials) == harrysLaptop)
@@ -133,7 +88,7 @@ struct ClientStoreTests {
     @Test func `the same certificate resolves the same client on every lookup`() async throws {
         let store = ClientStore()
         let harrysLaptop = try client(try user("harry@example.com"), certificate: harrysLaptopCertificate)
-        await store.store(harrysLaptop)
+        try await store.store(harrysLaptop)
         let credentials = try credentials(computedFrom: harrysLaptopCertificate)
         let first = await store.client(ofType: MutualTLS.self, for: credentials)
         let second = await store.client(ofType: MutualTLS.self, for: credentials)
@@ -143,7 +98,7 @@ struct ClientStoreTests {
 
     @Test func `a certificate no client was stored under resolves to nil`() async throws {
         let store = ClientStore()
-        await store.store(try client(try user("harry@example.com"), certificate: harrysLaptopCertificate))
+        try await store.store(try client(try user("harry@example.com"), certificate: harrysLaptopCertificate))
         let hermionesCredentials = try credentials(computedFrom: hermionesLaptopCertificate)
         #expect(await store.client(ofType: MutualTLS.self, for: hermionesCredentials) == nil)
     }
@@ -157,7 +112,7 @@ struct ClientStoreTests {
     @Test func `the application caches a single store across accesses`() async throws {
         try await withRegistryApp { app in
             let harrysLaptop = try client(try user("harry@example.com"), certificate: harrysLaptopCertificate)
-            await app.clientStore.store(harrysLaptop)
+            try await app.clientStore.store(harrysLaptop)
             let credentials = try credentials(computedFrom: harrysLaptopCertificate)
             #expect(await app.clientStore.client(ofType: MutualTLS.self, for: credentials) == harrysLaptop)
         }

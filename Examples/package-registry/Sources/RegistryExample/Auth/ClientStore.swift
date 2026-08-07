@@ -10,7 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+/// Errors thrown by ``ClientStore/store(_:)``.
 public enum ClientStoreError: Error, Equatable, Sendable {
+    /// A client is already registered under the same credentials. What that
+    /// means is the authentication method's choice — a second Basic client
+    /// for one email, a colliding bearer token, a re-registered certificate.
     case clientAlreadyExists
 }
 
@@ -21,19 +25,30 @@ private struct AnyClient: Sendable {
 public actor ClientStore {
     private var storage: [ObjectIdentifier: [AnyHashable: AnyClient]] = [:]
 
-    func store<Auth: AuthenticationMethod>(_ client: Client<Auth>) {
+    public init() {}
+
+    /// Registers `client` under its authentication method and credentials.
+    ///
+    /// - Parameter client: The client to persist.
+    /// - Throws: ``ClientStoreError/clientAlreadyExists`` if a client is
+    ///   already stored under the same method and credentials. The existing
+    ///   client is left untouched.
+    public func store<Auth: AuthenticationMethod>(_ client: Client<Auth>) throws {
         let typeKey = ObjectIdentifier(Auth.self)
         let credKey  = AnyHashable(client.auth.credentials)
+        guard storage[typeKey]?[credKey] == nil else {
+            throw ClientStoreError.clientAlreadyExists
+        }
         storage[typeKey, default: [:]][credKey] = AnyClient(value: client)
     }
 
-    func client<Auth: AuthenticationMethod>(
+    public func client<Auth: AuthenticationMethod>(
         ofType _: Auth.Type,
         for credentials: Auth.Credentials
     ) -> Client<Auth>? {
         let typeKey = ObjectIdentifier(Auth.self)
         let credKey  = AnyHashable(credentials)
         return storage[typeKey]?[credKey]?.value as? Client<Auth>
-    } 
+    }
 }
 
