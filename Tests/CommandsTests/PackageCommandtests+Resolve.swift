@@ -91,14 +91,43 @@ extension PackageCommandTests.PackageResolveCommandTests {
         func resolveDoesNotWarnForNonConsumingPackage(
             buildSystem: BuildSystemProvider.Kind,
         ) async throws {
-            try await fixture(name: "Miscellaneous/DeprecatedProducts/producer") { fixturePath in
-                let (_, stderr) = try await executeSwiftPackage(
+            try await fixture(name: "Miscellaneous/DeprecatedProducts/third-party") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftPackage(
                     fixturePath,
                     configuration: .debug,
                     extraArgs: ["resolve"],
                     buildSystem: buildSystem,
                 )
-                #expect(!stderr.contains("is unsupported"))
+                #expect(!stderr.contains("is unsupported"), "stderr:\n\(stdout)")
+                #expect(!stdout.contains("is unsupported"), "stderr:\n\(stderr)")
+            }
+        }
+
+        @Test(
+            // .requireSwift6_5,
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func resolveDoesNotWarnAboutProducersOwnProducts(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            // Resolving the producer package should NOT emit a deprecation
+            // diagnostic for any of its OWN products because no producer target
+            // depends on them via `.product()`. A diagnostic about
+            // OldThirdParty (which the producer's `Paper` target does consume)
+            // is acceptable.
+            try await fixture(name: "Miscellaneous/DeprecatedProducts/") { fixturePath in
+                let (_, stderr) = try await executeSwiftPackage(
+                    fixturePath.appending("producer"),
+                    configuration: .debug,
+                    extraArgs: ["resolve"],
+                    buildSystem: buildSystem,
+                )
+                for productName in ["PaperLegacy", "PaperExperimental", "paper-tool-old"] {
+                    #expect(
+                        !stderr.contains("product '\(productName)' from package 'producer' is unsupported"),
+                        "producer should not warn about its own product '\(productName)'\nstderr:\n\(stderr)",
+                    )
+                }
             }
         }
     }

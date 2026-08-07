@@ -2145,14 +2145,43 @@ struct BuildCommandTestCases {
         func buildDoesNotWarnForNonConsumingPackage(
             buildSystem: BuildSystemProvider.Kind,
         ) async throws {
-            try await fixture(name: "Miscellaneous/DeprecatedProducts/producer") { fixturePath in
+            try await fixture(name: "Miscellaneous/DeprecatedProducts/third-party") { fixturePath in
                 let (stdout, stderr) = try await executeSwiftBuild(
                     fixturePath,
                     configuration: .debug,
                     buildSystem: buildSystem,
                 )
-                #expect(!stderr.contains("is unsupported"))
-                #expect(!stdout.contains("is unsupported"))
+                #expect(!stderr.contains("is unsupported"), "stdout:\n\(stdout)")
+                #expect(!stdout.contains("is unsupported"), "stderr:\n\(stderr)")
+            }
+        }
+
+        @Test(
+            // .requireSwift6_5,
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func buildDoesNotWarnAboutProducersOwnProducts(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            // Building the producer package should NOT emit a deprecation
+            // diagnostic for any of its OWN products (PaperLegacy,
+            // PaperExperimental, paper-tool-old) because no producer target
+            // depends on them via `.product()`. A diagnostic about
+            // OldThirdParty (which the producer's `Paper` target does consume)
+            // is acceptable — that's the correct behavior for a producer that
+            // consumes a deprecated product from a third-party dependency.
+            try await fixture(name: "Miscellaneous/DeprecatedProducts/") { fixturePath in
+                let (_, stderr) = try await executeSwiftBuild(
+                    fixturePath.appending("producer"),
+                    configuration: .debug,
+                    buildSystem: buildSystem,
+                )
+                for productName in ["PaperLegacy", "PaperExperimental", "paper-tool-old"] {
+                    #expect(
+                        !stderr.contains("product '\(productName)' from package 'producer' is unsupported"),
+                        "producer should not warn about its own product '\(productName)'\nstderr:\n\(stderr)",
+                    )
+                }
             }
         }
     }

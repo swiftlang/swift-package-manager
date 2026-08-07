@@ -32,8 +32,16 @@ let package = Package(
             ),
         ),
     ],
+    dependencies: [
+        .package(path: "../third-party"),
+    ],
     targets: [
-        .target(name: "Paper"),
+        .target(
+            name: "Paper",
+            dependencies: [
+                .product(name: "OldThirdParty", package: "third-party"),
+            ],
+        ),
         .target(name: "PaperLegacy", dependencies: ["Paper"]),
         .target(name: "PaperExperimental"),
         .executableTarget(name: "paper-tool-old"),
