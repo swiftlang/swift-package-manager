@@ -42,6 +42,7 @@ extension ModulesGraph {
         modulesFilter: ((Module) -> Bool)? = nil,
         enabledTraitsMap: EnabledTraitsMap,
         treatWarningsAsErrors: Bool = false,
+        emitProductDeprecationDiagnostics: Bool = true,
     ) throws -> ModulesGraph {
         let observabilityScope = observabilityScope.makeChildScope(description: "Loading Package Graph")
 
@@ -214,6 +215,7 @@ extension ModulesGraph {
             productsFilter: productsFilter,
             modulesFilter: modulesFilter,
             treatWarningsAsErrors: treatWarningsAsErrors,
+            emitProductDeprecationDiagnostics: emitProductDeprecationDiagnostics,
         )
 
         let rootPackages = resolvedPackages.filter { root.manifests.values.contains($0.manifest) }
@@ -393,6 +395,7 @@ private func createResolvedPackages(
     productsFilter: ((Product) -> Bool)?,
     modulesFilter: ((Module) -> Bool)?,
     treatWarningsAsErrors: Bool,
+    emitProductDeprecationDiagnostics: Bool,
 ) throws -> IdentifiableSet<ResolvedPackage> {
     // Create package builder objects from the input manifests.
     var packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap { node in
@@ -791,7 +794,11 @@ private func createResolvedPackages(
                 moduleBuilder.dependencies.append(.product(product, conditions: conditions))
 
                 // Emit a diagnostic if the consumed product is deprecated.
-                if let deprecation = product.product.deprecation {
+                // Suppressed when the caller (e.g. `swift package audit`) is
+                // producing its own structured deprecation report and wants
+                // the graph load to remain quiet.
+                if emitProductDeprecationDiagnostics,
+                   let deprecation = product.product.deprecation {
                     let severity: Diagnostic.Severity = shouldEscalateProductDeprecationToError(
                         consumer: moduleBuilder.module,
                         globalTreatWarningsAsErrors: treatWarningsAsErrors,
