@@ -37,6 +37,7 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 - <doc:AddingDependencies>
 - <doc:UsingSwiftPackageRegistry>
 - <doc:BundlingResources>
+- <doc:DeprecatingProducts>
 
 ### Targets
 - <doc:CreatingCLanguageTargets>

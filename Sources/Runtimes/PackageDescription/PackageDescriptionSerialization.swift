@@ -260,9 +260,51 @@ enum Serialization {
             case plugin
         }
 
+        struct Deprecation: Codable {
+            enum Replacement: Codable {
+                case renamed(_ product: String, package: String? = nil)
+
+                private enum CodingKeys: String, CodingKey {
+                    case kind
+                    case product
+                    case package
+                }
+
+                private enum Kind: String, Codable {
+                    case renamed
+                }
+
+                func encode(to encoder: Encoder) throws {
+                    var container = encoder.container(keyedBy: CodingKeys.self)
+                    switch self {
+                    case .renamed(let product, let package):
+                        try container.encode(Kind.renamed, forKey: .kind)
+                        try container.encode(product, forKey: .product)
+                        try container.encodeIfPresent(package, forKey: .package)
+                    }
+                }
+
+                init(from decoder: Decoder) throws {
+                    let container = try decoder.container(keyedBy: CodingKeys.self)
+                    let kind = try container.decode(Kind.self, forKey: .kind)
+                    switch kind {
+                    case .renamed:
+                        self = .renamed(
+                            try container.decode(String.self, forKey: .product),
+                            package: try container.decodeIfPresent(String.self, forKey: .package),
+                        )
+                    }
+                }
+            }
+
+            let message: String?
+            let replacement: Replacement?
+        }
+
         let name: String
         let targets: [String]
         let productType: ProductType
+        let deprecation: Deprecation?
 
         #if ENABLE_APPLE_PRODUCT_TYPES
         let settings: [ProductSetting]
