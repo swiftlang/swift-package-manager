@@ -77,6 +77,7 @@ extension Tag.FunctionalArea {
     @Tag public static var Sanitizer: Tag
     @Tag public static var LibraryEvoluton: Tag
     @Tag public static var LinkSwiftStaticStdlib: Tag
+    @Tag public static var Manifest: Tag
     @Tag public static var Metal: Tag
     @Tag public static var ModuleMaps: Tag
     @Tag public static var Resources: Tag
@@ -96,6 +97,7 @@ extension Tag.Feature {
     @Tag public static var BuildCache: Tag
     @Tag public static var CodeCoverage: Tag
     @Tag public static var CTargets: Tag
+    @Tag public static var Deprecation: Tag
     @Tag public static var DependencyResolution: Tag
     @Tag public static var ModuleAliasing: Tag
     @Tag public static var Mirror: Tag
