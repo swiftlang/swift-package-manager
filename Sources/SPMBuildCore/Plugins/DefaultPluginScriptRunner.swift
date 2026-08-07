@@ -139,6 +139,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         // which produces a framework for dynamic package products.
         if pluginLibraryPath.extension == "framework" {
             commandLine += [
+                "-I", pluginLibraryPath.parentDirectory.pathString,
                 "-F", pluginLibraryPath.parentDirectory.pathString,
                 "-framework", "PackagePlugin",
                 "-Xlinker", "-rpath", "-Xlinker", pluginLibraryPath.parentDirectory.pathString,
