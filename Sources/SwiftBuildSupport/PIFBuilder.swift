@@ -250,7 +250,10 @@ public final class PIFBuilder {
     ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] {
         let pluginScriptRunner = self.parameters.pluginScriptRunner
         let outputDir = self.parameters.pluginWorkingDirectory.appending("outputs")
-        let treatWarningsAsErrors = WarningControlFlags.containsWarningsAsErrors(buildParameters.flags.swiftCompilerFlags.map(\.value))
+        let warningControlFlags = WarningControlFlags.extractSwiftWarningControlFlags(
+            buildParameters.flags.swiftCompilerFlags.map(\.value)
+        )
+        let treatWarningsAsErrors = WarningControlFlags.containsWarningsAsErrors(warningControlFlags)
 
         let pluginsPerModule = graph.pluginsPerModule(
             satisfying: buildParameters.buildEnvironment // .buildEnvironment(for: .host)
@@ -474,7 +477,7 @@ public final class PIFBuilder {
                 addLocalRpaths: self.parameters.addLocalRpaths,
                 packageDisplayVersion: package.manifest.displayName,
                 pkgConfigDirectories: self.parameters.pkgConfigDirectories,
-                treatWarningsAsErrors: treatWarningsAsErrors,
+                warningControlFlags: warningControlFlags,
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,
             )
