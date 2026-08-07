@@ -38,6 +38,10 @@ enum ManifestJSONParser {
     struct Result {
         var name: String
         var defaultLocalization: String?
+        var defaultSwiftSettings: [TargetBuildSettingDescription.Setting]? = []
+        var defaultCSettings: [TargetBuildSettingDescription.Setting]? = []
+        var defaultCXXSettings: [TargetBuildSettingDescription.Setting]? = []
+        var defaultLinkerSettings: [TargetBuildSettingDescription.Setting]? = []
         var platforms: [PlatformDescription] = []
         var targets: [TargetDescription] = []
         var pkgConfig: String?
@@ -107,6 +111,10 @@ enum ManifestJSONParser {
         return Result(
             name: input.package.name,
             defaultLocalization: input.package.defaultLocalization?.tag,
+            defaultSwiftSettings: try input.package.defaultSwiftSettings?.map { try .init($0) },
+            defaultCSettings: try input.package.defaultCSettings?.map { try .init($0) },
+            defaultCXXSettings: try input.package.defaultCXXSettings?.map { try .init($0) },
+            defaultLinkerSettings: try input.package.defaultLinkerSettings?.map { try .init($0) },
             platforms: try input.package.platforms.map { try Self.parsePlatforms($0) } ?? [],
             targets: try input.package.targets.map { try Self.parseTarget(target: $0, identityResolver: identityResolver) },
             pkgConfig: input.package.pkgConfig,
@@ -197,6 +205,13 @@ enum ManifestJSONParser {
 
         let pluginUsages = target.pluginUsages?.map { TargetDescription.PluginUsage.init($0) }
 
+        let explictSettings = TargetDescription.ExplicitSettings(
+            swift: target.swiftSettings != nil,
+            c: target.cSettings != nil,
+            cxx: target.cxxSettings != nil,
+            linker: target.linkerSettings != nil
+        )
+
         return try TargetDescription(
             name: target.name,
             dependencies: dependencies,
@@ -212,6 +227,7 @@ enum ManifestJSONParser {
             providers: providers,
             pluginCapability: pluginCapability,
             settings: try Self.parseBuildSettings(target),
+            explicitSettings: explictSettings,
             checksum: target.checksum,
             pluginUsages: pluginUsages
         )
@@ -795,6 +811,8 @@ extension TargetBuildSettingDescription.Kind {
             }
 
             return .defaultIsolation(isolation)
+        case "inherited":
+            return .inherited
         default:
             throw InternalError("invalid build setting \(name)")
         }

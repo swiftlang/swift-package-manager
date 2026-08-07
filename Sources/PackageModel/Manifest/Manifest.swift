@@ -74,6 +74,9 @@ public final class Manifest: Sendable {
     /// The declared package dependencies.
     public let dependencies: [PackageDependency]
 
+    /// The defaults to be used when resolving settings for all targets.
+    public let defaultSettings: [TargetBuildSettingDescription.Setting]?
+
     /// The targets declared in the manifest.
     public let targets: [TargetDescription]
 
@@ -116,6 +119,7 @@ public final class Manifest: Sendable {
         packageKind: PackageReference.Kind,
         packageLocation: String,
         defaultLocalization: String?,
+        defaultSettings: [TargetBuildSettingDescription.Setting] = [],
         platforms: [PlatformDescription],
         version: TSCUtility.Version?,
         revision: String?,
@@ -137,6 +141,7 @@ public final class Manifest: Sendable {
         self.packageKind = packageKind
         self.packageLocation = packageLocation
         self.defaultLocalization = defaultLocalization
+        self.defaultSettings = defaultSettings
         self.platforms = platforms
         self.version = version
         self.revision = revision
@@ -633,7 +638,7 @@ extension Manifest: Encodable {
         case name, path, url, version, targetMap, toolsVersion,
              pkgConfig, providers, cLanguageStandard, cxxLanguageStandard, swiftLanguageVersions,
              dependencies, products, targets, traits, platforms, packageKind, revision,
-             defaultLocalization
+             defaultLocalization, defaultSettings
     }
 
     /// Coding user info key for dump-package command.
@@ -656,6 +661,7 @@ extension Manifest: Encodable {
 
         try container.encode(self.toolsVersion, forKey: .toolsVersion)
         try container.encode(self.defaultLocalization, forKey: .defaultLocalization)
+        try container.encode(self.defaultSettings, forKey: .defaultSettings)
         try container.encode(self.pkgConfig, forKey: .pkgConfig)
         try container.encode(self.providers, forKey: .providers)
         try container.encode(self.cLanguageStandard, forKey: .cLanguageStandard)
