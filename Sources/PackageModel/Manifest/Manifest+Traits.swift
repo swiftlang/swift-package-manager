@@ -87,7 +87,7 @@ extension Manifest {
         }
     }
 
-    /// Validates a set of traits that is intended to be enabled for the manifest; if there are any discrepencies in the
+    /// Validates a set of traits that is intended to be enabled for the manifest; if there are any discrepancies in the
     /// set of enabled traits and whether the manifest defines these traits (or if it defines any traits at all), then an
     /// error indicating the issue will be thrown.
     public func validateEnabledTraits(_ explicitlyEnabledTraits: EnabledTraits) throws {
@@ -417,7 +417,7 @@ extension Manifest {
         }
     }
 
-    /// Given a set of enabled traits, determine whether a package dependecy of this manifest is
+    /// Given a set of enabled traits, determine whether a package dependency of this manifest is
     /// guarded by traits.
     private func isPackageDependencyTraitGuarded(_ dependency: PackageDependency, enabledTraits: EnabledTraits) throws -> Bool {
         let targetDependenciesForPackageDependency = self.targets.flatMap({ $0.dependencies })

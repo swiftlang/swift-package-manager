@@ -32,7 +32,7 @@ Here are some steps the worked running on Windows.
     ```
     $ParentPID = 1234  # Replace with your actual PID
     ```
-1. Define a funtion that will get transitive process ID
+1. Define a function that will get transitive process ID
     ```
     function Get-TransitiveChildren ($pidList) {
         if ($pidList.Count -eq 0) { return }

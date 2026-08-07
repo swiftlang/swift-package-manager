@@ -1,7 +1,7 @@
 Manually generated the docc content stubs using the swift argument parser tool `generate-docc-reference-tool`:
 
 The `generate-docc-reference` doesn't work for automatically creating all these because of a quirk in swift-package-manager, which is a driver
-executable and expects to be called with different names. The heurstics in swift-argument-parser's generation tool don't accomodate this use case.
+executable and expects to be called with different names. The heuristics in swift-argument-parser's generation tool don't accommodate this use case.
 
 ```bash
 swift build -c release

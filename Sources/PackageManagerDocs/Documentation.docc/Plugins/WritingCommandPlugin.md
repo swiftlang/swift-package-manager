@@ -70,7 +70,7 @@ let package = Package(
 
 In the above example, the plugin declares its purpose is source code formatting, and that it needs permission to modify files in the package directory.
 The package manager runs plugins in a sandbox that prevents network access and most file system access.
-Package manager allows additional permissions to allow network access or file system acess when you declare them after it receives approval from the user.
+Package manager allows additional permissions to allow network access or file system access when you declare them after it receives approval from the user.
 
 ### Implementing the command plugin script
 

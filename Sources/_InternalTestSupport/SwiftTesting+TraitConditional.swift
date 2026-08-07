@@ -93,7 +93,7 @@ extension Trait where Self == Testing.ConditionTrait {
         }
     }
 
-    /// Enabled if toolsupm suported SDK Dependent Tests
+    /// Enabled if toolsupm supported SDK Dependent Tests
     public static var requiresSDKDependentTestsSupport: Self {
         enabled("skipping because test environment doesn't support this test") {
             (try? UserToolchain.default)!.supportsSDKDependentTests()

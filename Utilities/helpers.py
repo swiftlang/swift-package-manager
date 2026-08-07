@@ -31,7 +31,7 @@ def change_directory(directory: pathlib.Path) -> t.Iterator[pathlib.Path]:
     try:
         yield directory
     finally:
-        logging.debug("Chaning directory back to %s", current_directory)
+        logging.debug("Changing directory back to %s", current_directory)
         os.chdir(current_directory)
 
 

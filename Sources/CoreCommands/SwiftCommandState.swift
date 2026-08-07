@@ -98,7 +98,7 @@ public protocol _SwiftCommand {
     var workspaceLoaderProvider: WorkspaceLoaderProvider { get }
     func buildSystemProvider(_ swiftCommandState: SwiftCommandState) throws -> BuildSystemProvider
 
-    // If a packagePath is specificed, this indicates that the command allows
+    // If a packagePath is specified, this indicates that the command allows
     // creating the directory if it doesn't exist.
     var createPackagePath: Bool { get }
 }
