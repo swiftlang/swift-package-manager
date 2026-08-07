@@ -835,6 +835,45 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    func testGitObjectStoreCorruptionDetection() {
+        // Outputs that indicate the local object store is incomplete/corrupt — purging the
+        // repository and re-fetching from the origin can recover these.
+        let recoverable = [
+            "fatal: unable to read tree (0e71ce1f3149e7c6093f0fc571ba3ad50dcc1a3b)",
+            "fatal: unable to read tree 0e71ce1f3149e7c6093f0fc571ba3ad50dcc1a3b",
+            "fatal: not a tree object",
+            "fatal: Not a valid object name 8aa586f08e81064ee56a2eb8816a6443a4d86746",
+            "fatal: bad object refs/remotes/origin/some-deleted-branch",
+            "error: object file .git/objects/0e/71ce is empty\nfatal: loose object 0e71ce is corrupt",
+            "fatal: missing blob object 'abc123'",
+            // Wrapped form: the underlying git message is preserved in a higher-level error's description.
+            "the package at '/' cannot be accessed (Couldn’t read '1.0.0': fatal: not a tree object)",
+        ]
+        for output in recoverable {
+            XCTAssertTrue(
+                gitOutputIndicatesObjectStoreCorruption(output),
+                "expected object-store-corruption to be detected in: \(output)"
+            )
+        }
+
+        // Outputs that are NOT object-store corruption — re-fetching would not help, so we must
+        // not trigger a wasteful purge-and-reclone for these.
+        let notRecoverable = [
+            "error: pathspec 'nonExistent' did not match any file(s) known to git",
+            "fatal: Authentication failed for 'https://example.com/repo.git'",
+            "fatal: could not read Username for 'https://example.com': terminal prompts disabled",
+            "fatal: unable to read current working directory",
+            "error: Permission denied",
+            "Updating files: 100% (3/3), done.",
+        ]
+        for output in notRecoverable {
+            XCTAssertFalse(
+                gitOutputIndicatesObjectStoreCorruption(output),
+                "did not expect object-store-corruption to be detected in: \(output)"
+            )
+        }
+    }
+
     func testSubmodules() async throws {
         try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
         try await testWithTemporaryDirectory { path in

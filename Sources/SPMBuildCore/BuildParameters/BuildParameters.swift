@@ -142,6 +142,10 @@ public struct BuildParameters: Encodable {
 
     public var printPIFManifestGraphviz: Bool = false
 
+    /// Whether to preserve symbolic links in package/source file paths instead of resolving them to
+    /// their real path.
+    public var shouldPreserveSymlinks: Bool
+
     /// Do minimal build to prepare for indexing
     public var prepareForIndexing: PrepareForIndexingMode
 
@@ -192,6 +196,7 @@ public struct BuildParameters: Encodable {
         testingParameters: Testing = .init(),
         apiDigesterMode: APIDigesterMode? = nil,
         stripProducts: Bool? = nil,
+        shouldPreserveSymlinks: Bool = false,
     ) throws {
         // Default to the unversioned triple if none is provided so that we defer to the package's requested deployment target, for Darwin platforms. For other platforms, continue to include the version since those don't have the concept of a package-specified version, and the version is meaningful for some platforms including Android and FreeBSD.
         let triple = try triple ?? {
@@ -258,6 +263,7 @@ public struct BuildParameters: Encodable {
         self.testingParameters = testingParameters
         self.apiDigesterMode = apiDigesterMode
         self.stripProducts = stripProducts
+        self.shouldPreserveSymlinks = shouldPreserveSymlinks
     }
 
     /// The path to the build directory (inside the data directory).

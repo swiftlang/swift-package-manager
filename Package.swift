@@ -135,9 +135,9 @@ if shouldUseSwiftBuildFramework {
 let package = Package(
     name: "SwiftPM",
     platforms: [
-        .macOS(.v14),
-        .iOS(.v17),
-        .macCatalyst(.v17),
+        .macOS(.v15),
+        .iOS(.v18),
+        .macCatalyst(.v18),
     ],
     products:
     autoProducts.flatMap {
@@ -1109,7 +1109,7 @@ func swiftSyntaxDependencies(_ names: [String]) -> [Target.Dependency] {
 // this right now.
 
 /// When not using local dependencies, the branch to use for llbuild and TSC repositories.
-let relatedDependenciesBranch = "release/6.4.x"
+let relatedDependenciesBranch = "main"
 
 if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
     if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {

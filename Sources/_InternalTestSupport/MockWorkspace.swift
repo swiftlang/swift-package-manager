@@ -100,7 +100,7 @@ public final class MockWorkspace {
     public let delegate = MockWorkspaceDelegate()
     let skipDependenciesUpdates: Bool
     public var sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration
-        .SourceControlToRegistryDependencyTransformation
+        .SourceControlToRegistryDependencyTransformation?
     var defaultRegistry: Registry?
     public let traitConfiguration: TraitConfiguration
     public var enabledTraitsMap: EnabledTraitsMap
@@ -122,7 +122,7 @@ public final class MockWorkspace {
         customPackageContainerProvider: MockPackageContainerProvider? = .none,
         skipDependenciesUpdates: Bool = false,
         sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration
-            .SourceControlToRegistryDependencyTransformation = .disabled,
+            .SourceControlToRegistryDependencyTransformation? = nil,
         defaultRegistry: Registry? = .none,
         customHostTriple: Triple = hostTriple,
         traitConfiguration: TraitConfiguration = .default,

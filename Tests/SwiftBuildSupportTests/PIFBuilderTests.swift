@@ -52,7 +52,8 @@ extension PIFBuilderParameters {
             pluginWorkingDirectory: temporaryDirectory.appending(component: "plugin-working-dir"),
             additionalFileRules: [],
             addLocalRpaths: addLocalRpaths,
-            hostBuildProductsPath: hostBuildProductsPath ?? temporaryDirectory.appending(component: "host-build-products")
+            hostBuildProductsPath: hostBuildProductsPath ?? temporaryDirectory.appending(component: "host-build-products"),
+            shouldPreserveSymlinks: false
         )
     }
 }
@@ -1023,6 +1024,63 @@ struct PIFBuilderTests {
         let ldFlags = try #require(try runnerTarget.buildConfig(named: configuration).settings[.OTHER_LDFLAGS])
         #expect(ldFlags.contains("-lhelper"))
         #expect(ldFlags.contains("-L") && ldFlags.contains("/Vendor"))
+    }
+
+    @Test(arguments: BuildConfiguration.allCases)
+    func productTargetsReportProductNameAsBSPDisplayName(configuration: BuildConfiguration) async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/Exe/main.swift",
+            "/Root/Sources/Lib/Lib.swift",
+            "/Root/Tests/LibTests/LibTests.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_2,
+                    products: [
+                        ProductDescription(name: "Exe", type: .executable, targets: ["Exe"]),
+                        ProductDescription(name: "Lib", type: .library(.automatic), targets: ["Lib"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Exe", dependencies: ["Lib"]),
+                        TargetDescription(name: "Lib", dependencies: []),
+                        TargetDescription(name: "LibTests", dependencies: ["Lib"], type: .test),
+                    ]
+                ),
+            ],
+            shouldCreateMultipleTestProducts: true,
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "Root")
+
+        for productName in ["Exe", "LibTests", "Lib"] {
+            let settings = try project.target(named: "\(productName)-product")
+                .buildConfig(named: configuration)
+                .settings
+            #expect(settings[.BUILD_SERVER_PROTOCOL_TARGET_DISPLAY_NAME] == productName)
+        }
     }
 
     @Test func impartedModuleMaps() async throws {
@@ -2399,10 +2457,9 @@ private struct NoOpPluginScriptRunner: PluginScriptRunner {
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        delegate: any PluginScriptCompilerDelegate & PluginScriptRunnerDelegate,
-        completion: @escaping (Result<Int32, any Error>) -> Void
-    ) {
-        callbackQueue.sync { completion(.success(0)) }
+        delegate: any PluginScriptCompilerDelegate & PluginScriptRunnerDelegate
+    ) async throws -> Int32 {
+        return 0
     }
 
     var hostTriple: Triple {
@@ -2533,6 +2590,7 @@ private func buildAppProject(
         packageManifest: rootPackage.manifest,
         delegate: delegate,
         buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]](),
+        shouldPreserveSymlinks: false,
         packageDisplayVersion: rootPackage.manifest.displayName,
         pkgConfigDirectories: [],
         fileSystem: fs,

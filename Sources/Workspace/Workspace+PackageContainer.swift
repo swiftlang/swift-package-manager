@@ -62,6 +62,8 @@ extension Workspace: PackageContainerProvider {
                 dependencyMapper: self.dependencyMapper,
                 repositorySpecifier: repositorySpecifier,
                 repository: repository,
+                repositoryManager: self.repositoryManager,
+                repositoryUpdateStrategy: updateStrategy.repositoryUpdateStrategy,
                 manifestLoader: self.manifestLoader,
                 currentToolsVersion: self.currentToolsVersion,
                 fingerprintStorage: self.fingerprints,

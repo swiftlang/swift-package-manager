@@ -1150,6 +1150,33 @@ struct PackageCommandTests {
 
     @Test(
         .tags(
+            .Feature.Command.Package.Describe,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testDescribeJSONWithUnhandledResource_EnsureValidJSONOutput(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let config = BuildConfiguration.debug
+        try await fixture(name: "Miscellaneous/UnhandledResource") { fixturePath in
+            let (jsonOutput, stderr) = try await execute(
+                ["describe", "--type=json"],
+                packagePath: fixturePath,
+                configuration: config,
+                buildSystem: buildSystem,
+            )
+
+            // Verify stdout contains valid JSON, not corrupted by diagnostic output.
+            let json = try JSON(bytes: ByteString(encodingAsUTF8: jsonOutput))
+            #expect(json["name"]?.string == "UnhandledResource")
+
+            // Verify the warning appears on stderr.
+            #expect(stderr.contains("Found unhandled resource"))
+        }
+    }
+
+    @Test(
+        .tags(
             .Feature.Command.Package.DumpPackage,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
@@ -1338,6 +1365,31 @@ struct PackageCommandTests {
         ),
     )
     struct CompletionToolCommandTests {
+        @Test(
+            arguments: [
+                "generate-bash-script",
+                "generate-zsh-script",
+                "generate-fish-script",
+            ]
+        )
+        func generateScriptDoesNotCreateScratchDirectory(mode: String) async throws {
+            try await withTemporaryDirectory { temporaryDirectory in
+                let process = AsyncProcess(
+                    arguments: [
+                        SwiftPM.Package.xctestBinaryPath.pathString,
+                        "completion-tool",
+                        mode,
+                    ],
+                    workingDirectory: temporaryDirectory
+                )
+                try process.launch()
+                let result = try await process.waitUntilExit()
+
+                #expect(result.exitStatus == .terminated(code: 0))
+                #expect(!localFileSystem.exists(temporaryDirectory.appending(".build")))
+            }
+        }
+
         @Test(
             arguments: SupportedBuildSystemOnAllPlatforms,
         )
@@ -4888,6 +4940,52 @@ struct PackageCommandTests {
                         case .xcode:
                             break
                     }
+                }
+            }
+        }
+
+        @Test(
+            .tags(
+              .Feature.Command.Build,
+              .Feature.PackageType.BuildToolPlugin
+            ),
+            .requiresSwiftConcurrencySupport,
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func buildToolPluginCompilerErrorIsVisible(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            let config = BuildConfiguration.debug
+            try await fixture(name: "Miscellaneous/Plugins/BuildToolPluginCompilationError") { packageDir in
+                try localFileSystem.writeFileContents(
+                    packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"),
+                    string: """
+                    import PackagePlugin
+
+                    @main
+                    struct MyBuildToolPlugin: BuildToolPlugin {
+                        func createBuildCommands(
+                            context: PluginContext,
+                            target: Target
+                        ) throws -> [Command] {
+                            let _ = intentionalCompilerError
+                            return []
+                        }
+                    }
+                    """
+                )
+
+                await expectThrowsCommandExecutionError(
+                    try await executeSwiftBuild(
+                        packageDir,
+                        configuration: config,
+                        buildSystem: buildSystem,
+                    )
+                ) { error in
+                    #expect(
+                        error.consoleOutput.contains("intentionalCompilerError"),
+                        "Plugin compiler diagnostic was not shown: \(error.consoleOutput)"
+                    )
                 }
             }
         }

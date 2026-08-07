@@ -1790,6 +1790,7 @@ final class PubGrubTests: XCTestCase {
                     originalScmUrl: nil
                 )
             ],
+            trustPinnedVersions: true
         )
         let term = Term("package@1.2.3")
 

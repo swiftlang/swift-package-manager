@@ -86,7 +86,7 @@ package func findCompilerAndSDKIDForTesting(
 
 package enum SwiftSDKName: String {
     case android = "android"
-    case staticLinux = "staticLinux"
+    case staticLinux = "static-linux"
     case webassembly = "wasm"
 }
 

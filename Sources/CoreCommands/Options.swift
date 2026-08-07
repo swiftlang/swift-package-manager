@@ -168,6 +168,13 @@ public struct LocationOptions: ParsableArguments {
 
     @Flag(name: .customLong("experimental-skip-acquiring-lock"), help: .hidden)
     public var skipAcquiringLock: Bool = false
+
+    /// When set, an explicitly provided `--package-path` is used as the package root verbatim,
+    /// without resolving symbolic links, and sources paths are not resolved. Intended for BSP clients
+    /// like SourceKit-LSP which want to independently reference a symlinked source file and its
+    /// original path.
+    @Flag(name: .customLong("experimental-skip-resolving-package-paths"), help: .hidden)
+    public var skipResolvingPackagePaths: Bool = false
 }
 
 public struct CachingOptions: ParsableArguments {
@@ -331,8 +338,7 @@ public struct ResolverOptions: ParsableArguments {
     public var skipDependencyUpdate: Bool = false
 
     @Flag(help: "Define automatic transformation of source control based dependencies to registry based ones.")
-    public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation =
-        .disabled
+    public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation?
 
     /// Enables pruning unused dependencies to omit redundant calculations during resolution, and each phase thereafter.
     /// Hidden from the generated help text because this feature is currently only being considered for traits.

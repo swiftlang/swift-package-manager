@@ -40,6 +40,30 @@ public func unsafe_await<T: Sendable>(_ body: @Sendable @escaping () async -> T)
     return box.get()!
 }
 
+/// Runs `body` in an unstructured task that is **not** cancelled when the calling task is cancelled,
+/// and suspends until it finishes.
+///
+/// Use this when an operation must run to completion regardless of the parent task's cancellation —
+/// for example, draining a subprocess's output until the process has actually exited. Awaiting the
+/// returned value is itself not a cancellation point that aborts the work early.
+public func withUncancelledTask<R: Sendable>(
+    returning: R.Type = R.self,
+    _ body: @Sendable @escaping () async throws -> R
+) async throws -> R {
+    try await Task {
+        try await body()
+    }.value
+}
+
+public func withUncancelledTask<R: Sendable>(
+    returning: R.Type = R.self,
+    _ body: @Sendable @escaping () async -> R
+) async -> R {
+    await Task {
+        await body()
+    }.value
+}
+
 extension Task where Failure == Never {
     /// Runs `block` in a new thread and suspends until it finishes execution.
     ///

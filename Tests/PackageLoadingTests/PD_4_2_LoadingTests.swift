@@ -639,7 +639,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 dependencyMapper: dependencyMapper,
                 fileSystem: localFileSystem,
                 observabilityScope: observability.topScope,
-                delegateQueue: .sharedConcurrent
+                delegateQueue: delegate.queue
             )
 
             XCTAssertNoDiagnostics(observability.diagnostics)
@@ -658,7 +658,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     dependencyMapper: dependencyMapper,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
-                    delegateQueue: .sharedConcurrent
+                    delegateQueue: delegate.queue
                 )
 
                 XCTAssertNoDiagnostics(observability.diagnostics)
@@ -666,7 +666,7 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                 XCTAssertEqual(manifest.targets[0].name, "foo")
             }
 
-            try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, total+1)
+            await XCTAssertAsyncEqual(await delegate.loaded().count, total+1)
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
         }
@@ -719,14 +719,14 @@ final class PackageDescription4_2LoadingTests: PackageDescriptionLoadingTests {
                     dependencyMapper: dependencyMapper,
                     fileSystem: localFileSystem,
                     observabilityScope: observability.topScope,
-                    delegateQueue: .sharedConcurrent
+                    delegateQueue: delegate.queue
                 )
 
                 XCTAssertEqual(manifest.displayName, "Trivial-\(random)")
                 XCTAssertEqual(manifest.targets[0].name, "foo-\(random)")
             }
 
-            try await XCTAssertAsyncEqual(try await delegate.loaded(timeout: .seconds(1)).count, total)
+            await XCTAssertAsyncEqual(await delegate.loaded().count, total)
             XCTAssertFalse(observability.hasWarningDiagnostics, observability.diagnostics.description)
             XCTAssertFalse(observability.hasErrorDiagnostics, observability.diagnostics.description)
         }

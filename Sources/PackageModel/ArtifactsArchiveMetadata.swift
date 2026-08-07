@@ -95,6 +95,35 @@ extension ArtifactsArchiveMetadata {
                     "invalid `schemaVersion` of bundle manifest at `\(path)`: \(decodedMetadata.schemaVersion)"
                 )
             }
+        } catch let error as DecodingError {
+          switch error {
+              case .typeMismatch(let type, let context):
+                let keyPath = context.codingPath.map { $0.stringValue }.joined(separator: ".")
+                throw StringError(
+                  "Type mismatch in ArtifactsArchive info.json at '\(path)'. Key '\(keyPath)' expected type '\(type)'."
+                )
+
+              case .keyNotFound(let key, let context):
+                let keyPath = context.codingPath.map { $0.stringValue }.joined(separator: ".")
+                let location = keyPath.isEmpty ? "root" : "'\(keyPath)'"
+                throw StringError(
+                  "Missing required key '\(key.stringValue)' in ArtifactsArchive info.json at '\(path)' in \(location)."
+                )
+
+              case .valueNotFound(let type, let context):
+                let keyPath = context.codingPath.map { $0.stringValue }.joined(separator: ".")
+                throw StringError(
+                  "Expected non-null value of type '\(type)' in ArtifactsArchive info.json at '\(path)'. Key '\(keyPath)' is null."
+                )
+
+              case .dataCorrupted(let context):
+                throw StringError(
+                  "Invalid JSON in ArtifactsArchive info.json at '\(path)': \(context.debugDescription)")
+
+              @unknown default:
+                throw StringError(
+                  "failed parsing ArtifactsArchive info.json at '\(path)': \(error.localizedDescription)")
+              }
         } catch {
             throw StringError(
                 "failed parsing ArtifactsArchive info.json at '\(path)': \(error.interpolationDescription)"

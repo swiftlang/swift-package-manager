@@ -174,69 +174,54 @@ final class PluginInvocationTests: XCTestCase {
                 fileSystem: FileSystem,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
-                delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate,
-                completion: @escaping (Result<Int32, Error>) -> Void
-            ) {
+                delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate
+            ) async throws -> Int32 {
                 // Check that we were given the right sources.
                 XCTAssertEqual(sourceFiles, ["/Foo/Plugins/FooPlugin/source.swift"])
 
-                do {
-                    // Pretend the plugin emitted some output.
-                    callbackQueue.sync {
-                        delegate.handleOutput(data: Data("Hello Plugin!".utf8))
-                    }
-
-                    // Pretend it emitted a warning.
-                    try callbackQueue.sync {
-                        let message = Data("""
-                        {   "emitDiagnostic": {
-                                "severity": "warning",
-                                "message": "A warning",
-                                "file": "/Foo/Sources/Foo/SomeFile.abc",
-                                "line": 42
-                            }
-                        }
-                        """.utf8)
-                        try delegate.handleMessage(data: message, responder: { _ in })
-                    }
-
-                    // Pretend it defined a build command.
-                    try callbackQueue.sync {
-                        let message = Data("""
-                        {   "defineBuildCommand": {
-                                "configuration": {
-                                    "version": 2,
-                                    "displayName": "Do something",
-                                    "executable": "file:///bin/FooTool",
-                                    "arguments": [
-                                        "-c", "/Foo/Sources/Foo/SomeFile.abc"
-                                    ],
-                                    "workingDirectory": "file:///Foo/Sources/Foo",
-                                    "environment": {
-                                        "X": "Y"
-                                    },
-                                },
-                                "inputFiles": [
-                                ],
-                                "outputFiles": [
-                                ]
-                            }
-                        }
-                        """.utf8)
-                        try delegate.handleMessage(data: message, responder: { _ in })
-                    }
-                }
-                catch {
-                    callbackQueue.sync {
-                        completion(.failure(error))
-                    }
-                    return
-                }
-
-                // If we get this far we succeeded, so invoke the completion handler.
+                // Pretend the plugin emitted some output.
                 callbackQueue.sync {
-                    completion(.success(0))
+                    delegate.handleOutput(data: Data("Hello Plugin!".utf8))
                 }
+
+                // Pretend it emitted a warning.
+                let warning = Data("""
+                    {   "emitDiagnostic": {
+                            "severity": "warning",
+                            "message": "A warning",
+                            "file": "/Foo/Sources/Foo/SomeFile.abc",
+                            "line": 42
+                        }
+                    }
+                    """.utf8)
+                _ = try await delegate.handleMessage(data: warning)
+
+                // Pretend it defined a build command.
+                let buildCommand = Data("""
+                    {   "defineBuildCommand": {
+                            "configuration": {
+                                "version": 2,
+                                "displayName": "Do something",
+                                "executable": "file:///bin/FooTool",
+                                "arguments": [
+                                    "-c", "/Foo/Sources/Foo/SomeFile.abc"
+                                ],
+                                "workingDirectory": "file:///Foo/Sources/Foo",
+                                "environment": {
+                                    "X": "Y"
+                                },
+                            },
+                            "inputFiles": [
+                            ],
+                            "outputFiles": [
+                            ]
+                        }
+                    }
+                    """.utf8)
+                _ = try await delegate.handleMessage(data: buildCommand)
+
+                // If we get this far we succeeded.
+                return 0
             }
         }
 
@@ -285,6 +270,229 @@ final class PluginInvocationTests: XCTestCase {
         XCTAssertEqual(evalFirstDiagnostic.metadata?.fileLocation, FileLocation("/Foo/Sources/Foo/SomeFile.abc", line: 42))
 
         XCTAssertEqual(evalFirstResult.textOutput, "Hello Plugin!")
+    }
+
+    /// Constructs the same canned package graph used by `testBasics`: a library `Foo` that uses a
+    /// build tool plugin `FooPlugin`, which depends on an executable `FooTool`.
+    private func makeFooPluginGraph(
+        observabilityScope: ObservabilityScope
+    ) throws -> (fileSystem: InMemoryFileSystem, graph: ModulesGraph) {
+        let fileSystem = InMemoryFileSystem(emptyFiles:
+            "/Foo/Plugins/FooPlugin/source.swift",
+            "/Foo/Sources/FooTool/source.swift",
+            "/Foo/Sources/FooToolLib/source.swift",
+            "/Foo/Sources/Foo/source.swift",
+            "/Foo/Sources/Foo/SomeFile.abc"
+        )
+        let graph = try loadModulesGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    products: [
+                        ProductDescription(name: "Foo", type: .library(.dynamic), targets: ["Foo"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "Foo",
+                            type: .regular,
+                            pluginUsages: [.plugin(name: "FooPlugin", package: nil)]
+                        ),
+                        TargetDescription(
+                            name: "FooPlugin",
+                            dependencies: ["FooTool"],
+                            type: .plugin,
+                            pluginCapability: .buildTool
+                        ),
+                        TargetDescription(name: "FooTool", dependencies: ["FooToolLib"], type: .executable),
+                        TargetDescription(name: "FooToolLib", dependencies: [], type: .regular),
+                    ]
+                ),
+            ],
+            observabilityScope: observabilityScope
+        )
+        return (fileSystem, graph)
+    }
+
+    /// Verifies that a `definePrebuildCommand` message is handled and surfaced as a prebuild command.
+    ///
+    /// This exercises the `callbackQueue.sync` hop in `ScriptRunnerDelegate.handleMessage` that must run
+    /// on the invocation delegate's queue to satisfy its `dispatchPrecondition(.onQueue(delegateQueue))` —
+    /// `testBasics` only covers that hop for `emitDiagnostic`/`defineBuildCommand`, not the prebuild path.
+    func testPrebuildCommand() async throws {
+        struct MockPluginScriptRunner: PluginScriptRunner {
+            var hostTriple: Triple {
+                get throws { try UserToolchain.default.targetTriple }
+            }
+
+            func compilePluginScript(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                toolsVersion: ToolsVersion,
+                workers: UInt32,
+                observabilityScope: ObservabilityScope,
+                callbackQueue: DispatchQueue,
+                delegate: PluginScriptCompilerDelegate,
+                completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
+            ) {
+                callbackQueue.sync { completion(.failure(StringError("unimplemented"))) }
+            }
+
+            func buildCommandLine(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                toolsVersion: ToolsVersion,
+                workers: UInt32,
+                observabilityScope: ObservabilityScope?
+            ) -> (commandLine: [String], execName: String, execFilePath: Basics.AbsolutePath, diagFilePath: Basics.AbsolutePath) {
+                fatalError("Not implemented")
+            }
+
+            func runPluginScript(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                initialMessage: Data,
+                toolsVersion: ToolsVersion,
+                workingDirectory: AbsolutePath,
+                writableDirectories: [AbsolutePath],
+                readOnlyDirectories: [AbsolutePath],
+                allowNetworkConnections: [SandboxNetworkPermission],
+                workers: UInt32,
+                fileSystem: FileSystem,
+                observabilityScope: ObservabilityScope,
+                callbackQueue: DispatchQueue,
+                delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate
+            ) async throws -> Int32 {
+                let message = PluginToHostMessage.definePrebuildCommand(
+                    configuration: .init(
+                        displayName: "Generate Code",
+                        executable: URL(fileURLWithPath: "/bin/FooTool"),
+                        arguments: ["-o", "out"],
+                        environment: [:],
+                        workingDirectory: nil
+                    ),
+                    outputFilesDirectory: URL(fileURLWithPath: "/Foo/.build/prebuild-outputs")
+                )
+                _ = try await delegate.handleMessage(data: JSONEncoder.makeWithDefaults().encode(message))
+                return 0
+            }
+        }
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (fileSystem, graph) = try makeFooPluginGraph(observabilityScope: observability.topScope)
+        let buildParameters = mockBuildParameters(
+            destination: .host,
+            environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+            buildSystem: .native
+        )
+
+        let results = try await invokeBuildToolPlugins(
+            graph: graph,
+            buildParameters: buildParameters,
+            fileSystem: fileSystem,
+            outputDir: AbsolutePath("/Foo/.build"),
+            pluginScriptRunner: MockPluginScriptRunner(),
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        let (_, (_, evalResults)) = try XCTUnwrap(results.first)
+        let evalFirstResult = try XCTUnwrap(evalResults.first)
+        XCTAssertTrue(evalFirstResult.succeeded)
+        XCTAssertEqual(evalFirstResult.buildCommands.count, 0)
+        XCTAssertEqual(evalFirstResult.prebuildCommands.count, 1)
+        XCTAssertEqual(evalFirstResult.prebuildCommands.first?.configuration.displayName, "Generate Code")
+    }
+
+    /// Verifies the request/response path: when the plugin sends a `buildOperationRequest` that the host
+    /// delegate cannot service, `handleMessage` returns a well-formed `errorResponse` reply rather than
+    /// throwing. The reply bytes are captured and decoded inside the mock runner.
+    func testPluginRequestErrorResponse() async throws {
+        struct MockPluginScriptRunner: PluginScriptRunner {
+            var hostTriple: Triple {
+                get throws { try UserToolchain.default.targetTriple }
+            }
+
+            func compilePluginScript(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                toolsVersion: ToolsVersion,
+                workers: UInt32,
+                observabilityScope: ObservabilityScope,
+                callbackQueue: DispatchQueue,
+                delegate: PluginScriptCompilerDelegate,
+                completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
+            ) {
+                callbackQueue.sync { completion(.failure(StringError("unimplemented"))) }
+            }
+
+            func buildCommandLine(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                toolsVersion: ToolsVersion,
+                workers: UInt32,
+                observabilityScope: ObservabilityScope?
+            ) -> (commandLine: [String], execName: String, execFilePath: Basics.AbsolutePath, diagFilePath: Basics.AbsolutePath) {
+                fatalError("Not implemented")
+            }
+
+            func runPluginScript(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                initialMessage: Data,
+                toolsVersion: ToolsVersion,
+                workingDirectory: AbsolutePath,
+                writableDirectories: [AbsolutePath],
+                readOnlyDirectories: [AbsolutePath],
+                allowNetworkConnections: [SandboxNetworkPermission],
+                workers: UInt32,
+                fileSystem: FileSystem,
+                observabilityScope: ObservabilityScope,
+                callbackQueue: DispatchQueue,
+                delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate
+            ) async throws -> Int32 {
+                // The default `PluginInvocationDelegate.pluginRequestedBuildOperation` throws, so the
+                // host should answer with an `errorResponse` reply (not propagate the error).
+                let request = PluginToHostMessage.buildOperationRequest(
+                    subset: .all(includingTests: false),
+                    parameters: .init(
+                        configuration: .debug,
+                        logging: .concise,
+                        echoLogs: false,
+                        otherCFlags: [],
+                        otherCxxFlags: [],
+                        otherSwiftcFlags: [],
+                        otherLinkerFlags: []
+                    )
+                )
+                let reply = try await delegate.handleMessage(data: JSONEncoder.makeWithDefaults().encode(request))
+                let replyData = try XCTUnwrap(reply, "expected a reply to buildOperationRequest")
+                let decoded = try JSONDecoder.makeWithDefaults().decode(HostToPluginMessage.self, from: replyData)
+                guard case .errorResponse = decoded else {
+                    XCTFail("expected an errorResponse reply, got \(decoded)")
+                    return 0
+                }
+                return 0
+            }
+        }
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (fileSystem, graph) = try makeFooPluginGraph(observabilityScope: observability.topScope)
+        let buildParameters = mockBuildParameters(
+            destination: .host,
+            environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+            buildSystem: .native
+        )
+
+        _ = try await invokeBuildToolPlugins(
+            graph: graph,
+            buildParameters: buildParameters,
+            fileSystem: fileSystem,
+            outputDir: AbsolutePath("/Foo/.build"),
+            pluginScriptRunner: MockPluginScriptRunner(),
+            observabilityScope: observability.topScope
+        )
     }
 
     func testCompilationDiagnostics() async throws {

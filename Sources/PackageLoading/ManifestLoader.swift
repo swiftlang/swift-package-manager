@@ -1032,6 +1032,8 @@ extension ManifestLoader {
               fileSystem: FileSystem
         ) throws {
             let manifestContents = try fileSystem.readFileContents(manifestPath).contents
+            let gitDirectoryPath = manifestPath.parentDirectory.appending(".git")
+            let gitDirectoryExists = fileSystem.exists(gitDirectoryPath)
             let sha256Checksum = try Self.computeSHA256Checksum(
                 packageIdentity: packageIdentity,
                 packageLocation: packageLocation,
@@ -1039,7 +1041,8 @@ extension ManifestLoader {
                 toolsVersion: toolsVersion,
                 env: env,
                 extraManifestFlags: extraManifestFlags,
-                swiftpmVersion: swiftpmVersion
+                swiftpmVersion: swiftpmVersion,
+                gitDirectoryExists: gitDirectoryExists
             )
 
             self.packageIdentity = packageIdentity
@@ -1062,7 +1065,8 @@ extension ManifestLoader {
             toolsVersion: ToolsVersion,
             env: Environment,
             extraManifestFlags: [String],
-            swiftpmVersion: String
+            swiftpmVersion: String,
+            gitDirectoryExists: Bool
         ) throws -> String {
             let stream = BufferedOutputByteStream()
             stream.send(packageIdentity)
@@ -1076,6 +1080,7 @@ extension ManifestLoader {
             for flag in extraManifestFlags {
                 stream.send(flag)
             }
+            stream.send(gitDirectoryExists.description)
             return stream.bytes.sha256Checksum
         }
     }
