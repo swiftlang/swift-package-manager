@@ -10,6 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-public enum RootCertificateAuthority: Sendable, Equatable {
+public enum RootCertificateAuthority: Sendable, Hashable, Sendable {
     case none
 }

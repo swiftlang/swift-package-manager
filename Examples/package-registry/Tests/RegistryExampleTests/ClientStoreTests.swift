@@ -11,83 +11,155 @@
 //===----------------------------------------------------------------------===//
 
 import Testing
+import X509
 @testable import RegistryExample
 
 @Suite("ClientStore")
 struct ClientStoreTests {
+    private struct TestCertificate {
+        let pem: String
+        /// The SHA-256 of the DER encoding, computed outside the test suite
+        /// with `openssl x509 -outform DER | shasum -a 256`.
+        let thumbprint: String
+
+        func certificate() throws -> Certificate {
+            try Certificate(pemEncoded: pem)
+        }
+    }
+
+    private let harrysLaptopCertificate = TestCertificate(
+        pem: """
+            -----BEGIN CERTIFICATE-----
+            MIIBgjCCASegAwIBAgIUUMD/N2rrlgXSBvESoeYaXD3L6CUwCgYIKoZIzj0EAwIw
+            FTETMBEGA1UEAwwKaWRlbnRpdHktMTAgFw0yNjA3MzExNTA0MDNaGA8yMTI2MDcw
+            NzE1MDQwM1owFTETMBEGA1UEAwwKaWRlbnRpdHktMTBZMBMGByqGSM49AgEGCCqG
+            SM49AwEHA0IABEM/guBDzyQMsn1dleF9O3T6TkwWyGxtLrOjIxVXfZP9+wLbFnw9
+            B0Dmo6C0wPVZXpr+Eq72t5myr7JQixOUJu2jUzBRMB0GA1UdDgQWBBRMaiXyxZUG
+            Vm+jJ/NHEdAkKG+JnDAfBgNVHSMEGDAWgBRMaiXyxZUGVm+jJ/NHEdAkKG+JnDAP
+            BgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0kAMEYCIQDSDXL36MHnV1f/0wtx
+            LWkeIYSl2h1ESSNUz3FC2XqAtAIhAKE/SiJpo8tHP04igm73t7Cc8PuyhxARgmAY
+            FjWWqao8
+            -----END CERTIFICATE-----
+            """,
+        thumbprint: "30ec37382a8099c174b534863d253345b5027f99592db88be0c3629a4a6cb798"
+    )
+
+    private let hermionesLaptopCertificate = TestCertificate(
+        pem: """
+            -----BEGIN CERTIFICATE-----
+            MIIBgDCCASegAwIBAgIUTUXy/LZzV3wAZVOsWQ+cYXFTsN0wCgYIKoZIzj0EAwIw
+            FTETMBEGA1UEAwwKaWRlbnRpdHktMjAgFw0yNjA3MzExNTA0MDNaGA8yMTI2MDcw
+            NzE1MDQwM1owFTETMBEGA1UEAwwKaWRlbnRpdHktMjBZMBMGByqGSM49AgEGCCqG
+            SM49AwEHA0IABJ72JAAV2i8A92yi15A89CVEnGiatpyhsE0+Bby1O1NtLTOgTQ+E
+            /QUNuItI7VWRlO+FeE6rgPKSN/oL5enBovyjUzBRMB0GA1UdDgQWBBTZkaEVDkpz
+            IJh8Su+ou2UgxU8p5jAfBgNVHSMEGDAWgBTZkaEVDkpzIJh8Su+ou2UgxU8p5jAP
+            BgNVHRMBAf8EBTADAQH/MAoGCCqGSM49BAMCA0cAMEQCIBNflqAGnVyHhhN0S9TP
+            xSPRKhRPLCaL8X+r/J/Sm4ldAiANXlxwIyYq3oPDae5/NhU4dj8rbFZ/b/CAGwQR
+            nm+jGw==
+            -----END CERTIFICATE-----
+            """,
+        thumbprint: "2ea1093834f9b724048f1c7a292856271b2244a2f4a44eb6a9aea475925af4f0"
+    )
+
     private func user(_ raw: String) throws -> User {
         User(email: try #require(EmailAddress(raw)), credential: .password(hash: "bcrypt"))
     }
 
-    private func client(_ user: User, _ value: String) -> Client {
-        Client(user: user, id: Client.ID(rootCertificateAuthority: .none, value: value))
+    private func client(_ user: User, certificate: TestCertificate) throws -> Client<MutualTLS> {
+        Client(
+            user: user,
+            auth: try MutualTLS(rootCertificateAuthority: .none, certificate: certificate.certificate())
+        )
     }
 
-    @Test func `round-trips a client by its ID`() async throws {
-        let store = ClientStore()
-        let certificateThumbprint1 = client(try user("harry@example.com"), "certificate thumbprint 1")
-        try await store.create(certificateThumbprint1)
-        #expect(await store.client(id: certificateThumbprint1.id) == certificateThumbprint1)
+    private func credentials(computedFrom certificate: TestCertificate) throws -> MutualTLS.Credentials {
+        MutualTLS.Credentials(
+            rootCertificateAuthority: .none,
+            id: try CertificateThumbprint.of(certificate.certificate())
+        )
     }
 
-    @Test func `returns every client belonging to a user`() async throws {
-        let store = ClientStore()
-        let harry = try user("harry@example.com")
-        let certificateThumbprint1 = client(harry, "certificate thumbprint 1")
-        let certificateThumbprint2 = client(harry, "certificate thumbprint 2")
-        try await store.create(certificateThumbprint1)
-        try await store.create(certificateThumbprint2)
-        #expect(await store.allClients(for: harry.email) == [certificateThumbprint1, certificateThumbprint2])
+    @Test func `the certificate init derives the id from the certificate's thumbprint`() throws {
+        let auth = try MutualTLS(
+            rootCertificateAuthority: .none,
+            certificate: harrysLaptopCertificate.certificate()
+        )
+        #expect(auth.credentials.id == harrysLaptopCertificate.thumbprint)
     }
 
-    @Test func `scopes clients to their own user`() async throws {
-        let store = ClientStore()
-        let harry = try user("harry@example.com")
-        let hermione = try user("hermione@example.com")
-        let harrysCertificateThumbprint = client(harry, "certificate thumbprint 1")
-        try await store.create(harrysCertificateThumbprint)
-        try await store.create(client(hermione, "certificate thumbprint 2"))
-        #expect(await store.allClients(for: harry.email) == [harrysCertificateThumbprint])
+    @Test func `the certificate and id inits produce the same credentials`() throws {
+        let fromCertificate = try MutualTLS(
+            rootCertificateAuthority: .none,
+            certificate: harrysLaptopCertificate.certificate()
+        )
+        let fromID = MutualTLS(rootCertificateAuthority: .none, id: harrysLaptopCertificate.thumbprint)
+        #expect(fromCertificate == fromID)
     }
 
-    @Test func `duplicate ID throws clientAlreadyExists`() async throws {
+    @Test func `round-trips a client stored under its certificate`() async throws {
         let store = ClientStore()
-        let harry = try user("harry@example.com")
-        try await store.create(client(harry, "certificate thumbprint 1"))
-        await #expect(throws: ClientStoreError.clientAlreadyExists) {
-            try await store.create(client(harry, "certificate thumbprint 1"))
-        }
+        let harrysLaptop = try client(try user("harry@example.com"), certificate: harrysLaptopCertificate)
+        await store.store(harrysLaptop)
+        let credentials = try credentials(computedFrom: harrysLaptopCertificate)
+        #expect(await store.client(ofType: MutualTLS.self, for: credentials) == harrysLaptop)
     }
 
-    @Test func `duplicate ID leaves no partial state`() async throws {
+    @Test func `resolves a client by a thumbprint computed independently of the store`() async throws {
         let store = ClientStore()
-        let harry = try user("harry@example.com")
-        let hermione = try user("hermione@example.com")
-        let harrysCertificateThumbprint = client(harry, "certificate thumbprint 1")
-        try await store.create(harrysCertificateThumbprint)
-        await #expect(throws: ClientStoreError.clientAlreadyExists) {
-            try await store.create(client(hermione, "certificate thumbprint 1"))
-        }
-        #expect(await store.allClients(for: hermione.email).isEmpty)
-        #expect(await store.client(id: harrysCertificateThumbprint.id) == harrysCertificateThumbprint)
+        let harrysLaptop = try client(try user("harry@example.com"), certificate: harrysLaptopCertificate)
+        await store.store(harrysLaptop)
+        let credentials = MutualTLS.Credentials(
+            rootCertificateAuthority: .none,
+            id: harrysLaptopCertificate.thumbprint
+        )
+        #expect(await store.client(ofType: MutualTLS.self, for: credentials) == harrysLaptop)
     }
 
-    @Test func `unknown ID returns nil`() async throws {
+    @Test func `resolves each certificate to its own user's client`() async throws {
         let store = ClientStore()
-        let unknown = Client.ID(rootCertificateAuthority: .none, value: "missing")
-        #expect(await store.client(id: unknown) == nil)
+        let harrysLaptop = try client(try user("harry@example.com"), certificate: harrysLaptopCertificate)
+        let hermionesLaptop = try client(
+            try user("hermione@example.com"),
+            certificate: hermionesLaptopCertificate
+        )
+        await store.store(harrysLaptop)
+        await store.store(hermionesLaptop)
+        let harrysCredentials = try credentials(computedFrom: harrysLaptopCertificate)
+        let hermionesCredentials = try credentials(computedFrom: hermionesLaptopCertificate)
+        #expect(await store.client(ofType: MutualTLS.self, for: harrysCredentials) == harrysLaptop)
+        #expect(await store.client(ofType: MutualTLS.self, for: hermionesCredentials) == hermionesLaptop)
     }
 
-    @Test func `user with no clients returns an empty array`() async throws {
+    @Test func `the same certificate resolves the same client on every lookup`() async throws {
         let store = ClientStore()
-        #expect(await store.allClients(for: try user("voldemort@example.com").email).isEmpty)
+        let harrysLaptop = try client(try user("harry@example.com"), certificate: harrysLaptopCertificate)
+        await store.store(harrysLaptop)
+        let credentials = try credentials(computedFrom: harrysLaptopCertificate)
+        let first = await store.client(ofType: MutualTLS.self, for: credentials)
+        let second = await store.client(ofType: MutualTLS.self, for: credentials)
+        #expect(first == harrysLaptop)
+        #expect(second == harrysLaptop)
+    }
+
+    @Test func `a certificate no client was stored under resolves to nil`() async throws {
+        let store = ClientStore()
+        await store.store(try client(try user("harry@example.com"), certificate: harrysLaptopCertificate))
+        let hermionesCredentials = try credentials(computedFrom: hermionesLaptopCertificate)
+        #expect(await store.client(ofType: MutualTLS.self, for: hermionesCredentials) == nil)
+    }
+
+    @Test func `an empty store resolves to nil`() async throws {
+        let store = ClientStore()
+        let credentials = try credentials(computedFrom: harrysLaptopCertificate)
+        #expect(await store.client(ofType: MutualTLS.self, for: credentials) == nil)
     }
 
     @Test func `the application caches a single store across accesses`() async throws {
         try await withRegistryApp { app in
-            let certificateThumbprint1 = client(try user("harry@example.com"), "certificate thumbprint 1")
-            try await app.clientStore.create(certificateThumbprint1)
-            #expect(await app.clientStore.client(id: certificateThumbprint1.id) == certificateThumbprint1)
+            let harrysLaptop = try client(try user("harry@example.com"), certificate: harrysLaptopCertificate)
+            await app.clientStore.store(harrysLaptop)
+            let credentials = try credentials(computedFrom: harrysLaptopCertificate)
+            #expect(await app.clientStore.client(ofType: MutualTLS.self, for: credentials) == harrysLaptop)
         }
     }
 }
