@@ -72,15 +72,10 @@ public struct UniversalArchiver: Archiver {
 
     public func extract(
         from archivePath: AbsolutePath,
-        to destinationPath: AbsolutePath,
-        completion: @escaping @Sendable (Result<Void, Swift.Error>) -> Void
-    ) {
-        do {
-            let archiver = try archiver(for: archivePath)
-            archiver.extract(from: archivePath, to: destinationPath, completion: completion)
-        } catch {
-            completion(.failure(error))
-        }
+        to destinationPath: AbsolutePath
+    ) async throws {
+        let archiver = try archiver(for: archivePath)
+        try await archiver.extract(from: archivePath, to: destinationPath)
     }
 
     public func compress(
@@ -93,14 +88,9 @@ public struct UniversalArchiver: Archiver {
     }
 
     public func validate(
-        path: AbsolutePath,
-        completion: @escaping @Sendable (Result<Bool, Swift.Error>) -> Void
-    ) {
-        do {
-            let archiver = try archiver(for: path)
-            archiver.validate(path: path, completion: completion)
-        } catch {
-            completion(.failure(error))
-        }
+        path: AbsolutePath
+    ) async throws -> Bool {
+        let archiver = try archiver(for: path)
+        return try await archiver.validate(path: path)
     }
 }
