@@ -89,9 +89,9 @@ Swift compiler.
 
 When a consumer package's target depends on a deprecated product, Swift
 Package Manager emits a warning through its diagnostic system during graph
-resolution. `swift build`, `swift test` and `swift package resolve` all
-surface the diagnostic. The warning text is derived from the `message:`
-(if any) and the `replacement:` locator:
+resolution. `swift build`, `swift test`, `swift package resolve`, and
+`swift package audit` all surface the diagnostic. The warning text is
+derived from the `message:` (if any) and the `replacement:` locator:
 
 - Same-package replacement — appended sentence: `Use 'X' instead.`
 - Cross-package replacement — appended sentence:
@@ -107,6 +107,25 @@ Swift build settings, or if the build invocation passes
 `-Xswiftc -warnings-as-errors`, the deprecation diagnostic is escalated
 from a warning to an error, matching how the compiler treats its own
 deprecation diagnostics.
+
+## Surveying deprecated products on demand
+
+Build-time warnings only surface deprecations for products that a package
+currently consumes. To answer questions like "which of my transitive
+dependencies vend an unsupported product?" without triggering a build,
+use <doc:PackageAudit>:
+
+```
+swift package audit
+```
+
+By default the command reports only *directly consumed* deprecated
+products and exits with a non-zero status when it finds any. Use
+`--include-transitive` to also see products reached through intermediate
+non-deprecated products, or `--include-transitive=all` to also see
+deprecated products that exist in the resolved graph but no target
+currently reaches. See <doc:PackageAudit> for a full description of the
+output format, JSON schema, and exit-code semantics.
 
 ## Interaction with `dump-package`
 
