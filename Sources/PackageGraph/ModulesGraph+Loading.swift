@@ -40,7 +40,8 @@ extension ModulesGraph {
         observabilityScope: ObservabilityScope,
         productsFilter: ((Product) -> Bool)? = nil,
         modulesFilter: ((Module) -> Bool)? = nil,
-        enabledTraitsMap: EnabledTraitsMap
+        enabledTraitsMap: EnabledTraitsMap,
+        treatWarningsAsErrors: Bool = false,
     ) throws -> ModulesGraph {
         let observabilityScope = observabilityScope.makeChildScope(description: "Loading Package Graph")
 
@@ -211,7 +212,8 @@ extension ModulesGraph {
             fileSystem: fileSystem,
             observabilityScope: observabilityScope,
             productsFilter: productsFilter,
-            modulesFilter: modulesFilter
+            modulesFilter: modulesFilter,
+            treatWarningsAsErrors: treatWarningsAsErrors,
         )
 
         let rootPackages = resolvedPackages.filter { root.manifests.values.contains($0.manifest) }
@@ -389,7 +391,8 @@ private func createResolvedPackages(
     fileSystem: FileSystem,
     observabilityScope: ObservabilityScope,
     productsFilter: ((Product) -> Bool)?,
-    modulesFilter: ((Module) -> Bool)?
+    modulesFilter: ((Module) -> Bool)?,
+    treatWarningsAsErrors: Bool,
 ) throws -> IdentifiableSet<ResolvedPackage> {
     // Create package builder objects from the input manifests.
     var packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap { node in
@@ -786,6 +789,22 @@ private func createResolvedPackages(
                 }
 
                 moduleBuilder.dependencies.append(.product(product, conditions: conditions))
+
+                // Emit a diagnostic if the consumed product is deprecated.
+                if let deprecation = product.product.deprecation {
+                    let severity: Diagnostic.Severity = shouldEscalateProductDeprecationToError(
+                        consumer: moduleBuilder.module,
+                        globalTreatWarningsAsErrors: treatWarningsAsErrors,
+                    ) ? .error : .warning
+                    let text = formatProductDeprecationDiagnostic(
+                        product: product.product,
+                        producingPackage: product.packageBuilder.package.identity,
+                        deprecation: deprecation,
+                    )
+                    packageObservabilityScope.emit(
+                        .init(severity: severity, message: text, metadata: nil),
+                    )
+                }
             }
         }
     }
@@ -1644,4 +1663,56 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
             platformVersionProvider: self.platformVersionProvider
         )
     }
+}
+
+// MARK: - Product deprecation diagnostics (SE-NNNN)
+
+/// Formats the diagnostic text for a deprecated product consumed by a target,
+/// matching the wording specified in the proposal:
+///
+/// `product 'X' from package 'Y' is unsupported[: <message> [Use 'N' instead.| Use 'N' from package 'P' instead.]]`
+internal func formatProductDeprecationDiagnostic(
+    product: Product,
+    producingPackage: PackageIdentity,
+    deprecation: ProductDeprecation,
+) -> String {
+    var text = "product '\(product.name)' from package '\(producingPackage.description)' is unsupported"
+    var trailing: [String] = []
+    if let message = deprecation.message, !message.isEmpty {
+        trailing.append(message)
+    }
+    if let replacement = deprecation.replacement {
+        trailing.append(replacement.formattedInstruction)
+    }
+    if !trailing.isEmpty {
+        text += ": " + trailing.joined(separator: " ")
+    }
+    return text
+}
+
+/// Decides whether SwiftPM's product-deprecation diagnostic should be emitted as
+/// an error rather than a warning, honoring:
+///
+/// 1. The build-invocation-level `treatWarningsAsErrors` flag (equivalent to
+///    `-Xswiftc -warnings-as-errors` at build time).
+/// 2. The consumer target's own Swift build settings — specifically
+///    `.treatAllWarnings(.error)` on the Swift tool.
+///
+/// Other warning-level controls (per-warning `treatWarning(name:as:)`, C/C++
+/// `treatAllWarnings`) do NOT affect the severity of this diagnostic — it is
+/// SwiftPM-emitted, not compiler-emitted.
+internal func shouldEscalateProductDeprecationToError(
+    consumer: Module,
+    globalTreatWarningsAsErrors: Bool,
+) -> Bool {
+    if globalTreatWarningsAsErrors {
+        return true
+    }
+    // `.treatAllWarnings(as: .error)` on the Swift tool is compiled into a
+    // `-warnings-as-errors` Swift-compiler flag stored under `OTHER_SWIFT_FLAGS`
+    // in the target's build-settings assignment table. Its presence in any
+    // assignment for this target means the consumer opted into escalation.
+    let swiftFlags = consumer.buildSettings.assignments[.OTHER_SWIFT_FLAGS]?
+        .flatMap(\.values) ?? []
+    return swiftFlags.contains("-warnings-as-errors")
 }
