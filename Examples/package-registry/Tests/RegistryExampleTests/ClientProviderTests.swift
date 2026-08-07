@@ -65,7 +65,7 @@ struct ClientProviderTests {
     }
 
     private func client(_ user: User, thumbprint: String) -> Client {
-        Client(user: user, id: Client.ID(rootCertificateAuthority: .selfSign, value: thumbprint))
+        Client(user: user, id: Client.ID(rootCertificateAuthority: .none, value: thumbprint))
     }
 
     @Test func `resolves the client registered under a self-signed certificate's thumbprint`() async throws {
@@ -75,7 +75,7 @@ struct ClientProviderTests {
         let provider = ClientProvider(store: store)
         let extracted = try await provider.extractClient(
             from: try harrysLaptopCertificate.certificate(),
-            rootCertificateAuthority: .selfSign
+            rootCertificateAuthority: .none
         )
         #expect(extracted == harrysLaptop)
     }
@@ -88,7 +88,7 @@ struct ClientProviderTests {
         let provider = ClientProvider(store: store)
         let extracted = try await provider.extractClient(
             from: try hermionesLaptopCertificate.certificate(),
-            rootCertificateAuthority: .selfSign
+            rootCertificateAuthority: .none
         )
         #expect(extracted == nil)
     }
@@ -97,7 +97,7 @@ struct ClientProviderTests {
         let provider = ClientProvider(store: ClientStore())
         let extracted = try await provider.extractClient(
             from: try harrysLaptopCertificate.certificate(),
-            rootCertificateAuthority: .selfSign
+            rootCertificateAuthority: .none
         )
         #expect(extracted == nil)
     }
@@ -115,13 +115,13 @@ struct ClientProviderTests {
         #expect(
             try await provider.extractClient(
                 from: try harrysLaptopCertificate.certificate(),
-                rootCertificateAuthority: .selfSign
+                rootCertificateAuthority: .none
             ) == harrysLaptop
         )
         #expect(
             try await provider.extractClient(
                 from: try hermionesLaptopCertificate.certificate(),
-                rootCertificateAuthority: .selfSign
+                rootCertificateAuthority: .none
             ) == hermionesLaptop
         )
     }
@@ -133,11 +133,11 @@ struct ClientProviderTests {
         let provider = ClientProvider(store: store)
         let first = try await provider.extractClient(
             from: try harrysLaptopCertificate.certificate(),
-            rootCertificateAuthority: .selfSign
+            rootCertificateAuthority: .none
         )
         let second = try await provider.extractClient(
             from: try harrysLaptopCertificate.certificate(),
-            rootCertificateAuthority: .selfSign
+            rootCertificateAuthority: .none
         )
         #expect(first == harrysLaptop)
         #expect(second == harrysLaptop)

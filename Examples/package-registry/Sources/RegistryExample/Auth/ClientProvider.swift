@@ -56,9 +56,9 @@ public struct ClientProvider: Sendable {
         from certificate: Certificate, rootCertificateAuthority: RootCertificateAuthority
     ) async throws -> Client? {
         switch rootCertificateAuthority {
-        case .selfSign:
+        case .none:
             let id = Client.ID(
-                rootCertificateAuthority: .selfSign,
+                rootCertificateAuthority: .none,
                 value: try CertificateThumbprint.of(certificate)
             )
             return await store.client(id: id)

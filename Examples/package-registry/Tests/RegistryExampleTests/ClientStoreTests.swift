@@ -20,7 +20,7 @@ struct ClientStoreTests {
     }
 
     private func client(_ user: User, _ value: String) -> Client {
-        Client(user: user, id: Client.ID(rootCertificateAuthority: .selfSign, value: value))
+        Client(user: user, id: Client.ID(rootCertificateAuthority: .none, value: value))
     }
 
     @Test func `round-trips a client by its ID`() async throws {
@@ -74,7 +74,7 @@ struct ClientStoreTests {
 
     @Test func `unknown ID returns nil`() async throws {
         let store = ClientStore()
-        let unknown = Client.ID(rootCertificateAuthority: .selfSign, value: "missing")
+        let unknown = Client.ID(rootCertificateAuthority: .none, value: "missing")
         #expect(await store.client(id: unknown) == nil)
     }
 
