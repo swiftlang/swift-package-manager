@@ -938,18 +938,6 @@ extension MappablePackageDependency {
                 productFilter: .everything,
                 traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
             )
-        case .archive(let name, let location, let checksum):
-            self.init(
-                parentPackagePath: parentPackagePath,
-                type: .init(seed.type ?? .swift),
-                kind: .archive(
-                    name: name,
-                    location: location,
-                    checksum: checksum
-                ),
-                productFilter: .everything,
-                traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
-            )
         }
     }
 }

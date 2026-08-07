@@ -164,8 +164,6 @@ extension Serialization.PackageDependency.Kind {
             self = .sourceControl(name: name, location: location, requirement: .init(requirement))
         case .registry(let identity, let requirement):
             self = .registry(id: identity, requirement: .init(requirement))
-        case .archive(let name, let location, let checksum):
-            self = .archive(name: name, location: location, checksum: checksum)
         }
     }
 }

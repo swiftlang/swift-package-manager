@@ -148,7 +148,6 @@ enum Serialization {
             case fileSystem(name: String?, path: String)
             case sourceControl(name: String?, location: String, requirement: SourceControlRequirement)
             case registry(id: String, requirement: RegistryRequirement)
-            case archive(name: String?, location: String, checksum: String)
         }
 
         let kind: Kind

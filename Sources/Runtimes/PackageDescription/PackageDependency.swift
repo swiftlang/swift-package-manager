@@ -49,12 +49,6 @@ extension Package {
             ///   - id: The package identifier of the dependency.
             ///   - requirement: The version based requirement for a package.
             case registry(id: String, requirement: RegistryRequirement)
-            /// A dependency from a remote archive
-            /// - Parameters:
-            ///   - name: The name of the dependency
-            ///   - location: The URL to the archive
-            ///   - checksum: The sha256 checksum for the archive
-            case archive(name: String?, location: String, checksum: String)
         }
 
         /// A description of the package dependency.
@@ -83,8 +77,6 @@ extension Package {
                     return name
                 case .registry:
                     return nil
-                case .archive(let name, location: _, checksum: _):
-                    return name
                 }
             }
         }
@@ -99,8 +91,6 @@ extension Package {
                 case .sourceControl(name: _, location: let location, requirement: _):
                     return location
                 case .registry:
-                    return nil
-                case .archive:
                     return nil
                 }
             }
@@ -135,8 +125,6 @@ extension Package {
                     case .range(let range):
                         return .rangeItem(range)
                     }
-                case .archive:
-                    return .localPackageItem
                 }
             }
         }
@@ -216,22 +204,6 @@ extension Package {
                 ),
                 type: type,
                 traits: traits
-            )
-        }
-
-        convenience init(
-            name: String?,
-            type: PackageType,
-            url: String,
-            checksum: String
-        ) {
-            self.init(
-                kind: .archive(
-                    name: name,
-                    location: url,
-                    checksum: checksum),
-                type: type,
-                traits: nil
             )
         }
     }
@@ -1187,23 +1159,6 @@ extension Package.Dependency {
             type: .external,
             path: path,
             traits: traits
-        )
-    }
-}
-
-// MARK: - binary archives
-
-extension Package.Dependency {
-    public static func binaryArchive(
-        name: String? = nil,
-        url: String,
-        checksum: String
-    ) -> Package.Dependency {
-        .init(
-            name: name,
-            type: .binary,
-            url: url,
-            checksum: checksum
         )
     }
 }

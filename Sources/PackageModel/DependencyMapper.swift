@@ -90,7 +90,7 @@ public struct DefaultDependencyMapper: DependencyMapper {
     ) throws -> String? {
         switch dependency.kind {
         // nothing to normalize
-        case .registry, .archive:
+        case .registry:
             return .none
         // location may be a relative path so we need to normalize it
         case .fileSystem, .sourceControl:
@@ -183,7 +183,6 @@ public struct MappablePackageDependency {
         case fileSystem(name: String?, path: String)
         case sourceControl(name: String?, location: String, requirement: PackageDependency.SourceControl.Requirement)
         case registry(id: String, requirement: PackageDependency.Registry.Requirement)
-        case archive(name: String?, location: String, checksum: String)
     }
 
     public enum Requirement {
@@ -253,8 +252,6 @@ extension MappablePackageDependency {
             return location
         case .registry(let id, _):
             return id
-        case .archive(_, let location, _):
-            return location
         }
     }
 
@@ -266,8 +263,6 @@ extension MappablePackageDependency {
             return name
         case .registry:
             return .none
-        case .archive(let name, _, _):
-            return name
         }
     }
 
@@ -279,8 +274,6 @@ extension MappablePackageDependency {
             return requirement
         case .registry(_, let requirement):
             return .init(requirement)
-        case .archive:
-            throw DependencyMappingError.invalidMapping("what?")
         }
     }
 
@@ -292,8 +285,6 @@ extension MappablePackageDependency {
             return try .init(requirement, from: location, to: identity)
         case .registry(_, let requirement):
             return requirement
-        case .archive:
-            throw DependencyMappingError.invalidMapping("what?")
         }
     }
 }
@@ -358,18 +349,6 @@ extension PackageDependency {
             self = .registry(
                 identity: .plain(id, type: seed.type),
                 requirement: requirement,
-                productFilter: seed.productFilter,
-                traits: seed.traits
-            )
-        case .archive(let name, let location, let checksum):
-            guard let url = URL(string: location) else {
-                throw InternalError("invalid url")
-            }
-            self = .archive(
-                identity: .init(urlString: location, type: seed.type),
-                nameForTargetDependencyResolutionOnly: name,
-                url: url,
-                checksum: checksum,
                 productFilter: seed.productFilter,
                 traits: seed.traits
             )
