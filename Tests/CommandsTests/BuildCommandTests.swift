@@ -2071,6 +2071,126 @@ struct BuildCommandTestCases {
             #expect(hasOptRecord, "Should have .opt.yaml files in custom directory")
         }
     }
+
+    // MARK: - Product deprecation (SE-NNNN)
+
+    @Suite(
+        .tags(
+            .Feature.Deprecation,
+        ),
+    )
+    struct ProductDeprecation {
+
+        @Test(
+            // .requireSwift6_5,
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func buildEmitsWarningForConsumerOfDeprecatedProduct(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await fixture(name: "Miscellaneous/DeprecatedProducts/") { fixturePath in
+                await expectThrowsCommandExecutionError(
+                    try await executeSwiftBuild(
+                        fixturePath.appending("consumer"),
+                        configuration: .debug,
+                        buildSystem: buildSystem,
+                    )
+                ) { error in
+                    #expect(
+                        error.stderr.contains(
+                            "error: 'consumer': product 'PaperExperimental' from package 'producer' is unsupported: PaperExperimental is going away with no replacement.",
+                        ),
+                        "stdout:\n\(error.stdout)",
+                    )
+                     #expect(
+                        error.stderr.contains(
+                            "warning: 'consumer': product 'PaperLegacy' from package 'producer' is unsupported: PaperLegacy is superseded by Paper. Use 'Paper' instead."
+                        ),
+                        "stdout:\n\(error.stdout)",
+                    )
+               }
+            }
+        }
+
+        @Test(
+            // .requireSwift6_5,
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func buildEscalatesToErrorForTargetWithTreatAllWarningsError(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await fixture(name: "Miscellaneous/DeprecatedProducts/") { fixturePath in
+                await expectThrowsCommandExecutionError(
+                    _ = try await executeSwiftBuild(
+                        fixturePath.appending("consumer"),
+                        configuration: .debug,
+                        extraArgs: ["--target", "MyLib"],
+                        buildSystem: buildSystem,
+                    )
+                ) { error in
+                    #expect(
+                        error.stderr.contains(
+                            "error: 'consumer': product 'PaperExperimental' from package 'producer' is unsupported: PaperExperimental is going away with no replacement.",
+                        ),
+                        "stdout:\n\(error.stdout)",
+                    )
+                    #expect(
+                        error.stderr.contains(
+                            "warning: 'consumer': product 'PaperLegacy' from package 'producer' is unsupported: PaperLegacy is superseded by Paper. Use 'Paper' instead."
+                        ),
+                        "stdout:\n\(error.stdout)",
+                    )
+                }
+            }
+        }
+
+        @Test(
+            // .requireSwift6_5,
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func buildEscalatesToErrorViaXswiftcWarningsAsErrors(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await fixture(name: "Miscellaneous/DeprecatedProducts/") { fixturePath in
+                await expectThrowsCommandExecutionError(
+                    try await executeSwiftBuild(
+                        fixturePath.appending("consumer"),
+                        configuration: .debug,
+                        extraArgs: [
+                            "--target", "MyApp",
+                            "-Xswiftc", "-warnings-as-errors",
+                        ],
+                        buildSystem: buildSystem,
+                    )
+                ) { error in
+                    #expect(
+                        error.stderr.contains(
+                            "error: 'consumer': product 'PaperLegacy' from package 'producer' is unsupported: PaperLegacy is superseded by Paper. Use 'Paper' instead."
+                        ),
+                        "stdout:\n\(error.stdout)",
+                    )
+                }
+            }
+        }
+
+        @Test(
+            // .requireSwift6_5,
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func buildDoesNotWarnForNonConsumingPackage(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await fixture(name: "Miscellaneous/DeprecatedProducts/producer") { fixturePath in
+                let (stdout, stderr) = try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: .debug,
+                    buildSystem: buildSystem,
+                )
+                #expect(!stderr.contains("is unsupported"))
+                #expect(!stdout.contains("is unsupported"))
+            }
+        }
+    }
 }
 
 extension Triple {

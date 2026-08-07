@@ -63,23 +63,38 @@ public class Product {
     /// The name of the package product.
     public let name: String
 
-    init(name: String) {
+    /// The deprecation declared for this product, if any.
+    let deprecation: Deprecation?
+
+    init(
+        name: String,
+        deprecation: Deprecation? = nil,
+    ) {
         self.name = name
+        self.deprecation = deprecation
     }
 
     /// The executable product of a Swift package.
     public final class Executable: Product, @unchecked Sendable {
         /// The names of the targets in this product.
         public let targets: [String]
-        
+
         /// Any specific product settings that apply to this product.
         @_spi(PackageProductSettings)
         public let settings: [ProductSetting]
 
-        init(name: String, targets: [String], settings: [ProductSetting]) {
+        init(
+            name: String,
+            targets: [String],
+            settings: [ProductSetting],
+            deprecation: Deprecation? = nil,
+        ) {
             self.targets = targets
             self.settings = settings
-            super.init(name: name)
+            super.init(
+                name: name,
+                deprecation: deprecation,
+            )
         }
     }
 
@@ -102,10 +117,18 @@ public class Product {
         /// based on the client's preference.
         public let type: LibraryType?
 
-        init(name: String, type: LibraryType? = nil, targets: [String]) {
+        init(
+            name: String,
+            type: LibraryType? = nil,
+            targets: [String],
+            deprecation: Deprecation? = nil,
+        ) {
             self.type = type
             self.targets = targets
-            super.init(name: name)
+            super.init(
+                name: name,
+                deprecation: deprecation,
+            )
         }
     }
 
@@ -114,9 +137,16 @@ public class Product {
         /// The name of the plug-in target to vend as a product.
         public let targets: [String]
 
-        init(name: String, targets: [String]) {
+        init(
+            name: String,
+            targets: [String],
+            deprecation: Deprecation? = nil,
+        ) {
             self.targets = targets
-            super.init(name: name)
+            super.init(
+                name: name,
+                deprecation: deprecation,
+            )
         }
     }
 
@@ -187,6 +217,130 @@ public class Product {
     ) -> Product {
         return Plugin(name: name, targets: targets)
     }
+
+    /// Creates a library product that a package consumer can adopt, with an optional
+    /// deprecation declaration.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the library product.
+    ///   - type: The optional type of the library.
+    ///   - targets: The targets that are bundled into the library product.
+    ///   - deprecated: An optional ``Product/Deprecation`` value describing the deprecation
+    ///     state of the product. When set, consumers of the product see a warning at
+    ///     build time.
+    ///
+    /// - Returns: A `Product` instance.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func library(
+        name: String,
+        type: Library.LibraryType? = nil,
+        targets: [String],
+        deprecated: Deprecation? = nil,
+    ) -> Product {
+        return Library(
+            name: name,
+            type: type,
+            targets: targets,
+            deprecation: deprecated,
+        )
+    }
+
+    /// Creates an executable package product with an optional deprecation declaration.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the executable product.
+    ///   - targets: The targets to bundle into an executable product.
+    ///   - deprecated: An optional ``Product/Deprecation`` value describing the deprecation
+    ///     state of the product.
+    /// - Returns: A `Product` instance.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func executable(
+        name: String,
+        targets: [String],
+        deprecated: Deprecation? = nil,
+    ) -> Product {
+        return Executable(
+            name: name,
+            targets: targets,
+            settings: [],
+            deprecation: deprecated,
+        )
+    }
+
+    /// Defines a plugin product with an optional deprecation declaration.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the plugin product.
+    ///   - targets: The plugin targets to vend as a product.
+    ///   - deprecated: An optional ``Product/Deprecation`` value describing the deprecation
+    ///     state of the product.
+    /// - Returns: A `Product` instance.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func plugin(
+        name: String,
+        targets: [String],
+        deprecated: Deprecation? = nil,
+    ) -> Product {
+        return Plugin(
+            name: name,
+            targets: targets,
+            deprecation: deprecated,
+        )
+    }
+}
+
+extension Product {
+    /// Describes the deprecation state of a package product.
+    ///
+    /// Values of this type are constructed exclusively through the static factory below.
+    /// The type intentionally exposes no public properties so future evolution can add
+    /// deprecation metadata without a source or ABI break.
+    public struct Deprecation: Sendable, Equatable {
+        // Storage is internal so PackageDescriptionSerializationConversion can read it.
+        internal let message: String?
+        internal let replacement: Replacement?
+
+        /// Marks a product as unsupported.
+        ///
+        /// - Parameters:
+        ///   - message: A human-readable explanation of the deprecation.
+        ///   - replacement: An optional locator identifying the product consumers should
+        ///     adopt instead. When `nil`, the product is retired with no advertised
+        ///     replacement.
+        public static func unsupported(
+            message: String? = nil,
+            replacement: Replacement? = nil,
+        ) -> Deprecation {
+            return Deprecation(
+                message: message,
+                replacement: replacement,
+            )
+        }
+
+        /// Identifies the product a consumer should adopt in place of an unsupported product.
+        ///
+        /// Values of this type are constructed exclusively through the static factories below.
+        public struct Replacement: Sendable, Equatable {
+            internal enum Storage: Sendable, Equatable {
+                case renamed(product: String, package: String?)
+            }
+            internal let storage: Storage
+
+            /// The replacement product a consumer should adopt.
+            ///
+            /// - Parameters:
+            ///   - product: The name of the replacement product.
+            ///   - package: The identity of the package that vends the replacement.
+            ///     Omit (or pass `nil`) when the replacement lives in the same
+            ///     package as the deprecated product.
+            public static func renamed(
+                _ product: String,
+                package: String? = nil,
+            ) -> Replacement {
+                return Replacement(storage: .renamed(product: product, package: package))
+            }
+        }
+    }
 }
 
 
@@ -237,18 +391,18 @@ public enum ProductSetting: Equatable {
             // Named asset in an asset catalog.
             case asset(String)
         }
-        
+
         /// Represents a family of device types that an application can support.
         public enum DeviceFamily: String, Equatable {
             case phone
             case pad
             case mac
         }
-        
+
         /// Represents a condition on a particular device family.
         public struct DeviceFamilyCondition: Equatable {
             public var deviceFamilies: [DeviceFamily]
-            
+
             public init(deviceFamilies: [DeviceFamily]) {
                 self.deviceFamilies = deviceFamilies
             }
@@ -256,7 +410,7 @@ public enum ProductSetting: Equatable {
                 return DeviceFamilyCondition(deviceFamilies: deviceFamilies)
             }
         }
-        
+
         /// Represents a supported device interface orientation.
         public enum InterfaceOrientation: Equatable {
             case portrait(_ condition: DeviceFamilyCondition? = nil)
@@ -269,7 +423,7 @@ public enum ProductSetting: Equatable {
             public static var landscapeRight: Self { landscapeRight(nil) }
             public static var landscapeLeft: Self { landscapeLeft(nil) }
         }
-        
+
         /// A capability required by the device.
         public enum Capability: Equatable {
             case appTransportSecurity(configuration: AppTransportSecurityConfiguration, _ condition: DeviceFamilyCondition? = nil)
@@ -294,7 +448,7 @@ public enum ProductSetting: Equatable {
             case speechRecognition(purposeString: String, _ condition: DeviceFamilyCondition? = nil)
             case userTracking(purposeString: String, _ condition: DeviceFamilyCondition? = nil)
         }
-        
+
         public struct AppTransportSecurityConfiguration: Equatable {
             public var allowsArbitraryLoadsInWebContent: Bool? = nil
             public var allowsArbitraryLoadsForMedia: Bool? = nil
@@ -326,13 +480,13 @@ public enum ProductSetting: Equatable {
                     self.requiresCertificateTransparency = requiresCertificateTransparency
                 }
             }
-            
+
             public struct PinnedDomain: Equatable {
                 public var domainName: String
                 public var includesSubdomains : Bool? = nil
                 public var pinnedCAIdentities : [[String: String]]? = nil
                 public var pinnedLeafIdentities : [[String: String]]? = nil
-                
+
                 public init(
                     domainName: String,
                     includesSubdomains: Bool? = nil,
@@ -345,7 +499,7 @@ public enum ProductSetting: Equatable {
                     self.pinnedLeafIdentities = pinnedLeafIdentities
                 }
             }
-            
+
             public init(
                 allowsArbitraryLoadsInWebContent: Bool? = nil,
                 allowsArbitraryLoadsForMedia: Bool? = nil,
@@ -395,7 +549,7 @@ public enum ProductSetting: Equatable {
                 }
             }
         }
-        
+
         public struct AppCategory: Equatable, ExpressibleByStringLiteral {
             public var rawValue: String
 

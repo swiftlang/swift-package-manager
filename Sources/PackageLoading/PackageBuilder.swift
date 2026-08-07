@@ -1684,7 +1684,15 @@ public final class PackageBuilder {
                 }
             }
 
-            try append(Product(package: self.identity, name: product.name, type: product.type, modules: modules))
+            try append(
+                Product(
+                    package: self.identity,
+                    name: product.name,
+                    type: product.type,
+                    modules: modules,
+                    deprecation: product.deprecation,
+                )
+            )
         }
 
         // Add implicit executables - for root packages and for dependency plugins.
