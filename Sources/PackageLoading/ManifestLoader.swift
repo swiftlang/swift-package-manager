@@ -722,6 +722,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // which produces a framework for dynamic package products.
         if runtimePath.extension == "framework" {
             cmd += [
+                "-I", runtimePath.parentDirectory.pathString,
                 "-F", runtimePath.parentDirectory.pathString,
                 "-Xlinker", "-rpath", "-Xlinker", runtimePath.parentDirectory.pathString,
             ]
@@ -957,7 +958,12 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
         if modulesPath.extension == "framework" {
-            cmd += ["-I", modulesPath.parentDirectory.parentDirectory.pathString]
+            if modulesPath.parentDirectory.basename == "ManifestAPI" {
+                // If the framework is linked into a toolchain, the swiftmodule is here
+                cmd += ["-I", modulesPath.parentDirectory.pathString]
+            } else {
+                cmd += ["-I", modulesPath.parentDirectory.parentDirectory.pathString]
+            }
         } else {
             cmd += ["-I", modulesPath.pathString]
         }
