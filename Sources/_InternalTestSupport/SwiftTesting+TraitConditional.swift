@@ -268,4 +268,15 @@ extension Trait where Self == Testing.ConditionTrait {
         }
     }
 
+    /// Skip test if compiler is older than 6.5.
+    public static var requireSwift6_5: Self {
+        enabled("This test requires Swift 6.5, or newer.") {
+            #if compiler(>=6.5)
+                true
+            #else
+                false
+            #endif
+        }
+    }
+
 }
