@@ -61,8 +61,9 @@ public struct SwiftPackageCommand: AsyncParsableCommand {
             Resolve.self,
             Fetch.self,
 
-            GenerateSbom.self, 
-            
+            GenerateSbom.self,
+            Report.self,
+
             ShowDependencies.self,
             ShowExecutables.self,
             ShowTraits.self,
