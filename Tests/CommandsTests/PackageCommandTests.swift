@@ -97,6 +97,15 @@ private func executeAddURLDependencyAndAssert(
     ),
 )
 struct PackageCommandTests {
+
+    @Suite(
+        .tags(
+            .TestSize.large,
+            .Feature.Command.Package.Resolve,
+        ),
+    )
+    enum PackageResolveCommandTests { }
+
     @Test(
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -1237,6 +1246,68 @@ struct PackageCommandTests {
                 ]
             )
             // FIXME: We should also test dependencies and targets here.
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Package.DumpPackage,
+            .Feature.Deprecation,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func dumpPackageIncludesProductDeprecation(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let config = BuildConfiguration.debug
+        try await fixture(name: "Miscellaneous/DeprecatedProducts") { fixturePath in
+            let packageRoot = fixturePath.appending("producer")
+            let (dumpOutput, _) = try await execute(
+                ["dump-package"],
+                packagePath: packageRoot,
+                configuration: config,
+                buildSystem: buildSystem,
+            )
+            let data = Data(dumpOutput.utf8)
+            let root = try #require(
+                try JSONSerialization.jsonObject(with: data) as? [String: Any],
+            )
+            let products = try #require(root["products"] as? [[String: Any]])
+            let byName = Dictionary(
+                uniqueKeysWithValues: products.compactMap { product -> (String, [String: Any])? in
+                    guard let name = product["name"] as? String else { return nil }
+                    return (name, product)
+                },
+            )
+
+            // Control: `Paper` has no `deprecation` key.
+            let paper = try #require(byName["Paper"])
+            #expect(paper["deprecation"] == nil)
+
+            // `PaperLegacy` uses `.renamed(to: "Paper")`.
+            let paperLegacy = try #require(byName["PaperLegacy"])
+            let legacyDeprecation = try #require(paperLegacy["deprecation"] as? [String: Any])
+            #expect(legacyDeprecation["message"] as? String == "PaperLegacy is superseded by Paper.")
+            let legacyReplacement = try #require(legacyDeprecation["replacement"] as? [String: Any])
+            #expect(legacyReplacement["kind"] as? String == "renamed")
+            #expect(legacyReplacement["to"] as? String == "Paper")
+
+            // `PaperExperimental` has a message but no replacement.
+            let experimental = try #require(byName["PaperExperimental"])
+            let experimentalDeprecation = try #require(experimental["deprecation"] as? [String: Any])
+            #expect(
+                experimentalDeprecation["message"] as? String
+                    == "PaperExperimental is going away with no replacement.",
+            )
+            #expect(experimentalDeprecation["replacement"] == nil)
+
+            // `paper-tool-old` uses `.inPackage(_:product:)`.
+            let tool = try #require(byName["paper-tool-old"])
+            let toolDeprecation = try #require(tool["deprecation"] as? [String: Any])
+            let toolReplacement = try #require(toolDeprecation["replacement"] as? [String: Any])
+            #expect(toolReplacement["kind"] as? String == "inPackage")
+            #expect(toolReplacement["package"] as? String == "paper-tools")
+            #expect(toolReplacement["product"] as? String == "paper-tool")
         }
     }
 
