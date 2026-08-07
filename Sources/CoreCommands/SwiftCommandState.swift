@@ -833,6 +833,14 @@ public final class SwiftCommandState {
             observabilityScope: self.observabilityScope
         )
 
+        // Also load the full module graph so graph-level diagnostics (e.g. product
+        // deprecation warnings) surface during a plain `swift package resolve`.
+        // `loadPackageGraph` will honor `-Xswiftc -warnings-as-errors` and escalate
+        // those diagnostics accordingly.
+        if !self.observabilityScope.errorsReported {
+            _ = try await self.loadPackageGraph(exitOnError: false)
+        }
+
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
         guard !self.observabilityScope.errorsReported else {
@@ -879,13 +887,21 @@ public final class SwiftCommandState {
             // package graph load attempts to also fail due to sharing the same `errorsReported` bit.
             let packageGraphObservabilityScope = self.observabilityScope.makeChildScope(description: "Loading Package Graph")
 
+            // Detect `-warnings-as-errors` in the user-supplied swift compiler flags so
+            // SwiftPM's own graph-time diagnostics (e.g. product-deprecation warnings)
+            // are escalated to errors consistently with the compiler's own behavior.
+            let treatWarningsAsErrors = WarningControlFlags.containsWarningsAsErrors(
+                self.options.build.swiftCompilerFlags,
+            )
+
             // Fetch and load the package graph.
             let graph = try await workspace.loadPackageGraph(
                 rootInput: self.getWorkspaceRoot(),
                 explicitProduct: explicitProduct,
                 forceResolvedVersions: self.options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
-                observabilityScope: packageGraphObservabilityScope
+                observabilityScope: packageGraphObservabilityScope,
+                treatWarningsAsErrors: treatWarningsAsErrors,
             )
 
             // Throw if there were errors when loading the graph.
