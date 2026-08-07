@@ -500,10 +500,40 @@ extension ProductDescription {
         case .library(let type):
             productType = .library(.init(type))
         }
+
+        let modelDeprecation: PackageModel.ProductDeprecation? = product.deprecation.map { wire in
+            let modelReplacement = wire.replacement.map { r -> PackageModel.ProductDeprecation.Replacement in
+                switch r {
+                case .renamed(let newName):
+                    return .renamed(to: newName)
+                case .inPackage(let package, let product):
+                    return .inPackage(
+                        package: package,
+                        product: product,
+                    )
+                }
+            }
+            return PackageModel.ProductDeprecation(
+                message: wire.message,
+                replacement: modelReplacement,
+            )
+        }
+
         #if ENABLE_APPLE_PRODUCT_TYPES
-        try self.init(name: product.name, type: productType, targets: product.targets, settings: product.settings.map { .init($0) })
+        try self.init(
+            name: product.name,
+            type: productType,
+            targets: product.targets,
+            settings: product.settings.map { .init($0) },
+            deprecation: modelDeprecation,
+        )
         #else
-        try self.init(name: product.name, type: productType, targets: product.targets)
+        try self.init(
+            name: product.name,
+            type: productType,
+            targets: product.targets,
+            deprecation: modelDeprecation,
+        )
         #endif
     }
 }

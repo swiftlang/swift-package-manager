@@ -363,6 +363,7 @@ extension Serialization.Product {
         self.name = executable.name
         self.targets = executable.targets
         self.productType = .executable
+        self.deprecation = executable.deprecation.map(Serialization.Product.Deprecation.init)
         #if ENABLE_APPLE_PRODUCT_TYPES
         self.settings = executable.settings.map { .init($0) }
         #endif
@@ -373,6 +374,7 @@ extension Serialization.Product {
         self.targets = library.targets
         let libraryType = library.type.map { ProductType.LibraryType($0) } ?? .automatic
         self.productType = .library(type: libraryType)
+        self.deprecation = library.deprecation.map(Serialization.Product.Deprecation.init)
         #if ENABLE_APPLE_PRODUCT_TYPES
         self.settings = []
         #endif
@@ -382,9 +384,31 @@ extension Serialization.Product {
         self.name = plugin.name
         self.targets = plugin.targets
         self.productType = .plugin
+        self.deprecation = plugin.deprecation.map(Serialization.Product.Deprecation.init)
         #if ENABLE_APPLE_PRODUCT_TYPES
         self.settings = []
         #endif
+    }
+}
+
+extension Serialization.Product.Deprecation {
+    init(_ deprecation: PackageDescription.Product.Deprecation) {
+        self.message = deprecation.message
+        self.replacement = deprecation.replacement.map(Replacement.init)
+    }
+}
+
+extension Serialization.Product.Deprecation.Replacement {
+    init(_ replacement: PackageDescription.Product.Deprecation.Replacement) {
+        switch replacement.storage {
+        case .renamed(let newName):
+            self = .renamed(to: newName)
+        case .inPackage(let package, let product):
+            self = .inPackage(
+                package: package,
+                product: product,
+            )
+        }
     }
 }
 

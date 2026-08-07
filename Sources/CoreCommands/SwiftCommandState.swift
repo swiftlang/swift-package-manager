@@ -834,6 +834,14 @@ public final class SwiftCommandState {
             observabilityScope: self.observabilityScope
         )
 
+        // Also load the full module graph so graph-level diagnostics (e.g. product
+        // deprecation warnings) surface during a plain `swift package resolve`.
+        // `loadPackageGraph` will honor `-Xswiftc -warnings-as-errors` and escalate
+        // those diagnostics accordingly.
+        if !self.observabilityScope.errorsReported {
+            _ = try await self.loadPackageGraph(exitOnError: false)
+        }
+
         // Throw if there were errors when loading the graph.
         // The actual errors will be printed before exiting.
         guard !self.observabilityScope.errorsReported else {
@@ -849,12 +857,14 @@ public final class SwiftCommandState {
     @discardableResult
     public func loadPackageGraph(
         explicitProduct: String? = nil,
-        testEntryPointPath: AbsolutePath? = nil
+        testEntryPointPath: AbsolutePath? = nil,
+        emitProductDeprecationDiagnostics: Bool = true,
     ) async throws -> ModulesGraph {
         try await self.loadPackageGraph(
             explicitProduct: explicitProduct,
             enableAllTraits: false,
-            testEntryPointPath: testEntryPointPath
+            testEntryPointPath: testEntryPointPath,
+            emitProductDeprecationDiagnostics: emitProductDeprecationDiagnostics,
         )
     }
 
@@ -864,12 +874,18 @@ public final class SwiftCommandState {
     ///   - explicitProduct: The product specified on the command line to a “swift run” or “swift build” command. This
     /// allows executables from dependencies to be run directly without having to hook them up to any particular target.
     ///   - exitOnError: Whether loading errors should cause this method to throw a failure exit code. Defaults to `true`.
+    ///   - emitProductDeprecationDiagnostics: Whether the graph load should
+    ///     emit warnings/errors when a consumer target depends on a deprecated
+    ///     product. Commands that produce their own structured deprecation
+    ///     report (e.g. `swift package audit`) should pass `false` to suppress
+    ///     redundant graph-load-time diagnostics.
     @discardableResult
     package func loadPackageGraph(
         explicitProduct: String? = nil,
         enableAllTraits: Bool = false,
         testEntryPointPath: AbsolutePath? = nil,
-        exitOnError: Bool = true
+        exitOnError: Bool = true,
+        emitProductDeprecationDiagnostics: Bool = true,
     ) async throws -> ModulesGraph {
         do {
             let workspace = try getActiveWorkspace(enableAllTraits: enableAllTraits)
@@ -880,13 +896,22 @@ public final class SwiftCommandState {
             // package graph load attempts to also fail due to sharing the same `errorsReported` bit.
             let packageGraphObservabilityScope = self.observabilityScope.makeChildScope(description: "Loading Package Graph")
 
+            // Detect `-warnings-as-errors` in the user-supplied swift compiler flags so
+            // SwiftPM's own graph-time diagnostics (e.g. product-deprecation warnings)
+            // are escalated to errors consistently with the compiler's own behavior.
+            let treatWarningsAsErrors = WarningControlFlags.containsWarningsAsErrors(
+                self.options.build.swiftCompilerFlags,
+            )
+
             // Fetch and load the package graph.
             let graph = try await workspace.loadPackageGraph(
                 rootInput: self.getWorkspaceRoot(),
                 explicitProduct: explicitProduct,
                 forceResolvedVersions: self.options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
-                observabilityScope: packageGraphObservabilityScope
+                observabilityScope: packageGraphObservabilityScope,
+                treatWarningsAsErrors: treatWarningsAsErrors,
+                emitProductDeprecationDiagnostics: emitProductDeprecationDiagnostics,
             )
 
             // Throw if there were errors when loading the graph.

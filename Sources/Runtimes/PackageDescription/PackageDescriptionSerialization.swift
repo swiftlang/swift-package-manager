@@ -260,9 +260,59 @@ enum Serialization {
             case plugin
         }
 
+        struct Deprecation: Codable {
+            enum Replacement: Codable {
+                case renamed(to: String)
+                case inPackage(package: String, product: String)
+
+                private enum CodingKeys: String, CodingKey {
+                    case kind
+                    case to
+                    case package
+                    case product
+                }
+
+                private enum Kind: String, Codable {
+                    case renamed
+                    case inPackage
+                }
+
+                func encode(to encoder: Encoder) throws {
+                    var container = encoder.container(keyedBy: CodingKeys.self)
+                    switch self {
+                    case .renamed(let newName):
+                        try container.encode(Kind.renamed, forKey: .kind)
+                        try container.encode(newName, forKey: .to)
+                    case .inPackage(let package, let product):
+                        try container.encode(Kind.inPackage, forKey: .kind)
+                        try container.encode(package, forKey: .package)
+                        try container.encode(product, forKey: .product)
+                    }
+                }
+
+                init(from decoder: Decoder) throws {
+                    let container = try decoder.container(keyedBy: CodingKeys.self)
+                    let kind = try container.decode(Kind.self, forKey: .kind)
+                    switch kind {
+                    case .renamed:
+                        self = .renamed(to: try container.decode(String.self, forKey: .to))
+                    case .inPackage:
+                        self = .inPackage(
+                            package: try container.decode(String.self, forKey: .package),
+                            product: try container.decode(String.self, forKey: .product),
+                        )
+                    }
+                }
+            }
+
+            let message: String?
+            let replacement: Replacement?
+        }
+
         let name: String
         let targets: [String]
         let productType: ProductType
+        let deprecation: Deprecation?
 
         #if ENABLE_APPLE_PRODUCT_TYPES
         let settings: [ProductSetting]

@@ -467,7 +467,9 @@ public func loadModulesGraph(
     customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
     observabilityScope: ObservabilityScope,
     traitConfiguration: TraitConfiguration = .default,
-    enabledTraitsMap: EnabledTraitsMap = .init()
+    enabledTraitsMap: EnabledTraitsMap = .init(),
+    treatWarningsAsErrors: Bool = false,
+    emitProductDeprecationDiagnostics: Bool = true,
 ) throws -> ModulesGraph {
     let rootManifests = manifests.filter(\.packageKind.isRoot).spm_createDictionary { ($0.path, $0) }
     let externalManifests = try manifests.filter { !$0.packageKind.isRoot }
@@ -504,6 +506,8 @@ public func loadModulesGraph(
         observabilityScope: observabilityScope,
         productsFilter: nil,
         modulesFilter: nil,
-        enabledTraitsMap: enabledTraitsMap
+        enabledTraitsMap: enabledTraitsMap,
+        treatWarningsAsErrors: treatWarningsAsErrors,
+        emitProductDeprecationDiagnostics: emitProductDeprecationDiagnostics,
     )
 }

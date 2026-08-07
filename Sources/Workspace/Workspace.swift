@@ -1001,7 +1001,9 @@ extension Workspace {
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        treatWarningsAsErrors: Bool = false,
+        emitProductDeprecationDiagnostics: Bool = true,
     ) async throws -> ModulesGraph {
         let start = DispatchTime.now()
         self.delegate?.willLoadGraph()
@@ -1062,7 +1064,9 @@ extension Workspace {
             testEntryPointPath: testEntryPointPath,
             fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
-            enabledTraitsMap: self.enabledTraitsMap
+            enabledTraitsMap: self.enabledTraitsMap,
+            treatWarningsAsErrors: treatWarningsAsErrors,
+            emitProductDeprecationDiagnostics: emitProductDeprecationDiagnostics,
         )
 
         try self.validateSignatures(
