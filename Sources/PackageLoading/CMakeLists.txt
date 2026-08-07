@@ -9,6 +9,7 @@
 add_library(PackageLoading
   ContextModel.swift
   Diagnostics.swift
+  ManifestGitInformationCache.swift
   ManifestJSONParser.swift
   ManifestLoader.swift
   ManifestLoader+Validation.swift
