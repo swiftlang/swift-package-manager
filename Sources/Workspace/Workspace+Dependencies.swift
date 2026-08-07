@@ -930,21 +930,15 @@ extension Workspace {
             )
 
         case .unversioned:
-            if case let .archive(url) = package.kind {
-                // TODO: download the archive
-                // TODO: what directory do we extract the archive to?
-                return self.location.artifactsDirectory.appending(component: url.lastPathComponent)
-            } else {
-                let dependency = try ManagedDependency.fileSystem(packageRef: package)
-                // this is silly since we just created it above, but no good way to force cast it and extract the path
-                guard case .fileSystem(let path) = dependency.state else {
-                    throw InternalError("invalid package type: \(package.kind)")
-                }
-
-                await self.state.add(dependency: dependency)
-                try await self.state.save()
-                return path
+            let dependency = try ManagedDependency.fileSystem(packageRef: package)
+            // this is silly since we just created it above, but no good way to force cast it and extract the path
+            guard case .fileSystem(let path) = dependency.state else {
+                throw InternalError("invalid package type: \(package.kind)")
             }
+
+            await self.state.add(dependency: dependency)
+            try await self.state.save()
+            return path
         }
     }
 
@@ -1400,8 +1394,6 @@ extension PackageDependency {
         case .registry:
             // FIXME: placeholder
             return self.identity.description
-        case .archive(let settings):
-            return settings.url.absoluteString
         }
     }
 }

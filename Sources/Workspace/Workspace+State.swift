@@ -516,9 +516,6 @@ extension WorkspaceStateStorage {
                     self.kind = .registry
                     // FIXME: placeholder
                     self.location = self.identity.description
-                case .archive(let url):
-                    self.kind = .archive
-                    self.location = url.absoluteString
                 }
                 self.name = reference.deprecatedName
             }
@@ -529,7 +526,6 @@ extension WorkspaceStateStorage {
                 case localSourceControl
                 case remoteSourceControl
                 case registry
-                case archive
             }
         }
     }
@@ -586,11 +582,6 @@ extension PackageModel.PackageReference {
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
             kind = .registry(reference.identity)
-        case .archive:
-            guard let url = URL(string: reference.location) else {
-                throw InternalError("Bad URL")
-            }
-            kind = .archive(url)
         }
 
         self.init(
@@ -895,9 +886,6 @@ extension WorkspaceStateStorage {
                     self.kind = .registry
                     // FIXME: placeholder
                     self.location = self.identity.description
-                case .archive(let url):
-                    self.kind = .archive
-                    self.location = url.absoluteString
                 }
                 self.name = reference.deprecatedName
             }
@@ -908,7 +896,6 @@ extension WorkspaceStateStorage {
                 case localSourceControl
                 case remoteSourceControl
                 case registry
-                case archive
             }
         }
     }
@@ -951,11 +938,6 @@ extension PackageModel.PackageReference {
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
             kind = .registry(identity)
-        case .archive:
-            guard let url = URL(string: reference.location) else {
-                throw InternalError("Bad URL")
-            }
-            kind = .archive(url)
         }
 
         self.init(
@@ -1230,9 +1212,6 @@ extension WorkspaceStateStorage {
                     self.kind = .registry
                     // FIXME: placeholder
                     self.location = self.identity.description
-                case .archive(let url):
-                    self.kind = .archive
-                    self.location = url.absoluteString
                 }
                 self.name = reference.deprecatedName
             }
@@ -1243,7 +1222,6 @@ extension WorkspaceStateStorage {
                 case localSourceControl
                 case remoteSourceControl
                 case registry
-                case archive
             }
         }
     }
@@ -1287,11 +1265,6 @@ extension PackageModel.PackageReference {
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
             kind = .registry(identity)
-        case .archive:
-            guard let url = URL(string: reference.location) else {
-                throw InternalError("Bad URL")
-            }
-            kind = .archive(url)
         }
 
         self.init(

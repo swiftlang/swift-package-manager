@@ -237,8 +237,6 @@ extension MappablePackageDependency {
                 productFilter: settings.productFilter,
                 traits: settings.traits
             )
-        case .archive:
-            fatalError("TODO")
         }
     }
 }

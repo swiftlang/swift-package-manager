@@ -90,7 +90,7 @@ enum ManifestJSONParser {
             // asserting (debug only) to make sure refactoring is correct 11/2023
             assert(packagePath == _packagePath, "expecting package path '\(packagePath)' to be the same as '\(_packagePath)'")
             break
-        case .remoteSourceControl, .registry, .archive:
+        case .remoteSourceControl, .registry:
             // we dont have a more accurate path
             break
         }

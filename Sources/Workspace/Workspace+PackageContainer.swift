@@ -96,17 +96,6 @@ extension Workspace: PackageContainerProvider {
                 identityLookupCache: identityLookupCache
             )
             return container
-        case .archive:
-            let container = try ArchivePackageContainer(
-                package: package,
-                identityResolver: self.identityResolver,
-                dependencyMapper: self.dependencyMapper,
-                manifestLoader: self.manifestLoader,
-                currentToolsVersion: self.currentToolsVersion,
-                fileSystem: self.fileSystem,
-                observabilityScope: observabilityScope
-            )
-            return container
         }
     }
 }

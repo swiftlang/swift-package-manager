@@ -423,8 +423,6 @@ extension PackageDependency {
                 }
             case .registry:
                 return .none
-            case .archive(let settings):
-                return "from '\(settings.url.absoluteString)'"
             }
         }() {
             description += " (\(locationsString))"

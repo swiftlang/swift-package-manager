@@ -1435,8 +1435,6 @@ extension Workspace {
             try await self.removeRepository(dependency: dependencyToRemove)
         case .registry:
             try self.removeRegistryArchive(for: dependencyToRemove)
-        case .archive:
-            fatalError("TODO")
         }
 
         // Save the state.
@@ -1513,8 +1511,6 @@ extension PackageDependency {
         case .sourceControl:
             false
         case .registry:
-            false
-        case .archive:
             false
         }
     }

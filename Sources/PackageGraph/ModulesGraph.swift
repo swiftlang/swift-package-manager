@@ -371,8 +371,6 @@ extension PackageGraphError: CustomStringConvertible {
                     description += " (from '\(url)')"
                 case .registry:
                     break
-                case .archive(let url):
-                    description += " (from '\(url)')"
                 }
                 return description
             }

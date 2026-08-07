@@ -94,8 +94,6 @@ enum HostToPluginMessage: Codable {
                     case registry(
                         identity: String,
                         displayVersion: String)
-                    case archive(
-                        url: String)
                 }
                 
                 struct ToolsVersion: Codable {

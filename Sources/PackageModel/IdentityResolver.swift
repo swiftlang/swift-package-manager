@@ -46,8 +46,6 @@ public struct DefaultIdentityResolver: IdentityResolver {
             return try self.resolveIdentity(for: url, type: type)
         case .registry(let identity):
             return identity
-        case .archive(let url):
-            return try self.resolveIdentity(for: url, type: type)
         }
     }
 

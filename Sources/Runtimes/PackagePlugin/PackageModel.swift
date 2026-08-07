@@ -85,8 +85,6 @@ public enum PackageOrigin {
     /// description of the resolved version or branch name (for display
     /// purposes only).
     case registry(identity: String, displayVersion: String)
-
-    case archive(url: String)
 }
 
 /// A version of Swift package manager on whose semantics a package relies.

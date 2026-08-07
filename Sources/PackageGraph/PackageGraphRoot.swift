@@ -188,7 +188,7 @@ extension PackageDependency {
     /// Returns the constraint requirement representation.
     public func toConstraintRequirement() throws -> PackageRequirement {
         switch self {
-        case .fileSystem, .archive:
+        case .fileSystem:
             return .unversioned
         case .sourceControl(let settings):
             return try settings.requirement.toConstraintRequirement()

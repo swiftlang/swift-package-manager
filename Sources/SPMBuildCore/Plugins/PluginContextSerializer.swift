@@ -262,8 +262,6 @@ internal struct PluginContextSerializer {
                 return .repository(url: url.absoluteString, displayVersion: package.manifest.version?.description ?? "no version", scmRevision: package.manifest.revision ?? "no revision")
             case .registry(let identity):
                 return .registry(identity: identity.description, displayVersion: package.manifest.version?.description ?? "no version")
-            case .archive(let url):
-                return .archive(url: url.absoluteString)
             }
         }
 
