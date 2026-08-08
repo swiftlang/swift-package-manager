@@ -58,6 +58,9 @@ extension SwiftPackageCommand {
         @Option(help: "Specify dependency type.")
         var type: DependencyType = .url
 
+        @Option(name: .customLong("filter-manifests"), help: "Filter manifests by name pattern")
+        var manifestFilter: [String] = []
+
         enum DependencyType: String, Codable, CaseIterable, ExpressibleByArgument {
             case url
             case path
@@ -232,6 +235,42 @@ extension SwiftPackageCommand {
             )
         }
 
+        private func findAllManifests(packagePath: Basics.AbsolutePath, fileSystem: Basics.FileSystem) -> [Basics.AbsolutePath] {
+            var manifests: [Basics.AbsolutePath] = []
+
+            // Add standard manifest if it exists
+            let standardManifest = packagePath.appending(component: Manifest.filename)
+            if fileSystem.isFile(standardManifest) {
+                manifests.append(standardManifest)
+            }
+
+            // Find version specific manifests
+            do {
+                let packageContents = try fileSystem.getDirectoryContents(packagePath)
+                let regexManifestFile = try! Regex(#"^Package@swift-(\d+)(?:\.(\d+))?(?:\.(\d+))?.swift$"#)
+
+                for file in packageContents {
+                    if try regexManifestFile.firstMatch(in: file) != nil {
+                        manifests.append(packagePath.appending(component: file))
+                    }
+                }
+            } catch {
+                // If we cannot read directory, just use standard manifest
+            }
+
+            // Filter manifests by name patterns if specified
+            if !manifestFilter.isEmpty {
+                manifests = manifests.filter { manifestPath in
+                    let fileName = manifestPath.basename
+                    return manifestFilter.contains { pattern in
+                        fileName == pattern
+                    }
+                }
+            }
+
+            return manifests
+        }
+
         private func applyEdits(
             packagePath: Basics.AbsolutePath,
             workspace: Workspace,
@@ -239,7 +278,44 @@ extension SwiftPackageCommand {
         ) throws {
             // Load the manifest file
             let fileSystem = workspace.fileSystem
-            let manifestPath = packagePath.appending(component: Manifest.filename)
+            let packageManifests = findAllManifests(packagePath: packagePath, fileSystem: workspace.fileSystem)
+
+            guard !packageManifests.isEmpty else {
+                throw StringError("cannot find package manifest in \(packagePath)")
+            }
+
+            var successCount = 0
+            var errors: [String] = []
+
+            for manifest in packageManifests {
+                do {
+                    try applyEditsToSingleManifest(manifestPath: manifest, fileSystem: fileSystem, packageDependency: packageDependency)
+                    successCount += 1
+                } catch {
+                    // For single manifest scenarios, rethrow error
+                    if packageManifests.count == 1 {
+                        throw error
+                    }
+                    // For multiple manifests, collect error message
+                    let errorMessage = "Failed to update \(manifest.basename)"
+                    errors.append(errorMessage)
+                }
+            }
+
+            if successCount == 0 {
+                throw StringError("Failed to update any manifest files:\n" + errors.joined(separator: "\n"))
+            } else if !errors.isEmpty {
+                print("Successfully updated \(successCount)/\(packageManifests.count) manifest files")
+                print("Warnings/Errors occured:\n" + errors.joined(separator: "\n"))
+            }
+        }
+
+        private func applyEditsToSingleManifest(
+            manifestPath: Basics.AbsolutePath,
+            fileSystem: FileSystem,
+            packageDependency: PackageDependency
+        ) throws {
+            // Load the manifest file
             let manifestContents: ByteString
             do {
                 manifestContents = try fileSystem.readFileContents(manifestPath)
