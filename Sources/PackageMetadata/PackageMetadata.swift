@@ -248,7 +248,7 @@ public struct PackageSearchClient {
                     }
 
                     let branches = try repository.getBranches()
-                    let versions = try repository.getTags().compactMap { Version($0) }
+                    let versions = try await repository.getTags().compactMap { Version($0) }
                     let package = Package(
                         identity: .init(url: url),
                         location: url.absoluteString,

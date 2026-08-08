@@ -56,7 +56,7 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
             XCTAssertNoDiagnostics(observability.diagnostics)
 
             let repo = GitRepository(path: manifest.path.parentDirectory)
-            let currentRevision = try repo.getCurrentRevision()
+            let currentRevision = try await repo.getCurrentRevision()
             XCTAssertEqual(manifest.displayName, currentRevision.identifier)
         }
     }
@@ -95,7 +95,7 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
 
     private func loadRootManifestWithBasicGitRepository(
         manifestContent: String,
-        validator: (Manifest, TestingObservability) throws -> ()
+        validator: (Manifest, TestingObservability) async throws -> ()
     ) async throws {
         let observability = ObservabilitySystem.makeForTesting()
 
@@ -118,7 +118,7 @@ final class PackageDescription6_0LoadingTests: PackageDescriptionLoadingTests {
                 observabilityScope: observability.topScope
             )
 
-            try validator(manifest, observability)
+            try await validator(manifest, observability)
         }
     }
 }
