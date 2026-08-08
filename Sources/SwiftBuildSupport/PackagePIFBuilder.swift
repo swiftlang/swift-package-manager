@@ -211,8 +211,8 @@ public final class PackagePIFBuilder {
 
     let pkgConfigDirectories: [AbsolutePath]
 
-    /// True if the user passed -warnings-as-errors on the command line, false otherwise.
-    let treatWarningsAsErrors: Bool
+    /// The warning-control flags the user passed on the command line.
+    let warningControlFlags: [String]
 
     /// The file system to read from.
     let fileSystem: FileSystem
@@ -244,7 +244,7 @@ public final class PackagePIFBuilder {
         shouldPreserveSymlinks: Bool,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
-        treatWarningsAsErrors: Bool = false,
+        warningControlFlags: [String] = [],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -261,7 +261,7 @@ public final class PackagePIFBuilder {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.addLocalRpaths = addLocalRpaths
-        self.treatWarningsAsErrors = treatWarningsAsErrors
+        self.warningControlFlags = warningControlFlags
         self.shouldPreserveSymlinks = shouldPreserveSymlinks
     }
 
@@ -278,7 +278,7 @@ public final class PackagePIFBuilder {
         shouldPreserveSymlinks: Bool = false,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
-        treatWarningsAsErrors: Bool = false,
+        warningControlFlags: [String] = [],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -293,7 +293,7 @@ public final class PackagePIFBuilder {
         self.addLocalRpaths = addLocalRpaths
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
-        self.treatWarningsAsErrors = treatWarningsAsErrors
+        self.warningControlFlags = warningControlFlags
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.shouldPreserveSymlinks = shouldPreserveSymlinks
@@ -638,8 +638,10 @@ public final class PackagePIFBuilder {
             if self.skipStaticAnalyzerForPackageDependencies {
                 settings[.SKIP_CLANG_STATIC_ANALYZER] = "YES"
             }
-        } else if self.treatWarningsAsErrors {
-            settings[.SWIFT_TREAT_WARNINGS_AS_ERRORS] = "YES"
+        } else if !self.warningControlFlags.isEmpty {
+            settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                $0.append(contentsOf: self.warningControlFlags)
+            }
         }
 
         settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS]
