@@ -348,7 +348,16 @@ let package = Package(
                 "Basics",
                 "PackageModel",
                 "SourceControl",
-            ],
+            ] + swiftSyntaxDependencies(
+                [
+                    "SwiftDiagnostics",
+                    "SwiftIfConfig",
+                    "SwiftOperators",
+                    "SwiftParser",
+                    "SwiftParserDiagnostics",
+                    "SwiftSyntax",
+                ]
+            ),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: commonExperimentalFeatures
         ),
