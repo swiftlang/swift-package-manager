@@ -41,6 +41,11 @@ endif()
 
 install(TARGETS PackageDescription
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/swift/pm/ManifestAPI)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:PackageDescription>/$<TARGET_FILE_BASE_NAME:PackageDescription>.pdb
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/swift/pm/ManifestAPI
+    OPTIONAL)
+endif()
 
 set(SwiftPMRuntime_INSTALL_SWIFTMODULEDIR
   ${CMAKE_INSTALL_LIBDIR}/swift/pm/ManifestAPI)

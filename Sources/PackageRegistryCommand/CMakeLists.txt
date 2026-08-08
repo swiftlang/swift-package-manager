@@ -37,3 +37,8 @@ install(TARGETS PackageRegistryCommand
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:PackageRegistryCommand>/$<TARGET_FILE_BASE_NAME:PackageRegistryCommand>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()

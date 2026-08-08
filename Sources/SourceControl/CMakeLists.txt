@@ -25,4 +25,9 @@ install(TARGETS SourceControl
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:SourceControl>/$<TARGET_FILE_BASE_NAME:SourceControl>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS SourceControl)

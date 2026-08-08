@@ -54,4 +54,9 @@ install(TARGETS PackageGraph
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:PackageGraph>/$<TARGET_FILE_BASE_NAME:PackageGraph>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS PackageGraph)
