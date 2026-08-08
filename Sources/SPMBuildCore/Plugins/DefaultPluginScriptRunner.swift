@@ -675,8 +675,8 @@ public enum DefaultPluginScriptRunnerError: Error, CustomStringConvertible {
             return "plugin is unavailable: \(reason)"
         case .compilationPreparationFailed(let error):
             return "plugin compilation preparation failed: \(error.interpolationDescription)"
-        case .compilationFailed(let result):
-            return "plugin compilation failed: \(result)"
+        case .compilationFailed:
+            return "plugin compilation failed"
         case .invocationFailed(let error, let command):
             return "plugin invocation failed: \(error.interpolationDescription) \(makeContextString(command, ""))"
         case .invocationEndedBySignal(let signal, let command, let output):
