@@ -100,6 +100,91 @@ public struct SwiftPackageCommand: AsyncParsableCommand {
     public static var _errorLabel: String { "error" }
 
     public init() {}
+
+    public static func main() async {
+        do {
+            var command = try Self.parseAsRootWithInterspersedGlobalOptions(
+                Array(CommandLine.arguments.dropFirst()),
+            )
+            if var asyncCommand = command as? any AsyncParsableCommand {
+                try await asyncCommand.run()
+            } else {
+                try command.run()
+            }
+        } catch {
+            Self.exit(withError: error)
+        }
+    }
+
+    /// Parses `swift package` arguments while allowing global options to be interspersed with subcommand options.
+    ///
+    /// ArgumentParser shares an option group between a command and its subcommands by reusing the first decoded
+    /// instance of that group. If parsing of the parent stops at a subcommand or passthrough option, a later global
+    /// option is therefore left unconsumed by the shared group. Preserve the normal parser behavior for valid command
+    /// lines, and only retry failed parses after moving progressively larger, stable prefixes of recognized global
+    /// options to the front.
+    static func parseAsRootWithInterspersedGlobalOptions(
+        _ arguments: [String],
+    ) throws -> any ParsableCommand {
+        do {
+            return try Self.parseAsRoot(arguments)
+        } catch {
+            let originalError = error
+            let globalOptionRanges = Self.globalOptionRanges(in: arguments)
+
+            for upperBound in globalOptionRanges.indices {
+                let rangesToMove = globalOptionRanges[...upperBound]
+                let reorderedArguments = Self.movingOptionsToFront(
+                    in: arguments,
+                    ranges: rangesToMove,
+                )
+                guard reorderedArguments != arguments else {
+                    continue
+                }
+
+                if let command = try? Self.parseAsRoot(reorderedArguments) {
+                    return command
+                }
+            }
+
+            throw originalError
+        }
+    }
+
+    private static func globalOptionRanges(in arguments: [String]) -> [Range<Int>] {
+        var result: [Range<Int>] = []
+        var index = arguments.startIndex
+
+        while index < arguments.endIndex {
+            if arguments[index] == "--" {
+                break
+            } else if (try? GlobalOptions.parse([arguments[index]])) != nil {
+                result.append(index ..< (index + 1))
+                index += 1
+            } else if index + 1 < arguments.endIndex,
+                      (try? GlobalOptions.parse([arguments[index], arguments[index + 1]])) != nil
+            {
+                result.append(index ..< (index + 2))
+                index += 2
+            } else {
+                index += 1
+            }
+        }
+
+        return result
+    }
+
+    private static func movingOptionsToFront(
+        in arguments: [String],
+        ranges: ArraySlice<Range<Int>>,
+    ) -> [String] {
+        let movedIndices = Set(ranges.flatMap(\.self))
+        let movedArguments = ranges.flatMap { arguments[$0] }
+        let remainingArguments = arguments.indices.compactMap { index in
+            movedIndices.contains(index) ? nil : arguments[index]
+        }
+        return movedArguments + remainingArguments
+    }
 }
 
 extension SwiftPackageCommand {
