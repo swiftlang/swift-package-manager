@@ -46,6 +46,7 @@ internal struct SPDXConverter {
 
     internal static func convertToAgent(from metadata: SBOMMetadata?) async -> [any SPDXObject] {
         guard let metadata,
+              let timestamp = metadata.timestamp,
               let creators = metadata.creators,
               !creators.isEmpty
         else {
@@ -61,7 +62,7 @@ internal struct SPDXConverter {
                 type: .CreationInfo,
                 specVersion: creator.version,
                 createdBy: [creatorID],
-                created: "1970-01-01T00:00:00Z"
+                created: timestamp
             )
             let tool = SPDXAgent(
                 id: creatorID,

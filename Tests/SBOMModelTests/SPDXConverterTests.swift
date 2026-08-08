@@ -86,7 +86,7 @@ struct SPDXConverterTests {
         #expect(creationInfoUnwrapped.type == .CreationInfo)
         #expect(creationInfoUnwrapped.specVersion == "3.0.1")
         #expect(creationInfoUnwrapped.createdBy == ["urn:spdx:tool-1"])
-        #expect(creationInfoUnwrapped.created == "1970-01-01T00:00:00Z")
+        #expect(creationInfoUnwrapped.created == "2025-01-01T00:00:00Z")
 
         let agent = result[3] as? SPDXAgent
         let agentUnwrapped = try #require(agent)
@@ -139,6 +139,7 @@ struct SPDXConverterTests {
         let creationInfo1Unwrapped = try #require(creationInfo1)
         #expect(creationInfo1Unwrapped.id == "urn:spdx:tool-1:creationInfo")
         #expect(creationInfo1Unwrapped.createdBy == ["urn:spdx:tool-1"])
+        #expect(creationInfo1Unwrapped.created == "2025-01-01T00:00:00Z")
 
         let agent1 = result[3] as? SPDXAgent
         let agent1Unwrapped = try #require(agent1)
@@ -162,6 +163,7 @@ struct SPDXConverterTests {
         let creationInfo2Unwrapped = try #require(creationInfo2)
         #expect(creationInfo2Unwrapped.id == "urn:spdx:tool-2:creationInfo")
         #expect(creationInfo2Unwrapped.createdBy == ["urn:spdx:tool-2"])
+        #expect(creationInfo2Unwrapped.created == "2025-01-01T00:00:00Z")
 
         let agent2 = result[7] as? SPDXAgent
         let agent2Unwrapped = try #require(agent2)
