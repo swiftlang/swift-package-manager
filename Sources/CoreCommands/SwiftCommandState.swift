@@ -633,8 +633,8 @@ public final class SwiftCommandState {
                 },
                 manifestImportRestrictions: .none,
                 usePrebuilts: self.options.caching.usePrebuilts,
-                prebuiltsDownloadURL: options.caching.prebuiltsDownloadURL,
-                prebuiltsRootCertPath: options.caching.prebuiltsRootCertPath,
+                prebuiltsDownloadURL: try options.caching.resolvedPrebuiltsDownloadURL(relativeTo: self.scratchDirectory),
+                prebuiltsRootCertPath: try options.caching.resolvedPrebuiltsRootCertPath(relativeTo: self.scratchDirectory),
                 pruneDependencies: self.options.resolver.pruneDependencies,
                 traitConfiguration: self.traitConfiguration
             ),
