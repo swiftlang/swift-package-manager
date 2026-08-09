@@ -1026,6 +1026,56 @@ struct PIFBuilderTests {
         #expect(ldFlags.contains("-L") && ldFlags.contains("/Vendor"))
     }
 
+    @Test(.skipHostOS(.linux, "linux does not support C-family test targets"), arguments: BuildConfiguration.allCases)
+    func testProductsPassModuleNameToClang(configuration: BuildConfiguration) async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Tests/CLibTests/CLibTests.c",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_2,
+                    targets: [
+                        TargetDescription(name: "CLibTests", dependencies: [], type: .test, settings: [.init(tool: .c, kind: .unsafeFlags(["-DFOO=1"]))]),
+                    ]
+                ),
+            ],
+            shouldCreateMultipleTestProducts: true,
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "Root")
+
+        let settings = try project.target(named: "CLibTests-product")
+            .buildConfig(named: configuration)
+            .settings
+
+        #expect(settings[.OTHER_CFLAGS]?.contains("-fmodule-name=$(PRODUCT_MODULE_NAME)") == true)
+        #expect(settings[.OTHER_CFLAGS]?.contains("-DFOO=1") == true)
+        #expect(settings[.OTHER_CPLUSPLUSFLAGS]?.contains("-fmodule-name=$(PRODUCT_MODULE_NAME)") == true)
+    }
+
     @Test(arguments: BuildConfiguration.allCases)
     func productTargetsReportProductNameAsBSPDisplayName(configuration: BuildConfiguration) async throws {
         let observability = ObservabilitySystem.makeForTesting()
