@@ -22,12 +22,6 @@ public struct RegisteredClient<Auth: AuthenticationMethod>: Sendable, Equatable 
     }
 }
 
-enum AuthMethods {
-    enum Basic {}
-    enum Bearer {}
-    enum MTLS {}
-}
-
 public protocol AuthenticationMethod: Sendable, Equatable {
     associatedtype Credentials: Sendable, Hashable
     var credentials: Credentials { get }

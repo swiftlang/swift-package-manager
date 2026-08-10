@@ -41,23 +41,23 @@ public struct MutualTLS: AuthenticationMethod, Equatable {
     }
 }
 
-extension AuthMethods.MTLS {
-    static func client(
+extension RegisteredClient where Auth == MutualTLS {
+    static func mutualTLS(
         user: User,
         rootCertificateAuthority: RootCertificateAuthority,
         id: String
-    ) -> RegisteredClient<MutualTLS> {
+    ) -> Self {
         RegisteredClient(
             user: user,
             auth: MutualTLS(rootCertificateAuthority: rootCertificateAuthority, id: id)
         )
     }
 
-    static func client(
+    static func mutualTLS(
         user: User,
         rootCertificateAuthority: RootCertificateAuthority,
         certificate: Certificate
-    ) throws -> RegisteredClient<MutualTLS> {
+    ) throws -> Self {
         RegisteredClient(
             user: user,
             auth: try MutualTLS(

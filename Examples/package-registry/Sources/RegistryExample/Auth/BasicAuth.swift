@@ -36,11 +36,11 @@ public struct BasicAuth: AuthenticationMethod, Equatable {
     }
 }
 
-extension AuthMethods.Basic {
-    static func client(
+extension RegisteredClient where Auth == BasicAuth {
+    static func basic(
         user: User,
         passwordHash: String
-    ) -> RegisteredClient<BasicAuth> {
+    ) -> Self {
         RegisteredClient(user: user, auth: BasicAuth(email: user.email, passwordHash: passwordHash))
     }
 }

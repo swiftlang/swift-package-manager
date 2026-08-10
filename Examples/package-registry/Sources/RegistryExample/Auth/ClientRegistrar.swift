@@ -88,7 +88,7 @@ public struct ClientRegistrar: Sendable {
         guard !password.isEmpty else {
             throw ClientRegistrationError.emptyPassword
         }
-        let client = AuthMethods.Basic.client(user: user, passwordHash: try await Self.hashPassword(password))
+        let client = RegisteredClient.basic(user: user, passwordHash: try await Self.hashPassword(password))
         do {
             return try await store(client)
         } catch ClientStoreError.clientAlreadyExists {
@@ -108,7 +108,7 @@ public struct ClientRegistrar: Sendable {
     ///   rather than a client error.
     public func registerBearerClient(for user: User) async throws -> BearerClientRegistration {
         let token = tokenGenerator.makeToken()
-        let client = try await store(AuthMethods.Bearer.client(user: user, token: token))
+        let client = try await store(RegisteredClient.bearer(user: user, token: token))
         return BearerClientRegistration(client: client, token: token)
     }
 
@@ -130,7 +130,7 @@ public struct ClientRegistrar: Sendable {
         certificate: Certificate,
         rootCertificateAuthority: RootCertificateAuthority
     ) async throws -> RegisteredClient<MutualTLS> {
-        let client = try AuthMethods.MTLS.client(
+        let client = try RegisteredClient.mutualTLS(
             user: user,
             rootCertificateAuthority: rootCertificateAuthority,
             certificate: certificate

@@ -36,18 +36,18 @@ public struct BearerAuth: AuthenticationMethod, Equatable {
     }
 }
 
-extension AuthMethods.Bearer {
-    static func client(
+extension RegisteredClient where Auth == BearerAuth {
+    static func bearer(
         user: User,
         tokenHash: TokenHash
-    ) -> RegisteredClient<BearerAuth> {
+    ) -> Self {
         RegisteredClient(user: user, auth: BearerAuth(tokenHash: tokenHash))
     }
 
-    static func client(
+    static func bearer(
         user: User,
         token: String
-    ) -> RegisteredClient<BearerAuth> {
+    ) -> Self {
         RegisteredClient(user: user, auth: BearerAuth(token: token))
     }
 }
