@@ -40,14 +40,14 @@ extension AuthMethods.Bearer {
     static func client(
         user: User,
         tokenHash: TokenHash
-    ) -> Client<BearerAuth> {
-        Client(user: user, auth: BearerAuth(tokenHash: tokenHash))
+    ) -> RegisteredClient<BearerAuth> {
+        RegisteredClient(user: user, auth: BearerAuth(tokenHash: tokenHash))
     }
 
     static func client(
         user: User,
         token: String
-    ) -> Client<BearerAuth> {
-        Client(user: user, auth: BearerAuth(token: token))
+    ) -> RegisteredClient<BearerAuth> {
+        RegisteredClient(user: user, auth: BearerAuth(token: token))
     }
 }

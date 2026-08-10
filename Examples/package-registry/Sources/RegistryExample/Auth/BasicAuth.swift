@@ -40,7 +40,7 @@ extension AuthMethods.Basic {
     static func client(
         user: User,
         passwordHash: String
-    ) -> Client<BasicAuth> {
-        Client(user: user, auth: BasicAuth(email: user.email, passwordHash: passwordHash))
+    ) -> RegisteredClient<BasicAuth> {
+        RegisteredClient(user: user, auth: BasicAuth(email: user.email, passwordHash: passwordHash))
     }
 }

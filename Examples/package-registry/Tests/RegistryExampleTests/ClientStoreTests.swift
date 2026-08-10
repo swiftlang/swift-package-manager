@@ -11,17 +11,16 @@
 //===----------------------------------------------------------------------===//
 
 import Testing
-import X509
 @testable import RegistryExample
 
 @Suite("ClientStore")
 struct ClientStoreTests {
     private func user(_ raw: String) throws -> User {
-        User(email: try #require(EmailAddress(raw)), credential: .password(hash: "bcrypt"))
+        User(email: try #require(EmailAddress(raw)))
     }
 
-    private func client(_ user: User, certificate: TestCertificate) throws -> Client<MutualTLS> {
-        Client(
+    private func client(_ user: User, certificate: TestCertificate) throws -> RegisteredClient<MutualTLS> {
+        RegisteredClient(
             user: user,
             auth: try MutualTLS(rootCertificateAuthority: .none, certificate: certificate.certificate())
         )

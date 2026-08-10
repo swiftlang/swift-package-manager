@@ -13,13 +13,12 @@
 import NIOConcurrencyHelpers
 import Testing
 import Vapor
-import X509
 @testable import RegistryExample
 
 @Suite("ClientRegistrar")
 struct ClientRegistrarTests {
     private func user(_ raw: String) throws -> User {
-        User(email: try #require(EmailAddress(raw)), credential: .password(hash: "bcrypt"))
+        User(email: try #require(EmailAddress(raw)))
     }
 
     private func registrar(

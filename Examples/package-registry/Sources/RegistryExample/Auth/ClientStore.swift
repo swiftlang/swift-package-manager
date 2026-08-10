@@ -33,7 +33,7 @@ public actor ClientStore {
     /// - Throws: ``ClientStoreError/clientAlreadyExists`` if a client is
     ///   already stored under the same method and credentials. The existing
     ///   client is left untouched.
-    public func store<Auth: AuthenticationMethod>(_ client: Client<Auth>) throws {
+    public func store<Auth: AuthenticationMethod>(_ client: RegisteredClient<Auth>) throws {
         let typeKey = ObjectIdentifier(Auth.self)
         let credKey  = AnyHashable(client.auth.credentials)
         guard storage[typeKey]?[credKey] == nil else {
@@ -45,10 +45,10 @@ public actor ClientStore {
     public func client<Auth: AuthenticationMethod>(
         ofType _: Auth.Type,
         for credentials: Auth.Credentials
-    ) -> Client<Auth>? {
+    ) -> RegisteredClient<Auth>? {
         let typeKey = ObjectIdentifier(Auth.self)
         let credKey  = AnyHashable(credentials)
-        return storage[typeKey]?[credKey]?.value as? Client<Auth>
+        return storage[typeKey]?[credKey]?.value as? RegisteredClient<Auth>
     }
 }
 

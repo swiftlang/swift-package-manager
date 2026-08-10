@@ -45,17 +45,17 @@ public struct RegistrationResult: Sendable, Equatable {
 /// never blocks the event loop serving other requests.
 public struct UserRegistrar: Sendable {
     let store: UserStore
-    let tokenGenerator: TokenGenerator
+    let clientRegistrar: ClientRegistrar
 
     /// Creates a registrar backed by `store`.
     ///
     /// - Parameters:
     ///   - store: The user store to insert into.
-    ///   - tokenGenerator: The source of minted tokens. Defaults to the
-    ///     system CSPRNG; tests inject a deterministic generator.
-    public init(store: UserStore, tokenGenerator: TokenGenerator = .secureRandom) {
+    ///   - clientRegistrar: Registers the client that carries the new
+    ///     account's credential.
+    public init(store: UserStore, clientRegistrar: ClientRegistrar) {
         self.store = store
-        self.tokenGenerator = tokenGenerator
+        self.clientRegistrar = clientRegistrar
     }
 
     /// Registers a new user.
@@ -70,39 +70,30 @@ public struct UserRegistrar: Sendable {
     ///   users.
     /// - Throws: ``RegistrationError/invalidEmail`` for an invalid or
     ///   already-registered email, ``RegistrationError/emptyPassword`` for an
-    ///   empty password; ``UserStoreError/tokenAlreadyExists`` on a token
+    ///   empty password; ``ClientStoreError/clientAlreadyExists`` on a token
     ///   collision.
     public func register(email rawEmail: String, password: String?) async throws -> RegistrationResult {
         guard let email = EmailAddress(rawEmail) else {
             throw RegistrationError.invalidEmail
         }
-        let prepared = try await makeCredential(password: password)
-        let user = User(email: email, credential: prepared.credential)
+
+        let user = User(email: email)
         do {
             try await store.create(user)
         } catch UserStoreError.emailAlreadyExists {
             throw RegistrationError.invalidEmail
         }
-        return RegistrationResult(user: user, token: prepared.token)
-    }
 
-    private func makeCredential(
-        password: String?
-    ) async throws -> (credential: User.Credential, token: String?) {
         guard let password else {
-            let token = tokenGenerator.makeToken()
-            return (.token(hash: TokenHasher.hash(token)), token)
+            let client = try await clientRegistrar.registerBearerClient(for: user)
+            return RegistrationResult(user: user, token: client.token)
         }
+
         guard !password.isEmpty else {
             throw RegistrationError.emptyPassword
         }
-        let hash = try await Self.hashPassword(password)
-        return (.password(hash: hash), nil)
-    }
+        _ = try await clientRegistrar.registerBasicClient(for: user, password: password)
 
-    private static func hashPassword(_ password: String) async throws -> String {
-        try await NIOThreadPool.singleton.runIfActive {
-            try Bcrypt.hash(password)
-        }
+        return RegistrationResult(user: user, token: nil)
     }
 }

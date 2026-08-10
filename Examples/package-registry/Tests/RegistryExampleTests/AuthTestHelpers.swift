@@ -12,6 +12,24 @@
 
 import Foundation
 import Vapor
+@testable import RegistryExample
+
+/// A registrar wired to `app`'s user and client stores, so a seeded account is
+/// resolvable by the same ``ClientAuthenticator`` the application's routes use.
+///
+/// - Parameters:
+///   - app: The application whose stores the registrar writes to.
+///   - tokenGenerator: The source of minted bearer tokens. Pass a fixed
+///     generator when a test needs to present the token it seeded.
+func userRegistrar(
+    for app: Application,
+    tokenGenerator: TokenGenerator = .secureRandom
+) -> UserRegistrar {
+    UserRegistrar(
+        store: app.userStore,
+        clientRegistrar: ClientRegistrar(store: app.clientStore, tokenGenerator: tokenGenerator)
+    )
+}
 
 func jsonBody(_ raw: String) -> ByteBuffer {
     ByteBuffer(string: raw)

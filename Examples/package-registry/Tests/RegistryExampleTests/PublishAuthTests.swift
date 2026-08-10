@@ -19,11 +19,11 @@ import VaporTesting
 @Suite("Publish endpoint authentication gate")
 struct PublishAuthTests {
     private func seedPasswordUser(_ app: Application, email: String, password: String) async throws {
-        _ = try await UserRegistrar(store: app.userStore).register(email: email, password: password)
+        _ = try await userRegistrar(for: app).register(email: email, password: password)
     }
 
     private func seedTokenUser(_ app: Application, email: String, token: String) async throws {
-        _ = try await UserRegistrar(store: app.userStore, tokenGenerator: TokenGenerator { token })
+        _ = try await userRegistrar(for: app, tokenGenerator: TokenGenerator { token })
             .register(email: email, password: nil)
     }
 

@@ -25,27 +25,13 @@
 public struct User: Sendable, Equatable {
     /// The account's identity and lookup key.
     public let email: EmailAddress
-    /// The single credential this user authenticates with.
-    public let credential: Credential
 
     /// Creates a user with the given identity and credential.
     ///
     /// - Parameters:
     ///   - email: The normalized email identifying the account.
     ///   - credential: The hashed credential used to authenticate.
-    public init(email: EmailAddress, credential: Credential) {
+    public init(email: EmailAddress) {
         self.email = email
-        self.credential = credential
-    }
-
-    /// The authentication material stored for a ``User`` — always a hash,
-    /// never a plaintext secret.
-    public enum Credential: Sendable, Equatable {
-        /// A bcrypt hash of the user's password, verified on HTTP Basic
-        /// login.
-        case password(hash: String)
-        /// The hex-encoded SHA-256 of the user's token, matched on Bearer
-        /// login.
-        case token(hash: TokenHash)
     }
 }

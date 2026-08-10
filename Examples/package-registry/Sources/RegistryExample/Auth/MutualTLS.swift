@@ -46,8 +46,8 @@ extension AuthMethods.MTLS {
         user: User,
         rootCertificateAuthority: RootCertificateAuthority,
         id: String
-    ) -> Client<MutualTLS> {
-        Client(
+    ) -> RegisteredClient<MutualTLS> {
+        RegisteredClient(
             user: user,
             auth: MutualTLS(rootCertificateAuthority: rootCertificateAuthority, id: id)
         )
@@ -57,8 +57,8 @@ extension AuthMethods.MTLS {
         user: User,
         rootCertificateAuthority: RootCertificateAuthority,
         certificate: Certificate
-    ) throws -> Client<MutualTLS> {
-        Client(
+    ) throws -> RegisteredClient<MutualTLS> {
+        RegisteredClient(
             user: user,
             auth: try MutualTLS(
                 rootCertificateAuthority: rootCertificateAuthority,

@@ -33,12 +33,12 @@ public enum ClientRegistrationError: Error, Equatable, Sendable {
 /// since the store keeps only its hash.
 public struct BearerClientRegistration: Sendable, Equatable {
     /// The newly registered client.
-    public let client: Client<BearerAuth>
+    public let client: RegisteredClient<BearerAuth>
     /// The one-time plaintext token.
     public let token: String
 }
 
-/// Registers new ``Client``s for existing users.
+/// Registers new ``RegisteredClient``s for existing users.
 ///
 /// The registrar owns all credential preparation — bcrypt password hashing,
 /// token generation, certificate thumbprinting — so that
@@ -81,7 +81,10 @@ public struct ClientRegistrar: Sendable {
     ///   password, or
     ///   ``ClientRegistrationError/userAlreadyHasBasicClient`` if the user
     ///   already holds one.
-    public func registerBasicClient(for user: User, password: String) async throws -> Client<BasicAuth> {
+    public func registerBasicClient(
+        for user: User,
+        password: String
+    ) async throws -> RegisteredClient<BasicAuth> {
         guard !password.isEmpty else {
             throw ClientRegistrationError.emptyPassword
         }
@@ -126,7 +129,7 @@ public struct ClientRegistrar: Sendable {
         for user: User,
         certificate: Certificate,
         rootCertificateAuthority: RootCertificateAuthority
-    ) async throws -> Client<MutualTLS> {
+    ) async throws -> RegisteredClient<MutualTLS> {
         let client = try AuthMethods.MTLS.client(
             user: user,
             rootCertificateAuthority: rootCertificateAuthority,
@@ -139,7 +142,9 @@ public struct ClientRegistrar: Sendable {
         }
     }
 
-    private func store<Auth: AuthenticationMethod>(_ client: Client<Auth>) async throws -> Client<Auth> {
+    private func store<Auth: AuthenticationMethod>(
+        _ client: RegisteredClient<Auth>
+    ) async throws -> RegisteredClient<Auth> {
         try await store.store(client)
         return client
     }

@@ -19,7 +19,7 @@ import NIOSSL
 /// - Parameters:
 ///   - app: The application to configure.
 ///   - authEnabled: When `true` (the default), the publish endpoint is gated
-///     behind ``UserAuthenticator`` (an `AsyncRequestAuthenticator`
+///     behind ``ClientAuthenticator`` (an `AsyncRequestAuthenticator`
 ///     middleware) plus `AuthenticatedUser.guardMiddleware()`, together
 ///     re-verifying the credentials presented on every publish request.
 ///     Authentication is on by default so the registry is secure by default;
@@ -36,7 +36,8 @@ public func configure(_ app: Application, authEnabled: Bool = true) async throws
 
     let store = app.registryStore
     let userStore = app.userStore
-    let authenticator = UserAuthenticator(store: userStore)
+    let clientStore = app.clientStore
+    let authenticator = ClientAuthenticator(clientStore: clientStore)
     let authGroup = app.grouped(authenticator)
 
     AvailabilityRoutes().register(app)
@@ -47,7 +48,7 @@ public func configure(_ app: Application, authEnabled: Bool = true) async throws
     PublishRoutes(publisher: ReleasePublisher(store: store)).register(publishRouter)
     MetadataRoutes(store: store).register(app)
 
-    UserRoutes(registrar: UserRegistrar(store: userStore)).register(app)
+    UserRoutes(registrar: UserRegistrar(store: userStore, clientRegistrar: ClientRegistrar(store: clientStore))).register(app)
     LoginRoutes().register(authGroup)
 }
 

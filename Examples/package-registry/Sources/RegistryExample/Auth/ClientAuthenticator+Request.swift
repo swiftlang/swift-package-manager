@@ -17,7 +17,7 @@ private enum AuthorizationScheme: String {
     case bearer
 }
 
-extension UserAuthenticator: AsyncRequestAuthenticator {
+extension ClientAuthenticator: AsyncRequestAuthenticator {
     /// Populates `request.auth` with an ``AuthenticatedUser`` when the
     /// request carries valid credentials.
     ///

@@ -12,7 +12,7 @@
 
 /// A client makes authenticated requests on behalf of the user
 /// Permissions are scoped to the client, not the user
-public struct Client<Auth: AuthenticationMethod>: Sendable, Equatable {
+public struct RegisteredClient<Auth: AuthenticationMethod>: Sendable, Equatable {
     public let user: User
     public let auth: Auth
 

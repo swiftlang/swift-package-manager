@@ -31,18 +31,18 @@ import Vapor
 /// of its own; the only credential-dependent work is the bcrypt step, which
 /// the decoy forces to run on every attempt. bcrypt runs on the shared
 /// thread pool so it never blocks the event loop.
-public struct UserAuthenticator: Sendable {
-    let store: UserStore
+public struct ClientAuthenticator: Sendable {
+    let clientStore: ClientStore
     let passwordVerifier: PasswordVerifier
 
     /// Creates an authenticator backed by `store`.
     ///
     /// - Parameters:
-    ///   - store: The user store to verify against.
+    ///   - clientStore: Map of all clients in the registry
     ///   - passwordVerifier: The Basic-path verification seam. Defaults to
     ///     bcrypt; tests inject a recording double.
-    public init(store: UserStore, passwordVerifier: PasswordVerifier = .bcrypt) {
-        self.store = store
+    public init(clientStore: ClientStore, passwordVerifier: PasswordVerifier = .bcrypt) {
+        self.clientStore = clientStore
         self.passwordVerifier = passwordVerifier
     }
 
@@ -57,8 +57,11 @@ public struct UserAuthenticator: Sendable {
     public func authenticate(email rawEmail: String, password: String) async -> EmailAddress? {
         guard !password.isEmpty else { return nil }
         guard let email = EmailAddress(rawEmail) else { return nil }
-        let user = await store.user(email: email)
-        let storedHash = Self.passwordHash(of: user)
+        let client = await clientStore.client(
+            ofType: BasicAuth.self, 
+            for: BasicAuth.Credentials(email: email)
+        )
+        let storedHash = client?.auth.passwordHash
         let verified = await passwordVerifier.verify(password, against: storedHash ?? Self.decoyHash)
         return (storedHash != nil && verified) ? email : nil
     }
@@ -70,9 +73,11 @@ public struct UserAuthenticator: Sendable {
     ///   whose token hashes to the presented value exists; otherwise `nil`.
     public func authenticate(token: String) async -> EmailAddress? {
         guard !token.isEmpty, token.count <= Self.maxTokenLength else { return nil }
-        let user = await store.user(tokenHash: TokenHasher.hash(token))
-        guard case .token = user?.credential else { return nil }
-        return user?.email
+        let client = await clientStore.client(
+            ofType: BearerAuth.self, 
+            for: BearerAuth.Credentials(tokenHash: TokenHasher.hash(token))
+        )
+        return client?.user.email
     }
 
     /// The longest presented bearer token this registry will even hash.
@@ -83,11 +88,6 @@ public struct UserAuthenticator: Sendable {
     /// input length, so an uncapped token lets a single request (or a flood of
     /// them) burn CPU hashing megabytes that could never match a real token.
     static let maxTokenLength = 256
-
-    private static func passwordHash(of user: User?) -> String? {
-        guard case let .password(hash) = user?.credential else { return nil }
-        return hash
-    }
 
     /// A precomputed, valid bcrypt hash used as the constant-time decoy for
     /// unknown (or token-only) accounts on the Basic path.
