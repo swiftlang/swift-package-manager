@@ -12,6 +12,7 @@
 
 import TSCBasic
 import Foundation
+import Synchronization
 
 #if SWIFT_PACKAGE && (os(Windows) || os(Android))
 #if USE_IMPL_ONLY_IMPORTS
@@ -28,7 +29,7 @@ import SPMSQLite3
 #endif
 
 /// A minimal SQLite wrapper.
-package final class SQLite {
+package final class SQLite: Sendable {
     /// The location of the database.
     package let location: Location
 
@@ -36,11 +37,10 @@ package final class SQLite {
     package let configuration: Configuration
 
     /// Pointer to the database, or `nil` once the database has been closed.
-    private var db: OpaquePointer?
-
-    /// Serializes use of ``db`` against ``close()``, so that the pointer cannot be freed while
-    /// another thread is handing it to SQLite. See rdar://181557882.
-    private let dbLock = NSLock()
+    ///
+    /// Guarded so that the pointer cannot be freed by ``close()`` while another thread is handing
+    /// it to SQLite. See rdar://181557882.
+    private let db: Mutex<OpaquePointer?>
 
     /// Create or open the database at the given path.
     ///
@@ -65,7 +65,7 @@ package final class SQLite {
         guard let db = handle else {
             throw StringError("Unable to open database at \(self.location)")
         }
-        self.db = db
+        self.db = Mutex(db)
         try Self.checkError({ sqlite3_extended_result_codes(db, 1) }, description: "Unable to configure database")
         try Self.checkError(
             { sqlite3_busy_timeout(db, self.configuration.busyTimeoutMilliseconds) },
@@ -118,22 +118,22 @@ package final class SQLite {
     /// created from this database are still alive, in which case the connection stays usable and
     /// the close can be retried.
     package func close() throws {
-        try self.dbLock.withLock {
-            guard let db = self.db else {
+        try self.db.withLock { db in
+            guard let handle = db else {
                 return
             }
-            try Self.checkError { sqlite3_close(db) }
-            self.db = nil
+            try Self.checkError { sqlite3_close(handle) }
+            db = nil
         }
     }
 
     /// Run `body` with the database connection, guaranteeing it is not closed for the duration.
     private func withDB<T>(_ body: (OpaquePointer) throws -> T) throws -> T {
-        try self.dbLock.withLock {
-            guard let db = self.db else {
+        try self.db.withLock { db in
+            guard let handle = db else {
                 throw StringError("database is closed")
             }
-            return try body(db)
+            return try body(handle)
         }
     }
 
@@ -337,10 +337,6 @@ package final class SQLite {
         case databaseFull
     }
 }
-
-// Explicitly mark this class as non-Sendable
-@available(*, unavailable)
-extension SQLite: Sendable {}
 
 private func sqlite_callback(
     _ ctx: UnsafeMutableRawPointer?,
