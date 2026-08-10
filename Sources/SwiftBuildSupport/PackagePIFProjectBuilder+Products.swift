@@ -147,6 +147,21 @@ extension PackagePIFProjectBuilder {
                     "$(RPATH_ORIGIN)/../Frameworks",
                     "$(inherited)"
                 ]
+
+                // Apple platforms build xctest bundles for tests, so need an rpath relative to the embedded executable
+                // to reach adjacent build products.
+                if product.type == .test {
+                    settings[single: "APPLE_TEST_BUNDLE_RPATH"] = "$(APPLE_TEST_BUNDLE_RPATH_SHALLOW_BUNDLE_$(SHALLOW_BUNDLE:default=NO))"
+                    settings[single: "APPLE_TEST_BUNDLE_RPATH_SHALLOW_BUNDLE_YES"] = "@loader_path/../.."
+                    settings[single: "APPLE_TEST_BUNDLE_RPATH_SHALLOW_BUNDLE_NO"] = "@loader_path/../../.."
+
+                    for platform in [BuildSettings.Platform.macOS, .macCatalyst, .driverKit, .iOS, .watchOS, .tvOS, .xrOS] {
+                        settings[.LD_RUNPATH_SEARCH_PATHS, platform] = [
+                            "$(APPLE_TEST_BUNDLE_RPATH)",
+                            "$(inherited)"
+                        ]
+                    }
+                }
             }
             settings[.GENERATE_INFOPLIST_FILE] = "YES"
             settings[.SKIP_INSTALL] = "NO"
