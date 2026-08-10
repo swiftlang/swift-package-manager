@@ -39,9 +39,8 @@ public struct BasicAuth: AuthenticationMethod, Equatable {
 extension AuthMethods.Basic {
     static func client(
         user: User,
-        email: EmailAddress,
         passwordHash: String
     ) -> Client<BasicAuth> {
-        Client(user: user, auth: BasicAuth(email: email, passwordHash: passwordHash))
+        Client(user: user, auth: BasicAuth(email: user.email, passwordHash: passwordHash))
     }
 }
