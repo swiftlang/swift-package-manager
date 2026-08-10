@@ -16,7 +16,7 @@ import Dispatch
 import Testing
 
 struct SQLiteTests {
-    @Test
+    @Test(.tags(Tag.TestSize.small))
     func preparingAfterCloseThrows() throws {
         let db = try SQLite(location: .memory)
         try db.close()
@@ -26,7 +26,7 @@ struct SQLiteTests {
         }
     }
 
-    @Test
+    @Test(.tags(Tag.TestSize.small))
     func executingAfterCloseThrows() throws {
         let db = try SQLite(location: .memory)
         try db.close()
@@ -36,14 +36,14 @@ struct SQLiteTests {
         }
     }
 
-    @Test
+    @Test(.tags(Tag.TestSize.small))
     func closingMoreThanOnceSucceeds() throws {
         let db = try SQLite(location: .memory)
         try db.close()
         try db.close()
     }
 
-    @Test
+    @Test(.tags(Tag.TestSize.small))
     func closingWithAliveStatementFailsAndLeavesDatabaseUsable() throws {
         let db = try SQLite(location: .memory)
         try db.exec(query: "CREATE TABLE test (id INTEGER);")
@@ -57,7 +57,7 @@ struct SQLiteTests {
         try db.close()
     }
 
-    @Test
+    @Test(.tags(Tag.TestSize.small))
     func preparingConcurrentlyWithCloseDoesNotUseFreedHandle() throws {
         for _ in 0 ..< 50 {
             let db = try SQLite(location: .memory)
