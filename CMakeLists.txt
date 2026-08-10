@@ -6,11 +6,16 @@
 # See http://swift.org/LICENSE.txt for license information
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
-if(POLICY CMP0091)
-  cmake_policy(SET CMP0091 NEW)
-endif()
-
 cmake_minimum_required(VERSION 3.24)
+
+if(POLICY CMP0157) # CMake 3.29
+  # New Swift compilation mode.
+  cmake_policy(SET CMP0157 NEW)
+endif()
+if(POLICY CMP0195) # CMake 4.1
+  # Swift modules in build trees use the Swift module directory structure.
+  cmake_policy(SET CMP0195 NEW)
+endif()
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake/modules)
 
