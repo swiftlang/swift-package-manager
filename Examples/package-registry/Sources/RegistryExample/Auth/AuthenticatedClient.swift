@@ -21,10 +21,13 @@ import Vapor
 /// Only the credentials are carried, not the resolved ``RegisteredClient``.
 /// Verifying a credential proves *which* client is calling; the client's user
 /// and permissions are whatever the ``ClientStore`` says they are at the
-/// moment a handler asks, so resolution is left to the handler — via
-/// ``ClientStore/client(ofType:for:)`` — rather than snapshotted at login. A
-/// revoked or re-scoped client therefore cannot be used by a request that
-/// authenticated before the change.
+/// moment a handler asks, so resolution is left to ``ClientResolver`` rather
+/// than snapshotted at login. A revoked or re-scoped client therefore cannot
+/// be used by a request that authenticated before the change.
+///
+/// This is also what lets many clients share one account: a user's password,
+/// their laptop's certificate, and their CI token are distinct clients that
+/// resolve back to the same ``User``, each free to carry its own permissions.
 ///
 /// The generic parameter keeps each authentication method in its own slot of
 /// Vapor's authentication cache, which is keyed by concrete type: a request

@@ -111,6 +111,34 @@ struct PublishAuthTests {
         }
     }
 
+    @Test func `with auth enabled, either of a user's clients authorizes publishing`() async throws {
+        try await withRegistryApp(authEnabled: true) { app in
+            let registration = try await userRegistrar(for: app)
+                .register(email: "mona@example.com", password: "hunter2")
+            _ = try await ClientRegistrar(
+                store: app.clientStore,
+                tokenGenerator: TokenGenerator { "the-token" }
+            ).registerBearerClient(for: registration.user)
+            let tester = try app.testing()
+
+            try await tester.test(
+                .PUT, "/catalogdev/HelloWorld/1.0.0",
+                headers: basicPublishHeaders(email: "mona@example.com", password: "hunter2"),
+                body: try publishBody()
+            ) { res async in
+                #expect(res.status == .created)
+            }
+
+            try await tester.test(
+                .PUT, "/catalogdev/HelloWorld/2.0.0",
+                headers: bearerPublishHeaders("the-token"),
+                body: try publishBody()
+            ) { res async in
+                #expect(res.status == .created)
+            }
+        }
+    }
+
     @Test func `with auth enabled, invalid credentials are rejected with 401`() async throws {
         try await withRegistryApp(authEnabled: true) { app in
             try await seedPasswordUser(app, email: "mona@example.com", password: "hunter2")

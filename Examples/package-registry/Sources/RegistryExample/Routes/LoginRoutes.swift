@@ -24,34 +24,47 @@ import Vapor
 ///
 /// This registry supports HTTP Basic (`Authorization: Basic <base64
 /// email:password>`) and Bearer (`Authorization: Bearer <token>`).
-/// Verification is performed by ``UserAuthenticator`` acting as an
+/// Verification is performed by ``ClientAuthenticator`` acting as an
 /// `AsyncRequestAuthenticator` middleware on the route group: it logs in an
-/// ``AuthenticatedUser`` when the credentials are valid, or throws
-/// `501 Not Implemented` for an unsupported scheme. The handler then
-/// *requires* that authenticated user, so missing or invalid credentials
-/// surface as `401 Unauthorized`. The same middleware gates publishing, so
-/// the credentials that log in also authorize publishing.
+/// ``AuthenticatedClient`` when the credentials are valid, or throws
+/// `501 Not Implemented` for an unsupported scheme. The handler then resolves
+/// that client back to its account through ``ClientResolver``, so credentials
+/// that never verified — or that name a client no longer registered — surface
+/// as `401 Unauthorized`. The same middleware gates publishing, so the
+/// credentials that log in also authorize publishing.
+///
+/// Because the account is resolved from the client rather than carried by the
+/// credential, every one of a user's clients logs in as that same user: their
+/// password and each of their tokens all report one email.
 ///
 /// Failures reach the client as ``ProblemDetails`` (via
 /// ``ProblemErrorMiddleware``), carrying the `application/problem+json`
 /// body — and, for `401`, the `WWW-Authenticate` header — that the registry
 /// error contract requires.
 public struct LoginRoutes: Sendable {
+    let resolver: ClientResolver
+
     /// Creates a `LoginRoutes` handler.
-    public init() {}
+    ///
+    /// - Parameter resolver: Resolves the calling client's account.
+    public init(resolver: ClientResolver) {
+        self.resolver = resolver
+    }
 
     /// Registers `POST /login` on `router`.
     ///
     /// - Parameter router: A router expected to be gated by
-    ///   ``UserAuthenticator``, so a request reaching ``login(req:)`` with
-    ///   valid credentials already carries an ``AuthenticatedUser``.
+    ///   ``ClientAuthenticator``, so a request reaching ``login(req:)`` with
+    ///   valid credentials already carries an ``AuthenticatedClient``.
     public func register(_ router: any RoutesBuilder) {
         router.post("login", use: login)
     }
 
     @Sendable
     func login(req: Request) async throws -> Response {
-        let user = try req.auth.require(AuthenticatedUser.self)
+        guard let user = await resolver.user(authenticating: req) else {
+            throw ProblemDetails.missingOrInvalidCredentials
+        }
         let data = try JSONEncoder.registry.encode(LoginResponse(email: user.email.value))
         let response = Response(status: .ok, body: .init(data: data))
         response.headers.replaceOrAdd(name: .contentType, value: "application/json")

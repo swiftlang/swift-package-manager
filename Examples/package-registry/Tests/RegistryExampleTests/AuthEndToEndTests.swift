@@ -88,4 +88,28 @@ struct AuthEndToEndTests {
             }
         }
     }
+
+    @Test func `two clients of one user log in as that same user`() async throws {
+        try await withRegistryApp { app in
+            let tester = try app.testing()
+            let registered = try await register(tester, body: #"{"email":"mona@example.com","password":"hunter2"}"#)
+            let mona = User(email: try #require(EmailAddress(registered.email)))
+            _ = try await ClientRegistrar(
+                store: app.clientStore,
+                tokenGenerator: TokenGenerator { "monas-ci-token" }
+            ).registerBearerClient(for: mona)
+
+            for headers in [
+                basicHeaders(email: "mona@example.com", password: "hunter2"),
+                bearerHeaders("monas-ci-token"),
+            ] {
+                try await tester.test(.POST, "/login", headers: headers) { res async in
+                    #expect(res.status == .ok)
+                    let body = res.body.string
+                    let loggedIn = try? JSONDecoder().decode(RegisteredUser.self, from: Data(body.utf8))
+                    #expect(loggedIn?.email == "mona@example.com")
+                }
+            }
+        }
+    }
 }

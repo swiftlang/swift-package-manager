@@ -12,21 +12,27 @@
 
 import Vapor
 
-/// Verifies credentials presented at login against the ``UserStore``.
+/// Verifies presented credentials against the ``ClientStore``.
 ///
 /// Two verification paths mirror the two credential shapes, and each is
-/// strictly typed to its own credential case: a password is only ever
-/// checked against a ``User/Credential/password(hash:)`` and a token only
-/// against a ``User/Credential/token(hash:)``. There is no path by which a
-/// token user authenticates via Basic, or a password is compared to a
+/// strictly typed to its own authentication method: a password is only ever
+/// checked against a ``BasicAuth`` client's bcrypt hash and a token only
+/// against a ``BearerAuth`` client's token hash. There is no path by which a
+/// Bearer client authenticates via Basic, or a password is compared to a
 /// stored token hash.
 ///
+/// What a verified credential establishes is *which client* is calling, so
+/// each path returns that client's credentials rather than an account. The
+/// user behind the client — and, in time, the client's permissions — is
+/// ``ClientResolver``'s to answer, from the store, at the moment a handler
+/// asks.
+///
 /// The Basic path is written to run in constant time with respect to
-/// account existence: an unknown email (or a token-only user) is verified
+/// account existence: an email holding no Basic client is verified
 /// against a fixed decoy hash so a bcrypt computation is always performed,
 /// closing the timing side-channel that would otherwise let an attacker
-/// enumerate registered emails. The account lookup itself is a hash-indexed
-/// dictionary access in ``UserStore`` — not a linear scan that could
+/// enumerate registered emails. The client lookup itself is a hash-indexed
+/// dictionary access in ``ClientStore`` — not a linear scan that could
 /// terminate early on a match — so it contributes no email-dependent timing
 /// of its own; the only credential-dependent work is the bcrypt step, which
 /// the decoy forces to run on every attempt. bcrypt runs on the shared
@@ -51,33 +57,34 @@ public struct ClientAuthenticator: Sendable {
     /// - Parameters:
     ///   - rawEmail: The username component (an email address).
     ///   - password: The password component.
-    /// - Returns: The authenticated user's normalized ``EmailAddress`` if a
-    ///   password user with `rawEmail` exists and `password` verifies against
-    ///   its bcrypt hash; otherwise `nil`.
-    public func authenticate(email rawEmail: String, password: String) async -> EmailAddress? {
+    /// - Returns: The ``BasicAuth/Credentials`` identifying the calling client
+    ///   if a Basic client with `rawEmail` exists and `password` verifies
+    ///   against its bcrypt hash; otherwise `nil`.
+    public func authenticate(email rawEmail: String, password: String) async -> BasicAuth.Credentials? {
         guard !password.isEmpty else { return nil }
         guard let email = EmailAddress(rawEmail) else { return nil }
         let client = await clientStore.client(
-            ofType: BasicAuth.self, 
+            ofType: BasicAuth.self,
             for: BasicAuth.Credentials(email: email)
         )
         let storedHash = client?.auth.passwordHash
         let verified = await passwordVerifier.verify(password, against: storedHash ?? Self.decoyHash)
-        return (storedHash != nil && verified) ? email : nil
+        return verified ? client?.auth.credentials : nil
     }
 
     /// Verifies a Bearer token.
     ///
     /// - Parameter token: The presented bearer token.
-    /// - Returns: The token user's normalized ``EmailAddress`` if a token user
-    ///   whose token hashes to the presented value exists; otherwise `nil`.
-    public func authenticate(token: String) async -> EmailAddress? {
+    /// - Returns: The ``BearerAuth/Credentials`` identifying the calling client
+    ///   if a Bearer client whose token hashes to the presented value exists;
+    ///   otherwise `nil`.
+    public func authenticate(token: String) async -> BearerAuth.Credentials? {
         guard !token.isEmpty, token.count <= Self.maxTokenLength else { return nil }
         let client = await clientStore.client(
-            ofType: BearerAuth.self, 
+            ofType: BearerAuth.self,
             for: BearerAuth.Credentials(tokenHash: TokenHasher.hash(token))
         )
-        return client?.user.email
+        return client?.auth.credentials
     }
 
     /// The longest presented bearer token this registry will even hash.

@@ -31,6 +31,27 @@ func userRegistrar(
     )
 }
 
+/// A request carrying `headers`, run through `app`'s ``ClientAuthenticator``.
+///
+/// The returned request holds whichever ``AuthenticatedClient`` the presented
+/// credentials verified as — and none at all when they fail — which is the
+/// state a route handler or guard sees.
+///
+/// - Parameters:
+///   - app: The application whose client store backs verification.
+///   - headers: The headers to present, typically an `Authorization` header.
+func authenticatedRequest(for app: Application, headers: HTTPHeaders) async throws -> Request {
+    let request = Request(
+        application: app,
+        method: .POST,
+        url: "/login",
+        headers: headers,
+        on: app.eventLoopGroup.next()
+    )
+    try await ClientAuthenticator(clientStore: app.clientStore).authenticate(request: request)
+    return request
+}
+
 func jsonBody(_ raw: String) -> ByteBuffer {
     ByteBuffer(string: raw)
 }

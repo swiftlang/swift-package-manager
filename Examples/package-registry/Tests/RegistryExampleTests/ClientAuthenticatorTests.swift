@@ -45,8 +45,8 @@ struct ClientAuthenticatorTests {
         let auth = try await seededAuthenticator {
             _ = try await $0.register(email: "Mona@Example.com", password: "hunter2")
         }
-        let authenticated = await auth.authenticate(email: "  mona@example.com ", password: "hunter2")
-        #expect(authenticated?.value == "mona@example.com")
+        let credentials = await auth.authenticate(email: "  mona@example.com ", password: "hunter2")
+        #expect(credentials?.email.value == "mona@example.com")
     }
 
     @Test func `wrong password fails`() async throws {
@@ -86,7 +86,7 @@ struct ClientAuthenticatorTests {
         let auth = try await seededAuthenticator {
             _ = try await $0.register(email: "mona@example.com", password: nil)
         }
-        #expect(await auth.authenticate(token: "the-token") != nil)
+        #expect(await auth.authenticate(token: "the-token")?.tokenHash == TokenHasher.hash("the-token"))
     }
 
     @Test func `unknown token fails`() async throws {

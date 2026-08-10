@@ -156,6 +156,17 @@ extension ProblemDetails {
         ProblemDetails(status: .unauthorized, detail: detail)
     }
 
+    /// The uniform `401 Unauthorized` for credentials that are absent,
+    /// invalid, or belong to a client that is no longer registered.
+    ///
+    /// One problem for all three cases so that a rejected caller cannot tell
+    /// them apart, and so cannot use the response to discover which accounts
+    /// or credentials exist.
+    public static let missingOrInvalidCredentials = ProblemDetails(
+        status: .unauthorized,
+        detail: "credentials are missing or invalid"
+    )
+
     /// Builds a `501 Not Implemented` problem, used by the login endpoint
     /// when the presented authentication method is not one the registry
     /// supports.
