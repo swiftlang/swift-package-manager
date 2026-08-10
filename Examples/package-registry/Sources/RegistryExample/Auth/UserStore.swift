@@ -22,7 +22,7 @@ public enum UserStoreError: Error, Equatable, Sendable {
 /// Users are keyed by their normalized ``EmailAddress``, which is the whole
 /// of an account's identity. Credentials are not stored here: they belong to
 /// the ``RegisteredClient``s a user registers, so resolving a presented
-/// password, token, or certificate is the ``ClientStore``'s job.
+/// password or token is the ``ClientStore``'s job.
 ///
 /// Actor isolation serializes reads and writes; ``create(_:)`` is a single
 /// synchronous, suspension-free step that checks for a duplicate before

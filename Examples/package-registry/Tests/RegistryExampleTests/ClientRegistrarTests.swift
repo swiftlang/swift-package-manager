@@ -144,86 +144,14 @@ struct ClientRegistrarTests {
         }
     }
 
-    // MARK: Mutual TLS
-
-    @Test func `registering a mutual TLS client stores it under the certificate's thumbprint`() async throws {
-        let store = ClientStore()
-        let harry = try user("harry@example.com")
-        let client = try await registrar(store).registerMutualTLSClient(
-            for: harry,
-            certificate: try harrysLaptopCertificate.certificate(),
-            rootCertificateAuthority: .none
-        )
-
-        #expect(client.auth.credentials.id == harrysLaptopCertificate.thumbprint)
-        let credentials = MutualTLS.Credentials(
-            rootCertificateAuthority: .none,
-            id: harrysLaptopCertificate.thumbprint
-        )
-        #expect(await store.client(ofType: MutualTLS.self, for: credentials) == client)
-    }
-
-    @Test func `a user can register many mutual TLS clients, one per certificate`() async throws {
-        let store = ClientStore()
-        let harry = try user("harry@example.com")
-        let registrar = registrar(store)
-        let laptop = try await registrar.registerMutualTLSClient(
-            for: harry,
-            certificate: try harrysLaptopCertificate.certificate(),
-            rootCertificateAuthority: .none
-        )
-        let desktop = try await registrar.registerMutualTLSClient(
-            for: harry,
-            certificate: try hermionesLaptopCertificate.certificate(),
-            rootCertificateAuthority: .none
-        )
-
-        #expect(laptop != desktop)
-        #expect(
-            await store.client(
-                ofType: MutualTLS.self,
-                for: MutualTLS.Credentials(rootCertificateAuthority: .none, id: harrysLaptopCertificate.thumbprint)
-            ) == laptop
-        )
-        #expect(
-            await store.client(
-                ofType: MutualTLS.self,
-                for: MutualTLS.Credentials(rootCertificateAuthority: .none, id: hermionesLaptopCertificate.thumbprint)
-            ) == desktop
-        )
-    }
-
-    @Test func `an already-registered certificate is rejected`() async throws {
-        let store = ClientStore()
-        let registrar = registrar(store)
-        _ = try await registrar.registerMutualTLSClient(
-            for: try user("harry@example.com"),
-            certificate: try harrysLaptopCertificate.certificate(),
-            rootCertificateAuthority: .none
-        )
-
-        await #expect(throws: ClientRegistrationError.certificateAlreadyRegistered) {
-            _ = try await registrar.registerMutualTLSClient(
-                for: try user("hermione@example.com"),
-                certificate: try harrysLaptopCertificate.certificate(),
-                rootCertificateAuthority: .none
-            )
-        }
-    }
-
     // MARK: Across methods
 
-    @Test func `one user can hold a Basic, a Bearer, and a mutual TLS client at once`() async throws {
+    @Test func `one user can hold a Basic and a Bearer client at once`() async throws {
         let store = ClientStore()
         let harry = try user("harry@example.com")
         let registrar = registrar(store, mintingTokens: "minted-token")
         let basic = try await registrar.registerBasicClient(for: harry, password: "hunter2")
         let bearer = try await registrar.registerBearerClient(for: harry)
-        let mutualTLS = try await registrar.registerMutualTLSClient(
-            for: harry,
-            certificate: try harrysLaptopCertificate.certificate(),
-            rootCertificateAuthority: .none
-        )
 
         #expect(
             await store.client(ofType: BasicAuth.self, for: BasicAuth.Credentials(email: harry.email)) == basic
@@ -233,12 +161,6 @@ struct ClientRegistrarTests {
                 ofType: BearerAuth.self,
                 for: BearerAuth.Credentials(tokenHash: TokenHasher.hash("minted-token"))
             ) == bearer.client
-        )
-        #expect(
-            await store.client(
-                ofType: MutualTLS.self,
-                for: MutualTLS.Credentials(rootCertificateAuthority: .none, id: harrysLaptopCertificate.thumbprint)
-            ) == mutualTLS
         )
     }
 }

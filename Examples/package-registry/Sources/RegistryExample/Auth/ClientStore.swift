@@ -14,7 +14,7 @@
 public enum ClientStoreError: Error, Equatable, Sendable {
     /// A client is already registered under the same credentials. What that
     /// means is the authentication method's choice — a second Basic client
-    /// for one email, a colliding bearer token, a re-registered certificate.
+    /// for one email, a colliding bearer token.
     case clientAlreadyExists
 }
 

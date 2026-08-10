@@ -25,13 +25,13 @@ import Vapor
 /// than snapshotted at login. A revoked or re-scoped client therefore cannot
 /// be used by a request that authenticated before the change.
 ///
-/// This is also what lets many clients share one account: a user's password,
-/// their laptop's certificate, and their CI token are distinct clients that
-/// resolve back to the same ``User``, each free to carry its own permissions.
+/// This is also what lets many clients share one account: a user's password
+/// and their CI token are distinct clients that resolve back to the same
+/// ``User``, each free to carry its own permissions.
 ///
 /// The generic parameter keeps each authentication method in its own slot of
 /// Vapor's authentication cache, which is keyed by concrete type: a request
-/// carrying an `AuthenticatedClient<MutualTLS>` does not satisfy a
+/// carrying an `AuthenticatedClient<BasicAuth>` does not satisfy a
 /// `require(AuthenticatedClient<SomeOtherMethod>.self)`. A method's
 /// credentials are likewise only ever matched against clients registered
 /// under that same method.

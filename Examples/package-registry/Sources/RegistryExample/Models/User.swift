@@ -16,8 +16,8 @@
 /// name, no profile, no timestamps, and no secrets — a credential belongs to a
 /// ``RegisteredClient``, not to the account it acts for. An account is simply
 /// the name that one or more clients act on behalf of, and keeping it this
-/// thin is what lets a user's password, tokens, and certificates be separate
-/// clients with separate permissions rather than one indivisible identity.
+/// thin is what lets a user's password and tokens be separate clients with
+/// separate permissions rather than one indivisible identity.
 public struct User: Sendable, Equatable {
     /// The account's identity and lookup key.
     public let email: EmailAddress

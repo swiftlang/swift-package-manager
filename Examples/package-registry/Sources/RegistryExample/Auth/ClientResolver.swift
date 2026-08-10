@@ -30,8 +30,8 @@ import Vapor
 ///
 /// The user is deliberately looked up *through* the client rather than carried
 /// by it, because many clients may point back to one account: a developer's
-/// password, their laptop's certificate, and a CI token are separate clients
-/// of the same user, each free to differ in what it is allowed to do.
+/// password and a CI token are separate clients of the same user, each free to
+/// differ in what it is allowed to do.
 public struct ClientResolver: Sendable {
     let store: ClientStore
 

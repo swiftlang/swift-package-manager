@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Vapor
-import X509
 
 /// Errors thrown by ``ClientRegistrar``.
 public enum ClientRegistrationError: Error, Equatable, Sendable {
@@ -21,9 +20,6 @@ public enum ClientRegistrationError: Error, Equatable, Sendable {
     /// account a second username and password, which the registry does not
     /// allow — rotate the existing client's password instead.
     case userAlreadyHasBasicClient
-    /// A client is already registered under this certificate, whether or not
-    /// it belongs to the same user.
-    case certificateAlreadyRegistered
 }
 
 /// The outcome of registering a Bearer client.
@@ -40,19 +36,19 @@ public struct BearerClientRegistration: Sendable, Equatable {
 
 /// Registers new ``RegisteredClient``s for existing users.
 ///
-/// The registrar owns all credential preparation — bcrypt password hashing,
-/// token generation, certificate thumbprinting — so that
-/// ``ClientStore/store(_:)`` stays a synchronous, atomic insert. Password
-/// hashing is offloaded to the shared thread pool so bcrypt's CPU cost never
-/// blocks the event loop serving other requests. Mirrors ``UserRegistrar``.
+/// The registrar owns all credential preparation — bcrypt password hashing and
+/// token generation — so that ``ClientStore/store(_:)`` stays a synchronous,
+/// atomic insert. Password hashing is offloaded to the shared thread pool so
+/// bcrypt's CPU cost never blocks the event loop serving other requests.
+/// Mirrors ``UserRegistrar``.
 ///
 /// How many clients a user may hold is not the registrar's rule to invent:
 /// each authentication method already declares it through what it puts in
-/// its credentials, and the store enforces it. Bearer and mutual TLS key on
-/// a per-token and per-certificate value, so a user can register as many as
-/// they have machines. ``BasicAuth`` keys on the user's email alone, so the
-/// second Basic client for one account collides with the first — the
-/// registrar's only added work there is translating that collision into
+/// its credentials, and the store enforces it. ``BearerAuth`` keys on a
+/// per-token value, so a user can register as many as they have machines.
+/// ``BasicAuth`` keys on the user's email alone, so the second Basic client
+/// for one account collides with the first — the registrar's only added work
+/// there is translating that collision into
 /// ``ClientRegistrationError/userAlreadyHasBasicClient``, which says why it
 /// happened.
 public struct ClientRegistrar: Sendable {
@@ -110,36 +106,6 @@ public struct ClientRegistrar: Sendable {
         let token = tokenGenerator.makeToken()
         let client = try await store(RegisteredClient.bearer(user: user, token: token))
         return BearerClientRegistration(client: client, token: token)
-    }
-
-    /// Registers a mutual TLS client for a certificate.
-    ///
-    /// A user may hold any number of these, one per certificate.
-    ///
-    /// - Parameters:
-    ///   - user: The account the client acts for.
-    ///   - certificate: The client certificate, identified by its thumbprint.
-    ///   - rootCertificateAuthority: The trust anchor the certificate is
-    ///     accepted under.
-    /// - Returns: The registered client.
-    /// - Throws: ``ClientRegistrationError/certificateAlreadyRegistered`` if
-    ///   a client is already registered under this certificate, or an
-    ///   `ASN1Error` if the certificate cannot be thumbprinted.
-    public func registerMutualTLSClient(
-        for user: User,
-        certificate: Certificate,
-        rootCertificateAuthority: RootCertificateAuthority
-    ) async throws -> RegisteredClient<MutualTLS> {
-        let client = try RegisteredClient.mutualTLS(
-            user: user,
-            rootCertificateAuthority: rootCertificateAuthority,
-            certificate: certificate
-        )
-        do {
-            return try await store(client)
-        } catch ClientStoreError.clientAlreadyExists {
-            throw ClientRegistrationError.certificateAlreadyRegistered
-        }
     }
 
     private func store<Auth: AuthenticationMethod>(
