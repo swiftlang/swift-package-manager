@@ -35,8 +35,12 @@ package final class SQLite {
     /// The configuration for the database.
     package let configuration: Configuration
 
-    /// Pointer to the database.
-    let db: OpaquePointer
+    /// Pointer to the database, or `nil` once the database has been closed.
+    private var db: OpaquePointer?
+
+    /// Serializes use of ``db`` against ``close()``, so that the pointer cannot be freed while
+    /// another thread is handing it to SQLite. See rdar://181557882.
+    private let dbLock = NSLock()
 
     /// Create or open the database at the given path.
     ///
@@ -79,24 +83,27 @@ package final class SQLite {
 
     /// Prepare the given query.
     package func prepare(query: String) throws -> PreparedStatement {
-        try PreparedStatement(db: self.db, query: query)
+        try self.withDB { try PreparedStatement(db: $0, query: query) }
     }
 
     /// Directly execute the given query.
     ///
     /// Note: Use withCString for string arguments.
+    /// Note: `callback` is invoked while the database is locked, so it must not call back into
+    /// this database.
     package func exec(query queryString: String, args: [CVarArg] = [], _ callback: SQLiteExecCallback? = nil) throws {
         let query = withVaList(args) { ptr in
             sqlite3_vmprintf(queryString, ptr)
         }
+        defer { sqlite3_free(query) }
 
         let wcb = callback.map { CallbackWrapper($0) }
         let callbackCtx = wcb.map { Unmanaged.passUnretained($0).toOpaque() }
 
         var err: UnsafeMutablePointer<Int8>?
-        try Self.checkError { sqlite3_exec(db, query, sqlite_callback, callbackCtx, &err) }
-
-        sqlite3_free(query)
+        try self.withDB { db in
+            try Self.checkError { sqlite3_exec(db, query, sqlite_callback, callbackCtx, &err) }
+        }
 
         if let err {
             let errorString = String(cString: err)
@@ -105,8 +112,29 @@ package final class SQLite {
         }
     }
 
+    /// Close the database, releasing the underlying connection.
+    ///
+    /// Closing an already closed database is a no-op. Closing fails while prepared statements
+    /// created from this database are still alive, in which case the connection stays usable and
+    /// the close can be retried.
     package func close() throws {
-        try Self.checkError { sqlite3_close(db) }
+        try self.dbLock.withLock {
+            guard let db = self.db else {
+                return
+            }
+            try Self.checkError { sqlite3_close(db) }
+            self.db = nil
+        }
+    }
+
+    /// Run `body` with the database connection, guaranteeing it is not closed for the duration.
+    private func withDB<T>(_ body: (OpaquePointer) throws -> T) throws -> T {
+        try self.dbLock.withLock {
+            guard let db = self.db else {
+                throw StringError("database is closed")
+            }
+            return try body(db)
+        }
     }
 
     package typealias SQLiteExecCallback = ([Column]) -> Void
