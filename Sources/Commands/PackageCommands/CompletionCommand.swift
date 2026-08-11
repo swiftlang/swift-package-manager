@@ -56,6 +56,15 @@ extension SwiftPackageCommand {
         @Argument(help: "Type of completions to list.")
         var mode: Mode
 
+        var inclueAdditionalScratchPathFiles: Bool {
+            switch mode {
+            case .generateBashScript, .generateZshScript, .generateFishScript:
+                false
+            case .listDependencies, .listExecutables, .listSnippets:
+                true
+            }
+        }
+
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             switch mode {
             case .generateBashScript:

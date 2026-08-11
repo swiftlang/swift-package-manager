@@ -96,21 +96,19 @@ struct BuildPrebuilts: AsyncParsableCommand {
         )
 
         let srcDir = stageDir.appending("src")
-        let libDir = stageDir.appending("lib")
-        let modulesDir = stageDir.appending("Modules")
+        let contentDir = stageDir.appending("content")
+        let libDir = contentDir.appending("lib")
+        let modulesDir = contentDir.appending("Modules")
 
         if fileSystem.exists(srcDir) {
             try fileSystem.removeFileTree(srcDir)
         }
         try fileSystem.createDirectory(srcDir, recursive: true)
 
-        if fileSystem.exists(libDir) {
-            try fileSystem.removeFileTree(libDir)
+        if fileSystem.exists(contentDir) {
+            try fileSystem.removeFileTree(contentDir)
         }
-
-        if fileSystem.exists(modulesDir) {
-            try fileSystem.removeFileTree(modulesDir)
-        }
+        try fileSystem.createDirectory(contentDir, recursive: true)
 
         // For now, hardcode what we're building prebuilts for
         let id = "swift-syntax"
@@ -152,7 +150,6 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
             // Build
             let cModules = libraryTargets.compactMap({ $0 as? ClangModule })
-            let lib = "lib\(libraryName).a"
 
             for platform in hostPlatform.supportedPlatforms {
                 try fileSystem.createDirectory(libDir, recursive: true)
@@ -166,39 +163,8 @@ struct BuildPrebuilts: AsyncParsableCommand {
                 // Build
                 if platform.os == .macos {
                     // Create universal binaries for macOS
-                    for arch in ["arm64", "x86_64"] {
-                        let cmd = "swift build -c release -debug-info-format none --arch \(arch) --product \(libraryName)"
-                        try await shell(cmd, cwd: repoDir)
-                    }
-
-                    let armTriple = "arm64-apple-macos"
-                    let armDir = scratchDir.appending("arm64-apple-macosx", "release")
-                    let armModulesDir = armDir.appending("Modules")
-                    let x86Triple = "x86_64-apple-macos"
-                    let x86Dir = scratchDir.appending("x86_64-apple-macosx", "release")
-                    let x86ModulesDir = x86Dir.appending("Modules")
-
-                    // Universal swiftmodules
-                    for swiftmodule in try fileSystem.getDirectoryContents(armModulesDir).filter({ $0.hasSuffix(".swiftmodule") }) {
-                        let moduleDir = modulesDir.appending(swiftmodule)
-                        let projectDir = moduleDir.appending("Project")
-                        try fileSystem.createDirectory(projectDir, recursive: true)
-                        let moduleName = swiftmodule.replacingOccurrences(of: ".swiftmodule", with: "")
-                        try fileSystem.copy(from: armModulesDir.appending(swiftmodule), to: moduleDir.appending(armTriple + ".swiftmodule"))
-                        try fileSystem.copy(from: x86ModulesDir.appending(swiftmodule), to: moduleDir.appending(x86Triple + ".swiftmodule"))
-                        try fileSystem.copy(from: armModulesDir.appending(moduleName + ".abi.json"), to: moduleDir.appending(armTriple + ".abi.json"))
-                        try fileSystem.copy(from: x86ModulesDir.appending(moduleName + ".abi.json"), to: moduleDir.appending(x86Triple + ".abi.json"))
-                        try fileSystem.copy(from: armModulesDir.appending(moduleName + ".swiftdoc"), to: moduleDir.appending(armTriple + ".swiftdoc"))
-                        try fileSystem.copy(from: x86ModulesDir.appending(moduleName + ".swiftdoc"), to: moduleDir.appending(x86Triple + ".swiftdoc"))
-                        try fileSystem.copy(from: armModulesDir.appending(moduleName + ".swiftsourceinfo"), to: projectDir.appending(armTriple + ".swiftsourceinfo"))
-                        try fileSystem.copy(from: x86ModulesDir.appending(moduleName + ".swiftsourceinfo"), to: projectDir.appending(x86Triple + ".swiftsourceinfo"))
-                    }
-
-                    // lipo the archive
-                    let armLib = armDir.appending(lib)
-                    let x86Lib = x86Dir.appending(lib)
-                    let cmd = "lipo -create -output \(lib) \(armLib) \(x86Lib)"
-                    try await shell(cmd, cwd: libDir)
+                    let cmd = "swift build -c release -debug-info-format none --arch arm64 --arch x86_64 --product \(libraryName)"
+                    try await shell(cmd, cwd: repoDir)
                 } else {
                     let archArg: String
                     if let arch = platform.arch {
@@ -208,39 +174,42 @@ struct BuildPrebuilts: AsyncParsableCommand {
                     }
                     let cmd = "swift build -c release \(archArg) -debug-info-format none --product \(libraryName)"
                     try await shell(cmd, cwd: repoDir)
-
-                    let buildDir = scratchDir.appending("release")
-                    let srcModulesDir = buildDir.appending("Modules")
-
-                    // Copy the swiftmodules
-                    for file in try fileSystem.getDirectoryContents(srcModulesDir) {
-                        try fileSystem.copy(from: srcModulesDir.appending(file), to: modulesDir.appending(file))
-                    }
-
-                    // Copy the library to staging
-                    try fileSystem.copy(from: buildDir.appending(lib), to: libDir.appending(lib))
                 }
+
+                let buildDir = scratchDir.appending("release")
+
+                // Copy the swiftmodules
+                for file in try fileSystem.getDirectoryContents(buildDir) where file.hasSuffix(".swiftmodule") {
+                    try fileSystem.copy(from: buildDir.appending(file), to: modulesDir.appending(file))
+                }
+
+                // Copy the library to staging
+                let lib: String
+                if platform.os == .windows {
+                    lib = "\(libraryName).lib"
+                } else {
+                    lib = "lib\(libraryName).a"
+                }
+                try fileSystem.copy(from: buildDir.appending(lib), to: libDir.appending(lib))
 
                 // Name of the prebuilt
                 let prebuiltName = try platform.prebuiltName(hostToolchain: hostToolchain)
 
                 // Zip it up
-                let contentDirs = ["lib", "Modules"]
                 let contents: ByteString
+                let archiver = UniversalArchiver(fileSystem)
+                let archive: AbsolutePath
                 switch platform.os {
-                case .macos:
-                    let zipFile = versionDir.appending("\(prebuiltName)-\(libraryName).zip")
-                    try await shell("zip -r \(zipFile.pathString) \(contentDirs.joined(separator: " "))", cwd: stageDir)
-                    contents = try ByteString(fileSystem.readFileContents(zipFile))
-                case .windows:
-                    let zipFile = versionDir.appending("\(prebuiltName)-\(libraryName).zip")
-                    try await shell("tar -acf \(zipFile.pathString) \(contentDirs.joined(separator: " "))", cwd: stageDir)
-                    contents = try ByteString(fileSystem.readFileContents(zipFile))
+                case .macos, .windows:
+                    archive = versionDir.appending("\(prebuiltName)-\(libraryName).zip")
                 case .linux:
-                    let tarFile = versionDir.appending("\(prebuiltName)-\(libraryName).tar.gz")
-                    try await shell("tar -zcf \(tarFile.pathString) \(contentDirs.joined(separator: " "))", cwd: stageDir)
-                    contents = try ByteString(fileSystem.readFileContents(tarFile))
+                    archive = versionDir.appending("\(prebuiltName)-\(libraryName).tar.gz")
                 }
+                try await archiver.compress(
+                    paths: [libDir, modulesDir].map({ $0.relative(to: contentDir) }),
+                    from: contentDir,
+                    to: archive)
+                contents = try ByteString(fileSystem.readFileContents(archive))
 
                 // Manifest fragment for the zip file
                 let checksum = SHA256().hash(contents).hexadecimalRepresentation
@@ -256,8 +225,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                 try fileSystem.writeFileContents(unsignedJsonFile, data: encoder.encode(manifest))
 
                 // Clean up
-                try fileSystem.removeFileTree(libDir)
-                try fileSystem.removeFileTree(modulesDir)
+                try fileSystem.removeFileTree(contentDir)
             }
 
             try await shell("git restore .", cwd: repoDir)

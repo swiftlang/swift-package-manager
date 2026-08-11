@@ -80,8 +80,11 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
     }
 
     deinit {
-        guard case .disconnected = (try? self.withStateLock { self.state }) else {
-            return self.observabilityScope.emit(warning: "SQLitePackageCollectionsStorage de-initialized but db is not closed")
+        try? self.withStateLock {
+            if case .connected(let db) = self.state {
+                self.observabilityScope.emit(warning: "SQLitePackageCollectionsStorage de-initialized but db is not closed; closing now to release file descriptors")
+                try? db.close()
+            }
         }
     }
 

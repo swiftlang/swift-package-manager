@@ -335,7 +335,7 @@ public final class ClangModuleBuildDescription {
 
         // Only add the build path to the framework search path if there are binary frameworks to link against.
         if !libraryBinaryPaths.isEmpty {
-            args += ["-F", buildParameters.buildPath.pathString]
+            args += ["-F", BuildOperation.buildProductsPath(for: buildParameters).pathString]
         }
 
         args += ["-I", clangTarget.includeDir.pathString]

@@ -11,26 +11,23 @@
 //===----------------------------------------------------------------------===//
 
 package enum WarningControlFlags {
+    package static func containsWarningsAsErrors(_ args: [String]) -> Bool {
+        args.contains("-warnings-as-errors")
+    }
+
     package static func filterSwiftWarningControlFlags(_ args: [String]) -> [String] {
-        var filtered: [String] = []
-        var skipNextArg = false
+        self.filterSwiftWarningControlFlags(args, value: { $0 })
+    }
 
-        for arg in args {
-            if skipNextArg {
-                skipNextArg = false
-                continue
-            }
+    package static func filterSwiftWarningControlFlags<Element>(
+        _ args: [Element],
+        value: (Element) -> String
+    ) -> [Element] {
+        self.splitSwiftWarningControlFlags(args, value: value).other
+    }
 
-            switch arg {
-            case "-warnings-as-errors", "-no-warnings-as-errors":
-                break
-            case "-Wwarning", "-Werror":
-                skipNextArg = true
-            default:
-                filtered.append(arg)
-            }
-        }
-        return filtered
+    package static func extractSwiftWarningControlFlags(_ args: [String]) -> [String] {
+        self.splitSwiftWarningControlFlags(args, value: { $0 }).warningControl
     }
 
     package static func filterClangWarningControlFlags(_ args: [String]) -> [String] {
@@ -44,5 +41,33 @@ package enum WarningControlFlags {
             // -Wno-error=xxxx
             arg.count <= 2 || !arg.starts(with: "-W")
         }
+    }
+
+    package static func splitSwiftWarningControlFlags<Element>(
+        _ args: [Element],
+        value: (Element) -> String
+    ) -> (warningControl: [Element], other: [Element]) {
+        var warningControl: [Element] = []
+        var other: [Element] = []
+        var captureNextArg = false
+
+        for arg in args {
+            if captureNextArg {
+                captureNextArg = false
+                warningControl.append(arg)
+                continue
+            }
+
+            switch value(arg) {
+            case "-warnings-as-errors", "-no-warnings-as-errors":
+                warningControl.append(arg)
+            case "-Wwarning", "-Werror":
+                warningControl.append(arg)
+                captureNextArg = true
+            default:
+                other.append(arg)
+            }
+        }
+        return (warningControl, other)
     }
 }

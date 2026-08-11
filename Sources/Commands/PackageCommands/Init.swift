@@ -52,7 +52,7 @@ extension SwiftPackageCommand {
         @Option(name: .customLong("name"), help: "Provide a custom package name.")
         var packageName: String?
 
-        // This command should support creating the supplied --package-path if it isn't created.
+        // This command supports creating the supplied `--package-path` if it isn't created.
         var createPackagePath = true
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
@@ -63,8 +63,8 @@ extension SwiftPackageCommand {
             let packageName = self.packageName ?? cwd.basename
 
             // Testing is on by default, with XCTest only enabled explicitly.
-            // For macros this is reversed, since we don't support testing
-            // macros with Swift Testing yet.
+            // For macros, this is reversed because testing
+            // macros with Swift Testing isn't supported yet.
             var supportedTestingLibraries = Set<TestingLibrary>()
             if testLibraryOptions.isExplicitlyEnabled(.xctest, swiftCommandState: swiftCommandState) ||
                 (initMode == .macro && testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState)) {

@@ -163,4 +163,68 @@ final class TarArchiverTests: XCTestCase {
             )
         }
     }
+
+    func testCompressMulti() async throws {
+#if !os(Windows)
+        guard SPM_posix_spawn_file_actions_addchdir_np_supported() else {
+            throw XCTSkip("working directory not supported on this platform")
+        }
+#endif
+
+        try await testWithTemporaryDirectory { tmpdir in
+            let archiver = TarArchiver(fileSystem: localFileSystem)
+
+            let rootDir = tmpdir.appending(component: UUID().uuidString)
+            try localFileSystem.createDirectory(rootDir)
+            let file1 = rootDir.appending("file1.txt")
+            try localFileSystem.writeFileContents(file1, string: "Hello World!")
+
+            let dir1 = rootDir.appending("dir1")
+            try localFileSystem.createDirectory(dir1)
+            try localFileSystem.writeFileContents(dir1.appending("file2.txt"), string: "Hello World 2!")
+
+            let dir2 = dir1.appending("dir2")
+            try localFileSystem.createDirectory(dir2)
+            try localFileSystem.writeFileContents(dir2.appending("file3.txt"), string: "Hello World 3!")
+            try localFileSystem.writeFileContents(dir2.appending("file4.txt"), string: "Hello World 4!")
+
+            let archivePath = tmpdir.appending(component: UUID().uuidString + ".tar.gz")
+            try await archiver.compress(
+                paths: [file1, dir1].map({ $0.relative(to: rootDir) }),
+                from: rootDir, to: archivePath
+            )
+            XCTAssertFileExists(archivePath)
+
+            let extractRootDir = tmpdir.appending(component: UUID().uuidString)
+            try localFileSystem.createDirectory(extractRootDir)
+            try await archiver.extract(from: archivePath, to: extractRootDir)
+
+            XCTAssertFileExists(extractRootDir.appending("file1.txt"))
+            XCTAssertEqual(
+                try? localFileSystem.readFileContents(extractRootDir.appending("file1.txt")),
+                "Hello World!"
+            )
+
+            let extractedDir1 = extractRootDir.appending("dir1")
+            XCTAssertDirectoryExists(extractedDir1)
+            XCTAssertFileExists(extractedDir1.appending("file2.txt"))
+            XCTAssertEqual(
+                try? localFileSystem.readFileContents(extractedDir1.appending("file2.txt")),
+                "Hello World 2!"
+            )
+
+            let extractedDir2 = extractedDir1.appending("dir2")
+            XCTAssertDirectoryExists(extractedDir2)
+            XCTAssertFileExists(extractedDir2.appending("file3.txt"))
+            XCTAssertEqual(
+                try? localFileSystem.readFileContents(extractedDir2.appending("file3.txt")),
+                "Hello World 3!"
+            )
+            XCTAssertFileExists(extractedDir2.appending("file4.txt"))
+            XCTAssertEqual(
+                try? localFileSystem.readFileContents(extractedDir2.appending("file4.txt")),
+                "Hello World 4!"
+            )
+        }
+    }
 }

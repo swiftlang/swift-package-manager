@@ -120,7 +120,7 @@ public struct PackageGraphRoot {
             // If not, then we can omit this dependency if pruning unused dependencies
             // is enabled.
             return manifests.values.reduce(false) { result, manifest in
-                let enabledTraits = enabledTraitsMap[manifest.packageIdentity]
+                let enabledTraits = enabledTraitsMap[manifest]
                 if let isUsed = try? manifest.isPackageDependencyUsed(dep, enabledTraits: enabledTraits) {
                     return result || isUsed
                 }
@@ -133,7 +133,7 @@ public struct PackageGraphRoot {
             // FIXME: `dependenciesRequired` modifies manifests and prevents conversion of `Manifest` to a value type
             let deps = try? manifests.values.lazy
                 .map({ manifest -> [PackageDependency] in
-                    let enabledTraits = enabledTraitsMap[manifest.packageIdentity]
+                    let enabledTraits = enabledTraitsMap[manifest]
                     return try manifest.dependenciesRequired(for: .everything, enabledTraits)
                 })
                 .flatMap({ $0 })

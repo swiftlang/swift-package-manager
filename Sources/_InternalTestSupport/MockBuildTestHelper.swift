@@ -82,7 +82,7 @@ extension Basics.Triple {
 
 public let hostTriple = try! UserToolchain.default.targetTriple
 #if os(macOS)
-public let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "10.13")
+public let defaultTargetTriple: String = hostTriple.tripleString(forPlatformVersion: "12.0")
 #else
 public let defaultTargetTriple: String = hostTriple.tripleString
 #endif
@@ -110,6 +110,7 @@ public func mockBuildParameters(
     prepareForIndexing: BuildParameters.PrepareForIndexingMode = .off,
     sanitizers: [Sanitizer] = [],
     numberOfWorkers: UInt32 = 3,
+    stripProducts: Bool? = nil,
 ) -> BuildParameters {
     try! BuildParameters(
         destination: destination,
@@ -142,6 +143,7 @@ public func mockBuildParameters(
             shouldDisableLocalRpath: shouldDisableLocalRpath,
             shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib
         ),
+        stripProducts: stripProducts,
     )
 }
 

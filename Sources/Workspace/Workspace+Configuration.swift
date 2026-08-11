@@ -637,7 +637,9 @@ extension Workspace.Configuration {
             }
 
             let encoder = JSONEncoder.makeWithDefaults()
-            let mirrors = MirrorsStorage(version: 1, object: mirrors.map { .init(original: $0, mirror: $1) })
+            // Sort mirrors by original URL to ensure deterministic output
+            let sortedMirrors = mirrors.sorted { $0.key < $1.key }
+            let mirrors = MirrorsStorage(version: 1, object: sortedMirrors.map { .init(original: $0.key, mirror: $0.value) })
             let data = try encoder.encode(mirrors)
             if !fileSystem.exists(path.parentDirectory) {
                 try fileSystem.createDirectory(path.parentDirectory, recursive: true)
@@ -818,7 +820,7 @@ public struct WorkspaceConfiguration {
     public var skipSignatureValidation: Bool
 
     ///  Attempt to transform source control based dependencies to registry ones
-    public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation
+    public var sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation?
 
     /// URL of the implicitly configured, default registry
     public var defaultRegistry: Registry?
@@ -857,7 +859,7 @@ public struct WorkspaceConfiguration {
         fingerprintCheckingMode: CheckingMode,
         signingEntityCheckingMode: CheckingMode,
         skipSignatureValidation: Bool,
-        sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation,
+        sourceControlToRegistryDependencyTransformation: SourceControlToRegistryDependencyTransformation?,
         defaultRegistry: Registry?,
         manifestImportRestrictions: (startingToolsVersion: ToolsVersion, allowedImports: [String])?,
         usePrebuilts: Bool,
@@ -897,7 +899,7 @@ public struct WorkspaceConfiguration {
             fingerprintCheckingMode: .strict,
             signingEntityCheckingMode: .warn,
             skipSignatureValidation: false,
-            sourceControlToRegistryDependencyTransformation: .disabled,
+            sourceControlToRegistryDependencyTransformation: nil,
             defaultRegistry: .none,
             manifestImportRestrictions: .none,
             usePrebuilts: false,
@@ -912,6 +914,8 @@ public struct WorkspaceConfiguration {
         case disabled
         case identity
         case swizzle
+
+        public static var `default`: Self { .disabled }
     }
 
     public enum CheckingMode: String {

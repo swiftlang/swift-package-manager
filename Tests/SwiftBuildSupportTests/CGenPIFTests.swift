@@ -139,30 +139,22 @@ import SwiftBuild
                 fileSystem: any Basics.FileSystem,
                 observabilityScope: Basics.ObservabilityScope,
                 callbackQueue: DispatchQueue,
-                delegate: any SPMBuildCore.PluginScriptCompilerDelegate & SPMBuildCore.PluginScriptRunnerDelegate,
-                completion: @escaping (Result<Int32, any Error>) -> Void)
-            {
-                callbackQueue.sync {
-                    do {
-                        let decoder = JSONDecoder.makeWithDefaults()
-                        let encoder = JSONEncoder(outputFormatting: .prettyPrinted)
+                delegate: any SPMBuildCore.PluginScriptCompilerDelegate & SPMBuildCore.PluginScriptRunnerDelegate
+            ) async throws -> Int32 {
+                let decoder = JSONDecoder.makeWithDefaults()
+                let encoder = JSONEncoder(outputFormatting: .prettyPrinted)
 
-                        let initial = try decoder.decode(HostToPluginMessage.self, from: initialMessage)
-                        guard case let .createBuildToolCommands(context: context, rootPackageId: _, targetId: _, pluginGeneratedSources: _, pluginGeneratedResources: _) = initial else {
-                            completion(.failure(StringError("Invalid initial message")))
-                            return
-                        }
-                        let workDir = try context.url(for: context.pluginWorkDirId)
-
-                        for message in genMessages(sourceFiles, workDir) {
-                            let data = try encoder.encode(message)
-                            try delegate.handleMessage(data: data, responder: { _ in })
-                        }
-                        completion(.success(0))
-                    } catch {
-                        completion(.failure(error))
-                    }
+                let initial = try decoder.decode(HostToPluginMessage.self, from: initialMessage)
+                guard case let .createBuildToolCommands(context: context, rootPackageId: _, targetId: _, pluginGeneratedSources: _, pluginGeneratedResources: _) = initial else {
+                    throw StringError("Invalid initial message")
                 }
+                let workDir = try context.url(for: context.pluginWorkDirId)
+
+                for message in genMessages(sourceFiles, workDir) {
+                    let data = try encoder.encode(message)
+                    _ = try await delegate.handleMessage(data: data)
+                }
+                return 0
             }
 
             var hostTriple: Triple {
@@ -193,7 +185,7 @@ import SwiftBuild
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
                 temporaryDirectory: AbsolutePath.root,
-                addLocalRpaths: true,
+                addLocalRpaths: .always,
                 pluginScriptRunner: pluginScriptRunner
             ),
             fileSystem: fs,
@@ -204,15 +196,13 @@ import SwiftBuild
             buildParameters: mockBuildParameters(
                 destination: .host,
                 buildSystemKind: .swiftbuild,
-            ),
-            hostBuildParameters: mockBuildParameters(
-                destination: .host,
-                buildSystemKind: .swiftbuild,
             )
         ).0
     }
 
-    /// This is more to test out that the setup routines provide a good test environment
+    /// This is more to test out that the setup routines provide a good test environment.
+    /// The `data.in` file in the module directory is not listed as an input by the mock plugin,
+    /// so it is correctly flagged as an unhandled file.
     @Test func testSwift() async throws {
         let observability = ObservabilitySystem.makeForTesting()
         _ = try await setup(
@@ -220,7 +210,14 @@ import SwiftBuild
             gened: ["Gened.swift"],
             observability: observability.topScope
         )
-        #expect(!observability.hasErrorDiagnostics && !observability.hasWarningDiagnostics)
+        #expect(!observability.hasErrorDiagnostics)
+
+        // Check unused file warning.
+        let warnings = observability.warnings
+        #expect(warnings.count == 1)
+        let warning = try #require(warnings.first)
+        let dataInPath: AbsolutePath = "/MyPkg/Sources/MyModule/data.in"
+        #expect(warning.message == Diagnostic.unhandledFiles([dataInPath]).message)
     }
 
     @Test func testSuccessPath() async throws {

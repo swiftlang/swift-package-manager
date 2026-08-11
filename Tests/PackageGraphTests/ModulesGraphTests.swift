@@ -3248,12 +3248,12 @@ struct ModulesGraphTests {
 
         let defaultDerivedPlatforms = [
             "linux": "0.0",
-            "macos": "10.13",
-            "maccatalyst": "13.0",
-            "ios": "12.0",
-            "tvos": "12.0",
-            "driverkit": "19.0",
-            "watchos": "4.0",
+            "macos": "12.0",
+            "maccatalyst": "15.0",
+            "ios": "15.0",
+            "tvos": "15.0",
+            "driverkit": "21.0",
+            "watchos": "9.0",
             "visionos": "1.0",
             "android": "0.0",
             "windows": "0.0",
@@ -3262,10 +3262,10 @@ struct ModulesGraphTests {
         ]
 
         let customXCTestMinimumDeploymentTargets = [
-            PackageModel.Platform.macOS: PlatformVersion("10.15"),
-            PackageModel.Platform.iOS: PlatformVersion("12.0"),
-            PackageModel.Platform.tvOS: PlatformVersion("12.0"),
-            PackageModel.Platform.watchOS: PlatformVersion("4.0"),
+            PackageModel.Platform.macOS: PlatformVersion("14.0"),
+            PackageModel.Platform.iOS: PlatformVersion("15.0"),
+            PackageModel.Platform.tvOS: PlatformVersion("15.0"),
+            PackageModel.Platform.watchOS: PlatformVersion("9.0"),
             PackageModel.Platform.visionOS: PlatformVersion("1.0"),
         ]
 
@@ -3283,7 +3283,7 @@ struct ModulesGraphTests {
             let manifest = try Manifest.createRootManifest(
                 displayName: "pkg",
                 platforms: [
-                    PlatformDescription(name: "macos", version: "10.14", options: ["option1"]),
+                    PlatformDescription(name: "macos", version: "13.0", options: ["option1"]),
                 ],
                 products: [
                     ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
@@ -3318,7 +3318,7 @@ struct ModulesGraphTests {
 
             try PackageGraphTester(graph) { result in
                 let expectedDeclaredPlatforms = [
-                    "macos": "10.14",
+                    "macos": "13.0",
                 ]
 
                 // default platforms will be auto-added during package build
@@ -3389,8 +3389,8 @@ struct ModulesGraphTests {
             let manifest = try Manifest.createRootManifest(
                 displayName: "pkg",
                 platforms: [
-                    PlatformDescription(name: "macos", version: "10.14"),
-                    PlatformDescription(name: "tvos", version: "12.0"),
+                    PlatformDescription(name: "macos", version: "13.0"),
+                    PlatformDescription(name: "tvos", version: "16.0"),
                 ],
                 products: [
                     ProductDescription(name: "foo", type: .library(.automatic), targets: ["foo"]),
@@ -3414,8 +3414,8 @@ struct ModulesGraphTests {
 
             try PackageGraphTester(graph) { result in
                 let expectedDeclaredPlatforms = [
-                    "macos": "10.14",
-                    "tvos": "12.0",
+                    "macos": "13.0",
+                    "tvos": "16.0",
                 ]
 
                 // default platforms will be auto-added during package build
@@ -3520,12 +3520,12 @@ struct ModulesGraphTests {
 
         let defaultDerivedPlatforms = [
             "linux": "0.0",
-            "macos": "10.13",
-            "maccatalyst": "13.0",
-            "ios": "12.0",
-            "tvos": "12.0",
-            "driverkit": "19.0",
-            "watchos": "4.0",
+            "macos": "12.0",
+            "maccatalyst": "15.0",
+            "ios": "15.0",
+            "tvos": "15.0",
+            "driverkit": "21.0",
+            "watchos": "9.0",
             "visionos": "1.0",
             "android": "0.0",
             "windows": "0.0",

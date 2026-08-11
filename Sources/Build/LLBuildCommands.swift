@@ -121,7 +121,7 @@ final class TestDiscoveryCommand: CustomLLBuildCommand, TestBuildCommand {
             return
         }
 
-        let index = self.context.productsBuildParameters.indexStore
+        let index = BuildOperation.indexStore(for: self.context.productsBuildParameters)
         let api = try self.context.indexStoreAPI.get()
         let store = try IndexStore.open(store: TSCAbsolutePath(index), api: api)
 

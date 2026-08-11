@@ -31,7 +31,6 @@ import enum TSCUtility.Git
 )
 struct DependencyResolutionTests {
     @Test(
-        .IssueWindowsLongPath,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Build,
@@ -42,7 +41,6 @@ struct DependencyResolutionTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 try await executeSwiftBuild(
                     fixturePath,
@@ -50,14 +48,15 @@ struct DependencyResolutionTests {
                     buildSystem: buildSystem,
                 )
 
-                let binPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration))
+                let binPath = try await getBinPath(
+                    fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 let executablePath = binPath.appending(components: "Foo")
                 let output = try await AsyncProcess.checkNonZeroExit(args: executablePath.pathString).withSwiftLineEnding
                 #expect(output == "Foo\nBar\n")
             }
-        } when: {
-            (ProcessInfo.hostOperatingSystem  == .windows && buildSystem == .swiftbuild)
-        }
     }
 
     @Test(
@@ -84,7 +83,6 @@ struct DependencyResolutionTests {
     }
 
     @Test(
-        .IssueWindowsLongPath,
         .IssueProductTypeForObjectLibraries,
         .tags(
             Tag.Feature.Command.Build,
@@ -95,7 +93,6 @@ struct DependencyResolutionTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "DependencyResolution/Internal/Complex") { fixturePath in
                 try await executeSwiftBuild(
                     fixturePath,
@@ -103,15 +100,16 @@ struct DependencyResolutionTests {
                     buildSystem: buildSystem,
                 )
 
-                let binPath = try fixturePath.appending(components: buildSystem.binPath(for: configuration))
+                let binPath = try await getBinPath(
+                    fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 let executablePath = binPath.appending(components: "Foo")
                 let output = try await AsyncProcess.checkNonZeroExit(args: executablePath.pathString)
                     .withSwiftLineEnding
                 #expect(output == "meiow Baz\n")
             }
-        } when: {
-            (ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild)
-        }
     }
 
     /// Check resolution of a trivial package with one dependency.
@@ -140,7 +138,11 @@ struct DependencyResolutionTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                let binPath = try packageRoot.appending(components: buildSystem.binPath(for: configuration))
+                let binPath = try await getBinPath(
+                    packageRoot,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 let executablePath = binPath.appending(components: executableName("Bar"))
                 #expect(
                     localFileSystem.exists(executablePath),
@@ -155,7 +157,6 @@ struct DependencyResolutionTests {
     }
 
     @Test(
-        .IssueWindowsLongPath,
         .IssueLdFailsUnexpectedly,
         .issue("rdar://162339964", relationship: .defect),
         .tags(
@@ -168,9 +169,7 @@ struct DependencyResolutionTests {
     ) async throws {
         let configuration = BuildConfiguration.debug
         try await withKnownIssue(
-            isIntermittent: ProcessInfo.hostOperatingSystem == .windows
-            // rdar://162339964
-            || (ProcessInfo.isHostAmazonLinux2() && buildSystem == .swiftbuild)
+            isIntermittent: true,
         ) {
             try await fixture(name: "DependencyResolution/External/Complex", createGitRepo: true) { fixturePath in
                 let packageRoot = fixturePath.appending("app")
@@ -179,7 +178,11 @@ struct DependencyResolutionTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                let binPath = try packageRoot.appending(components: buildSystem.binPath(for: configuration))
+                let binPath = try await getBinPath(
+                    packageRoot,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 let executablePath = binPath.appending(components: "Dealer")
                 expectFileExists(at: executablePath)
                 let output = try await AsyncProcess.checkNonZeroExit(args: executablePath.pathString)
@@ -187,8 +190,7 @@ struct DependencyResolutionTests {
                 #expect(output == "♣︎K\n♣︎Q\n♣︎J\n♣︎10\n♣︎9\n♣︎8\n♣︎7\n♣︎6\n♣︎5\n♣︎4\n")
             }
         } when: {
-            ProcessInfo.hostOperatingSystem == .windows // due to long path issues
-            || (ProcessInfo.isHostAmazonLinux2() && buildSystem == .swiftbuild) // Linker ld throws an unexpected error.
+            ProcessInfo.isHostAmazonLinux2() && buildSystem == .swiftbuild // Linker ld throws an unexpected error.
         }
     }
 
@@ -288,9 +290,9 @@ struct DependencyResolutionTests {
                     extraArgs: [
                         "config",
                         "set-mirror",
-                        "--original-url",
+                        "--original",
                         prefix.appending("Bar").pathString,
-                        "--mirror-url",
+                        "--mirror",
                         prefix.appending("BarMirror").pathString,
                     ],
                     buildSystem: buildSystem,

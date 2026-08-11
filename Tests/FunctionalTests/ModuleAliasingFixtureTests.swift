@@ -40,7 +40,6 @@ struct ModuleAliasingFixtureTests {
         let configuration = BuildConfiguration.debug
             try await fixture(name: "ModuleAliasing/DirectDeps1") { fixturePath in
                 let pkgPath = fixturePath.appending(components: "AppPkg")
-                let buildPath = try pkgPath.appending(components: buildSystem.binPath(for: configuration))
                 let expectedModules = [
                     "GameUtils.swiftmodule",
                     "Utils.swiftmodule",
@@ -52,6 +51,11 @@ struct ModuleAliasingFixtureTests {
                     buildSystem: buildSystem,
                 )
 
+                let buildPath = try await getBinPath(
+                    pkgPath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 expectFileExists(at: buildPath.appending(components: executableName("App")))
                 for file in expectedModules {
                     switch buildSystem {
@@ -73,7 +77,6 @@ struct ModuleAliasingFixtureTests {
 
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/pull/9130", relationship: .fixedBy),
-        .IssueWindowsLongPath,
         .IssueWindowsCannotSaveAttachment,
         .tags(
             Tag.Feature.Command.Build,
@@ -84,10 +87,8 @@ struct ModuleAliasingFixtureTests {
         buildSystem: BuildSystemProvider.Kind
     ) async throws {
         let configuration = BuildConfiguration.debug
-        try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "ModuleAliasing/DirectDeps2") { fixturePath in
                 let pkgPath = fixturePath.appending(components: "AppPkg")
-                let buildPath = try pkgPath.appending(components: buildSystem.binPath(for: configuration))
                 let expectedModules = [
                     "AUtils.swiftmodule",
                     "BUtils.swiftmodule",
@@ -96,6 +97,11 @@ struct ModuleAliasingFixtureTests {
                     pkgPath,
                     configuration: configuration,
                     extraArgs: ["--vv"],
+                    buildSystem: buildSystem,
+                )
+                let buildPath = try await getBinPath(
+                    pkgPath,
+                    configuration: configuration,
                     buildSystem: buildSystem,
                 )
                 expectFileExists(at: buildPath.appending(components: executableName("App")))
@@ -115,9 +121,6 @@ struct ModuleAliasingFixtureTests {
                     buildSystem: buildSystem,
                 )
             }
-        } when: {
-            ProcessInfo.hostOperatingSystem == .windows && buildSystem == .swiftbuild
-        }
     }
 
     @Test(
@@ -133,7 +136,6 @@ struct ModuleAliasingFixtureTests {
         let configuration = BuildConfiguration.debug
         try await fixture(name: "ModuleAliasing/NestedDeps1") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
-            let buildPath = try pkgPath.appending(components: buildSystem.binPath(for: configuration))
             let expectedModules = [
                 "A.swiftmodule",
                 "AFooUtils.swiftmodule",
@@ -146,6 +148,11 @@ struct ModuleAliasingFixtureTests {
                 pkgPath,
                 configuration: configuration,
                 extraArgs: ["--vv"],
+                buildSystem: buildSystem,
+            )
+            let buildPath = try await getBinPath(
+                pkgPath,
+                configuration: configuration,
                 buildSystem: buildSystem,
             )
             expectFileExists(at: buildPath.appending(components: executableName("App")))
@@ -170,7 +177,6 @@ struct ModuleAliasingFixtureTests {
 
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/pull/9130", relationship: .fixedBy),
-        .IssueWindowsLongPath,
         .IssueWindowsCannotSaveAttachment,
         .tags(
             Tag.Feature.Command.Build,
@@ -183,11 +189,15 @@ struct ModuleAliasingFixtureTests {
         let configuration = BuildConfiguration.debug
         try await fixture(name: "ModuleAliasing/NestedDeps2") { fixturePath in
             let pkgPath = fixturePath.appending(components: "AppPkg")
-            let buildPath = try pkgPath.appending(components: buildSystem.binPath(for: configuration))
             try await executeSwiftBuild(
                 pkgPath,
                 configuration: configuration,
                 extraArgs: ["--vv"],
+                buildSystem: buildSystem,
+            )
+            let buildPath = try await getBinPath(
+                pkgPath,
+                configuration: configuration,
                 buildSystem: buildSystem,
             )
             let expectedModules = [

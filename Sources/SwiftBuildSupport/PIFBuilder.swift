@@ -21,6 +21,8 @@ import TSCUtility
 import SPMBuildCore
 
 import func TSCBasic.topologicalSort
+import func TSCBasic.transitiveClosure
+import struct TSCBasic.OrderedSet
 import var TSCBasic.stdoutStream
 
 import enum SwiftBuild.ProjectModel
@@ -81,9 +83,17 @@ package struct PIFBuilderParameters {
     /// Add rpaths which allow loading libraries adjacent to the current image at runtime. This is desirable
     /// when launching build products from the build directory, but should often be disabled when deploying
     /// the build products to a different location.
-    let addLocalRpaths: Bool
+    let addLocalRpaths: PackagePIFBuilder.AddLocalRpaths
 
-    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRPaths: Bool) {
+    /// The directory in which host-destination build products (e.g. plugin tools) are placed, as
+    /// reported by the build system for the host `BuildParameters`.
+    let hostBuildProductsPath: AbsolutePath
+
+    /// Whether to preserve symbolic links in source file paths instead of resolving them to their
+    /// real path.
+    let shouldPreserveSymlinks: Bool
+
+    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRpaths: PackagePIFBuilder.AddLocalRpaths, hostBuildProductsPath: AbsolutePath, shouldPreserveSymlinks: Bool) {
         self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
         self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
@@ -96,7 +106,9 @@ package struct PIFBuilderParameters {
         self.disableSandbox = disableSandbox
         self.pluginWorkingDirectory = pluginWorkingDirectory
         self.additionalFileRules = additionalFileRules
-        self.addLocalRpaths = addLocalRPaths
+        self.addLocalRpaths = addLocalRpaths
+        self.hostBuildProductsPath = hostBuildProductsPath
+        self.shouldPreserveSymlinks = shouldPreserveSymlinks
     }
 }
 
@@ -156,8 +168,7 @@ public final class PIFBuilder {
         prettyPrint: Bool = true,
         preservePIFModelStructure: Bool = false,
         printPIFManifestGraphviz: Bool = false,
-        buildParameters: BuildParameters,
-        hostBuildParameters: BuildParameters
+        buildParameters: BuildParameters
     ) async throws -> PIFGenerationResult {
         let encoder = prettyPrint ? JSONEncoder.makeWithDefaults() : JSONEncoder()
 
@@ -165,7 +176,7 @@ public final class PIFBuilder {
             encoder.userInfo[.encodeForSwiftBuild] = true
         }
 
-        let (topLevelObject, modulesAndProducts) = try await self.constructPIF(buildParameters: buildParameters, hostBuildParameters: hostBuildParameters)
+        let (topLevelObject, modulesAndProducts) = try await self.constructPIF(buildParameters: buildParameters)
 
         // Sign the PIF objects before encoding it for Swift Build.
         try PIF.sign(workspace: topLevelObject.workspace)
@@ -192,10 +203,23 @@ public final class PIFBuilder {
     private func availableBuildPluginTools(
         graph: ModulesGraph,
         buildParameters: BuildParameters,
-        hostBuildParameters: BuildParameters,
         pluginsPerModule: [ResolvedModule.ID: [ResolvedModule]],
         hostTriple: Basics.Triple
     ) async throws -> [ResolvedModule.ID: [String: PluginTool]] {
+        // SwiftBuild names executable binaries after their product name (TARGET_NAME = product.name),
+        // not the underlying target name. Build a map from target name → product name for cases where
+        // they differ, so we can resolve the correct binary path for both .product and .module
+        // plugin tool dependencies.
+        var targetNameToProductName: [String: String] = [:]
+        for package in graph.packages {
+            for product in package.products where product.type == .executable {
+                if let executableModule = product.modules.first(where: { $0.type == .executable }),
+                   executableModule.name != product.name {
+                    targetNameToProductName[executableModule.name] = product.name
+                }
+            }
+        }
+
         var accessibleToolsPerPlugin: [ResolvedModule.ID: [String: PluginTool]] = [:]
 
         for (_, plugins) in pluginsPerModule {
@@ -207,7 +231,14 @@ public final class PIFBuilder {
                     environment: buildParameters.buildEnvironment,
                     for: hostTriple
                 ) { name, path in
-                    return hostBuildParameters.buildPath.appending(path)
+                    // `name` is the product name (for .product dependencies) or target name (for
+                    // .module dependencies). `path` is always derived from the underlying target name.
+                    // SwiftBuild produces the binary at the product name, so use targetNameToProductName
+                    // to find the correct name when a target is wrapped in a differently-named product.
+                    let binaryName = targetNameToProductName[name] ?? name
+                    return self.parameters.hostBuildProductsPath.appending(
+                        try RelativePath(validating: binaryName + hostTriple.executableExtension)
+                    )
                 }
 
                 accessibleToolsPerPlugin[plugin.id] = accessibleTools
@@ -220,11 +251,14 @@ public final class PIFBuilder {
     /// Constructs all `PackagePIFBuilder` objects used by the `constructPIF` function.
     /// In particular, this is useful for unit testing the complex `PIFBuilder` class.
     func makePIFBuilders(
-        buildParameters: BuildParameters,
-        hostBuildParameters: BuildParameters
+        buildParameters: BuildParameters
     ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] {
         let pluginScriptRunner = self.parameters.pluginScriptRunner
         let outputDir = self.parameters.pluginWorkingDirectory.appending("outputs")
+        let warningControlFlags = WarningControlFlags.extractSwiftWarningControlFlags(
+            buildParameters.flags.swiftCompilerFlags.map(\.value)
+        )
+        let treatWarningsAsErrors = WarningControlFlags.containsWarningsAsErrors(warningControlFlags)
 
         let pluginsPerModule = graph.pluginsPerModule(
             satisfying: buildParameters.buildEnvironment // .buildEnvironment(for: .host)
@@ -233,7 +267,6 @@ public final class PIFBuilder {
         let availablePluginTools = try await availableBuildPluginTools(
             graph: graph,
             buildParameters: buildParameters,
-            hostBuildParameters: hostBuildParameters,
             pluginsPerModule: pluginsPerModule,
             hostTriple: try pluginScriptRunner.hostTriple
         )
@@ -412,6 +445,15 @@ public final class PIFBuilder {
                     observabilityScope: observabilityScope
                 )
 
+                if graph.rootPackages.contains(id: package.id) {
+                    self.diagnoseUnhandledFiles(
+                        package: package,
+                        module: module,
+                        buildToolPluginInvocationResults: buildToolPluginResults,
+                        treatWarningsAsErrors: treatWarningsAsErrors
+                    )
+                }
+
                 let result = PackagePIFBuilder.BuildToolPluginInvocationResult(
                     prebuildCommandOutputPaths: runResults.flatMap( { $0.derivedFiles }),
                     buildCommands: buildCommands
@@ -456,11 +498,13 @@ public final class PIFBuilder {
                 materializeStaticArchiveProductsForRootPackages: self.parameters.materializeStaticArchiveProductsForRootPackages,
                 createDynamicVariantsForLibraryProducts: self.parameters.createDynamicVariantsForLibraryProducts,
                 addLocalRpaths: self.parameters.addLocalRpaths,
+                shouldPreserveSymlinks: self.parameters.shouldPreserveSymlinks,
                 packageDisplayVersion: package.manifest.displayName,
                 pkgConfigDirectories: self.parameters.pkgConfigDirectories,
                 hostBuildEnvironment: hostBuildEnvironment,
+                warningControlFlags: warningControlFlags,
                 fileSystem: self.fileSystem,
-                observabilityScope: self.observabilityScope
+                observabilityScope: self.observabilityScope,
             )
 
             packagesAndBuilders.append((package, packagePIFBuilder, packagePIFBuilderDelegate))
@@ -471,8 +515,7 @@ public final class PIFBuilder {
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
     package func constructPIF(
-        buildParameters: BuildParameters,
-        hostBuildParameters: BuildParameters
+        buildParameters: BuildParameters
     ) async throws -> (PIF.TopLevelObject, [PackagePIFBuilder.ModuleOrProduct]) {
         return try await memoize(to: &self.cachedPIF) {
             let rootPackages = self.graph.rootPackages
@@ -480,7 +523,7 @@ public final class PIFBuilder {
                 throw PIFGenerationError.rootPackageNotFound
             }
 
-            let packagesAndPIFBuilders = try await makePIFBuilders(buildParameters: buildParameters, hostBuildParameters: hostBuildParameters)
+            let packagesAndPIFBuilders = try await makePIFBuilders(buildParameters: buildParameters)
 
             var modulesAndProducts: [PackagePIFBuilder.ModuleOrProduct] = []
             let packagesAndPIFProjects = try packagesAndPIFBuilders.map { (package, pifBuilder, _) in
@@ -573,7 +616,6 @@ public final class PIFBuilder {
     // Convenience method for generating PIF.
     public static func generatePIF(
         buildParameters: BuildParameters,
-        hostBuildParameters: BuildParameters,
         packageGraph: ModulesGraph,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -583,9 +625,10 @@ public final class PIFBuilder {
         pluginWorkingDirectory: AbsolutePath,
         pkgConfigDirectories: [Basics.AbsolutePath],
         additionalFileRules: [FileRuleDescription],
-        addLocalRpaths: Bool,
+        addLocalRpaths: PackagePIFBuilder.AddLocalRpaths,
         materializeStaticArchiveProductsForRootPackages: Bool,
-        createDynamicVariantsForLibraryProducts: Bool
+        createDynamicVariantsForLibraryProducts: Bool,
+        hostBuildProductsPath: AbsolutePath
     ) async throws -> PIFGenerationResult {
         let parameters = PIFBuilderParameters(
             buildParameters,
@@ -596,8 +639,8 @@ public final class PIFBuilder {
             additionalFileRules: additionalFileRules,
             addLocalRpaths: addLocalRpaths,
             materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
-            createDynamicVariantsForLibraryProducts: createDynamicVariantsForLibraryProducts
-
+            createDynamicVariantsForLibraryProducts: createDynamicVariantsForLibraryProducts,
+            hostBuildProductsPath: hostBuildProductsPath
         )
         let builder = Self(
             graph: packageGraph,
@@ -605,7 +648,41 @@ public final class PIFBuilder {
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
-        return try await builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure, buildParameters: buildParameters, hostBuildParameters: hostBuildParameters)
+        return try await builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure, buildParameters: buildParameters)
+    }
+
+    private func diagnoseUnhandledFiles(
+        package: ResolvedPackage,
+        module: ResolvedModule,
+        buildToolPluginInvocationResults: [BuildToolPluginInvocationResult],
+        treatWarningsAsErrors: Bool
+    ) {
+        guard package.manifest.toolsVersion >= .v5_3 else {
+            return
+        }
+
+        var unhandledFiles = Set(module.underlying.others)
+        if unhandledFiles.isEmpty {
+            return
+        }
+
+        let handledFiles = buildToolPluginInvocationResults.flatMap { $0.buildCommands.flatMap(\.inputFiles) }
+        unhandledFiles.subtract(handledFiles)
+
+        if unhandledFiles.isEmpty {
+            return
+        }
+
+        let diagnosticsEmitter = self.observabilityScope.makeDiagnosticsEmitter {
+            var metadata = ObservabilityMetadata()
+            metadata.packageIdentity = package.identity
+            metadata.packageKind = package.manifest.packageKind
+            metadata.moduleName = module.name
+            return metadata
+        }
+
+        let diagnostic = Basics.Diagnostic.unhandledFiles(unhandledFiles)
+        diagnosticsEmitter.emit(severity: treatWarningsAsErrors ? .error : .warning, message: diagnostic.message)
     }
 }
 
@@ -657,7 +734,15 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     }
 
     func configureSourceModuleBuildSettings(sourceModule: ResolvedModule, settings: inout ProjectModel.BuildSettings) {
-        settings[.SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR] = "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/\(sourceModule.name).symbolgraphs"
+        let symbolGraphOutputDir = "$(TARGET_BUILD_DIR)/$(CURRENT_ARCH)/\(sourceModule.name).symbolgraphs"
+        settings[.SYMBOL_GRAPH_EXTRACTOR_OUTPUT_DIR] = symbolGraphOutputDir
+        // C/ObjC symbol graphs default to $(SYMBOL_GRAPH_EXTRACTOR_OUTPUT_BASE)/clang/$(triple) — a different
+        // base var — so override to match the Swift output directory.
+        settings[.TAPI_EXTRACT_API_OUTPUT_DIR] = symbolGraphOutputDir
+        // We currently put the C/ObjC headers under project documentation for the sole purpose of symbol graph generation.
+        // So, we instruct the documentation compiler to extract the project documentation for this purpose until such time
+        // that the public headers can be listed as public in the PIF.
+        settings[.DOCC_EXTRACT_PROJECT_HEADERS_DOCUMENTATION] = "YES"
     }
 
     func customInstallPath(product: PackageModel.Product) -> String? {
@@ -708,6 +793,97 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     func validateMacroFingerprint(for macroModule: ResolvedModule) -> Bool {
         true
     }
+}
+
+/// Determine the list of modules in the modules graph which should not be added to the top level aggregate for the root package (which would cause them to always build for the destination platform).
+fileprivate func computeHostOnlyModuleIDsInRootPackages(in modulesGraph: ModulesGraph) -> Set<ResolvedModule.ID> {
+    // Macros and plugins always build only for the host platform. Dependencies of macros and plugins might build for
+    // only the host platform, or both the host and destination platform.
+    func hasHostOnlyModuleKind(_ module: ResolvedModule) -> Bool {
+        switch module.type {
+        case .macro, .plugin:
+            true
+        default:
+            false
+        }
+    }
+
+    // Collect modules from root packages. We only consider root packages here because only targets from root packages
+    // are ever added to the top level build request. Targets from dependencies are only ever added via dependency edges
+    // from a root package, so we don't need to worry about unnecessary specializations for the destination platform.
+    var rootPackageModulesByID: [ResolvedModule.ID: ResolvedModule] = [:]
+    var hostOnlyModulesInRootPackageIDs: Set<ResolvedModule.ID> = []
+    for package in modulesGraph.rootPackages {
+        for module in package.modules {
+            rootPackageModulesByID[module.id] = module
+            if hasHostOnlyModuleKind(module) {
+                hostOnlyModulesInRootPackageIDs.insert(module.id)
+            }
+        }
+    }
+
+    // Find the transitive closure covered by host-only targets. These are modules which should be excluded from
+    // the top level build request unless they specifically need to build for the destination. Again, we only consider
+    // root packages.
+    let modulesInRootPackagesReachableFromHostOnlyModuleIDs = transitiveClosure(Array(hostOnlyModulesInRootPackageIDs), successors: { moduleID in
+        guard let module = rootPackageModulesByID[moduleID] else {
+            return []
+        }
+        return module.dependencies.flatMap { dependency in
+            switch dependency {
+            case .module(let moduleDependency, _):
+                return [moduleDependency.id]
+            case .product(let productDependency, _):
+                return Array(productDependency.modules.map(\.id))
+            }
+        }.filter {
+            rootPackageModulesByID.keys.contains($0)
+        }
+    }).union(hostOnlyModulesInRootPackageIDs)
+
+    // Determine the list of targets in the root package which can be reached without traversing an edge to a macro or plugin.
+    // These are targets which must build for the destination, and cannot be excluded from the top level build request. The roots
+    // of the traversal are:
+    // 1. Any target which is part of an explicit executable/library product in the manifest
+    // 2. Any target which is not reachable from any macro/plugin
+    var modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs: Set<ResolvedModule.ID> = []
+    // If a module is in the root package and not in the closure of a host only module, it's considered top-level
+    modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs.formUnion(Set(rootPackageModulesByID.keys).subtracting(modulesInRootPackagesReachableFromHostOnlyModuleIDs))
+    // If a module is included in a non-implicit product, it's considered top-level
+    for package in modulesGraph.rootPackages {
+        for product in package.products where !product.underlying.isImplicit {
+            for module in product.modules {
+                if !hasHostOnlyModuleKind(module) {
+                    modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs.insert(module.id)
+                }
+            }
+        }
+    }
+    // If a module in the root package is reachable from one of the ones we've discovered so far, without traversing an edge to a host-only module, it's considered top-level.
+    modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs.formUnion(transitiveClosure(Array(modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs), successors: { moduleID in
+        guard let module = rootPackageModulesByID[moduleID] else {
+            return []
+        }
+        // A test target which depends on an otherwise host-only target should not cause that dependency to be
+        // included in the top-level build request. It should only be specialized for the destination when building
+        // the tests.
+        guard module.type != .test else {
+            return []
+        }
+        return module.dependencies.flatMap { dependency in
+            switch dependency {
+            case .module(let moduleDependency, _):
+                return [moduleDependency]
+            case .product(let productDependency, _):
+                return Array(productDependency.modules)
+            }
+        }.filter {
+            rootPackageModulesByID.keys.contains($0.id) && !hasHostOnlyModuleKind($0)
+        }.map(\.id)
+    }))
+
+
+    return Set(rootPackageModulesByID.keys).subtracting(modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs)
 }
 
 fileprivate func buildAggregatePIFProject(
@@ -765,14 +941,13 @@ fileprivate func buildAggregatePIFProject(
     addEmptyBuildConfig(to: allExcludingTestsTargetKeyPath, name: "Debug")
     addEmptyBuildConfig(to: allExcludingTestsTargetKeyPath, name: "Release")
 
+    let hostOnlyModuleIDs = computeHostOnlyModuleIDsInRootPackages(in: modulesGraph)
+
     for (package, packageProject) in packagesAndProjects where package.manifest.packageKind.isRoot {
         for target in packageProject.targets {
             switch target {
             case .target(let target):
-                guard !target.id.hasSuffix(.dynamic) else {
-                    // Otherwise we hit a bunch of "Unknown multiple commands produce: ..." errors,
-                    // as the build artifacts from "PACKAGE-TARGET:Foo"
-                    // conflicts with those from "PACKAGE-TARGET:Foo-dynamic".
+                guard !target.id.hasSuffix(.dynamic) && !target.id.hasSuffix(.testable) else {
                     continue
                 }
 
@@ -781,6 +956,14 @@ fileprivate func buildAggregatePIFProject(
                         // Disconnected target, possibly due to platform when condition that isn't satisfied
                         continue
                     }
+                    if hostOnlyModuleIDs.contains(resolvedModule.id) {
+                        continue
+                    }
+                } else if let productName = PackagePIFBuilder.productName(forTargetName: target.name),
+                          let resolvedProduct = modulesGraph.product(for: productName),
+                          !resolvedProduct.modules.isEmpty,
+                          resolvedProduct.modules.allSatisfy({ hostOnlyModuleIDs.contains($0.id) }) {
+                    continue
                 }
 
                 aggregateProject[keyPath: allIncludingTestsTargetKeyPath].common.addDependency(
@@ -865,9 +1048,10 @@ extension PIFBuilderParameters {
         disableSandbox: Bool,
         pluginWorkingDirectory: AbsolutePath,
         additionalFileRules: [FileRuleDescription],
-        addLocalRpaths: Bool,
+        addLocalRpaths: PackagePIFBuilder.AddLocalRpaths,
         materializeStaticArchiveProductsForRootPackages: Bool,
-        createDynamicVariantsForLibraryProducts: Bool
+        createDynamicVariantsForLibraryProducts: Bool,
+        hostBuildProductsPath: AbsolutePath
     ) {
         self.init(
             isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
@@ -882,7 +1066,20 @@ extension PIFBuilderParameters {
             disableSandbox: disableSandbox,
             pluginWorkingDirectory: pluginWorkingDirectory,
             additionalFileRules: additionalFileRules,
-            addLocalRPaths: addLocalRpaths,
+            addLocalRpaths: addLocalRpaths,
+            hostBuildProductsPath: hostBuildProductsPath,
+            shouldPreserveSymlinks: buildParameters.shouldPreserveSymlinks
         )
+    }
+}
+
+extension Basics.Diagnostic {
+    public static func unhandledFiles(_ files: Set<AbsolutePath>) -> Self {
+        var message =
+            "found \(files.count) file(s) which are unhandled; explicitly declare them as resources or exclude from the target\n"
+        for file in files.sorted() {
+            message += "    " + file.pathString + "\n"
+        }
+        return .warning(message)
     }
 }

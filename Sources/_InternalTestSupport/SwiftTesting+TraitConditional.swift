@@ -33,7 +33,7 @@ extension Trait where Self == Testing.ConditionTrait {
         }
     }
 
-    public static func requireCompiledWith6_3OrLater(_ comment: Comment? = nil) -> Self {
+    public static func requireCompiledWith6_3OrLater(because comment: Comment? = nil) -> Self {
         enabled(comment ?? "This needs to have been compiled with Swift 6.3 or later.") {
             #if compiler(>=6.3)
             true
@@ -41,6 +41,11 @@ extension Trait where Self == Testing.ConditionTrait {
             false
             #endif
         }
+    }
+
+    @available(*, deprecated, message: "use `requireCompiledWith6_3OrLater(because:) instead")
+    public static func requireCompiledWith6_3OrLater(_ comment: Comment? = nil) -> Self {
+        requireCompiledWith6_3OrLater(because: comment)
     }
 
     /// Enabled only if toolchain support swift concurrency
@@ -197,7 +202,26 @@ extension Trait where Self == Testing.ConditionTrait {
 
     public static var requiresStaticLinuxSwiftSDK: Self {
         enabled("Static Linux Swift SDK is not installed") {
-            try await findCompilerAndStaticLinuxSDKIDForTesting() != nil
+            try await findCompilerAndSDKIDForTesting(for: .staticLinux) != nil
+        }
+    }
+    public static var requiresWebAssemblySwiftSDK: Self {
+        enabled("WebAssembly Swift SDK is not installed") {
+            try await findCompilerAndSDKIDForTesting(for: .webassembly) != nil
+        }
+    }
+
+    /// Skip test if the  environment does not have the Android NDK setup/installed
+    public static var requireAndroidNDK:  Self {
+        enabled("Environment does not have an Android NDK configured") {
+            ProcessInfo.processInfo.environment["ANDROID_NDK_HOME"] != nil
+        }
+    }
+
+    // SKip the test if the Android Swift SDK is not installed
+    public static var requiresAndroidSwiftSDK: Self {
+        enabled("Android Swift SDK is not installed") {
+            try await findCompilerAndSDKIDForTesting(for: .android) != nil
         }
     }
 

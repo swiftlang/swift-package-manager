@@ -49,13 +49,6 @@ public let isSelfHostedCiEnvironment = CiEnvironment.runningInSelfHostedPipeline
 public struct CiEnvironmentStruct {
     public let runningInSmokeTestPipeline = ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] != nil
     public let runningInSelfHostedPipeline = ProcessInfo.processInfo.environment["SWIFTCI_IS_SELF_HOSTED"] != nil
-
-    // Smoke-test CI runs an old lldb built without Python bindings, and the
-    // Windows Swift toolchain ships lldb without python310.dll on PATH, so
-    // `command script import` crashes lldb on both.
-    public var lldbLacksPythonBindings: Bool {
-        runningInSmokeTestPipeline || ProcessInfo.hostOperatingSystem == .windows
-    }
 }
 
 public let CiEnvironment = CiEnvironmentStruct()
@@ -498,6 +491,29 @@ public func executeSwiftBuild(
         buildSystem: buildSystem
     )
     return try await SwiftPM.Build.execute(args, packagePath: packagePath, env: env, throwIfCommandFails: throwIfCommandFails)
+}
+
+public func getBinPath(
+    _ packagePath: AbsolutePath?,
+    configuration: BuildConfiguration = .debug,
+    extraArgs: [String] = [],
+    Xcc: [String] = [],
+    Xld: [String] = [],
+    Xswiftc: [String] = [],
+    env: Environment? = nil,
+    buildSystem: BuildSystemProvider.Kind,
+) async throws -> AbsolutePath {
+    let output = try await executeSwiftBuild(
+        packagePath,
+        configuration: configuration,
+        extraArgs: extraArgs + ["--show-bin-path"],
+        Xcc: Xcc,
+        Xld: Xld,
+        Xswiftc: Xswiftc,
+        env: env,
+        buildSystem: buildSystem,
+    )
+    return try AbsolutePath(validating: output.stdout.trimmingCharacters(in: .whitespacesAndNewlines))
 }
 
 @discardableResult

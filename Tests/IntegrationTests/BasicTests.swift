@@ -168,8 +168,8 @@ private struct BasicTests {
             #expect(toolOutput.lowercased().contains("hello, world!"))
 
             // Check there were no compile errors or warnings.
-            #expect(packageOutput.stdout.contains("error") == false)
-            #expect(packageOutput.stdout.contains("warning") == false)
+            #expect(packageOutput.stdout.contains("error") == false, "stdout: \(packageOutput.stdout)")
+            #expect(packageOutput.stdout.contains("warning") == false, "stdout: \(packageOutput.stdout)")
         }
     }
 
@@ -350,8 +350,13 @@ private struct BasicTests {
             #expect(buildOutput.contains("Build complete"))
 
             // Verify that the tool exists and works.
+            let binPath = try await getBinPath(
+                packagePath,
+                configuration: config,
+                buildSystem: buildSystem,
+            )
             let shOutput = try sh(
-                try packagePath.appending(components: buildSystem.binPath(for: config) + ["special tool"])
+                binPath.appending("special tool")
             ).stdout
 
             #expect(shOutput == "HI\(ProcessInfo.EOL)")

@@ -172,13 +172,12 @@ import _InternalTestSupport
         let pifBuilder: PIFBuilder = PIFBuilder(
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
-                temporaryDirectory: AbsolutePath.root, addLocalRpaths: true),
+                temporaryDirectory: AbsolutePath.root, addLocalRpaths: .always),
             fileSystem: fs,
             observabilityScope: observability.topScope
         )
         let (pif, _) = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
-            hostBuildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
         #expect(!observability.hasErrorDiagnostics)
 
@@ -221,12 +220,69 @@ import _InternalTestSupport
             observabilityScope: observability.topScope
         )
 
+        struct MockPluginScriptRunner: PluginScriptRunner {
+            func compilePluginScript(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                toolsVersion: ToolsVersion,
+                workers: UInt32,
+                observabilityScope: ObservabilityScope,
+                callbackQueue: DispatchQueue,
+                delegate: any PluginScriptCompilerDelegate,
+                completion: @escaping (Result<PluginCompilationResult, any Error>) -> Void
+            ) {
+                callbackQueue.sync {
+                    completion(.failure(StringError("unimplemented")))
+                }
+            }
+
+            func buildCommandLine(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                toolsVersion: ToolsVersion,
+                workers: UInt32,
+                observabilityScope: ObservabilityScope?
+            ) -> (commandLine: [String], execName: String, execFilePath: AbsolutePath, diagFilePath: AbsolutePath) {
+                fatalError("Not implemented")
+            }
+
+            func runPluginScript(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                initialMessage: Data,
+                toolsVersion: ToolsVersion,
+                workingDirectory: AbsolutePath,
+                writableDirectories: [AbsolutePath],
+                readOnlyDirectories: [AbsolutePath],
+                allowNetworkConnections: [SandboxNetworkPermission],
+                workers: UInt32,
+                fileSystem: any FileSystem,
+                observabilityScope: ObservabilityScope,
+                callbackQueue: DispatchQueue,
+                delegate: any PluginScriptCompilerDelegate & PluginScriptRunnerDelegate
+            ) async throws -> Int32 {
+                return 0
+            }
+
+            var hostTriple: Triple {
+                get throws {
+                    return try UserToolchain.default.targetTriple
+                }
+            }
+        }
+
         let pifBuilder: PIFBuilder = PIFBuilder(
             graph: graph,
             parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
-                temporaryDirectory: AbsolutePath.root, addLocalRpaths: true),
+                temporaryDirectory: AbsolutePath.root,
+                addLocalRpaths: .always,
+                pluginScriptRunner: MockPluginScriptRunner()
+            ),
             fileSystem: fs,
             observabilityScope: observability.topScope
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
 
         // Set up parameters to mock being on Windows

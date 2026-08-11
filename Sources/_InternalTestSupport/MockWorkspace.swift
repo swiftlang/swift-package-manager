@@ -100,7 +100,7 @@ public final class MockWorkspace {
     public let delegate = MockWorkspaceDelegate()
     let skipDependenciesUpdates: Bool
     public var sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration
-        .SourceControlToRegistryDependencyTransformation
+        .SourceControlToRegistryDependencyTransformation?
     var defaultRegistry: Registry?
     public let traitConfiguration: TraitConfiguration
     public var enabledTraitsMap: EnabledTraitsMap
@@ -122,7 +122,7 @@ public final class MockWorkspace {
         customPackageContainerProvider: MockPackageContainerProvider? = .none,
         skipDependenciesUpdates: Bool = false,
         sourceControlToRegistryDependencyTransformation: WorkspaceConfiguration
-            .SourceControlToRegistryDependencyTransformation = .disabled,
+            .SourceControlToRegistryDependencyTransformation? = nil,
         defaultRegistry: Registry? = .none,
         customHostTriple: Triple = hostTriple,
         traitConfiguration: TraitConfiguration = .default,
@@ -322,6 +322,7 @@ public final class MockWorkspace {
 
             for version in packageVersions {
                 let v = version.flatMap(Version.init(_:))
+                let traits = package.traitsPerVersion[v?.description ?? ""] ?? package.traits
                 manifests[.init(url: packageLocation, version: v)] = try Manifest.createManifest(
                     displayName: package.name,
                     path: packagePath,
@@ -341,7 +342,7 @@ public final class MockWorkspace {
                         targets: $0.modules
                     ) },
                     targets: package.targets.map { try $0.convert(identityResolver: self.identityResolver) },
-                    traits: package.traits,
+                    traits: traits,
                     pruneDependencies: self.pruneDependencies
                 )
             }

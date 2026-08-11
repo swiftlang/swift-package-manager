@@ -96,18 +96,18 @@ public struct TarArchiver: Archiver {
     }
 
     public func compress(
-        directory: AbsolutePath,
+        paths: [RelativePath],
+        from parent: AbsolutePath,
         to destinationPath: AbsolutePath
     ) async throws {
-
-        guard self.fileSystem.isDirectory(directory) else {
-            throw FileSystemError(.notDirectory, directory.underlying)
+        guard self.fileSystem.isDirectory(parent) else {
+            throw FileSystemError(.notDirectory, parent.underlying)
         }
 
         let process = AsyncProcess(
-            arguments: [self.tarCommand, "acf", destinationPath.pathString, directory.basename],
+            arguments: [self.tarCommand, "acf", destinationPath.pathString] + paths.map(\.pathString),
             environment: .current,
-            workingDirectory: directory.parentDirectory
+            workingDirectory: parent
         )
 
         guard let registrationKey = self.cancellator.register(process) else {

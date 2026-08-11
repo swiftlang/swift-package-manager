@@ -384,6 +384,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             pruneDependencies: self.pruneDependencies
         )
 
+        for identity in manifest.duplicateDependencyIdentities {
+            observabilityScope.emit(.duplicatePackageDependency(identity: identity))
+        }
+
         // Inform the delegate.
         delegateQueue.async { [delegate = self.delegate] in
             delegate?.didLoad(

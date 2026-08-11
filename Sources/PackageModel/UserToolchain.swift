@@ -204,8 +204,9 @@ public final class UserToolchain: Toolchain {
         let result: AsyncProcessResult
         let compilerOutput: String
         let compilerStderr: String
+        let command = [swiftCompiler.pathString, "-print-target-info"]
         do {
-            result = try AsyncProcess.popen(args: swiftCompiler.pathString, "-print-target-info")
+            result = try AsyncProcess.popen(arguments: command)
             compilerOutput = try result.utf8Output().spm_chomp()
             compilerStderr = try result.utf8stderrOutput().spm_chomp()
         } catch {
@@ -217,8 +218,15 @@ public final class UserToolchain: Toolchain {
         do {
             return try JSON(string: compilerOutput)
         } catch {
+            let errMsg = [
+                "Failed to parse target info JSON from Swift frontend while executing command '\(command.joined(separator: " "))'.",
+                "Compiler exited with status '\(result.exitStatus)'.",
+                "Raw compiler stdout: \(compilerOutput)",
+                "Raw compiler stderr: \(compilerStderr)",
+                "Error: \(error.interpolationDescription)",
+            ]
             throw InternalError(
-                "Failed to parse target info (\(error.interpolationDescription)).\nCompiler exited with staus \(result.exitStatus).\nRaw compiler stdout: \(compilerOutput)\nRaw compiler stderr: \(compilerStderr)"
+                errMsg.joined(separator: "\n")
             )
         }
     }
@@ -951,7 +959,16 @@ public final class UserToolchain: Toolchain {
             )
         }
 
-        let metalToolchain = try? Self.deriveMetalToolchainPath(fileSystem: fileSystem, triple: triple, environment: environment)
+        let metalToolchain: (path: AbsolutePath, identifier: String)?
+        if case .custom(_, let useXcrun) = searchStrategy, !useXcrun {
+            metalToolchain = nil
+        } else {
+            metalToolchain = try? Self.deriveMetalToolchainPath(
+                fileSystem: fileSystem,
+                triple: triple,
+                environment: environment
+            )
+        }
 
         self.configuration = .init(
             librarianPath: librarianPath,

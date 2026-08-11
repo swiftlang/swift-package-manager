@@ -65,17 +65,9 @@ final class PluginDelegate: PluginInvocationDelegate {
 
     func pluginRequestedBuildOperation(
         subset: PluginInvocationBuildSubset,
-        parameters: PluginInvocationBuildParameters,
-        completion: @escaping (Result<PluginInvocationBuildResult, Error>) -> Void
-    ) {
-        // Run the build in the background and call the completion handler when done.
-        Task {
-            do {
-                try await completion(.success(self.performBuildForPlugin(subset: subset, parameters: parameters)))
-            } catch {
-                completion(.failure(error))
-            }
-        }
+        parameters: PluginInvocationBuildParameters
+    ) async throws -> PluginInvocationBuildResult {
+        try await self.performBuildForPlugin(subset: subset, parameters: parameters)
     }
 
     class TeeOutputByteStream: OutputByteStream {
@@ -189,16 +181,16 @@ final class PluginDelegate: PluginInvocationDelegate {
 
         _ = try await buildSystem.getPackageGraph()
 
-        let builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = (result?.builtArtifacts ?? []).filter { (name, _) in
+        let builtArtifacts: [PluginInvocationBuildResult.BuiltArtifact] = (result?.builtArtifacts ?? []).filter { artifact in
             switch subset {
             case .all:
                 return true
             case .product(let productName):
-                return name == productName
+                return artifact.name == productName || artifact.umbrellaTestProductName == productName
             case .target(let targetName):
-                return name == targetName
+                return artifact.name == targetName
             }
-        }.map(\.1)
+        }.map(\.artifact)
 
         return PluginInvocationBuildResult(
             succeeded: success,
@@ -208,17 +200,9 @@ final class PluginDelegate: PluginInvocationDelegate {
 
     func pluginRequestedTestOperation(
         subset: PluginInvocationTestSubset,
-        parameters: PluginInvocationTestParameters,
-        completion: @escaping (Result<PluginInvocationTestResult, Error>
-        ) -> Void) {
-        // Run the test in the background and call the completion handler when done.
-        Task {
-            do {
-                try await completion(.success(self.performTestsForPlugin(subset: subset, parameters: parameters)))
-            } catch {
-                completion(.failure(error))
-            }
-        }
+        parameters: PluginInvocationTestParameters
+    ) async throws -> PluginInvocationTestResult {
+        try await self.performTestsForPlugin(subset: subset, parameters: parameters)
     }
 
     func performTestsForPlugin(
@@ -239,7 +223,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Clean out the code coverage directory that may contain stale `profraw` files from a previous run of
         // the code coverage tool.
         if parameters.enableCodeCoverage {
-            try swiftCommandState.fileSystem.removeFileTree(toolsBuildParameters.codeCovPath)
+            try swiftCommandState.fileSystem.removeFileTree(try await buildSystem.codeCovPath(for: toolsBuildParameters))
         }
 
         // Construct the environment we'll pass down to the tests.
@@ -250,7 +234,8 @@ final class PluginDelegate: PluginInvocationDelegate {
             sanitizers: swiftCommandState.options.build.sanitizers,
             library: .xctest, // FIXME: support both libraries
             testProductPaths: buildSystem.builtTestProducts.map(\.bundlePath),
-            interopMode: toolsVersion?.defaultInteropMode
+            interopMode: toolsVersion?.defaultInteropMode,
+            buildSystem: buildSystem
         )
 
         // Iterate over the tests and run those that match the filter.
@@ -258,13 +243,14 @@ final class PluginDelegate: PluginInvocationDelegate {
         var numFailedTests = 0
         for testProduct in await buildSystem.builtTestProducts {
             // Get the test suites in the bundle. Each is just a container for test cases.
-            let testSuites = try TestingSupport.getTestSuites(
+            let testSuites = try await TestingSupport.getTestSuites(
                 fromTestAt: testProduct.bundlePath,
                 swiftCommandState: swiftCommandState,
                 enableCodeCoverage: parameters.enableCodeCoverage,
                 shouldSkipBuilding: false,
                 experimentalTestOutput: false,
-                sanitizers: swiftCommandState.options.build.sanitizers
+                sanitizers: swiftCommandState.options.build.sanitizers,
+                buildSystem: buildSystem
             )
             for testSuite in testSuites {
                 // Each test suite is just a container for test cases (confusingly called "tests",
@@ -334,12 +320,13 @@ final class PluginDelegate: PluginInvocationDelegate {
         let codeCoverageDataFile: AbsolutePath?
         if parameters.enableCodeCoverage {
             // Use `llvm-prof` to merge all the `.profraw` files into a single `.profdata` file.
-            let mergedCovFile = toolsBuildParameters.codeCovDataFile
-            let codeCovFileNames = try swiftCommandState.fileSystem.getDirectoryContents(toolsBuildParameters.codeCovPath)
+            let mergedCovFile = try await buildSystem.codeCovDataFile(for: toolsBuildParameters)
+            let codeCovPath = try await buildSystem.codeCovPath(for: toolsBuildParameters)
+            let codeCovFileNames = try swiftCommandState.fileSystem.getDirectoryContents(codeCovPath)
             var llvmProfCommand = [try toolchain.getLLVMProf().pathString]
             llvmProfCommand += ["merge", "-sparse"]
             for fileName in codeCovFileNames where fileName.hasSuffix(".profraw") {
-                let filePath = toolsBuildParameters.codeCovPath.appending(component: fileName)
+                let filePath = codeCovPath.appending(component: fileName)
                 llvmProfCommand.append(filePath.pathString)
             }
             llvmProfCommand += ["-o", mergedCovFile.pathString]
@@ -354,8 +341,8 @@ final class PluginDelegate: PluginInvocationDelegate {
             }
             // We get the output on stdout, and have to write it to a JSON ourselves.
             let jsonOutput = try await AsyncProcess.checkNonZeroExit(arguments: llvmCovCommand)
-            let jsonCovFile = toolsBuildParameters.codeCovDataFile.parentDirectory.appending(
-                component: toolsBuildParameters.codeCovDataFile.basenameWithoutExt + ".json"
+            let jsonCovFile = mergedCovFile.parentDirectory.appending(
+                component: mergedCovFile.basenameWithoutExt + ".json"
             )
             try swiftCommandState.fileSystem.writeFileContents(jsonCovFile, string: jsonOutput)
 
@@ -375,17 +362,9 @@ final class PluginDelegate: PluginInvocationDelegate {
 
     func pluginRequestedSymbolGraph(
         forTarget targetName: String,
-        options: PluginInvocationSymbolGraphOptions,
-        completion: @escaping (Result<PluginInvocationSymbolGraphResult, Error>) -> Void
-    ) {
-        // Extract the symbol graph in the background and call the completion handler when done.
-        Task {
-            do {
-                try await completion(.success(self.createSymbolGraphForPlugin(forTarget: targetName, options: options)))
-            } catch {
-                completion(.failure(error))
-            }
-        }
+        options: PluginInvocationSymbolGraphOptions
+    ) async throws -> PluginInvocationSymbolGraphResult {
+        try await self.createSymbolGraphForPlugin(forTarget: targetName, options: options)
     }
 
     private func createSymbolGraphForPlugin(
@@ -406,7 +385,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         let buildResult = try await buildSystem.build(subset: .target(targetName), buildOutputs: [.symbolGraph(options), .buildPlan])
 
         if let symbolGraph = buildResult.symbolGraph {
-            let path = (try swiftCommandState.productsBuildParameters.buildPath)
+            let path = try await buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)
             return PluginInvocationSymbolGraphResult(directoryPath: "\(path)/\(symbolGraph.outputLocationForTarget(targetName, try swiftCommandState.productsBuildParameters).joined(separator:"/"))")
         } else if let buildPlan = buildResult.buildPlan {
             func lookupDescription(

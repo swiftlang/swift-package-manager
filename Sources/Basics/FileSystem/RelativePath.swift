@@ -164,3 +164,9 @@ extension TSCRelativePath {
         self = path.underlying
     }
 }
+
+extension RelativePath {
+    package var escapedPathString: String {
+        self.pathString.replacing("\\", with: "\\\\")
+    }
+}

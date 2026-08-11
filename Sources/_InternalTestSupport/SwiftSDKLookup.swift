@@ -65,8 +65,11 @@ package func findSwiftSDK(
 }
 
 package func findCompilerAndSDKIDForTesting(
-    where predicate: (_ suffix: String) -> Bool
+    for sdk: SwiftSDKName,
 ) async throws -> (AbsolutePath, String)? {
+    let predicate = { (_ suffix: String) in
+        return suffix.hasPrefix(sdk.rawValue)
+    }
     let compilerPath: AbsolutePath
     if let githubActionsToolchain = githubActionsToolchain() {
         compilerPath = githubActionsToolchain.appending(components: ["usr", "bin", "swiftc\(ProcessInfo.exeSuffix)"])
@@ -81,6 +84,19 @@ package func findCompilerAndSDKIDForTesting(
     return (compilerPath, sdkID)
 }
 
-package func findCompilerAndStaticLinuxSDKIDForTesting() async throws -> (AbsolutePath, String)? {
-    try await findCompilerAndSDKIDForTesting { $0.hasPrefix("static-linux") }
+package enum SwiftSDKName: String {
+    case android = "android"
+    case staticLinux = "static-linux"
+    case webassembly = "wasm"
 }
+
+
+@available(*, deprecated, message: "Use 'findCompilerAndSDKIDForTesting(for: .staticLinux)' instead")
+package func findCompilerAndStaticLinuxSDKIDForTesting() async throws -> (AbsolutePath, String)? {
+    try await  findCompilerAndSDKIDForTesting(for: .staticLinux)
+}
+
+package let androidTriplesUT = [
+    "aarch64-unknown-linux-android28",
+    "x86_64-unknown-linux-android28",
+]

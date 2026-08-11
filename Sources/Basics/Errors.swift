@@ -19,8 +19,12 @@ public typealias StringError = TSCBasic.StringError
 
 public struct InternalError: Error {
     private let description: String
-    public init(_ description: String) {
-        assertionFailure(description)
+    public init(
+        _ description: String,
+        file: StaticString = #fileID,
+        line: UInt = #line,
+    ) {
+        assertionFailure(description, file: file, line: line)
         self.description =
             "Internal error. Please file a bug at https://github.com/swiftlang/swift-package-manager/issues with this info. \(description)"
     }

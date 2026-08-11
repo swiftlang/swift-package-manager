@@ -10,7 +10,7 @@ Organize, manage, and edit Swift packages.
 
 The Swift Package Manager lets you share your code as a package, depend on and use other shared packages, as well as build, test, document, and run your code.
 
-> Note: Swift Package Manager is previewing the Swift Build build system. Learn more [here](<doc:SwiftBuildPreview>).
+> Note: Swift Package Manager [introduced the Swift Build build system as a preview](<doc:SwiftBuildPreview>) in Swift 6.3, and [adopted it as the default build system ](<doc:6.4>) in Swift 6.4.
 
 ## Topics
 
@@ -20,26 +20,36 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 - <doc:IntroducingPackages>
 - <doc:PackageSecurity>
 
-### Guides
+### Building Packages
 
-- <doc:SwiftBuildPreview>
 - <doc:CreatingSwiftPackage>
 - <doc:SettingSwiftToolsVersion>
-- <doc:AddingDependencies>
-- <doc:ResolvingPackageVersions>
-- <doc:CreatingCLanguageTargets>
 - <doc:UsingBuildConfigurations>
 - <doc:SwiftVersionSpecificPackaging>
 - <doc:BundlingResources>
 - <doc:ReleasingPublishingAPackage>
 - <doc:GeneratingSBOMs>
 - <doc:ContinuousIntegration>
-- <doc:Plugins>
-- <doc:ModuleAliasing>
-- <doc:UsingSwiftPackageRegistry>
-- <doc:PackageCollections>
 - <doc:UsingShellCompletion>
+
+### Depedencies
+- <doc:AddingDependencies>
+- <doc:UsingSwiftPackageRegistry>
+- <doc:BundlingResources>
+
+### Targets
+- <doc:CreatingCLanguageTargets>
+- <doc:ModuleMaps>
+- <doc:ModuleAliasing>
+
+### Sharing Packages
+- <doc:ReleasingPublishingAPackage>
+- <doc:PackageCollections>
+
+### Extending Package Manager
+- <doc:Plugins>
 - <doc:SwiftPMAsALibrary>
+
 
 <!-- ### Command Plugins -->
 <!-- placeholder for content about swift package manager extensions - command plugins -->
@@ -61,3 +71,7 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 ### Design
 
 - <doc:RegistryServerSpecification>
+
+### Releases
+
+- <doc:ReleaseNotes>

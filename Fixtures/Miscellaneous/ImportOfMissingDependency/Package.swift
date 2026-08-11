@@ -16,5 +16,11 @@ let package = Package(
         .target(
             name: "B",
             dependencies: []),
+        .testTarget(
+            name: "myXCTests",
+        ),
+        .testTarget(
+            name: "mySwiftTestingTests",
+        ),
     ]
 )

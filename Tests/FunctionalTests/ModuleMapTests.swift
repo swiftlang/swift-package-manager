@@ -38,7 +38,12 @@ struct ModuleMapsTestCase {
     ) async throws {
         try await fixture(name: name, createGitRepo: true) { fixturePath in
             let input = fixturePath.appending(components: cModuleName, "C", "foo.c")
-            let outdir = try fixturePath.appending(components: [rootpkg] + buildSystem.binPath(for: config))
+            let packagePath = fixturePath.appending(rootpkg)
+            let outdir = try await getBinPath(
+                packagePath,
+                configuration: config,
+                buildSystem: buildSystem,
+            )
             try makeDirectories(outdir)
             let triple = try UserToolchain.default.targetTriple
             let output = outdir.appending("libfoo\(triple.dynamicLibraryExtension)")
@@ -75,7 +80,11 @@ struct ModuleMapsTestCase {
                     buildSystem: buildSystem,
                 )
 
-                let executable = try fixturePath.appending(components: ["App"] + buildSystem.binPath(for: configuration) + ["App"])
+                let executable = try await getBinPath(
+                    fixturePath.appending("App"),
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                ).appending("App")
                 let releaseout = try await AsyncProcess.checkNonZeroExit(
                     args: executable.pathString
                 )
@@ -110,7 +119,11 @@ struct ModuleMapsTestCase {
                     buildSystem: buildSystem,
                 )
 
-                let executable = try fixturePath.appending(components: ["packageA"] + buildSystem.binPath(for: configuration) + ["packageA"])
+                let executable = try await getBinPath(
+                    fixturePath.appending("packageA"),
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                ).appending("packageA")
                 let out = try await AsyncProcess.checkNonZeroExit(
                     args: executable.pathString
                 )

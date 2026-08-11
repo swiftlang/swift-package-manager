@@ -87,22 +87,14 @@ public enum ModuleError: Swift.Error {
     /// Indicates several targets with the same name exist in packages
     case duplicateModules(package: PackageIdentity, otherPackage: PackageIdentity, modules: [String])
 
+    /// A normal target points to an artifact bundle.
+    case artifactBundleAsNormalTarget(target: String)
+
     /// Indicates several targets with the same name exist in a registry and scm package
     case duplicateModulesScmAndRegistry(
         registryPackage: PackageIdentity.RegistryIdentity,
         scmPackage: PackageIdentity,
         modules: [String]
-    )
-
-    /// Indicates that an invalid trait was enabled.
-    case invalidTrait(
-        package: PackageIdentity,
-        trait: String
-    )
-    
-    case disablingDefaultTraitsOnEmptyTraits(
-        parentPackage: PackageIdentity,
-        packageName: String
     )
 }
 
@@ -159,6 +151,8 @@ extension ModuleError: CustomStringConvertible {
             return "plugin target '\(target)' doesn't have a 'capability' property"
         case .embedInCodeNotSupported(let target):
             return "embedding resources in code not supported for C-family language target \(target)"
+        case .artifactBundleAsNormalTarget(let target):
+            return "target '\(target)' cannot point to an artifact bundle; use '.binaryTarget' instead"
         case .duplicateModules(let package, let otherPackage, let targets):
             var targetsDescription = "'\(targets.sorted().prefix(3).joined(separator: "', '"))'"
             if targets.count > 3 {
@@ -181,14 +175,6 @@ extension ModuleError: CustomStringConvertible {
             this may indicate that the two packages are the same and can be de-duplicated \
             by activating the automatic source-control to registry replacement, or by using mirrors. \
             if they are not duplicate consider using the `moduleAliases` parameter in manifest to provide unique names
-            """
-        case .invalidTrait(let package, let trait):
-            return """
-            Trait '"\(trait)"' is not declared by package '\(package)'.
-            """
-        case .disablingDefaultTraitsOnEmptyTraits(let parentPackage, let packageName):
-            return """
-            Disabled default traits by package '\(parentPackage)' on package '\(packageName)' that declares no traits. This is prohibited to allow packages to adopt traits initially without causing an API break.
             """
         }
     }
@@ -631,6 +617,9 @@ public final class PackageBuilder {
         let potentialTargets: [PotentialModule]
         potentialTargets = try self.manifest.targetsRequired(for: self.productFilter).map { target in
             let path = try findPath(for: target)
+            if target.type != .binary && path.extension == "artifactbundle" {
+                throw ModuleError.artifactBundleAsNormalTarget(target: target.name)
+            }
             return PotentialModule(
                 name: target.name,
                 path: path,
@@ -1108,7 +1097,7 @@ public final class PackageBuilder {
                 // The setting is currently not enabled so we should skip it
                 continue
             }
-        
+
             let decl: BuildSettings.Declaration
             let values: [String]
 
@@ -1250,7 +1239,7 @@ public final class PackageBuilder {
                     case .warning: "-Wno-error"
                     }
                     values = [flag]
-                    
+
                 case .cxx:
                     decl = .OTHER_CPLUSPLUSFLAGS
                     let flag = switch level {
@@ -1258,7 +1247,7 @@ public final class PackageBuilder {
                     case .warning: "-Wno-error"
                     }
                     values = [flag]
-                    
+
                 case .linker:
                     throw InternalError("linker does not support treatAllWarnings")
 
@@ -1283,7 +1272,7 @@ public final class PackageBuilder {
                     case .warning: "-Wno-error=\(name)"
                     }
                     values = [flag]
-                    
+
                 case .cxx:
                     decl = .OTHER_CPLUSPLUSFLAGS
                     let flag = switch level {
@@ -1291,7 +1280,7 @@ public final class PackageBuilder {
                     case .warning: "-Wno-error=\(name)"
                     }
                     values = [flag]
-                    
+
                 case .linker:
                     throw InternalError("linker does not support treatWarning")
 
@@ -1353,7 +1342,7 @@ public final class PackageBuilder {
         }
 
         // For each trait we are now generating an additional define
-        for trait in self.enabledTraits {
+        for trait in self.enabledTraits.sorted() {
             var assignment = BuildSettings.Assignment()
             assignment.values = ["\(trait)"]
             assignment.conditions = []
@@ -1723,13 +1712,21 @@ public final class PackageBuilder {
 
     private func validateExecutableProduct(_ product: ProductDescription, with targets: [Module]) -> Bool {
         let executableTargetCount = targets.executables.count
-        guard executableTargetCount == 1 else {
+        let isSingleBinaryModule = targets.count == 1 && targets[0].type == .binary
+        guard executableTargetCount == 1 || isSingleBinaryModule else {
             if executableTargetCount == 0 {
                 if let target = targets.spm_only {
                     self.observabilityScope
-                        .emit(.executableProductTargetNotExecutable(product: product.name, target: target.name))
+                        .emit(.executableProductTargetNotExecutable(
+                            product: product.name,
+                            target: target.name,
+                            toolsVersion: self.manifest.toolsVersion
+                        ))
                 } else {
-                    self.observabilityScope.emit(.executableProductWithoutExecutableTarget(product: product.name))
+                    self.observabilityScope.emit(.executableProductWithoutExecutableTarget(
+                        product: product.name,
+                        toolsVersion: self.manifest.toolsVersion
+                    ))
                 }
             } else {
                 self.observabilityScope.emit(.executableProductWithMoreThanOneExecutableTarget(product: product.name))

@@ -41,11 +41,13 @@ package final class MockArchiver: Archiver {
     }
 
     package struct Compression: Equatable {
-        public let directory: AbsolutePath
+        public let paths: [RelativePath]
+        public let parent: AbsolutePath
         public let destinationPath: AbsolutePath
 
-        public init(directory: AbsolutePath, destinationPath: AbsolutePath) {
-            self.directory = directory
+        public init(paths: [RelativePath], parent: AbsolutePath, destinationPath: AbsolutePath) {
+            self.paths = paths
+            self.parent = parent
             self.destinationPath = destinationPath
         }
     }
@@ -93,10 +95,18 @@ package final class MockArchiver: Archiver {
         to destinationPath: AbsolutePath
     ) async throws {
         guard let handler = self.compressionHandler else {
-            self.compressions.append(Compression(directory: directory, destinationPath: destinationPath))
+            try self.compressions.append(Compression(
+                paths: [RelativePath(validating: directory.basename)],
+                parent: directory.parentDirectory,
+                destinationPath: destinationPath
+            ))
             return
         }
         try await handler(self, directory, destinationPath)
+    }
+
+    package func compress(paths: [RelativePath], from parent: AbsolutePath, to destinationPath: AbsolutePath) async throws {
+        self.compressions.append(Compression(paths: paths, parent: parent, destinationPath: destinationPath))
     }
 
     package func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {

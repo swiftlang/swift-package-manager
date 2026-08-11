@@ -124,7 +124,11 @@ struct ToolsVersionTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                let binPath = try primaryPath.appending(components: buildSystem.binPath(for: configuration))
+                let binPath = try await getBinPath(
+                    primaryPath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
                 let exe: String = binPath.appending(components: "Primary").pathString
                 // v1 should get selected because v1.0.1 depends on a (way) higher set of tools.
                 let executableActualOutput = try await AsyncProcess.checkNonZeroExit(args: exe).spm_chomp()

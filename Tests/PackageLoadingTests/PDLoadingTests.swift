@@ -119,9 +119,26 @@ class PackageDescriptionLoadingTests: XCTestCase, ManifestLoaderDelegate {
     }
 }
 
-final class ManifestTestDelegate: ManifestLoaderDelegate {
+final class ManifestTestDelegate: TestManifestLoaderDelegate {
     private let loaded = ThreadSafeArrayStore<AbsolutePath>()
     private let parsed = ThreadSafeArrayStore<AbsolutePath>()
+
+    /// Custom concurrent dispatch queue used for delegate callbacks.
+    let queue = DispatchQueue(
+        label: "org.swift.swiftpm.manifest-test-delegate",
+        attributes: .concurrent
+    )
+
+    /// Awaits execution of all previously-scheduled blocks on `queue`.
+    /// Use this before asserting values that are provided via delegate callbacks.
+    private func synchronize() async {
+        await withCheckedContinuation { continuation in
+            // Given that `queue` is concurrent, this needs to be a `.barrier`.
+            self.queue.async(flags: .barrier) {
+                continuation.resume()
+            }
+        }
+    }
 
     func willLoad(packageIdentity: PackageModel.PackageIdentity, packageLocation: String, manifestPath: AbsolutePath) {
         // noop
@@ -155,19 +172,18 @@ final class ManifestTestDelegate: ManifestLoaderDelegate {
         self.parsed.append(manifestPath)
     }
 
-
     func clear() {
         self.loaded.clear()
         self.parsed.clear()
     }
 
-    func loaded(timeout: Duration) async throws -> [AbsolutePath] {
-        try await Task.sleep(for: timeout)
+    func loaded() async -> [AbsolutePath] {
+        await self.synchronize()
         return self.loaded.get()
     }
 
-    func parsed(timeout: Duration) async throws -> [AbsolutePath] {
-        try await Task.sleep(for: timeout)
+    func parsed() async -> [AbsolutePath] {
+        await self.synchronize()
         return self.parsed.get()
     }
 }

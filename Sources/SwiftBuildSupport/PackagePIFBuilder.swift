@@ -189,10 +189,24 @@ public final class PackagePIFBuilder {
     /// Create dynamic library variants for automatic library products, for use by development-time features such as Previews and Swift Playgrounds.
     let createDynamicVariantsForLibraryProducts: Bool
 
+    /// Controls whether local rpaths are imparted to package consumers and in which configurations.
+    public enum AddLocalRpaths: Sendable {
+        /// Do not add local rpaths.
+        case never
+        /// Add rpaths only in the Debug configuration.
+        case debugOnly
+        /// Add rpaths in both Debug and Release configurations.
+        case always
+    }
+
     /// Add rpaths which allow loading libraries adjacent to the current image at runtime. This is desirable
     /// when launching build products from the build directory, but should often be disabled when deploying
-    /// the build products to a different location.
-    let addLocalRpaths: Bool
+    /// the build products to a different location or building the release configuration.
+    let addLocalRpaths: AddLocalRpaths
+
+    /// Whether to preserve symbolic links in source file paths instead of resolving them to their
+    /// real path.
+    let shouldPreserveSymlinks: Bool
 
     /// Package display version, if any (i.e., it can be a version, branch or a git ref).
     let packageDisplayVersion: String?
@@ -200,6 +214,9 @@ public final class PackagePIFBuilder {
     let pkgConfigDirectories: [AbsolutePath]
 
     let hostBuildEnvironment: PackageModel.BuildEnvironment
+
+    /// The warning-control flags the user passed on the command line.
+    let warningControlFlags: [String]
 
     /// The file system to read from.
     let fileSystem: FileSystem
@@ -227,10 +244,12 @@ public final class PackagePIFBuilder {
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
-        addLocalRpaths: Bool = true,
+        addLocalRpaths: AddLocalRpaths = .always,
+        shouldPreserveSymlinks: Bool,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
         hostBuildEnvironment: PackageModel.BuildEnvironment,
+        warningControlFlags: [String] = [],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -248,6 +267,8 @@ public final class PackagePIFBuilder {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.addLocalRpaths = addLocalRpaths
+        self.warningControlFlags = warningControlFlags
+        self.shouldPreserveSymlinks = shouldPreserveSymlinks
     }
 
     public init(
@@ -259,10 +280,12 @@ public final class PackagePIFBuilder {
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
-        addLocalRpaths: Bool = true,
+        addLocalRpaths: AddLocalRpaths = .always,
+        shouldPreserveSymlinks: Bool = false,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
         hostBuildEnvironment: PackageModel.BuildEnvironment,
+        warningControlFlags: [String] = [],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -278,8 +301,10 @@ public final class PackagePIFBuilder {
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
         self.hostBuildEnvironment = hostBuildEnvironment
+        self.warningControlFlags = warningControlFlags
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
+        self.shouldPreserveSymlinks = shouldPreserveSymlinks
     }
 
     /// Build an empty PIF project.
@@ -379,6 +404,7 @@ public final class PackagePIFBuilder {
 
         public var indexableFileURLs: [SourceControlURL]
         public var headerFiles: Set<AbsolutePath>
+        public var buildToolPluginInputs: Set<AbsolutePath>
         public var doccCatalogs: Set<AbsolutePath>
         /// Source files implementing the plugin represented by this target, which
         /// are compiled during build planning as opposed to participating in the
@@ -466,7 +492,7 @@ public final class PackagePIFBuilder {
     @discardableResult
     public func build() throws -> [ModuleOrProduct] {
         self.log(
-            .info,
+            .debug,
             "Building PIF project for package '\(self.package.identity)' " +
             "(\(package.products.count) products, \(package.modules.count) modules)"
         )
@@ -519,6 +545,12 @@ public final class PackagePIFBuilder {
                 }
 
             case .executable, .test, .snippet:
+                if product.type == .test, let mainTarget = product.mainModule,
+                   mainTarget.isTestSupportModule {
+                    // Skip creating a test bundle product as this is a shared test helper library.
+                    // It will be built as a static library in the modules loop below.
+                    break
+                }
                 try projectBuilder.makeMainModuleProduct(product)
 
             case .plugin:
@@ -549,9 +581,10 @@ public final class PackagePIFBuilder {
                 try projectBuilder.makeSystemLibraryModule(module)
 
             case .test:
-                // Skip test module targets.
-                // They will have been dealt with as part of the *products* to which they belong.
-                break
+                if module.isTestSupportModule {
+                    self.log(.debug, "Building test module '\(module.name)' as a static library as it is depended on by other test target(s)")
+                    try projectBuilder.makeTestSupportModule(module)
+                }
 
             case .binary:
                 if let binaryModule = module.underlying as? BinaryModule,
@@ -620,7 +653,12 @@ public final class PackagePIFBuilder {
             if self.skipStaticAnalyzerForPackageDependencies {
                 settings[.SKIP_CLANG_STATIC_ANALYZER] = "YES"
             }
+        } else if !self.warningControlFlags.isEmpty {
+            settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                $0.append(contentsOf: self.warningControlFlags)
+            }
         }
+
         settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS]
             .lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("SWIFT_PACKAGE") }
         settings[.GCC_PREPROCESSOR_DEFINITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]
@@ -747,6 +785,7 @@ extension PackagePIFBuilder.ModuleOrProduct {
         pifTarget: ProjectModel.BaseTarget?,
         indexableFileURLs: [SourceControlURL] = [],
         headerFiles: Set<AbsolutePath> = [],
+        buildToolPluginInputs: Set<AbsolutePath> = [],
         doccCatalogs: Set<AbsolutePath> = [],
         pluginScriptSourcePaths: [AbsolutePath] = [],
         linkedPackageBinaries: [PackagePIFBuilder.LinkedPackageBinary] = [],
@@ -762,6 +801,7 @@ extension PackagePIFBuilder.ModuleOrProduct {
         self.indexableFileURLs = indexableFileURLs
         self.pluginScriptSourcePaths = pluginScriptSourcePaths
         self.headerFiles = headerFiles
+        self.buildToolPluginInputs = buildToolPluginInputs
         self.doccCatalogs = doccCatalogs
         self.linkedPackageBinaries = linkedPackageBinaries
         self.swiftLanguageVersion = swiftLanguageVersion

@@ -39,8 +39,11 @@ public class RepositoryManager: Cancellable {
     /// The filesystem to operate on.
     private let fileSystem: FileSystem
 
-    // tracks outstanding lookups for de-duping requests
-    private var pendingLookups = [RepositorySpecifier: Task<RepositoryManager.RepositoryHandle, Error>]()
+    // Tracks in-flight lookups so that concurrent requests for the same
+    // repository can be de-duped. Each entry is tagged with a unique id so that
+    // a completing lookup only removes its own entry and never a newer one for
+    // the same repository.
+    private var pendingLookups = [RepositorySpecifier: (id: UUID, task: Task<RepositoryManager.RepositoryHandle, Error>)]()
     private var pendingLookupsLock = NSLock()
 
     // Limits how many concurrent operations can be performed at once.
@@ -131,60 +134,53 @@ public class RepositoryManager: Cancellable {
                 self.pendingLookupsLock.lock()
                 defer { self.pendingLookupsLock.unlock() }
 
-                let lookupTask: Task<RepositoryManager.RepositoryHandle, any Error>
-                if let inFlight = self.pendingLookups[repositorySpecifier] {
-                    lookupTask = Task {
-                        // Let the existing in-flight task finish before queuing up the new one
-                        let _ = try await inFlight.value
+                // Identifies this lookup so that, on completion, it only removes
+                // its own entry from `pendingLookups`.
+                let lookupID = UUID()
+                let inFlight = self.pendingLookups[repositorySpecifier]?.task
 
-                        if Task.isCancelled {
-                            throw CancellationError()
-                        }
+                let lookupTask = Task { () throws -> RepositoryManager.RepositoryHandle in
+                    defer { self.removePendingLookup(for: repositorySpecifier, id: lookupID) }
 
-                        let result = try await self.performLookup(
-                            package: package,
-                            repository: repositorySpecifier,
-                            updateStrategy: updateStrategy,
-                            observabilityScope: observabilityScope
-                        )
-
-                        if Task.isCancelled {
-                            throw CancellationError()
-                        }
-
-                        return result
+                    // Let the existing in-flight task finish before queuing up the new one
+                    if let inFlight {
+                        _ = try? await inFlight.value
                     }
-                } else {
-                    lookupTask = Task {
-                        if Task.isCancelled {
-                            throw CancellationError()
-                        }
 
-                        let result = try await self.performLookup(
-                            package: package,
-                            repository: repositorySpecifier,
-                            updateStrategy: updateStrategy,
-                            observabilityScope: observabilityScope
-                        )
-
-                        if Task.isCancelled {
-                            throw CancellationError()
-                        }
-
-                        return result
+                    if Task.isCancelled {
+                        throw CancellationError()
                     }
+
+                    let result = try await self.performLookup(
+                        package: package,
+                        repository: repositorySpecifier,
+                        updateStrategy: updateStrategy,
+                        observabilityScope: observabilityScope
+                    )
+
+                    if Task.isCancelled {
+                        throw CancellationError()
+                    }
+
+                    return result
                 }
 
-                self.pendingLookups[repositorySpecifier] = lookupTask
+                self.pendingLookups[repositorySpecifier] = (id: lookupID, task: lookupTask)
                 continuation.resume(returning: lookupTask)
             }
 
-            do {
-                let result = try await task.value
-                return result
-            } catch {
-                throw error
-            }
+            return try await task.value
+        }
+    }
+
+    /// Removes the in-flight lookup tracked for `repositorySpecifier`, but only
+    /// if it is still the lookup identified by `id`. A newer in-flight lookup for
+    /// the same repository is left in place.
+    private func removePendingLookup(for repositorySpecifier: RepositorySpecifier, id: UUID) {
+        self.pendingLookupsLock.lock()
+        defer { self.pendingLookupsLock.unlock() }
+        if self.pendingLookups[repositorySpecifier]?.id == id {
+            self.pendingLookups[repositorySpecifier] = nil
         }
     }
 
@@ -271,8 +267,8 @@ public class RepositoryManager: Cancellable {
 
         self.pendingLookupsLock.lock()
         defer { self.pendingLookupsLock.unlock() }
-        for task in self.pendingLookups.values {
-            task.cancel()
+        for entry in self.pendingLookups.values {
+            entry.task.cancel()
         }
         self.pendingLookups = [:]
     }
@@ -428,6 +424,70 @@ public class RepositoryManager: Cancellable {
         let relativePath = try repository.storagePath()
         let repositoryPath = self.path.appending(relativePath)
         try self.fileSystem.removeFileTree(repositoryPath)
+    }
+
+    /// Evicts a single repository from both the working location and the shared cache, forcing a
+    /// fresh fetch from its origin on the next lookup.
+    ///
+    /// Unlike `remove(repository:)`, this also discards the shared cache copy. It is used to
+    /// recover from an incomplete or corrupt local object store which can happen when a package
+    /// resolution is interrupted and a repo is only partially fetched. Re-copying the cached
+    /// repository would only reproduce the corruption, so the cached copy must be discarded as well.
+    public func purge(repository: RepositorySpecifier, observabilityScope: ObservabilityScope) throws {
+        // Remove the working (per-destination) clone.
+        try self.remove(repository: repository)
+
+        // Remove the shared cache copy, if caching is enabled, so it cannot be re-copied.
+        guard let cachePath else {
+            return
+        }
+        let cachedRepositoryPath = try cachePath.appending(repository.storagePath())
+        do {
+            // Match `fetchAndPopulateCache`'s locking: a shared lock on the cache directory plus an
+            // exclusive lock on this repository's entry, so evicting one repository does not block
+            // concurrent cache fetches of unrelated repositories.
+            try self.fileSystem.withLock(on: cachePath, type: .shared) {
+                try self.fileSystem.withLock(on: cachedRepositoryPath, type: .exclusive) {
+                    try self.fileSystem.removeFileTree(cachedRepositoryPath)
+                }
+            }
+        } catch {
+            observabilityScope.emit(
+                error: "Error purging repository cache for '\(repository.location)' at '\(cachedRepositoryPath)'",
+                underlyingError: error
+            )
+        }
+    }
+
+    /// Runs `operation` against `repository`, recovering once from an incomplete or corrupt local
+    /// object store.
+    ///
+    /// If `operation` throws an error indicating the object store is incomplete or corrupt (see
+    /// `isGitObjectStoreCorruptionError`), this purges the repository from both the working
+    /// location and the shared cache, runs `beforeRetry` (so the caller can discard derived
+    /// state such as a working copy), and retries `operation` exactly once.  The retried `operation`
+    /// re-fetches the repository from its durable origin. Any other error, or a second failure,
+    /// propagates unchanged.
+    public func withObjectStoreRecovery<T>(
+        repository: RepositorySpecifier,
+        observabilityScope: ObservabilityScope,
+        beforeRetry: () async throws -> Void = {},
+        operation: () async throws -> T
+    ) async throws -> T {
+        do {
+            return try await operation()
+        } catch {
+            guard isGitObjectStoreCorruptionError(error) else {
+                throw error
+            }
+            observabilityScope.emit(
+                warning: "the local repository for '\(repository.location)' is incomplete or corrupt; re-fetching from its origin",
+                underlyingError: error
+            )
+            try self.purge(repository: repository, observabilityScope: observabilityScope)
+            try await beforeRetry()
+            return try await operation()
+        }
     }
 
     /// Returns true if the directory is valid git location.

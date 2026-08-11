@@ -166,6 +166,10 @@ public struct ResolvedModule {
     /// The list of platforms that are supported by this module.
     public let supportedPlatforms: [SupportedPlatform]
 
+    /// True if this is a test module that is directly depended upon by other test modules
+    /// in the same package.
+    package let isTestSupportModule: Bool
+
     @_spi(SwiftPMInternal)
     public let platformVersionProvider: PlatformVersionProvider
 
@@ -193,7 +197,8 @@ public struct ResolvedModule {
         dependencies: [ResolvedModule.Dependency],
         defaultLocalization: String? = nil,
         supportedPlatforms: [SupportedPlatform],
-        platformVersionProvider: PlatformVersionProvider
+        platformVersionProvider: PlatformVersionProvider,
+        isTestSupportModule: Bool = false
     ) {
         self.packageIdentity = packageIdentity
         self.underlying = underlying
@@ -201,6 +206,7 @@ public struct ResolvedModule {
         self.defaultLocalization = defaultLocalization
         self.supportedPlatforms = supportedPlatforms
         self.platformVersionProvider = platformVersionProvider
+        self.isTestSupportModule = isTestSupportModule
     }
 
     public func getSupportedPlatform(for platform: Platform, usingXCTest: Bool) -> SupportedPlatform {

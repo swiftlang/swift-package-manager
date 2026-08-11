@@ -19,6 +19,7 @@ import PackageRegistry
 @testable import PackageRegistryCommand
 import struct SPMBuildCore.BuildSystemProvider
 import PackageSigning
+import SourceControl
 import _InternalTestSupport
 import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 import Workspace
@@ -580,6 +581,144 @@ struct PackageRegistryCommandTests {
 
             let extractedPath = try await validatePackageArchive(at: archivePath)
             expectFileExists(at: extractedPath.appending(component: metadataFilename))
+        }
+
+        // git repo: untracked secrets must not end up in the published archive
+        try await withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+            initGitRepo(packageDirectory)
+
+            let secretFiles = [".env", "id_rsa", "credentials.json", ".netrc"]
+            for name in secretFiles {
+                try localFileSystem.writeFileContents(
+                    packageDirectory.appending(component: name),
+                    bytes: "SECRET=leak"
+                )
+            }
+            try localFileSystem.writeFileContents(
+                packageDirectory.appending(components: "Sources", "api.key"),
+                bytes: "SECRET=leak"
+            )
+
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+
+            let archivePath = try await PackageArchiver.archive(
+                packageIdentity: packageIdentity,
+                packageVersion: "2.0.0",
+                packageDirectory: packageDirectory,
+                workingDirectory: workingDirectory,
+                workingFilesToCopy: [],
+                cancellator: .none,
+                observabilityScope: observability.topScope
+            )
+
+            let extractedPath = try await validatePackageArchive(at: archivePath)
+            for name in secretFiles {
+                expectFileDoesNotExists(at: extractedPath.appending(component: name))
+            }
+            expectFileDoesNotExists(at: extractedPath.appending(components: "Sources", "api.key"))
+        }
+
+        // git repo: .gitattributes export-ignore must be honored
+        try await withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+            initGitRepo(packageDirectory)
+
+            try localFileSystem.writeFileContents(
+                packageDirectory.appending(component: ".gitattributes"),
+                bytes: "secret/** export-ignore\n"
+            )
+            try localFileSystem.createDirectory(packageDirectory.appending(component: "secret"))
+            try localFileSystem.writeFileContents(
+                packageDirectory.appending(components: "secret", "data.txt"),
+                bytes: "SECRET=leak"
+            )
+            let repo = GitRepository(path: packageDirectory)
+            try repo.stageEverything()
+            try repo.commit(message: "add secret dir with export-ignore")
+
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+
+            let archivePath = try await PackageArchiver.archive(
+                packageIdentity: packageIdentity,
+                packageVersion: "2.1.0",
+                packageDirectory: packageDirectory,
+                workingDirectory: workingDirectory,
+                workingFilesToCopy: [],
+                cancellator: .none,
+                observabilityScope: observability.topScope
+            )
+
+            let extractedPath = try await validatePackageArchive(at: archivePath)
+            // `git archive` honors `export-ignore` for the file contents but still emits an
+            // empty directory entry for `secret/`, so only its contents must be excluded.
+            expectFileDoesNotExists(at: extractedPath.appending(components: "secret", "data.txt"))
+            let secretDirectory = extractedPath.appending(component: "secret")
+            if localFileSystem.isDirectory(secretDirectory) {
+                #expect(try localFileSystem.getDirectoryContents(secretDirectory).isEmpty)
+            }
+        }
+
+        // non-git package: common secret filenames must be filtered (top-level + nested)
+        try await withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .executable,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+
+            let secretFiles = [".env", "id_rsa", "credentials.json", ".netrc"]
+            for name in secretFiles {
+                try localFileSystem.writeFileContents(
+                    packageDirectory.appending(component: name),
+                    bytes: "SECRET=leak"
+                )
+            }
+            try localFileSystem.writeFileContents(
+                packageDirectory.appending(components: "Sources", "api.key"),
+                bytes: "SECRET=leak"
+            )
+
+            let workingDirectory = temporaryDirectory.appending(component: UUID().uuidString)
+
+            let archivePath = try await PackageArchiver.archive(
+                packageIdentity: packageIdentity,
+                packageVersion: "2.2.0",
+                packageDirectory: packageDirectory,
+                workingDirectory: workingDirectory,
+                workingFilesToCopy: [],
+                cancellator: .none,
+                observabilityScope: observability.topScope
+            )
+
+            let extractedPath = try await validatePackageArchive(at: archivePath)
+            for name in secretFiles {
+                expectFileDoesNotExists(at: extractedPath.appending(component: name))
+            }
+            expectFileDoesNotExists(at: extractedPath.appending(components: "Sources", "api.key"))
         }
 
         @discardableResult
@@ -1269,6 +1408,56 @@ struct PackageRegistryCommandTests {
             try await SwiftPM.Registry.execute(["login", "--url", registryURL.absoluteString])
         }
     }
+
+    #if !os(Windows)
+    // Regression test for https://github.com/swiftlang/swift-package-manager/issues/9915: --token-file must accept non-regular files (FIFOs,
+    // /dev/stdin) after TSC switched readFileContents to Data(contentsOf:), which rejects them.
+    @Test(
+        .tags(
+            .TestSize.large,
+            .Feature.Command.PackageRegistry.Login,
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9915", relationship: .verifies),
+    )
+    func tokenFileAcceptsNonRegularFile() async throws {
+        try await withTemporaryDirectory { tmpDir in
+            let fifoPath = tmpDir.appending("token.fifo")
+
+            let rc = mkfifo(fifoPath.pathString, 0o600)
+            guard rc == 0 else {
+                Issue.record("mkfifo failed: \(String(cString: strerror(errno)))")
+                return
+            }
+
+            // FIFOs block open(2) until both ends are open, so write from a concurrent task.
+            let token = "test-registry-token"
+            let writeTask = Task.detached {
+                let fd = open(fifoPath.pathString, O_WRONLY)
+                guard fd >= 0 else { return }
+                defer { close(fd) }
+                _ = token.withCString { ptr in write(fd, ptr, strlen(ptr)) }
+            }
+            defer { writeTask.cancel() }
+
+            // The login will fail (no real registry), but must NOT fail reading the FIFO.
+            let result = try await SwiftPM.Registry.execute(
+                [
+                    "login",
+                    "--url", "https://nonexistent.registry.invalid",
+                    "--token-file", fifoPath.pathString,
+                    "--no-confirm",
+                ],
+                throwIfCommandFails: false
+            )
+
+            let combinedOutput = result.stdout + result.stderr
+            #expect(
+                !combinedOutput.contains("invalid access to"),
+                "Login failed reading the FIFO — regression of https://github.com/swiftlang/swift-package-manager/issues/9915. Output: \(combinedOutput)"
+            )
+        }
+    }
+    #endif
 
     struct LogingUrlData {
         let loginApiPath: String?

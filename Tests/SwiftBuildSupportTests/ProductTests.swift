@@ -22,44 +22,9 @@ struct ProductTests {
     func materializedStaticProducts() async throws {
         try await fixture(name: "Miscellaneous/Simple") { fixturePath in
             try await executeSwiftBuild(fixturePath, buildSystem: .swiftbuild)
-            let productsSubDirectory: String
-            let expectedProductName: String
-            switch try ProcessInfo.processInfo.hostOperatingSystem() {
-            case .macOS:
-                productsSubDirectory = "Debug"
-                expectedProductName = "libFoo.a"
-            case .iOS:
-                productsSubDirectory = "Debug-iphoneos"
-                expectedProductName = "libFoo.a"
-            case .tvOS:
-                productsSubDirectory = "Debug-appletvos"
-                expectedProductName = "libFoo.a"
-            case .watchOS:
-                productsSubDirectory = "Debug-watchos"
-                expectedProductName = "libFoo.a"
-            case .visionOS:
-                productsSubDirectory = "Debug-xros"
-                expectedProductName = "libFoo.a"
-            case .windows:
-                productsSubDirectory = "Debug-windows"
-                expectedProductName = "Foo.objlib"
-            case .linux:
-                productsSubDirectory = "Debug-linux"
-                expectedProductName = "libFoo.a"
-            case .freebsd:
-                productsSubDirectory = "Debug-freebsd"
-                expectedProductName = "libFoo.a"
-            case .openbsd:
-                productsSubDirectory = "Debug-openbsd"
-                expectedProductName = "libFoo.a"
-            case .android:
-                productsSubDirectory = "Debug-android"
-                expectedProductName = "libFoo.a"
-            case .unknown:
-                productsSubDirectory = "Debug"
-                expectedProductName = "libFoo.a"
-            }
-            let products = try FileManager.default.contentsOfDirectory(atPath: fixturePath.appending(components: [".build", "out", "Products", productsSubDirectory]).pathString)
+            let expectedProductName = try ProcessInfo.processInfo.hostOperatingSystem() == .windows ? "Foo.objlib" : "libFoo.a"
+            let binPath = try await getBinPath(fixturePath, buildSystem: .swiftbuild)
+            let products = try FileManager.default.contentsOfDirectory(atPath: binPath.pathString)
             #expect(products.contains(expectedProductName))
         }
     }

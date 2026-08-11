@@ -61,7 +61,8 @@ public struct DefaultDependencyMapper: DependencyMapper {
                 url: url,
                 requirement: try dependency.sourceControlRequirement(for: mappedLocationString),
                 productFilter: dependency.productFilter,
-                traits: dependency.traits
+                traits: dependency.traits,
+                registryIdentity: nil
             )
 
         } else {
@@ -74,7 +75,8 @@ public struct DefaultDependencyMapper: DependencyMapper {
                 path: localPath,
                 requirement: try dependency.sourceControlRequirement(for: mappedLocationString),
                 productFilter: dependency.productFilter,
-                traits: dependency.traits
+                traits: dependency.traits,
+                registryIdentity: nil
             )
         }
     }
@@ -98,7 +100,13 @@ public struct DefaultDependencyMapper: DependencyMapper {
             case .none:
                 // if the dependency URL starts with '~/', try to expand it.
                 if dependencyLocation.hasPrefix("~/") {
-                    return try AbsolutePath(validating: String(dependencyLocation.dropFirst(2)), relativeTo: fileSystem.homeDirectory).pathString
+                    let homeDirectory: AbsolutePath
+                    do {
+                        homeDirectory = try fileSystem.homeDirectory
+                    } catch {
+                        throw DependencyMappingError.invalidLocation("'~/'-prefixed dependency path '\(dependencyLocation)' cannot be expanded because the package manifest is being loaded from a context without a home directory (e.g. a remote source-control package); use a relative path or a remote URL instead")
+                    }
+                    return try AbsolutePath(validating: String(dependencyLocation.dropFirst(2)), relativeTo: homeDirectory).pathString
                 }
 
                 // check if already absolute path
@@ -318,7 +326,8 @@ extension PackageDependency {
                 location: location,
                 requirement: requirement,
                 productFilter: seed.productFilter,
-                traits: seed.traits
+                traits: seed.traits,
+                registryIdentity: nil
             )
         case .registry(let id, let requirement):
             self = .registry(
@@ -333,11 +342,13 @@ extension PackageDependency {
 
 private enum DependencyMappingError: Swift.Error, CustomStringConvertible {
     case invalidFileURL(_ message: String)
+    case invalidLocation(_ message: String)
     case invalidMapping(_ message: String)
 
     var description: String {
         switch self {
         case .invalidFileURL(let message): return message
+        case .invalidLocation(let message): return message
         case .invalidMapping(let message): return message
         }
     }

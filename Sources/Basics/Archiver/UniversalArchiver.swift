@@ -84,11 +84,12 @@ public struct UniversalArchiver: Archiver {
     }
 
     public func compress(
-        directory: AbsolutePath,
+        paths: [RelativePath],
+        from parent: AbsolutePath,
         to destinationPath: AbsolutePath
     ) async throws {
         let archiver = try archiver(for: destinationPath)
-        try await archiver.compress(directory: directory, to: destinationPath)
+        try await archiver.compress(paths: paths, from: parent, to: destinationPath)
     }
 
     public func validate(

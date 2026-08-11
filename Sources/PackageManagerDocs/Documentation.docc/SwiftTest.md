@@ -365,7 +365,7 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 
 - term **--debugger**:
 
-*Launch the tests in a debugger session.*
+*Launch tests inside an LLDB debugging session. Use the `failbreak` alias to attach breakpoints that will trigger on test failures.*
 
 
 - term **--traits=\<traits\>**:

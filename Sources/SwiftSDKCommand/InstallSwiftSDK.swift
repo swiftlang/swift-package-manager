@@ -43,7 +43,7 @@ struct InstallSwiftSDK: SwiftSDKSubcommand {
         inversion: .prefixedNo,
         help: """
             Determines whether color diagnostics appear when printing to a TTY.
-            By default, color diagnostics are enabled when connected to a TTY and disabled otherwise.
+            By default, the terminal enables color diagnostics when connected to a TTY and disables them otherwise.
             """
     )
     public var colorDiagnostics: Bool = ProcessInfo.processInfo.environment["NO_COLOR"] == nil

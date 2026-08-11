@@ -651,6 +651,10 @@ public struct GeneratedFiles {
         apiNotes.append(contentsOf: other.apiNotes)
         resources.merge(other.resources, uniquingKeysWith: { winner, _ in winner })
     }
+
+    public var sortedResourcePaths: [Basics.AbsolutePath] {
+        resources.keys.sorted()
+    }
 }
 
 /// Describes a rule for including a source or resource file in a target.
@@ -868,6 +872,11 @@ public struct FileRuleDescription: Sendable {
     public static let swiftpmFileTypes: [FileRuleDescription] = [
         docc,
         xcprivacyIgnored,
+    ]
+
+    /// List of file types that apply to the SwiftBuild build system.
+    public static let swiftBuildFileTypes: [FileRuleDescription] = xcbuildFileTypes + [
+        docc,
     ]
 
     /// List of file directory extensions that should be treated as opaque, non source, directories.

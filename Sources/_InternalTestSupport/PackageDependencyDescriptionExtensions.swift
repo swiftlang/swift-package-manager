@@ -40,7 +40,8 @@ package extension PackageDependency {
         path: AbsolutePath,
         requirement: SourceControl.Requirement,
         productFilter: ProductFilter = .everything,
-        traits: Set<Trait> = [.init(name: "default")]
+        traits: Set<Trait> = [.init(name: "default")],
+        registryIdentity: PackageIdentity? = nil
     ) -> Self {
         let identity = identity ?? PackageIdentity(path: path)
         return .localSourceControl(
@@ -49,7 +50,8 @@ package extension PackageDependency {
             path: path,
             requirement: requirement,
             productFilter: productFilter,
-            traits: traits
+            traits: traits,
+            registryIdentity: registryIdentity
         )
     }
 
@@ -59,7 +61,8 @@ package extension PackageDependency {
         url: SourceControlURL,
         requirement: SourceControl.Requirement,
         productFilter: ProductFilter = .everything,
-        traits: Set<Trait> = [.init(name: "default")]
+        traits: Set<Trait> = [.init(name: "default")],
+        registryIdentity: PackageIdentity? = nil
     ) -> Self {
         let identity = identity ?? PackageIdentity(url: url)
         return .remoteSourceControl(
@@ -68,7 +71,8 @@ package extension PackageDependency {
             url: url,
             requirement: requirement,
             productFilter: productFilter,
-            traits: traits
+            traits: traits,
+            registryIdentity: registryIdentity
         )
     }
 
