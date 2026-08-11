@@ -26,6 +26,7 @@ import class Basics.ThreadSafeArrayStore
 
 import enum PackageModel.BuildConfiguration
 import enum PackageModel.BuildSettings
+import class PackageModel.BinaryModule
 import class PackageModel.ClangModule
 import struct PackageModel.ConfigurationCondition
 import class PackageModel.Manifest
@@ -920,6 +921,20 @@ extension PackageGraph.ResolvedProduct {
 
     var hasSourceTargets: Bool {
         self.modules.anySatisfy { !$0.isBinary }
+    }
+
+    /// Whether this product vends a prebuilt binary framework (an XCFramework) whose name matches the
+    /// product's own name.
+    var hasCollidingBinaryFrameworkTargets: Bool {
+        self.modules.contains { module in
+            guard let binaryModule = module.underlying as? BinaryModule else { return false }
+            switch binaryModule.kind {
+            case .xcframework:
+                return module.name == self.name
+            case .artifactsArchive, .unknown:
+                return false
+            }
+        }
     }
 
     /// Returns the corresponding *system library* module, if this is a system library product.

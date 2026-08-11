@@ -623,7 +623,9 @@ extension PackagePIFProjectBuilder {
 
         // Also create a dynamic product for use by development-time features such as Previews and Swift Playgrounds.
         // If all targets this product is comprised of are binaries, we should *not* create a dynamic variant.
-        if libraryType == .automatic && libraryProduct.hasSourceTargets && pifBuilder.createDynamicVariantsForLibraryProducts {
+        // If this product vends a binary framework whose name matches the product's, we should *not* create a dynamic variant.
+        if libraryType == .automatic && libraryProduct.hasSourceTargets && pifBuilder.createDynamicVariantsForLibraryProducts && !libraryProduct.hasCollidingBinaryFrameworkTargets
+        {
             var dynamicLibraryVariant = try self.buildLibraryProduct(
                 libraryProduct,
                 type: .dynamic,
