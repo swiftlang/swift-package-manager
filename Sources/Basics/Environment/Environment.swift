@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+import Synchronization
 
 #if canImport(Glibc)
 import Glibc
@@ -24,23 +25,6 @@ import Android
 #else
 import Darwin.C
 #endif
-
-// FIXME: Use Synchronization.Mutex when available
-private final class Mutex<T>: @unchecked Sendable {
-    var lock: NSLock
-    var value: T
-
-    init(value: T) {
-        self.lock = .init()
-        self.value = value
-    }
-
-    func withLock<U>(_ body: (inout T) -> U) -> U {
-        self.lock.lock()
-        defer { self.lock.unlock() }
-        return body(&self.value)
-    }
-}
 
 // FIXME: This should come from Foundation
 // FIXME: package (public required by users)
@@ -124,7 +108,7 @@ extension Environment {
 // MARK: - Global Environment
 
 extension Environment {
-    fileprivate static let _cachedCurrent = Mutex<Self?>(value: nil)
+    fileprivate static let _cachedCurrent = Mutex<Self?>(nil)
 
     /// Vends a copy of the current process's environment variables.
     ///
