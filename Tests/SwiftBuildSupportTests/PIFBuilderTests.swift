@@ -1133,6 +1133,94 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test(arguments: BuildConfiguration.allCases, [PackagePIFBuilder.AddLocalRpaths.always, .never])
+    func testProductsAddAppleBundleRpaths(
+        configuration: BuildConfiguration,
+        addLocalRpaths: PackagePIFBuilder.AddLocalRpaths
+    ) async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/Lib/Lib.swift",
+            "/Root/Tests/LibTests/LibTests.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_2,
+                    products: [
+                        ProductDescription(name: "Lib", type: .library(.automatic), targets: ["Lib"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Lib", dependencies: []),
+                        TargetDescription(name: "LibTests", dependencies: ["Lib"], type: .test),
+                    ]
+                ),
+            ],
+            shouldCreateMultipleTestProducts: true,
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: addLocalRpaths
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "Root")
+        let applePlatforms: [ProjectModel.BuildSettings.Platform] = [
+            .macOS, .macCatalyst, .driverKit, .iOS, .watchOS, .tvOS, .xrOS,
+        ]
+
+        let testSettings = try project.target(named: "LibTests-product")
+            .buildConfig(named: configuration)
+            .settings
+
+        if addLocalRpaths == .never {
+            #expect(testSettings[single: "APPLE_TEST_BUNDLE_RPATH"] == nil)
+            #expect(testSettings[single: "APPLE_TEST_BUNDLE_RPATH_SHALLOW_BUNDLE_YES"] == nil)
+            #expect(testSettings[single: "APPLE_TEST_BUNDLE_RPATH_SHALLOW_BUNDLE_NO"] == nil)
+            #expect(testSettings[.LD_RUNPATH_SEARCH_PATHS] == nil)
+            for platform in applePlatforms {
+                #expect(testSettings[.LD_RUNPATH_SEARCH_PATHS, platform] == nil)
+            }
+        } else {
+            #expect(
+                testSettings[single: "APPLE_TEST_BUNDLE_RPATH"]
+                == "$(APPLE_TEST_BUNDLE_RPATH_SHALLOW_BUNDLE_$(SHALLOW_BUNDLE:default=NO))"
+            )
+            #expect(testSettings[single: "APPLE_TEST_BUNDLE_RPATH_SHALLOW_BUNDLE_YES"] == "@loader_path/../..")
+            #expect(testSettings[single: "APPLE_TEST_BUNDLE_RPATH_SHALLOW_BUNDLE_NO"] == "@loader_path/../../..")
+
+            #expect(testSettings[.LD_RUNPATH_SEARCH_PATHS] == [
+                "$(RPATH_ORIGIN)/Frameworks",
+                "$(RPATH_ORIGIN)/../Frameworks",
+                "$(inherited)",
+            ])
+
+            for platform in applePlatforms {
+                #expect(testSettings[.LD_RUNPATH_SEARCH_PATHS, platform] == ["$(APPLE_TEST_BUNDLE_RPATH)", "$(inherited)"])
+            }
+
+            for platform in [ProjectModel.BuildSettings.Platform.linux, .windows, .android, .wasi] {
+                #expect(testSettings[.LD_RUNPATH_SEARCH_PATHS, platform] == nil, "\(platform)")
+            }
+        }
+    }
+
     @Test func impartedModuleMaps() async throws {
         try await withGeneratedPIF(fromFixture: "CFamilyTargets/ModuleMapGenerationCases") { pif, observabilitySystem, fixturePath in
             #expect(observabilitySystem.diagnostics.filter {
