@@ -14,7 +14,6 @@ import _Concurrency
 import ArgumentParser
 import Basics
 import Dispatch
-import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import PackageFingerprint
 import PackageGraph
