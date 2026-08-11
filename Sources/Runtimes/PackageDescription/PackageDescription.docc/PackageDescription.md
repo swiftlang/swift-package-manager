@@ -1,5 +1,9 @@
 # ``PackageDescription``
 
+@Metadata {
+    @TitleHeading("Tool")
+}
+
 Create reusable code, organize it in a lightweight way, and share it across your projects and with other developers.
 
 Swift packages are reusable components of Swift, Objective-C, Objective-C++, C, or C++ code that developers can use in their projects. They bundle source files, binaries, and resources in a way that’s easy to use in your app’s project. 

@@ -1,7 +1,8 @@
 # ``PackageManagerDocs``
 
 @Metadata {
-    @DisplayName("Swift Package Manager")
+    @DisplayName("Package Manager (SwiftPM)")
+    @TitleHeading("Tool")
 }
 
 Organize, manage, and edit Swift packages.
