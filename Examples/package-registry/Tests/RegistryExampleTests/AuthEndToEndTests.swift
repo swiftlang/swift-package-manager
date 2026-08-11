@@ -112,4 +112,76 @@ struct AuthEndToEndTests {
             }
         }
     }
+
+    private struct MintedClient: Decodable {
+        let id: String
+        let token: String
+    }
+
+    private struct ClientList: Decodable {
+        struct Client: Decodable, Equatable {
+            let id: String
+            let method: String
+        }
+
+        let clients: [Client]
+    }
+
+    private func mint(_ tester: any TestingApplicationTester, headers: HTTPHeaders) async throws -> MintedClient {
+        var payload = ""
+        try await tester.test(.POST, "/clients", headers: headers) { res async in
+            #expect(res.status == .created)
+            payload = res.body.string
+        }
+        return try JSONDecoder().decode(MintedClient.self, from: Data(payload.utf8))
+    }
+
+    private func list(_ tester: any TestingApplicationTester, headers: HTTPHeaders) async throws -> ClientList {
+        var payload = ""
+        try await tester.test(.GET, "/clients", headers: headers) { res async in
+            #expect(res.status == .ok)
+            payload = res.body.string
+        }
+        return try JSONDecoder().decode(ClientList.self, from: Data(payload.utf8))
+    }
+
+    @Test func `a user adds a token per machine, then retires one of them`() async throws {
+        try await withRegistryApp { app in
+            let tester = try app.testing()
+            _ = try await register(tester, body: #"{"email":"mona@example.com","password":"hunter2"}"#)
+            let password = basicHeaders(email: "mona@example.com", password: "hunter2")
+            let passwordClient = try #require(try await list(tester, headers: password).clients.first)
+            #expect(passwordClient.method == "basic")
+
+            let laptop = try await mint(tester, headers: password)
+            let ci = try await mint(tester, headers: password)
+
+            for token in [laptop.token, ci.token] {
+                try await tester.test(.POST, "/login", headers: bearerHeaders(token)) { res async in
+                    #expect(res.status == .ok)
+                }
+            }
+
+            #expect(try await list(tester, headers: bearerHeaders(ci.token)).clients == [
+                passwordClient,
+                ClientList.Client(id: laptop.id, method: "bearer"),
+                ClientList.Client(id: ci.id, method: "bearer"),
+            ])
+
+            try await tester.test(.DELETE, "/clients/\(laptop.id)", headers: bearerHeaders(ci.token)) { res async in
+                #expect(res.status == .noContent)
+            }
+
+            try await tester.test(.POST, "/login", headers: bearerHeaders(laptop.token)) { res async in
+                #expect(res.status == .unauthorized)
+            }
+            try await tester.test(.POST, "/login", headers: bearerHeaders(ci.token)) { res async in
+                #expect(res.status == .ok)
+            }
+            #expect(try await list(tester, headers: password).clients == [
+                passwordClient,
+                ClientList.Client(id: ci.id, method: "bearer"),
+            ])
+        }
+    }
 }

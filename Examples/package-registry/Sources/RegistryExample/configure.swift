@@ -40,6 +40,7 @@ public func configure(_ app: Application, authEnabled: Bool = true) async throws
     let clientStore = app.clientStore
     let authenticator = ClientAuthenticator(clientStore: clientStore)
     let resolver = ClientResolver(store: clientStore)
+    let clientRegistrar = ClientRegistrar(store: clientStore)
     let authGroup = app.grouped(authenticator)
 
     AvailabilityRoutes().register(app)
@@ -50,8 +51,9 @@ public func configure(_ app: Application, authEnabled: Bool = true) async throws
     PublishRoutes(publisher: ReleasePublisher(store: store)).register(publishRouter)
     MetadataRoutes(store: store).register(app)
 
-    UserRoutes(registrar: UserRegistrar(store: userStore, clientRegistrar: ClientRegistrar(store: clientStore))).register(app)
+    UserRoutes(registrar: UserRegistrar(store: userStore, clientRegistrar: clientRegistrar)).register(app)
     LoginRoutes(resolver: resolver).register(authGroup)
+    ClientRoutes(resolver: resolver, registrar: clientRegistrar, store: clientStore).register(authGroup)
 }
 
 private func configureTLS(_ app: Application) throws {

@@ -139,6 +139,73 @@ struct PublishAuthTests {
         }
     }
 
+    private struct MintedClient: Decodable {
+        let id: String
+        let token: String
+    }
+
+    @Test func `with auth enabled, a token minted through the clients endpoint authorizes publishing`() async throws {
+        try await withRegistryApp(authEnabled: true) { app in
+            _ = try await userRegistrar(for: app).register(email: "mona@example.com", password: "hunter2")
+            let tester = try app.testing()
+
+            var payload = ""
+            try await tester.test(
+                .POST, "/clients", headers: basicHeaders(email: "mona@example.com", password: "hunter2")
+            ) { res async in
+                #expect(res.status == .created)
+                payload = res.body.string
+            }
+            let minted = try JSONDecoder().decode(MintedClient.self, from: Data(payload.utf8))
+
+            try await tester.test(
+                .PUT, "/catalogdev/HelloWorld/1.0.0",
+                headers: bearerPublishHeaders(minted.token),
+                body: try publishBody()
+            ) { res async in
+                #expect(res.status == .created)
+            }
+        }
+    }
+
+    @Test func `with auth enabled, a revoked client no longer authorizes publishing`() async throws {
+        try await withRegistryApp(authEnabled: true) { app in
+            let registration = try await userRegistrar(for: app)
+                .register(email: "mona@example.com", password: "hunter2")
+            let ciClient = try await ClientRegistrar(
+                store: app.clientStore,
+                tokenGenerator: TokenGenerator { "the-token" }
+            ).registerBearerClient(for: registration.user)
+            let tester = try app.testing()
+
+            try await tester.test(
+                .PUT, "/catalogdev/HelloWorld/1.0.0",
+                headers: bearerPublishHeaders("the-token"),
+                body: try publishBody()
+            ) { res async in
+                #expect(res.status == .created)
+            }
+
+            try await app.clientStore.revoke(ciClient.client.id, of: registration.user)
+
+            try await tester.test(
+                .PUT, "/catalogdev/HelloWorld/2.0.0",
+                headers: bearerPublishHeaders("the-token"),
+                body: try publishBody()
+            ) { res async in
+                #expect(res.status == .unauthorized)
+            }
+
+            try await tester.test(
+                .PUT, "/catalogdev/HelloWorld/2.0.0",
+                headers: basicPublishHeaders(email: "mona@example.com", password: "hunter2"),
+                body: try publishBody()
+            ) { res async in
+                #expect(res.status == .created)
+            }
+        }
+    }
+
     @Test func `with auth enabled, invalid credentials are rejected with 401`() async throws {
         try await withRegistryApp(authEnabled: true) { app in
             try await seedPasswordUser(app, email: "mona@example.com", password: "hunter2")

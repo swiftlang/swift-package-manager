@@ -23,13 +23,18 @@ struct ClientRegistrarTests {
 
     private func registrar(
         _ store: ClientStore,
-        mintingTokens tokens: String...
+        mintingTokens tokens: String...,
+        mintingIDs ids: [String] = []
     ) -> ClientRegistrar {
-        let remaining = NIOLockedValueBox(ArraySlice(tokens))
+        let remainingTokens = NIOLockedValueBox(ArraySlice(tokens))
+        let remainingIDs = NIOLockedValueBox(ArraySlice(ids))
         return ClientRegistrar(
             store: store,
             tokenGenerator: TokenGenerator {
-                remaining.withLockedValue { $0.popFirst() ?? "exhausted-token" }
+                remainingTokens.withLockedValue { $0.popFirst() ?? "exhausted-token" }
+            },
+            idGenerator: ids.isEmpty ? .random : ClientIDGenerator {
+                ClientID(remainingIDs.withLockedValue { $0.popFirst() ?? "exhausted-id" })
             }
         )
     }
@@ -162,5 +167,44 @@ struct ClientRegistrarTests {
                 for: BearerAuth.Credentials(tokenHash: TokenHasher.hash("minted-token"))
             ) == bearer.client
         )
+    }
+
+    // MARK: Identity
+
+    @Test func `each of a user's clients is registered under its own id`() async throws {
+        let store = ClientStore()
+        let harry = try user("harry@example.com")
+        let registrar = registrar(store, mintingTokens: "laptop-token", "desktop-token")
+        let basic = try await registrar.registerBasicClient(for: harry, password: "hunter2")
+        let laptop = try await registrar.registerBearerClient(for: harry)
+        let desktop = try await registrar.registerBearerClient(for: harry)
+
+        #expect(Set([basic.id, laptop.client.id, desktop.client.id]).count == 3)
+    }
+
+    @Test func `a registered client is listed among its user's clients`() async throws {
+        let store = ClientStore()
+        let harry = try user("harry@example.com")
+        let registrar = registrar(store, mintingTokens: "laptop-token")
+        let basic = try await registrar.registerBasicClient(for: harry, password: "hunter2")
+        let laptop = try await registrar.registerBearerClient(for: harry)
+
+        #expect(await store.clients(for: harry).map(\.id) == [basic.id, laptop.client.id])
+    }
+
+    @Test func `a minted id colliding with a registered one is rejected`() async throws {
+        let store = ClientStore()
+        let harry = try user("harry@example.com")
+        let registrar = registrar(
+            store,
+            mintingTokens: "laptop-token", "desktop-token",
+            mintingIDs: ["collision", "collision"]
+        )
+        _ = try await registrar.registerBearerClient(for: harry)
+
+        await #expect(throws: ClientStoreError.idAlreadyExists) {
+            _ = try await registrar.registerBearerClient(for: harry)
+        }
+        #expect(await store.clients(for: harry).count == 1)
     }
 }

@@ -13,10 +13,12 @@
 /// A client makes authenticated requests on behalf of the user
 /// Permissions are scoped to the client, not the user
 public struct RegisteredClient<Auth: AuthenticationMethod>: Sendable, Equatable {
+    public let id: ClientID
     public let user: User
     public let auth: Auth
 
-    public init(user: User, auth: Auth) {
+    public init(id: ClientID, user: User, auth: Auth) {
+        self.id = id
         self.user = user
         self.auth = auth
     }
@@ -25,4 +27,6 @@ public struct RegisteredClient<Auth: AuthenticationMethod>: Sendable, Equatable 
 public protocol AuthenticationMethod: Sendable, Equatable {
     associatedtype Credentials: Sendable, Hashable
     var credentials: Credentials { get }
+
+    static var methodName: String { get }
 }

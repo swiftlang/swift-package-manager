@@ -21,6 +21,8 @@ public struct BasicAuth: AuthenticationMethod, Equatable {
         }
     }
 
+    public static let methodName = "basic"
+
     public let credentials: Credentials
     public let passwordHash: String
 
@@ -38,9 +40,10 @@ public struct BasicAuth: AuthenticationMethod, Equatable {
 
 extension RegisteredClient where Auth == BasicAuth {
     static func basic(
+        id: ClientID,
         user: User,
         passwordHash: String
     ) -> Self {
-        RegisteredClient(user: user, auth: BasicAuth(email: user.email, passwordHash: passwordHash))
+        RegisteredClient(id: id, user: user, auth: BasicAuth(email: user.email, passwordHash: passwordHash))
     }
 }

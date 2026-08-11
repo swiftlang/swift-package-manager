@@ -20,13 +20,14 @@ public struct BearerAuth: AuthenticationMethod, Equatable {
         }
     }
 
+    public static let methodName = "bearer"
+
     public let credentials: Credentials
 
     /// - Parameter tokenHash: The digest of the client's bearer token.
     public init(tokenHash: TokenHash) {
         self.credentials = Credentials(tokenHash: tokenHash)
     }
-
     /// Creates a Bearer authentication method from a plaintext token,
     /// retaining only its hash.
     ///
@@ -38,16 +39,18 @@ public struct BearerAuth: AuthenticationMethod, Equatable {
 
 extension RegisteredClient where Auth == BearerAuth {
     static func bearer(
+        id: ClientID,
         user: User,
         tokenHash: TokenHash
     ) -> Self {
-        RegisteredClient(user: user, auth: BearerAuth(tokenHash: tokenHash))
+        RegisteredClient(id: id, user: user, auth: BearerAuth(tokenHash: tokenHash))
     }
 
     static func bearer(
+        id: ClientID,
         user: User,
         token: String
     ) -> Self {
-        RegisteredClient(user: user, auth: BearerAuth(token: token))
+        RegisteredClient(id: id, user: user, auth: BearerAuth(token: token))
     }
 }

@@ -54,6 +54,7 @@ public struct BearerClientRegistration: Sendable, Equatable {
 public struct ClientRegistrar: Sendable {
     let store: ClientStore
     let tokenGenerator: TokenGenerator
+    let idGenerator: ClientIDGenerator
 
     /// Creates a registrar backed by `store`.
     ///
@@ -61,9 +62,16 @@ public struct ClientRegistrar: Sendable {
     ///   - store: The client store to insert into.
     ///   - tokenGenerator: The source of minted bearer tokens. Defaults to
     ///     the system CSPRNG; tests inject a deterministic generator.
-    public init(store: ClientStore, tokenGenerator: TokenGenerator = .secureRandom) {
+    ///   - idGenerator: The source of minted ``ClientID``s. Defaults to random
+    ///     UUIDs; tests inject a deterministic generator.
+    public init(
+        store: ClientStore,
+        tokenGenerator: TokenGenerator = .secureRandom,
+        idGenerator: ClientIDGenerator = .random
+    ) {
         self.store = store
         self.tokenGenerator = tokenGenerator
+        self.idGenerator = idGenerator
     }
 
     /// Registers the user's one HTTP Basic client.
@@ -84,7 +92,11 @@ public struct ClientRegistrar: Sendable {
         guard !password.isEmpty else {
             throw ClientRegistrationError.emptyPassword
         }
-        let client = RegisteredClient.basic(user: user, passwordHash: try await Self.hashPassword(password))
+        let client = RegisteredClient.basic(
+            id: idGenerator.makeID(),
+            user: user,
+            passwordHash: try await Self.hashPassword(password)
+        )
         do {
             return try await store(client)
         } catch ClientStoreError.clientAlreadyExists {
@@ -99,12 +111,15 @@ public struct ClientRegistrar: Sendable {
     /// - Parameter user: The account the client acts for.
     /// - Returns: The registered client and its one-time plaintext token.
     /// - Throws: ``ClientStoreError/clientAlreadyExists`` if the minted token
-    ///   collides with a registered one. With 256-bit tokens this is
-    ///   astronomically unlikely and is treated as a server-side condition
-    ///   rather than a client error.
+    ///   collides with a registered one, or
+    ///   ``ClientStoreError/idAlreadyExists`` if the minted id does. With
+    ///   256-bit tokens and UUID ids either is astronomically unlikely and is
+    ///   treated as a server-side condition rather than a client error.
     public func registerBearerClient(for user: User) async throws -> BearerClientRegistration {
         let token = tokenGenerator.makeToken()
-        let client = try await store(RegisteredClient.bearer(user: user, token: token))
+        let client = try await store(
+            RegisteredClient.bearer(id: idGenerator.makeID(), user: user, token: token)
+        )
         return BearerClientRegistration(client: client, token: token)
     }
 

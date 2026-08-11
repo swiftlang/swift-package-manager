@@ -21,7 +21,7 @@ import Vapor
 /// `AuthenticatedClient<BearerAuth>`. "Who is calling?" is therefore a question
 /// about a *set* of types, and this resolver is the one place that set is
 /// written down: making a new authentication method resolvable means adding a
-/// line to ``user(authenticating:)``.
+/// line to ``client(authenticating:)``.
 ///
 /// Resolution re-reads the ``ClientStore`` every time it is asked rather than
 /// trusting anything captured when the credentials verified. A client
@@ -50,15 +50,26 @@ public struct ClientResolver: Sendable {
     ///   authenticated `request` or the client it authenticated is no longer
     ///   registered.
     public func user(authenticating request: Request) async -> User? {
-        if let user = await user(of: BasicAuth.self, authenticating: request) { return user }
-        return await user(of: BearerAuth.self, authenticating: request)
+        await client(authenticating: request)?.user
     }
 
-    private func user<Auth: AuthenticationMethod>(
+    /// Which client is calling, described without its credentials.
+    ///
+    /// - Parameter request: A request that has passed through
+    ///   ``ClientAuthenticator``.
+    /// - Returns: The calling client, or `nil` when no supported method
+    ///   authenticated `request` or the client it authenticated is no longer
+    ///   registered.
+    public func client(authenticating request: Request) async -> ClientSummary? {
+        if let client = await client(of: BasicAuth.self, authenticating: request) { return client }
+        return await client(of: BearerAuth.self, authenticating: request)
+    }
+
+    private func client<Auth: AuthenticationMethod>(
         of _: Auth.Type,
         authenticating request: Request
-    ) async -> User? {
+    ) async -> ClientSummary? {
         guard let client = request.auth.get(AuthenticatedClient<Auth>.self) else { return nil }
-        return await store.client(ofType: Auth.self, for: client.credentials)?.user
+        return await store.client(ofType: Auth.self, for: client.credentials)?.summary
     }
 }
