@@ -842,7 +842,7 @@ struct PIFBuilderTests {
     }
 
     @Test
-    func binaryFrameworkProductWithStubTargetDoesNotSynthesizeCollidingDynamicVariant() async throws {
+    func binaryFrameworkProductWithStubTargetSynthesizesDisambiguatedDynamicVariant() async throws {
         let observability = ObservabilitySystem.makeForTesting()
 
         let fs = InMemoryFileSystem(
@@ -927,23 +927,22 @@ struct PIFBuilderTests {
 
         let widgetProject = try pif.workspace.project(named: "Widget")
 
-        // No dynamic framework variant should be synthesized for a product whose buildable artifact is
-        // a same-named binary Widget.framework
         let dynamicVariantName = PackagePIFBuilder.targetName(forProductName: "Widget", suffix: .dynamic)
-        let dynamicVariant = widgetProject.underlying.targets.first { $0.common.name == dynamicVariantName }
+        let dynamicVariant = try widgetProject.target(named: dynamicVariantName)
 
-        if case .target(let dynamicTarget) = dynamicVariant {
-            let isCollidingFramework = dynamicTarget.productType == .framework
-                && dynamicTarget.productName == "$(WRAPPER_NAME)"
+        guard case .target(let dynamicTarget) = dynamicVariant else {
+            Issue.record("Expected a dynamic framework variant '\(dynamicVariantName)' to be synthesized")
+            return
+        }
+        #expect(dynamicTarget.productType == .framework)
+
+        for configuration in BuildConfiguration.allCases {
+            let productName = try dynamicVariant.buildConfig(named: configuration).settings[.PRODUCT_NAME]
             #expect(
-                !isCollidingFramework,
-                "A dynamic 'Widget.framework' variant was synthesized for a binary-backed product"
+                productName != "Widget",
+                "Dynamic framework variant must not be named 'Widget', which collides with the vended Widget.framework"
             )
         }
-        #expect(
-            dynamicVariant == nil,
-            "No dynamic variant ('\(dynamicVariantName)') should be synthesized for a product vending a binary framework"
-        )
     }
 
     @Test

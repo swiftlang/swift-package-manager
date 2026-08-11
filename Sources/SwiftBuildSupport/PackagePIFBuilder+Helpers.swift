@@ -1184,7 +1184,9 @@ extension ProjectModel.BuildSettings {
 
         // Are we building a framework?
         if !createDylibForDynamicProducts {
-            // Disambiguate the framework's name for automatic library products
+            // Disambiguate the framework's name for automatic library products so the built.
+            // We deliberately scope this to automatic products to match the
+            // previous PIF builder behavior
             if let product, product.type == .library(.automatic) {
                 self[.PRODUCT_NAME] = PackagePIFBuilder.computePackageProductFrameworkName(productName: productName)
             }
