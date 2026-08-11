@@ -1,8 +1,8 @@
 # Swift Package Registry Reference Server
 
-A minimal, in-memory reference implementation of the Swift Package Registry service
-(per [SE-0292]) built with Vapor. It is intended to be exercised end-to-end with 
-`swift package-registry publish` and the Swift Package Manager registry client.
+A minimal, in-memory reference implementation of the Swift Package Registry service built with [Vapor](https://vapor.codes). 
+Developers implementing their own registry can use this as a reference. Swift evolution proposals changing the registry should
+put up a PR against this project to show how the proposal could be implemented.
 
 ## What's implemented
 

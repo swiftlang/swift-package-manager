@@ -139,6 +139,52 @@ struct SwiftPMBuildServerTests {
     }
 
     @Test
+    func sourcesItemsWithUnresolvedDependency() async throws {
+        try await testWithTemporaryDirectory { tmpDir in
+            let packagePath = tmpDir.appending("MyPackage")
+            try localFileSystem.createDirectory(packagePath.appending(components: "Sources", "MyLib"), recursive: true)
+            try localFileSystem.writeFileContents(
+                packagePath.appending("Package.swift"),
+                string: """
+                    // swift-tools-version: 6.0
+                    import PackageDescription
+                    let package = Package(
+                        name: "MyPackage",
+                        dependencies: [
+                            .package(url: "https://github.com/swiftlang/swift-testing.git", branch: "main"),
+                        ],
+                        targets: [
+                            .target(
+                                name: "MyLib",
+                                dependencies: [.product(name: "Testing", package: "swift-testing")]
+                            ),
+                        ]
+                    )
+                    """
+            )
+            try localFileSystem.writeFileContents(
+                packagePath.appending(components: "Sources", "MyLib", "MyLib.swift"),
+                string: "public func foo() {}\n"
+            )
+
+            try await withSwiftPMBSP(packagePath: packagePath, extraBSPArgs: ["--force-resolved-versions"]) {
+                connection,
+                _ in
+                let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
+                guard let myLib = targetResponse.targets.first(where: { $0.displayName == "MyLib" }) else {
+                    return
+                }
+                // Even though the dependencies failed to resolve, we should still be able to list sources.
+                let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [myLib.id]))
+                #expect(sourcesResponse.items.flatMap(\.sources).compactMap { $0.uri.fileURL?.lastPathComponent } == ["MyLib.swift"])
+            }
+
+            // Ensure we actually skipped dependency resolution.
+            #expect(!localFileSystem.exists(packagePath.appending("Package.resolved")))
+        }
+    }
+
+    @Test
     func compilerArgsBasics() async throws {
         try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple") { connection, _, _ in
             let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())

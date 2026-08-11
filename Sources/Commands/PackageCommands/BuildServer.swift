@@ -51,7 +51,12 @@ struct BuildServer: AsyncSwiftCommand {
             sendMirrorFile: nil
         )
 
-        let buildSystem = try await swiftCommandState.createBuildSystem(explicitBuildSystem: .swiftbuild)
+        let buildSystem = try await swiftCommandState.createBuildSystem(
+            explicitBuildSystem: .swiftbuild,
+            // Tolerate errors while loading the package graph, so we can still report things like sources
+            // for the root package.
+            packageGraphLoader: { try await swiftCommandState.loadPackageGraph(exitOnError: false) }
+        )
         guard let swiftBuildSystem = buildSystem as? SwiftBuildSystem else {
             throw ArgumentParser.ValidationError("Failed to initialize the '--build-system swiftbuild' backend; expected a 'SwiftBuildSystem' but got '\(buildSystem)'")
         }

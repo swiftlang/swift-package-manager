@@ -141,6 +141,16 @@ extension PackagePIFProjectBuilder {
         if mainModule.type == .test {
             settings[.BUILD_SERVER_PROTOCOL_TARGET_TAGS, default: ["$(inherited)"]].append("test")
 
+            // A C-language test target does not necessarily define a clang module. However, BSP clients
+            // may infer a module name based on -fmodule-name to disambiguate tests, so always pass the
+            // flag.
+            settings[.OTHER_CFLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                $0.append("-fmodule-name=$(PRODUCT_MODULE_NAME)")
+            }
+            settings[.OTHER_CPLUSPLUSFLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                $0.append("-fmodule-name=$(PRODUCT_MODULE_NAME)")
+            }
+
             // FIXME: we shouldn't always include both the deep and shallow bundle paths here, but for that we'll need rdar://31867023
             if pifBuilder.addLocalRpaths != .never {
                 settings[.LD_RUNPATH_SEARCH_PATHS] = [
@@ -148,6 +158,21 @@ extension PackagePIFProjectBuilder {
                     "$(RPATH_ORIGIN)/../Frameworks",
                     "$(inherited)"
                 ]
+
+                // Apple platforms build xctest bundles for tests, so need an rpath relative to the embedded executable
+                // to reach adjacent build products.
+                if product.type == .test {
+                    settings[single: "APPLE_TEST_BUNDLE_RPATH"] = "$(APPLE_TEST_BUNDLE_RPATH_SHALLOW_BUNDLE_$(SHALLOW_BUNDLE:default=NO))"
+                    settings[single: "APPLE_TEST_BUNDLE_RPATH_SHALLOW_BUNDLE_YES"] = "@loader_path/../.."
+                    settings[single: "APPLE_TEST_BUNDLE_RPATH_SHALLOW_BUNDLE_NO"] = "@loader_path/../../.."
+
+                    for platform in [BuildSettings.Platform.macOS, .macCatalyst, .driverKit, .iOS, .watchOS, .tvOS, .xrOS] {
+                        settings[.LD_RUNPATH_SEARCH_PATHS, platform] = [
+                            "$(APPLE_TEST_BUNDLE_RPATH)",
+                            "$(inherited)"
+                        ]
+                    }
+                }
             }
             settings[.GENERATE_INFOPLIST_FILE] = "YES"
             settings[.SKIP_INSTALL] = "NO"

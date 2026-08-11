@@ -863,11 +863,13 @@ public final class SwiftCommandState {
     /// - Parameters:
     ///   - explicitProduct: The product specified on the command line to a “swift run” or “swift build” command. This
     /// allows executables from dependencies to be run directly without having to hook them up to any particular target.
+    ///   - exitOnError: Whether loading errors should cause this method to throw a failure exit code. Defaults to `true`.
     @discardableResult
     package func loadPackageGraph(
         explicitProduct: String? = nil,
         enableAllTraits: Bool = false,
-        testEntryPointPath: AbsolutePath? = nil
+        testEntryPointPath: AbsolutePath? = nil,
+        exitOnError: Bool = true
     ) async throws -> ModulesGraph {
         do {
             let workspace = try getActiveWorkspace(enableAllTraits: enableAllTraits)
@@ -889,7 +891,7 @@ public final class SwiftCommandState {
 
             // Throw if there were errors when loading the graph.
             // The actual errors will be printed before exiting.
-            guard !packageGraphObservabilityScope.errorsReported else {
+            guard !exitOnError || !packageGraphObservabilityScope.errorsReported else {
                 throw ExitCode.failure
             }
             return graph
