@@ -14,12 +14,12 @@ import Basics
 import CoreCommands
 import Dispatch
 import class Foundation.ByteCountFormatter
-import class Foundation.NSLock
 import struct Foundation.URL
 import OrderedCollections
 import PackageGraph
 import PackageModel
 import SPMBuildCore
+import Synchronization
 import Workspace
 
 import protocol TSCBasic.OutputByteStream
@@ -37,12 +37,10 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     }
 
     /// The progress of binary downloads.
-    private var binaryDownloadProgress = OrderedCollections.OrderedDictionary<String, DownloadProgress>()
-    private let binaryDownloadProgressLock = NSLock()
+    private let binaryDownloadProgress = Mutex(OrderedCollections.OrderedDictionary<String, DownloadProgress>())
 
     /// The progress of package  fetch operations.
-    private var fetchProgress = OrderedCollections.OrderedDictionary<PackageIdentity, FetchProgress>()
-    private let fetchProgressLock = NSLock()
+    private let fetchProgress = Mutex(OrderedCollections.OrderedDictionary<PackageIdentity, FetchProgress>())
 
     private let observabilityScope: ObservabilityScope
 
@@ -71,14 +69,14 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
             return
         }
 
-        self.fetchProgressLock.withLock {
-            let progress = self.fetchProgress.values.reduce(0) { $0 + $1.progress }
-            let total = self.fetchProgress.values.reduce(0) { $0 + $1.total }
+        self.fetchProgress.withLock { fetchProgress in
+            let progress = fetchProgress.values.reduce(0) { $0 + $1.progress }
+            let total = fetchProgress.values.reduce(0) { $0 + $1.total }
 
-            if progress == total && !self.fetchProgress.isEmpty {
-                self.fetchProgress.removeAll()
+            if progress == total && !fetchProgress.isEmpty {
+                fetchProgress.removeAll()
             } else {
-                self.fetchProgress[package] = nil
+                fetchProgress[package] = nil
             }
         }
 
@@ -86,15 +84,15 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
-        let (step, total, packages) = self.fetchProgressLock.withLock { () -> (Int64, Int64, String) in
-            self.fetchProgress[package] = FetchProgress(
+        let (step, total, packages) = self.fetchProgress.withLock { fetchProgress -> (Int64, Int64, String) in
+            fetchProgress[package] = FetchProgress(
                 progress: progress,
                 total: total ?? progress
             )
 
-            let progress = self.fetchProgress.values.reduce(0) { $0 + $1.progress }
-            let total = self.fetchProgress.values.reduce(0) { $0 + $1.total }
-            let packages = self.fetchProgress.keys.map { $0.description }.joined(separator: ", ")
+            let progress = fetchProgress.values.reduce(0) { $0 + $1.progress }
+            let total = fetchProgress.values.reduce(0) { $0 + $1.total }
+            let packages = fetchProgress.keys.map { $0.description }.joined(separator: ", ")
             return (progress, total, packages)
         }
         self.progressHandler(step, total, "Fetching \(packages)")
@@ -149,14 +147,14 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
             return
         }
 
-        self.binaryDownloadProgressLock.withLock {
-            let progress = self.binaryDownloadProgress.values.reduce(0) { $0 + $1.bytesDownloaded }
-            let total = self.binaryDownloadProgress.values.reduce(0) { $0 + $1.totalBytesToDownload }
+        self.binaryDownloadProgress.withLock { binaryDownloadProgress in
+            let progress = binaryDownloadProgress.values.reduce(0) { $0 + $1.bytesDownloaded }
+            let total = binaryDownloadProgress.values.reduce(0) { $0 + $1.totalBytesToDownload }
 
-            if progress == total && !self.binaryDownloadProgress.isEmpty {
-                self.binaryDownloadProgress.removeAll()
+            if progress == total && !binaryDownloadProgress.isEmpty {
+                binaryDownloadProgress.removeAll()
             } else {
-                self.binaryDownloadProgress[url] = nil
+                binaryDownloadProgress[url] = nil
             }
         }
 
@@ -168,21 +166,22 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     }
 
     func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
-        let (step, total, text) = self.binaryDownloadProgressLock.withLock { () -> (Int64, Int64, String) in
-            self.binaryDownloadProgress[url] = DownloadProgress(
-                bytesDownloaded: bytesDownloaded,
-                totalBytesToDownload: totalBytesToDownload ?? bytesDownloaded
-            )
+        let (step, total, text) = self.binaryDownloadProgress
+            .withLock { binaryDownloadProgress -> (Int64, Int64, String) in
+                binaryDownloadProgress[url] = DownloadProgress(
+                    bytesDownloaded: bytesDownloaded,
+                    totalBytesToDownload: totalBytesToDownload ?? bytesDownloaded
+                )
 
-            let stepBytes = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded })
-            let totalBytes = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload })
-            let artifacts = self.binaryDownloadProgress.keys.joined(separator: ", ")
+                let stepBytes = binaryDownloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded })
+                let totalBytes = binaryDownloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload })
+                let artifacts = binaryDownloadProgress.keys.joined(separator: ", ")
 
-            let formattedStep = ByteCountFormatter.string(fromByteCount: stepBytes, countStyle: .file)
-            let formattedTotal = ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)
-            let percentage = totalBytes > 0 ? (stepBytes * 100) / totalBytes : 0
-            return (percentage, 100, "Downloading \(artifacts) (\(formattedStep) / \(formattedTotal))")
-        }
+                let formattedStep = ByteCountFormatter.string(fromByteCount: stepBytes, countStyle: .file)
+                let formattedTotal = ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)
+                let percentage = totalBytes > 0 ? (stepBytes * 100) / totalBytes : 0
+                return (percentage, 100, "Downloading \(artifacts) (\(formattedStep) / \(formattedTotal))")
+            }
 
         self.progressHandler(step, total, text)
     }

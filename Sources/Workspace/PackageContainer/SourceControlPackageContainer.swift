@@ -13,12 +13,13 @@
 import Basics
 import _Concurrency
 import Dispatch
-import class Foundation.NSLock
+import Foundation
 import PackageFingerprint
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
+import Synchronization
 
 import struct TSCBasic.RegEx
 
@@ -68,8 +69,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private let observabilityScope: ObservabilityScope
 
     /// The cached dependency information.
-    private var dependenciesCache = [String: [ProductFilter: (Manifest, [Constraint])]]()
-    private var dependenciesCacheLock = NSLock()
+    private let dependenciesCache = Mutex<[String: [ProductFilter: (Manifest, [Constraint])]]>([:])
 
     private var knownVersionsCache = ThreadSafeBox<[Version: String]?>()
     private var manifestsCache = ThrowingAsyncKeyValueMemoizer<String, Manifest>()
@@ -323,12 +323,12 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         productFilter: ProductFilter,
         getDependencies: () async throws -> (Manifest, [Constraint])
     ) async throws -> (Manifest, [Constraint]) {
-        if let result = (self.dependenciesCacheLock.withLock { self.dependenciesCache[identifier, default: [:]][productFilter] }) {
+        if let result = (self.dependenciesCache.withLock { $0[identifier, default: [:]][productFilter] }) {
             return result
         }
         let result = try await getDependencies()
-        self.dependenciesCacheLock.withLock {
-            self.dependenciesCache[identifier, default: [:]][productFilter] = result
+        self.dependenciesCache.withLock {
+            $0[identifier, default: [:]][productFilter] = result
         }
         return result
     }
