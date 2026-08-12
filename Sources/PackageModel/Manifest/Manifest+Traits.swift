@@ -401,6 +401,20 @@ extension Manifest {
         return traitsToEnable.isEmpty || isEnabled
     }
 
+    /// Determines whether a plugin usage is enabled for the given traits.
+    public func isPluginUsageEnabled(
+        _ usage: TargetDescription.PluginUsage,
+        enabledTraits: EnabledTraits
+    ) throws -> Bool {
+        guard self.supportsTraits, let traits = usage.condition?.traits, !traits.isEmpty else {
+            return true
+        }
+
+        return try traits.contains {
+            try self.isTraitEnabled(.init(stringLiteral: $0), enabledTraits)
+        }
+    }
+
     /// Determines whether a given package dependency is used by this manifest given a set of enabled traits.
     public func isPackageDependencyUsed(_ dependency: PackageDependency, enabledTraits: EnabledTraits) throws -> Bool {
         if self.pruneDependencies {

@@ -500,12 +500,12 @@ fileprivate extension PluginToHostMessage {
 
 extension ModulesGraph {
     public func pluginsPerModule(
-        satisfying buildEnvironment: BuildEnvironment
+        satisfyingHost hostEnvironment: BuildEnvironment
     ) -> [ResolvedModule.ID: [ResolvedModule]] {
         var pluginsPerModule = [ResolvedModule.ID: [ResolvedModule]]()
         for module in self.allModules.sorted(by: { $0.name < $1.name }) {
             let pluginDependencies = module.pluginDependencies(
-                satisfying: buildEnvironment
+                satisfyingHost: hostEnvironment
             )
             if !pluginDependencies.isEmpty {
                 pluginsPerModule[module.id] = pluginDependencies

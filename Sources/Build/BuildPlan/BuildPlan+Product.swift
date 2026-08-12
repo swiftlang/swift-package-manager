@@ -199,7 +199,10 @@ extension BuildPlan {
                 if shouldExcludePlugins, !topLevelIsPlugin && !topLevelIsTest && module.type == .plugin {
                     return []
                 }
-                return module.dependencies(satisfying: productDescription.buildParameters.buildEnvironment)
+                return module.dependencies(
+                    satisfying: productDescription.buildParameters.buildEnvironment,
+                    hostEnvironment: self.toolsBuildParameters.buildEnvironment
+                )
                     .map {
                         switch $0 {
                         case .product(let product, _):

@@ -10,11 +10,40 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
 import _InternalTestSupport
 import PackageModel
 import XCTest
 
 class ManifestTests: XCTestCase {
+    func testPluginUsageCodableCompatibility() throws {
+        let legacyJSON = Data(#"{"plugin":["MyPlugin",null]}"#.utf8)
+        let legacyUsage = try JSONDecoder().decode(TargetDescription.PluginUsage.self, from: legacyJSON)
+        XCTAssertEqual(legacyUsage, .plugin(name: "MyPlugin", package: nil))
+
+        let legacyEncoding = try JSONEncoder().encode(legacyUsage)
+        let legacyObject = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: legacyEncoding) as? [String: [Any]]
+        )
+        XCTAssertEqual(legacyObject["plugin"]?.count, 2)
+
+        let conditionalUsage = TargetDescription.PluginUsage.plugin(
+            name: "MyPlugin",
+            package: "PluginPkg",
+            condition: .init(
+                platformNames: ["ios"],
+                hostPlatformNames: ["macos"],
+                traits: ["Lint"]
+            )
+        )
+        let conditionalEncoding = try JSONEncoder().encode(conditionalUsage)
+        let decodedConditionalUsage = try JSONDecoder().decode(
+            TargetDescription.PluginUsage.self,
+            from: conditionalEncoding
+        )
+        XCTAssertEqual(decodedConditionalUsage, conditionalUsage)
+    }
+
     func testRequiredTargets() throws {
         let products = try [
             ProductDescription(name: "Foo", type: .library(.automatic), targets: ["Foo"]),

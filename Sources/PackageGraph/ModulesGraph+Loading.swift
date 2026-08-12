@@ -251,6 +251,12 @@ private func checkAllDependenciesAreUsed(
             }
         })
 
+        let declaredPluginPackageDependencies = Set(package.manifest.targets.flatMap { target in
+            (target.pluginUsages ?? []).compactMap {
+                package.manifest.packageDependency(referencedBy: $0)?.identity
+            }
+        })
+
         // List all dependencies of modules that are guarded by a trait.
         let traitGuardedProductDependencies = Set(package.underlying.modules.flatMap { module in
             module.dependencies.compactMap { moduleDependency in
@@ -276,6 +282,10 @@ private func checkAllDependenciesAreUsed(
             // We continue if the dependency contains executable products to make sure we don't
             // warn on a valid use-case for a lone dependency: swift run dependency executables.
             guard !dependency.products.contains(where: { $0.type == .executable }) else {
+                continue
+            }
+            // A plugin usage remains a package-resolution dependency even when its condition does not match.
+            if declaredPluginPackageDependencies.contains(dependency.identity) {
                 continue
             }
             // Skip this check if this dependency is a system module because system module packages

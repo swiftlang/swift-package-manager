@@ -168,7 +168,8 @@ public final class PIFBuilder {
         prettyPrint: Bool = true,
         preservePIFModelStructure: Bool = false,
         printPIFManifestGraphviz: Bool = false,
-        buildParameters: BuildParameters
+        buildParameters: BuildParameters,
+        hostBuildParameters: BuildParameters
     ) async throws -> PIFGenerationResult {
         let encoder = prettyPrint ? JSONEncoder.makeWithDefaults() : JSONEncoder()
 
@@ -176,7 +177,10 @@ public final class PIFBuilder {
             encoder.userInfo[.encodeForSwiftBuild] = true
         }
 
-        let (topLevelObject, modulesAndProducts) = try await self.constructPIF(buildParameters: buildParameters)
+        let (topLevelObject, modulesAndProducts) = try await self.constructPIF(
+            buildParameters: buildParameters,
+            hostBuildParameters: hostBuildParameters
+        )
 
         // Sign the PIF objects before encoding it for Swift Build.
         try PIF.sign(workspace: topLevelObject.workspace)
@@ -251,7 +255,8 @@ public final class PIFBuilder {
     /// Constructs all `PackagePIFBuilder` objects used by the `constructPIF` function.
     /// In particular, this is useful for unit testing the complex `PIFBuilder` class.
     func makePIFBuilders(
-        buildParameters: BuildParameters
+        buildParameters: BuildParameters,
+        hostBuildParameters: BuildParameters
     ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] {
         let pluginScriptRunner = self.parameters.pluginScriptRunner
         let outputDir = self.parameters.pluginWorkingDirectory.appending("outputs")
@@ -261,12 +266,12 @@ public final class PIFBuilder {
         let treatWarningsAsErrors = WarningControlFlags.containsWarningsAsErrors(warningControlFlags)
 
         let pluginsPerModule = graph.pluginsPerModule(
-            satisfying: buildParameters.buildEnvironment // .buildEnvironment(for: .host)
+            satisfyingHost: hostBuildParameters.buildEnvironment
         )
 
         let availablePluginTools = try await availableBuildPluginTools(
             graph: graph,
-            buildParameters: buildParameters,
+            buildParameters: hostBuildParameters,
             pluginsPerModule: pluginsPerModule,
             hostTriple: try pluginScriptRunner.hostTriple
         )
@@ -283,10 +288,15 @@ public final class PIFBuilder {
                 // Apply each build tool plugin used by the target in order,
                 // creating a list of results (one for each plugin usage).
                 var buildToolPluginResults: [BuildToolPluginInvocationResult] = []
-                var buildCommands: [PackagePIFBuilder.CustomBuildCommand] = []
-                var prebuildCommands: [BuildToolPluginInvocationResult.PrebuildCommand] = []
+                var pluginInvocationRecords: [(
+                    platformFilters: Set<ProjectModel.PlatformFilter>,
+                    buildCommands: [PackagePIFBuilder.CustomBuildCommand]
+                )] = []
 
-                for plugin in module.pluginDependencies(satisfying: buildParameters.buildEnvironment) {
+                for usage in module.buildToolPluginUsages(
+                    satisfyingHost: hostBuildParameters.buildEnvironment
+                ) {
+                    let plugin = usage.plugin
                     let pluginModule = plugin.underlying as! PluginModule
 
                     // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
@@ -350,18 +360,18 @@ public final class PIFBuilder {
                             pluginGeneratedSources: pluginDerivedSources.paths,
                             pluginGeneratedResources: pluginDerivedResources.map(\.path)
                         ),
-                        buildEnvironment: buildParameters.buildEnvironment,
-                        workers: buildParameters.workers,
+                        buildEnvironment: hostBuildParameters.buildEnvironment,
+                        workers: hostBuildParameters.workers,
                         scriptRunner: pluginScriptRunner,
                         workingDirectory: package.path,
                         outputDirectory: pluginOutputDir,
-                        toolSearchDirectories: [buildParameters.toolchain.swiftCompilerPath.parentDirectory],
+                        toolSearchDirectories: [hostBuildParameters.toolchain.swiftCompilerPath.parentDirectory],
                         accessibleTools: accessibleTools,
                         writableDirectories: writableDirectories,
                         readOnlyDirectories: readOnlyDirectories,
                         allowNetworkConnections: [],
                         pkgConfigDirectories: self.parameters.pkgConfigDirectories,
-                        sdkRootPath: buildParameters.toolchain.sdkRootPath,
+                        sdkRootPath: hostBuildParameters.toolchain.sdkRootPath,
                         fileSystem: fileSystem,
                         modulesGraph: self.graph,
                         observabilityScope: observabilityScope
@@ -389,9 +399,7 @@ public final class PIFBuilder {
                         throw Diagnostics.fatalError
                     }
 
-                    prebuildCommands.append(contentsOf: result.prebuildCommands)
-
-                    buildCommands.append(contentsOf: result.buildCommands.map( { buildCommand in
+                    let buildCommands = result.buildCommands.map { buildCommand in
                         var newEnv: Environment = buildCommand.configuration.environment
 
                         // FIXME: This is largely a workaround for improper rpath setup on Linux. It should be
@@ -400,7 +408,7 @@ public final class PIFBuilder {
                         // plugins do not inadvertently use the toolchain stdlib instead of the OS stdlib
                         // when built with a Swift.org toolchain.
                         #if !os(macOS)
-                        let runtimeLibPaths = buildParameters.toolchain.runtimeLibraryPaths
+                        let runtimeLibPaths = hostBuildParameters.toolchain.runtimeLibraryPaths
 
                         // Add paths to swift standard runtime libraries to the library path so that they can be found at runtime
                         for libPath in runtimeLibPaths {
@@ -433,11 +441,18 @@ public final class PIFBuilder {
                                         readOnlyDirectories: buildCommand.inputFiles
                                     )
                         )
-                    }))
+                    }
+                    pluginInvocationRecords.append((
+                        platformFilters: usage.conditions.toPlatformFilter(
+                            toolsVersion: package.manifest.toolsVersion
+                        ),
+                        buildCommands: buildCommands
+                    ))
                 }
 
-                // Run the prebuild commands generated from the plugin invocation now for this module. This will
-                // also give use the derived source code files needed for PIF generation.
+                // PIF generation has no target build request. Run each prebuild command once to discover its
+                // outputs. The platform filters on the invocation result below prevent nonmatching configured
+                // targets from using those outputs.
                 let runResults = try Self.runPluginCommands(
                     using: self.pluginConfiguration,
                     for: buildToolPluginResults,
@@ -454,16 +469,13 @@ public final class PIFBuilder {
                     )
                 }
 
-                let result = PackagePIFBuilder.BuildToolPluginInvocationResult(
-                    prebuildCommandOutputPaths: runResults.flatMap( { $0.derivedFiles }),
-                    buildCommands: buildCommands
-                )
-
-                // Add a BuildToolPluginInvocationResult to the mapping.
-                if var existingResults = buildToolPluginResultsByTargetName[module.name] {
-                    existingResults.append(result)
-                } else {
-                    buildToolPluginResultsByTargetName[module.name] = [result]
+                for (record, runResult) in zip(pluginInvocationRecords, runResults) {
+                    let result = PackagePIFBuilder.BuildToolPluginInvocationResult(
+                        prebuildCommandOutputPaths: runResult.derivedFiles,
+                        buildCommands: record.buildCommands,
+                        platformFilters: record.platformFilters
+                    )
+                    buildToolPluginResultsByTargetName[module.name, default: []].append(result)
                 }
             }
 
@@ -476,6 +488,7 @@ public final class PIFBuilder {
                 packageManifest: package.manifest,
                 delegate: packagePIFBuilderDelegate,
                 buildToolPluginResultsByTargetName: buildToolPluginResultsByTargetName,
+                hostBuildEnvironment: hostBuildParameters.buildEnvironment,
                 createDylibForDynamicProducts: self.parameters.shouldCreateDylibForDynamicProducts,
                 materializeStaticArchiveProductsForRootPackages: self.parameters.materializeStaticArchiveProductsForRootPackages,
                 createDynamicVariantsForLibraryProducts: self.parameters.createDynamicVariantsForLibraryProducts,
@@ -496,7 +509,8 @@ public final class PIFBuilder {
 
     /// Constructs a `PIF.TopLevelObject` representing the package graph.
     package func constructPIF(
-        buildParameters: BuildParameters
+        buildParameters: BuildParameters,
+        hostBuildParameters: BuildParameters
     ) async throws -> (PIF.TopLevelObject, [PackagePIFBuilder.ModuleOrProduct]) {
         return try await memoize(to: &self.cachedPIF) {
             let rootPackages = self.graph.rootPackages
@@ -504,7 +518,10 @@ public final class PIFBuilder {
                 throw PIFGenerationError.rootPackageNotFound
             }
 
-            let packagesAndPIFBuilders = try await makePIFBuilders(buildParameters: buildParameters)
+            let packagesAndPIFBuilders = try await makePIFBuilders(
+                buildParameters: buildParameters,
+                hostBuildParameters: hostBuildParameters
+            )
 
             var modulesAndProducts: [PackagePIFBuilder.ModuleOrProduct] = []
             let packagesAndPIFProjects = try packagesAndPIFBuilders.map { (package, pifBuilder, _) in
@@ -520,7 +537,8 @@ public final class PIFBuilder {
                     packagesAndProjects: packagesAndPIFProjects,
                     observabilityScope: observabilityScope,
                     modulesGraph: graph,
-                    buildParameters: buildParameters
+                    buildParameters: buildParameters,
+                    hostBuildEnvironment: hostBuildParameters.buildEnvironment
                 )
             )
 
@@ -597,6 +615,7 @@ public final class PIFBuilder {
     // Convenience method for generating PIF.
     public static func generatePIF(
         buildParameters: BuildParameters,
+        hostBuildParameters: BuildParameters,
         packageGraph: ModulesGraph,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -629,7 +648,11 @@ public final class PIFBuilder {
             fileSystem: fileSystem,
             observabilityScope: observabilityScope
         )
-        return try await builder.generatePIF(preservePIFModelStructure: preservePIFModelStructure, buildParameters: buildParameters)
+        return try await builder.generatePIF(
+            preservePIFModelStructure: preservePIFModelStructure,
+            buildParameters: buildParameters,
+            hostBuildParameters: hostBuildParameters
+        )
     }
 
     private func diagnoseUnhandledFiles(
@@ -871,7 +894,8 @@ fileprivate func buildAggregatePIFProject(
     packagesAndProjects: [(package: ResolvedPackage, project: ProjectModel.Project)],
     observabilityScope: ObservabilityScope,
     modulesGraph: ModulesGraph,
-    buildParameters: BuildParameters
+    buildParameters: BuildParameters,
+    hostBuildEnvironment: BuildEnvironment
 ) throws -> ProjectModel.Project {
     precondition(!packagesAndProjects.isEmpty)
 
@@ -933,7 +957,11 @@ fileprivate func buildAggregatePIFProject(
                 }
 
                 if let resolvedModule = modulesGraph.module(for: target.name) {
-                    guard modulesGraph.isInRootPackages(resolvedModule, satisfying: buildParameters.buildEnvironment) else {
+                    guard modulesGraph.isInRootPackages(
+                        resolvedModule,
+                        satisfying: buildParameters.buildEnvironment,
+                        hostEnvironment: hostBuildEnvironment
+                    ) else {
                         // Disconnected target, possibly due to platform when condition that isn't satisfied
                         continue
                     }

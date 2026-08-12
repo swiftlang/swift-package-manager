@@ -128,12 +128,30 @@ public struct ModulesGraph {
 
     /// Returns true if a given module is present in root packages and is not excluded for the given build environment.
     public func isInRootPackages(_ module: ResolvedModule, satisfying buildEnvironment: BuildEnvironment) -> Bool {
+        self.isInRootPackages(
+            module,
+            satisfying: buildEnvironment,
+            hostEnvironment: buildEnvironment
+        )
+    }
+
+    /// Returns true if a module is in a root package and its dependency edge matches both environments.
+    public func isInRootPackages(
+        _ module: ResolvedModule,
+        satisfying buildEnvironment: BuildEnvironment,
+        hostEnvironment: BuildEnvironment
+    ) -> Bool {
         // FIXME: This can be easily cached.
         return rootPackages.reduce(
             into: IdentifiableSet<ResolvedModule>()
         ) { (accumulator: inout IdentifiableSet<ResolvedModule>, package: ResolvedPackage) in
             let allDependencies = package.modules.flatMap { $0.dependencies }
-            let unsatisfiedDependencies = allDependencies.filter { !$0.satisfies(buildEnvironment) }
+            let unsatisfiedDependencies = allDependencies.filter {
+                !$0.satisfies(
+                    targetEnvironment: buildEnvironment,
+                    hostEnvironment: hostEnvironment
+                )
+            }
             let unsatisfiedDependencyModules = unsatisfiedDependencies.compactMap { (
                 dep: ResolvedModule.Dependency
             ) -> ResolvedModule? in

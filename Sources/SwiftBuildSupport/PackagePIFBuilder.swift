@@ -24,6 +24,7 @@ import class PackageModel.Manifest
 import class PackageModel.Package
 import class PackageModel.Product
 import struct PackageModel.Platform
+import struct PackageModel.BuildEnvironment
 import struct PackageModel.PlatformVersion
 import enum PackageModel.PrebuiltsPlatform
 import struct PackageModel.Resource
@@ -173,6 +174,9 @@ public final class PackagePIFBuilder {
     /// Records the results of applying build tool plugins to modules in the package.
     let buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]]
 
+    /// The environment in which host-built dependencies are evaluated.
+    let hostBuildEnvironment: BuildEnvironment
+
     /// Whether to create dynamic libraries for dynamic products.
     ///
     /// This tracks removing this *user default* once clients stop relying on this implementation detail:
@@ -237,6 +241,7 @@ public final class PackagePIFBuilder {
         packageManifest: PackageModel.Manifest,
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: [BuildToolPluginInvocationResult]],
+        hostBuildEnvironment: BuildEnvironment,
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
@@ -253,6 +258,7 @@ public final class PackagePIFBuilder {
         self.modulesGraph = modulesGraph
         self.delegate = delegate
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName
+        self.hostBuildEnvironment = hostBuildEnvironment
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
         self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
@@ -271,6 +277,7 @@ public final class PackagePIFBuilder {
         packageManifest: PackageModel.Manifest,
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
+        hostBuildEnvironment: BuildEnvironment,
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
@@ -287,6 +294,7 @@ public final class PackagePIFBuilder {
         self.modulesGraph = modulesGraph
         self.delegate = delegate
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName.mapValues { [$0] }
+        self.hostBuildEnvironment = hostBuildEnvironment
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
         self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
@@ -747,15 +755,22 @@ public final class PackagePIFBuilder {
     struct Resource {
         let path: String
         let rule: PackageModel.Resource.Rule
+        let platformFilters: Set<ProjectModel.PlatformFilter>
 
-        init(path: String, rule: PackageModel.Resource.Rule) {
+        init(
+            path: String,
+            rule: PackageModel.Resource.Rule,
+            platformFilters: Set<ProjectModel.PlatformFilter> = []
+        ) {
             self.path = path
             self.rule = rule
+            self.platformFilters = platformFilters
         }
 
         init(_ resource: PackageModel.Resource) {
             self.path = resource.path.pathString
             self.rule = resource.rule
+            self.platformFilters = []
         }
     }
 }

@@ -1745,16 +1745,210 @@ final class PluginInvocationTests: XCTestCase {
         }
     }
 
+    func testConditionalPluginSelectionUsesHostAndTraits() throws {
+        let (_, observability, graph) = try self.makeConditionalPluginGraph()
+        let hostBuildParameters = mockBuildParameters(
+            destination: .host,
+            environment: .init(platform: .macOS, configuration: .debug),
+            buildSystem: .native
+        )
+
+        let selectedPluginNames = Set(graph.pluginsPerModule(
+            satisfyingHost: hostBuildParameters.buildEnvironment
+        ).values.flatMap { $0 }.map(\.name))
+        XCTAssertEqual(
+            selectedPluginNames,
+            ["AlwaysPlugin", "EmptyTraitPlugin", "TargetPlugin", "TransitiveTraitPlugin"]
+        )
+        let foo = try XCTUnwrap(graph.module(for: "Foo"))
+        XCTAssertFalse(foo.dependencies.map(\.name).contains("TraitPlugin"))
+        XCTAssertTrue(foo.dependencies.map(\.name).contains("TransitiveTraitPlugin"))
+        XCTAssertNoDiagnostics(observability.diagnostics)
+    }
+
+    func testTargetConditionalPluginDoesNotChangeLaterPluginContext() async throws {
+        let (fileSystem, observability, graph) = try self.makeConditionalPluginGraph()
+        let hostBuildParameters = mockBuildParameters(
+            destination: .host,
+            environment: .init(platform: .macOS, configuration: .debug),
+            buildSystem: .native
+        )
+
+        let invocationCount = ThreadSafeBox(0)
+        let invocationNames = ThreadSafeBox<[String]>([])
+        let laterPluginSawPriorGeneratedSource = ThreadSafeBox(false)
+        let results = try await invokeBuildToolPlugins(
+            graph: graph,
+            buildParameters: hostBuildParameters,
+            targetBuildEnvironment: .init(platform: .macOS, configuration: .debug),
+            fileSystem: fileSystem,
+            outputDir: "/Foo/.build",
+            pluginScriptRunner: CountingPluginScriptRunner(
+                invocationCount: invocationCount,
+                invocationNames: invocationNames,
+                laterPluginSawPriorGeneratedSource: laterPluginSawPriorGeneratedSource
+            ),
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        XCTAssertEqual(invocationCount.get(), 4)
+        XCTAssertTrue(
+            laterPluginSawPriorGeneratedSource.get(),
+            "Invocation order: \(invocationNames.get())"
+        )
+        let (_, (_, invocationResults)) = try XCTUnwrap(results.first)
+        XCTAssertEqual(invocationResults.count, 3)
+    }
+
+    func testConditionalPluginUsageDoesNotChangePackageResolution() throws {
+        let fileSystem = InMemoryFileSystem(emptyFiles:
+            "/Root/Sources/Root/source.swift",
+            "/PluginPkg/Plugins/ConditionalPlugin/plugin.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_5,
+                    dependencies: [.fileSystem(path: "/PluginPkg")],
+                    targets: [
+                        TargetDescription(
+                            name: "Root",
+                            pluginUsages: [
+                                .plugin(
+                                    name: "ConditionalPlugin",
+                                    package: "PluginPkg",
+                                    condition: .init(
+                                        hostPlatformNames: ["linux"],
+                                        traits: ["Lint"]
+                                    )
+                                ),
+                            ]
+                        ),
+                    ],
+                    traits: [TraitDescription(name: "Lint")]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "PluginPkg",
+                    path: "/PluginPkg",
+                    toolsVersion: .v6_5,
+                    products: [
+                        ProductDescription(
+                            name: "ConditionalPlugin",
+                            type: .plugin,
+                            targets: ["ConditionalPlugin"]
+                        ),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "ConditionalPlugin",
+                            type: .plugin,
+                            pluginCapability: .buildTool
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        XCTAssertNotNil(graph.package(for: .plain("PluginPkg")))
+        let root = try XCTUnwrap(graph.module(for: "Root"))
+        XCTAssertFalse(root.dependencies.map(\.name).contains("ConditionalPlugin"))
+        XCTAssertTrue(graph.pluginsPerModule(
+            satisfyingHost: .init(platform: .macOS)
+        ).isEmpty)
+    }
+
+    private func makeConditionalPluginGraph() throws -> (
+        fileSystem: InMemoryFileSystem,
+        observability: TestingObservability,
+        graph: ModulesGraph
+    ) {
+        let fileSystem = InMemoryFileSystem(emptyFiles:
+            "/Foo/Sources/Foo/source.swift",
+            "/Foo/Plugins/HostPlugin/source.swift",
+            "/Foo/Plugins/TraitPlugin/source.swift",
+            "/Foo/Plugins/TransitiveTraitPlugin/source.swift",
+            "/Foo/Plugins/EmptyTraitPlugin/source.swift",
+            "/Foo/Plugins/TargetPlugin/source.swift",
+            "/Foo/Plugins/AlwaysPlugin/source.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .v6_5,
+                    targets: [
+                        TargetDescription(
+                            name: "Foo",
+                            pluginUsages: [
+                                .plugin(
+                                    name: "HostPlugin",
+                                    package: nil,
+                                    condition: .init(hostPlatformNames: ["linux"])
+                                ),
+                                .plugin(
+                                    name: "TraitPlugin",
+                                    package: nil,
+                                    condition: .init(traits: ["Metrics"])
+                                ),
+                                .plugin(
+                                    name: "TransitiveTraitPlugin",
+                                    package: nil,
+                                    condition: .init(traits: ["Lint"])
+                                ),
+                                .plugin(
+                                    name: "EmptyTraitPlugin",
+                                    package: nil,
+                                    condition: .init(traits: [])
+                                ),
+                                .plugin(
+                                    name: "TargetPlugin",
+                                    package: nil,
+                                    condition: .init(platformNames: ["linux"])
+                                ),
+                                .plugin(name: "AlwaysPlugin", package: nil),
+                            ]
+                        ),
+                        TargetDescription(name: "HostPlugin", type: .plugin, pluginCapability: .buildTool),
+                        TargetDescription(name: "TraitPlugin", type: .plugin, pluginCapability: .buildTool),
+                        TargetDescription(name: "TransitiveTraitPlugin", type: .plugin, pluginCapability: .buildTool),
+                        TargetDescription(name: "EmptyTraitPlugin", type: .plugin, pluginCapability: .buildTool),
+                        TargetDescription(name: "TargetPlugin", type: .plugin, pluginCapability: .buildTool),
+                        TargetDescription(name: "AlwaysPlugin", type: .plugin, pluginCapability: .buildTool),
+                    ],
+                    traits: [
+                        TraitDescription(name: "Developer", enabledTraits: ["Lint"]),
+                        TraitDescription(name: "Lint"),
+                        TraitDescription(name: "Metrics"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope,
+            enabledTraitsMap: ["Foo": ["Developer"]]
+        )
+        return (fileSystem, observability, graph)
+    }
+
     private func invokeBuildToolPlugins(
         graph: ModulesGraph,
         buildParameters: BuildParameters,
+        targetBuildEnvironment: BuildEnvironment? = nil,
         fileSystem: any FileSystem,
         outputDir: AbsolutePath,
         pluginScriptRunner: PluginScriptRunner,
         observabilityScope: ObservabilityScope
     ) async throws -> [ResolvedModule.ID: (target: ResolvedModule, results: [BuildToolPluginInvocationResult])] {
         let pluginsPerModule = graph.pluginsPerModule(
-            satisfying: buildParameters.buildEnvironment
+            satisfyingHost: buildParameters.buildEnvironment
         )
 
         let plugins = pluginsPerModule.values.reduce(into: IdentifiableSet<ResolvedModule>()) { result, plugins in
@@ -1779,7 +1973,8 @@ final class PluginInvocationTests: XCTestCase {
                 for: module,
                 destination: .target,
                 configuration: pluginConfiguration,
-                buildParameters: buildParameters,
+                hostBuildParameters: buildParameters,
+                targetBuildEnvironment: targetBuildEnvironment ?? buildParameters.buildEnvironment,
                 modulesGraph: graph,
                 tools: mockPluginTools(
                     plugins: plugins,
@@ -1797,6 +1992,86 @@ final class PluginInvocationTests: XCTestCase {
         }
 
         return pluginInvocationResults
+    }
+}
+
+private struct CountingPluginScriptRunner: PluginScriptRunner {
+    let invocationCount: ThreadSafeBox<Int>
+    let invocationNames: ThreadSafeBox<[String]>
+    let laterPluginSawPriorGeneratedSource: ThreadSafeBox<Bool>
+
+    var hostTriple: Triple {
+        get throws { try UserToolchain.default.targetTriple }
+    }
+
+    func compilePluginScript(
+        sourceFiles: [AbsolutePath],
+        pluginName: String,
+        toolsVersion: ToolsVersion,
+        workers: UInt32,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        delegate: PluginScriptCompilerDelegate,
+        completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
+    ) {
+        callbackQueue.sync { completion(.failure(StringError("unimplemented"))) }
+    }
+
+    func buildCommandLine(
+        sourceFiles: [AbsolutePath],
+        pluginName: String,
+        toolsVersion: ToolsVersion,
+        workers: UInt32,
+        observabilityScope: ObservabilityScope?
+    ) -> (
+        commandLine: [String],
+        execName: String,
+        execFilePath: AbsolutePath,
+        diagFilePath: AbsolutePath
+    ) {
+        fatalError("Not implemented")
+    }
+
+    func runPluginScript(
+        sourceFiles: [AbsolutePath],
+        pluginName: String,
+        initialMessage: Data,
+        toolsVersion: ToolsVersion,
+        workingDirectory: AbsolutePath,
+        writableDirectories: [AbsolutePath],
+        readOnlyDirectories: [AbsolutePath],
+        allowNetworkConnections: [SandboxNetworkPermission],
+        workers: UInt32,
+        fileSystem: FileSystem,
+        observabilityScope: ObservabilityScope,
+        callbackQueue: DispatchQueue,
+        delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate
+    ) async throws -> Int32 {
+        invocationCount.increment()
+        invocationNames.mutate { $0.append(pluginName) }
+
+        if pluginName == "TargetPlugin" {
+            let buildCommand = Data("""
+                { "defineBuildCommand": {
+                    "configuration": {
+                        "version": 2,
+                        "displayName": "Generate a source",
+                        "executable": "file:///bin/generator",
+                        "arguments": [],
+                        "workingDirectory": "file:///Foo",
+                        "environment": {}
+                    },
+                    "inputFiles": [],
+                    "outputFiles": ["file:///Foo/generated.swift"]
+                } }
+                """.utf8)
+            _ = try await delegate.handleMessage(data: buildCommand)
+        } else if pluginName == "AlwaysPlugin" {
+            laterPluginSawPriorGeneratedSource.put(
+                String(decoding: initialMessage, as: UTF8.self).contains("generated.swift")
+            )
+        }
+        return 0
     }
 }
 
