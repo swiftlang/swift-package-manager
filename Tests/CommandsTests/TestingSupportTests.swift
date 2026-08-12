@@ -11,8 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Testing
-
-import _InternalTests
+import _InternalTestSupport
 import Commands
 
 @Suite
