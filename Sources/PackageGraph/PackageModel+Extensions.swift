@@ -44,7 +44,6 @@ extension Manifest {
                 guard let condition = $0.condition else { return true }
                 return condition.isSatisfied(by: enabledTraits.names)
             }.map(\.name)
-
             let enabledTraitsSet = EnabledTraits(explicitlyEnabledTraits ?? [], setBy: .package(.init(identity: self.packageIdentity, name: self.displayName)))
 
             return PackageContainerConstraint(

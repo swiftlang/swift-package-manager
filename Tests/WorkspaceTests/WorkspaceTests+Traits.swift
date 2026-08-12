@@ -1599,5 +1599,87 @@ extension WorkspaceTests {
             result.check(dependency: "guardedpackage", at: .checkout(.version("1.1.0")))
         }
     }
+
+    func testDependencyTraitEnabledViaMultipleRoots() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "RemoteProduct", package: "RemoteWithTraits"),
+                                .product(name: "SecondRootProduct", package: "SecondRoot")
+                            ]
+                        )
+                    ],
+                    dependencies: [
+                        .fileSystem(path: "../SecondRoot"),
+                        .sourceControl(path: "./RemoteWithTraits", requirement: .range("1.0.0"..<"3.0.0"), traits: ["NotDefaultTrait"]),
+                    ],
+                ),
+                MockPackage(
+                    name: "SecondRoot",
+                    targets: [
+                        MockTarget(
+                            name: "SecondRootTarget",
+                            dependencies: [.product(name: "RemoteProduct", package: "RemoteWithTraits")]
+                        )
+                    ],
+                    products: [
+                        MockProduct(
+                            name: "SecondRootProduct",
+                            modules: ["SecondRootTarget"]
+                        )
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./RemoteWithTraits", requirement: .range("1.0.0"..<"3.0.0"))
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "RemoteWithTraits",
+                    targets: [
+                        MockTarget(
+                            name: "RemoteTarget"
+                        )
+                    ],
+                    products: [
+                        MockProduct(
+                            name: "RemoteProduct",
+                            modules: ["RemoteTarget"]
+                        )
+                    ],
+                    traits: [
+                        .init(name: "default", enabledTraits: ["EnabledByDefault"]),
+                        "EnabledByDefault",
+                        "NotDefaultTrait"
+                    ],
+                    versions: ["1.0.0", "1.0.1", "2.0.0", "3.0.0"]
+                )
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root", "SecondRoot"]) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                XCTAssertNoDiagnostics(diagnostics)
+                result.checkPackage("RemoteWithTraits") { package in
+                    guard let enabledTraits = package.enabledTraits else {
+                        XCTFail("No enabled traits on RemoteWithTraits package.")
+                        return
+                    }
+
+                    XCTAssertTrue(enabledTraits == ["NotDefaultTrait"])
+                }
+            }
+        }
+    }
 }
 
