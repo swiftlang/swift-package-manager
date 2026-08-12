@@ -72,12 +72,15 @@ extension Fingerprint {
     /// downloaded from registry. It doesn't not save fingerprints for manifests in git repo.
     public enum ContentType: Hashable, CustomStringConvertible {
         case sourceCode
+        case sourceArchive
         case manifest(ToolsVersion?)
 
         public var description: String {
             switch self {
             case .sourceCode:
                 return "sourceCode"
+            case .sourceArchive:
+                return "sourceArchive"
             case .manifest(.none):
                 return Manifest.filename
             case .manifest(.some(let toolsVersion)):

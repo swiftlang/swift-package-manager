@@ -197,6 +197,7 @@ private enum StorageModel {
 
                 enum ContentType: Codable {
                     case sourceCode
+                    case sourceArchive
                     case manifest
                     case versionSpecificManifest(toolsVersion: ToolsVersion)
 
@@ -204,6 +205,8 @@ private enum StorageModel {
                         switch contentType {
                         case .sourceCode:
                             return .sourceCode
+                        case .sourceArchive:
+                            return .sourceArchive
                         case .manifest(.none):
                             return .manifest
                         case .manifest(.some(let toolsVersion)):
@@ -337,6 +340,8 @@ extension Fingerprint.ContentType {
         switch storage {
         case .sourceCode:
             return .sourceCode
+        case .sourceArchive:
+            return .sourceArchive
         case .manifest:
             return .manifest(.none)
         case .versionSpecificManifest(let toolsVersion):

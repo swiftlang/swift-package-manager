@@ -25,6 +25,8 @@ final class URLSessionHTTPClient: Sendable {
     private let downloadTaskManager: DownloadTaskManager
 
     init(configuration: URLSessionConfiguration = .default) {
+        Self.configureProxyFromEnvironment(configuration)
+
         let dataDelegateQueue = OperationQueue()
         dataDelegateQueue.name = "org.swift.swiftpm.urlsession-http-client-data-delegate"
         dataDelegateQueue.maxConcurrentOperationCount = 1
@@ -49,6 +51,99 @@ final class URLSessionHTTPClient: Sendable {
     deinit {
         dataSession.finishTasksAndInvalidate()
         downloadSession.finishTasksAndInvalidate()
+    }
+
+    private struct ProxyInfo {
+        let host: String
+        let port: Int
+        let isSOCKS: Bool
+
+        init?(_ envValue: String) {
+            guard let url = URL(string: envValue),
+                  let host = url.host, !host.isEmpty,
+                  let port = url.port else { return nil }
+            let scheme = url.scheme?.lowercased() ?? ""
+            guard ["http", "https", "socks5", "socks5h", "socks4", "socks", ""].contains(scheme) else {
+                return nil
+            }
+            self.host = host
+            self.port = port
+            self.isSOCKS = scheme.hasPrefix("socks")
+        }
+    }
+
+    private enum ProxyKind { case http, https }
+
+    private static func applyProxy(
+        _ info: ProxyInfo, kind: ProxyKind, into dict: inout [String: Any]
+    ) {
+        if info.isSOCKS {
+            dict["SOCKSEnable"] = true
+            dict["SOCKSProxy"] = info.host
+            dict["SOCKSPort"] = info.port
+        } else {
+            switch kind {
+            case .http:
+                dict["HTTPEnable"] = true
+                dict["HTTPProxy"] = info.host
+                dict["HTTPPort"] = info.port
+            case .https:
+                dict["HTTPSEnable"] = true
+                dict["HTTPSProxy"] = info.host
+                dict["HTTPSPort"] = info.port
+            }
+        }
+    }
+
+    private static func firstEnvVar(
+        from env: [String: String], keys: [String]
+    ) -> (name: String, value: String)? {
+        for key in keys {
+            if let value = env[key] { return (key, value) }
+        }
+        return nil
+    }
+
+    /// Reads HTTP/HTTPS/SOCKS proxy settings from environment variables and
+    /// applies them via `connectionProxyDictionary`.
+    ///
+    /// Supports `HTTPS_PROXY`, `HTTP_PROXY`, `ALL_PROXY` (and lowercase
+    /// variants) with `http://`, `https://`, and `socks5://` proxy URLs.
+    /// The proxy URL must include an explicit port (e.g. `http://proxy:8080`).
+    /// `NO_PROXY` is mapped to the exceptions list.
+    private static func configureProxyFromEnvironment(_ configuration: URLSessionConfiguration) {
+        guard configuration.connectionProxyDictionary == nil else { return }
+
+        let env = ProcessInfo.processInfo.environment
+        let allProxyKeys = ["ALL_PROXY", "all_proxy"]
+
+        let httpsVar = firstEnvVar(from: env, keys: ["HTTPS_PROXY", "https_proxy"] + allProxyKeys)
+        let httpVar = firstEnvVar(from: env, keys: ["HTTP_PROXY", "http_proxy"] + allProxyKeys)
+
+        guard httpsVar != nil || httpVar != nil else { return }
+
+        var proxy: [String: Any] = [:]
+
+        for (envVar, kind) in [(httpsVar, ProxyKind.https), (httpVar, ProxyKind.http)] {
+            guard let (name, value) = envVar else { continue }
+            if let info = ProxyInfo(value) {
+                applyProxy(info, kind: kind, into: &proxy)
+            } else {
+                FileHandle.standardError.write(
+                    Data("warning: ignoring \(name) value '\(value)': proxy URL must include a port (e.g. http://proxy:8080)\n".utf8)
+                )
+            }
+        }
+
+        if let noProxy = env["NO_PROXY"] ?? env["no_proxy"], !noProxy.isEmpty {
+            proxy["ExceptionsList"] = noProxy.split(separator: ",").map {
+                $0.trimmingCharacters(in: .whitespaces)
+            }
+        }
+
+        if !proxy.isEmpty {
+            configuration.connectionProxyDictionary = proxy
+        }
     }
 
     @Sendable
