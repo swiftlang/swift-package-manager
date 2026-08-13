@@ -364,6 +364,13 @@ extension Workspace {
                 return PackageReference(identity: $0.key, kind: $0.1.packageKind)
             })
 
+            // Add in external dependencies
+            for manifest in manifestsMap.values {
+                for external in manifest.externals {
+                    availableIdentities.insert(.init(identity: external.packageIdentity, kind: external.packageKind))
+                }
+            }
+
             if workspace.configuration.pruneDependencies {
                 availableIdentities = availableIdentities.subtracting(unusedIdentities)
             }

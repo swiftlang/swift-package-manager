@@ -1004,14 +1004,18 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
         if modulesPath.extension == "framework" {
-            cmd += ["-F", modulesPath.parentDirectory.parentDirectory.pathString]
-
-            // If not in the PackageFrameworks directory, need the swiftmodule that's in the same directory
             let parent = modulesPath.parentDirectory
             if parent.basename == "PackageFrameworks" {
-                cmd += ["-I", parent.parentDirectory.pathString]
+                cmd += [
+                    "-F", parent.pathString,
+                    "-I", parent.parentDirectory.pathString
+                ]
             } else {
-                cmd += ["-I", parent.pathString]
+                // This is a toolchain linked to the Xcode build output
+                cmd += [
+                    "-F", parent.pathString,
+                    "-I", parent.pathString
+                ]
             }
         } else {
             cmd += ["-I", modulesPath.pathString]

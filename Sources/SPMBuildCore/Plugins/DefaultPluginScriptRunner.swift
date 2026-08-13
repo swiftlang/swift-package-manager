@@ -148,17 +148,24 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
+        let parent = pluginLibraryPath.parentDirectory
         if pluginLibraryPath.extension == "framework" {
-            commandLine += [
-                "-F", pluginLibraryPath.parentDirectory.pathString,
-                "-framework", "PackagePlugin",
-                "-Xlinker", "-rpath", "-Xlinker", pluginLibraryPath.parentDirectory.pathString,
-            ]
-
             // If not in the PackageFrameworks directory, need the swiftmodule that's in the same directory
-            if pluginLibraryPath.parentDirectory.basename != "PackageFrameworks" {
-                commandLine += ["-I", pluginLibraryPath.parentDirectory.pathString]
+            if pluginLibraryPath.parentDirectory.basename == "PackageFrameworks" {
+                commandLine += [
+                    "-I", parent.parentDirectory.pathString
+                ]
+            } else {
+                commandLine += [
+                    "-I", parent.pathString,
+                ]
             }
+
+            commandLine += [
+                "-F", parent.pathString,
+                "-framework", "PackagePlugin",
+                "-Xlinker", "-rpath", "-Xlinker", parent.pathString,
+            ]
         } else {
             commandLine += [
                 "-L", pluginLibraryPath.pathString,

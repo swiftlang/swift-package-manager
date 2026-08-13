@@ -343,6 +343,11 @@ public struct PubGrubDependencyResolver {
         while let constraint = constraints.first(where: { $0.requirement == .unversioned }) {
             constraints.remove(constraint)
 
+            // TODO: what do? 
+            if constraint.package.identity.type == .external {
+                continue
+            }
+
             // Mark the package as overridden.
             if var existing = overriddenPackages[constraint.package] {
                 guard existing.version == .unversioned else {
