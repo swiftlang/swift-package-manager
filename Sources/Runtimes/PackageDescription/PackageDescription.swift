@@ -114,16 +114,27 @@ public final class Package {
         set { swiftLanguageModes = newValue }
     }
 
-    /// The default Swift language settings merged with all per-target settings.
+    /// The default Swift language settings.
+    ///
+    /// These settings can be selectively applied with `defaults` or completely overrridden on a per-target basis.
     @available(_PackageDescription, introduced: 6.5)
     public var defaultSwiftSettings: [SwiftSetting]?
 
+    /// The default C language settings.
+    ///
+    /// These settings can be selectively applied with `defaults` or completely overrridden on a per-target basis.
     @available(_PackageDescription, introduced: 6.5)
     public var defaultCSettings: [CSetting]?
 
+    /// The default C++ language settings.
+    ///
+    /// These settings can be selectively applied with `defaults` or completely overrridden on a per-target basis.
     @available(_PackageDescription, introduced: 6.5)
     public var defaultCXXSettings: [CXXSetting]?
 
+    /// The default linker settings.
+    ///
+    /// These settings can be selectively applied with `defaults` or completely overrridden on a per-target basis.
     @available(_PackageDescription, introduced: 6.5)
     public var defaultLinkerSettings: [LinkerSetting]?
 
@@ -324,16 +335,16 @@ public final class Package {
         platforms: [SupportedPlatform]? = nil,
         pkgConfig: String? = nil,
         providers: [SystemPackageProvider]? = nil,
+        defaultSwiftSettings: [SwiftSetting]? = nil,
+        defaultCSettings: [CSetting]? = nil,
+        defaultCXXSettings: [CXXSetting]? = nil,
+        defaultLinkerSettings: [LinkerSetting]? = nil,
         products: [Product] = [],
         dependencies: [Dependency] = [],
         targets: [Target] = [],
         swiftLanguageModes: [SwiftLanguageMode]? = nil,
-        defaultSwiftSettings: [SwiftSetting]? = nil,
         cLanguageStandard: CLanguageStandard? = nil,
-        defaultCSettings: [CSetting]? = nil,
         cxxLanguageStandard: CXXLanguageStandard? = nil,
-        defaultCXXSettings: [CXXSetting]? = nil,
-        defaultLinkerSettings: [LinkerSetting]? = nil
     ) {
         self.name = name
         self.defaultLocalization = defaultLocalization
@@ -378,17 +389,17 @@ public final class Package {
         platforms: [SupportedPlatform]? = nil,
         pkgConfig: String? = nil,
         providers: [SystemPackageProvider]? = nil,
+        defaultSwiftSettings: [SwiftSetting]? = nil,
+        defaultCSettings: [CSetting]? = nil,
+        defaultCXXSettings: [CXXSetting]? = nil,
+        defaultLinkerSettings: [LinkerSetting]? = nil,
         products: [Product] = [],
         traits: Set<Trait> = [],
         dependencies: [Dependency] = [],
         targets: [Target] = [],
         swiftLanguageModes: [SwiftLanguageMode]? = nil,
-        defaultSwiftSettings: [SwiftSetting]? = nil,
         cLanguageStandard: CLanguageStandard? = nil,
-        defaultCSettings: [CSetting]? = nil,
         cxxLanguageStandard: CXXLanguageStandard? = nil,
-        defaultCXXSettings: [CXXSetting]? = nil,
-        defaultLinkerSettings: [LinkerSetting]? = nil
     ) {
         self.name = name
         self.defaultLocalization = defaultLocalization

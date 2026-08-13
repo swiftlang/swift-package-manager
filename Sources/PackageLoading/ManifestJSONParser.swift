@@ -819,8 +819,8 @@ extension TargetBuildSettingDescription.Kind {
             }
 
             return .defaultIsolation(isolation)
-        case "inherited":
-            return .inherited
+        case "defaults":
+            return .defaults
         default:
             throw InternalError("invalid build setting \(name)")
         }
