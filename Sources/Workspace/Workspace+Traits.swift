@@ -47,11 +47,15 @@ extension Workspace {
         var enabledTraits = try manifest.enabledTraits(using: explicitlyEnabledTraits)
 
         // Check if any parents requested default traits for this package, but only expand and
-        // union them in if no parent has *explicitly* enabled specific traits. Traits are unified
-        // across the graph, so once a parent explicitly opts into a set of traits (rather than
-        // simply requesting defaults), that explicit selection must win over other parents'
-        // implicit defaults; otherwise defaults requested elsewhere would leak in alongside it.
-        if explicitlyEnabledTraits == ["default"],
+        // union them in if nobody has explicitly enabled a non-default trait for this package yet.
+        // Traits are unified across the graph, so once a parent explicitly opts into specific
+        // traits, that explicit selection must win over other parents' implicit defaults;
+        // otherwise defaults requested elsewhere would leak in alongside it. This is a plain
+        // sentinel-equality check because EnabledTraitsMap's storage guarantees `explicitlyEnabledTraits`
+        // can only equal `.defaults` when no parent has explicitly enabled a real trait for this
+        // package - a disabler alone can never produce this value if a default-setter also exists,
+        // since default-setters always take precedence over disablers when nothing else was picked.
+        if explicitlyEnabledTraits == .defaults,
            let defaultSetters = self.enabledTraitsMap[defaultSettersFor: manifest.packageIdentity],
            !defaultSetters.isEmpty {
             // Calculate what the default traits are for this manifest

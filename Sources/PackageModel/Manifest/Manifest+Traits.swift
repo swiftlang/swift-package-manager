@@ -189,7 +189,7 @@ extension Manifest {
                 enabledTraits = EnabledTraits(defaultTraits, setBy: .default)
             }
         case .disableAllTraits:
-            return []
+            enabledTraits = EnabledTraits([], setBy: .traitConfiguration)
         case .enabledTraits(let explicitlyEnabledTraits):
             enabledTraits = EnabledTraits(explicitlyEnabledTraits, setBy: .traitConfiguration)
         }

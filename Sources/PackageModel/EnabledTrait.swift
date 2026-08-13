@@ -48,6 +48,14 @@ import struct TSCUtility.Version
 /// Only packages (via `Setter.package`) and trait configurations (via `Setter.traitConfiguration`)
 /// can disable default traits. Traits themselves cannot disable other packages' default traits.
 ///
+/// Disablers, default-setters (below), and explicitly-named traits are tracked as three independent,
+/// order-independent signals (each accumulated via plain Set/union operations) and only combined when
+/// read. This is deliberate: it guarantees the combined result never depends on the order in which
+/// concurrent parents register edges onto the same dependency. The combining rule, applied whenever a
+/// package's explicit traits are read, is: named traits win outright if any exist; otherwise a
+/// default-setter wins over a coexisting disabler (they're meant to coexist); otherwise a disabler
+/// alone means nothing is enabled; otherwise nothing was recorded at all.
+///
 /// Example:
 /// ```swift
 /// var traits = EnabledTraitsMap()
@@ -71,6 +79,8 @@ import struct TSCUtility.Version
 /// ## Default Setters
 /// When a parent package or trait configuration explicitly requests  the`default` trait (or leaves the set of
 /// traits unspecified), those setters are tracked separately. Query these using the `defaultSettersFor` subscript.
+/// A default-setter coexisting with a disabler for the same package (and no named traits) resolves to
+/// "defaults are wanted" - regardless of which of the two was registered first.
 public struct EnabledTraitsMap {
     public typealias Key = PackageIdentity
     public typealias Value = EnabledTraits
@@ -78,8 +88,11 @@ public struct EnabledTraitsMap {
     struct VersionedTraits {
         var map: [Version: EnabledTraits] = [:]
 
-        public func at(_ version: Version) -> EnabledTraits {
-            self.map[version] ?? ["default"]
+        /// Returns the named traits explicitly recorded for this version, or `nil` if none have
+        /// been recorded for it yet. Unlike the old `at(_:)`, this never substitutes a fallback
+        /// sentinel, so callers can distinguish "nothing recorded" from "recorded as empty".
+        public func namedTraits(at version: Version) -> EnabledTraits? {
+            self.map[version]
         }
 
         public mutating func set(_ version: Version, enabledTraits: EnabledTraits) {
@@ -90,16 +103,19 @@ public struct EnabledTraitsMap {
     }
 
     private struct Storage {
-        /// Proxy storage for explicitly enabled traits per package before versions are known.
-        /// Omits packages with only the "default" trait.
+        /// Proxy storage for explicitly *named* (non-"default") enabled traits per package before
+        /// versions are known. Never touched by disabler or default-setter registrations - see
+        /// `resolvedExplicitTraits(named:for:)`.
         var traits: [Key: EnabledTraits] = [:]
 
-        /// Storage for explicitly enabled traits per package wherein the package kind
-        /// is not versionable (e.g. a filesystem package).
+        /// Storage for explicitly *named* (non-"default") enabled traits per package wherein the
+        /// package kind is not versionable (e.g. a filesystem package). Never touched by disabler
+        /// or default-setter registrations - see `resolvedExplicitTraits(named:for:)`.
         var unversionedTraits: [Key: EnabledTraits] = [:]
 
-        /// Storage for explicitly enabled traits per package wherein the package kind
-        /// is versionable (e.g. a source control package).
+        /// Storage for explicitly *named* (non-"default") enabled traits per package wherein the
+        /// package kind is versionable (e.g. a source control package). Never touched by disabler
+        /// or default-setter registrations - see `resolvedExplicitTraits(named:for:)`.
         var versionedTraits: [Key: VersionedTraits] = [:]
 
         /// Tracks setters that explicitly disabled default traits (via []) for each package.
@@ -114,6 +130,36 @@ public struct EnabledTraitsMap {
 
         init(_ traits: [Key: EnabledTraits]) {
             self.traits = traits
+        }
+
+        /// Resolves the externally-visible explicit traits for a package from the three
+        /// independently-tracked signals recorded for it (named traits, disablers, default-setters).
+        ///
+        /// This is computed fresh from those signals, rather than accumulated destructively as each
+        /// write arrives, so the result never depends on the order in which concurrent parents
+        /// register edges onto the same dependency - each signal is tracked via plain Set/union
+        /// operations, which are inherently commutative and idempotent regardless of write order.
+        ///
+        /// Priority:
+        /// 1. Explicit named traits, if any, always win outright - an explicit selection by any
+        ///    parent must override other parents' mere requests for defaults.
+        /// 2. Otherwise, if any parent requested defaults (explicitly, or implicitly by not
+        ///    specifying traits), that request wins over a coexisting disabler: disablers and
+        ///    default-setters are meant to coexist, with the default-setter's request winning if
+        ///    nothing else was explicitly picked.
+        /// 3. Otherwise, if only disablers exist, nothing is enabled (`[]`).
+        /// 4. Otherwise, nothing was recorded at all (`nil`).
+        func resolvedExplicitTraits(named: EnabledTraits?, for identity: PackageIdentity) -> EnabledTraits? {
+            if let named, !named.isEmpty {
+                return named
+            }
+            if let defaultSetters = self._defaultSetters[identity], !defaultSetters.isEmpty {
+                return nil
+            }
+            if let disablers = self._disablers[identity], let firstDisabler = disablers.first {
+                return EnabledTraits([], setBy: firstDisabler)
+            }
+            return nil
         }
     }
 
@@ -134,7 +180,9 @@ public struct EnabledTraitsMap {
                 return self[identity]
             }
 
-            return self.storage.get().versionedTraits[identity]?.at(version) ?? ["default"]
+            let state = self.storage.get()
+            let named = state.versionedTraits[identity]?.namedTraits(at: version)
+            return state.resolvedExplicitTraits(named: named, for: identity) ?? .defaults
         }
         set {
             self.set(
@@ -168,27 +216,25 @@ public struct EnabledTraitsMap {
                 return state
             }
 
-            // Track default setters
+            // Track default setters. A default-setter carries no information about named,
+            // non-default traits, so it must never touch the named-trait storage below - doing
+            // so was the source of an order-dependent bug where the final result of registering
+            // a disabler and a default-setter for the same package (in either order) depended on
+            // which one happened to register first. See `resolvedExplicitTraits(named:for:)`.
             if value.isExplicitlySetDefault {
                 if let defaultSetter = value.first?.setters.first {
                     state._defaultSetters[identity, default: []].insert(defaultSetter)
                 }
-                if let version {
-                    // first assure there is an entry for the versioned traits.
-                    if state.versionedTraits[identity, default: .init()].at(version) == [] {
-                        state.versionedTraits[identity]?.set(version, enabledTraits: value)
-                    }
-                } else {
-                    if state.unversionedTraits[identity] == [] {
-                        state.unversionedTraits[identity] = value
-                    }
-                }
                 return state
             }
 
-            // Track disablers
-            if value.isEmpty, let disabler = value.disabledBy {
-                state._disablers[identity, default: []].insert(disabler)
+            // Track disablers. Like default-setters, a disabler carries no named-trait
+            // information and must never touch the named-trait storage below, for the same reason.
+            if value.isEmpty {
+                if let disabler = value.disabledBy {
+                    state._disablers[identity, default: []].insert(disabler)
+                }
+                return state
             }
 
             // Union or create; the set of enabled traits is strictly additive.
@@ -199,8 +245,7 @@ public struct EnabledTraitsMap {
             }
 
             // Keep the proxy in sync so PackageIdentity-keyed reads (enabledTraitsMap[identity])
-            // reflect the current traits after the proxy was cleared above.
-            state.traits[identity, default: []].formUnion(value)
+            // reflect the current named traits after the proxy was cleared above.
             if state.traits[identity] == nil {
                 state.traits[identity] = value
             } else {
@@ -218,7 +263,7 @@ public struct EnabledTraitsMap {
     }
 
     public subscript(key: PackageIdentity) -> EnabledTraits {
-        get { storage.get().traits[key] ?? ["default"] }
+        get { self[explicitlyEnabledTraitsFor: key] ?? .defaults }
         set {
             storage.mutate { (state: Storage) -> Storage in
                 var state = state
@@ -234,20 +279,21 @@ public struct EnabledTraitsMap {
                     return state
                 }
 
-                // Track default setters
+                // Track default setters. See the analogous comment in
+                // `set(identity:value:version:)` for why this must never touch `state.traits`.
                 if newValue.isExplicitlySetDefault {
                     if let defaultSetter = newValue.first?.setters.first {
                         state._defaultSetters[key, default: []].insert(defaultSetter)
                     }
-                    if state.traits[key] == [] {
-                        state.traits[key] = nil
-                    }
                     return state
                 }
 
-                // Track disablers
-                if newValue.isEmpty, let disabler = newValue.disabledBy {
-                    state._disablers[key, default: []].insert(disabler)
+                // Track disablers. See the analogous comment in `set(identity:value:version:)`.
+                if newValue.isEmpty {
+                    if let disabler = newValue.disabledBy {
+                        state._disablers[key, default: []].insert(disabler)
+                    }
+                    return state
                 }
 
                 // Union or create; the set of enabled traits is strictly additive.
@@ -309,7 +355,8 @@ public struct EnabledTraitsMap {
     /// - Parameter key: The package identity to query.
     /// - Returns: The explicitly enabled traits, or `nil` if no traits were explicitly set (meaning the package uses defaults).
     public subscript(explicitlyEnabledTraitsFor key: PackageIdentity) -> EnabledTraits? {
-        storage.get().traits[key]
+        let state = storage.get()
+        return state.resolvedExplicitTraits(named: state.traits[key], for: key)
     }
 
     /// Returns a list of traits that were explicitly enabled for a given package.
