@@ -119,7 +119,7 @@ public final class Manifest: Sendable {
         packageKind: PackageReference.Kind,
         packageLocation: String,
         defaultLocalization: String?,
-        defaultSettings: [TargetBuildSettingDescription.Setting] = [],
+        defaultSettings: [TargetBuildSettingDescription.Setting]? = nil,
         platforms: [PlatformDescription],
         version: TSCUtility.Version?,
         revision: String?,

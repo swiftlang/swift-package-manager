@@ -727,7 +727,7 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
-        case .inherited:
+        case .defaults:
             self.init(enum: setting.kind.name, subnodes: [])
         }
     }
@@ -1217,8 +1217,8 @@ extension TargetBuildSettingDescription.Kind {
             return "disableWarning"
         case .defaultIsolation:
             return "defaultIsolation"
-        case .inherited:
-            return "inherited"
+        case .defaults:
+            return "defaults"
         }
     }
 }

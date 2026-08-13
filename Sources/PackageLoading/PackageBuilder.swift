@@ -1098,17 +1098,22 @@ public final class PackageBuilder {
             }
         }
 
-        // copy over all existing settings, substituting in defaults if inherited is encountered.
+        // copy over all existing settings, substituting in defaults if encountered.
         for setting in target.settings {
             switch setting.kind {
-            case .inherited:
+            case .defaults:
                 if setting.condition != nil {
                     throw ModuleError.invalidManifestConfig(
-                        self.identity.description, "inherited settings cannot use conditions"
+                        self.identity.description, "default settings cannot use conditions"
                     )
                 }
 
-                let defaults = manifest.defaultSettings?.filter({ $0.tool == setting.tool }) ?? []
+                guard let defaults = manifest.defaultSettings?.filter({ $0.tool == setting.tool }) else {
+                    throw ModuleError.invalidManifestConfig(
+                        self.identity.description, "defaults cannot be referenced without being defined"
+                    )
+                }
+
                 resolved.append(contentsOf: defaults)
             default:
                 resolved.append(setting)
@@ -1390,8 +1395,8 @@ public final class PackageBuilder {
                 }
 
                 values = ["-default-isolation", isolation.rawValue]
-            case .inherited:
-                throw InternalError("inherited cannot be in resolved setttings")
+            case .defaults:
+                throw InternalError("defaults cannot be in resolved settings")
             }
 
             // Create an assignment for this setting.

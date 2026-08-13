@@ -60,7 +60,7 @@ public enum TargetBuildSettingDescription {
 
         case defaultIsolation(DefaultIsolation)
 
-        case inherited
+        case defaults
 
         public var isUnsafeFlags: Bool {
             switch self {
@@ -69,7 +69,7 @@ public enum TargetBuildSettingDescription {
                 return !flags.isEmpty
             case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
                  .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode,
-                 .treatAllWarnings, .treatWarning, .enableWarning, .disableWarning, .defaultIsolation, .inherited:
+                 .treatAllWarnings, .treatWarning, .enableWarning, .disableWarning, .defaultIsolation, .defaults:
                 return false
             }
         }

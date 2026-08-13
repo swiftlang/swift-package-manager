@@ -27,6 +27,18 @@ struct DefaultLoadingTests {
             import PackageDescription
             let package = Package(
                 name: "Foo",
+                defaultSwiftSettings: [
+                    .swiftLanguageMode(.v5),
+                ],
+                defaultCSettings: [
+                    .headerSearchPath("foo"),
+                ],
+                defaultCXXSettings: [
+                    .headerSearchPath("bar"),
+                ],
+                defaultLinkerSettings: [
+                    .linkedLibrary("mylib"),
+                ],
                 products: [],
                 targets: [
                     .target(
@@ -41,30 +53,18 @@ struct DefaultLoadingTests {
                     .target(
                         name: "Baz",
                         cSettings: [
-                            .inherited()
+                            .defaults
                         ],
                         cxxSettings: [
-                            .inherited()
+                            .defaults
                         ],
                         swiftSettings: [
-                            .inherited()
+                            .defaults
                         ],
                         linkerSettings: [
-                            .inherited()
+                            .defaults
                         ],
                     ),
-                ],
-                defaultSwiftSettings: [
-                    .swiftLanguageMode(.v5),
-                ],
-                defaultCSettings: [
-                    .headerSearchPath("foo"),
-                ],
-                defaultCXXSettings: [
-                    .headerSearchPath("bar"),
-                ],
-                defaultLinkerSettings: [
-                    .linkedLibrary("mylib"),
                 ],
             )
             """
@@ -132,7 +132,7 @@ struct DefaultLoadingTests {
                 try TargetDescription(
                     name: "D",
                     settings: [
-                        .init(tool: .swift, kind: .inherited),
+                        .init(tool: .swift, kind: .defaults),
                         .init(tool: .swift, kind: .defaultIsolation(.nonisolated))
                     ],
                     explicitSettings: .init(swift: true, c: false, cxx: false, linker: false)
@@ -220,7 +220,7 @@ struct DefaultLoadingTests {
                     name: "D",
                     publicHeadersPath: ".",
                     settings: [
-                        .init(tool: .c, kind: .inherited),
+                        .init(tool: .c, kind: .defaults),
                         .init(tool: .c, kind: .headerSearchPath("bar")),
                     ],
                     explicitSettings: .init(swift: false, c: true, cxx: false, linker: false)
@@ -304,7 +304,7 @@ struct DefaultLoadingTests {
                     name: "D",
                     publicHeadersPath: ".",
                     settings: [
-                        .init(tool: .cxx, kind: .inherited),
+                        .init(tool: .cxx, kind: .defaults),
                         .init(tool: .cxx, kind: .headerSearchPath("bar")),
                     ],
                     explicitSettings: .init(swift: false, c: false, cxx: true, linker: false)
@@ -388,7 +388,7 @@ struct DefaultLoadingTests {
                     name: "D",
                     publicHeadersPath: ".",
                     settings: [
-                        .init(tool: .linker, kind: .inherited),
+                        .init(tool: .linker, kind: .defaults),
                         .init(tool: .linker, kind: .linkedLibrary("yourlib")),
                     ],
                     explicitSettings: .init(swift: false, c: false, cxx: false, linker: true)
@@ -473,7 +473,7 @@ struct DefaultLoadingTests {
                     name: "D",
                     publicHeadersPath: ".",
                     settings: [
-                        .init(tool: .swift, kind: .inherited),
+                        .init(tool: .swift, kind: .defaults),
                         .init(tool: .swift, kind: .unsafeFlags(["another"]))
                     ],
                     explicitSettings: .init(swift: true, c: false, cxx: false, linker: false)
@@ -504,7 +504,7 @@ struct DefaultLoadingTests {
                 try TargetDescription(
                     name: "A",
                     settings: [
-                        .init(tool: .swift, kind: .inherited)
+                        .init(tool: .swift, kind: .defaults)
                     ],
                     explicitSettings: .init(swift: true, c: false, cxx: false, linker: false)
                 ),
@@ -518,7 +518,7 @@ struct DefaultLoadingTests {
     }
 
     @Test
-    func inheritanceWithoutSwiftDefaultsIsRejected() throws {
+    func defaultsWithoutSwiftDefaultsIsRejected() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/A/a.swift",
         )
@@ -530,7 +530,7 @@ struct DefaultLoadingTests {
                 try TargetDescription(
                     name: "A",
                     settings: [
-                        .init(tool: .swift, kind: .inherited)
+                        .init(tool: .swift, kind: .defaults)
                     ],
                     explicitSettings: .init(swift: true, c: false, cxx: false, linker: false)
                 ),
@@ -539,7 +539,7 @@ struct DefaultLoadingTests {
 
         try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
             diagnostics.check(
-                diagnostic: "configuration of package '\(package.packageIdentity)' is invalid; inheritance cannot be used without default values",
+                diagnostic: "configuration of package '\(package.packageIdentity)' is invalid; defaults cannot be referenced without being defined",
                 severity: .error
             )
         }
