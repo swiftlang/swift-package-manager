@@ -291,7 +291,10 @@ public final class SwiftCommandState {
     }
 
     /// Get the current workspace root object.
-    public func getWorkspaceRoot() throws -> PackageGraphRootInput {
+    ///
+    /// - Parameter traitConfiguration: The trait configuration to use in place of the
+    ///   configuration derived from the command-line options, if provided.
+    public func getWorkspaceRoot(traitConfiguration: TraitConfiguration? = nil) throws -> PackageGraphRootInput {
         let packages: [AbsolutePath]
 
         if let workspace = options.locations.multirootPackageDataFile {
@@ -301,7 +304,7 @@ public final class SwiftCommandState {
             packages = try [self.getPackageRoot()]
         }
 
-        return PackageGraphRootInput(packages: packages, traitConfiguration: self.traitConfiguration)
+        return PackageGraphRootInput(packages: packages, traitConfiguration: traitConfiguration ?? self.traitConfiguration)
     }
 
     /// Scratch space (.build) directory.
@@ -576,12 +579,17 @@ public final class SwiftCommandState {
     }
 
     /// Returns the currently active workspace.
-    public func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false, enableAllTraits: Bool = false) throws -> Workspace {
+    ///
+    /// - Parameter traitConfiguration: The trait configuration to use in place of the
+    ///   configuration derived from the command-line options, if provided. The override
+    ///   only applies to the returned instance; the cached workspace keeps the original
+    ///   configuration.
+    public func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false, traitConfiguration: TraitConfiguration? = nil) throws -> Workspace {
         if var workspace = _workspace {
             // if we decide to override the trait configuration, we can resolve accordingly for
             // calls like createSymbolGraphForPlugin.
-            if enableAllTraits {
-                workspace = workspace.updateConfiguration(with: .enableAllTraits)
+            if let traitConfiguration {
+                workspace = workspace.updateConfiguration(with: traitConfiguration)
             }
             return workspace
         }
@@ -645,6 +653,9 @@ public final class SwiftCommandState {
         )
         self._workspace = workspace
         self._workspaceDelegate = delegate
+        if let traitConfiguration {
+            return workspace.updateConfiguration(with: traitConfiguration)
+        }
         return workspace
     }
 
@@ -697,8 +708,8 @@ public final class SwiftCommandState {
         await manifestLoader.purgeCache(observabilityScope: observabilityScope)
     }
 
-    public func getRootPackageInformation(_ enableAllTraits: Bool = false) async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
-        let workspace = try self.getActiveWorkspace(enableAllTraits: enableAllTraits)
+    public func getRootPackageInformation(traitConfiguration: TraitConfiguration? = nil) async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
+        let workspace = try self.getActiveWorkspace(traitConfiguration: traitConfiguration)
         let root = try self.getWorkspaceRoot()
         let rootManifests = try await workspace.loadRootManifests(
             packages: root.packages,
@@ -852,7 +863,7 @@ public final class SwiftCommandState {
     ) async throws -> ModulesGraph {
         try await self.loadPackageGraph(
             explicitProduct: explicitProduct,
-            enableAllTraits: false,
+            traitConfiguration: nil,
             testEntryPointPath: testEntryPointPath
         )
     }
@@ -866,12 +877,12 @@ public final class SwiftCommandState {
     @discardableResult
     package func loadPackageGraph(
         explicitProduct: String? = nil,
-        enableAllTraits: Bool = false,
+        traitConfiguration: TraitConfiguration? = nil,
         testEntryPointPath: AbsolutePath? = nil,
         exitOnError: Bool = true
     ) async throws -> ModulesGraph {
         do {
-            let workspace = try getActiveWorkspace(enableAllTraits: enableAllTraits)
+            let workspace = try getActiveWorkspace(traitConfiguration: traitConfiguration)
 
             // Create a dedicated observability scope for package graph loading so that the `packageGraphObservabilityScope.errorsReported`
             // below only considers errors reported from this call to `loadPackageGraph`. This ensures that in an interactive context like
@@ -881,7 +892,7 @@ public final class SwiftCommandState {
 
             // Fetch and load the package graph.
             let graph = try await workspace.loadPackageGraph(
-                rootInput: self.getWorkspaceRoot(),
+                rootInput: self.getWorkspaceRoot(traitConfiguration: traitConfiguration),
                 explicitProduct: explicitProduct,
                 forceResolvedVersions: self.options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
@@ -977,7 +988,7 @@ public final class SwiftCommandState {
     public func createBuildSystem(
         explicitBuildSystem: BuildSystemProvider.Kind? = .none,
         explicitProduct: String? = .none,
-        enableAllTraits: Bool = false,
+        traitConfiguration: TraitConfiguration? = .none,
         cacheBuildManifest: Bool = true,
         shouldLinkStaticSwiftStdlib: Bool = false,
         productsBuildParameters: BuildParameters? = .none,
@@ -1001,7 +1012,7 @@ public final class SwiftCommandState {
         let buildSystem = try await buildSystemProvider.createBuildSystem(
             kind: explicitBuildSystem ?? self.options.build.buildSystem,
             explicitProduct: explicitProduct,
-            enableAllTraits: enableAllTraits,
+            traitConfiguration: traitConfiguration,
             cacheBuildManifest: cacheBuildManifest,
             productsBuildParameters: productsParameters,
             toolsBuildParameters: toolsBuildParameters,

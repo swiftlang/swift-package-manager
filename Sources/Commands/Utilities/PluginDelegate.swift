@@ -377,7 +377,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Create a build system for building the target., skipping the the cache because we need the build plan.
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: buildSystem,
-            enableAllTraits: true,
+            traitConfiguration: .enableAllTraits,
             cacheBuildManifest: false
         )
 
