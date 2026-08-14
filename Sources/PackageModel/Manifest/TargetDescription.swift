@@ -189,6 +189,12 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
     /// The usages of package plugins by the target.
     public let pluginUsages: [PluginUsage]?
 
+    /// The trait configurations declared by this test target.
+    ///
+    /// This is `nil` for targets that don't declare any trait configurations
+    /// and is only supported on test targets.
+    public let traitConfigurations: [TraitConfiguration]?
+
     /// Represents a target's usage of a plugin target or product.
     public enum PluginUsage: Hashable, Sendable {
         case plugin(name: String, package: String?)
@@ -210,9 +216,21 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         pluginCapability: PluginCapability? = nil,
         settings: [TargetBuildSettingDescription.Setting] = [],
         checksum: String? = nil,
-        pluginUsages: [PluginUsage]? = nil
+        pluginUsages: [PluginUsage]? = nil,
+        traitConfigurations: [TraitConfiguration]? = nil
     ) throws {
         let targetType = String(describing: type)
+        if type != .test, let traitConfigurations {
+            throw Error.disallowedPropertyInTarget(
+                targetName: name,
+                targetType: targetType,
+                propertyName: "traitConfigurations",
+                value: String(describing: traitConfigurations)
+            )
+        }
+        if let traitConfigurations, traitConfigurations.isEmpty {
+            throw Error.emptyTraitConfigurations(targetName: name)
+        }
         switch type {
         case .regular, .executable, .test:
             if url != nil { throw Error.disallowedPropertyInTarget(
@@ -461,6 +479,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         self.settings = settings
         self.checksum = checksum
         self.pluginUsages = pluginUsages
+        self.traitConfigurations = traitConfigurations
     }
 }
 
@@ -592,6 +611,7 @@ private enum Error: LocalizedError, Equatable {
     case binaryTargetRequiresEitherPathOrURL(targetName: String)
     case pluginTargetRequiresPluginCapability(targetName: String)
     case disallowedPropertyInTarget(targetName: String, targetType: String, propertyName: String, value: String)
+    case emptyTraitConfigurations(targetName: String)
 
     var errorDescription: String? {
         switch self {
@@ -603,6 +623,8 @@ private enum Error: LocalizedError, Equatable {
             "target '\(targetName)' is assigned a property '\(propertyName)' which is not accepted " +
             "for the \(targetType) target type. The current property value has " +
             "the following representation: \(value)."
+        case .emptyTraitConfigurations(let targetName):
+            "test target '\(targetName)' must declare at least one trait configuration when 'traitConfigurations' is specified"
         }
     }
 }

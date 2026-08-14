@@ -200,7 +200,11 @@ public final class Target {
     /// The target's linker settings.
     @available(_PackageDescription, introduced: 5)
     public var linkerSettings: [LinkerSetting]?
- 
+
+    /// The trait configurations declared by this test target.
+    @available(_PackageDescription, introduced: 6.4)
+    public var traitConfigurations: [TraitConfiguration]?
+
     /// The checksum for the archive file that contains the referenced binary
     /// artifact.
     ///
@@ -229,6 +233,43 @@ public final class Target {
         case plugin(name: String, package: String?)
     }
 
+    /// A configuration of the package's traits that a test target declares support for.
+    ///
+    /// A test target can declare the trait configurations under which its tests
+    /// are expected to run, allowing the package manager to run the tests once
+    /// per declared configuration.
+    @available(_PackageDescription, introduced: 6.4)
+    public struct TraitConfiguration: Hashable, Sendable {
+        enum Storage: Hashable {
+            case `default`
+            case enableAllTraits
+            case disableAllTraits
+            case enabledTraits(Set<String>)
+        }
+
+        let storage: Storage
+
+        /// The package's default traits.
+        public static let `default`: TraitConfiguration = .init(storage: .default)
+
+        /// A configuration with all of the package's traits enabled.
+        public static let enableAllTraits: TraitConfiguration = .init(storage: .enableAllTraits)
+
+        /// A configuration with all of the package's traits disabled,
+        /// including the default traits.
+        public static let disableAllTraits: TraitConfiguration = .init(storage: .disableAllTraits)
+
+        /// A configuration with the given set of traits enabled.
+        ///
+        /// The default traits aren't implicitly enabled; include them in the
+        /// set to enable them.
+        ///
+        /// - Parameter traits: The names of the traits to enable.
+        public static func enabledTraits(_ traits: Set<String>) -> TraitConfiguration {
+            .init(storage: .enabledTraits(traits))
+        }
+    }
+
     /// Construct a target.
     @_spi(PackageDescriptionInternal)
     public init(
@@ -250,7 +291,8 @@ public final class Target {
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
         checksum: String? = nil,
-        plugins: [PluginUsage]? = nil
+        plugins: [PluginUsage]? = nil,
+        traitConfigurations: [TraitConfiguration]? = nil
     ) {
         self.name = name
         self.dependencies = dependencies
@@ -271,6 +313,7 @@ public final class Target {
         self.linkerSettings = linkerSettings
         self.checksum = checksum
         self.plugins = plugins
+        self.traitConfigurations = traitConfigurations
 
         switch type {
         case .regular, .executable, .test:
@@ -985,7 +1028,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target.
-    @available(_PackageDescription, introduced: 5.9)
+    @available(_PackageDescription, introduced: 5.9, obsoleted: 6.4)
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -1015,6 +1058,65 @@ public final class Target {
             swiftSettings: swiftSettings,
             linkerSettings: linkerSettings,
             plugins: plugins
+        )
+    }
+
+    /// Creates a test target.
+    ///
+    /// Write test targets using the XCTest testing framework.
+    /// Test targets generally declare a dependency on the targets they test.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
+    ///   - path: The custom path for the target. By default, Swift Package Manager requires a target's sources to reside at predefined search paths;
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that Swift Package Manager shouldn't consider to be source or resource files.
+    ///       A path is relative to the target's directory.
+    ///       This parameter has precedence over the ``sources`` parameter.
+    ///   - sources: An explicit list of source files. If you provide a path to a directory,
+    ///       Swift Package Manager searches for valid source files recursively.
+    ///   - resources: An explicit list of resources files.
+    ///   - packageAccess: Allows access to package symbols from other targets in the package.
+    ///   - cSettings: The C settings for this target.
+    ///   - cxxSettings: The C++ settings for this target.
+    ///   - swiftSettings: The Swift settings for this target.
+    ///   - linkerSettings: The linker settings for this target.
+    ///   - plugins: The plug-ins used by this target.
+    ///   - traitConfigurations: The trait configurations under which this test target's tests run.
+    @available(_PackageDescription, introduced: 6.4)
+    public static func testTarget(
+        name: String,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        resources: [Resource]? = nil,
+        packageAccess: Bool = true,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil,
+        traitConfigurations: [TraitConfiguration]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            resources: resources,
+            publicHeadersPath: nil,
+            type: .test,
+            packageAccess: packageAccess,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins,
+            traitConfigurations: traitConfigurations
         )
     }
 
