@@ -642,19 +642,26 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
                 stdout
             }
 
-            XCTAssertMatch(out, .contains("-module-name Foo"))
-            XCTAssertMatch(out, .contains("-module-name Zoo"))
-            XCTAssertMatch(out, .contains("-module-name Bar"))
-            XCTAssertMatch(out, .contains("-module-name Baz"))
-            XCTAssertMatch(out, .contains("-module-name App"))
-            XCTAssertMatch(out, .contains("-module-name exe"))
-            if isFlagSupportedInDriver {
-                XCTAssertMatch(out, .contains("-package-name apppkg"))
-                XCTAssertMatch(out, .contains("-package-name foopkg"))
-                // the flag is not supported if tools-version < 5.9
-                XCTAssertNoMatch(out, .contains("-package-name barpkg"))
-            } else {
-                XCTAssertNoMatch(out, .contains("-package-name"))
+            switch buildSystemProvider {
+                case .native:
+                    XCTAssertMatch(out, .contains("-module-name Foo"))
+                    XCTAssertMatch(out, .contains("-module-name Zoo"))
+                    XCTAssertMatch(out, .contains("-module-name Bar"))
+                    XCTAssertMatch(out, .contains("-module-name Baz"))
+                    XCTAssertMatch(out, .contains("-module-name App"))
+                    XCTAssertMatch(out, .contains("-module-name exe"))
+                    if isFlagSupportedInDriver {
+                        XCTAssertMatch(out, .contains("-package-name apppkg"))
+                        XCTAssertMatch(out, .contains("-package-name foopkg"))
+                        // the flag is not supported if tools-version < 5.9
+                        XCTAssertNoMatch(out, .contains("-package-name barpkg"))
+                    } else {
+                        XCTAssertNoMatch(out, .contains("-package-name"))
+                    }
+                case .swiftbuild:
+                    break
+                case .xcode:
+                    XCTFail("Test expectation have not beem implemented")
             }
             XCTAssertMatch(stdout, .contains("Build complete!"))
         }
@@ -7795,7 +7802,7 @@ class BuildPlanSwiftBuildTests: BuildPlanTestCase {
         let result = try BuildPlanResult(plan: plan)
         let productDescription = try result.buildProduct(for: "exe")
         let linkArgs = try productDescription.linkArguments()
-        
+
         XCTAssertTrue(linkArgs.contains("/include:SomeSymbol"), "Should contain exact linker flag")
     }
 }
