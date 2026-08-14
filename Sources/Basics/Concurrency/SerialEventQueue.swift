@@ -19,16 +19,22 @@ import _Concurrency
 /// queue and calls the sink. 
 /// 
 /// Because delivery is serialized, a slow sink delays the events queued behind it.
+///
+/// Releasing the queue cancels delivery, so any events still queued are dropped.
+/// Call ``finish()`` first to wait for them.
 package final class SerialEventQueue<Sink: Sendable>: Sendable {
     private typealias Event = @Sendable (Sink) -> Void
 
     private let events: AsyncStream<Event>.Continuation
+    private let task: Task<Void, Never>
 
     package init(_ sink: Sink) {
         let (stream, continuation) = AsyncStream.makeStream(of: Event.self, bufferingPolicy: .unbounded)
         self.events = continuation
 
-        Task {
+        // Captures `sink` and `stream`, never `self`, so the queue stays
+        // deallocatable and `deinit` can tear this down.
+        self.task = Task {
             for await event in stream {
                 event(sink)
             }
@@ -36,11 +42,20 @@ package final class SerialEventQueue<Sink: Sendable>: Sendable {
     }
 
     deinit {
+        self.task.cancel()
         self.events.finish()
     }
 
     /// Enqueues `event`, to be delivered after every event emitted before it.
     package func emit(_ event: @escaping @Sendable (Sink) -> Void) {
         self.events.yield(event)
+    }
+
+    /// Stops accepting events and waits for the ones already emitted to be
+    /// delivered. Events emitted afterwards are ignored. Calling this more than
+    /// once is safe.
+    package func finish() async {
+        self.events.finish()
+        await self.task.value
     }
 }

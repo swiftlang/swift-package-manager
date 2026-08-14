@@ -51,7 +51,7 @@ struct SerialEventQueueTests {
             queue.emit { $0.receive(value) }
         }
 
-        await drain(queue)
+        await queue.finish()
         #expect(recorder.values == expected)
     }
 
@@ -75,32 +75,52 @@ struct SerialEventQueueTests {
         sinkMayReturn.signal()
     }
 
-    /// Waits for previously emitted events to be delivered. A sentinel event is
-    /// delivered only after everything emitted ahead of it, so this needs nothing
-    /// from the queue beyond the ordering it already guarantees.
-    private func drain(_ queue: SerialEventQueue<Recorder>) async {
-        await withCheckedContinuation { continuation in
-            queue.emit { _ in continuation.resume() }
-        }
-    }
-
-    /// Events already enqueued are still delivered once the queue is released.
+    /// Finishing waits for everything already queued, even when the sink is slow
+    /// enough that none of it could have been delivered yet.
     @Test
-    func drainsBufferedEventsAfterRelease() async throws {
-        let recorder = Recorder()
-        let expected = Array(0 ..< 100)
-
-        do {
-            let queue = SerialEventQueue(recorder)
-            for value in expected {
-                queue.emit { $0.receive(value) }
+    func finishWaitsForQueuedEvents() async throws {
+        let recorder = Recorder { value in
+            if value == 0 {
+                Thread.sleep(forTimeInterval: 0.1)
             }
         }
+        let queue = SerialEventQueue(recorder)
 
-        let deadline = ContinuousClock.now + .seconds(5)
-        while recorder.values != expected, ContinuousClock.now < deadline {
-            try await Task.sleep(for: .milliseconds(10))
+        let expected = Array(0 ..< 100)
+        for value in expected {
+            queue.emit { $0.receive(value) }
         }
+
+        await queue.finish()
         #expect(recorder.values == expected)
+    }
+
+    /// Finishing twice is safe, and the second call does not stall waiting on a
+    /// delivery task that has already completed.
+    @Test
+    func finishIsIdempotent() async throws {
+        let recorder = Recorder()
+        let queue = SerialEventQueue(recorder)
+
+        queue.emit { $0.receive(0) }
+        await queue.finish()
+        await queue.finish()
+
+        #expect(recorder.values == [0])
+    }
+
+    /// Events emitted after finishing are ignored rather than delivered late.
+    @Test
+    func ignoresEventsEmittedAfterFinish() async throws {
+        let recorder = Recorder()
+        let queue = SerialEventQueue(recorder)
+
+        queue.emit { $0.receive(0) }
+        await queue.finish()
+
+        queue.emit { $0.receive(1) }
+        await queue.finish()
+
+        #expect(recorder.values == [0])
     }
 }
