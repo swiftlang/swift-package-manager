@@ -603,6 +603,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             do {
                 let (buildSystem, testProducts) = try await self.buildTestsIfNeeded(
                     swiftCommandState: swiftCommandState,
+                    limitToTestProducts: Array(testTargets),
                     traitConfiguration: configuration
                 )
                 let selectedProducts = testProducts.filter { testTargets.contains($0.productName) }
@@ -1141,6 +1142,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     /// - Returns: The paths to the build test products.
     private func buildTestsIfNeeded(
         swiftCommandState: SwiftCommandState,
+        limitToTestProducts: [String]? = nil,
         traitConfiguration: TraitConfiguration? = nil
     ) async throws -> (buildSystem: any BuildSystem, testProducts: [BuiltTestProduct]) {
         let (productsBuildParameters, toolsBuildParameters) = try swiftCommandState.buildParametersForTest(options: self.options)
@@ -1149,6 +1151,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
             testProduct: self.options.sharedOptions.testProduct,
+            limitToTestProducts: limitToTestProducts,
             traitConfiguration: traitConfiguration ?? .init(traitOptions: self.globalOptions.traits)
         )
     }
@@ -2255,6 +2258,7 @@ private func buildTestsIfNeeded(
     productsBuildParameters: BuildParameters,
     toolsBuildParameters: BuildParameters,
     testProduct: String?,
+    limitToTestProducts: [String]? = nil,
     traitConfiguration: TraitConfiguration
 ) async throws -> (buildSystem: any BuildSystem, testProducts: [BuiltTestProduct]) {
     let buildSystem = try await swiftCommandState.createBuildSystem(
@@ -2263,13 +2267,22 @@ private func buildTestsIfNeeded(
         toolsBuildParameters: toolsBuildParameters
     )
 
-    let subset: BuildSubset = if let testProduct {
-        .product(testProduct)
+    if let limitToTestProducts {
+        // Trait configuration runs build only the test products relevant to the
+        // active configuration, so that test targets which require a different
+        // configuration aren't built (they may not even compile under this one).
+        for productName in limitToTestProducts.sorted() {
+            try await buildSystem.build(subset: .product(productName), buildOutputs: [])
+        }
     } else {
-        .allIncludingTests
-    }
+        let subset: BuildSubset = if let testProduct {
+            .product(testProduct)
+        } else {
+            .allIncludingTests
+        }
 
-    try await buildSystem.build(subset: subset, buildOutputs: [])
+        try await buildSystem.build(subset: subset, buildOutputs: [])
+    }
 
     // Find the test product.
     let testProducts = await buildSystem.builtTestProducts

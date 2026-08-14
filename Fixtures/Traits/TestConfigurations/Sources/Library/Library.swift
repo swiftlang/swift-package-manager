@@ -9,4 +9,12 @@ public enum Library {
         #endif
         return traits
     }
+
+    #if BAR
+    /// API that only exists when the `Bar` trait is enabled. Test targets using
+    /// this API only compile under a trait configuration that enables `Bar`.
+    public static func barOnlyAPI() -> String {
+        "bar"
+    }
+    #endif
 }
