@@ -241,6 +241,13 @@ struct TestCommandOptions: ParsableArguments {
           help: "Launch the tests in a debugger session. Use the `failbreak` alias to attach breakpoints that will trigger on test failures.")
     var shouldLaunchInLLDB: Bool = false
 
+    /// Whether to run tests using `testTarget`-declared configurations.
+    @Flag(
+        name: .customLong("enable-trait-configurations"),
+        help: "Run tests per trait configuration declared by the test targets."
+    )
+    var enableTestTraitConfigurations: Bool = false
+
     /// Configure the test output.
     @Option(help: ArgumentHelp("", visibility: .hidden))
     public var testOutput: TestOutput = .default
@@ -292,6 +299,12 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
     public var globalOptions: GlobalOptions {
         options.globalOptions
+    }
+
+    public var toolWorkspaceConfiguration: ToolWorkspaceConfiguration {
+        // Trait configuration runs need one test product per test target so that
+        // only the test targets declaring the active configuration are run.
+        .init(wantsMultipleTestProducts: options.enableTestTraitConfigurations)
     }
 
     @OptionGroup()
@@ -539,6 +552,9 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             // Backward compatibility 6/2022 for deprecation of a flag into a subcommand.
             let command = try List.parse()
             try await command.run(swiftCommandState)
+        } else if self.options.enableTestTraitConfigurations {
+            let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
+            try await runTestsPerTraitConfiguration(swiftCommandState, buildParameters: productsBuildParameters)
         } else {
             let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
             let (buildSystem, testProducts) = try await buildTestsIfNeeded(swiftCommandState: swiftCommandState)
@@ -556,6 +572,72 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             if self.options.enableCodeCoverage, swiftCommandState.executionStatus != .failure {
                 try await processCodeCoverage(testProducts, swiftCommandState: swiftCommandState, buildSystem: buildSystem)
             }
+        }
+    }
+
+    /// Runs the tests once per trait configuration declared by the root packages'
+    /// test targets, building with each configuration and running only the test
+    /// targets that declared it.
+    ///
+    /// Failures don't stop the matrix: the remaining configurations still run, and
+    /// the overall command fails if any configuration failed.
+    private func runTestsPerTraitConfiguration(
+        _ swiftCommandState: SwiftCommandState,
+        buildParameters: BuildParameters
+    ) async throws {
+        let workspace = try swiftCommandState.getActiveWorkspace()
+        let root = try swiftCommandState.getWorkspaceRoot()
+        let rootManifests = try await workspace.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: swiftCommandState.observabilityScope
+        )
+        let rootTargets = root.packages.compactMap { rootManifests[$0] }.flatMap(\.targets)
+        let matrix = Self.testTraitConfigurationMatrix(testTargets: rootTargets)
+        guard !matrix.isEmpty else {
+            throw TestError.testsNotFound
+        }
+
+        var failedConfigurations: [TraitConfiguration] = []
+        for (configuration, testTargets) in matrix {
+            print("Running tests with \(configuration.testMatrixDescription)")
+            do {
+                let (buildSystem, testProducts) = try await self.buildTestsIfNeeded(
+                    swiftCommandState: swiftCommandState,
+                    traitConfiguration: configuration
+                )
+                let selectedProducts = testProducts.filter { testTargets.contains($0.productName) }
+                guard !selectedProducts.isEmpty else {
+                    throw StringError(
+                        "no test products found for test targets: \(testTargets.sorted().joined(separator: ", "))"
+                    )
+                }
+
+                let statusBefore = swiftCommandState.executionStatus
+                try await self.run(
+                    swiftCommandState,
+                    buildParameters: buildParameters,
+                    testProducts: selectedProducts,
+                    buildSystem: buildSystem
+                )
+                if swiftCommandState.executionStatus == .failure, statusBefore != .failure {
+                    failedConfigurations.append(configuration)
+                }
+            } catch {
+                // Inner test failures have already been reported; only surface
+                // errors that haven't been.
+                if !(error is ExitCode) {
+                    swiftCommandState.observabilityScope.emit(error)
+                }
+                failedConfigurations.append(configuration)
+            }
+        }
+
+        if !failedConfigurations.isEmpty {
+            print(
+                "\nTests failed for \(failedConfigurations.count) of \(matrix.count) trait configurations: " +
+                failedConfigurations.map(\.testMatrixDescription).joined(separator: "; ")
+            )
+            throw ExitCode.failure
         }
     }
 
@@ -1053,9 +1135,13 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
     /// Builds the "test" target if enabled in options.
     ///
+    /// - Parameter traitConfiguration: The trait configuration to build with, in
+    ///   place of the configuration derived from the command-line options.
+    ///
     /// - Returns: The paths to the build test products.
     private func buildTestsIfNeeded(
-        swiftCommandState: SwiftCommandState
+        swiftCommandState: SwiftCommandState,
+        traitConfiguration: TraitConfiguration? = nil
     ) async throws -> (buildSystem: any BuildSystem, testProducts: [BuiltTestProduct]) {
         let (productsBuildParameters, toolsBuildParameters) = try swiftCommandState.buildParametersForTest(options: self.options)
         return try await Commands.buildTestsIfNeeded(
@@ -1063,7 +1149,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
             testProduct: self.options.sharedOptions.testProduct,
-            traitConfiguration: .init(traitOptions: self.globalOptions.traits)
+            traitConfiguration: traitConfiguration ?? .init(traitOptions: self.globalOptions.traits)
         )
     }
 
@@ -1102,6 +1188,41 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
         if options._deprecated_shouldListTests {
             swiftCommandState.observabilityScope.emit(warning: "'--list-tests' option is deprecated; use 'swift test list' instead")
+        }
+
+        // Validation for `--enable-trait-configurations`. Combinations that don't
+        // have well-defined semantics across multiple build-and-run cycles are
+        // rejected rather than silently misbehaving.
+        if options.enableTestTraitConfigurations {
+            // The native build system cannot build one test product per test
+            // target: the product's synthesized test runner module collides
+            // with the test target's module of the same name.
+            if globalOptions.build.buildSystem == .native {
+                throw StringError(
+                    "'--enable-trait-configurations' is not supported by the 'native' build system"
+                )
+            }
+            let traitOptions = globalOptions.traits
+            if traitOptions.enabledTraits != nil || traitOptions.enableAllTraits || traitOptions.disableDefaultTraits {
+                throw StringError(
+                    "'--enable-trait-configurations' cannot be used with explicit trait options ('--traits', '--enable-all-traits', '--disable-default-traits')"
+                )
+            }
+            if options.sharedOptions.testProduct != nil {
+                throw StringError("'--enable-trait-configurations' cannot be used with '--test-product'")
+            }
+            if options.sharedOptions.shouldSkipBuilding {
+                throw StringError("'--enable-trait-configurations' cannot be used with '--skip-build'")
+            }
+            if options.shouldLaunchInLLDB {
+                throw StringError("'--enable-trait-configurations' cannot be used with '--debugger'")
+            }
+            if options.enableCodeCoverage {
+                throw StringError("'--enable-trait-configurations' does not support '--enable-code-coverage' yet")
+            }
+            if options.xUnitOutput != nil {
+                throw StringError("'--enable-trait-configurations' does not support '--xunit-output' yet")
+            }
         }
     }
 
@@ -2081,6 +2202,51 @@ private var EXIT_NO_TESTS_FOUND: CInt {
 #endif
 }
 
+extension TraitConfiguration {
+    /// A human-readable description of this configuration for test run output.
+    fileprivate var testMatrixDescription: String {
+        switch self {
+        case .default:
+            "default traits"
+        case .enableAllTraits:
+            "all traits enabled"
+        case .disableAllTraits:
+            "all traits disabled"
+        case .enabledTraits(let traits):
+            "traits: \(traits.sorted().joined(separator: ", "))"
+        }
+    }
+}
+
+extension SwiftTestCommand {
+    /// Computes the matrix of trait configurations declared by the given targets,
+    /// paired with the names of the test targets that declared each configuration.
+    ///
+    /// Configurations are ordered by their first declaration, following the
+    /// declaration order of the given targets, and are deduplicated. Test targets
+    /// that don't declare any trait configurations are grouped under the
+    /// `.default` configuration. Targets that aren't test targets are ignored.
+    static func testTraitConfigurationMatrix(
+        testTargets: [TargetDescription]
+    ) -> [(configuration: TraitConfiguration, testTargets: Set<String>)] {
+        var orderedConfigurations: [TraitConfiguration] = []
+        var testTargetsByConfiguration: [TraitConfiguration: Set<String>] = [:]
+
+        for target in testTargets where target.type == .test {
+            for configuration in target.traitConfigurations ?? [.default] {
+                if testTargetsByConfiguration[configuration] == nil {
+                    orderedConfigurations.append(configuration)
+                }
+                testTargetsByConfiguration[configuration, default: []].insert(target.name)
+            }
+        }
+
+        return orderedConfigurations.map {
+            (configuration: $0, testTargets: testTargetsByConfiguration[$0] ?? [])
+        }
+    }
+}
+
 /// Builds the "test" target if enabled in options.
 ///
 /// - Returns: The paths to the build test products.
@@ -2092,6 +2258,7 @@ private func buildTestsIfNeeded(
     traitConfiguration: TraitConfiguration
 ) async throws -> (buildSystem: any BuildSystem, testProducts: [BuiltTestProduct]) {
     let buildSystem = try await swiftCommandState.createBuildSystem(
+        traitConfiguration: traitConfiguration,
         productsBuildParameters: productsBuildParameters,
         toolsBuildParameters: toolsBuildParameters
     )

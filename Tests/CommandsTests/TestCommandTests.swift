@@ -121,6 +121,94 @@ struct TestCommandTests {
     }
 
     @Test(
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func traitConfigurationsMatrixRunsEachDeclaredConfiguration(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            let (stdout, stderr) = try await execute(
+                ["--enable-trait-configurations"],
+                packagePath: fixturePath.appending("TestConfigurations"),
+                buildSystem: buildSystem,
+            )
+            let output = stdout + stderr
+            // Both declared configurations ran, in manifest declaration order.
+            // The fixture's tests assert which traits were active during their
+            // build, so overall success also verifies that each test target ran
+            // under the configuration it declared.
+            #expect(output.contains("Running tests with default traits"), "got output:\n\(output)")
+            #expect(output.contains("Running tests with all traits enabled"), "got output:\n\(output)")
+        }
+    }
+
+    @Test(
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func traitConfigurationsMatrixAggregatesFailures(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            let (stdout, stderr) = try await execute(
+                ["--enable-trait-configurations"],
+                packagePath: fixturePath.appending("TestConfigurationsFailing"),
+                buildSystem: buildSystem,
+                throwIfCommandFails: false,
+            )
+            let output = stdout + stderr
+            // A failing configuration doesn't stop the matrix: the passing
+            // configuration still runs, and the overall result reports which
+            // configuration failed.
+            #expect(output.contains("Running tests with default traits"), "got output:\n\(output)")
+            #expect(output.contains("Running tests with all traits enabled"), "got output:\n\(output)")
+            #expect(
+                output.contains("Tests failed for 1 of 2 trait configurations: all traits enabled"),
+                "got output:\n\(output)"
+            )
+        }
+    }
+
+    @Test(
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func traitConfigurationsRejectsConflictingOptions(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            let (_, stderr) = try await execute(
+                ["--enable-trait-configurations", "--enable-all-traits"],
+                packagePath: fixturePath.appending("TestConfigurations"),
+                buildSystem: buildSystem,
+                throwIfCommandFails: false,
+            )
+            #expect(
+                stderr.contains("cannot be used with explicit trait options"),
+                "got stderr:\n\(stderr)"
+            )
+        }
+    }
+
+    @Test(
+        arguments: [BuildSystemProvider.Kind.native],
+    )
+    func traitConfigurationsRejectsNativeBuildSystem(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Traits") { fixturePath in
+            let (_, stderr) = try await execute(
+                ["--enable-trait-configurations"],
+                packagePath: fixturePath.appending("TestConfigurations"),
+                buildSystem: buildSystem,
+                throwIfCommandFails: false,
+            )
+            #expect(
+                stderr.contains("is not supported by the 'native' build system"),
+                "got stderr:\n\(stderr)"
+            )
+        }
+    }
+
+    @Test(
         .tags(
             .Feature.CommandLineArguments.Toolset,
         ),
