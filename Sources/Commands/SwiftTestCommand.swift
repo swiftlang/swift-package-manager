@@ -1176,6 +1176,10 @@ fileprivate extension Triple {
 
 extension SwiftTestCommand {
     struct Last: AsyncSwiftCommand {
+        static let configuration = CommandConfiguration(
+            shouldDisplay: false
+            )
+
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
