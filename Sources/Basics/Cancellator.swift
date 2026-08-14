@@ -12,6 +12,7 @@
 
 import Dispatch
 import Foundation
+import Synchronization
 import class TSCBasic.Thread
 #if canImport(WinSDK)
 import WinSDK
@@ -28,8 +29,8 @@ public final class Cancellator: Cancellable, Sendable {
     private let registry = ThreadSafeKeyValueStore<String, (name: String, handler: CancellationHandler)>()
     private let cancelling = ThreadSafeBox<Bool>(false)
 
-    private static let signalHandlerLock = NSLock()
-    private static var isSignalHandlerInstalled = false
+    /// Whether the signal handlers have been installed. Guards installation so it happens at most once.
+    private static let isSignalHandlerInstalled = Mutex<Bool>(false)
 
     public init(observabilityScope: ObservabilityScope?) {
         self.observabilityScope = observabilityScope
@@ -42,8 +43,8 @@ public final class Cancellator: Cancellable, Sendable {
 
     /// Installs signal handlers to terminate sub-processes on cancellation.
     public func installSignalHandlers() {
-        Self.signalHandlerLock.withLock {
-            precondition(!Self.isSignalHandlerInstalled)
+        Self.isSignalHandlerInstalled.withLock { isInstalled in
+            precondition(!isInstalled)
 
             #if os(Windows)
             // Closures passed to `SetConsoleCtrlHandler` can't capture context, working around that with a global.
@@ -93,7 +94,7 @@ public final class Cancellator: Cancellable, Sendable {
             interruptSignalSource.resume()
             #endif
 
-            Self.isSignalHandlerInstalled = true
+            isInstalled = true
         }
     }
 

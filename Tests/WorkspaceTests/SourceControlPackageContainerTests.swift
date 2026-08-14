@@ -376,9 +376,12 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
         let versions = try await container.versionsDescending()
         XCTAssertEqual(versions, ["1.0.0+release", "1.0.0+debug", "1.0.0"])
-        XCTAssertEqual(container.getTag(for: "1.0.0"), "1.0.0")
-        XCTAssertEqual(container.getTag(for: "1.0.0+debug"), "1.0.0+debug")
-        XCTAssertEqual(container.getTag(for: "1.0.0+release"), "1.0.0+release")
+        let baseTag = await container.getTag(for: "1.0.0")
+        let debugTag = await container.getTag(for: "1.0.0+debug")
+        let releaseTag = await container.getTag(for: "1.0.0+release")
+        XCTAssertEqual(baseTag, "1.0.0")
+        XCTAssertEqual(debugTag, "1.0.0+debug")
+        XCTAssertEqual(releaseTag, "1.0.0+release")
 
         let revisions = try ["1.0.0", "1.0.0+debug", "1.0.0+release"].map {
             try container.getRevision(forTag: $0).identifier

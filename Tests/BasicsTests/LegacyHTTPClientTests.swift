@@ -511,6 +511,39 @@ final class LegacyHTTPClientTests: XCTestCase {
         XCTAssertEqual(count.get(), total, "expected results count to match")
     }
 
+    func testHostCircuitBreakerNeverAge() {
+        let maxErrors = 5
+        let errorCode = Int.random(in: 500 ..< 600)
+
+        let host = "http://tes-\(UUID().uuidString).com"
+        let httpClient = LegacyHTTPClient(handler: { _, _, completion in
+            completion(.success(LegacyHTTPClient.Response(statusCode: errorCode)))
+        })
+        // `.never` has no time interval, so recorded errors are reset rather than tripping the breaker.
+        httpClient.configuration.circuitBreakerStrategy = .hostErrors(maxErrors: maxErrors, age: .never)
+
+        // Drive well past `maxErrors`; none of these should circuit break.
+        let sync = DispatchGroup()
+        let count = ThreadSafeBox<Int>(0)
+        let total = maxErrors * 3
+        (0 ..< total).forEach { index in
+            sync.enter()
+            httpClient.get(URL("\(host)/\(index)/foo")) { result in
+                defer { sync.leave() }
+                count.increment()
+                switch result {
+                case .failure(let error):
+                    XCTFail("unexpected failure \(error)")
+                case .success(let response):
+                    XCTAssertEqual(response.statusCode, errorCode, "expected status code to match")
+                }
+            }
+        }
+
+        XCTAssertEqual(sync.wait(timeout: .now() + .seconds(1)), .success, "should not timeout")
+        XCTAssertEqual(count.get(), total, "expected results count to match")
+    }
+
     func testExceedsDownloadSizeLimitProgress() throws {
         let maxSize: Int64 = 50
 

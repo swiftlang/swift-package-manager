@@ -804,7 +804,8 @@ struct PackageCommandTests {
                     buildSystem: buildSystem,
                 )
                 let path = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
-                #expect(try GitRepository(path: path).getTags() == ["1.2.3"])
+                let resolvedTags = try await GitRepository(path: path).getTags()
+                #expect(resolvedTags == ["1.2.3"])
             }
         }
 
@@ -832,7 +833,8 @@ struct PackageCommandTests {
                 do {
                     let checkoutPath = try SwiftPM.packagePath(for: "Foo", packageRoot: packageRoot)
                     let checkoutRepo = GitRepository(path: checkoutPath)
-                    #expect(try checkoutRepo.getTags() == ["1.2.3"])
+                    let checkoutTags = try await checkoutRepo.getTags()
+                    #expect(checkoutTags == ["1.2.3"])
                     _ = try checkoutRepo.revision(forTag: "1.2.3")
                 }
 
@@ -3575,7 +3577,7 @@ struct PackageCommandTests {
             let barPath = fixturePath.appending("bar")
             let barRepo = GitRepository(path: barPath)
             try barRepo.checkout(newBranch: "YOLO")
-            let yoloRevision = try barRepo.getCurrentRevision()
+            let yoloRevision = try await barRepo.getCurrentRevision()
 
             // Try to resolve `bar` at a branch.
             do {
@@ -4025,8 +4027,11 @@ struct PackageCommandTests {
                 let fs = localFileSystem
                 let packageRoot = fixturePath.appending("Foo")
                 let configOverride = fixturePath.appending("configoverride")
-                let configFile = Workspace.DefaultLocations.mirrorsConfigurationFile(
+                let localConfigFile = Workspace.DefaultLocations.mirrorsConfigurationFile(
                     forRootPackage: packageRoot
+                )
+                let sharedConfigFile = Workspace.DefaultLocations.mirrorsConfigurationFile(
+                    at: try fs.swiftPMConfigurationDirectory
                 )
 
                 fs.createEmptyFiles(
@@ -4058,7 +4063,19 @@ struct PackageCommandTests {
                     configuration: config,
                     buildSystem: buildSystem,
                 )
-                #expect(fs.isFile(configFile))
+                #expect(fs.isFile(localConfigFile))
+
+                // Test writing.
+                try await execute(
+                    [
+                        "config", "set-mirror", "--global", "--original", "https://github.com/foo/bar", "--mirror",
+                        "https://globalgithub.com/foo/bar",
+                    ],
+                    packagePath: packageRoot,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                #expect(fs.isFile(sharedConfigFile))
 
                 // Test env override.
                 try await execute(
@@ -4084,6 +4101,13 @@ struct PackageCommandTests {
                 )
                 #expect(stdout.spm_chomp() == "https://mygithub.com/foo/bar")
                 (stdout, _) = try await execute(
+                    ["config", "get-mirror", "--global", "--original", "https://github.com/foo/bar"],
+                    packagePath: packageRoot,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                #expect(stdout.spm_chomp() == "https://globalgithub.com/foo/bar")
+                (stdout, _) = try await execute(
                     [
                         "config", "get-mirror", "--original",
                         "git@github.com:swiftlang/swift-package-manager.git",
@@ -4108,6 +4132,14 @@ struct PackageCommandTests {
                         buildSystem: buildSystem,
                     )
                 }
+                await check(stderr: "not found\n") {
+                    try await execute(
+                        ["config", "get-mirror", "--global", "--original", "git@github.com:swiftlang/swift-package-manager.git"],
+                        packagePath: packageRoot,
+                        configuration: config,
+                        buildSystem: buildSystem,
+                    )
+                }
 
                 // Test deletion.
                 try await execute(
@@ -4126,14 +4158,15 @@ struct PackageCommandTests {
                     buildSystem: buildSystem,
                 )
 
-                await check(stderr: "not found\n") {
-                    try await execute(
-                        ["config", "get-mirror", "--original", "https://github.com/foo/bar"],
-                        packagePath: packageRoot,
-                        configuration: config,
-                        buildSystem: buildSystem,
-                    )
-                }
+                // Still found via global
+                (stdout, _) = try await execute(
+                    ["config", "get-mirror", "--original", "https://github.com/foo/bar"],
+                    packagePath: packageRoot,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                #expect(stdout.spm_chomp() == "https://globalgithub.com/foo/bar")
+
                 await check(stderr: "not found\n") {
                     try await execute(
                         [
