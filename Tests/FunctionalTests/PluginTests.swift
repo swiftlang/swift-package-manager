@@ -828,6 +828,7 @@ struct PluginTests {
     )
     func testLocalAndRemoteToolDependencies(buildSystem: BuildSystemProvider.Kind) async throws {
         try await fixture(name: "Miscellaneous/Plugins/PluginUsingLocalAndRemoteTool") { path in
+            try await withKnownIssue(isIntermittent: true) {
             let (stdout, stderr) = try await executeSwiftPackage(
                 path.appending("MyLibrary"),
                 configuration: .debug,
@@ -848,6 +849,13 @@ struct PluginTests {
             #expect(stdout.contains("A message from the remote tool."), "stdout:\n\(stderr)\n\(stdout)")
             #expect(stdout.contains("A message from the local tool."), "stdout:\n\(stderr)\n\(stdout)")
             #expect(stdout.contains("A message from the implied local tool."), "stdout:\n\(stderr)\n\(stdout)")
+            } when: {
+                #if compiler(<6.3)
+                ProcessInfo.isHostAmazonLinux2()  // '*** Signal 11: Backtracing from 0xffa502d2d1cc...Swift/UnsafeRawBufferPointer.swift:1369: Fatal error' occurs when building Package in GitHub actiong
+                #else
+                false
+                #endif
+            }
         }
     }
 

@@ -97,17 +97,111 @@ public func XCTSkipOnWindows(because reason: String? = nil, skipPlatformCi: Bool
     #endif
 }
 
-public func _requiresTools(_ executable: String) throws {
-    func getAsyncProcessArgs(_ executable: String) -> [String] {
+public func XCTSkipOnAmazonLinux2(because reason: String, file: StaticString = #filePath, line: UInt = #line) throws {
+    swiftTestingTestCalledAnXCTestAPI()
+    try XCTSkipIf(
+        ProcessInfo.isHostAmazonLinux2(),
+        "Skiping test: \(reason)",
+        file: file,
+        line: line,
+    )
+}
+
+public func XCTSkipOnAmazonLinux2023(because reason: String, file: StaticString = #filePath, line: UInt = #line) throws {
+    swiftTestingTestCalledAnXCTestAPI()
+    try XCTSkipIf(
+        ProcessInfo.isHostAmazonLinux2023(),
+        "Skiping test: \(reason)",
+        file: file,
+        line: line,
+    )
+}
+
+public func XCTSkipOnUbuntu20_04_bookworm(because reason: String, file: StaticString = #filePath, line: UInt = #line) throws {
+    swiftTestingTestCalledAnXCTestAPI()
+    try XCTSkipIf(
+        ProcessInfo.isHostUbuntu20_04_bookworm(),
+        "Skiping test: \(reason)",
+        file: file,
+        line: line,
+    )
+}
+
+public func XCTSkipOnUbuntu22_04_jammy(because reason: String, file: StaticString = #filePath, line: UInt = #line) throws {
+    swiftTestingTestCalledAnXCTestAPI()
+    try XCTSkipIf(
+        ProcessInfo.isHostUbuntu22_04_jammy(),
+        "Skiping test: \(reason)",
+        file: file,
+        line: line,
+    )
+}
+
+public func _requiresTools(
+    _ executable: String,
+    fs: FileSystem = localFileSystem,
+) throws {
+    func getAsyncProcessArgs(_ executable: String) throws -> [String] {
         #if os(Windows)
             let args = ["cmd.exe", "/c", "where.exe", executable]
         #else
-            let args = ["which", executable]
+            let command: String? = if fs.exists("/usr/bin/which") {
+                "/usr/bin/which"
+            } else if fs.exists("/usr/bin/whereis") {
+                "/usr/bin/whereis"
+            } else {
+                nil
+            }
+
+            guard let command else {
+                throw Missing.toolEquivalent(name: "which")
+            }
+            let args = [command, executable]
         #endif
         return args
     }
-    try AsyncProcess.checkNonZeroExit(arguments: getAsyncProcessArgs(executable))
+    let command = try getAsyncProcessArgs(executable)
+    if ProcessInfo.isHostAmazonLinux2() || ProcessInfo.isHostAmazonLinux2023() {
+        let process = AsyncProcess(arguments: command)
+        try process.launch()
+        let processResult = try process.waitUntilExit()
+        guard processResult.exitStatus == .terminated(code: 0) else {
+            throw try StringError(processResult.utf8stderrOutput())
+        }
+        let output = try processResult.utf8Output()
+
+        let matchOutput = try Regex("\(executable): .+")
+        if !output.contains(matchOutput) {
+            throw Missing.tool(name: executable)
+        }
+
+    } else {
+        do {
+            try AsyncProcess.checkNonZeroExit(arguments: command)
+        } catch {
+            throw Missing.tool(name: executable)
+        }
+    }
 }
+
+package enum Missing: Error, CustomStringConvertible {
+
+    case tool(name: String)
+    case toolEquivalent(name: String)
+
+    // init()
+    package var description: String {
+        switch self {
+            case let .tool(name):
+                return "Missing a tool '\(name)'"
+            case let .toolEquivalent(name: name):
+                return "Missing a tool equivalent to '\(name)'"
+        }
+    }
+}
+
+extension Missing: Equatable {}
+
 public func XCTRequires(
     executable: String,
     file: StaticString = #filePath,

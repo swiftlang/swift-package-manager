@@ -1589,6 +1589,7 @@ struct MiscellaneousTestCase {
         .tags(
             .Feature.Command.Build,
         ),
+        .requiresFrontEndFlags(flags: ["-sanitize-coverage=fuzzer"]),
         .skipHostOS(.windows, "libFuzzer is not included in the Windows distribution"),
     )
     func libFuzzerSupport() async throws {
