@@ -50,11 +50,7 @@ import struct TSCUtility.Version
 ///
 /// Disablers, default-setters (below), and explicitly-named traits are tracked as three independent,
 /// order-independent signals (each accumulated via plain Set/union operations) and only combined when
-/// read. This is deliberate: it guarantees the combined result never depends on the order in which
-/// concurrent parents register edges onto the same dependency. The combining rule, applied whenever a
-/// package's explicit traits are read, is: named traits win outright if any exist; otherwise a
-/// default-setter wins over a coexisting disabler (they're meant to coexist); otherwise a disabler
-/// alone means nothing is enabled; otherwise nothing was recorded at all.
+/// read.
 ///
 /// Example:
 /// ```swift
@@ -103,19 +99,16 @@ public struct EnabledTraitsMap {
     }
 
     private struct Storage {
-        /// Proxy storage for explicitly *named* (non-"default") enabled traits per package before
-        /// versions are known. Never touched by disabler or default-setter registrations - see
-        /// `resolvedExplicitTraits(named:for:)`.
+        /// Proxy storage for explicitly *named* (non-default) enabled traits per package before
+        /// versions are known.
         var traits: [Key: EnabledTraits] = [:]
 
-        /// Storage for explicitly *named* (non-"default") enabled traits per package wherein the
-        /// package kind is not versionable (e.g. a filesystem package). Never touched by disabler
-        /// or default-setter registrations - see `resolvedExplicitTraits(named:for:)`.
+        /// Storage for explicitly *named* (non-default) enabled traits per package wherein the
+        /// package kind is not versionable (e.g. a filesystem package).
         var unversionedTraits: [Key: EnabledTraits] = [:]
 
-        /// Storage for explicitly *named* (non-"default") enabled traits per package wherein the
-        /// package kind is versionable (e.g. a source control package). Never touched by disabler
-        /// or default-setter registrations - see `resolvedExplicitTraits(named:for:)`.
+        /// Storage for explicitly *named* (non-default) enabled traits per package wherein the
+        /// package kind is versionable (e.g. a source control package).
         var versionedTraits: [Key: VersionedTraits] = [:]
 
         /// Tracks setters that explicitly disabled default traits (via []) for each package.
@@ -137,8 +130,7 @@ public struct EnabledTraitsMap {
         ///
         /// This is computed fresh from those signals, rather than accumulated destructively as each
         /// write arrives, so the result never depends on the order in which concurrent parents
-        /// register edges onto the same dependency - each signal is tracked via plain Set/union
-        /// operations, which are inherently commutative and idempotent regardless of write order.
+        /// register edges onto the same dependency.
         ///
         /// Priority:
         /// 1. Explicit named traits, if any, always win outright - an explicit selection by any
