@@ -74,6 +74,103 @@ final class TargetSourcesBuilderTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
+    #if !os(Windows)
+    func testSelfReferentialSymlinkDoesNotExplodeTheWalk() throws {
+        // A symlink pointing back into the package must not make the walk re-traverse the whole tree
+        // at every level of the cycle.
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let root = tmpPath.appending("Pkg")
+            let nested = root.appending(components: "IntegrationTests", "Sub")
+            try fs.createDirectory(nested, recursive: true)
+            try fs.writeFileContents(root.appending("Foo.swift"), bytes: "")
+            try fs.writeFileContents(nested.appending("Helper.h"), bytes: "")
+            try fs.createSymbolicLink(nested.appending("pkg-root"), pointingAt: root, relative: false)
+
+            let target = try TargetDescription(
+                name: "Foo", path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .regular
+            )
+            let observability = ObservabilitySystem.makeForTesting()
+            let builder = TargetSourcesBuilder(
+                packageIdentity: .plain("test"), packageKind: .root(root), packagePath: root,
+                target: target, path: root, toolsVersion: .v5_6,
+                fileSystem: fs, observabilityScope: observability.topScope
+            )
+
+            let contents = builder.computeContents()
+
+            XCTAssertEqual(Set(contents).count, contents.count, "walk produced duplicate paths (symlink cycle not broken)")
+            XCTAssertTrue(contents.contains(root.appending("Foo.swift")))
+            XCTAssertTrue(contents.contains(nested.appending("Helper.h")))
+            XCTAssertFalse(contents.contains { $0.pathString.contains("pkg-root") }, "descended through the self-referential symlink")
+            XCTAssertLessThan(contents.count, 10, "symlink cycle blew up the walk: \(contents.count) entries")
+        }
+    }
+
+    func testSymlinkToDistinctDirectoryIsStillFollowed() throws {
+        // Cycle detection must not stop the walk from following a symlink to a distinct directory.
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let root = tmpPath.appending("Pkg")
+            try fs.createDirectory(root, recursive: true)
+            try fs.writeFileContents(root.appending("Main.swift"), bytes: "")
+            let external = tmpPath.appending("External")
+            try fs.createDirectory(external, recursive: true)
+            try fs.writeFileContents(external.appending("Shared.swift"), bytes: "")
+            try fs.createSymbolicLink(root.appending("Linked"), pointingAt: external, relative: false)
+
+            let target = try TargetDescription(
+                name: "Foo", path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .regular
+            )
+            let observability = ObservabilitySystem.makeForTesting()
+            let builder = TargetSourcesBuilder(
+                packageIdentity: .plain("test"), packageKind: .root(root), packagePath: root,
+                target: target, path: root, toolsVersion: .v5_6,
+                fileSystem: fs, observabilityScope: observability.topScope
+            )
+
+            let contents = builder.computeContents()
+
+            XCTAssertTrue(contents.contains(root.appending("Main.swift")))
+            XCTAssertTrue(contents.contains { $0.pathString.hasSuffix("Linked/Shared.swift") },
+                          "a symlink to a distinct directory should still be followed")
+        }
+    }
+
+    func testMutuallyReferentialSymlinksDoNotExplodeTheWalk() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let root = tmpPath.appending("Pkg")
+            let a = root.appending("A")
+            let b = root.appending("B")
+            try fs.createDirectory(a, recursive: true)
+            try fs.createDirectory(b, recursive: true)
+            try fs.writeFileContents(a.appending("AFile.swift"), bytes: "")
+            try fs.writeFileContents(b.appending("BFile.swift"), bytes: "")
+            try fs.createSymbolicLink(a.appending("toB"), pointingAt: b, relative: false)
+            try fs.createSymbolicLink(b.appending("toA"), pointingAt: a, relative: false)
+
+            let target = try TargetDescription(
+                name: "Foo", path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .regular
+            )
+            let observability = ObservabilitySystem.makeForTesting()
+            let builder = TargetSourcesBuilder(
+                packageIdentity: .plain("test"), packageKind: .root(root), packagePath: root,
+                target: target, path: root, toolsVersion: .v5_6,
+                fileSystem: fs, observabilityScope: observability.topScope
+            )
+
+            let contents = builder.computeContents()
+
+            // A cycle would collect each file once per level; dedup collects it exactly once.
+            XCTAssertEqual(Set(contents).count, contents.count, "walk produced duplicate paths")
+            XCTAssertEqual(contents.filter { $0.basename == "AFile.swift" }.count, 1)
+            XCTAssertEqual(contents.filter { $0.basename == "BFile.swift" }.count, 1)
+        }
+    }
+    #endif
+
+
     func testDirectoryWithExt_5_3() throws {
         let target = try TargetDescription(
             name: "Foo",
