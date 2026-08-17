@@ -98,8 +98,8 @@ jobs:
       enable_android_sdk_build: true
       android_sdk_build_command: "swift test  --parallel --experimental-xunit-message-failure --xunit-output android-xunit.xml --filter AndroidSDKIntegrationTests #"
 
-  required:
-    name: Required
+  build-verdict:
+    name: Build Verdict
     runs-on: ubuntu-latest
     needs:
       - build
