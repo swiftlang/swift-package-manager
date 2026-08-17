@@ -39,6 +39,13 @@ public struct PubGrubDependencyResolver {
         /// refer to. This means an incompatibility can occur several times.
         public private(set) var incompatibilities: [DependencyResolutionNode: [Incompatibility]] = [:]
 
+        /// The resolver's own accumulated view of enabled traits per package, fed incrementally by
+        /// `addIncompatibility` as the resolver itself discovers each parent's request. A single
+        /// `DependencyResolutionNode` only ever carries whichever parent edge constructed it,
+        /// namely the traits that parent enabled on the dependency; this map represents the unified
+        /// trait enablement for a given package.
+        private var enabledTraitsMap = EnabledTraitsMap()
+
         /// The current best guess for a solution satisfying all requirements.
         public private(set) var solution: PartialSolution
 
@@ -55,7 +62,10 @@ public struct PubGrubDependencyResolver {
 
         func addIncompatibility(_ incompatibility: Incompatibility, at location: LogLocation) {
             self.lock.withLock {
-                // log("incompat: \(incompatibility) \(location)")
+                for term in incompatibility.terms {
+                    let identity = term.node.package.identity
+                    self.enabledTraitsMap[identity] = term.node.enabledTraits
+                }
                 for package in incompatibility.terms.map(\.node) {
                     if let incompats = self.incompatibilities[package] {
                         if !incompats.contains(incompatibility) {
@@ -77,6 +87,15 @@ public struct PubGrubDependencyResolver {
                 return all.filter {
                     $0.terms.first { $0.node == node }!.isPositive
                 }
+            }
+        }
+
+        /// Returns this package's true, unified enabled traits, as accumulated from every
+        /// incompatibility seen so far (i.e. as new levels in the package dependency graph are
+        /// discovered and loaded).
+        func enabledTraits(for node: DependencyResolutionNode) -> EnabledTraits {
+            self.lock.withLock {
+                self.enabledTraitsMap[node.package.identity]
             }
         }
 
@@ -750,9 +769,12 @@ public struct PubGrubDependencyResolver {
         }
 
         // Add all of this version's dependencies as incompatibilities.
+        // Query the resolver's own accumulated enabled-traits map rather than trusting
+        // pkgTerm.node's own value alone.
+        let queryNode = pkgTerm.node.withEnabledTraits(state.enabledTraits(for: pkgTerm.node))
         let depIncompatibilities = try await container.incompatibilites(
             at: version,
-            node: pkgTerm.node,
+            node: queryNode,
             overriddenPackages: state.overriddenPackages,
             root: state.root
         )

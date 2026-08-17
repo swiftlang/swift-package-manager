@@ -199,9 +199,10 @@ public struct EnabledTraitsMap {
             var value = value
             // Fetch traits from proxy map; this could have been
             // a package dependency that now has a manifest.
-            if let proxyTraits = state.traits[identity] {
+            if var proxyTraits = state.traits[identity] {
+                // Remove 'default' trait keyword and clear proxy list.
+                _ = proxyTraits.remove("default")
                 value.formUnion(proxyTraits)
-                // Clear out proxy.
                 state.traits[identity] = nil
             }
 
@@ -216,11 +217,7 @@ public struct EnabledTraitsMap {
                 return state
             }
 
-            // Track default setters. A default-setter carries no information about named,
-            // non-default traits, so it must never touch the named-trait storage below - doing
-            // so was the source of an order-dependent bug where the final result of registering
-            // a disabler and a default-setter for the same package (in either order) depended on
-            // which one happened to register first. See `resolvedExplicitTraits(named:for:)`.
+            // Track default setters.
             if value.isExplicitlySetDefault {
                 if let defaultSetter = value.first?.setters.first {
                     state._defaultSetters[identity, default: []].insert(defaultSetter)
@@ -228,8 +225,7 @@ public struct EnabledTraitsMap {
                 return state
             }
 
-            // Track disablers. Like default-setters, a disabler carries no named-trait
-            // information and must never touch the named-trait storage below, for the same reason.
+            // Track trait disablers.
             if value.isEmpty {
                 if let disabler = value.disabledBy {
                     state._disablers[identity, default: []].insert(disabler)
@@ -279,8 +275,7 @@ public struct EnabledTraitsMap {
                     return state
                 }
 
-                // Track default setters. See the analogous comment in
-                // `set(identity:value:version:)` for why this must never touch `state.traits`.
+                // Track default setters.
                 if newValue.isExplicitlySetDefault {
                     if let defaultSetter = newValue.first?.setters.first {
                         state._defaultSetters[key, default: []].insert(defaultSetter)
@@ -288,7 +283,7 @@ public struct EnabledTraitsMap {
                     return state
                 }
 
-                // Track disablers. See the analogous comment in `set(identity:value:version:)`.
+                // Track disablers.
                 if newValue.isEmpty {
                     if let disabler = newValue.disabledBy {
                         state._disablers[key, default: []].insert(disabler)

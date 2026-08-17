@@ -1681,5 +1681,216 @@ extension WorkspaceTests {
             }
         }
     }
-}
 
+    func testDependencyDefaultTraitsExplicitlyEnabled() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "RemoteProduct", package: "RemoteWithTraits"),
+                                .product(name: "SecondRootProduct", package: "SecondRoot")
+                            ]
+                        )
+                    ],
+                    dependencies: [
+                        .fileSystem(path: "../SecondRoot"),
+                        .sourceControl(path: "./RemoteWithTraits", requirement: .range("1.0.0"..<"3.0.0"), traits: ["default", "NotDefaultTrait"]),
+                    ],
+                ),
+                MockPackage(
+                    name: "SecondRoot",
+                    targets: [
+                        MockTarget(
+                            name: "SecondRootTarget",
+                            dependencies: [.product(name: "RemoteProduct", package: "RemoteWithTraits")]
+                        )
+                    ],
+                    products: [
+                        MockProduct(
+                            name: "SecondRootProduct",
+                            modules: ["SecondRootTarget"]
+                        )
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./RemoteWithTraits", requirement: .range("1.0.0"..<"3.0.0"))
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "RemoteWithTraits",
+                    targets: [
+                        MockTarget(
+                            name: "RemoteTarget",
+                            dependencies: [
+                                .product(name: "Yaml", package: "Yams", condition: .init(traits: ["NotDefaultTrait"]))
+                            ]
+                        )
+                    ],
+                    products: [
+                        MockProduct(
+                            name: "RemoteProduct",
+                            modules: ["RemoteTarget"]
+                        )
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Yams", requirement: .range("1.0.0"..<"2.0.0"))
+                    ],
+                    traits: [
+                        .init(name: "default", enabledTraits: ["EnabledByDefault"]),
+                        "EnabledByDefault",
+                        "NotDefaultTrait"
+                    ],
+                    versions: ["1.0.0", "1.0.1", "2.0.0", "3.0.0"]
+                ),
+                MockPackage(
+                    name: "Yams",
+                    targets: [
+                        MockTarget(
+                            name: "YamlTarget",
+                        )
+                    ],
+                    products: [
+                        MockProduct(
+                            name: "Yaml",
+                            modules: ["YamlTarget"]
+                        )
+                    ],
+                    versions: ["1.0.0"]
+                )
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root", "SecondRoot"]) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                XCTAssertNoDiagnostics(diagnostics)
+                result.checkPackage("RemoteWithTraits") { package in
+                    guard let enabledTraits = package.enabledTraits else {
+                        XCTFail("No enabled traits on RemoteWithTraits package.")
+                        return
+                    }
+
+                    XCTAssertTrue(enabledTraits == ["EnabledByDefault", "NotDefaultTrait"])
+                }
+            }
+        }
+    }
+
+    /// Reproduces a scenario where two root packages both depend on the same intermediary package
+    /// (`Configuration`): the package being built (`Dependent`) explicitly enables `["default", "YAMLSupport"]`
+    /// on it, while a sibling root (`Dependency`) declares it with no `traits:` at all (implicit defaults).
+    /// `Configuration`'s own dependency on `Yams` is guarded by the `YAMLSupport` trait and has no
+    /// `traits:` parameter of its own - `Yams` must still be resolved and fetched.
+    func testTraitGuardedTransitiveDependency_MultipleRootsWithImplicitDefaults() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Dependent",
+                    targets: [
+                        MockTarget(
+                            name: "DependentTarget",
+                            dependencies: [
+                                .product(name: "Configuration", package: "Configuration"),
+                            ]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "DependentProduct", modules: ["DependentTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            path: "./Configuration",
+                            requirement: .upToNextMajor(from: "1.0.0"),
+                            traits: ["default", "YAMLSupport"]
+                        ),
+                    ]
+                ),
+                MockPackage(
+                    name: "Dependency",
+                    targets: [
+                        MockTarget(
+                            name: "DependencyTarget",
+                            dependencies: [
+                                .product(name: "Configuration", package: "Configuration"),
+                            ]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "DependencyProduct", modules: ["DependencyTarget"]),
+                    ],
+                    dependencies: [
+                        // No `traits:` specified - implicit defaults for Configuration.
+                        .sourceControl(path: "./Configuration", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Configuration",
+                    targets: [
+                        MockTarget(
+                            name: "ConfigurationTarget",
+                            dependencies: [
+                                .product(
+                                    name: "Yams",
+                                    package: "Yams",
+                                    condition: .init(traits: ["YAMLSupport"])
+                                ),
+                            ]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "Configuration", modules: ["ConfigurationTarget"]),
+                    ],
+                    dependencies: [
+                        // Deliberately no `traits:` here - mirrors swift-configuration's real
+                        // dependency on Yams, which has no explicit trait selection.
+                        .sourceControl(path: "./Yams", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    traits: [
+                        .init(name: "default", enabledTraits: []),
+                        "YAMLSupport",
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Yams",
+                    targets: [
+                        MockTarget(name: "YamsTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "Yams", modules: ["YamsTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Dependent", "Dependency"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Dependent", "Dependency")
+                result.check(packages: "Dependent", "Dependency", "Configuration", "Yams")
+                result.check(modules: "DependentTarget", "DependencyTarget", "ConfigurationTarget", "YamsTarget")
+            }
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "configuration", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "yams", at: .checkout(.version("1.0.0")))
+        }
+    }
+}
