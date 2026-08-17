@@ -217,11 +217,11 @@ public struct EnabledTraitsMap {
                 return state
             }
 
-            // Track trait disablers.
+            // Track trait disablers. An empty value always means "disabled" and must always be
+            // attributable to a setter - fall back to `.traitConfiguration` if none was attached.
             if value.isEmpty {
-                if let disabler = value.disabledBy {
-                    state._disablers[identity, default: []].insert(disabler)
-                }
+                let disabler = value.disabledBy ?? .traitConfiguration
+                state._disablers[identity, default: []].insert(disabler)
                 return state
             }
 
@@ -275,11 +275,11 @@ public struct EnabledTraitsMap {
                     return state
                 }
 
-                // Track disablers.
+                // Track disablers. An empty value always means "disabled" and must always be
+                // attributable to a setter - fall back to `.traitConfiguration` if none was attached.
                 if newValue.isEmpty {
-                    if let disabler = newValue.disabledBy {
-                        state._disablers[key, default: []].insert(disabler)
-                    }
+                    let disabler = newValue.disabledBy ?? .traitConfiguration
+                    state._disablers[key, default: []].insert(disabler)
                     return state
                 }
 
