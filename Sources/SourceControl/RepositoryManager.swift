@@ -15,10 +15,11 @@ import _Concurrency
 import Dispatch
 import Foundation
 import PackageModel
+import Synchronization
 import TSCBasic
 
 /// Manages a collection of bare repositories.
-public class RepositoryManager: Cancellable {
+public final class RepositoryManager: Cancellable {
     public typealias Delegate = RepositoryManagerDelegate
 
     /// The path under which repositories are stored.
@@ -43,13 +44,12 @@ public class RepositoryManager: Cancellable {
     // repository can be de-duped. Each entry is tagged with a unique id so that
     // a completing lookup only removes its own entry and never a newer one for
     // the same repository.
-    private var pendingLookups = [RepositorySpecifier: (id: UUID, task: Task<RepositoryManager.RepositoryHandle, Error>)]()
-    private var pendingLookupsLock = NSLock()
+    private let pendingLookups = Mutex<[RepositorySpecifier: (id: UUID, task: Task<RepositoryManager.RepositoryHandle, Error>)]>([:])
 
     // Limits how many concurrent operations can be performed at once.
     private let asyncOperationQueue: AsyncOperationQueue
 
-    private var emitNoConnectivityWarning = ThreadSafeBox<[String: Bool]>([:])
+    private let emitNoConnectivityWarning = ThreadSafeBox<[String: Bool]>([:])
 
     /// Create a new empty manager.
     ///
@@ -131,43 +131,42 @@ public class RepositoryManager: Cancellable {
     ) async throws -> RepositoryHandle {
         return try await self.asyncOperationQueue.withOperation {
             let task = await withCheckedContinuation { continuation in
-                self.pendingLookupsLock.lock()
-                defer { self.pendingLookupsLock.unlock() }
+                self.pendingLookups.withLock { pendingLookups in
+                    // Identifies this lookup so that, on completion, it only removes
+                    // its own entry from `pendingLookups`.
+                    let lookupID = UUID()
+                    let inFlight = pendingLookups[repositorySpecifier]?.task
 
-                // Identifies this lookup so that, on completion, it only removes
-                // its own entry from `pendingLookups`.
-                let lookupID = UUID()
-                let inFlight = self.pendingLookups[repositorySpecifier]?.task
+                    // Serialize lookups per repository, but each caller runs its own `performLookup` to honor its own `updateStrategy`.
+                    let lookupTask = Task { () throws -> RepositoryManager.RepositoryHandle in
+                        defer { self.removePendingLookup(for: repositorySpecifier, id: lookupID) }
 
-                // Serialize lookups per repository, but each caller runs its own `performLookup` to honor its own `updateStrategy`.
-                let lookupTask = Task { () throws -> RepositoryManager.RepositoryHandle in
-                    defer { self.removePendingLookup(for: repositorySpecifier, id: lookupID) }
+                        // Let the existing in-flight task finish before queuing up the new one
+                        if let inFlight {
+                            _ = try? await inFlight.value
+                        }
 
-                    // Let the existing in-flight task finish before queuing up the new one
-                    if let inFlight {
-                        _ = try? await inFlight.value
+                        if Task.isCancelled {
+                            throw CancellationError()
+                        }
+
+                        let result = try await self.performLookup(
+                            package: package,
+                            repository: repositorySpecifier,
+                            updateStrategy: updateStrategy,
+                            observabilityScope: observabilityScope
+                        )
+
+                        if Task.isCancelled {
+                            throw CancellationError()
+                        }
+
+                        return result
                     }
 
-                    if Task.isCancelled {
-                        throw CancellationError()
-                    }
-
-                    let result = try await self.performLookup(
-                        package: package,
-                        repository: repositorySpecifier,
-                        updateStrategy: updateStrategy,
-                        observabilityScope: observabilityScope
-                    )
-
-                    if Task.isCancelled {
-                        throw CancellationError()
-                    }
-
-                    return result
+                    pendingLookups[repositorySpecifier] = (id: lookupID, task: lookupTask)
+                    continuation.resume(returning: lookupTask)
                 }
-
-                self.pendingLookups[repositorySpecifier] = (id: lookupID, task: lookupTask)
-                continuation.resume(returning: lookupTask)
             }
 
             return try await task.value
@@ -178,10 +177,10 @@ public class RepositoryManager: Cancellable {
     /// if it is still the lookup identified by `id`. A newer in-flight lookup for
     /// the same repository is left in place.
     private func removePendingLookup(for repositorySpecifier: RepositorySpecifier, id: UUID) {
-        self.pendingLookupsLock.lock()
-        defer { self.pendingLookupsLock.unlock() }
-        if self.pendingLookups[repositorySpecifier]?.id == id {
-            self.pendingLookups[repositorySpecifier] = nil
+        self.pendingLookups.withLock { pendingLookups in
+            if pendingLookups[repositorySpecifier]?.id == id {
+                pendingLookups[repositorySpecifier] = nil
+            }
         }
     }
 
@@ -255,12 +254,12 @@ public class RepositoryManager: Cancellable {
         // ask the provider to cancel
         try self.provider.cancel(deadline: deadline)
 
-        self.pendingLookupsLock.lock()
-        defer { self.pendingLookupsLock.unlock() }
-        for entry in self.pendingLookups.values {
-            entry.task.cancel()
+        self.pendingLookups.withLock { pendingLookups in
+            for entry in pendingLookups.values {
+                entry.task.cancel()
+            }
+            pendingLookups = [:]
         }
-        self.pendingLookups = [:]
     }
 
     /// Fetches the repository into the cache. If no `cachePath` is set or an error occurred fall back to fetching the repository without populating the cache.
