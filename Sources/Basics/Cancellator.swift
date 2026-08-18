@@ -112,12 +112,16 @@ public final class Cancellator: Cancellable, Sendable {
 
     @discardableResult
     public func register(name: String, handler: Cancellable) -> RegistrationKey? {
-        self.register(name: name, handler: handler.cancel(deadline:))
+        self.register(name: name) { @Sendable deadline in
+            try handler.cancel(deadline: deadline)
+        }
     }
 
     @discardableResult
     public func register(name: String, handler: AsyncCancellable) -> RegistrationKey? {
-        self.register(name: name, handler: handler.cancel(deadline:))
+        self.register(name: name) { @Sendable deadline in
+            try await handler.cancel(deadline: deadline)
+        }
     }
 
     @discardableResult
@@ -126,12 +130,22 @@ public final class Cancellator: Cancellable, Sendable {
     }
 
     package func register(_ process: AsyncProcess) -> RegistrationKey? {
-        self.register(name: "\(process.arguments.joined(separator: " "))", handler: process.terminate)
+        self.register(name: "\(process.arguments.joined(separator: " "))") { @Sendable deadline in
+            process.terminate(timeout: deadline)
+        }
     }
 
     #if !canImport(Darwin) || os(macOS)
     public func register(_ process: Foundation.Process) -> RegistrationKey? {
-        self.register(name: "\(process.description)", handler: process.terminate(timeout:))
+        let sendableProcess = SendableProcessWrapper(process)
+        return self.register(name: "\(process.description)") { @Sendable deadline in
+            sendableProcess.process.terminate(timeout: deadline)
+        }
+    }
+
+    private struct SendableProcessWrapper: @unchecked Sendable {
+        let process: Foundation.Process
+        init(_ process: Foundation.Process) { self.process = process }
     }
     #endif
 
@@ -191,11 +205,11 @@ public final class Cancellator: Cancellable, Sendable {
     }
 }
 
-public protocol Cancellable {
+public protocol Cancellable: Sendable {
     func cancel(deadline: DispatchTime) throws -> Void
 }
 
-public protocol AsyncCancellable {
+public protocol AsyncCancellable: Sendable {
     func cancel(deadline: DispatchTime) async throws -> Void
 }
 
