@@ -39,6 +39,7 @@ jobs:
       # ios_build_command: 'swift run swift-build --build-tests  --sdk \"$(xcrun --sdk iphoneos --show-sdk-path)\" --triple arm64-apple-ios'
 
   test-example-package-registry:
+    needs: [soundness]
     strategy:
       fail-fast: false
     name: Build and Test Example Package Registry
