@@ -228,6 +228,25 @@ struct ResourcesTests{
 
     @Test(
         .tags(
+            .Feature.Command.Build,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func resourceAccessorWithExplicitImportAccess(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Resources/ExplicitImportAccess") { fixturePath in
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: .debug,
+                Xswiftc: ["-warnings-as-errors"],
+                buildSystem: buildSystem,
+            )
+        }
+    }
+
+    @Test(
+        .tags(
             .Feature.Command.Test,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,

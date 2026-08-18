@@ -422,7 +422,7 @@ public final class SwiftModuleBuildDescription {
 
         let content =
             """
-            import Foundation
+            internal import Foundation
 
             extension Foundation.Bundle {
                 static nonisolated let module: Bundle = {

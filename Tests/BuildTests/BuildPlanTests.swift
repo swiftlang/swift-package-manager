@@ -6204,6 +6204,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         let resourceAccessor = fooTarget.sources.first { $0.basename == "resource_bundle_accessor.swift" }!
         let contents: String = try fs.readFileContents(resourceAccessor)
+        XCTAssertMatch(contents, .contains("internal import Foundation"))
         XCTAssertMatch(contents, .contains("extension Foundation.Bundle"))
         // Assert that `Bundle.main` is executed in the compiled binary (and not during compilation)
         // See https://bugs.swift.org/browse/SR-14555 and
@@ -6275,6 +6276,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         let resourceAccessor = fooTarget.sources.first { $0.basename == "resource_bundle_accessor.swift" }!
         let contents: String = try fs.readFileContents(resourceAccessor)
+        XCTAssertMatch(contents, .contains("internal import Foundation"))
         XCTAssertMatch(contents, .contains("extension Foundation.Bundle"))
         // Assert that `Bundle.main` is executed in the compiled binary (and not during compilation)
         // See https://bugs.swift.org/browse/SR-14555 and
