@@ -392,7 +392,7 @@ private func createResolvedPackages(
     modulesFilter: ((Module) -> Bool)?
 ) throws -> IdentifiableSet<ResolvedPackage> {
     // Create package builder objects from the input manifests.
-    var packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap { node in
+    let packageBuilders: [ResolvedPackageBuilder] = nodes.compactMap { node in
         guard let package = manifestToPackage[node.manifest] else {
             return nil
         }
