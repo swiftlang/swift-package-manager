@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 import struct Basics.Diagnostic
-import struct SPMBuildCore.BuildSystemProvider
 import enum PackageModel.BuildConfiguration
 
 extension Basics.Diagnostic {
