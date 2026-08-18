@@ -796,6 +796,72 @@ final class SwiftSDKTests: XCTestCase {
         #endif
     }
 
+    func testHostSDKIgnoresMismatchedSDKROOT() throws {
+        // rdar://176892456: during an `xcodebuild build` for a non-macOS destination,
+        // Xcode exports the destination SDK via `SDKROOT`. The macOS host SDK (used to
+        // compile SwiftPM manifests) must not adopt that SDK — doing so pairs a macOS
+        // `-target` with an iOS `-sdk` and fails with "unable to load standard library".
+        #if os(macOS)
+        let fs = InMemoryFileSystem()
+
+        // A destination (iOS Simulator) SDK, as exported via SDKROOT during a build.
+        let iOSSimRoot = try AbsolutePath(
+            validating: "/Xcode/iPhoneSimulator.platform/Developer/SDKs/iPhoneSimulator.sdk"
+        )
+        try fs.createDirectory(iOSSimRoot, recursive: true)
+        try fs.writeFileContents(
+            iOSSimRoot.appending("SDKSettings.json"),
+            string: #"{"CanonicalName": "iphonesimulator26.5"}"#
+        )
+
+        // The correct macOS host SDK.
+        let macOSRoot = try AbsolutePath(validating: "/Xcode/MacOSX.platform/Developer/SDKs/MacOSX.sdk")
+        try fs.createDirectory(macOSRoot, recursive: true)
+        try fs.writeFileContents(
+            macOSRoot.appending("SDKSettings.json"),
+            string: #"{"CanonicalName": "macosx26.5"}"#
+        )
+
+        // A non-macOS SDKROOT (the reported condition) must be ignored: the host SDK
+        // falls back to the macOS SDK instead of stamping in the iOS SDK.
+        let hostSDK = try SwiftSDK.hostSwiftSDK(
+            "/prefix/bin",
+            environment: [
+                "SDKROOT": iOSSimRoot.pathString,
+                "SWIFTPM_SDKROOT_macosx": macOSRoot.pathString,
+                "SWIFTPM_PLATFORM_PATH_macosx": "/Xcode/MacOSX.platform",
+            ],
+            fileSystem: fs
+        )
+        XCTAssertEqual(hostSDK.pathsConfiguration.sdkRootPath, macOSRoot)
+
+        // A macOS SDKROOT is still honored as before.
+        let hostSDKFromMacOSSDKROOT = try SwiftSDK.hostSwiftSDK(
+            "/prefix/bin",
+            environment: [
+                "SDKROOT": macOSRoot.pathString,
+                "SWIFTPM_PLATFORM_PATH_macosx": "/Xcode/MacOSX.platform",
+            ],
+            fileSystem: fs
+        )
+        XCTAssertEqual(hostSDKFromMacOSSDKROOT.pathsConfiguration.sdkRootPath, macOSRoot)
+
+        // An SDKROOT whose platform can't be determined (no SDKSettings.json) is trusted,
+        // preserving legacy behavior for non-standard SDK layouts.
+        let customRoot = try AbsolutePath(validating: "/custom/Some.sdk")
+        try fs.createDirectory(customRoot, recursive: true)
+        let hostSDKFromCustomSDKROOT = try SwiftSDK.hostSwiftSDK(
+            "/prefix/bin",
+            environment: [
+                "SDKROOT": customRoot.pathString,
+                "SWIFTPM_PLATFORM_PATH_macosx": "/Xcode/MacOSX.platform",
+            ],
+            fileSystem: fs
+        )
+        XCTAssertEqual(hostSDKFromCustomSDKROOT.pathsConfiguration.sdkRootPath, customRoot)
+        #endif
+    }
+
     func testSelectSDKWithMultipleMatches() throws {
         let bundles = [
             SwiftSDKBundle(
