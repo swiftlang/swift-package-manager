@@ -3,15 +3,14 @@ code, and needs the binary `generate-docc-reference-tool` to work against locall
 built versions to generate up the docc-flavored markdown files.
 
 This README presumes that you have local dependencies as neighbor enlistments to the package manager repository, such as a local Swift toolchain checkout.
-You can use the version of Swift Argument Parser that SwiftPM manages as a dependency. Using a local build, start by running `swift package resolve` from the root of the SwiftPM project, then:
+Setting `SWIFTCI_USE_LOCAL_DEPS=1` points package dependencies to neighboring `swift-argument-parser` git enlistments (a local path dependency).
 
 ```bash
 export SWIFTCI_USE_LOCAL_DEPS=1
-swift package resolve
-pushd .build/checkouts/swift-argument-parser
+pushd "$(git rev-parse --show-toplevel)/../swift-argument-parser"
 swift build --target generate-docc-reference
 popd
-export DOCC_REF_PATH=".build/checkouts/swift-argument-parser/.build/debug"
+export DOCC_REF_PATH="$(git rev-parse --show-toplevel)/../swift-argument-parser/.build/debug"
 swift build -c release # to generate the CLIs
 ```
 
