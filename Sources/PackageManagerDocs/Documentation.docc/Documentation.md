@@ -40,6 +40,7 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 
 ### Targets
 - <doc:CreatingCLanguageTargets>
+- <doc:CreatingMixedLanguageTargets>
 - <doc:ModuleMaps>
 - <doc:ModuleAliasing>
 
