@@ -97,13 +97,22 @@ struct TestCommandTests {
         let stdout = try await execute(
             ["--help"],
             configuration: configuration,
-            buildSystem: buildSystem,).stdout
-        let lines = stdout.components(separatedBy: "\n")
-        #expect(
-            !lines.contains(where: {
-                $0.trimmingCharacters(in: .whitespaces) == "last" }),
-            "got stdout: \n\(stdout)",
-        )    }
+            buildSystem: buildSystem,
+        ).stdout
+        guard let subcommandsHeaderRange = stdout.range(of: "SUBCOMMANDS:") else {
+               Issue.record("Could not locate SUBCOMMANDS: section in --help output:\n\(stdout)"
+               )
+               return
+           }
+           let afterHeader = stdout[subcommandsHeaderRange.upperBound...]
+           let subcommandsSection = afterHeader.components(separatedBy: "\n\n").first ?? String(afterHeader)
+
+           let lastSubcommandRegex = try Regex(#"(?m)^\s*last\s*$"#)
+           #expect(
+               !subcommandsSection.contains(lastSubcommandRegex),
+               "got stdout:\n\(stdout)",
+        )
+    }
 
     @Test( arguments: SupportedBuildSystemOnAllPlatforms,)
     func lastSubcommandStillRunsWhenInvokedDirectly(
