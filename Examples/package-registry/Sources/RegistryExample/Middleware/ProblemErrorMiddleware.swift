@@ -51,7 +51,12 @@ import Vapor
 /// cleared before returning, matching the semantics enforced by
 /// ``HeadMethodMiddleware`` and [RFC 9110 §9.3.2][].
 ///
+/// A `401 Unauthorized` problem additionally receives a `WWW-Authenticate:
+/// Basic, Bearer` header, advertising the login schemes this registry
+/// supports as required by [RFC 9110 §11.6.1][].
+///
 /// [RFC 9110 §9.3.2]: https://www.rfc-editor.org/rfc/rfc9110#section-9.3.2
+/// [RFC 9110 §11.6.1]: https://www.rfc-editor.org/rfc/rfc9110#section-11.6.1
 public struct ProblemErrorMiddleware: AsyncMiddleware {
     /// Creates a new `ProblemErrorMiddleware`.
     public init() {}
@@ -95,6 +100,9 @@ public struct ProblemErrorMiddleware: AsyncMiddleware {
         response.headers.replaceOrAdd(name: .contentType, value: "application/problem+json")
         response.headers.replaceOrAdd(name: .contentLanguage, value: "en")
         response.headers.replaceOrAdd(name: "Content-Version", value: "1")
+        if problem.status == .unauthorized {
+            response.headers.replaceOrAdd(name: .wwwAuthenticate, value: "Basic, Bearer")
+        }
         response.body = .init(data: try JSONEncoder.registry.encode(problem))
         if request.method == .HEAD {
             response.body = .empty

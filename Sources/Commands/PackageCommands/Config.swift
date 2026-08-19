@@ -37,6 +37,9 @@ extension SwiftPackageCommand.Config {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
+        @Flag(help: "Apply settings to all projects for this user.")
+        var global: Bool = false
+
         @Option(help: "The original url or identity.")
         var original: String
 
@@ -44,11 +47,15 @@ extension SwiftPackageCommand.Config {
         var mirror: String
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
-            let config = try getMirrorsConfig(swiftCommandState)
-
-
-            try config.applyLocal { mirrors in
-                try mirrors.set(mirror: self.mirror, for: self.original)
+            let config = try getMirrorsConfig(swiftCommandState, global: self.global)
+            if self.global {
+                try config.applyShared { mirrors in
+                    try mirrors.set(mirror: mirror, for: original)
+                }
+            } else {
+                try config.applyLocal { mirrors in
+                    try mirrors.set(mirror: mirror, for: original)
+                }
             }
         }
     }
@@ -61,6 +68,9 @@ extension SwiftPackageCommand.Config {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
+        @Flag(help: "Apply settings to all projects for this user.")
+        var global: Bool = false
+
         @Option(help: "The original url or identity.")
         var original: String?
 
@@ -68,16 +78,21 @@ extension SwiftPackageCommand.Config {
         var mirror: String?
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
-            let config = try getMirrorsConfig(swiftCommandState)
-
             guard let originalOrMirror = self.original ?? self.mirror
             else {
                 swiftCommandState.observabilityScope.emit(.missingRequiredArg("--original or --mirror"))
                 throw ExitCode.failure
             }
 
-            try config.applyLocal { mirrors in
-                try mirrors.unset(originalOrMirror: originalOrMirror)
+            let config = try getMirrorsConfig(swiftCommandState, global: self.global)
+            if self.global {
+                try config.applyShared { mirrors in
+                    try mirrors.unset(originalOrMirror: originalOrMirror)
+                }
+            } else {
+                try config.applyLocal { mirrors in
+                    try mirrors.unset(originalOrMirror: originalOrMirror)
+                }
             }
         }
     }
@@ -90,11 +105,14 @@ extension SwiftPackageCommand.Config {
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
+        @Flag(help: "Read only settings applied to all projects for this user.")
+        var global: Bool = false
+
         @Option(help: "The original url or identity.")
         var original: String
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
-            let config = try getMirrorsConfig(swiftCommandState)
+            let config = try getMirrorsConfig(swiftCommandState, global: self.global)
 
             if let mirror = config.mirrors.mirror(for: self.original) {
                 print(mirror)
@@ -106,7 +124,18 @@ extension SwiftPackageCommand.Config {
         }
     }
 
-    static func getMirrorsConfig(_ swiftCommandState: SwiftCommandState) throws -> Workspace.Configuration.Mirrors {
+    static func getMirrorsConfig(_ swiftCommandState: SwiftCommandState, global: Bool) throws -> Workspace.Configuration.Mirrors {
+        if global {
+            let sharedMirrorsFile = Workspace.DefaultLocations.mirrorsConfigurationFile(
+                at: swiftCommandState.sharedConfigurationDirectory
+            )
+            // Workspace not needed when working with user-level mirrors config
+            return try .init(
+                fileSystem: swiftCommandState.fileSystem,
+                localMirrorsFile: .none,
+                sharedMirrorsFile: sharedMirrorsFile
+            )
+        }
         let workspace = try swiftCommandState.getActiveWorkspace()
         return try .init(
             fileSystem: swiftCommandState.fileSystem,

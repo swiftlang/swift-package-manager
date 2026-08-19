@@ -7,7 +7,8 @@ Define the minimum version of the swift compiler required for your package.
 The tools version declares the minimum version of the Swift compiler required to
 use the package, as well as how to parse the `Package.swift` manifest.
 When you create a new package using <doc:PackageInit>, the minimum version is set automatically to the current version.
-The version is specified on the first line of the manifest with the comment `// swift-tools-version:` and the version for the Swift compiler.
+The version is specified with the comment `// swift-tools-version:` and the version for the Swift compiler.
+This comment conventionally appears on the first line of the manifest, and must do so when the specified version is earlier than 6.0; from Swift 6.0 onward it may instead appear on a later line, for example after leading comments.
 The version is a semantic version, with the exception that a patch version is inferred to be `0` if you don't specify it.
 
 For example, the following line asserts the package requires the Swift compiler version 6.1 or later:

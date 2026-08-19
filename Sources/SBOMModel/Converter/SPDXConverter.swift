@@ -51,7 +51,9 @@ internal struct SPDXConverter {
         else {
             return []
         }
-                
+
+        let created = metadata.timestamp ?? Date().ISO8601Format()
+
         var agents: [any SPDXObject] = []
         for creator in creators {
             let creatorID = self.generateSPDXID(creator.id.value)
@@ -61,7 +63,7 @@ internal struct SPDXConverter {
                 type: .CreationInfo,
                 specVersion: creator.version,
                 createdBy: [creatorID],
-                created: "1970-01-01T00:00:00Z"
+                created: created
             )
             let tool = SPDXAgent(
                 id: creatorID,

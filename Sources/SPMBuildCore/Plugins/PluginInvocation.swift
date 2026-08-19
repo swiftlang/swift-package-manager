@@ -437,6 +437,7 @@ extension PluginModule {
         let startTime = DispatchTime.now()
 
         let success: Bool
+        let invocationError: Error?
         do {
             success = try await self.invoke(
                 action: action,
@@ -458,10 +459,17 @@ extension PluginModule {
                 callbackQueue: delegateQueue,
                 delegate: delegate
             )
+            invocationError = nil
         } catch {
             success = false
+            invocationError = error
         }
         let duration = startTime.distance(to: .now())
+
+        var diagnostics = delegate.diagnostics
+        if let invocationError {
+            diagnostics.append(.error(invocationError))
+        }
 
         return BuildToolPluginInvocationResult(
             plugin: self,
@@ -470,7 +478,7 @@ extension PluginModule {
             target: module,
             succeeded: success,
             duration: duration,
-            diagnostics: delegate.diagnostics,
+            diagnostics: diagnostics,
             textOutput: String(decoding: delegate.outputData, as: UTF8.self),
             buildCommands: delegate.buildCommands,
             prebuildCommands: delegate.prebuildCommands

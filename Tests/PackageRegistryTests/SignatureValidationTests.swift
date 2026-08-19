@@ -18,6 +18,7 @@ import PackageSigning
 import _InternalTestSupport
 import X509 // FIXME: need this import or else SwiftSigningIdentity init crashes
 import XCTest
+import Testing
 
 import struct TSCUtility.Version
 

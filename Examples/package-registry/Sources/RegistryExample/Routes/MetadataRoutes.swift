@@ -326,8 +326,6 @@ public struct MetadataRoutes: Sendable {
     }
 }
 
-import CryptoKit
-
 enum CryptoDigest {
     static func sha256(_ data: Data) -> [UInt8] {
         Array(SHA256.hash(data: data))

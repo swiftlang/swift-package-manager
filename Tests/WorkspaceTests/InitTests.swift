@@ -119,6 +119,7 @@ struct InitTests {
                 try await executeSwiftBuild(
                     path,
                     configuration: configuration,
+                    extraArgs: ["--build-tests"],
                     buildSystem: buildSystem,
                 )
                 let binPath = try await getBinPath(

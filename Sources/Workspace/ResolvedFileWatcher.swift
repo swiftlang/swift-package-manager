@@ -11,9 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import class Foundation.NSLock
 import PackageModel
 import PackageGraph
+import Synchronization
 
 import struct TSCBasic.ByteString
 
@@ -24,13 +24,12 @@ import class TSCUtility.FSWatch
 /// This is not intended to be used directly by clients.
 final class ResolvedFileWatcher {
     private var fswatch: FSWatch!
-    private var existingValue: ByteString?
-    private let valueLock = NSLock()
+    private let existingValue = Mutex<ByteString?>(nil)
     private let resolvedFile: TSCAbsolutePath
 
     public func updateValue() {
-        valueLock.withLock {
-            self.existingValue = try? localFileSystem.readFileContents(resolvedFile)
+        self.existingValue.withLock {
+            $0 = try? localFileSystem.readFileContents(resolvedFile)
         }
     }
 
@@ -45,12 +44,12 @@ final class ResolvedFileWatcher {
             let hasResolvedFile = paths.contains{ $0.appending(component: resolvedFile.basename) == resolvedFile }
             guard hasResolvedFile else { return }
 
-            self.valueLock.withLock {
+            self.existingValue.withLock { existingValue in
                 // Compute the contents of the resolved file and fire the onChange block
                 // if its value is different than existing value.
                 let newValue: ByteString? = try? localFileSystem.readFileContents(resolvedFile)
-                if self.existingValue != newValue {
-                    self.existingValue = newValue
+                if existingValue != newValue {
+                    existingValue = newValue
                     onChange()
                 }
             }

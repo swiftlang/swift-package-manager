@@ -1,7 +1,8 @@
 # ``PackageManagerDocs``
 
 @Metadata {
-    @DisplayName("Swift Package Manager")
+    @DisplayName("Package Manager (SwiftPM)")
+    @TitleHeading("Tool")
 }
 
 Organize, manage, and edit Swift packages.
@@ -20,25 +21,36 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 - <doc:IntroducingPackages>
 - <doc:PackageSecurity>
 
-### Guides
+### Building Packages
 
 - <doc:CreatingSwiftPackage>
 - <doc:SettingSwiftToolsVersion>
-- <doc:AddingDependencies>
-- <doc:ResolvingPackageVersions>
-- <doc:CreatingCLanguageTargets>
 - <doc:UsingBuildConfigurations>
 - <doc:SwiftVersionSpecificPackaging>
 - <doc:BundlingResources>
 - <doc:ReleasingPublishingAPackage>
 - <doc:GeneratingSBOMs>
 - <doc:ContinuousIntegration>
-- <doc:Plugins>
-- <doc:ModuleAliasing>
-- <doc:UsingSwiftPackageRegistry>
-- <doc:PackageCollections>
 - <doc:UsingShellCompletion>
+
+### Depedencies
+- <doc:AddingDependencies>
+- <doc:UsingSwiftPackageRegistry>
+- <doc:BundlingResources>
+
+### Targets
+- <doc:CreatingCLanguageTargets>
+- <doc:ModuleMaps>
+- <doc:ModuleAliasing>
+
+### Sharing Packages
+- <doc:ReleasingPublishingAPackage>
+- <doc:PackageCollections>
+
+### Extending Package Manager
+- <doc:Plugins>
 - <doc:SwiftPMAsALibrary>
+
 
 <!-- ### Command Plugins -->
 <!-- placeholder for content about swift package manager extensions - command plugins -->

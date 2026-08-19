@@ -145,6 +145,28 @@ extension ProblemDetails {
         ProblemDetails(status: .badRequest, detail: detail)
     }
 
+    /// Builds a `401 Unauthorized` problem, used by the login endpoint
+    /// when credentials are absent or invalid. ``ProblemErrorMiddleware``
+    /// attaches a `WWW-Authenticate` header advertising the supported
+    /// schemes to any response built from a `.unauthorized` problem.
+    ///
+    /// - Parameter detail: A human-readable explanation of the failure.
+    /// - Returns: A problem with status `.unauthorized`.
+    public static func unauthorized(_ detail: String) -> ProblemDetails {
+        ProblemDetails(status: .unauthorized, detail: detail)
+    }
+
+    /// Builds a `501 Not Implemented` problem, used by the login endpoint
+    /// when the presented authentication method is not one the registry
+    /// supports.
+    ///
+    /// - Parameter detail: A human-readable explanation of the unsupported
+    ///   method.
+    /// - Returns: A problem with status `.notImplemented`.
+    public static func notImplemented(_ detail: String) -> ProblemDetails {
+        ProblemDetails(status: .notImplemented, detail: detail)
+    }
+
     /// Builds a `422 Unprocessable Entity` problem, used when a request
     /// is well-formed at the HTTP level but semantically invalid, for
     /// example publishing with an invalid manifest or metadata JSON.

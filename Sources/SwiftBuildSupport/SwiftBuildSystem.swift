@@ -412,6 +412,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 "FRAMEWORK_SEARCH_PATHS",
             ]
         )
+        let moduleMapPaths = try await getUniqueBuildSettingsIncludingDependencies(
+            of: request.configuredTargets,
+            buildSettings: ["MODULEMAP_PATH"]
+        )
 
         let graph = try await self.getPackageGraph()
         // Link the special REPL product that contains all of the library targets.
@@ -420,9 +424,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // The graph should have the REPL product.
         assert(graph.product(for: replProductName) != nil)
 
-        let arguments = ["repl", "-l\(replProductName)"] + includePaths.map {
-            "-I\($0)"
-        }
+        let arguments = ["repl", "-l\(replProductName)"]
+            + includePaths.filter { !$0.isEmpty }.map { "-I\($0)" }
+            + moduleMapPaths.filter { !$0.isEmpty }.flatMap { ["-Xcc", "-fmodule-map-file=\($0)"] }
 
         self.outputStream.send("Done.\n")
         return arguments
@@ -479,8 +483,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             throw Diagnostics.fatalError
         }
 
+        let graph = try await getPackageGraph()
         return try await startSWBuildOperation(
-            pifTargetName: subset.pifTargetName,
+            pifTargetName: subset.pifTargetName(for: graph),
             buildOutputs: buildOutputs,
         )
     }
@@ -1172,13 +1177,14 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     private static func constructExtraToolFlagsSettingsOverrides(from buildParameters: BuildParameters, verbosityFlags: [String]) -> [String: String] {
         var settings: [String: String] = [:]
-        var swiftCompilerFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags
+        var swiftCompilerFlags = WarningControlFlags.filterSwiftWarningControlFlags(buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags, value: \.value)
         swiftCompilerFlags += buildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
         // User arguments (from -Xcc) should follow generated arguments to allow user overrides
         swiftCompilerFlags += buildParameters.flags.cCompilerFlags.asSwiftcCCompilerFlags()
-        // We strip warning control flags (-warnings-as-errors) from the user supplied swift compiler flags.
-        // Per-package toggling of this flag is handled with  SWIFT_TREAT_WARNINGS_AS_ERRORS in the PIF.
-        swiftCompilerFlags = swiftCompilerFlags.filter { !WarningControlFlags.containsWarningsAsErrors([$0.value]) }
+        // We filter out the warning control flags from the user supplied swift compiler flags. If we don't, these global
+        // flags would be inherited by dependent targets, which are compiled with -suppress-warnings, and the
+        // driver rejects that combination (errors with "conflicting options '-Wwarning' and '-suppress-warnings'").
+        // Applying these flags to local targets is handled for individual packages in the PIF.
         // TODO: Pass -Xcxx flags to swiftc (#6491)
         // Uncomment when downstream support arrives.
         // swiftCompilerFlags += buildParameters.toolchain.extraFlags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()

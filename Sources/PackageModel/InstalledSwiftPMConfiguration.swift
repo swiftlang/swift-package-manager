@@ -37,7 +37,7 @@ public struct InstalledSwiftPMConfiguration {
         return .init(
             version: 0,
             swiftSyntaxVersionForMacroTemplate: .init(
-                major: 604,
+                major: 605,
                 minor: 0,
                 patch: 0,
                 prereleaseIdentifier: "latest"

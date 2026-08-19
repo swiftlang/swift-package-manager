@@ -11,4 +11,4 @@ permissions:
 jobs:
   check_dependencies:
     name: "Check GitHub PR Dependencies"
-    uses: swiftlang/github-workflows/.github/workflows/github_actions_dependencies.yml@0.0.12
+    uses: swiftlang/github-workflows/.github/workflows/github_actions_dependencies.yml@0.0.13

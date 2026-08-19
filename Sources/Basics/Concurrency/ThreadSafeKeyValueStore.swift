@@ -12,7 +12,7 @@
 
 import _Concurrency
 
-import class Foundation.NSLock
+import Synchronization
 
 /// Thread-safe dictionary with async memoization
 public actor ThrowingAsyncKeyValueMemoizer<Key: Hashable & Sendable, Value: Sendable> {
@@ -73,7 +73,10 @@ public actor AsyncThrowingValueMemoizer<Value: Sendable> {
                 result = .failure(error)
             }
             if case .inProgress(let array) = self.stored {
-                self.stored = .complete(result)
+                switch result {
+                case .success: self.stored = .complete(result)
+                case .failure: self.stored = nil
+                }
                 array.forEach { $0.resume(with: result)}
             }
             return try result.get()
@@ -91,84 +94,77 @@ public actor AsyncThrowingValueMemoizer<Value: Sendable> {
 }
 
 /// Thread-safe dictionary like structure.
-public final class ThreadSafeKeyValueStore<Key, Value> where Key: Hashable {
-    private var underlying: [Key: Value]
-    private let lock = NSLock()
+public final class ThreadSafeKeyValueStore<Key: Sendable, Value: Sendable> where Key: Hashable {
+    private let underlying: Mutex<[Key: Value]>
 
     public init(_ seed: [Key: Value] = [:]) {
-        self.underlying = seed
+        self.underlying = Mutex(seed)
     }
 
     public func get() -> [Key: Value] {
-        self.lock.withLock {
-            self.underlying
-        }
+        self.underlying.withLock { $0 }
     }
 
     public subscript(key: Key) -> Value? {
         get {
-            self.lock.withLock {
-                self.underlying[key]
+            self.underlying.withLock {
+                $0[key]
             }
         } set {
-            self.lock.withLock {
-                self.underlying[key] = newValue
+            self.underlying.withLock {
+                $0[key] = newValue
             }
         }
     }
 
     @discardableResult
     public func memoize(_ key: Key, body: () throws -> Value) rethrows -> Value {
-        try self.lock.withLock {
-            try self.underlying.memoize(key: key, body: body)
+        try self.underlying.withLock {
+            try $0.memoize(key: key, body: body)
         }
     }
 
     @discardableResult
     public func removeValue(forKey key: Key) -> Value? {
-        self.lock.withLock {
-            self.underlying.removeValue(forKey: key)
+        self.underlying.withLock {
+            $0.removeValue(forKey: key)
         }
     }
 
     @discardableResult
     public func clear() -> [Key: Value] {
-        self.lock.withLock {
-            let underlying = self.underlying
-            self.underlying.removeAll()
-            return underlying
+        self.underlying.withLock { underlying in
+            let existing = underlying
+            underlying.removeAll()
+            return existing
         }
     }
 
     public var count: Int {
-        self.lock.withLock {
-            self.underlying.count
-        }
+        self.underlying.withLock { $0.count }
     }
 
     public var isEmpty: Bool {
-        self.lock.withLock {
-            self.underlying.isEmpty
-        }
+        self.underlying.withLock { $0.isEmpty }
     }
 
     public func contains(_ key: Key) -> Bool {
-        self.lock.withLock {
-            self.underlying.keys.contains(key)
+        self.underlying.withLock {
+            $0.keys.contains(key)
         }
     }
 
-    public func map<T>(_ transform: ((key: Key, value: Value)) throws -> T) rethrows -> [T] {
-        try self.lock.withLock {
-            try self.underlying.map(transform)
+    public func map<T: Sendable>(_ transform: ((key: Key, value: Value)) throws -> T) rethrows -> [T] {
+        try self.underlying.withLock {
+            try $0.map(transform)
         }
     }
 
-    public func mapValues<T>(_ transform: (Value) throws -> T) rethrows -> [Key: T] {
-        try self.lock.withLock {
-            try self.underlying.mapValues(transform)
+    public func mapValues<T: Sendable>(_ transform: (Value) throws -> T) rethrows -> [Key: T] {
+        try self.underlying.withLock {
+            try $0.mapValues(transform)
         }
     }
 }
 
-extension ThreadSafeKeyValueStore: @unchecked Sendable where Key: Sendable, Value: Sendable {}
+extension ThreadSafeKeyValueStore: Sendable {}

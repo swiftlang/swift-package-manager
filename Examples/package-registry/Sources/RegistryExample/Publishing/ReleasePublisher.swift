@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import CryptoKit
+import Vapor
 import NIOCore
 
 /// Errors that ``ReleasePublisher/publish(identifier:version:body:contentType:signatureFormat:)``

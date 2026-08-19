@@ -151,7 +151,6 @@ public final class SwiftBuildSystemMessageHandler {
             if logLevel.isVerbose {
                 self.outputStream.send(started + "\n")
             }
-            self.observabilityScope.print(started, condition: .onlyWhenVerbose)
         }
 
         guard info.result == .success else {

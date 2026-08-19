@@ -52,4 +52,32 @@ struct ProblemResponseTests {
             }
         }
     }
+
+    @Test func `unauthorized problems render 401 with a WWW-Authenticate header`() async throws {
+        try await withRegistryApp { app in
+            app.get("throws-401") { _ -> String in
+                throw ProblemDetails.unauthorized("invalid credentials")
+            }
+            try await app.testing().test(.GET, "/throws-401") { res async in
+                #expect(res.status == .unauthorized)
+                #expect(res.headers.first(name: .contentType) == "application/problem+json")
+                #expect(res.headers.first(name: .wwwAuthenticate) == "Basic, Bearer")
+                #expect(res.body.string.contains("\"status\":401"))
+            }
+        }
+    }
+
+    @Test func `notImplemented problems render 501 problem+json`() async throws {
+        try await withRegistryApp { app in
+            app.get("throws-501") { _ -> String in
+                throw ProblemDetails.notImplemented("unsupported authentication method")
+            }
+            try await app.testing().test(.GET, "/throws-501") { res async in
+                #expect(res.status == .notImplemented)
+                #expect(res.headers.first(name: .contentType) == "application/problem+json")
+                #expect(res.headers.first(name: .wwwAuthenticate) == nil)
+                #expect(res.body.string.contains("\"status\":501"))
+            }
+        }
+    }
 }

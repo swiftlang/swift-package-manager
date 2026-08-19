@@ -242,8 +242,10 @@ final class ManifestSourceGenerationTests: XCTestCase {
 
             #if os(Windows)
             let absolutePath = "c:/a/b/c"
+            let namedAbsolutePath = "c:/a/b/d"
             #else
             let absolutePath = "/a/b/c"
+            let namedAbsolutePath = "/a/b/d"
             #endif
 
             let package = Package(
@@ -257,7 +259,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 dependencies: [
                     // Dependencies declare other packages that this package depends on.
                     .package(path: absolutePath),
-                    .package(name: "abc", path: absolutePath),
+                    .package(name: "abc", path: namedAbsolutePath),
                 ],
                 targets: [
                     // Targets are the basic building blocks of a package. A target can define a module or a test suite.
