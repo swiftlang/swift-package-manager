@@ -532,7 +532,7 @@ extension Workspace.Configuration {
         @discardableResult
         public func applyLocal(handler: (inout DependencyMirrors) throws -> Void) throws -> DependencyMirrors {
             guard let localMirrors else {
-                throw InternalError("local mirrors not configured")
+                throw StringError("local mirrors not configured")
             }
             try localMirrors.apply(handler: handler)
             try self.computeMirrors()
@@ -542,7 +542,7 @@ extension Workspace.Configuration {
         @discardableResult
         public func applyShared(handler: (inout DependencyMirrors) throws -> Void) throws -> DependencyMirrors {
             guard let sharedMirrors else {
-                throw InternalError("shared mirrors not configured")
+                throw StringError("shared mirrors not configured")
             }
             try sharedMirrors.apply(handler: handler)
             try self.computeMirrors()
