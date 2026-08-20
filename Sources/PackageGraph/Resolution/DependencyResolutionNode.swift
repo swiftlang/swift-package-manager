@@ -100,22 +100,6 @@ public enum DependencyResolutionNode {
         }
     }
 
-    /// Returns a node identical to this one but carrying a different `enabledTraits` payload.
-    /// Used to query a package's dependencies using its true, unified enabled traits (e.g.
-    /// `PubGrubDependencyResolver.State`'s own accumulated `EnabledTraitsMap`) without
-    /// mutating the original node, which still needs to reflect exactly what its originating parent declared
-    /// for provenance/diagnostics purposes.
-    func withEnabledTraits(_ enabledTraits: EnabledTraits) -> DependencyResolutionNode {
-        switch self {
-        case .empty:
-            return self
-        case .product(let product, let package, _):
-            return .product(product, package: package, enabledTraits: enabledTraits)
-        case .root(let package, _):
-            return .root(package: package, enabledTraits: enabledTraits)
-        }
-    }
-
     /// Returns the dependency that a product has on its own package, if relevant.
     ///
     /// This is the constraint that requires all products from a package resolve to the same version.

@@ -2194,4 +2194,278 @@ extension WorkspaceTests {
             result.check(dependency: "yams", at: .checkout(.version("1.0.0")))
         }
     }
+
+    /// Two siblings depend on the same shared package with different trait requests, decided at
+    /// different points during resolution rather than both being known upfront - unlike the
+    /// root-level case, nothing guarantees every parent's request is known before the shared
+    /// dependency itself is decided.
+    func testTraitGuardedTransitiveDependency_enabledTraitsAtDifferentLevels() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "SiblingAProduct", package: "SiblingA"),
+                                .product(name: "SiblingBProduct", package: "SiblingB"),
+                            ]
+                        ),
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./SiblingA", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./SiblingB", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "SiblingA",
+                    targets: [
+                        MockTarget(
+                            name: "SiblingATarget",
+                            dependencies: [
+                                .product(name: "SharedProduct", package: "SharedDependency"),
+                            ]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "SiblingAProduct", modules: ["SiblingATarget"]),
+                    ],
+                    dependencies: [
+                        // No `traits:` specified - implicit defaults for SharedDependency.
+                        .sourceControl(path: "./SharedDependency", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "SiblingB",
+                    targets: [
+                        MockTarget(
+                            name: "SiblingBTarget",
+                            dependencies: [
+                                .product(name: "SharedProduct", package: "SharedDependency"),
+                            ]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "SiblingBProduct", modules: ["SiblingBTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            path: "./SharedDependency",
+                            requirement: .upToNextMajor(from: "1.0.0"),
+                            traits: ["default", "FeatureX"]
+                        ),
+                    ],
+                    versions: ["1.0.0", "1.2.0"]
+                ),
+                MockPackage(
+                    name: "SharedDependency",
+                    targets: [
+                        MockTarget(
+                            name: "SharedTarget",
+                            dependencies: [
+                                .product(
+                                    name: "GuardedProduct",
+                                    package: "GuardedLeaf",
+                                    condition: .init(traits: ["FeatureX"])
+                                ),
+                            ]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "SharedProduct", modules: ["SharedTarget"]),
+                    ],
+                    dependencies: [
+                        // Deliberately no `traits:` here
+                        .sourceControl(path: "./GuardedLeaf", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    traits: [
+                        .init(name: "default", enabledTraits: ["DefaultTrait"]),
+                        "DefaultTrait",
+                        "FeatureX",
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "GuardedLeaf",
+                    targets: [
+                        MockTarget(name: "GuardedLeafTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "GuardedProduct", modules: ["GuardedLeafTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Root", "SiblingA", "SiblingB", "SharedDependency", "GuardedLeaf")
+                result.check(modules: "RootTarget", "SiblingATarget", "SiblingBTarget", "SharedTarget", "GuardedLeafTarget")
+                result.checkPackage("SharedDependency") { package in
+                    guard let enabledTraits = package.enabledTraits else {
+                        XCTFail("Expected enabled traits for package SharedDependency.")
+                        return
+                    }
+
+                    XCTAssertEqual(enabledTraits, ["DefaultTrait", "FeatureX"])
+                }
+            }
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "shareddependency", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "guardedleaf", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    /// Same shape as the test above, but the guarding trait is never requested directly.
+    /// `SiblingB` only asks for `FeatureX`, and `SharedDependency`'s own trait declarations
+    /// should recursively unfurl into the trait that actually guards `GuardedLeaf`.
+    func testTraitGuardedTransitiveDependency_TransitivelyEnabledTraits_enabledTraitsAtDifferentLevels() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "SiblingAProduct", package: "SiblingA"),
+                                .product(name: "SiblingBProduct", package: "SiblingB"),
+                            ]
+                        ),
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./SiblingA", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./SiblingB", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "SiblingA",
+                    targets: [
+                        MockTarget(
+                            name: "SiblingATarget",
+                            dependencies: [
+                                .product(name: "SharedProduct", package: "SharedDependency"),
+                            ]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "SiblingAProduct", modules: ["SiblingATarget"]),
+                    ],
+                    dependencies: [
+                        // No `traits:` specified - implicit defaults for SharedDependency.
+                        .sourceControl(path: "./SharedDependency", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "SiblingB",
+                    targets: [
+                        MockTarget(
+                            name: "SiblingBTarget",
+                            dependencies: [
+                                .product(name: "SharedProduct", package: "SharedDependency"),
+                            ]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "SiblingBProduct", modules: ["SiblingBTarget"]),
+                    ],
+                    dependencies: [
+                        // Only ever requests defaults and `FeatureX` directly
+                        .sourceControl(
+                            path: "./SharedDependency",
+                            requirement: .upToNextMajor(from: "1.0.0"),
+                            traits: ["default", "FeatureX"]
+                        ),
+                    ],
+                    versions: ["1.0.0", "1.2.0"]
+                ),
+                MockPackage(
+                    name: "SharedDependency",
+                    targets: [
+                        MockTarget(
+                            name: "SharedTarget",
+                            dependencies: [
+                                // Guarded by `FeatureXImpl`, not `FeatureX` - only reachable via
+                                // `FeatureX`'s recursive `enabledTraits` unfurling below.
+                                .product(
+                                    name: "GuardedProduct",
+                                    package: "GuardedLeaf",
+                                    condition: .init(traits: ["FeatureXImpl"])
+                                ),
+                            ]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "SharedProduct", modules: ["SharedTarget"]),
+                    ],
+                    dependencies: [
+                        // Deliberately no `traits:` here
+                        .sourceControl(path: "./GuardedLeaf", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    traits: [
+                        .init(name: "default", enabledTraits: ["Surprise"]),
+                        // `FeatureX` recursively enables `FeatureXImpl` - `SiblingB` never asks
+                        // for `FeatureXImpl` by name.
+                        "Surprise",
+                        .init(name: "FeatureX", enabledTraits: ["FeatureXImpl"]),
+                        .init(name: "FeatureXImpl", enabledTraits: ["LastTrait"]),
+                        "LastTrait"
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "GuardedLeaf",
+                    targets: [
+                        MockTarget(name: "GuardedLeafTarget"),
+                    ],
+                    products: [
+                        MockProduct(name: "GuardedProduct", modules: ["GuardedLeafTarget"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Root", "SiblingA", "SiblingB", "SharedDependency", "GuardedLeaf")
+                result.check(modules: "RootTarget", "SiblingATarget", "SiblingBTarget", "SharedTarget", "GuardedLeafTarget")
+                result.checkPackage("SharedDependency") { package in
+                    guard let enabledTraits = package.enabledTraits else {
+                        XCTFail("No traits enabled on SharedDependency -- expected to find FeatureX, FeatureXImpl, and LastTrait.")
+                        return
+                    }
+
+                    XCTAssertEqual(enabledTraits, ["FeatureX", "FeatureXImpl", "LastTrait", "Surprise"])
+                }
+            }
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "shareddependency", at: .checkout(.version("1.0.0")))
+            result.check(dependency: "guardedleaf", at: .checkout(.version("1.0.0")))
+        }
+    }
 }

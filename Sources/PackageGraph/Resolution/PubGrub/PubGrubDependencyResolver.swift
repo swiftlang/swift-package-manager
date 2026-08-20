@@ -46,6 +46,11 @@ public struct PubGrubDependencyResolver {
         /// trait enablement for a given package.
         private var enabledTraitsMap = EnabledTraitsMap()
 
+        /// Already-decided packages whose `enabledTraitsMap` entry changed *after* they were
+        /// decided - detected inline in `addIncompatibility`, the instant a new request for an
+        /// already-decided package's traits arrives.
+        public var decisionsToRepair: Set<DependencyResolutionNode> = []
+
         /// The current best guess for a solution satisfying all requirements.
         public private(set) var solution: PartialSolution
 
@@ -62,11 +67,21 @@ public struct PubGrubDependencyResolver {
 
         func addIncompatibility(_ incompatibility: Incompatibility, at location: LogLocation) {
             self.lock.withLock {
-                for term in incompatibility.terms {
-                    let identity = term.node.package.identity
-                    self.enabledTraitsMap[identity] = term.node.enabledTraits
-                }
                 for package in incompatibility.terms.map(\.node) {
+                    // Pre-resolution computation ensures we already handled root package dependency requests,
+                    // and therefore should not need repairs.
+                    if !package.package.kind.isRoot {
+                        let identity = package.package.identity
+                        let previousDecisionEnabledTraits = self.enabledTraitsMap[identity]
+                        self.enabledTraitsMap[identity] = package.enabledTraits
+                        // If a decision has already been made for this package but a change in enabled traits
+                        // is detected, flag it so the resolver can repair the shape of the package graph below
+                        // it (if applicable due to trait-guarded dependencies).
+                        if !package.enabledTraits.isSubset(of: previousDecisionEnabledTraits)
+                        {
+                            self.decisionsToRepair.formUnion(self.solution.decisions(for: identity))
+                        }
+                    }
                     if let incompats = self.incompatibilities[package] {
                         if !incompats.contains(incompatibility) {
                             self.incompatibilities[package]!.append(incompatibility)
@@ -533,7 +548,26 @@ public struct PubGrubDependencyResolver {
 
             // If decision making determines that no more decisions are to be
             // made, it returns nil to signal that version solving is done.
-            next = try await self.makeDecision(state: state)
+
+            // Ensure that decisions that need repairing are prioritized.
+            if let repairNode = state.decisionsToRepair.popFirst(),
+               let version = state.solution.decisions[repairNode] {
+                next = repairNode
+                // Update incompatibilities for this node.
+                let container = try self.provider.getCachedContainer(for: repairNode.package)
+                let incompatibilities = try await container.incompatibilites(
+                    at: version,
+                    node: repairNode,
+                    overriddenPackages: state.overriddenPackages,
+                    root: state.root,
+                    enabledTraits: state.enabledTraits(for: repairNode)
+                )
+                for incompatibility in incompatibilities {
+                    state.addIncompatibility(incompatibility, at: .decisionMaking)
+                }
+            } else {
+                next = try await self.makeDecision(state: state)
+            }
         }
     }
 
@@ -769,14 +803,12 @@ public struct PubGrubDependencyResolver {
         }
 
         // Add all of this version's dependencies as incompatibilities.
-        // Query the resolver's own accumulated enabled-traits map rather than trusting
-        // pkgTerm.node's own value alone.
-        let queryNode = pkgTerm.node.withEnabledTraits(state.enabledTraits(for: pkgTerm.node))
         let depIncompatibilities = try await container.incompatibilites(
             at: version,
-            node: queryNode,
+            node: pkgTerm.node,
             overriddenPackages: state.overriddenPackages,
-            root: state.root
+            root: state.root,
+            enabledTraits: state.enabledTraits(for: pkgTerm.node)
         )
 
         var haveConflict = false
