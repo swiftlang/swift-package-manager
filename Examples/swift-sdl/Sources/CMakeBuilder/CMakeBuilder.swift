@@ -1,7 +1,5 @@
 import Foundation
 import Subprocess
-import TSCBasic
-import Foundation
 
 @main
 struct CMakeBuilder {
