@@ -306,7 +306,7 @@ public final class PackagePIFBuilder {
 
     /// Build an empty PIF project for the specified `Package`.
 
-    public class func buildEmptyPIF(package: PackageModel.Package) -> ProjectModel.Project {
+    public static func buildEmptyPIF(package: PackageModel.Package) -> ProjectModel.Project {
         self.buildEmptyPIF(
             id: "PACKAGE:\(package.identity)",
             path: package.manifest.path.pathString,
@@ -317,7 +317,7 @@ public final class PackagePIFBuilder {
     }
 
     /// Build an empty PIF project.
-    public class func buildEmptyPIF(
+    public static func buildEmptyPIF(
         id: String,
         path: String,
         projectDir: String,
@@ -354,7 +354,7 @@ public final class PackagePIFBuilder {
     }
 
     /// Build a *placeholder* PIF project for the specified `Package`.
-    public class func buildPlaceholderPIF(
+    public static func buildPlaceholderPIF(
         package: PackageModel.Package
     ) -> (project: ProjectModel.Project, placeholder: ModuleOrProduct) {
         self.buildPlaceholderPIF(
@@ -374,7 +374,7 @@ public final class PackagePIFBuilder {
     /// produces a project with no targets at all.
     ///
     /// Requires no builder instance, and so can be used for a package that failed to load.
-    public class func buildPlaceholderPIF(
+    public static func buildPlaceholderPIF(
         id: String,
         path: String,
         projectDir: String,
