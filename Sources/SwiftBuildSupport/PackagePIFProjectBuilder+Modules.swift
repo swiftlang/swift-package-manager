@@ -610,11 +610,11 @@ extension PackagePIFProjectBuilder {
         }
         if sourceModule.isCxx {
             for platform in ProjectModel.BuildSettings.Platform.allCases {
-                // darwin & freebsd
+                // darwin, freebsd & android (bionic only provides libc++)
                 switch platform {
-                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
+                    case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd, .android:
                         impartedSettings[.OTHER_LDFLAGS, platform] = ["-lc++", "$(inherited)"]
-                    case .android, .linux, .wasi, .openbsd:
+                    case .linux, .wasi, .openbsd:
                         impartedSettings[.OTHER_LDFLAGS, platform] = ["-lstdc++", "$(inherited)"]
                     case .windows, ._iOSDevice:
                         break

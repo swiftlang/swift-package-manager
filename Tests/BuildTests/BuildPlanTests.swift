@@ -2890,6 +2890,21 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         linkArgs = try result.buildProduct(for: "exe").linkArguments()
 
         XCTAssertMatch(linkArgs, ["-lstdc++"])
+
+        // Verify that `-lc++` is passed when cross-compiling to Android,
+        // as the NDK has not shipped libstdc++ since r18.
+        result = try await BuildPlanResult(plan: mockBuildPlan(
+            triple: .arm64Android,
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+        result.checkProductsCount(1)
+        result.checkTargetsCount(2)
+        linkArgs = try result.buildProduct(for: "exe").linkArguments()
+
+        XCTAssertMatch(linkArgs, ["-lc++"])
+        XCTAssertNoMatch(linkArgs, ["-lstdc++"])
     }
 
     func testDynamicProducts() async throws {
