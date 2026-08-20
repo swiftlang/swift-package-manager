@@ -685,6 +685,12 @@ extension EnabledTraits: Collection {
         return EnabledTraits(transformedTraits)
     }
 
+    public func isSubset<C: Collection>(of other: C) -> Bool where C.Element == Self.Element {
+        self._traits.allSatisfy({ trait in
+            other.contains(trait)
+        })
+    }
+
     public static func ==<C: Collection>(_ lhs: EnabledTraits, _ rhs: C) -> Bool where C.Element == Element {
         lhs._traits.names == rhs.names
     }
