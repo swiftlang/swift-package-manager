@@ -41,4 +41,9 @@ install(TARGETS SwiftBuildSupport
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:SwiftBuildSupport>/$<TARGET_FILE_BASE_NAME:SwiftBuildSupport>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS SwiftBuildSupport)

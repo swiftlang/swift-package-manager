@@ -16,3 +16,8 @@ target_compile_options(swift-test PRIVATE
 
 install(TARGETS swift-test
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:swift-test>/$<TARGET_FILE_BASE_NAME:swift-test>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()
