@@ -911,7 +911,7 @@ final class ModuleAliasingBuildTests: XCTestCase {
             if let realError = error as? PackageGraphError,
                realError
                .description ==
-               "multiple aliases: ['UtilsLogging', 'OtherLogging'] found for target 'Logging' in product 'LoggingProd' from package 'otherPkg'"
+               "multiple aliases: ['UtilsLogging', 'OtherLogging'] found for target 'Logging' in product 'LoggingProd' from package 'otherpkg'"
             {
                 diagnosed = true
             }
@@ -962,15 +962,17 @@ final class ModuleAliasingBuildTests: XCTestCase {
                     targets: [
                         TargetDescription(
                             name: "App",
-                            dependencies: [.product(
-                                name: "Logging",
-                                package: "swift-log"
-                            ),
-                            .product(
-                                name: "Metrics",
-                                package: "swift-metrics",
-                                moduleAliases: ["Logging": "MetricsLogging"]
-                            )]
+                            dependencies: [
+                                .product(
+                                    name: "Logging",
+                                    package: "swift-log"
+                                ),
+                                .product(
+                                    name: "Metrics",
+                                    package: "swift-metrics",
+                                    moduleAliases: ["Logging": "MetricsLogging"]
+                                )
+                            ]
                         ),
                     ]
                 ),
