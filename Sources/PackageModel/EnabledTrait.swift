@@ -203,8 +203,7 @@ public struct EnabledTraitsMap {
             // for nil entries in the stored dictionary, which tells us whether
             // traits have been explicitly enabled or not.
             //
-            // However, if "default" is explicitly set by a parent (has setters),
-            // track it in the `defaultSetters` property.
+            // However, if "default" is set by a parent track it in the `defaultSetters` property.
             guard !(value == .defaults && !value.isExplicitlySetDefault) else {
                 return state
             }
@@ -261,8 +260,7 @@ public struct EnabledTraitsMap {
                 // for nil entries in the stored dictionary, which tells us whether
                 // traits have been explicitly enabled or not.
                 //
-                // However, if "default" is explicitly set by a parent (has setters),
-                // track it in the `defaultSetters` property.
+                // However, if "default" is explicitly set by a parent track it in the `defaultSetters` property.
                 guard !(newValue == .defaults && !newValue.isExplicitlySetDefault) else {
                     return state
                 }
@@ -392,7 +390,8 @@ extension EnabledTraitsMap: ExpressibleByDictionaryLiteral {
 /// a parent package that has defined enabled traits for its dependency package, or transitively by another trait (including the default case).
 ///
 /// An `EnabledTrait` is differentiated by its `name`, and all other data stored in this struct is treated as metadata for
-/// convenience. When unifying two `EnabledTrait`s, it will combine the list of setters if the `name`s match.
+/// convenience. When unifying two `EnabledTrait`s, it will combine the list of setters if the `name`s match. This is assuming
+/// that an `EnabledTrait` is correctly associated with the same `PackageIdentity` in the `EnabledTraitsMap`.
 ///
 public struct EnabledTrait: Identifiable {
     /// Convenience typealias for a list of `Setter`
@@ -543,7 +542,7 @@ extension EnabledTrait: ExpressibleByStringLiteral {
 /// convenient set operations like union and intersection, along with collection protocol conformance for
 /// easy iteration and manipulation of enabled traits.
 ///
-/// ## Disabling All Traits
+/// ## Disabling Default Traits
 /// An `EnabledTraits` instance can represent a "disabled" state when created with an empty collection
 /// and a `Setter`. In this case, the `disabledBy` property returns the setter that disabled default traits,
 /// allowing callers to track which parent package or configuration explicitly disabled default traits for a package.
@@ -740,8 +739,6 @@ extension IdentifiableSet where Element == EnabledTrait {
         if let oldElement = self.remove(member), let newElement = oldElement.unify(member) {
             insert(newElement)
         } else {
-            // See if other enabled traits that have same parent (if parent case)
-            // exist,
             insert(member)
         }
     }
