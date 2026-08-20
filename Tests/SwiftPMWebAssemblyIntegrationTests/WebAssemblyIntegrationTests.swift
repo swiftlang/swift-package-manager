@@ -99,6 +99,62 @@ private struct WebAssemblyIntegrationTests {
     @Test(
         .requiresWebAssemblySwiftSDK,
         .tags(
+            .Feature.Command.Build,
+        ),
+    )
+    func macroPackageIncludingTests() async throws {
+        try await fixture(name: "WebAssembly/MinimalWebAssemblyMacroPackage") { fixturePath in
+            let (compilerPath, sdkID) = try #require(try await findCompilerAndSDKIDForTesting(for: .webassembly))
+
+            var env = Environment()
+            env["SWIFT_EXEC"] = compilerPath.pathString
+
+            // Build the tests for WebAssembly. The macro implementation and its helper
+            // targets, both in-package and from a dependency package, will fail to compile
+            // if built for WebAssembly instead of the host platform.
+            let buildOutput = try await executeSwiftBuild(
+                fixturePath,
+                extraArgs: ["--swift-sdk", sdkID, "--build-tests", "-v"],
+                env: env,
+                buildSystem: .swiftbuild,
+            )
+            #expect(buildOutput.stdout.contains("Build complete"))
+
+            _ = try await executeSwiftTest(fixturePath, extraArgs: [], env: env, buildSystem: .swiftbuild)
+        }
+    }
+
+    @Test(
+        .requiresWebAssemblySwiftSDK,
+        .tags(
+            .Feature.Command.Build,
+        ),
+    )
+    func buildToolPluginPackageIncludingTests() async throws {
+        try await fixture(name: "WebAssembly/MinimalWebAssemblyPluginPackage") { fixturePath in
+            let (compilerPath, sdkID) = try #require(try await findCompilerAndSDKIDForTesting(for: .webassembly))
+
+            var env = Environment()
+            env["SWIFT_EXEC"] = compilerPath.pathString
+
+            // Build the tests for WebAssembly. The executable used by the build tool plugin
+            // and its helper targets, both in-package and from a dependency package, will fail
+            // to compile if built for WebAssembly instead of the host platform.
+            let buildOutput = try await executeSwiftBuild(
+                fixturePath,
+                extraArgs: ["--swift-sdk", sdkID, "--build-tests", "-v"],
+                env: env,
+                buildSystem: .swiftbuild,
+            )
+            #expect(buildOutput.stdout.contains("Build complete"))
+
+            _ = try await executeSwiftTest(fixturePath, extraArgs: [], env: env, buildSystem: .swiftbuild)
+        }
+    }
+
+    @Test(
+        .requiresWebAssemblySwiftSDK,
+        .tags(
             .Feature.Command.Run,
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
@@ -122,6 +178,47 @@ private struct WebAssemblyIntegrationTests {
             let lines = runOutput.stdout.split(separator: "\n").map(String.init)
             #expect(lines.contains("Executable flag: ONE"))
             #expect(lines.contains("Plugin tool flag: ONE"))
+        }
+    }
+
+    @Test(
+        .requiresWebAssemblySwiftSDK,
+        .tags(
+            .Feature.Command.Run,
+            .Feature.CommandLineArguments.Toolset,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func flagOverridesToolset(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await fixture(name: "Miscellaneous/FlagOverrides") { fixturePath in
+            let (compilerPath, sdkID) = try #require(try await findCompilerAndSDKIDForTesting(for: .webassembly))
+
+            var env = Environment()
+            env["SWIFT_EXEC"] = compilerPath.pathString
+
+            // Pass the `-DONE` flag to the Swift compiler via a toolset file instead of `-Xswiftc`.
+            let toolsetPath = fixturePath.appending("toolset.json")
+            try localFileSystem.writeFileContents(
+                toolsetPath,
+                string: """
+                {
+                  "schemaVersion": "1.0",
+                  "swiftCompiler": { "extraCLIOptions": ["-DONE"] }
+                }
+                """
+            )
+
+            let runOutput = try await executeSwiftRun(
+                fixturePath,
+                "FlagOverrides",
+                extraArgs: ["--swift-sdk", sdkID, "--toolset", toolsetPath.pathString],
+                env: env,
+                buildSystem: buildSystem,
+            )
+
+            let lines = runOutput.stdout.split(separator: "\n").map(String.init)
+            #expect(lines.contains("Executable flag: ONE"))
+            #expect(lines.contains("Plugin tool flag: NONE"))
         }
     }
 

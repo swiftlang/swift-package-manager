@@ -205,12 +205,19 @@ public final class PackagePIFBuilder {
     /// the build products to a different location or building the release configuration.
     let addLocalRpaths: AddLocalRpaths
 
+    /// Whether to preserve symbolic links in source file paths instead of resolving them to their
+    /// real path.
+    let shouldPreserveSymlinks: Bool
+
     /// Package display version, if any (i.e., it can be a version, branch or a git ref).
     let packageDisplayVersion: String?
 
     let pkgConfigDirectories: [AbsolutePath]
 
     let pluginWorkingDirectory: AbsolutePath
+
+    /// The warning-control flags the user passed on the command line.
+    let warningControlFlags: [String]
 
     /// The file system to read from.
     let fileSystem: FileSystem
@@ -240,9 +247,11 @@ public final class PackagePIFBuilder {
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
         addLocalRpaths: AddLocalRpaths = .always,
+        shouldPreserveSymlinks: Bool,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
         pluginWorkingDirectory: AbsolutePath,
+        warningControlFlags: [String] = [],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -261,6 +270,8 @@ public final class PackagePIFBuilder {
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.addLocalRpaths = addLocalRpaths
+        self.warningControlFlags = warningControlFlags
+        self.shouldPreserveSymlinks = shouldPreserveSymlinks
     }
 
     public init(
@@ -274,9 +285,11 @@ public final class PackagePIFBuilder {
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
         addLocalRpaths: AddLocalRpaths = .always,
+        shouldPreserveSymlinks: Bool = false,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
         pluginWorkingDirectory: AbsolutePath,
+        warningControlFlags: [String] = [],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
     ) {
@@ -293,8 +306,10 @@ public final class PackagePIFBuilder {
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
         self.pluginWorkingDirectory = pluginWorkingDirectory
+        self.warningControlFlags = warningControlFlags
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
+        self.shouldPreserveSymlinks = shouldPreserveSymlinks
     }
 
     /// Build an empty PIF project.
@@ -643,7 +658,12 @@ public final class PackagePIFBuilder {
             if self.skipStaticAnalyzerForPackageDependencies {
                 settings[.SKIP_CLANG_STATIC_ANALYZER] = "YES"
             }
+        } else if !self.warningControlFlags.isEmpty {
+            settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                $0.append(contentsOf: self.warningControlFlags)
+            }
         }
+
         settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS]
             .lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("SWIFT_PACKAGE") }
         settings[.GCC_PREPROCESSOR_DEFINITIONS] = ["$(inherited)", "SWIFT_PACKAGE"]

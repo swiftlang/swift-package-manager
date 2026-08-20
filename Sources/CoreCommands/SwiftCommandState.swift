@@ -14,7 +14,6 @@ import _Concurrency
 import ArgumentParser
 import Basics
 import Dispatch
-import class Foundation.NSLock
 import class Foundation.ProcessInfo
 import PackageFingerprint
 import PackageGraph
@@ -457,7 +456,20 @@ public final class SwiftCommandState {
         self.cancellator = cancellator
 
         // Create local variables to use while finding build path to avoid capture self before init error.
-        let packageRoot = findPackageRoot(fileSystem: fileSystem)
+        let packageRoot: AbsolutePath?
+        if options.locations.skipResolvingPackagePaths {
+            // Do not use the current working directory to determine the package root, as it will indirectly
+            // cause us to reference its sources via their real instead of symlinked paths.
+            guard let packageDirectory = options.locations.packageDirectory else {
+                self.observabilityScope.emit(
+                    error: "'--experimental-skip-resolving-package-paths' requires an explicit '--package-path'"
+                )
+                throw ExitCode.failure
+            }
+            packageRoot = packageDirectory
+        } else {
+            packageRoot = findPackageRoot(fileSystem: fileSystem)
+        }
 
         self.packageRoot = packageRoot
         self.scratchDirectory =
@@ -850,11 +862,13 @@ public final class SwiftCommandState {
     /// - Parameters:
     ///   - explicitProduct: The product specified on the command line to a “swift run” or “swift build” command. This
     /// allows executables from dependencies to be run directly without having to hook them up to any particular target.
+    ///   - exitOnError: Whether loading errors should cause this method to throw a failure exit code. Defaults to `true`.
     @discardableResult
     package func loadPackageGraph(
         explicitProduct: String? = nil,
         enableAllTraits: Bool = false,
-        testEntryPointPath: AbsolutePath? = nil
+        testEntryPointPath: AbsolutePath? = nil,
+        exitOnError: Bool = true
     ) async throws -> ModulesGraph {
         do {
             let workspace = try getActiveWorkspace(enableAllTraits: enableAllTraits)
@@ -876,7 +890,7 @@ public final class SwiftCommandState {
 
             // Throw if there were errors when loading the graph.
             // The actual errors will be printed before exiting.
-            guard !packageGraphObservabilityScope.errorsReported else {
+            guard !exitOnError || !packageGraphObservabilityScope.errorsReported else {
                 throw ExitCode.failure
             }
             return graph
@@ -1094,6 +1108,7 @@ public final class SwiftCommandState {
                 testEntryPointPath: self.options.build.testEntryPointPath
             ),
             stripProducts: self.options.build.stripProducts,
+            shouldPreserveSymlinks: options.locations.skipResolvingPackagePaths,
         )
     }
 
@@ -1333,10 +1348,12 @@ extension BuildSystemProvider.Kind {
 
     fileprivate var additionalFileRules: [FileRuleDescription] {
         switch self {
-        case .xcode, .swiftbuild:
-            return FileRuleDescription.xcbuildFileTypes
+        case .xcode:
+            FileRuleDescription.xcbuildFileTypes
+        case .swiftbuild:
+            FileRuleDescription.swiftBuildFileTypes
         case .native:
-            return FileRuleDescription.swiftpmFileTypes
+            FileRuleDescription.swiftpmFileTypes
         }
     }
 }

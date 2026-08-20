@@ -291,6 +291,7 @@ extension Workspace {
                                         artifactURL: artifact.url,
                                         targetName: artifact.targetName
                                     ))
+                                    self.evictFromCache(artifact: artifact, observabilityScope: observabilityScope)
                                     return nil
                                 }
 
@@ -426,6 +427,7 @@ extension Workspace {
                                     targetName: artifact.targetName,
                                     reason: error.interpolationDescription
                                 ))
+                                self.evictFromCache(artifact: artifact, observabilityScope: observabilityScope)
                                 self.delegate?.didDownloadBinaryArtifact(
                                     from: artifact.url.absoluteString,
                                     result: .failure(error),
@@ -637,34 +639,46 @@ extension Workspace {
             let cacheKey = artifact.url.absoluteString.spm_mangledToC99ExtendedIdentifier()
             let cachedArtifactPath = cachePath.appending(cacheKey)
 
-            if self.fileSystem.exists(cachedArtifactPath) {
+            return try await self.fileSystem.withLock(on: cachedArtifactPath, type: .exclusive) {
+                if self.fileSystem.exists(cachedArtifactPath) {
+                    observabilityScope
+                        .emit(debug: "copying cached binary artifact for \(artifact.url) from \(cachedArtifactPath)")
+                    self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString, fromCache: true)
+
+                    // copy from cache to destination
+                    try self.fileSystem.copy(from: cachedArtifactPath, to: destination)
+                    return true // fetched from cache
+                }
+
+                // download to the cache
                 observabilityScope
-                    .emit(debug: "copying cached binary artifact for \(artifact.url) from \(cachedArtifactPath)")
-                self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString, fromCache: true)
+                    .emit(debug: "downloading binary artifact for \(artifact.url) to cache at \(cachedArtifactPath)")
 
-                // copy from cache to destination
-                try self.fileSystem.copy(from: cachedArtifactPath, to: destination)
-                return true // fetched from cache
+                self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString, fromCache: false)
+
+                do {
+                    try await self.download(
+                        artifact: artifact,
+                        destination: cachedArtifactPath,
+                        observabilityScope: observabilityScope,
+                        progress: progress
+                    )
+                    try self.fileSystem.copy(from: cachedArtifactPath, to: destination)
+                    return false // not fetched from cache
+                } catch {
+                    try? self.fileSystem.removeFileTree(cachedArtifactPath)
+                    throw error
+                }
             }
+        }
 
-            // download to the cache
-            observabilityScope
-                .emit(debug: "downloading binary artifact for \(artifact.url) to cache at \(cachedArtifactPath)")
-
-            self.delegate?.willDownloadBinaryArtifact(from: artifact.url.absoluteString, fromCache: false)
-
-            do {
-                try await self.download(
-                    artifact: artifact,
-                    destination: cachedArtifactPath,
-                    observabilityScope: observabilityScope,
-                    progress: progress
-                )
-                try self.fileSystem.copy(from: cachedArtifactPath, to: destination)
-                return false // not fetched from cache
-            } catch {
-                try? self.fileSystem.removeFileTree(cachedArtifactPath)
-                throw error
+        private func evictFromCache(artifact: RemoteArtifact, observabilityScope: ObservabilityScope) {
+            guard let cachePath = self.cachePath else { return }
+            let cacheKey = artifact.url.absoluteString.spm_mangledToC99ExtendedIdentifier()
+            let cachedArtifactPath = cachePath.appending(cacheKey)
+            guard self.fileSystem.exists(cachedArtifactPath) else { return }
+            observabilityScope.trap {
+                try self.fileSystem.removeFileTree(cachedArtifactPath)
             }
         }
 

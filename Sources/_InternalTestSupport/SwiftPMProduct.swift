@@ -83,7 +83,8 @@ extension SwiftPM {
         _ args: [String] = [],
         packagePath: AbsolutePath? = nil,
         env: Environment? = nil,
-        throwIfCommandFails: Bool = true
+        throwIfCommandFails: Bool = true,
+        commandPrefix: [String] = [],
     ) async throws -> (stdout: String, stderr: String) {
         // Swift Testing uses Swift concurrency for test execution and creates a task for each test to run in parallel.
         // A single invocation of "swift build" can spawn a large number of subprocesses.
@@ -95,7 +96,8 @@ extension SwiftPM {
             let result = try await executeProcess(
                 args,
                 packagePath: packagePath,
-                env: env
+                env: env,
+                commandPrefix: commandPrefix,
             )
             // Remove /r from stdout/stderr so that tests do not have to deal with them
             let stdout = try String(decoding: result.output.get().filter { $0 != 13 }, as: Unicode.UTF8.self)
@@ -118,7 +120,8 @@ extension SwiftPM {
     private func executeProcess(
         _ args: [String],
         packagePath: AbsolutePath? = nil,
-        env: Environment? = nil
+        env: Environment? = nil,
+        commandPrefix: [String],
     ) async throws -> AsyncProcessResult {
         var environment = Environment.current
 #if !os(Windows)
@@ -143,7 +146,7 @@ extension SwiftPM {
             environment[key] = value
         }
 
-        var completeArgs = [Self.xctestBinaryPath(for: RelativePath(self.executableName)).pathString]
+        var completeArgs = commandPrefix + [Self.xctestBinaryPath(for: RelativePath(self.executableName)).pathString]
         if let packagePath = packagePath {
             completeArgs += ["--package-path", packagePath.pathString]
         }

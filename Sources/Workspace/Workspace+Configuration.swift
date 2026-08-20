@@ -469,7 +469,7 @@ extension Workspace.Configuration {
 
 extension Workspace.Configuration {
     public struct Mirrors {
-        private let localMirrors: MirrorsStorage
+        private let localMirrors: MirrorsStorage?
         private let sharedMirrors: MirrorsStorage?
         private let fileSystem: FileSystem
 
@@ -511,10 +511,16 @@ extension Workspace.Configuration {
         ///   - sharedMirrorsFile: Path to the shared mirrors configuration file, defaults to the standard location.
         public init(
             fileSystem: FileSystem,
-            localMirrorsFile: AbsolutePath,
+            localMirrorsFile: AbsolutePath?,
             sharedMirrorsFile: AbsolutePath?
         ) throws {
-            self.localMirrors = .init(path: localMirrorsFile, fileSystem: fileSystem, deleteWhenEmpty: true)
+            // At least one of local or shared is required
+            if localMirrorsFile == nil, sharedMirrorsFile == nil {
+                throw StringError("No mirrors configuration provided")
+            }
+
+            self.localMirrors = localMirrorsFile
+                .map { .init(path: $0, fileSystem: fileSystem, deleteWhenEmpty: true) }
             self.sharedMirrors = sharedMirrorsFile
                 .map { .init(path: $0, fileSystem: fileSystem, deleteWhenEmpty: false) }
             self.fileSystem = fileSystem
@@ -525,7 +531,10 @@ extension Workspace.Configuration {
 
         @discardableResult
         public func applyLocal(handler: (inout DependencyMirrors) throws -> Void) throws -> DependencyMirrors {
-            try self.localMirrors.apply(handler: handler)
+            guard let localMirrors else {
+                throw InternalError("local mirrors not configured")
+            }
+            try localMirrors.apply(handler: handler)
             try self.computeMirrors()
             return self.mirrors
         }
@@ -547,8 +556,7 @@ extension Workspace.Configuration {
                 self._mirrors.removeAll()
 
                 // prefer local mirrors to shared ones
-                let local = try self.localMirrors.get()
-                if !local.isEmpty {
+                if let local = try self.localMirrors?.get(), !local.isEmpty {
                     try self._mirrors.append(contentsOf: local)
                     return
                 }

@@ -41,6 +41,7 @@ import enum TSCBasic.JSON
 import var TSCBasic.stdoutStream
 import class TSCBasic.SynchronizedQueue
 import class TSCBasic.Thread
+import func TSCBasic.withTemporaryDirectory
 
 #if os(Windows)
 import WinSDK // for ERROR_NOT_FOUND
@@ -190,9 +191,9 @@ struct TestCommandOptions: ParsableArguments {
           help: "Print the path of the exported code coverage JSON file.")
     var shouldPrintCodeCovPath: Bool = false
 
-    var testCaseSpecifier: TestCaseSpecifier {
+    var xctestFilterSpecifier: XCTestCaseSpecifier {
         if !filter.isEmpty {
-            return .regex(filter)
+            return .regex(filter).normalizedForXCTest()
         }
 
         return _testCaseSpecifier.map { .specific($0) } ?? .none
@@ -250,7 +251,7 @@ struct TestCommandOptions: ParsableArguments {
 }
 
 /// Tests filtering the specifier, which is used to filter tests to run.
-public enum TestCaseSpecifier {
+public enum XCTestCaseSpecifier: Equatable {
     /// No filtering.
     case none
 
@@ -383,8 +384,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                     buildSystem: buildSystem
                 )
                 let tests = try testSuites
-                    .filteredTests(specifier: options.testCaseSpecifier)
-                    .skippedTests(specifier: options.skippedTests(fileSystem: swiftCommandState.fileSystem))
+                    .filteredTests(specifier: options.xctestFilterSpecifier)
+                    .skippedTests(specifier: options.xctestSkippedSpecifier(fileSystem: swiftCommandState.fileSystem))
 
                 let testResults: [ParallelTestRunner.TestResult]
                 if tests.isEmpty {
@@ -470,9 +471,9 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     }
 
     private func xctestArgs(for testProducts: [BuiltTestProduct], swiftCommandState: SwiftCommandState, buildSystem: any BuildSystem) async throws -> (arguments: [String], testCount: Int?) {
-        switch options.testCaseSpecifier {
+        switch options.xctestFilterSpecifier {
         case .none:
-            if case .skip = options.skippedTests(fileSystem: swiftCommandState.fileSystem) {
+            if case .skip = options.xctestSkippedSpecifier(fileSystem: swiftCommandState.fileSystem) {
                 fallthrough
             } else {
                 return ([], nil)
@@ -480,7 +481,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
         case .regex, .specific, .skip:
             // If the previous specifier `-s` option was used, emit the deprecation notice.
-            if case .specific = options.testCaseSpecifier {
+            if case .specific = options.xctestFilterSpecifier {
                 swiftCommandState.observabilityScope.emit(warning: "'--specifier' option is deprecated; use '--filter' instead")
             }
 
@@ -495,8 +496,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 buildSystem: buildSystem
             )
             let tests = try testSuites
-                .filteredTests(specifier: options.testCaseSpecifier)
-                .skippedTests(specifier: options.skippedTests(fileSystem: swiftCommandState.fileSystem))
+                .filteredTests(specifier: options.xctestFilterSpecifier)
+                .skippedTests(specifier: options.xctestSkippedSpecifier(fileSystem: swiftCommandState.fileSystem))
 
             return (TestRunner.xctestArguments(forTestSpecifiers: tests.map(\.specifier)), tests.count)
         }
@@ -578,7 +579,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                                  (options.testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) ||
                                   testEntryPointPath == nil)
 
-        let skipSpecifier = options.skippedTests(fileSystem: swiftCommandState.fileSystem)
+        let skipSpecifier = options.xctestSkippedSpecifier(fileSystem: swiftCommandState.fileSystem)
 
         var productsWithXCTests = Set<AbsolutePath>()
         if xctestEnabled {
@@ -592,7 +593,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 buildSystem: buildSystem
             )
             let matchingTests = try xctestSuites
-                .filteredTests(specifier: options.testCaseSpecifier)
+                .filteredTests(specifier: options.xctestFilterSpecifier)
                 .skippedTests(specifier: skipSpecifier)
             productsWithXCTests = Set(matchingTests.map(\.testProduct.bundlePath))
         }
@@ -665,6 +666,14 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             let commandLineArguments = CommandLine.arguments.dropFirst()
             var swiftTestingArgs = ["--testing-library", "swift-testing", "--enable-swift-testing"]
 
+            for pattern in options.filter {
+                swiftTestingArgs += ["--filter", pattern]
+            }
+
+            for pattern in options._testCaseSkip {
+                swiftTestingArgs += ["--skip", pattern]
+            }
+
             if let separatorIndex = commandLineArguments.firstIndex(of: "--") {
                 let offset = commandLineArguments.distance(from: commandLineArguments.startIndex, to: separatorIndex)
                 swiftTestingArgs += Array(commandLineArguments.dropFirst(offset + 1))
@@ -710,35 +719,166 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         library: TestingLibrary,
         buildSystem: any BuildSystem
     ) async throws -> [TestProductResult] {
+        // Each Swift Testing binary opens its output files (`--xunit-output`,
+        // `--event-stream-output-path`) with `fopen(path, "wb")`, which truncates any previous
+        // content. With multiple test products, the last product to run would wipe every prior
+        // product's output. Route each product's output to distinct per-product paths in a temp
+        // dir, then merge into the caller-specified path for the flag.
+        let mergeableOutputs = self.mergeableTestOutputs(library: library, swiftCommandState: swiftCommandState)
+
+        if testProducts.count > 1, !mergeableOutputs.isEmpty {
+            return try await withTemporaryDirectory(
+                prefix: "swiftpm-test-output-",
+                removeTreeOnDeinit: true,
+            ) { tempDir in
+                let perProductSources: [[AbsolutePath]] = mergeableOutputs.enumerated().map { _, output in
+                    testProducts.enumerated().map { productIndex, product in
+                        tempDir.appending(output.perProductFileName(productIndex, product.productName))
+                    }
+                }
+
+                var results: [TestProductResult] = []
+                for (index, product) in testProducts.enumerated() {
+                    let forwardedOutputs = mergeableOutputs.enumerated().map { outputIndex, output in
+                        ForwardedTestOutput(flag: output.flag, path: perProductSources[outputIndex][index])
+                    }
+                    let productResults = try await self.runTestProductsInSingleInvocation(
+                        [product],
+                        additionalArguments: additionalArguments,
+                        productsBuildParameters: productsBuildParameters,
+                        swiftCommandState: swiftCommandState,
+                        library: library,
+                        buildSystem: buildSystem,
+                        forwardedOutputs: forwardedOutputs,
+                    )
+                    results.append(contentsOf: productResults)
+                }
+                for (outputIndex, output) in mergeableOutputs.enumerated() {
+                    try output.merge(perProductSources[outputIndex], output.destination)
+                }
+                return results
+            }
+        }
+
+        return try await runTestProductsInSingleInvocation(
+            testProducts,
+            additionalArguments: additionalArguments,
+            productsBuildParameters: productsBuildParameters,
+            swiftCommandState: swiftCommandState,
+            library: library,
+            buildSystem: buildSystem,
+            forwardedOutputs: mergeableOutputs.map { ForwardedTestOutput(flag: $0.flag, path: $0.destination) },
+        )
+    }
+
+    /// An output flag SwiftPM rewrites and forwards to a single Swift Testing invocation.
+    private struct ForwardedTestOutput {
+        let flag: String
+        let path: AbsolutePath
+    }
+
+    /// A Swift Testing output whose per-product files must be routed to distinct paths and merged
+    /// into a single caller-specified destination.
+    ///
+    /// Swift Testing truncates each output file on open (`fopen(path, "wb")`), so when SwiftPM runs
+    /// one process per test product they cannot share a path. Each entry describes one such output:
+    /// the flag to forward, the destination to merge into, how to name each product's file, and how
+    /// to merge them.
+    private struct MergeableTestOutput {
+        /// The flag forwarded to Swift Testing
+        let flag: String
+        /// The caller-visible path the per-product outputs are merged into.
+        let destination: AbsolutePath
+        /// Builds the per-product file name for the given product index and name.
+        let perProductFileName: (_ index: Int, _ productName: String) -> String
+        /// Merges the per-product outputs into the destination.
+        let merge: (_ sources: [AbsolutePath], _ destination: AbsolutePath) throws -> Void
+    }
+
+    /// The mergeable outputs requested on the command line. Empty unless Swift Testing is in use
+    /// and an output path was requested.
+    ///
+    /// The formalized `--event-stream-output-path` and the legacy `--experimental-event-stream-output`
+    /// both bind to the same feature; the flag the user chose is preserved so it can be forwarded to
+    /// Swift Testing under the same name.
+    private func mergeableTestOutputs(
+        library: TestingLibrary,
+        swiftCommandState: SwiftCommandState,
+    ) -> [MergeableTestOutput] {
+        guard library == .swiftTesting else { return [] }
+
+        var outputs: [MergeableTestOutput] = []
+        if let xUnitOutput = options.xUnitOutput {
+            outputs.append(
+                MergeableTestOutput(
+                    flag: "--xunit-output",
+                    destination: swiftTestingXUnitDestinationPath(from: xUnitOutput, swiftCommandState: swiftCommandState),
+                    perProductFileName: { index, productName in "xunit-\(index)-\(productName).xml" },
+                    merge: { sources, destination in
+                        try XUnitXMLMerger.merge(sources: sources, into: destination, fileSystem: localFileSystem)
+                    },
+                )
+            )
+        }
+
+        // The formalized flag and the legacy experimental alias bind to the same feature; forward
+        // whichever the user specified.
+        let eventStreamOutput: (flag: String, path: AbsolutePath)?
+        if let path = options.testEventStreamOptions.eventStreamOutputPath {
+            eventStreamOutput = (flag: "--event-stream-output-path", path: path)
+        } else if let path = options.testEventStreamOptions.experimentalEventStreamOutputPath {
+            eventStreamOutput = (flag: "--experimental-event-stream-output", path: path)
+        } else {
+            eventStreamOutput = nil
+        }
+        if let eventStreamOutput {
+            outputs.append(
+                MergeableTestOutput(
+                    flag: eventStreamOutput.flag,
+                    destination: eventStreamOutput.path,
+                    perProductFileName: { index, productName in "event-stream-\(index)-\(productName).jsonl" },
+                    merge: { sources, destination in
+                        try FileContentsMerger.merge(sources: sources, into: destination, fileSystem: localFileSystem)
+                    },
+                )
+            )
+        }
+        return outputs
+    }
+
+    private func runTestProductsInSingleInvocation(
+        _ testProducts: [BuiltTestProduct],
+        additionalArguments: [String],
+        productsBuildParameters: BuildParameters,
+        swiftCommandState: SwiftCommandState,
+        library: TestingLibrary,
+        buildSystem: any BuildSystem,
+        forwardedOutputs: [ForwardedTestOutput],
+    ) async throws -> [TestProductResult] {
         // Pass through all arguments from the command line to Swift Testing.
         var additionalArguments = additionalArguments
         if library == .swiftTesting {
-            // Reconstruct the arguments list. If an xUnit path or maximum-repetition value was specified, remove it.
+            // Reconstruct the arguments list, dropping the output-path flags whose values SwiftPM
+            // rewrites per-product (both the `--flag value` and `--flag=value` forms), plus
+            // `--maximum-repetitions`. SwiftPM re-adds the ones it owns below with per-product-aware
+            // values.
+            let rewrittenFlags = Set(forwardedOutputs.map(\.flag))
             var commandLineArguments = [String]()
             var originalCommandLineArguments = CommandLine.arguments.dropFirst().makeIterator()
             while let arg = originalCommandLineArguments.next() {
-                if arg == "--xunit-output" || arg == "--maximum-repetitions" {
+                if arg == "--maximum-repetitions" || rewrittenFlags.contains(arg) {
                     _ = originalCommandLineArguments.next()
-                } else if arg.hasPrefix("--xunit-output=") {
-                    // Drop the combined form so it isn't passed through in addition to SPM's `--xunit-output`.
+                } else if rewrittenFlags.contains(where: { arg.hasPrefix("\($0)=") }) {
+                    // Drop the combined form so it isn't passed through in addition to SPM's own flag.
                 } else {
                     commandLineArguments.append(arg)
                 }
             }
             additionalArguments += commandLineArguments
 
-            if var xunitPath = options.xUnitOutput {
-                if options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
-                    // You are running Swift Testing, XCTest is also running in this session, and an xUnit path
-                    // was specified. Make sure you don't stomp on XCTest's XML output by having Swift Testing
-                    // write to a different path.
-                    var xunitFileName = "\(xunitPath.basenameWithoutExt)-swift-testing"
-                    if let ext = xunitPath.extension {
-                        xunitFileName = "\(xunitFileName).\(ext)"
-                    }
-                    xunitPath = xunitPath.parentDirectory.appending(xunitFileName)
-                }
-                additionalArguments += ["--xunit-output", xunitPath.pathString]
+            // Re-add each rewritten output flag with its per-product-aware path.
+            for output in forwardedOutputs {
+                additionalArguments += [output.flag, output.path.pathString]
             }
 
             // Forward along --maximum-repetitions as --repetitions
@@ -775,6 +915,23 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             // ie "swift test" should output to stdout
             print($0, terminator: "")
         })
+    }
+
+    private func swiftTestingXUnitDestinationPath(
+        from xUnitOutput: AbsolutePath,
+        swiftCommandState: SwiftCommandState,
+    ) -> AbsolutePath {
+        guard options.testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) else {
+            return xUnitOutput
+        }
+        // You are running Swift Testing, XCTest is also running in this session, and an xUnit path
+        // was specified. Make sure you don't stomp on XCTest's XML output by having Swift Testing
+        // write to a different path.
+        var xunitFileName = "\(xUnitOutput.basenameWithoutExt)-swift-testing"
+        if let ext = xUnitOutput.extension {
+            xunitFileName = "\(xunitFileName).\(ext)"
+        }
+        return xUnitOutput.parentDirectory.appending(xunitFileName)
     }
 
     private static func handleTestOutput(productsBuildParameters: BuildParameters, packagePath: AbsolutePath, buildSystem: any BuildSystem) async throws {
@@ -1673,7 +1830,7 @@ fileprivate extension Dictionary where Key == BuiltTestProduct, Value == [TestSu
     }
 
     /// Return tests matching the provided specifier
-    func filteredTests(specifier: TestCaseSpecifier) throws -> [UnitTest] {
+    func filteredTests(specifier: XCTestCaseSpecifier) throws -> [UnitTest] {
         switch specifier {
         case .none:
             return allTests
@@ -1694,7 +1851,7 @@ fileprivate extension Dictionary where Key == BuiltTestProduct, Value == [TestSu
 
 fileprivate extension Array where Element == UnitTest {
     /// Skip tests matching the provided specifier
-    func skippedTests(specifier: TestCaseSpecifier) throws -> [UnitTest] {
+    func skippedTests(specifier: XCTestCaseSpecifier) throws -> [UnitTest] {
         switch specifier {
         case .none:
             return self
@@ -1818,20 +1975,65 @@ extension SwiftCommandState {
     }
 }
 
+extension XCTestCaseSpecifier {
+    /// Normalizes filter/skip arguments for XCTest, which only understands test ID patterns.
+    ///
+    /// `id:foo` and bare `foo` match a test ID, so the prefix is stripped and applied normally. Any other prefix
+    /// (e.g. `tag:`) is a Swift Testing-only concept no XCTest can match.
+    func normalizedForXCTest() -> XCTestCaseSpecifier {
+        switch self {
+        case .none, .specific:
+            return self
+        case .regex(let array):
+            // Encountering _any_ prefix other than `id:` (such as `tag:`) means that no XCTest test could match
+            // against it (because, for example, it's impossible for an XCTest to have a tag). Functionally, this means
+            // that if we encounter any such filters, we automatically know that we shouldn't run any XCTests. We
+            // represent this by returning `.regex([])` which no XCTest matches.
+            var normalizedPatterns = [String]()
+            for pattern in array {
+                guard let stripped = Self.strippedIDPatternForXCTest(pattern) else {
+                    return .regex([])
+                }
+                normalizedPatterns.append(stripped)
+            }
+            return .regex(normalizedPatterns)
+        case .skip(let array):
+            let normalizedPatterns = array.compactMap(Self.strippedIDPatternForXCTest(_:))
+            if normalizedPatterns.isEmpty { return .none }
+            return .skip(normalizedPatterns)
+        }
+    }
+
+    /// The XCTest ID pattern for `pattern` (stripping any `id:` prefix), or `nil` if it carries a
+    /// non-`id:` prefix that XCTest can never match.
+    private static func strippedIDPatternForXCTest(_ pattern: String) -> String? {
+        let idPrefix = #/^id:/#
+        let genericTagPrefix = #/^[a-zA-Z]+:/#
+        if pattern.contains(idPrefix) {
+            return String(pattern.trimmingPrefix(idPrefix))
+        } else if pattern.contains(genericTagPrefix) {
+            return nil
+        } else {
+            return pattern
+        }
+    }
+}
+
 extension TestCommandOptions {
-    func skippedTests(fileSystem: FileSystem) -> TestCaseSpecifier {
+    /// Returns the specifier used for skipping tests, normalized for XCTest.
+    func xctestSkippedSpecifier(fileSystem: FileSystem) -> XCTestCaseSpecifier {
         // TODO: Remove this once the environment variable is no longer used.
         if let override = skippedTestsOverride(fileSystem: fileSystem) {
-            return override
+            return override.normalizedForXCTest()
         }
 
         return self._testCaseSkip.isEmpty
             ? .none
-            : .skip(self._testCaseSkip)
+            : .skip(self._testCaseSkip).normalizedForXCTest()
     }
 
     /// Returns the test case specifier if overridden in the environment.
-    private func skippedTestsOverride(fileSystem: FileSystem) -> TestCaseSpecifier? {
+    private func skippedTestsOverride(fileSystem: FileSystem) -> XCTestCaseSpecifier? {
         guard let override = Environment.current["_SWIFTPM_SKIP_TESTS_LIST"] else {
             return nil
         }

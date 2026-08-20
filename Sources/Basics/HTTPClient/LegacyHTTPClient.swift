@@ -14,11 +14,11 @@ import _Concurrency
 import Dispatch
 import struct Foundation.Data
 import struct Foundation.Date
-import class Foundation.NSLock
 import class Foundation.OperationQueue
 import func Foundation.pow
 import struct Foundation.URL
 import struct Foundation.UUID
+import Synchronization
 
 // MARK: - LegacyHTTPClient
 
@@ -49,8 +49,7 @@ public final class LegacyHTTPClient: Cancellable {
     private var outstandingRequests = ThreadSafeKeyValueStore<UUID, OutstandingRequest>()
 
     // static to share across instances of the http client
-    private static let hostsErrorsLock = NSLock()
-    private static var hostsErrors = [String: [Date]]()
+    private static let hostsErrors = Mutex<[String: [Date]]>([:])
 
     public init(configuration: LegacyHTTPClientConfiguration = .init(), handler: Handler? = nil) {
         self.configuration = configuration
@@ -276,11 +275,11 @@ public final class LegacyHTTPClient: Cancellable {
             guard let host = request.url.host else {
                 return
             }
-            Self.hostsErrorsLock.withLock {
+            Self.hostsErrors.withLock { hostsErrors in
                 // Avoid copy-on-write: remove entry from dictionary before mutating
-                var errors = Self.hostsErrors.removeValue(forKey: host) ?? []
+                var errors = hostsErrors.removeValue(forKey: host) ?? []
                 errors.append(Date())
-                Self.hostsErrors[host] = errors
+                hostsErrors[host] = errors
             }
         }
     }
@@ -292,17 +291,20 @@ public final class LegacyHTTPClient: Cancellable {
 
         switch strategy {
         case .hostErrors(let maxErrors, let age):
-            if let host = request.url.host, let errors = (Self.hostsErrorsLock.withLock { Self.hostsErrors[host] }) {
-                if errors.count >= maxErrors, let lastError = errors.last, let age = age.timeInterval() {
-                    return Date().timeIntervalSince(lastError) <= age
-                } else if errors.count >= maxErrors {
-                    // reset aged errors
-                    Self.hostsErrorsLock.withLock {
-                        Self.hostsErrors[host] = nil
-                    }
-                }
+            guard let host = request.url.host else {
+                return false
             }
-            return false
+            return Self.hostsErrors.withLock { hostsErrors in
+                guard let errors = hostsErrors[host], errors.count >= maxErrors else {
+                    return false
+                }
+                if let lastError = errors.last, let age = age.timeInterval() {
+                    return Date().timeIntervalSince(lastError) <= age
+                }
+                // reset aged errors
+                hostsErrors[host] = nil
+                return false
+            }
         }
     }
 }

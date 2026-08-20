@@ -1639,7 +1639,7 @@ extension BuildSettings.AssignmentTable {
     fileprivate var pifAssignments: [PIF.BuildSettings.MultipleValueSetting: [PIFBuildSettingAssignment]] {
         var pifAssignments: [PIF.BuildSettings.MultipleValueSetting: [PIFBuildSettingAssignment]] = [:]
 
-        for (declaration, assignments) in self.assignments {
+        for (declaration, assignments) in self.assignments.sorted(by: { $0.key < $1.key }) {
             for assignment in assignments {
                 let setting: PIF.BuildSettings.MultipleValueSetting
                 let value: [String]

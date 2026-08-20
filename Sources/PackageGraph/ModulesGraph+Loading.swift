@@ -150,6 +150,10 @@ extension ModulesGraph {
             //
             // FIXME: Lift this out of the manifest.
             let packagePath = manifest.path.parentDirectory
+            // Use the file system associated with this package, if there is one. A package provided by a
+            // custom container may be backed by its own file system, and its sources can only be
+            // discovered through it rather than through the one backing the rest of the graph.
+            let packageFileSystem = manifestMap[node.identity]?.fs ?? fileSystem
             nodeObservabilityScope.trap {
                 // Create a package from the manifest and sources.
 
@@ -170,7 +174,7 @@ extension ModulesGraph {
                     shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                     testEntryPointPath: testEntryPointPath,
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
-                    fileSystem: fileSystem,
+                    fileSystem: packageFileSystem,
                     observabilityScope: nodeObservabilityScope,
                     enabledTraits: enabledTraits
                 )

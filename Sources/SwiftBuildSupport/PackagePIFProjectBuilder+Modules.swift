@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+import struct TSCBasic.OrderedSet
 import TSCUtility
 
 import struct Basics.AbsolutePath
@@ -63,7 +64,9 @@ extension PackagePIFProjectBuilder {
         var buildSettings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
 
         // Add the dependencies.
-        pluginModule.recursivelyTraverseTransitiveLinkageDependencies(includeMacroDependencies: false) { dependency in
+        var pluginTarget = self.project[keyPath: pluginTargetKeyPath]
+        let mainModuleProducts = self.package.products.filter(\.isMainModuleProduct)
+        pluginModule.recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: []) { dependency in
             switch dependency {
             case .module(let moduleDependency, let packageConditions):
                 // This assertion is temporarily disabled since we may see targets from
@@ -77,12 +80,11 @@ extension PackagePIFProjectBuilder {
                 case .executable, .snippet:
                     // For executable targets, add a build time dependency on the product.
                     // FIXME: Maybe we should we do this at the libSwiftPM level.
-                    let moduleProducts = self.package.products.filter(\.isMainModuleProduct)
                     let productDependency = moduleDependency
-                        .productRepresentingDependencyOfBuildPlugin(in: moduleProducts)
+                        .productRepresentingDependencyOfBuildPlugin(in: mainModuleProducts)
 
                     if let productDependency {
-                        self.project[keyPath: pluginTargetKeyPath].common.addDependency(
+                        pluginTarget.common.addDependency(
                             on: productDependency.pifTargetGUID,
                             platformFilters: dependencyPlatformFilters
                         )
@@ -97,7 +99,7 @@ extension PackagePIFProjectBuilder {
 
                 case .library, .systemModule, .externalLibrary, .test, .binary, .plugin, .macro:
                     let dependencyGUID = moduleDependency.pifTargetGUID
-                    self.project[keyPath: pluginTargetKeyPath].common.addDependency(
+                    pluginTarget.common.addDependency(
                         on: dependencyGUID,
                         platformFilters: dependencyPlatformFilters
                     )
@@ -118,7 +120,7 @@ extension PackagePIFProjectBuilder {
                     let dependencyPlatformFilters = packageConditions
                         .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
 
-                    self.project[keyPath: pluginTargetKeyPath].common.addDependency(
+                    pluginTarget.common.addDependency(
                         on: dependencyGUID,
                         platformFilters: dependencyPlatformFilters
                     )
@@ -130,12 +132,13 @@ extension PackagePIFProjectBuilder {
         // Any dependencies of plugin targets need to be built for the host.
         buildSettings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
 
-        self.project[keyPath: pluginTargetKeyPath].common.addBuildConfig { id in
+        pluginTarget.common.addBuildConfig { id in
             BuildConfig(id: id, name: "Debug", settings: buildSettings)
         }
-        self.project[keyPath: pluginTargetKeyPath].common.addBuildConfig { id in
+        pluginTarget.common.addBuildConfig { id in
             BuildConfig(id: id, name: "Release", settings: buildSettings)
         }
+        self.project[keyPath: pluginTargetKeyPath] = pluginTarget
 
         let pluginModuleMetadata = PackagePIFBuilder.ModuleOrProduct(
             type: .plugin,
@@ -269,6 +272,7 @@ extension PackagePIFProjectBuilder {
         precondition(sourceModule.isSourceModule)
 
         let productType: ProjectModel.Target.ProductType
+        var productName = "$(EXECUTABLE_NAME)"
 
         switch desiredModuleType {
         case .dynamicLibrary:
@@ -276,6 +280,7 @@ extension PackagePIFProjectBuilder {
             if pifBuilder.createDylibForDynamicProducts {
                 productType = .dynamicLibrary
             } else {
+                productName = "$(WRAPPER_NAME)"
                 productType = .framework
             }
 
@@ -305,7 +310,7 @@ extension PackagePIFProjectBuilder {
                 id: sourceModule.pifTargetGUID(suffix: targetSuffix),
                 productType: productType,
                 name: sourceModule.name,
-                productName: "$(EXECUTABLE_NAME)",
+                productName: productName,
                 approvedByUser: approvedByUser
             )
         }
@@ -336,7 +341,7 @@ extension PackagePIFProjectBuilder {
             let (result, resourceBundle) = try addResourceBundle(
                 for: sourceModule,
                 targetKeyPath: sourceModuleTargetKeyPath,
-                generatedResourceFiles: generatedFiles.resources.keys.map(\.pathString)
+                generatedResourceFiles: generatedFiles.sortedResourcePaths.map(\.pathString)
             )
             if let resourceBundle { self.builtModulesAndProducts.append(resourceBundle) }
 
@@ -374,7 +379,7 @@ extension PackagePIFProjectBuilder {
                 sourceModuleTargetKeyPath: sourceModuleTargetKeyPath,
                 resourceBundleTargetKeyPath: resourceBundleTargetKeyPath,
                 sourceFilePaths: generatedFiles.sources.map(\.self),
-                resourceFilePaths: generatedFiles.resources.keys.map(\.pathString)
+                resourceFilePaths: generatedFiles.sortedResourcePaths.map(\.pathString)
             )
         }
 
@@ -525,6 +530,23 @@ extension PackagePIFProjectBuilder {
 
                 // on windows modules are libraries, so we need to add a search path so the linker finds them
                 impartedSettings[.LIBRARY_SEARCH_PATHS, .windows] = ["$(inherited)", "$(TARGET_BUILD_DIR)/ExecutableModules"]
+
+                // If the executable is promoted to a non-executable PIF product (e.g. a Swift Playgrounds
+                // application), the product target installs the Swift module itself, so suppress this testable
+                // variant's copy to avoid both writing BUILT_PRODUCTS_DIR/<module>.swiftmodule, which produces
+                // a build error of "Multiple commands produce...".
+                let productInstallsOwnModule = self.package.products.contains { product in
+                    guard product.isMainModuleProduct,
+                          product.mainModule?.name == sourceModule.name,
+                          [.executable, .snippet].contains(product.type) else {
+                        return false
+                    }
+                    let pifType = pifBuilder.delegate.customProductType(forExecutable: product.underlying) ?? .executable
+                    return pifType != .executable
+                }
+                if productInstallsOwnModule {
+                    settings[.SWIFT_INSTALL_MODULE] = "NO"
+                }
             }
 
             if let aliases = sourceModule.moduleAliases {
@@ -620,14 +642,27 @@ extension PackagePIFProjectBuilder {
         // Create a group for the target's source files.
         //
         // For now we use an absolute path for it, but we should really make it be container-relative,
-        // since it's always inside the package directory. Resolve symbolic links otherwise there will
-        // be a mismatch between the paths that the index service is using for Swift Build queries,
-        // and what paths Swift Build uses in its build description; such a mismatch would result
-        // in the index service failing to get compiler arguments for source files of the target.
+        // since it's always inside the package directory.
+        //
+        // By default (for historical reasons) we resolve symbolic links,
+        // otherwise there will be a mismatch between the paths some indexing clients are using for
+        // Swift Build queries, and what paths Swift Build uses in its build description; such a
+        // mismatch would result in the index service failing to get compiler arguments for source
+        // files of the target.
+        //
+        // If a client is using `--experimental-skip-resolving-package-paths`, the path is used
+        // as-is.
+        //
+        // Ideally, we could get all known clients to use one mode or the other, but the migration story
+        // is tricky.
+        let sourceDirGroupPath =
+            pifBuilder.shouldPreserveSymlinks
+            ? sourceModule.sourceDirAbsolutePath
+            : (try! resolveSymlinks(sourceModule.sourceDirAbsolutePath))
         let targetSourceFileGroupKeyPath = self.project.mainGroup.addGroup { id in
             ProjectModel.Group(
                 id: id,
-                path: try! resolveSymlinks(sourceModule.sourceDirAbsolutePath).pathString,
+                path: sourceDirGroupPath.pathString,
                 pathBase: .absolute
             )
         }
@@ -660,7 +695,7 @@ extension PackagePIFProjectBuilder {
             indexableFileURLs.append(SourceControlURL(fileURLWithPath: resource.path))
         }
 
-        let headerFiles = Set(sourceModule.headerFileAbsolutePaths)
+        let headerFiles = OrderedSet(sourceModule.headerFileAbsolutePaths)
 
         // Add the header files with project visibility for the purpose of exposing them
         // for symbol graph generation. For non-swift API that will be done using TAPI and
@@ -733,7 +768,8 @@ extension PackagePIFProjectBuilder {
         // Handle the target's dependencies (but only link against them if needed).
         let shouldLinkProduct = (desiredModuleType == .dynamicLibrary) || (desiredModuleType == .macro)
         var moduleTarget = self.project[keyPath: sourceModuleTargetKeyPath]
-        sourceModule.recursivelyTraverseTransitiveLinkageDependencies(includeMacroDependencies: false) { dependency in
+        let moduleMainProducts = self.package.products.filter(\.isMainModuleProduct)
+        sourceModule.recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: []) { dependency in
             switch dependency {
             case .module(let moduleDependency, let packageConditions):
                 // This assertion is temporarily disabled since we may see targets from
@@ -747,7 +783,6 @@ extension PackagePIFProjectBuilder {
                 case .executable, .snippet:
                     // Always depend on product of executable targets (if available).
                     // FIXME: Maybe we should we do this at the libSwiftPM level.
-                    let moduleMainProducts = self.package.products.filter(\.isMainModuleProduct)
                     if let product = moduleDependency
                         .productRepresentingDependencyOfBuildPlugin(in: moduleMainProducts)
                     {
@@ -954,7 +989,7 @@ extension PackagePIFProjectBuilder {
             moduleName: sourceModule.c99name,
             pifTarget: .target(self.project[keyPath: sourceModuleTargetKeyPath]),
             indexableFileURLs: indexableFileURLs,
-            headerFiles: headerFiles,
+            headerFiles: Set(headerFiles.contents),
             buildToolPluginInputs: buildToolPluginInputs,
             doccCatalogs: doccCatalogs,
             linkedPackageBinaries: linkedPackageBinaries,

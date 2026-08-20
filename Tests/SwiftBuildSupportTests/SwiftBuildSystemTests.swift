@@ -30,6 +30,7 @@ import _InternalTestSupport
 func withInstantiatedSwiftBuildSystem(
     fromFixture fixtureName: String,
     buildParameters: BuildParameters? = nil,
+    createREPLProduct: Bool = false,
     logLevel: Basics.Diagnostic.Severity = .warning,
     do doIt: @escaping (SwiftBuildSupport.SwiftBuildSystem, SWBBuildService, SWBBuildServiceSession, TestingObservability, BuildParameters,) async throws -> (),
 ) async throws {
@@ -41,12 +42,20 @@ func withInstantiatedSwiftBuildSystem(
             let buildParameters = if let buildParameters {
                 buildParameters
             } else {
-                mockBuildParameters(destination: .host, toolchain: toolchain, buildSystemKind: .swiftbuild)
+                mockBuildParameters(
+                    destination: .host,
+                    buildPath: tmpDir.appending("build"),
+                    toolchain: toolchain,
+                    buildSystemKind: .swiftbuild,
+                )
             }
             let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting()
+            var workspaceConfiguration = WorkspaceConfiguration.default
+            workspaceConfiguration.createREPLProduct = createREPLProduct
             let workspace = try Workspace(
                 fileSystem: fileSystem,
                 forRootPackage: fixturePath,
+                configuration: workspaceConfiguration,
                 customManifestLoader: ManifestLoader(toolchain: toolchain),
             )
             let rootInput = PackageGraphRootInput(packages: [fixturePath], dependencies: [])
@@ -80,6 +89,7 @@ func withInstantiatedSwiftBuildSystem(
                 ),
                 delegate: nil,
                 scratchDirectory: tmpDir.appending("scratchDirectory"),
+                shouldDisableSandbox: false,
             )
 
             try await SwiftBuildSupport.withService(
@@ -141,6 +151,26 @@ extension PackageModel.Sanitizer {
 )
 struct SwiftBuildSystemTests {
 
+    @Test
+    func replIncludesGeneratedModuleMaps() async throws {
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "CFamilyTargets/ModuleMapGenerationCases",
+            createREPLProduct: true,
+        ) { swiftBuild, _, _, _, _ in
+            let result = try await swiftBuild.build(
+                subset: .allExcludingTests,
+                buildOutputs: [.replArguments],
+            )
+            let replArguments = try #require(result.replArguments)
+
+            #expect(replArguments.contains("-Xcc"))
+            #expect(!replArguments.contains("-fmodule-map-file="))
+            #expect(replArguments.contains {
+                $0.hasSuffix("/FlatInclude.modulemap") && $0.hasPrefix("-fmodule-map-file=")
+            })
+        }
+    }
+
     @Suite(
         .tags(
             .FunctionalArea.Sanitizer,
@@ -167,6 +197,7 @@ struct SwiftBuildSystemTests {
                     session: session,
                     symbolGraphOptions: nil,
                     setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                    shouldDisableSandbox: false,
                 )
 
                 let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -197,6 +228,7 @@ struct SwiftBuildSystemTests {
                         session: session,
                         symbolGraphOptions: nil,
                         setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                        shouldDisableSandbox: false,
                     )
                 }
             }
@@ -230,6 +262,7 @@ struct SwiftBuildSystemTests {
                     session: session,
                     symbolGraphOptions: nil,
                     setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                    shouldDisableSandbox: false,
                 )
 
                 // THEN we expect a warning to be emitted
@@ -273,6 +306,7 @@ struct SwiftBuildSystemTests {
                     session: session,
                     symbolGraphOptions: nil,
                     setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                    shouldDisableSandbox: false,
                 )
 
                 // THEN we don't expect any warnings to be emitted
@@ -309,6 +343,7 @@ struct SwiftBuildSystemTests {
                 session: session,
                 symbolGraphOptions: nil,
                 setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                shouldDisableSandbox: false,
             )
 
             let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -369,6 +404,7 @@ struct SwiftBuildSystemTests {
                 session: session,
                 symbolGraphOptions: nil,
                 setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                shouldDisableSandbox: false,
             )
 
             let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -405,6 +441,7 @@ struct SwiftBuildSystemTests {
                 session: session,
                 symbolGraphOptions: nil,
                 setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                shouldDisableSandbox: false,
             )
 
             let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -444,7 +481,8 @@ struct SwiftBuildSystemTests {
                     configuredTargets: [],
                     derivedDataPath: tempDir,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 #expect(buildRequest.schedulerLaneWidthOverride == expectedNumberOfWorkers)
@@ -469,7 +507,8 @@ struct SwiftBuildSystemTests {
                     configuredTargets: [],
                     derivedDataPath: tempDir,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 #expect(buildRequest.parameters.overrides.synthesized?.table["OTHER_CFLAGS"]?.contains("-DFoo") == true)
@@ -511,7 +550,8 @@ struct SwiftBuildSystemTests {
                     service: service,
                     session: session,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -547,7 +587,8 @@ struct SwiftBuildSystemTests {
                     service: service,
                     session: session,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -571,7 +612,8 @@ struct SwiftBuildSystemTests {
                     service: service,
                     session: session,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -601,7 +643,8 @@ struct SwiftBuildSystemTests {
                     service: service,
                     session: session,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -624,7 +667,8 @@ struct SwiftBuildSystemTests {
                     service: service,
                     session: session,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -658,7 +702,8 @@ struct SwiftBuildSystemTests {
                     service: service,
                     session: session,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -715,7 +760,8 @@ struct SwiftBuildSystemTests {
                     service: service,
                     session: session,
                     symbolGraphOptions: nil,
-                    setToolchainSetting: false
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
                 )
 
                 let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -789,7 +835,8 @@ struct SwiftBuildSystemTests {
                 service: service,
                 session: session,
                 symbolGraphOptions: nil,
-                setToolchainSetting: false
+                setToolchainSetting: false,
+                shouldDisableSandbox: false,
             )
 
             let synthesizedArgs = try #require(buildSettings.overrides.synthesized)
@@ -818,6 +865,7 @@ struct SwiftBuildSystemTests {
                 session: session,
                 symbolGraphOptions: nil,
                 setToolchainSetting: false,
+                shouldDisableSandbox: false,
             )
 
             let runDestination = try #require(buildSettings.activeRunDestination)

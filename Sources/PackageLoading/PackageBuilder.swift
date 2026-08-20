@@ -1396,7 +1396,7 @@ public final class PackageBuilder {
         }
 
         // For each trait we are now generating an additional define
-        for trait in self.enabledTraits {
+        for trait in self.enabledTraits.sorted() {
             var assignment = BuildSettings.Assignment()
             assignment.values = ["\(trait)"]
             assignment.conditions = []
@@ -1773,9 +1773,16 @@ public final class PackageBuilder {
             if executableTargetCount == 0 {
                 if let target = targets.spm_only {
                     self.observabilityScope
-                        .emit(.executableProductTargetNotExecutable(product: product.name, target: target.name))
+                        .emit(.executableProductTargetNotExecutable(
+                            product: product.name,
+                            target: target.name,
+                            toolsVersion: self.manifest.toolsVersion
+                        ))
                 } else {
-                    self.observabilityScope.emit(.executableProductWithoutExecutableTarget(product: product.name))
+                    self.observabilityScope.emit(.executableProductWithoutExecutableTarget(
+                        product: product.name,
+                        toolsVersion: self.manifest.toolsVersion
+                    ))
                 }
             } else {
                 self.observabilityScope.emit(.executableProductWithMoreThanOneExecutableTarget(product: product.name))

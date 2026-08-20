@@ -103,6 +103,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
     private let packageRoot: Basics.AbsolutePath
     private let buildSystem: SwiftBuildSystem
     private let workspace: Workspace
+    private let defaultScratchDirectory: Basics.AbsolutePath
 
     public let messageHandlingHelper = QueueBasedMessageHandlerHelper(
         signpostLoggingCategory: "build-server-message-handling",
@@ -154,6 +155,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         self.packageRoot = packageRoot
         self.buildSystem = buildSystem
         self.workspace = workspace
+        self.defaultScratchDirectory = Workspace.DefaultLocations.scratchDirectory(forRootPackage: packageRoot)
         self.connectionToClient = connectionToClient
         self.exitHandler = exitHandler
         let session = try await buildSystem.createLongLivedSession(name: "swiftpm-build-server")
@@ -165,7 +167,8 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
             session: session.session,
             configuredTargets: [.init(rawValue: "ALL-INCLUDING-TESTS")],
             derivedDataPath: self.buildSystem.buildParameters.dataPath,
-            symbolGraphOptions: nil
+            symbolGraphOptions: nil,
+            shouldDisableSandbox: false,
         )
         self.underlyingBuildServer = SWBBuildServer(
             session: session.session,
@@ -594,9 +597,22 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         return VoidResponse()
     }
 
+    private func isInScratchDirectory(_ url: URL) -> Bool {
+        guard let filePath = try? url.filePath else {
+            return false
+        }
+        if filePath.isDescendantOfOrEqual(to: self.workspace.location.scratchDirectory) || filePath.isDescendantOfOrEqual(to: self.defaultScratchDirectory) {
+            return true
+        }
+        return false
+    }
+
     /// An event is relevant if it modifies a file that matches one of the file rules used by the SwiftPM workspace.
     private func fileEventShouldTriggerPackageReload(event: FileEvent) -> Bool {
         guard let fileURL = event.uri.fileURL else {
+            return false
+        }
+        if isInScratchDirectory(fileURL) {
             return false
         }
         switch event.type {

@@ -1050,4 +1050,66 @@ extension ModulesGraphTests {
         }
     }
 
+    @Test
+    func traitsProduceDeterministicCompilationConditions() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles: "/MainPkg/Sources/MainLib/source.swift", "/DepPkg/Sources/DepLib/source.swift"
+        )
+
+        let manifests = try [
+            Manifest.createRootManifest(
+                displayName: "MainPkg",
+                path: "/MainPkg",
+                toolsVersion: .v6_1,
+                dependencies: [
+                    .localSourceControl(
+                        path: "/DepPkg",
+                        requirement: .upToNextMajor(from: "1.0.0"),
+                        traits: ["FeatureA", "FeatureB"]
+                    ),
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "MainLib",
+                        dependencies: [
+                            .product(name: "DepLib", package: "DepPkg"),
+                        ]
+                    ),
+                ]
+            ),
+            Manifest.createFileSystemManifest(
+                displayName: "DepPkg",
+                path: "/DepPkg",
+                toolsVersion: .v6_1,
+                products: [
+                    .init(name: "DepLib", type: .library(.automatic), targets: ["DepLib"]),
+                ],
+                targets: [
+                    TargetDescription(name: "DepLib"),
+                ],
+                traits: [
+                    "FeatureA",
+                    "FeatureB",
+                ]
+            ),
+        ]
+
+        for _ in 0..<5 {
+            let observability = ObservabilitySystem.makeForTesting()
+            let graph = try loadModulesGraph(
+                fileSystem: fs,
+                manifests: manifests,
+                observabilityScope: observability.topScope,
+                enabledTraitsMap: [
+                    "DepPkg": EnabledTraits(["FeatureA", "FeatureB"], setBy: .package("mainpkg")),
+                ]
+            )
+            #expect(observability.diagnostics.count == 0)
+
+            let depLib = try #require(graph.allModules.first { $0.name == "DepLib" })
+            let assignments = depLib.underlying.buildSettings
+                .assignments[.SWIFT_ACTIVE_COMPILATION_CONDITIONS] ?? []
+            #expect(assignments.map(\.values) == [["FeatureA"], ["FeatureB"]])
+        }
+    }
 }

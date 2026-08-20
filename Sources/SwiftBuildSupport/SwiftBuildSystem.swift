@@ -266,6 +266,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     /// Additional rules for different file types generated from plugins.
     private let additionalFileRules: [FileRuleDescription]
 
+    /// Whether to disable the use sandbox on external subcommands
+    private let shouldDisableSandbox: Bool
+
     public var builtTestProducts: [BuiltTestProduct] {
         get async {
             do {
@@ -348,6 +351,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         pluginConfiguration: PluginConfiguration,
         delegate: BuildSystemDelegate?,
         scratchDirectory: Basics.AbsolutePath, // currently used to create the symbolic links
+        shouldDisableSandbox: Bool,
     ) throws {
         self.buildParameters = buildParameters
         self.hostBuildParameters = hostBuildParameters
@@ -361,6 +365,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         self.pluginConfiguration = pluginConfiguration
         self.delegate = delegate
         self.scratchDirectory = scratchDirectory
+        self.shouldDisableSandbox = shouldDisableSandbox
     }
 
     private func createREPLArguments(
@@ -407,6 +412,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 "FRAMEWORK_SEARCH_PATHS",
             ]
         )
+        let moduleMapPaths = try await getUniqueBuildSettingsIncludingDependencies(
+            of: request.configuredTargets,
+            buildSettings: ["MODULEMAP_PATH"]
+        )
 
         let graph = try await self.getPackageGraph()
         // Link the special REPL product that contains all of the library targets.
@@ -415,9 +424,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // The graph should have the REPL product.
         assert(graph.product(for: replProductName) != nil)
 
-        let arguments = ["repl", "-l\(replProductName)"] + includePaths.map {
-            "-I\($0)"
-        }
+        let arguments = ["repl", "-l\(replProductName)"]
+            + includePaths.filter { !$0.isEmpty }.map { "-I\($0)" }
+            + moduleMapPaths.filter { !$0.isEmpty }.flatMap { ["-Xcc", "-fmodule-map-file=\($0)"] }
 
         self.outputStream.send("Done.\n")
         return arguments
@@ -470,8 +479,13 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         try await writePIF(buildParameters: self.buildParameters)
 
+        guard !self.observabilityScope.errorsReported else {
+            throw Diagnostics.fatalError
+        }
+
+        let graph = try await getPackageGraph()
         return try await startSWBuildOperation(
-            pifTargetName: subset.pifTargetName,
+            pifTargetName: subset.pifTargetName(for: graph),
             buildOutputs: buildOutputs,
         )
     }
@@ -633,7 +647,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
 
         var replArguments: CLIArguments?
-        var artifacts: [(String, PluginInvocationBuildResult.BuiltArtifact)]?
+        var artifacts: [BuildResult.BuiltArtifact]?
         var dependencyGraph: [String: [String]]?
         return try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
             let derivedDataPath = self.buildParameters.dataPath
@@ -683,7 +697,14 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                         throw error
                     }
 
-                    let request = try await self.makeBuildRequest(service: service, session: session, configuredTargets: configuredTargets, derivedDataPath: derivedDataPath, symbolGraphOptions: symbolGraphOptions)
+                    let request = try await self.makeBuildRequest(
+                        service: service,
+                        session: session,
+                        configuredTargets: configuredTargets,
+                        derivedDataPath: derivedDataPath,
+                        symbolGraphOptions: symbolGraphOptions,
+                        shouldDisableSandbox: self.shouldDisableSandbox,
+                    )
 
                     let operation = try await session.createBuildOperation(
                         request: request,
@@ -752,6 +773,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
                     if buildOutputs.contains(.builtArtifacts) {
                         if let buildDescriptionID {
+                            let graph = try await self.getPackageGraph()
+                            var umbrellaTestProductNamesByArtifactName: [String: String] = [:]
+                            for package in graph.rootPackages {
+                                let umbrellaName = package.manifest.umbrellaPackageTestsProductName
+                                for product in package.products where product.type == .test {
+                                    umbrellaTestProductNamesByArtifactName[product.name] = umbrellaName
+                                    umbrellaTestProductNamesByArtifactName["\(product.name)-test-runner"] = umbrellaName
+                                }
+                            }
+
                             let targetInfo = try await session.configuredTargets(buildDescription: buildDescriptionID, buildRequest: request)
                             artifacts = targetInfo.compactMap { target in
                                 guard let artifactInfo = target.artifactInfo else {
@@ -770,13 +801,14 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                                 }
                                 var name = target.name
                                 // FIXME: We need a better way to map between SwiftPM target/product names and PIF target names
-                                if pifTargetName.hasSuffix("-product") {
+                                if name.hasSuffix("-product") {
                                     name = String(name.dropLast(8))
                                 }
-                                return (name, .init(
-                                    path: artifactInfo.path,
-                                    kind: kind
-                                ))
+                                return BuildResult.BuiltArtifact(
+                                    name: name,
+                                    artifact: .init(path: artifactInfo.path, kind: kind),
+                                    umbrellaTestProductName: umbrellaTestProductNamesByArtifactName[name]
+                                )
                             }
                         } else {
                             self.observabilityScope.emit(error: "failed to compute built artifacts list")
@@ -855,6 +887,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         session: SWBBuildServiceSession,
         symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
         setToolchainSetting: Bool = true,
+        shouldDisableSandbox: Bool,
     ) async throws -> SwiftBuild.SWBBuildParameters {
         // Generate the run destination parameters.
         let runDestination = try await makeRunDestination(session: session)
@@ -884,6 +917,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             if !overrideToolchains.isEmpty {
                 settings["TOOLCHAINS"] = (overrideToolchains + ["$(inherited)"]).joined(separator: " ")
             }
+        }
+
+        if shouldDisableSandbox {
+            settings["SWIFTC_DISABLE_SANDBOX"] = "YES"
         }
 
         for sanitizer in buildParameters.sanitizers.sanitizers {
@@ -950,7 +987,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
 
         if !buildParameters.customToolsetPaths.isEmpty {
-            settings["SWIFT_SDK_TOOLSETS"] =
+            settings["SWIFT_SDK_TOOLSETS[__destination_platform=YES]"] =
                 (["$(inherited)"] + buildParameters.customToolsetPaths.map { $0.pathStringWithPosixSlashes })
                 .joined(separator: " ")
         }
@@ -1086,6 +1123,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         derivedDataPath: Basics.AbsolutePath,
         symbolGraphOptions: BuildOutput.SymbolGraphOptions?,
         setToolchainSetting: Bool = true,
+        shouldDisableSandbox: Bool,
         ) async throws -> SWBBuildRequest {
         var request = SWBBuildRequest()
         request.parameters = try await makeBuildParameters(
@@ -1093,6 +1131,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             session: session,
             symbolGraphOptions: symbolGraphOptions,
             setToolchainSetting: setToolchainSetting,
+            shouldDisableSandbox: shouldDisableSandbox,
         )
         request.configuredTargets = configuredTargets.map { SWBConfiguredTarget(guid: $0.rawValue, parameters: request.parameters) }
         request.useParallelTargets = true
@@ -1138,10 +1177,14 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     private static func constructExtraToolFlagsSettingsOverrides(from buildParameters: BuildParameters, verbosityFlags: [String]) -> [String: String] {
         var settings: [String: String] = [:]
-        var swiftCompilerFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags
+        var swiftCompilerFlags = WarningControlFlags.filterSwiftWarningControlFlags(buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags, value: \.value)
         swiftCompilerFlags += buildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
         // User arguments (from -Xcc) should follow generated arguments to allow user overrides
         swiftCompilerFlags += buildParameters.flags.cCompilerFlags.asSwiftcCCompilerFlags()
+        // We filter out the warning control flags from the user supplied swift compiler flags. If we don't, these global
+        // flags would be inherited by dependent targets, which are compiled with -suppress-warnings, and the
+        // driver rejects that combination (errors with "conflicting options '-Wwarning' and '-suppress-warnings'").
+        // Applying these flags to local targets is handled for individual packages in the PIF.
         // TODO: Pass -Xcxx flags to swiftc (#6491)
         // Uncomment when downstream support arrives.
         // swiftCompilerFlags += buildParameters.toolchain.extraFlags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()

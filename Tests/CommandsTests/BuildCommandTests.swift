@@ -528,7 +528,7 @@ struct BuildCommandTestCases {
     }
 
     @Test(
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/9138", relationship: .defect),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9138", relationship: .verifies),
         .tags(
             .Feature.CommandLineArguments.Target,
         ),
@@ -539,24 +539,56 @@ struct BuildCommandTestCases {
         data: BuildData,
     ) async throws {
         let buildSystem = data.buildSystem
-        try await withKnownIssue("Could not find target named 'exec2'") {
-            try await fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
-                let fullPath = try resolveSymlinks(fixturePath)
+        try await fixture(name: "Miscellaneous/MultipleExecutables") { fixturePath in
+            let fullPath = try resolveSymlinks(fixturePath)
 
-                let result = try await build(
-                    ["--target", "exec2"],
+            let result = try await build(
+                ["--target", "exec2"],
+                packagePath: fullPath,
+                configuration: data.config,
+                buildSystem: buildSystem,
+            )
+            switch buildSystem {
+            case .native:
+                #expect(result.binContents.contains("exec2.build"))
+                #expect(!result.binContents.contains("exec1.build"))
+            case .swiftbuild, .xcode:
+                #expect(result.binContents.contains(executableName("exec2")))
+                #expect(!result.binContents.contains(executableName("exec1")))
+            }
+
+            await expectThrowsCommandExecutionError(
+                try await build(
+                    ["--target", "notarealtarget"],
                     packagePath: fullPath,
                     configuration: data.config,
                     buildSystem: buildSystem,
                 )
-                #expect(result.binContents.contains("exec2.build"))
-                #expect(!result.binContents.contains(executableName("exec1")))
+            ) { error in
+                #expect(error.stderr.contains("Could not find target named 'notarealtarget'") ||
+                        error.stderr.contains("no target named 'notarealtarget'"))
             }
-        } when: {
-            [
-                .swiftbuild,
-                .xcode,
-            ].contains(buildSystem)
+        }
+    }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10275", relationship: .verifies),
+        .tags(
+            .Feature.CommandLineArguments.Target,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func buildExistingTestTargetIsSuccessful(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/EmptyTestsPkg") { fixturePath in
+            let fullPath = try resolveSymlinks(fixturePath)
+            _ = try await execute(
+                ["--target", "EmptyTestsPkgTests"],
+                packagePath: fullPath,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
         }
     }
 
@@ -945,6 +977,23 @@ struct BuildCommandTestCases {
                 )
                 expectFileExists(at: tmpDir.appending("manifest.pif"))
             }
+        }
+    }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10285", relationship: .verifies)
+    )
+    func docCBundleDoesNotEmitUnhandledFilesWarning() async throws {
+        try await fixture(name: "Miscellaneous/LibraryWithDocC") { fixturePath in
+            let (_, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                buildSystem: .swiftbuild
+            )
+
+            #expect(
+                stderr.contains("Documentation.docc") == false,
+                "Unexpected warning for the DocC bundle: \(stderr)"
+            )
         }
     }
 
@@ -1358,7 +1407,6 @@ struct BuildCommandTestCases {
         // Windows builds of ExecutableNew using swiftbuild can fail because of problem with handling long paths which
         // is root cause of linked issue
         .IssueWindowsPathNoEntry,
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/9745", relationship: .defect),
         .tags(
             .Feature.CommandLineArguments.DisableGetTaskAllowEntitlement,
             .Feature.CommandLineArguments.EnableGetTaskAllowEntitlement,
@@ -1367,12 +1415,11 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.BuildSystem
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: getBuildData(for: SupportedBuildSystemOnAllPlatforms),
     )
-    func getTaskAllowEntitlement(
-        buildSystem: BuildSystemProvider.Kind,
-    ) async throws {
-        let buildConfiguration = BuildConfiguration.debug
+    func getTaskAllowEntitlement(data: BuildData) async throws {
+        let buildSystem = data.buildSystem
+        let buildConfiguration = data.config
         try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
             #if os(macOS)
             func codesignDisplay(execPath: AbsolutePath) async throws -> PropertyListItem? {

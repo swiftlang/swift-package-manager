@@ -3,6 +3,7 @@
 **/*.png
 **/*.xcworkspacedata
 **/Package.swift
+.github/scripts/prebuild.sh
 .dir-locals.el
 .editorconfig
 .swift-version

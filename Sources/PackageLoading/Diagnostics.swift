@@ -73,18 +73,36 @@ extension Basics.Diagnostic {
         .error("\(type.description) product '\(product)' should not contain plugin targets (it has \(pluginTargets.map{ "'\($0)'" }.joined(separator: ", ")))")
     }
 
-    static func executableProductTargetNotExecutable(product: String, target: String) -> Self {
-        .error("""
-            executable product '\(product)' expects target '\(target)' to be executable; an executable target requires \
-            a 'main.swift' file
-            """)
+    static func executableProductTargetNotExecutable(
+        product: String,
+        target: String,
+        toolsVersion: ToolsVersion
+    ) -> Self {
+        if toolsVersion >= .v5_4 {
+            .error("""
+                executable product '\(product)' expects target '\(target)' to be executable; use \
+                'executableTarget()' to declare the target as executable
+                """)
+        } else {
+            .error("""
+                executable product '\(product)' expects target '\(target)' to be executable; \
+                an executable target requires a 'main.swift' file
+                """)
+        }
     }
 
-    static func executableProductWithoutExecutableTarget(product: String) -> Self {
-        .error("""
-            executable product '\(product)' should have one executable target; an executable target requires a \
-            'main.swift' file
-            """)
+    static func executableProductWithoutExecutableTarget(product: String, toolsVersion: ToolsVersion) -> Self {
+        if toolsVersion >= .v5_4 {
+            .error("""
+                executable product '\(product)' should have one executable target; use \
+                'executableTarget()' to declare a target as executable
+                """)
+        } else {
+            .error("""
+                executable product '\(product)' should have one executable target; an executable target requires a \
+                'main.swift' file
+                """)
+        }
     }
 
     static func executableProductWithMoreThanOneExecutableTarget(product: String) -> Self {

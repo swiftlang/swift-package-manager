@@ -21,6 +21,8 @@ import TSCUtility
 import SPMBuildCore
 
 import func TSCBasic.topologicalSort
+import func TSCBasic.transitiveClosure
+import struct TSCBasic.OrderedSet
 import var TSCBasic.stdoutStream
 
 import enum SwiftBuild.ProjectModel
@@ -87,7 +89,11 @@ package struct PIFBuilderParameters {
     /// reported by the build system for the host `BuildParameters`.
     let hostBuildProductsPath: AbsolutePath
 
-    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRpaths: PackagePIFBuilder.AddLocalRpaths, hostBuildProductsPath: AbsolutePath) {
+    /// Whether to preserve symbolic links in source file paths instead of resolving them to their
+    /// real path.
+    let shouldPreserveSymlinks: Bool
+
+    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRpaths: PackagePIFBuilder.AddLocalRpaths, hostBuildProductsPath: AbsolutePath, shouldPreserveSymlinks: Bool) {
         self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
         self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
@@ -102,6 +108,7 @@ package struct PIFBuilderParameters {
         self.additionalFileRules = additionalFileRules
         self.addLocalRpaths = addLocalRpaths
         self.hostBuildProductsPath = hostBuildProductsPath
+        self.shouldPreserveSymlinks = shouldPreserveSymlinks
     }
 }
 
@@ -247,6 +254,11 @@ public final class PIFBuilder {
         buildParameters: BuildParameters
     ) async throws -> [(ResolvedPackage, PackagePIFBuilder, any PackagePIFBuilder.BuildDelegate)] {
         let pluginScriptRunner = self.parameters.pluginScriptRunner
+        let outputDir = self.parameters.pluginWorkingDirectory.appending("outputs")
+        let warningControlFlags = WarningControlFlags.extractSwiftWarningControlFlags(
+            buildParameters.flags.swiftCompilerFlags.map(\.value)
+        )
+        let treatWarningsAsErrors = WarningControlFlags.containsWarningsAsErrors(warningControlFlags)
 
         let pluginsPerModule = graph.pluginsPerModule(capability: .buildTool)
 
@@ -398,7 +410,8 @@ public final class PIFBuilder {
                     self.diagnoseUnhandledFiles(
                         package: package,
                         module: module,
-                        buildToolPluginInvocationResults: buildToolPluginResults
+                        buildToolPluginInvocationResults: buildToolPluginResults,
+                        treatWarningsAsErrors: treatWarningsAsErrors
                     )
                 }
 
@@ -504,9 +517,11 @@ public final class PIFBuilder {
                 materializeStaticArchiveProductsForRootPackages: self.parameters.materializeStaticArchiveProductsForRootPackages,
                 createDynamicVariantsForLibraryProducts: self.parameters.createDynamicVariantsForLibraryProducts,
                 addLocalRpaths: self.parameters.addLocalRpaths,
+                shouldPreserveSymlinks: self.parameters.shouldPreserveSymlinks,
                 packageDisplayVersion: package.manifest.displayName,
                 pkgConfigDirectories: self.parameters.pkgConfigDirectories,
                 pluginWorkingDirectory: self.pluginConfiguration.workDirectory,
+                warningControlFlags: warningControlFlags,
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,
             )
@@ -658,7 +673,8 @@ public final class PIFBuilder {
     private func diagnoseUnhandledFiles(
         package: ResolvedPackage,
         module: ResolvedModule,
-        buildToolPluginInvocationResults: [BuildToolPluginInvocationResult]
+        buildToolPluginInvocationResults: [BuildToolPluginInvocationResult],
+        treatWarningsAsErrors: Bool
     ) {
         guard package.manifest.toolsVersion >= .v5_3 else {
             return
@@ -684,7 +700,8 @@ public final class PIFBuilder {
             return metadata
         }
 
-        diagnosticsEmitter.emit(.unhandledFiles(unhandledFiles))
+        let diagnostic = Basics.Diagnostic.unhandledFiles(unhandledFiles)
+        diagnosticsEmitter.emit(severity: treatWarningsAsErrors ? .error : .warning, message: diagnostic.message)
     }
 }
 
@@ -797,6 +814,97 @@ fileprivate final class PackagePIFBuilderDelegate: PackagePIFBuilder.BuildDelega
     }
 }
 
+/// Determine the list of modules in the modules graph which should not be added to the top level aggregate for the root package (which would cause them to always build for the destination platform).
+fileprivate func computeHostOnlyModuleIDsInRootPackages(in modulesGraph: ModulesGraph) -> Set<ResolvedModule.ID> {
+    // Macros and plugins always build only for the host platform. Dependencies of macros and plugins might build for
+    // only the host platform, or both the host and destination platform.
+    func hasHostOnlyModuleKind(_ module: ResolvedModule) -> Bool {
+        switch module.type {
+        case .macro, .plugin:
+            true
+        default:
+            false
+        }
+    }
+
+    // Collect modules from root packages. We only consider root packages here because only targets from root packages
+    // are ever added to the top level build request. Targets from dependencies are only ever added via dependency edges
+    // from a root package, so we don't need to worry about unnecessary specializations for the destination platform.
+    var rootPackageModulesByID: [ResolvedModule.ID: ResolvedModule] = [:]
+    var hostOnlyModulesInRootPackageIDs: Set<ResolvedModule.ID> = []
+    for package in modulesGraph.rootPackages {
+        for module in package.modules {
+            rootPackageModulesByID[module.id] = module
+            if hasHostOnlyModuleKind(module) {
+                hostOnlyModulesInRootPackageIDs.insert(module.id)
+            }
+        }
+    }
+
+    // Find the transitive closure covered by host-only targets. These are modules which should be excluded from
+    // the top level build request unless they specifically need to build for the destination. Again, we only consider
+    // root packages.
+    let modulesInRootPackagesReachableFromHostOnlyModuleIDs = transitiveClosure(Array(hostOnlyModulesInRootPackageIDs), successors: { moduleID in
+        guard let module = rootPackageModulesByID[moduleID] else {
+            return []
+        }
+        return module.dependencies.flatMap { dependency in
+            switch dependency {
+            case .module(let moduleDependency, _):
+                return [moduleDependency.id]
+            case .product(let productDependency, _):
+                return Array(productDependency.modules.map(\.id))
+            }
+        }.filter {
+            rootPackageModulesByID.keys.contains($0)
+        }
+    }).union(hostOnlyModulesInRootPackageIDs)
+
+    // Determine the list of targets in the root package which can be reached without traversing an edge to a macro or plugin.
+    // These are targets which must build for the destination, and cannot be excluded from the top level build request. The roots
+    // of the traversal are:
+    // 1. Any target which is part of an explicit executable/library product in the manifest
+    // 2. Any target which is not reachable from any macro/plugin
+    var modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs: Set<ResolvedModule.ID> = []
+    // If a module is in the root package and not in the closure of a host only module, it's considered top-level
+    modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs.formUnion(Set(rootPackageModulesByID.keys).subtracting(modulesInRootPackagesReachableFromHostOnlyModuleIDs))
+    // If a module is included in a non-implicit product, it's considered top-level
+    for package in modulesGraph.rootPackages {
+        for product in package.products where !product.underlying.isImplicit {
+            for module in product.modules {
+                if !hasHostOnlyModuleKind(module) {
+                    modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs.insert(module.id)
+                }
+            }
+        }
+    }
+    // If a module in the root package is reachable from one of the ones we've discovered so far, without traversing an edge to a host-only module, it's considered top-level.
+    modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs.formUnion(transitiveClosure(Array(modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs), successors: { moduleID in
+        guard let module = rootPackageModulesByID[moduleID] else {
+            return []
+        }
+        // A test target which depends on an otherwise host-only target should not cause that dependency to be
+        // included in the top-level build request. It should only be specialized for the destination when building
+        // the tests.
+        guard module.type != .test else {
+            return []
+        }
+        return module.dependencies.flatMap { dependency in
+            switch dependency {
+            case .module(let moduleDependency, _):
+                return [moduleDependency]
+            case .product(let productDependency, _):
+                return Array(productDependency.modules)
+            }
+        }.filter {
+            rootPackageModulesByID.keys.contains($0.id) && !hasHostOnlyModuleKind($0)
+        }.map(\.id)
+    }))
+
+
+    return Set(rootPackageModulesByID.keys).subtracting(modulesReachableFromTopLevelWithoutTraversingHostOnlyEdgeIDs)
+}
+
 fileprivate func buildAggregatePIFProject(
     packagesAndProjects: [(package: ResolvedPackage, project: ProjectModel.Project)],
     observabilityScope: ObservabilityScope,
@@ -852,14 +960,13 @@ fileprivate func buildAggregatePIFProject(
     addEmptyBuildConfig(to: allExcludingTestsTargetKeyPath, name: "Debug")
     addEmptyBuildConfig(to: allExcludingTestsTargetKeyPath, name: "Release")
 
+    let hostOnlyModuleIDs = computeHostOnlyModuleIDsInRootPackages(in: modulesGraph)
+
     for (package, packageProject) in packagesAndProjects where package.manifest.packageKind.isRoot {
         for target in packageProject.targets {
             switch target {
             case .target(let target):
-                guard !target.id.hasSuffix(.dynamic) else {
-                    // Otherwise we hit a bunch of "Unknown multiple commands produce: ..." errors,
-                    // as the build artifacts from "PACKAGE-TARGET:Foo"
-                    // conflicts with those from "PACKAGE-TARGET:Foo-dynamic".
+                guard !target.id.hasSuffix(.dynamic) && !target.id.hasSuffix(.testable) else {
                     continue
                 }
 
@@ -868,6 +975,14 @@ fileprivate func buildAggregatePIFProject(
                         // Disconnected target, possibly due to platform when condition that isn't satisfied
                         continue
                     }
+                    if hostOnlyModuleIDs.contains(resolvedModule.id) {
+                        continue
+                    }
+                } else if let productName = PackagePIFBuilder.productName(forTargetName: target.name),
+                          let resolvedProduct = modulesGraph.product(for: productName),
+                          !resolvedProduct.modules.isEmpty,
+                          resolvedProduct.modules.allSatisfy({ hostOnlyModuleIDs.contains($0.id) }) {
+                    continue
                 }
 
                 aggregateProject[keyPath: allIncludingTestsTargetKeyPath].common.addDependency(
@@ -971,7 +1086,8 @@ extension PIFBuilderParameters {
             pluginWorkingDirectory: pluginWorkingDirectory,
             additionalFileRules: additionalFileRules,
             addLocalRpaths: addLocalRpaths,
-            hostBuildProductsPath: hostBuildProductsPath
+            hostBuildProductsPath: hostBuildProductsPath,
+            shouldPreserveSymlinks: buildParameters.shouldPreserveSymlinks
         )
     }
 }

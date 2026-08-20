@@ -10,19 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-import class Foundation.NSLock
+import Synchronization
 
 /// Thread-safe value boxing structure that provides synchronized access to a wrapped value.
 @dynamicMemberLookup
-public final class ThreadSafeBox<Value> {
-    private var underlying: Value
-    private let lock = NSLock()
+public final class ThreadSafeBox<Value: Sendable> {
+    private let underlying: Mutex<Value>
 
     /// Creates a new thread-safe box with the given initial value.
     ///
     /// - Parameter seed: The initial value to store in the box.
     public init(_ seed: Value) {
-        self.underlying = seed
+        self.underlying = Mutex(seed)
     }
 
     /// Atomically mutates the stored value by applying a transformation function.
@@ -33,9 +32,8 @@ public final class ThreadSafeBox<Value> {
     /// - Parameter body: A closure that takes the current value and returns a new value.
     /// - Throws: Any error thrown by the transformation function.
     public func mutate(body: (Value) throws -> Value) rethrows {
-        try self.lock.withLock {
-            let value = try body(self.underlying)
-            self.underlying = value
+        try self.underlying.withLock { value in
+            value = try body(value)
         }
     }
 
@@ -48,8 +46,8 @@ public final class ThreadSafeBox<Value> {
     /// - Parameter body: A closure that receives an inout reference to the current value.
     /// - Throws: Any error thrown by the transformation function.
     public func mutate(body: (inout Value) throws -> Void) rethrows {
-        try self.lock.withLock {
-            try body(&self.underlying)
+        try self.underlying.withLock {
+            try body(&$0)
         }
     }
 
@@ -57,17 +55,15 @@ public final class ThreadSafeBox<Value> {
     ///
     /// - Returns: A copy of the current value stored in the box.
     public func get() -> Value {
-        self.lock.withLock {
-            self.underlying
-        }
+        self.underlying.withLock { $0 }
     }
 
     /// Atomically replaces the current value with a new value.
     ///
     /// - Parameter newValue: The new value to store in the box.
     public func put(_ newValue: Value) {
-        self.lock.withLock {
-            self.underlying = newValue
+        self.underlying.withLock {
+            $0 = newValue
         }
     }
 
@@ -78,9 +74,9 @@ public final class ThreadSafeBox<Value> {
     ///
     /// - Parameter keyPath: A key path to a property of the wrapped value.
     /// - Returns: The value of the specified property.
-    public subscript<T>(dynamicMember keyPath: KeyPath<Value, T>) -> T {
-        self.lock.withLock {
-            self.underlying[keyPath: keyPath]
+    public subscript<T: Sendable>(dynamicMember keyPath: KeyPath<Value, T>) -> T {
+        self.underlying.withLock {
+            $0[keyPath: keyPath]
         }
     }
 
@@ -88,15 +84,15 @@ public final class ThreadSafeBox<Value> {
     ///
     /// - Parameter keyPath: A writable key path to a property of the wrapped value.
     /// - Returns: The value of the specified property when getting.
-    public subscript<T>(dynamicMember keyPath: WritableKeyPath<Value, T>) -> T {
+    public subscript<T: Sendable>(dynamicMember keyPath: WritableKeyPath<Value, T>) -> T {
         get {
-            self.lock.withLock {
-                self.underlying[keyPath: keyPath]
+            self.underlying.withLock {
+                $0[keyPath: keyPath]
             }
         }
         set {
-            self.lock.withLock {
-                self.underlying[keyPath: keyPath] = newValue
+            self.underlying.withLock {
+                $0[keyPath: keyPath] = newValue
             }
         }
     }
@@ -107,16 +103,16 @@ extension ThreadSafeBox {
     /// Creates a new thread-safe box initialized with nil for optional value types.
     ///
     /// This convenience initializer is only available when the wrapped value type is optional.
-    public convenience init<Wrapped>() where Value == Wrapped? {
+    public convenience init<Wrapped: Sendable>() where Value == Wrapped? {
         self.init(nil)
     }
 
     /// Takes the stored optional value, setting it to nil.
     /// - Returns: The previously stored value, or nil if none was present.
-    public func takeValue<Wrapped>() -> Value where Value == Wrapped? {
-        self.lock.withLock {
-            guard let value = self.underlying else { return nil }
-            self.underlying = nil
+    public func takeValue<Wrapped: Sendable>() -> Value where Value == Wrapped? {
+        self.underlying.withLock { underlying in
+            guard let value = underlying else { return nil }
+            underlying = nil
             return value
         }
     }
@@ -124,9 +120,9 @@ extension ThreadSafeBox {
     /// Atomically sets the stored optional value to nil.
     ///
     /// This method is only available when the wrapped value type is optional.
-    public func clear<Wrapped>() where Value == Wrapped? {
-        self.lock.withLock {
-            self.underlying = nil
+    public func clear<Wrapped: Sendable>() where Value == Wrapped? {
+        self.underlying.withLock {
+            $0 = nil
         }
     }
 
@@ -136,9 +132,9 @@ extension ThreadSafeBox {
     ///
     /// - Parameter defaultValue: The value to return if the stored value is nil.
     /// - Returns: The stored value if not nil, otherwise the default value.
-    public func get<Wrapped>(default defaultValue: Wrapped) -> Wrapped where Value == Wrapped? {
-        self.lock.withLock {
-            self.underlying ?? defaultValue
+    public func get<Wrapped: Sendable>(default defaultValue: Wrapped) -> Wrapped where Value == Wrapped? {
+        self.underlying.withLock {
+            $0 ?? defaultValue
         }
     }
 
@@ -152,13 +148,15 @@ extension ThreadSafeBox {
     /// - Returns: The cached value or the newly computed value.
     /// - Throws: Any error thrown by the computation closure.
     @discardableResult
-    public func memoize<Wrapped>(body: () throws -> Wrapped) rethrows -> Wrapped where Value == Wrapped? {
-        try self.lock.withLock {
-            if let value = self.underlying {
+    public func memoize<Wrapped: Sendable>(body: () throws -> Wrapped) rethrows -> Wrapped
+        where Value == Wrapped?
+    {
+        try self.underlying.withLock { underlying in
+            if let value = underlying {
                 return value
             }
             let value = try body()
-            self.underlying = value
+            underlying = value
             return value
         }
     }
@@ -176,13 +174,15 @@ extension ThreadSafeBox {
     /// - Returns: The cached value or the newly computed value (which may be nil).
     /// - Throws: Any error thrown by the computation closure.
     @discardableResult
-    public func memoizeOptional<Wrapped>(body: () throws -> Wrapped?) rethrows -> Wrapped? where Value == Wrapped? {
-        try self.lock.withLock {
-            if let value = self.underlying {
+    public func memoizeOptional<Wrapped: Sendable>(body: () throws -> Wrapped?) rethrows -> Wrapped?
+        where Value == Wrapped?
+    {
+        try self.underlying.withLock { underlying in
+            if let value = underlying {
                 return value
             }
             let value = try body()
-            self.underlying = value
+            underlying = value
             return value
         }
     }
@@ -193,8 +193,8 @@ extension ThreadSafeBox where Value == Int {
     ///
     /// This method is only available when the wrapped value type is Int.
     public func increment() {
-        self.lock.withLock {
-            self.underlying = self.underlying + 1
+        self.underlying.withLock {
+            $0 += 1
         }
     }
 
@@ -202,8 +202,8 @@ extension ThreadSafeBox where Value == Int {
     ///
     /// This method is only available when the wrapped value type is Int.
     public func decrement() {
-        self.lock.withLock {
-            self.underlying = self.underlying - 1
+        self.underlying.withLock {
+            $0 -= 1
         }
     }
 }
@@ -221,4 +221,4 @@ extension ThreadSafeBox where Value == String {
     }
 }
 
-extension ThreadSafeBox: @unchecked Sendable where Value: Sendable {}
+extension ThreadSafeBox: Sendable {}

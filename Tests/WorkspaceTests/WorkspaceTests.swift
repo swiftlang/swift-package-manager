@@ -23,6 +23,7 @@ import SPMBuildCore
 import Testing
 @testable import Workspace
 import XCTest
+import Testing
 
 import struct TSCBasic.ByteString
 
@@ -7891,6 +7892,105 @@ final class WorkspaceTests: XCTestCase {
         )
     }
 
+    func testConcurrentArtifactDownloadsWithSameURLUsingSharedCache() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let downloads = ThreadSafeArrayStore<(URL, AbsolutePath)>()
+
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
+            }
+            guard request.url.absoluteString == "https://a.com/same.zip" else {
+                throw StringError("unexpected url \(request.url)")
+            }
+
+            if downloads.append((request.url, destination)) == 1 {
+                // Keep the first cache download in flight long enough for the second artifact with the
+                // same URL to contend for the same cache entry.
+                try await Task.sleep(nanoseconds: 100_000_000)
+            }
+
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: ByteString([0xA1]),
+                atomically: true
+            )
+            return .okay()
+        }
+
+        let archiver = MockArchiver(handler: { archiver, archivePath, destinationPath, completion in
+            do {
+                guard archivePath.basename == "same.zip" else {
+                    throw StringError("unexpected archivePath \(archivePath)")
+                }
+                try createDummyXCFramework(fileSystem: fs, path: destinationPath, name: "Same")
+                archiver.extractions
+                    .append(MockArchiver.Extraction(archivePath: archivePath, destinationPath: destinationPath))
+                completion(.success(()))
+            } catch {
+                completion(.failure(error))
+            }
+        })
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "A1",
+                            type: .binary,
+                            url: "https://a.com/same.zip",
+                            checksum: "a1"
+                        ),
+                        MockTarget(
+                            name: "A2",
+                            type: .binary,
+                            url: "https://a.com/same.zip",
+                            checksum: "a1"
+                        ),
+                    ]
+                ),
+            ],
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver
+            )
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        XCTAssertEqual(downloads.count, 1)
+        XCTAssertEqual(downloads.map(\.0.absoluteString), ["https://a.com/same.zip"])
+        XCTAssertEqual(archiver.extractions.count, 2)
+
+        await workspace.checkManagedArtifacts { result in
+            result.check(
+                packageIdentity: .plain("root"),
+                targetName: "A1",
+                source: .remote(
+                    url: "https://a.com/same.zip",
+                    checksum: "a1"
+                ),
+                path: workspace.artifactsDir.appending(components: "root", "A1", "Same.xcframework")
+            )
+            result.check(
+                packageIdentity: .plain("root"),
+                targetName: "A2",
+                source: .remote(
+                    url: "https://a.com/same.zip",
+                    checksum: "a1"
+                ),
+                path: workspace.artifactsDir.appending(components: "root", "A2", "Same.xcframework")
+            )
+        }
+    }
+
     func testArtifactDownloadServerError() async throws {
         let fs = InMemoryFileSystem()
         let sandbox = AbsolutePath("/tmp/ws/")
@@ -8154,6 +8254,75 @@ final class WorkspaceTests: XCTestCase {
                 )
             }
         }
+    }
+
+    func testDownloadedArtifactInvalidArchiveDoesNotPoisonCache() async throws {
+        let fs = InMemoryFileSystem()
+        let sandbox = AbsolutePath("/tmp/ws/")
+        try fs.createDirectory(sandbox, recursive: true)
+        let artifactUrl = "https://artifactory.example.com/a.zip"
+
+        let httpClient = HTTPClient { request, _ in
+            guard case .download(let fileSystem, let destination) = request.kind else {
+                throw StringError("invalid request \(request.kind)")
+            }
+            try fileSystem.writeFileContents(
+                destination,
+                bytes: "<html>403 Forbidden</html>",
+                atomically: true
+            )
+            return .okay()
+        }
+
+        let archiver = MockArchiver(
+            validationHandler: { _, _, completion in
+                completion(.success(false))
+            }
+        )
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "A",
+                            type: .binary,
+                            url: artifactUrl,
+                            checksum: "a"
+                        ),
+                    ]
+                ),
+            ],
+            binaryArtifactsManager: .init(
+                httpClient: httpClient,
+                archiver: archiver,
+                useCache: true
+            )
+        )
+
+        await workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(
+                    diagnostic: .contains(
+                        "invalid archive returned from '\(artifactUrl)' which is required by binary target 'A'"
+                    ),
+                    severity: .error
+                )
+            }
+        }
+
+        let artifactCacheKey = artifactUrl.spm_mangledToC99ExtendedIdentifier()
+        guard let cachePath = workspace.workspaceLocation?
+            .sharedBinaryArtifactsCacheDirectory?
+            .appending(artifactCacheKey)
+        else {
+            XCTFail("Required workspace location wasn't found")
+            return
+        }
+        XCTAssertFalse(fs.exists(cachePath))
     }
 
     func testDownloadedArtifactInvalid() async throws {
@@ -16064,6 +16233,104 @@ final class WorkspaceTests: XCTestCase {
                 result.checkTarget("Foo") { result in result.check(dependencies: "Bar") }
                 result.checkTarget("Bar") { result in result.check(dependencies: "Baz") }
                 result.checkTarget("BarTests") { result in result.check(dependencies: "Bar") }
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "baz", at: .custom(Version(1, 0, 0), .root))
+        }
+    }
+
+    func testCustomPackageContainerProviderWithMultipleTargets() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        // The contents of a package provided by a custom container live in the file system vended by that
+        // container, and not in the one backing the rest of the workspace.
+        let customFS = InMemoryFileSystem()
+        // write a manifest
+        try customFS.writeFileContents(.root.appending(component: Manifest.filename), bytes: "")
+        try ToolsVersionSpecificationWriter.rewriteSpecification(
+            manifestDirectory: .root,
+            toolsVersion: .current,
+            fileSystem: customFS
+        )
+        // Write the sources of more than one target. A package with a single target may claim the whole
+        // predefined sources directory, so several targets are needed in order for each of them to have
+        // to be located individually.
+        let sourcesDir = AbsolutePath("/Sources")
+        for target in ["Baz", "Qux"] {
+            let targetDir = sourcesDir.appending(target)
+            try customFS.createDirectory(targetDir, recursive: true)
+            try customFS.writeFileContents(targetDir.appending("file.swift"), bytes: "")
+        }
+
+        let bazURL = SourceControlURL("https://example.com/baz")
+        let bazPackageReference = PackageReference(
+            identity: PackageIdentity(url: bazURL),
+            kind: .remoteSourceControl(bazURL)
+        )
+        let bazContainer = MockPackageContainer(
+            package: bazPackageReference,
+            dependencies: ["1.0.0": []],
+            fileSystem: customFS,
+            customRetrievalPath: .root
+        )
+
+        let fooPath = sandbox.appending("Foo")
+        let fooPackageReference = PackageReference(identity: PackageIdentity(path: fooPath), kind: .root(fooPath))
+        let fooContainer = MockPackageContainer(package: fooPackageReference)
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [.product(name: "Baz", package: "baz")]),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: bazURL, requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Baz",
+                    url: bazURL.absoluteString,
+                    targets: [
+                        MockTarget(name: "Baz", dependencies: ["Qux"]),
+                        MockTarget(name: "Qux"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", modules: ["Baz"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ],
+            customPackageContainerProvider: MockPackageContainerProvider(containers: [fooContainer, bazContainer])
+        )
+
+        // Remove the sources from the workspace's own file system, so that they are only reachable
+        // through the file system vended by the custom container. The mock workspace materializes the
+        // contents of every package it is given, but a package provided by a custom container is not
+        // expected to be present on the file system backing the workspace.
+        try fs.removeFileTree(sourcesDir)
+
+        let deps: [MockDependency] = [
+            .sourceControl(url: bazURL, requirement: .exact("1.0.0")),
+        ]
+        try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Baz", "Foo")
+                result.check(modules: "Baz", "Foo", "Qux")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
+                result.checkTarget("Baz") { result in result.check(dependencies: "Qux") }
             }
             XCTAssertNoDiagnostics(diagnostics)
         }

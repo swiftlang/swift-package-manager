@@ -31,7 +31,7 @@ public struct PackageReference {
         /// A remote source package.
         case remoteSourceControl(SourceControlURL)
 
-        /// A package from  a registry.
+        /// A package from a registry.
         case registry(PackageIdentity)
 
         // FIXME: we should not need this once we migrate off URLs

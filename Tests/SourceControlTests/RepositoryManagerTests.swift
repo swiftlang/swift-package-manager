@@ -16,6 +16,7 @@ import PackageModel
 import _InternalTestSupport
 @testable import SourceControl
 import XCTest
+import Testing
 
 final class RepositoryManagerTests: XCTestCase {
     func testBasics() async throws {
@@ -122,6 +123,43 @@ final class RepositoryManagerTests: XCTestCase {
         }
     }
 
+    func testFailedLookupIsNotCached() async throws {
+        // Regression test: a lookup that fails must not be cached.
+        // Subsequent lookups must retry the operation rather than
+        // replaying the previous failure.
+        let fs = localFileSystem
+        let observability = ObservabilitySystem.makeForTesting()
+
+        try await testWithTemporaryDirectory { path in
+            let provider = DummyRepositoryProvider(fileSystem: fs)
+            let delegate = DummyRepositoryManagerDelegate()
+
+            let manager = RepositoryManager(
+                fileSystem: fs,
+                path: path,
+                provider: provider,
+                delegate: delegate
+            )
+
+            let dummyRepo = RepositorySpecifier(path: "/dummy")
+
+            // The host is unreachable: the first lookup fails.
+            provider.nextFetchError = StringError("ssh: connect to host dummy port 22: Operation timed out")
+            delegate.prepare(fetchExpected: true, updateExpected: false)
+            await XCTAssertAsyncThrowsError(
+                try await manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
+            )
+
+            // The host is now reachable: the next lookup must retry and succeed,
+            // not re-throw the cached timeout from the first attempt.
+            provider.nextFetchError = nil
+            delegate.prepare(fetchExpected: true, updateExpected: false)
+            let handle = try await manager.lookup(repository: dummyRepo, observabilityScope: observability.topScope)
+            XCTAssertEqual(handle.repository, dummyRepo)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+        }
+    }
+
     func testCache() async throws {
         let fs = localFileSystem
         let observability = ObservabilitySystem.makeForTesting()
@@ -192,6 +230,172 @@ final class RepositoryManagerTests: XCTestCase {
             try await delegate.wait(timeout: .now() + 2)
             try XCTAssertEqual(delegate.willUpdate[0].storagePath(), repo.storagePath())
             try XCTAssertEqual(delegate.didUpdate[0].storagePath(), repo.storagePath())
+        }
+    }
+
+    func testPurge() async throws {
+        let fs = localFileSystem
+        let observability = ObservabilitySystem.makeForTesting()
+
+        try await fixtureXCTest(name: "DependencyResolution/External/Simple", createGitRepo: true) { (fixturePath: AbsolutePath) in
+            let cachePath = fixturePath.appending("cache")
+            let repositoriesPath = fixturePath.appending("repositories")
+            let repo = RepositorySpecifier(path: fixturePath.appending("Foo"))
+
+            let provider = GitRepositoryProvider()
+            let delegate = DummyRepositoryManagerDelegate()
+
+            let manager = RepositoryManager(
+                fileSystem: fs,
+                path: repositoriesPath,
+                provider: provider,
+                cachePath: cachePath,
+                cacheLocalPackages: true,
+                delegate: delegate
+            )
+
+            // fetch the package, populating both the shared cache and the working repositories path
+            delegate.prepare(fetchExpected: true, updateExpected: false)
+            _ = try await manager.lookup(repository: repo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            try XCTAssertDirectoryExists(cachePath.appending(repo.storagePath()))
+            try XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
+            try await delegate.wait(timeout: .now() + 2)
+
+            // purge must evict the repository from BOTH the working path and the shared cache,
+            // so that a later lookup cannot re-copy an incomplete/corrupt cached object store.
+            try manager.purge(repository: repo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            try XCTAssertNoSuchPath(cachePath.appending(repo.storagePath()))
+            try XCTAssertNoSuchPath(repositoriesPath.appending(repo.storagePath()))
+
+            // the next lookup must re-fetch from the origin (not from cache), repopulating both.
+            delegate.prepare(fetchExpected: true, updateExpected: false)
+            _ = try await manager.lookup(repository: repo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            try await delegate.wait(timeout: .now() + 2)
+            try XCTAssertDirectoryExists(cachePath.appending(repo.storagePath()))
+            try XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
+            XCTAssertEqual(delegate.willFetch.last?.details, RepositoryManager.FetchDetails(fromCache: false, updatedCache: false))
+        }
+    }
+
+    func testWithObjectStoreRecovery() async throws {
+        struct UnrelatedError: Error {}
+
+        // The classifier matches the error's textual description, so this stands in for any error
+        // (git or a higher-level wrapper) whose description carries an object-store-corruption marker.
+        struct ObjectStoreCorruptionError: Error, CustomStringConvertible {
+            var description: String { "fatal: unable to read tree (abc123)" }
+        }
+
+        let fs = localFileSystem
+        let observability = ObservabilitySystem.makeForTesting()
+
+        try await testWithTemporaryDirectory { path in
+            let repos = path.appending("repo")
+            try fs.createDirectory(repos, recursive: true)
+            let manager = RepositoryManager(
+                fileSystem: fs,
+                path: repos,
+                provider: DummyRepositoryProvider(fileSystem: fs),
+                delegate: DummyRepositoryManagerDelegate()
+            )
+            let repo = RepositorySpecifier(path: "/dummy")
+
+            // Success on the first attempt: the operation runs once and beforeRetry is never called.
+            var operationCount = 0
+            var retryCount = 0
+            let value = try await manager.withObjectStoreRecovery(
+                repository: repo,
+                observabilityScope: observability.topScope,
+                beforeRetry: { retryCount += 1 }
+            ) {
+                operationCount += 1
+                return 42
+            }
+            XCTAssertEqual(value, 42)
+            XCTAssertEqual(operationCount, 1)
+            XCTAssertEqual(retryCount, 0)
+
+            // Object-store corruption then success: purge + beforeRetry + exactly one retry.
+            operationCount = 0
+            retryCount = 0
+            let recovered = try await manager.withObjectStoreRecovery(
+                repository: repo,
+                observabilityScope: observability.topScope,
+                beforeRetry: { retryCount += 1 }
+            ) {
+                operationCount += 1
+                if operationCount == 1 {
+                    throw ObjectStoreCorruptionError()
+                }
+                return 7
+            }
+            XCTAssertEqual(recovered, 7)
+            XCTAssertEqual(operationCount, 2)
+            XCTAssertEqual(retryCount, 1)
+
+            // A non-corruption error propagates immediately, without purge or retry.
+            operationCount = 0
+            retryCount = 0
+            await XCTAssertAsyncThrowsError(
+                try await manager.withObjectStoreRecovery(
+                    repository: repo,
+                    observabilityScope: observability.topScope,
+                    beforeRetry: { retryCount += 1 }
+                ) {
+                    operationCount += 1
+                    throw UnrelatedError()
+                }
+            )
+            XCTAssertEqual(operationCount, 1)
+            XCTAssertEqual(retryCount, 0)
+
+            // Persistent corruption is retried exactly once, then propagates.
+            operationCount = 0
+            retryCount = 0
+            await XCTAssertAsyncThrowsError(
+                try await manager.withObjectStoreRecovery(
+                    repository: repo,
+                    observabilityScope: observability.topScope,
+                    beforeRetry: { retryCount += 1 }
+                ) {
+                    operationCount += 1
+                    throw ObjectStoreCorruptionError()
+                }
+            )
+            XCTAssertEqual(operationCount, 2)
+            XCTAssertEqual(retryCount, 1)
+        }
+    }
+
+    func testPurgeWithoutCacheIsIdempotent() async throws {
+        let fs = localFileSystem
+        let observability = ObservabilitySystem.makeForTesting()
+
+        try await fixtureXCTest(name: "DependencyResolution/External/Simple", createGitRepo: true) { (fixturePath: AbsolutePath) in
+            let repositoriesPath = fixturePath.appending("repositories")
+            let repo = RepositorySpecifier(path: fixturePath.appending("Foo"))
+
+            // No cachePath configured: purge must still remove the working clone via its no-cache branch.
+            let manager = RepositoryManager(
+                fileSystem: fs,
+                path: repositoriesPath,
+                provider: GitRepositoryProvider(),
+                cacheLocalPackages: true
+            )
+
+            _ = try await manager.lookup(repository: repo, observabilityScope: observability.topScope)
+            try XCTAssertDirectoryExists(repositoriesPath.appending(repo.storagePath()))
+
+            try manager.purge(repository: repo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            try XCTAssertNoSuchPath(repositoriesPath.appending(repo.storagePath()))
+
+            // Purging again, with the paths already gone, neither throws nor emits a diagnostic.
+            try manager.purge(repository: repo, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
         }
     }
 
@@ -350,11 +554,18 @@ final class RepositoryManagerTests: XCTestCase {
 
             let results = ThreadSafeKeyValueStore<Int, RepositoryManager.RepositoryHandle>()
             let concurrency = 10000
-            try await withThrowingTaskGroup(of: Void.self) { group in
-                for index in 0 ..< concurrency {
+            // Pre-register the worst-case slot count. Actual update count is
+            // timing-dependent (callers that race past dedup re-enter
+            // performLookup), so we register the upper bound and drain the
+            // unused slots after asserting the bound.
+            delegate.prepare(fetchExpected: true, updateExpected: false)
+            for _ in 0 ..< (concurrency - 1) {
+                delegate.prepare(fetchExpected: false, updateExpected: true)
+            }
+            try await withThrowingTaskGroup(of: RepositoryManager.RepositoryHandle.self) { group in
+                for _ in 0 ..< concurrency {
                     group.addTask {
-                        delegate.prepare(fetchExpected: index == 0, updateExpected: index > 0)
-                        results[index] = try await manager.lookup(
+                        try await manager.lookup(
                             package: PackageIdentity(path: dummyRepoPath),
                             repository: dummyRepo,
                             updateStrategy: .always,
@@ -362,16 +573,26 @@ final class RepositoryManagerTests: XCTestCase {
                         )
                     }
                 }
-                try await group.waitForAll()
+                var index = 0
+                for try await handle in group {
+                    results[index] = handle
+                    index += 1
+                }
             }
 
             XCTAssertNoDiagnostics(observability.diagnostics)
 
+            // Drain unused update slots so `wait` can balance.
+            let unusedUpdateSlots = (concurrency - 1) - delegate.willUpdate.count
+            for _ in 0 ..< (unusedUpdateSlots * 2) {
+                delegate.drainUnusedSlot()
+            }
+
             try await delegate.wait(timeout: .now() + 2)
             XCTAssertEqual(delegate.willFetch.count, 1)
             XCTAssertEqual(delegate.didFetch.count, 1)
-            XCTAssertEqual(delegate.willUpdate.count, concurrency - 1)
-            XCTAssertEqual(delegate.didUpdate.count, concurrency - 1)
+            XCTAssertLessThanOrEqual(delegate.willUpdate.count, concurrency - 1)
+            XCTAssertEqual(delegate.willUpdate.count, delegate.didUpdate.count)
 
             XCTAssertEqual(results.count, concurrency)
             for index in 0 ..< concurrency {
@@ -715,12 +936,24 @@ private class DummyRepositoryProvider: RepositoryProvider, @unchecked Sendable {
     private let lock = NSLock()
     private var _numClones = 0
     private var _numFetches = 0
+    private var _nextFetchError: Error?
 
     init(fileSystem: FileSystem) {
         self.fileSystem = fileSystem
     }
 
+    /// When set, the next `fetch` throws this error instead of cloning. Used to
+    /// simulate a transient failure such as an unreachable host. The test is
+    /// responsible for clearing it to simulate recovery.
+    var nextFetchError: Error? {
+        get { self.lock.withLock { self._nextFetchError } }
+        set { self.lock.withLock { self._nextFetchError = newValue } }
+    }
+
     func fetch(repository: RepositorySpecifier, to path: AbsolutePath, progressHandler: FetchProgress.Handler? = nil) async throws {
+        if let error = self.lock.withLock({ self._nextFetchError }) {
+            throw error
+        }
         assert(!self.fileSystem.exists(path), "\(path) should not exist")
         try self.fileSystem.createDirectory(path, recursive: true)
         try self.fileSystem.writeFileContents(path.appending("readme.md"), string: repository.location.description)
@@ -884,6 +1117,13 @@ fileprivate class DummyRepositoryManagerDelegate: RepositoryManager.Delegate, @u
                 continuation.resume()
             }
         }
+    }
+
+    /// Releases one previously-prepared slot that won't be filled by an
+    /// actual delegate event. Used by tests where the upper bound on event
+    /// counts is known but the exact count is timing-dependent.
+    public func drainUnusedSlot() {
+        self.group.leave()
     }
 
     var willFetch: [(repository: RepositorySpecifier, details: RepositoryManager.FetchDetails)] {

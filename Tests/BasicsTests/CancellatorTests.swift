@@ -13,6 +13,7 @@
 @testable import Basics
 import _InternalTestSupport
 import XCTest
+import Testing
 
 import class Basics.AsyncProcess
 
@@ -230,7 +231,6 @@ final class CancellatorTests: XCTestCase {
 
             XCTAssertEqual(.success, finishSemaphore.wait(timeout: .now() + .seconds(5)), "timeout finishing tasks")
             print(startSemaphore.output)
-            
             XCTAssertNoDiagnostics(observability.diagnostics)
         }
 #else
