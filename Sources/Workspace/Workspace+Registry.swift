@@ -198,7 +198,7 @@ extension Workspace {
                         // this helps de-dupe across source control and registry dependencies
                         // and also encourages use of registry over source control
                         switch settings.requirement {
-                        case .exact, .range:
+                        case .exact, .range, .ranges:
                             let requirement = try settings.requirement.asRegistryRequirement()
                             observabilityScope
                                 .emit(
@@ -382,6 +382,8 @@ extension PackageDependency.SourceControl.Requirement {
         switch self {
         case .range(let versions):
             return .range(versions)
+        case .ranges(let versions):
+            return .ranges(versions)
         case .exact(let version):
             return .exact(version)
         case .branch, .revision:
