@@ -39,4 +39,47 @@ final class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             }
         }
     }
+
+    func testLiterateTargets() async throws {
+        let content = """
+            import CompilerPluginSupport
+            import PackageDescription
+
+            let package = Package(name: "MyPackage",
+                targets: [
+                    .target(name: "Foo", literate: true),
+                    .executableTarget(name: "Bar", literate: true),
+                    .testTarget(name: "Baz", literate: true),
+                    .macro(name: "Qux", literate: true),
+                ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, diagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertEqual(diagnostics.count, 0, "unexpected diagnostics: \(diagnostics)")
+
+        XCTAssertEqual(manifest.targets.map(\.name), ["Foo", "Bar", "Baz", "Qux"])
+        for target in manifest.targets {
+            XCTAssertTrue(target.literate, "expected \(target.name) to be literate")
+        }
+    }
+
+    func testLiterateTargetsDefaultToFalse() async throws {
+        let content = """
+            import PackageDescription
+
+            let package = Package(name: "MyPackage",
+                targets: [
+                    .target(name: "Foo"),
+                ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, diagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertEqual(diagnostics.count, 0, "unexpected diagnostics: \(diagnostics)")
+
+        XCTAssertEqual(manifest.targets.map(\.literate), [false])
+    }
 }

@@ -14,6 +14,10 @@
 public enum SupportedLanguageExtension: String {
     /// Swift
     case swift
+    case md
+    case rst
+    case tex
+
     /// C
     case c
     /// Objective C
@@ -30,7 +34,7 @@ public enum SupportedLanguageExtension: String {
 
     /// Returns a set of valid swift extensions.
     public static var swiftExtensions: Set<String> = {
-        SupportedLanguageExtension.stringSet(swift)
+        SupportedLanguageExtension.stringSet(swift, md, rst, tex)
     }()
 
     /// Returns a set of valid c extensions.

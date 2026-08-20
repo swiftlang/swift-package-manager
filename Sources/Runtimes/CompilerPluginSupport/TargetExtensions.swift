@@ -13,7 +13,7 @@
 @_spi(PackageDescriptionInternal) import PackageDescription
 
 public extension Target {
-    @available(_PackageDescription, introduced: 5.9)
+    @available(_PackageDescription, introduced: 5.9, obsoleted: 999.0)
     static func macro(
         name: String,
         dependencies: [Dependency] = [],
@@ -33,6 +33,33 @@ public extension Target {
                       publicHeadersPath: nil,
                       type: .macro,
                       packageAccess: packageAccess,
+                      swiftSettings: swiftSettings,
+                      linkerSettings: linkerSettings,
+                      plugins: plugins)
+    }
+
+    @available(_PackageDescription, introduced: 999.0)
+    static func macro(
+        name: String,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        packageAccess: Bool = true,
+        literate: Bool = false,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil
+    ) -> Target {
+        return Target(name: name,
+                      dependencies: dependencies,
+                      path: path,
+                      exclude: exclude,
+                      sources: sources,
+                      publicHeadersPath: nil,
+                      type: .macro,
+                      packageAccess: packageAccess,
+                      literate: literate,
                       swiftSettings: swiftSettings,
                       linkerSettings: linkerSettings,
                       plugins: plugins)
