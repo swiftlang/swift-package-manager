@@ -141,8 +141,8 @@ struct PIFPlaceholderTests {
         // would surface a placeholder project that cannot be represented in the PIF.
         try PIF.sign(workspace: workspace)
 
-        // A project serializes its targets *by signature*, so the placeholder target is only
-        // representable once signing has given it one.
+        // A project serializes its targets *by signature*, so the placeholder
+        // target is only representable once signing has given it one.
         let signedProject = try #require(workspace.projects.only)
         let placeholderTarget = try #require(signedProject.underlying.targets.only)
         #expect(placeholderTarget.common.signature != nil)
