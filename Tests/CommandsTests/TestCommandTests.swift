@@ -28,7 +28,6 @@ import protocol ArgumentParser.AsyncParsableCommand
 import class TSCBasic.BufferedOutputByteStream
 
 @Suite(
-    // .serialized,  // to limit the number of swift executable running.
     .tags(
         Tag.TestSize.large,
         Tag.Feature.Command.Test,

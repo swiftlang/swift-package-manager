@@ -20,7 +20,7 @@ public class Module {
     /// Description of the module type used in `swift package describe` output. Preserved for backwards compatibility.
     public class var typeDescription: String { fatalError("implement in a subclass") }
     /// The module kind.
-    public enum Kind: String {
+    public enum Kind: String, CaseIterable {
         case executable
         case library
         case systemModule = "system-target"

@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import struct Basics.AbsolutePath
 
 // MARK: - XcovArgument
 
@@ -83,6 +84,18 @@ package struct XcovArgument: ExpressibleByArgument {
 
 // MARK: - XcovArgumentCollection
 
+
+fileprivate extension CoverageFormat {
+    var outDirectoryArgument: String {
+        switch self {
+        case .html:
+            return "--output-dir"
+        case .json:
+            return "--output-dir" // The underlying tool that produces the JSON report, 'llvm-cov export' does not appear to support an output directory argument.
+        }
+    }
+}
+
 /// A collection of `-Xcov` arguments that maintains command-line order and provides format filtering.
 ///
 /// This collection preserves the order in which `-Xcov` arguments were specified on the command line,
@@ -110,5 +123,64 @@ package struct XcovArgumentCollection {
     /// - Arguments with unsupported format specifications (treated as generic)
     package func getArguments(for coverageFormat: CoverageFormat) -> [String] {
         return arguments.flatMap { $0.getArguments(for: coverageFormat) }
+    }
+
+    /// Returns the output directory selected via `--output-dir` for the given format.
+    ///
+    /// Accepts either `--output-dir=<value>` (joined) or `--output-dir <value>` (separated) forms.
+    /// If multiple occurrences are present, the last one wins. Relative values are resolved
+    /// against `basePath`.
+    ///
+    /// - Parameters:
+    ///   - coverageFormat: The coverage format to inspect.
+    ///   - basePath: The base used to resolve a relative `--output-dir` value.
+    /// - Returns: The parsed absolute path, or `nil` if no `--output-dir` was supplied.
+    /// - Throws:
+    ///   - `XcovArgumentError.missingOutputDirectoryValue` if `--output-dir` has no following value.
+    ///   - `XcovArgumentError.emptyOutputDirectoryValue` if the value is empty.
+    ///   - An error thrown by `AbsolutePath` validation if the value is not a valid path.
+    package func outputDirectory(
+        for coverageFormat: CoverageFormat,
+        relativeTo basePath: AbsolutePath,
+    ) throws -> AbsolutePath? {
+        let arguments = self.getArguments(for: coverageFormat)
+        let joinedPrefix = "\(coverageFormat.outDirectoryArgument)="
+        // let joinedPrefix = "\(Self.outputDirectoryArgument)="
+
+        let values: [String] = try arguments.indices.compactMap { index in
+            let argument = arguments[index]
+
+            if argument.hasPrefix(joinedPrefix) {
+                return String(argument.dropFirst(joinedPrefix.count))
+            }
+
+            guard argument == coverageFormat.outDirectoryArgument else { return nil }
+            guard arguments.indices.contains(index + 1) else {
+                throw XcovArgumentError.missingOutputDirectoryValue
+            }
+            return arguments[index + 1]
+        }
+
+        guard let value = values.last else { return nil }
+        guard !value.isEmpty else {
+            throw XcovArgumentError.emptyOutputDirectoryValue
+        }
+        return try AbsolutePath(validating: value, relativeTo: basePath)
+    }
+}
+
+package enum XcovArgumentError: Error, Equatable {
+    case missingOutputDirectoryValue
+    case emptyOutputDirectoryValue
+}
+
+extension XcovArgumentError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .missingOutputDirectoryValue:
+            return "Missing output directory value"
+        case .emptyOutputDirectoryValue:
+            return "Empty output directory value"
+        }
     }
 }

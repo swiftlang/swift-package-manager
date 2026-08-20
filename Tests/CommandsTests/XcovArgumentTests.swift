@@ -13,6 +13,8 @@
 import Testing
 import Commands
 
+import struct Basics.AbsolutePath
+import enum Commands.XcovArgumentError
 import _InternalTestSupport
 
 enum ParsingTestCategory {
@@ -542,22 +544,132 @@ struct XcovArgumentCollectionTests {
         // When: Getting JSON format arguments
         let jsonResult = collection.getArguments(for: .json)
         #expect(jsonResult == [
-            "./coverage/coverage.json",    // json format
-            "lcov=./coverage/lcov.info",   // unsupported
-            "./coverage/summary.txt",      // no format
+            "./coverage/coverage.json",      // json format
+            "lcov=./coverage/lcov.info",    // unsupported
+            "./coverage/summary.txt",       // no format
             "xml=./coverage/cobertura.xml", // unsupported
         ])
 
         // When: Getting HTML format arguments
         let htmlResult = collection.getArguments(for: .html)
         #expect(htmlResult == [
-            "./coverage/html-report",     // html format
-            "lcov=./coverage/lcov.info",  // unsupported
-            "./coverage/summary.txt",     // no format
+            "./coverage/html-report",       // html format
+            "lcov=./coverage/lcov.info",    // unsupported
+            "./coverage/summary.txt",       // no format
             "xml=./coverage/cobertura.xml", // unsupported
             "--coverage-watermark=80,20",
             "--title=\"my title\"",
         ])
+    }
+
+    @Suite("outputDirectory(for:relativeTo:)")
+    struct OutputDirectoryTests {
+        private let basePath = AbsolutePath("/workspace")
+
+        private func collection(_ raw: [String]) throws -> XcovArgumentCollection {
+            let parsed = try raw.map { try #require(XcovArgument(argument: $0)) }
+            return XcovArgumentCollection(parsed)
+        }
+
+        @Test("Returns nil when --output-dir is not present")
+        func returnsNilWhenAbsent() throws {
+            let collection = try collection(["--verbose", "html=--title=hi"])
+            let result = try collection.outputDirectory(for: .html, relativeTo: basePath)
+            #expect(result == nil)
+        }
+
+        @Test("Returns nil for empty collection")
+        func returnsNilForEmptyCollection() throws {
+            let collection = XcovArgumentCollection([])
+            let result = try collection.outputDirectory(for: .html, relativeTo: basePath)
+            #expect(result == nil)
+        }
+
+        @Test("Parses joined --output-dir=<value> with absolute path")
+        func parsesJoinedAbsolute() throws {
+            let collection = try collection(["--output-dir=/out/reports"])
+            let result = try collection.outputDirectory(for: .html, relativeTo: basePath)
+            #expect(result == AbsolutePath("/out/reports"))
+        }
+
+        @Test("Parses joined --output-dir=<value> with relative path")
+        func parsesJoinedRelative() throws {
+            let collection = try collection(["--output-dir=reports/html"])
+            let result = try collection.outputDirectory(for: .html, relativeTo: basePath)
+            #expect(result == AbsolutePath("/workspace/reports/html"))
+        }
+
+        @Test("Parses separated --output-dir <value> with absolute path")
+        func parsesSeparatedAbsolute() throws {
+            let collection = try collection(["--output-dir", "/out/reports"])
+            let result = try collection.outputDirectory(for: .html, relativeTo: basePath)
+            #expect(result == AbsolutePath("/out/reports"))
+        }
+
+        @Test("Parses separated --output-dir <value> with relative path")
+        func parsesSeparatedRelative() throws {
+            let collection = try collection(["--output-dir", "./reports/html"])
+            let result = try collection.outputDirectory(for: .html, relativeTo: basePath)
+            #expect(result == AbsolutePath("/workspace/reports/html"))
+        }
+
+        @Test("Last --output-dir wins (joined form)")
+        func lastWinsJoined() throws {
+            let collection = try collection([
+                "--output-dir=/first",
+                "--output-dir=/second",
+                "--output-dir=/third",
+            ])
+            let result = try collection.outputDirectory(for: .html, relativeTo: basePath)
+            #expect(result == AbsolutePath("/third"))
+        }
+
+        @Test("Last --output-dir wins (mixed joined and separated forms)")
+        func lastWinsMixed() throws {
+            let collection = try collection([
+                "--output-dir=/first",
+                "--output-dir", "/second",
+                "--output-dir=relative/wins",
+            ])
+            let result = try collection.outputDirectory(for: .html, relativeTo: basePath)
+            #expect(result == AbsolutePath("/workspace/relative/wins"))
+        }
+
+        @Test("Only considers arguments applicable to the requested format")
+        func filtersByFormat() throws {
+            let collection = try collection([
+                "html=--output-dir=/html/out",
+                "json=--output-dir=/json/out",
+            ])
+            let htmlResult = try collection.outputDirectory(for: .html, relativeTo: basePath)
+            let jsonResult = try collection.outputDirectory(for: .json, relativeTo: basePath)
+            #expect(jsonResult == AbsolutePath("/json/out"))
+            #expect(htmlResult == AbsolutePath("/html/out"))
+        }
+
+        @Test("Throws when --output-dir has no following value")
+        func throwsWhenTrailingValueMissing() throws {
+            let collection = try collection(["--output-dir"])
+            #expect(throws: XcovArgumentError.missingOutputDirectoryValue) {
+                _ = try collection.outputDirectory(for: .html, relativeTo: basePath)
+            }
+        }
+
+        @Test("Throws when joined --output-dir= has empty value")
+        func throwsWhenJoinedValueEmpty() throws {
+            let collection = try collection(["--output-dir="])
+            #expect(throws: XcovArgumentError.emptyOutputDirectoryValue) {
+                _ = try collection.outputDirectory(for: .html, relativeTo: basePath)
+            }
+        }
+
+        @Test("Throws when separated --output-dir has empty following value")
+        func throwsWhenSeparatedValueEmpty() throws {
+            let collection = try collection(["--output-dir", ""])
+            #expect(throws: XcovArgumentError.emptyOutputDirectoryValue) {
+                _ = try collection.outputDirectory(for: .html, relativeTo: basePath)
+            }
+        }
     }
 
 }

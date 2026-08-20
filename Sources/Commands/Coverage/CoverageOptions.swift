@@ -14,8 +14,8 @@ import ArgumentParser
 import struct Basics.Diagnostic
 
 package enum CoverageFormat: String, ExpressibleByArgument, CaseIterable {
-    case json
     case html
+    case json
 
     package var defaultValueDescription: String {
         switch self {

@@ -40,7 +40,6 @@ struct CoverageTests {
             .Feature.Command.Test,
             .Feature.CommandLineArguments.BuildTests,
         ),
-        .IssueWindowsPathNoEntry,
         .issue("https://github.com/swiftlang/swift-package-manager/issues/9600", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -233,6 +232,78 @@ struct CoverageTests {
             expectFileExists(at: html)
             let json = try #require(reportData.json)
             expectFileExists(at: json)
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Test,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms, CoverageFormat.allCases,
+    )
+    func coverageMergesAcrossTestProducts(
+        buildSystem: BuildSystemProvider.Kind,
+        format: CoverageFormat,
+    ) async throws {
+        // TestDebuggingMultiProduct contains two libraries (LibA, LibB) with a separate
+        // test target for each. Before the multi-binary merge fix, coverage from the
+        // second product would silently overwrite the first at the shared output path;
+        // after the fix, llvm-cov is invoked once with all test binaries so both
+        // sources appear in the report regardless of format.
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
+            let coveragePathString = try await getCoveragePath(
+                fixturePath,
+                with: BuildData(buildSystem: buildSystem, config: configuration),
+                format: format,
+            )
+            let coveragePath = try AbsolutePath(validating: coveragePathString)
+            try #require(localFileSystem.exists(coveragePath) == false)
+
+            try await executeSwiftTest(
+                fixturePath,
+                configuration: configuration,
+                extraArgs: [
+                    "--enable-coverage",
+                    "--coverage-format",
+                    format.rawValue,
+                ],
+                buildSystem: buildSystem,
+                throwIfCommandFails: true,
+            )
+
+            try requireFileExists(at: coveragePath)
+
+            // Reduce the format-specific report to a single searchable string so both
+            // formats can share the same "does it mention both sources?" assertion.
+            let searchTarget: String
+            switch format {
+            case .json:
+                struct LlvmCovExport: Decodable {
+                    struct Datum: Decodable {
+                        struct File: Decodable { let filename: String }
+                        let files: [File]
+                    }
+                    let data: [Datum]
+                }
+                let jsonData = try Data(contentsOf: URL(fileURLWithPath: coveragePath.pathString))
+                let decoded = try JSONDecoder().decode(LlvmCovExport.self, from: jsonData)
+                searchTarget = decoded.data.flatMap(\.files).map(\.filename).joined(separator: "\n")
+            case .html:
+                let indexPath = coveragePath.appending("index.html")
+                try requireFileExists(at: indexPath)
+                let bytes = try Data(contentsOf: URL(fileURLWithPath: indexPath.pathString))
+                searchTarget = String(decoding: bytes, as: UTF8.self)
+            }
+
+            #expect(
+                searchTarget.contains("LibA.swift"),
+                "Merged \(format.rawValue.uppercased()) coverage should include LibA.swift. Report contents: \(searchTarget)",
+            )
+            #expect(
+                searchTarget.contains("LibB.swift"),
+                "Merged \(format.rawValue.uppercased()) coverage should include LibB.swift. Report contents: \(searchTarget)",
+            )
         }
     }
 
@@ -462,6 +533,60 @@ struct CoverageTests {
                 }
             }
         }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms, [
+                (
+                    separator: "=",
+                    expectedStderr: [
+                        "\(XcovArgumentError.emptyOutputDirectoryValue)",
+                        "using default path:",
+                    ],
+                ),
+                (
+                    separator: "",
+                    expectedStderr: [
+                        "\(XcovArgumentError.missingOutputDirectoryValue)",
+                        "using default path:",
+                    ],
+                ),
+                (
+                    separator: " ",
+                    expectedStderr: [
+                        "Unable to determine output directory for",
+                        "using default path:",
+                    ],
+                ),
+            ],
+        )
+        func errorDoesNotOccurIfXcovOutputDirectoryOverrideIsInconplete(
+            buildSystem: BuildSystemProvider.Kind,
+            tcData: (separator: String, expectedStderr: [String]),
+        ) async throws {
+            let config = BuildConfiguration.debug
+            try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+                let (_, stderr) = try await executeSwiftTest(
+                    fixturePath,
+                    configuration: config,
+                    extraArgs: [
+                        "--coverage-format", "html",
+                        "--show-coverage-path", // we don't want to build or execute the tests.
+                    ],
+                    Xcov: [
+                        "--output-dir\(tcData.separator)",
+                    ],
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: false,
+                )
+
+                for diag in tcData.expectedStderr {
+                    #expect(
+                        stderr.contains(diag) == true,
+                        "expected '\(diag)' in stderr: '\(stderr)'"
+                    )
+                }
+            }
+        }
     }
 
     @Suite
@@ -664,13 +789,13 @@ struct CoverageTests {
                 XcovFailureTestData(
                     format: .html,
                     xcovArg: "html=--this-is-not-a-real-llvm-cov-flag",
-                    expectedErrorSubstring: "Unable to generate HTML code coverage report",
+                    expectedErrorSubstring: "Unable to generate HTML coverage report",
                     id: "HTML: bogus -Xcov html= arg surfaces llvm-cov show failure",
                 ),
                 XcovFailureTestData(
                     format: .json,
                     xcovArg: "json=--this-is-not-a-real-llvm-cov-flag",
-                    expectedErrorSubstring: "Unable to export code coverage",
+                    expectedErrorSubstring: "Unable to generate JSON coverage report",
                     id: "JSON: bogus -Xcov json= arg surfaces llvm-cov export failure",
                 ),
             ],
