@@ -100,6 +100,13 @@ extension Workspace {
                                     kind: .unknown // an archive, we will extract it later
                                 )
                             )
+                        } else if self.fileSystem.isFile(absolutePath) {
+                            observabilityScope.emit(
+                                BinaryArtifactsManagerError.localArtifactIsFile(
+                                    artifactPath: absolutePath,
+                                    targetName: target.name
+                                )
+                            )
                         } else {
                             guard let (artifactPath, artifactKind) = try Self.deriveBinaryArtifact(
                                 fileSystem: self.fileSystem,
