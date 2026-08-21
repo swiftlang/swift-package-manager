@@ -164,6 +164,7 @@ enum Serialization {
     enum TargetDependency: Codable {
         struct Condition: Codable {
             let platforms: [Platform]?
+            let hostPlatforms: [Platform]?
             let traits: [String]?
         }
 
@@ -207,7 +208,7 @@ enum Serialization {
     }
 
     enum PluginUsage: Codable {
-        case plugin(name: String, package: String?)
+        case plugin(name: String, package: String?, condition: TargetDependency.Condition?)
     }
 
     struct Target: Codable {

@@ -1416,7 +1416,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return try await pifBuilder.generatePIF(
             preservePIFModelStructure: preserveStructure,
             printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
-            buildParameters: buildParameters
+            buildParameters: buildParameters,
+            hostBuildParameters: hostBuildParameters
         )
     }
 

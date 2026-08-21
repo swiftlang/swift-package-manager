@@ -72,6 +72,42 @@ public struct ResolvedModule {
         public func satisfies(_ environment: BuildEnvironment) -> Bool {
             conditions.allSatisfy { $0.satisfies(environment) }
         }
+
+        public func satisfies(
+            targetEnvironment: BuildEnvironment,
+            hostEnvironment: BuildEnvironment
+        ) -> Bool {
+            conditions.allSatisfy {
+                $0.satisfies(
+                    targetEnvironment: targetEnvironment,
+                    hostEnvironment: hostEnvironment
+                )
+            }
+        }
+
+        public func satisfiesHost(_ environment: BuildEnvironment) -> Bool {
+            conditions.allSatisfy {
+                switch $0 {
+                case .platforms, .traits:
+                    true
+                case .hostPlatforms, .configuration:
+                    $0.satisfies(environment)
+                }
+            }
+        }
+    }
+
+    package struct BuildToolPluginUsage {
+        package let plugin: ResolvedModule
+        package let conditions: [PackageCondition]
+
+        package var targetPlatforms: [Platform] {
+            conditions.compactMap(\.platformsCondition).flatMap(\.platforms)
+        }
+
+        package func applies(to targetEnvironment: BuildEnvironment) -> Bool {
+            targetPlatforms.isEmpty || targetPlatforms.contains(targetEnvironment.platform)
+        }
     }
 
     /// The name of this module.
@@ -84,6 +120,24 @@ public struct ResolvedModule {
     ///     - environment: The build environment to use to filter dependencies on.
     public func dependencies(satisfying environment: BuildEnvironment) -> [Dependency] {
         return dependencies.filter { $0.satisfies(environment) }
+    }
+
+    public func dependencies(
+        satisfying targetEnvironment: BuildEnvironment,
+        hostEnvironment: BuildEnvironment
+    ) -> [Dependency] {
+        dependencies.filter {
+            $0.satisfies(
+                targetEnvironment: targetEnvironment,
+                hostEnvironment: hostEnvironment
+            )
+        }
+    }
+
+    /// Returns dependencies whose host-platform conditions match the host.
+    /// Target-platform conditions are not evaluated.
+    public func dependencies(satisfyingHost hostEnvironment: BuildEnvironment) -> [Dependency] {
+        dependencies.filter { $0.satisfiesHost(hostEnvironment) }
     }
 
     /// Returns the recursive dependencies, across the whole package-graph.
@@ -106,21 +160,73 @@ public struct ResolvedModule {
         }
     }
 
+    public func recursiveDependencies(
+        satisfying targetEnvironment: BuildEnvironment,
+        hostEnvironment: BuildEnvironment
+    ) throws -> [Dependency] {
+        try topologicalSort(dependencies(
+            satisfying: targetEnvironment,
+            hostEnvironment: hostEnvironment
+        )) { dependency in
+            dependency.dependencies.filter {
+                $0.satisfies(
+                    targetEnvironment: targetEnvironment,
+                    hostEnvironment: hostEnvironment
+                )
+            }
+        }
+    }
+
     /// Collect all of the plugins that the current target depends on.
-    package func pluginDependencies(satisfying environment: BuildEnvironment) -> [ResolvedModule] {
-        var plugins = IdentifiableSet<ResolvedModule>()
-        for dependency in self.dependencies(satisfying: environment) {
+    package func buildToolPluginUsages(
+        satisfyingHost hostEnvironment: BuildEnvironment
+    ) -> [BuildToolPluginUsage] {
+        struct Key: Hashable {
+            let pluginID: ResolvedModule.ID
+            let conditions: [PackageCondition]
+        }
+
+        var usages: [BuildToolPluginUsage] = []
+        var seen = Set<Key>()
+        for dependency in self.dependencies {
+            let conditions = dependency.conditions
+            guard conditions.allSatisfy({
+                $0.hostPlatformsCondition?.satisfies(hostEnvironment) ?? true
+            }) else {
+                continue
+            }
+
+            let plugins: [ResolvedModule]
             switch dependency {
             case .module(let module, _):
                 if let plugin = module.underlying as? PluginModule {
                     assert(plugin.capability == .buildTool)
-                    plugins.insert(module)
+                    plugins = [module]
+                } else {
+                    plugins = []
                 }
             case .product(let product, _):
-                for plugin in product.modules.filter({ $0.underlying is PluginModule }) {
-                    plugins.insert(plugin)
+                plugins = product.modules.filter { $0.underlying is PluginModule }
+            }
+
+            for plugin in plugins {
+                let key = Key(pluginID: plugin.id, conditions: conditions)
+                if seen.insert(key).inserted {
+                    usages.append(.init(plugin: plugin, conditions: conditions))
                 }
             }
+        }
+        return usages
+    }
+
+    package func pluginDependencies(
+        satisfyingHost hostEnvironment: BuildEnvironment
+    ) -> [ResolvedModule] {
+        var plugins = IdentifiableSet<ResolvedModule>()
+        for usage in buildToolPluginUsages(
+            satisfyingHost: hostEnvironment
+        ) {
+            plugins.insert(usage.plugin)
         }
         return Array(plugins)
     }

@@ -106,6 +106,7 @@ extension PackagePIFProjectBuilder {
             targetKeyPath: mainModuleTargetKeyPath,
             addBuildToolPluginCommands: pifProductType == .application
         )
+        let generatedFilePlatformFilters = platformFiltersByGeneratedFilePath(forModule: mainModule.name)
         if mainModule.resources.hasContent || generatedFiles.resources.hasContent {
             mainModuleTargetNamesWithResources.insert(mainModule.name)
         }
@@ -286,14 +287,24 @@ extension PackagePIFProjectBuilder {
                     )
                 }
             self.project[keyPath: mainModuleTargetKeyPath].addSourceFile { id in
-                BuildFile(id: id, fileRef: sourceFileRef)
+                BuildFile(
+                    id: id,
+                    fileRef: sourceFileRef,
+                    platformFilters: generatedFilePlatformFilters[path] ?? []
+                )
             }
             log(.debug, indent: 2, "Added generated source file '\(path)'")
         }
 
         // Add any additional resource files emitted by synthesized build commands
-        let generatedResourceFiles: [String] = {
-            var generatedResourceFiles = generatedFiles.sortedResourcePaths.map(\.pathString)
+        let generatedResourceFiles: [PackagePIFBuilder.Resource] = {
+            var generatedResourceFiles = generatedFiles.sortedResourcePaths.map {
+                PackagePIFBuilder.Resource(
+                    path: $0.pathString,
+                    rule: .process(localization: nil),
+                    platformFilters: generatedFilePlatformFilters[$0] ?? []
+                )
+            }
             generatedResourceFiles.append(
                 contentsOf: addBuildToolCommands(
                     from: synthesizedResourceGeneratingPluginInvocationResults,
@@ -421,7 +432,10 @@ extension PackagePIFProjectBuilder {
             directMacroDependencyIDs = []
         }
 
-        mainModule.recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: directMacroDependencyIDs) { dependency in
+        mainModule.recursivelyTraverseTransitiveLinkageDependencies(
+            includeDependenciesOfMacros: directMacroDependencyIDs,
+            hostEnvironment: pifBuilder.hostBuildEnvironment
+        ) { dependency in
             switch dependency {
             case .module(let moduleDependency, let packageConditions):
                 // This assertion is temporarily disabled since we may see targets from
@@ -819,7 +833,10 @@ extension PackagePIFProjectBuilder {
         // against them).
         var libraryUmbrellaTarget = self.project[keyPath: libraryUmbrellaTargetKeyPath]
         let mainModuleProducts = package.products.filter(\.isMainModuleProduct)
-        product.modules.recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: []) { dependency in
+        product.modules.recursivelyTraverseTransitiveLinkageDependencies(
+            includeDependenciesOfMacros: [],
+            hostEnvironment: pifBuilder.hostBuildEnvironment
+        ) { dependency in
             switch dependency {
             case .module(let moduleDependency, let packageConditions):
                 // This assertion is temporarily disabled since we may see targets from

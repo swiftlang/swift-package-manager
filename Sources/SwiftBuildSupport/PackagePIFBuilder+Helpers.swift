@@ -25,6 +25,7 @@ import class Basics.ObservabilitySystem
 import class Basics.ThreadSafeArrayStore
 
 import enum PackageModel.BuildConfiguration
+import struct PackageModel.BuildEnvironment
 import enum PackageModel.BuildSettings
 import class PackageModel.ClangModule
 import struct PackageModel.ConfigurationCondition
@@ -331,6 +332,7 @@ extension Sequence<PackageModel.PackageCondition> {
         for packageCondition in self {
             switch packageCondition {
             case .platforms(let condition): platformConditions.append(condition)
+            case .hostPlatforms: break
             case .configuration(let condition): configurationConditions.append(condition)
             case .traits(let condition): traitConditions.append(condition)
             }
@@ -970,8 +972,16 @@ extension PackageGraph.ResolvedProduct {
 }
 
 extension PackageGraph.ResolvedModule {
-    func recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: Set<ResolvedModule.ID>, with block: (ResolvedModule.Dependency) -> Void) {
-        [self].recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: includeDependenciesOfMacros, with: block)
+    func recursivelyTraverseTransitiveLinkageDependencies(
+        includeDependenciesOfMacros: Set<ResolvedModule.ID>,
+        hostEnvironment: BuildEnvironment,
+        with block: (ResolvedModule.Dependency) -> Void
+    ) {
+        [self].recursivelyTraverseTransitiveLinkageDependencies(
+            includeDependenciesOfMacros: includeDependenciesOfMacros,
+            hostEnvironment: hostEnvironment,
+            with: block
+        )
     }
 
     func addParseAsLibrarySettings(to settings: inout BuildSettings, toolsVersion: ToolsVersion, fileSystem: FileSystem) {
@@ -999,11 +1009,18 @@ extension PackageGraph.ResolvedModule {
 extension Collection<PackageGraph.ResolvedModule> {
     /// Recursively applies a block to each of the linkage dependencies of the given module, in topological sort order.
     /// Each module or product dependency is visited only once.
-    func recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: Set<ResolvedModule.ID>, with block: (ResolvedModule.Dependency) -> Void) {
+    func recursivelyTraverseTransitiveLinkageDependencies(
+        includeDependenciesOfMacros: Set<ResolvedModule.ID>,
+        hostEnvironment: BuildEnvironment,
+        with block: (ResolvedModule.Dependency) -> Void
+    ) {
         var moduleIDsSeen: Set<ResolvedModule.ID> = []
         var productIDsSeen: Set<ResolvedProduct.ID> = []
 
         func visitDependency(_ dependency: ResolvedModule.Dependency) {
+            if !dependency.satisfiesHost(hostEnvironment) {
+                return
+            }
             switch dependency {
             case .module(let moduleDependency, _):
                 let (unseenModule, _) = moduleIDsSeen.insert(moduleDependency.id)
@@ -1419,4 +1436,3 @@ extension UserDefaults {
         }
     }
 }
-

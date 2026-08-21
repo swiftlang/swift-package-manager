@@ -227,6 +227,16 @@ public final class Target {
         ///   - name: The name of the plug-in target.
         ///   - package: The name of the package that defines the plug-in target.
         case plugin(name: String, package: String?)
+
+        /// Specifies the conditional use of a plug-in product in a package dependency.
+        ///
+        /// - Parameters:
+        ///   - name: The name of the plug-in target.
+        ///   - package: The name of the package that defines the plug-in target.
+        ///   - condition: The condition for this plug-in usage.
+        @_spi(PackageDescriptionInternal)
+        @available(_PackageDescription, introduced: 6.5)
+        case pluginWithCondition(name: String, package: String?, condition: TargetDependencyCondition?)
     }
 
     /// Construct a target.
@@ -1358,10 +1368,12 @@ extension Target.Dependency {
 /// A condition that limits the application of a target's dependency.
 public struct TargetDependencyCondition: Sendable {
     let platforms: [Platform]?
+    let hostPlatforms: [Platform]?
     let traits: Set<String>?
 
-    private init(platforms: [Platform]?, traits: Set<String>?) {
+    private init(platforms: [Platform]?, hostPlatforms: [Platform]?, traits: Set<String>?) {
         self.platforms = platforms
+        self.hostPlatforms = hostPlatforms
         self.traits = traits
     }
 
@@ -1375,7 +1387,7 @@ public struct TargetDependencyCondition: Sendable {
     ) -> TargetDependencyCondition {
         // FIXME: This should be an error, not a precondition.
         precondition(!(platforms == nil))
-        return TargetDependencyCondition(platforms: platforms, traits: nil)
+        return TargetDependencyCondition(platforms: platforms, hostPlatforms: nil, traits: nil)
     }
 
     /// Creates a target dependency condition.
@@ -1385,7 +1397,7 @@ public struct TargetDependencyCondition: Sendable {
     public static func when(
         platforms: [Platform]
     ) -> TargetDependencyCondition? {
-        return !platforms.isEmpty ? TargetDependencyCondition(platforms: platforms, traits: nil) : .none
+        return !platforms.isEmpty ? TargetDependencyCondition(platforms: platforms, hostPlatforms: nil, traits: nil) : .none
     }
 
     /// Creates a target dependency condition.
@@ -1397,7 +1409,7 @@ public struct TargetDependencyCondition: Sendable {
         platforms: [Platform],
         traits: Set<String>
     ) -> TargetDependencyCondition? {
-        return TargetDependencyCondition(platforms: platforms, traits: traits)
+        return TargetDependencyCondition(platforms: platforms, hostPlatforms: nil, traits: traits)
     }
 
     /// Creates a target dependency condition.
@@ -1407,7 +1419,36 @@ public struct TargetDependencyCondition: Sendable {
     public static func when(
         traits: Set<String>
     ) -> TargetDependencyCondition? {
-        return TargetDependencyCondition(platforms: nil, traits: traits)
+        return TargetDependencyCondition(platforms: nil, hostPlatforms: nil, traits: traits)
+    }
+
+    /// Creates a condition for a target dependency or plug-in usage.
+    ///
+    /// All specified filters must match. A `nil` value for `platforms` or `traits`
+    /// does not add a constraint on that axis. This method returns `nil` if all
+    /// arguments are `nil` or empty.
+    ///
+    /// - Parameters:
+    ///   - platforms: The applicable target platforms.
+    ///   - hostPlatforms: The applicable host platforms.
+    ///   - traits: The applicable traits.
+    @available(_PackageDescription, introduced: 6.5)
+    public static func when(
+        platforms: [Platform]? = nil,
+        hostPlatforms: [Platform],
+        traits: Set<String>? = nil
+    ) -> TargetDependencyCondition? {
+        let platforms = platforms.flatMap { !$0.isEmpty ? $0 : nil }
+        let hostPlatforms = !hostPlatforms.isEmpty ? hostPlatforms : nil
+        let traits = traits.flatMap { !$0.isEmpty ? $0 : nil }
+        guard platforms != nil || hostPlatforms != nil || traits != nil else {
+            return nil
+        }
+        return TargetDependencyCondition(
+            platforms: platforms,
+            hostPlatforms: hostPlatforms,
+            traits: traits
+        )
     }
 }
 
@@ -1533,6 +1574,27 @@ extension Target.PluginUsage {
     public static func plugin(name: String) -> Target.PluginUsage {
         return .plugin(name: name, package: nil)
     }
+
+    /// Creates a reference to a plug-in with an optional condition.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the plug-in target.
+    ///   - package: The name of the package that provides the plug-in, or `nil`
+    ///     if the plug-in is defined in the same package.
+    ///   - condition: The condition for this plug-in usage.
+    /// - Returns: A `PluginUsage` instance.
+    @_disfavoredOverload
+    @available(_PackageDescription, introduced: 6.5)
+    public static func plugin(
+        name: String,
+        package: String? = nil,
+        condition: TargetDependencyCondition? = nil
+    ) -> Target.PluginUsage {
+        guard let condition else {
+            return .plugin(name: name, package: package)
+        }
+        return .pluginWithCondition(name: name, package: package, condition: condition)
+    }
 }
 
 
@@ -1561,4 +1623,3 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
         self = .plugin(name: value, package: nil)
     }
 }
-

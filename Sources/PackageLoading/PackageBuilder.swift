@@ -698,11 +698,14 @@ public final class PackageBuilder {
             }
             // If there are plugin usages, consider them to be dependencies too.
             if let pluginUsages = target.pluginUsages {
-                successors += pluginUsages.compactMap {
-                    switch $0 {
-                    case .plugin(_, .some(_)):
+                successors += try pluginUsages.compactMap { usage -> PotentialModule? in
+                    guard try self.manifest.isPluginUsageEnabled(usage, enabledTraits: self.enabledTraits) else {
+                        return nil
+                    }
+                    return switch usage {
+                    case .plugin(_, .some(_), _):
                         nil
-                    case .plugin(let name, nil):
+                    case .plugin(let name, nil, _):
                         if let potentialModule = potentialModuleMap[name] {
                             potentialModule
                         } else if let targetName = pluginTargetName(for: name),
@@ -775,17 +778,21 @@ public final class PackageBuilder {
             } ?? []
 
             // Get dependencies from the plugin usages of this target.
-            let pluginUsages: [Module.PluginUsage] = manifestTarget?.pluginUsages.map {
-                $0.compactMap { usage in
+            let pluginUsages: [Module.PluginUsage] = try manifestTarget?.pluginUsages.map {
+                try $0.compactMap { usage in
+                    guard try self.manifest.isPluginUsageEnabled(usage, enabledTraits: self.enabledTraits) else {
+                        return nil
+                    }
                     switch usage {
-                    case .plugin(let name, let package):
+                    case .plugin(let name, let package, let condition):
+                        let conditions = buildConditions(from: condition)
                         if let package {
-                            return .product(Module.ProductReference(name: name, package: package), conditions: [])
+                            return .product(Module.ProductReference(name: name, package: package), conditions: conditions)
                         } else {
                             if let target = targets[name] {
-                                return .module(target, conditions: [])
+                                return .module(target, conditions: conditions)
                             } else if let targetName = pluginTargetName(for: name), let target = targets[targetName] {
-                                return .module(target, conditions: [])
+                                return .module(target, conditions: conditions)
                             } else {
                                 self.observabilityScope.emit(.pluginNotFound(name: name))
                                 return nil
@@ -1367,6 +1374,16 @@ public final class PackageBuilder {
             }
         }), !platforms.isEmpty {
             conditions.append(.init(platforms: platforms))
+        }
+
+        if let hostPlatforms = condition?.hostPlatformNames.map({
+            if let platform = platformRegistry.platformByName[$0] {
+                platform
+            } else {
+                PackageModel.Platform.custom(name: $0, oldestSupportedVersion: .unknown)
+            }
+        }), !hostPlatforms.isEmpty {
+            conditions.append(.init(hostPlatforms: hostPlatforms))
         }
 
         if let traits = condition?.traits {

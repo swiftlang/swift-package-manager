@@ -7,4 +7,5 @@
 - ``when(platforms:)-5bxhc``
 - ``when(traits:)``
 - ``when(platforms:traits:)``
+- ``when(platforms:hostPlatforms:traits:)``
 - ``when(platforms:)-4djh6``

@@ -180,7 +180,9 @@ internal struct PluginContextSerializer {
         }
         
         // We only get this far if we are serializing the target. If so we also serialize its dependencies. This needs to be done before assigning the next wire ID for the target we're serializing, to make sure we end up with the correct one.
-        let dependencies: [WireInput.Target.Dependency] = try target.dependencies(satisfying: buildEnvironment).compactMap {
+        let dependencies: [WireInput.Target.Dependency] = try target
+            .dependencies(satisfyingHost: buildEnvironment)
+            .compactMap {
             switch $0 {
             case .module(let target, _):
                 return try serialize(target: target).map { .target(targetId: $0) }

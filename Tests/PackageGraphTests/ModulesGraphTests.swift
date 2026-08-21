@@ -2389,6 +2389,90 @@ struct ModulesGraphTests {
         }
     }
 
+    @Test
+    func conditionalTargetDependencyUsesHostAndTargetPlatforms() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Foo/Sources/Foo/source.swift",
+            "/Foo/Sources/Bar/source.swift",
+            "/Foo/Sources/Baz/source.swift",
+            "/Biz/Sources/Biz/source.swift"
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    dependencies: [.fileSystem(path: "/Biz")],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: [
+                            .target(
+                                name: "Bar",
+                                condition: .init(hostPlatformNames: ["macos"])
+                            ),
+                            .byName(
+                                name: "Baz",
+                                condition: .init(hostPlatformNames: ["linux"])
+                            ),
+                            .product(
+                                name: "Biz",
+                                package: "Biz",
+                                condition: .init(
+                                    platformNames: ["ios"],
+                                    hostPlatformNames: ["macos"]
+                                )
+                            ),
+                        ]),
+                        TargetDescription(name: "Bar", dependencies: [
+                            .target(
+                                name: "Baz",
+                                condition: .init(hostPlatformNames: ["macos"])
+                            ),
+                        ]),
+                        TargetDescription(name: "Baz"),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "Biz",
+                    path: "/Biz",
+                    products: [
+                        ProductDescription(name: "Biz", type: .library(.automatic), targets: ["Biz"]),
+                    ],
+                    targets: [TargetDescription(name: "Biz")]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        expectNoDiagnostics(observability.diagnostics)
+        let foo = try #require(graph.module(for: "Foo"))
+
+        #expect(Set(foo.dependencies(
+            satisfying: .init(platform: .iOS),
+            hostEnvironment: .init(platform: .macOS)
+        ).map(\.name)) == ["Bar", "Biz"])
+        #expect(Set(foo.dependencies(
+            satisfying: .init(platform: .macOS),
+            hostEnvironment: .init(platform: .macOS)
+        ).map(\.name)) == ["Bar"])
+        #expect(Set(foo.dependencies(
+            satisfying: .init(platform: .iOS),
+            hostEnvironment: .init(platform: .linux)
+        ).map(\.name)) == ["Baz"])
+        #expect(Set(foo.dependencies(
+            satisfyingHost: .init(platform: .macOS)
+        ).map(\.name)) == ["Bar", "Biz"])
+        let bar = try #require(graph.module(for: "Bar"))
+        #expect(Set(bar.dependencies.map(\.name)) == ["Baz"])
+        let recursiveDependencyNames = Set(try foo.recursiveDependencies(
+            satisfying: .init(platform: .iOS),
+            hostEnvironment: .init(platform: .macOS)
+        ).map(\.name))
+        #expect(recursiveDependencyNames == ["Bar", "Baz", "Biz"])
+    }
+
     @Test(
         .requiresTargetBasedDependencyResolution,
     )

@@ -64,7 +64,10 @@ extension PackagePIFProjectBuilder {
         // Add the dependencies.
         var pluginTarget = self.project[keyPath: pluginTargetKeyPath]
         let mainModuleProducts = self.package.products.filter(\.isMainModuleProduct)
-        pluginModule.recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: []) { dependency in
+        pluginModule.recursivelyTraverseTransitiveLinkageDependencies(
+            includeDependenciesOfMacros: [],
+            hostEnvironment: pifBuilder.hostBuildEnvironment
+        ) { dependency in
             switch dependency {
             case .module(let moduleDependency, let packageConditions):
                 // This assertion is temporarily disabled since we may see targets from
@@ -327,6 +330,7 @@ extension PackagePIFProjectBuilder {
             targetKeyPath: sourceModuleTargetKeyPath,
             addBuildToolPluginCommands: false
         )
+        let generatedFilePlatformFilters = platformFiltersByGeneratedFilePath(forModule: sourceModule.name)
 
         // Either create or reuse the resource bundle.
         var resourceBundleName = inputResourceBundleName
@@ -339,7 +343,13 @@ extension PackagePIFProjectBuilder {
             let (result, resourceBundle) = try addResourceBundle(
                 for: sourceModule,
                 targetKeyPath: sourceModuleTargetKeyPath,
-                generatedResourceFiles: generatedFiles.sortedResourcePaths.map(\.pathString)
+                generatedResourceFiles: generatedFiles.sortedResourcePaths.map {
+                    PackagePIFBuilder.Resource(
+                        path: $0.pathString,
+                        rule: .process(localization: nil),
+                        platformFilters: generatedFilePlatformFilters[$0] ?? []
+                    )
+                }
             )
             if let resourceBundle { self.builtModulesAndProducts.append(resourceBundle) }
 
@@ -721,7 +731,11 @@ extension PackagePIFProjectBuilder {
                 FileReference(id: id, path: path.pathString, pathBase: .absolute)
             }
             moduleTargetForSources.addSourceFile { id in
-                BuildFile(id: id, fileRef: sourceFileRef)
+                BuildFile(
+                    id: id,
+                    fileRef: sourceFileRef,
+                    platformFilters: generatedFilePlatformFilters[path] ?? []
+                )
             }
             log(.debug, indent: 2, "Added generated source file '\(path)'")
         }
@@ -767,7 +781,10 @@ extension PackagePIFProjectBuilder {
         let shouldLinkProduct = (desiredModuleType == .dynamicLibrary) || (desiredModuleType == .macro)
         var moduleTarget = self.project[keyPath: sourceModuleTargetKeyPath]
         let moduleMainProducts = self.package.products.filter(\.isMainModuleProduct)
-        sourceModule.recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: []) { dependency in
+        sourceModule.recursivelyTraverseTransitiveLinkageDependencies(
+            includeDependenciesOfMacros: [],
+            hostEnvironment: pifBuilder.hostBuildEnvironment
+        ) { dependency in
             switch dependency {
             case .module(let moduleDependency, let packageConditions):
                 // This assertion is temporarily disabled since we may see targets from

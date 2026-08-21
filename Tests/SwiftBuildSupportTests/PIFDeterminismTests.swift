@@ -248,8 +248,10 @@ struct PIFOrderingTests {
             observabilityScope: observability
         )
 
+        let buildParameters = mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         let pif = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: buildParameters,
+            hostBuildParameters: buildParameters
         ).0
 
         return (pif, expectations)
