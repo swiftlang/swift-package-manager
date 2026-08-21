@@ -946,6 +946,66 @@ final class PubGrubTests: XCTestCase {
         ])
     }
 
+    func testResolutionIsDeterministicAcrossRuns() async throws {
+        // Solving the same graph many times must yield identical bindings,
+        // both in content and order. Run 0's bindings are also checked
+        // against an explicit expected list so the test catches "stable but
+        // wrong" results, not just "correct but unstable" ones. The graph
+        // mixes several top-level unversioned siblings with a branch-based
+        // dep so both discovery phases run with non-trivial wave sizes.
+        let runCount = 8
+        var firstRunRendered: [String]?
+
+        for runIndex in 0 ..< runCount {
+            for letter in ["a", "b", "c", "d"] {
+                try builder.serve(letter, at: .unversioned, with: [
+                    letter: ["v\(letter)": (.versionSet(v1Range), .specific(["v\(letter)"]))]
+                ])
+                try builder.serve("v\(letter)", at: v1)
+            }
+            try builder.serve("branch", at: .revision("main"), with: [
+                "branch": ["vbranch": (.versionSet(v1Range), .specific(["vbranch"]))]
+            ])
+            try builder.serve("vbranch", at: v1)
+
+            let resolver = builder.create()
+            let dependencies = try builder.create(dependencies: [
+                "a": (.unversioned, .specific(["a"])),
+                "b": (.unversioned, .specific(["b"])),
+                "c": (.unversioned, .specific(["c"])),
+                "d": (.unversioned, .specific(["d"])),
+                "branch": (.revision("main"), .specific(["branch"])),
+            ])
+            let result = await resolver.solve(constraints: dependencies)
+
+            if runIndex == 0 {
+                AssertResult(result, [
+                    ("a", .unversioned),
+                    ("b", .unversioned),
+                    ("c", .unversioned),
+                    ("d", .unversioned),
+                    ("va", .version(v1)),
+                    ("vb", .version(v1)),
+                    ("vc", .version(v1)),
+                    ("vd", .version(v1)),
+                    ("branch", .revision("main")),
+                    ("vbranch", .version(v1)),
+                ])
+            }
+
+            guard case .success(let bindings) = result else {
+                XCTFail("Run \(runIndex) failed: \(result)")
+                return
+            }
+            let rendered = bindings.map { "\($0.package.identity)@\($0.boundVersion)" }
+            if let firstRunRendered {
+                XCTAssertEqual(rendered, firstRunRendered, "Run \(runIndex) bindings differ from run 0")
+            } else {
+                firstRunRendered = rendered
+            }
+        }
+    }
+
     // root -> version -> version
     // root -> version -> version
     func testHappyPath1() async throws {
