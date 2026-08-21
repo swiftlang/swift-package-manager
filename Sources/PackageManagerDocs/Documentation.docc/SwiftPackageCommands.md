@@ -38,6 +38,7 @@ Overview of package manager commands here...
 <!-- ref to swift-docc-plugin -->
 
 ### Inspecting packages
+- <doc:PackageAudit>
 - <doc:PackageDescribe>
 - <doc:PackageShowDependencies>
 - <doc:PackageShowExecutables>

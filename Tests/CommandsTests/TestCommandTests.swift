@@ -2681,5 +2681,43 @@ struct TestCommandTests {
             #expect(XCTestCaseSpecifier.specific("SomeTests/testFoo").normalizedForXCTest() == .specific("SomeTests/testFoo"))
         }
     }
+
+    // MARK: - Product deprecation (SE-NNNN)
+
+    /// Confirms that graph-load-time product-deprecation diagnostics fire
+    /// during `swift test` just as they do during `swift build` / `swift
+    /// package resolve`. This is a smoke test — the detailed matrix of
+    /// severity behavior is covered by `BuildCommandTestCases.ProductDeprecation`
+    /// and `PackageCommandTests.PackageResolveCommandTests.ProductDeprecation`.
+    @Suite(
+        .tags(
+            .Feature.Deprecation,
+        ),
+    )
+    struct ProductDeprecation {
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func warningIsEmittedForConsumerOfDeprecatedProduct(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await fixture(name: "Miscellaneous/DeprecatedProducts/") { fixturePath in
+                let fixturePath = fixturePath.appending("consumer")
+                let (_, stderr) = try await executeSwiftTest(
+                    fixturePath,
+                    configuration: .debug,
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: false,
+                )
+                #expect(
+                    stderr.contains(
+                        "warning: 'consumer': product 'PaperLegacy' from package 'producer' is unsupported: PaperLegacy is superseded by Paper. Use 'Paper' instead.",
+                    ),
+                    "stderr:\n\(stderr)",
+                )
+            }
+        }
+    }
 }
 
