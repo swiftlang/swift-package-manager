@@ -103,13 +103,27 @@ internal struct PluginContextSerializer {
         let targetInfo: WireInput.Target.TargetInfo
         switch target.underlying {
         case let target as SwiftModule:
-            targetInfo = .swiftSourceModuleInfo(
-                moduleName: target.c99name,
-                kind: try .init(target.type),
-                sourceFiles: targetFiles,
-                compilationConditions: scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS),
-                linkedLibraries: scope.evaluate(.LINK_LIBRARIES),
-                linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS))
+            if target.isMixedLanguage {
+                let publicHeadersDir = target.clangModuleInfo?.includeDir
+                targetInfo = .mixedSourceModuleInfo(
+                    moduleName: target.c99name,
+                    kind: try .init(target.type),
+                    sourceFiles: targetFiles,
+                    compilationConditions: scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS),
+                    preprocessorDefinitions: scope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS),
+                    headerSearchPaths: scope.evaluate(.HEADER_SEARCH_PATHS),
+                    publicHeadersDirId: try publicHeadersDir.map { try serialize(path: $0) },
+                    linkedLibraries: scope.evaluate(.LINK_LIBRARIES),
+                    linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS))
+            } else {
+                targetInfo = .swiftSourceModuleInfo(
+                    moduleName: target.c99name,
+                    kind: try .init(target.type),
+                    sourceFiles: targetFiles,
+                    compilationConditions: scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS),
+                    linkedLibraries: scope.evaluate(.LINK_LIBRARIES),
+                    linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS))
+            }
 
         case let target as ClangModule:
             targetInfo = .clangSourceModuleInfo(

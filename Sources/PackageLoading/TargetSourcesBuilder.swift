@@ -222,7 +222,7 @@ public struct TargetSourcesBuilder {
 
         // It's an error to contain mixed language source files
         // Unless experimental flag is turned on
-        if sources.containsMixedLanguage && !toolsVersion.experimentalMultiLang {
+        if sources.containsMixedLanguage && toolsVersion < .v6_5 {
             throw Module.Error.mixedSources(targetPath)
         }
 
