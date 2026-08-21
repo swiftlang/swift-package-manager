@@ -121,7 +121,7 @@ extension PackagePIFProjectBuilder {
         // We must use the main module name here instead of the product name, because they're not guranteed to be the same, and the users may have authored e.g. tests which rely on an executable's module name.
         settings[.PRODUCT_MODULE_NAME] = mainModule.c99name
 
-        if let aliases = mainModule.moduleAliases {
+        if let aliases = mainModule.moduleAliasesForCompilation {
             let list = aliases.map { $0.0 + "=" + $0.1 }
             settings[.SWIFT_MODULE_ALIASES] = list.isEmpty ? nil : list
         }

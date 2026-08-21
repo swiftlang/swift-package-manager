@@ -547,7 +547,7 @@ extension PackagePIFProjectBuilder {
                 }
             }
 
-            if let aliases = sourceModule.moduleAliases {
+            if let aliases = sourceModule.moduleAliasesForCompilation {
                 // Format each entry as "original_name=alias"
                 let list = aliases.map { $0.0 + "=" + $0.1 }
                 settings[.SWIFT_MODULE_ALIASES] = list.isEmpty ? nil : list
