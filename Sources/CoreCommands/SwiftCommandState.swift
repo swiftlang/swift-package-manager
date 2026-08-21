@@ -95,7 +95,6 @@ public protocol _SwiftCommand {
     var toolWorkspaceConfiguration: ToolWorkspaceConfiguration { get }
     var workspaceDelegateProvider: WorkspaceDelegateProvider { get }
     var workspaceLoaderProvider: WorkspaceLoaderProvider { get }
-    func buildSystemProvider(_ swiftCommandState: SwiftCommandState) throws -> BuildSystemProvider
 
     // If a packagePath is specificed, this indicates that the command allows
     // creating the directory if it doesn't exist.
@@ -139,7 +138,6 @@ extension SwiftCommand {
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
         swiftCommandState.setNeedsLocking()
 
-        swiftCommandState.buildSystemProvider = try buildSystemProvider(swiftCommandState)
         var toolError: Error? = .none
         do {
             try self.run(swiftCommandState)
@@ -239,7 +237,6 @@ extension AsyncSwiftCommand {
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
         swiftCommandState.setNeedsLocking()
 
-        swiftCommandState.buildSystemProvider = try buildSystemProvider(swiftCommandState)
         var toolError: Error? = .none
         do {
             try await self.run(swiftCommandState)
@@ -357,8 +354,6 @@ public final class SwiftCommandState {
     private let workspaceLoaderProvider: WorkspaceLoaderProvider
 
     private let toolWorkspaceConfiguration: ToolWorkspaceConfiguration
-
-    fileprivate var buildSystemProvider: BuildSystemProvider?
 
     private let environment: Environment
 
@@ -993,9 +988,7 @@ public final class SwiftCommandState {
             self.observabilityScope.emit(warning: "`--use-integrated-swift-driver` option is deprecated as the feature is not fully functional.")
         }
 
-        guard let buildSystemProvider else {
-            fatalError("build system provider not initialized")
-        }
+        let buildSystemProvider = self.defaultBuildSystemProvider
         var productsParameters = try productsBuildParameters ?? self.productsBuildParameters
         productsParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
         let buildSystem = try await buildSystemProvider.createBuildSystem(
