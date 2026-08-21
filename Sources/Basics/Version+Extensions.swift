@@ -23,4 +23,37 @@ extension Version {
             try? self.init(versionString: tag, usesLenientParsing: true)
         }
     }
+
+    /// Returns whether this version and `other` have the same parsed version identifier.
+    ///
+    /// Unlike `Version.==`, which models SemVer precedence equality, this comparison includes
+    /// build metadata.
+    package func hasSameIdentifier(as other: Version) -> Bool {
+        self.major == other.major &&
+            self.minor == other.minor &&
+            self.patch == other.patch &&
+            self.prereleaseIdentifiers == other.prereleaseIdentifiers &&
+            self.buildMetadataIdentifiers == other.buildMetadataIdentifiers
+    }
+}
+
+/// A hashable key for the complete parsed identity of a semantic version.
+package struct VersionIdentifierKey: Hashable {
+    package let version: Version
+
+    package init(_ version: Version) {
+        self.version = version
+    }
+
+    package static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.version.hasSameIdentifier(as: rhs.version)
+    }
+
+    package func hash(into hasher: inout Hasher) {
+        hasher.combine(self.version.major)
+        hasher.combine(self.version.minor)
+        hasher.combine(self.version.patch)
+        hasher.combine(self.version.prereleaseIdentifiers)
+        hasher.combine(self.version.buildMetadataIdentifiers)
+    }
 }

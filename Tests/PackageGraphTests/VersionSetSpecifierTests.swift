@@ -14,11 +14,12 @@ import Foundation
 import TSCUtility
 import XCTest
 
-import PackageGraph
+import struct Basics.VersionIdentifierKey
+@_spi(SwiftPMInternal) import PackageGraph
 
 final class VersionSetSpecifierTests: XCTestCase {
     func testUnion() {
-        XCTAssertEqual(VersionSetSpecifier.union(from: ["1.0.0"..<"1.0.1"]), .exact("1.0.0"))
+        XCTAssertEqual(VersionSetSpecifier.union(from: ["1.0.0"..<"1.0.1"]), .range("1.0.0"..<"1.0.1"))
         XCTAssertEqual(VersionSetSpecifier.union(from: ["1.0.0"..<"1.0.5"]), .range("1.0.0"..<"1.0.5"))
         XCTAssertEqual(VersionSetSpecifier.union(from: ["1.0.0"..<"1.0.6", "1.0.5"..<"1.0.9"]), .range("1.0.0"..<"1.0.9"))
         XCTAssertEqual(VersionSetSpecifier.union(from: ["1.0.0"..<"1.0.5", "1.0.5"..<"1.0.9"]), .range("1.0.0"..<"1.0.9"))
@@ -27,9 +28,12 @@ final class VersionSetSpecifierTests: XCTestCase {
         XCTAssertEqual(VersionSetSpecifier.exact("1.0.0").union(.exact("1.0.0")), .exact("1.0.0"))
 
         let ranges1 = VersionSetSpecifier.union(from: ["1.0.0"..<"1.1.0", "1.1.1"..<"2.0.0"])
-        XCTAssertEqual(ranges1.union(.exact("1.1.0")), .range("1.0.0"..<"2.0.0"))
+        let unionWithExact = ranges1.union(.exact("1.1.0"))
+        XCTAssertTrue(unionWithExact.contains("1.1.0"))
+        XCTAssertFalse(unionWithExact.contains("1.1.0+debug"))
+        XCTAssertTrue(unionWithExact.contains("1.1.1"))
 
-        XCTAssertEqual(VersionSetSpecifier.union(from: ["1.0.0"..<"1.0.0", "1.0.1"..<"2.0.0"]), .range("1.0.0"..<"2.0.0"))
+        XCTAssertEqual(VersionSetSpecifier.union(from: ["1.0.0"..<"1.0.0", "1.0.1"..<"2.0.0"]), .range("1.0.1"..<"2.0.0"))
     }
 
     func testIntersection() {
@@ -57,10 +61,12 @@ final class VersionSetSpecifierTests: XCTestCase {
         }
 
         XCTAssertEqual(VersionSetSpecifier.range("1.0.0"..<"2.0.0").difference(.exact("2.0.0")), .range("1.0.0"..<"2.0.0"))
-        XCTAssertEqual(VersionSetSpecifier.range("1.0.0"..<"2.0.0").difference(.exact("1.0.0")), .range("1.0.1"..<"2.0.0"))
-        XCTAssertEqual(VersionSetSpecifier.range("1.0.0"..<"2.0.0").difference(.exact("1.5.0")), .ranges(["1.0.0"..<"1.5.0", "1.5.1"..<"2.0.0"]))
+        XCTAssertFalse(VersionSetSpecifier.range("1.0.0"..<"2.0.0").difference(.exact("1.0.0")).contains("1.0.0"))
+        XCTAssertTrue(VersionSetSpecifier.range("1.0.0"..<"2.0.0").difference(.exact("1.0.0")).contains("1.0.0+debug"))
+        XCTAssertFalse(VersionSetSpecifier.range("1.0.0"..<"2.0.0").difference(.exact("1.5.0")).contains("1.5.0"))
+        XCTAssertTrue(VersionSetSpecifier.range("1.0.0"..<"2.0.0").difference(.exact("1.5.0")).contains("1.5.0+debug"))
         XCTAssertEqual(VersionSetSpecifier.range("2.0.0"..<"2.0.0").difference(.exact("2.0.0")), .empty)
-        XCTAssertEqual(VersionSetSpecifier.range("2.0.0"..<"2.0.1").difference(.exact("2.0.0")), .empty)
+        XCTAssertTrue(VersionSetSpecifier.range("2.0.0"..<"2.0.1").difference(.exact("2.0.0")).contains("2.0.0+debug"))
 
         XCTAssertEqual(VersionSetSpecifier.exact("1.0.0").difference(.range("1.0.0"..<"2.0.0")), .empty)
         XCTAssertEqual(VersionSetSpecifier.exact("3.0.0").difference(.range("1.0.0"..<"2.0.0")), .exact("3.0.0"))
@@ -68,8 +74,8 @@ final class VersionSetSpecifierTests: XCTestCase {
         XCTAssertEqual(VersionSetSpecifier.exact("3.0.0").difference(.any), .empty)
 
         XCTAssertEqual(VersionSetSpecifier.ranges(["1.0.0"..<"2.0.0", "3.0.0"..<"4.0.0"]).difference(.exact("2.0.0")), .ranges(["1.0.0"..<"2.0.0", "3.0.0"..<"4.0.0"]))
-        XCTAssertEqual(VersionSetSpecifier.ranges(["1.0.0"..<"2.0.0", "3.0.0"..<"4.0.0"]).difference(.exact("1.0.0")), .ranges(["1.0.1"..<"2.0.0", "3.0.0"..<"4.0.0"]))
-        XCTAssertEqual(VersionSetSpecifier.ranges(["1.0.0"..<"2.0.0", "3.0.0"..<"4.0.0"]).difference(.exact("3.5.0")), .ranges(["1.0.0"..<"2.0.0", "3.0.0"..<"3.5.0", "3.5.1"..<"4.0.0"]))
+        XCTAssertFalse(VersionSetSpecifier.ranges(["1.0.0"..<"2.0.0", "3.0.0"..<"4.0.0"]).difference(.exact("1.0.0")).contains("1.0.0"))
+        XCTAssertFalse(VersionSetSpecifier.ranges(["1.0.0"..<"2.0.0", "3.0.0"..<"4.0.0"]).difference(.exact("3.5.0")).contains("3.5.0"))
 
         XCTAssertEqual(VersionSetSpecifier.ranges(["1.0.0"..<"1.0.0", "3.0.0"..<"4.0.0"]).difference(.exact("1.0.0")), .range("3.0.0"..<"4.0.0"))
 
@@ -91,15 +97,16 @@ final class VersionSetSpecifierTests: XCTestCase {
 
         XCTAssertEqual(VersionSetSpecifier.range("1.0.0"..<"5.0.0").difference(.ranges(["1.0.0"..<"2.0.0", "3.0.0"..<"4.0.0"])), .ranges(["2.0.0"..<"3.0.0", "4.0.0"..<"5.0.0"]))
         XCTAssertEqual(VersionSetSpecifier.range("1.0.0"..<"2.0.0").difference(.range("1.0.0"..<"1.8.0")), .range("1.8.0"..<"2.0.0"))
-        XCTAssertEqual(VersionSetSpecifier.range("1.0.0"..<"5.0.0").difference(.ranges(["1.0.0"..<"2.0.0", "2.0.1"..<"5.0.0"])), .exact("2.0.0"))
-        XCTAssertEqual(VersionSetSpecifier.ranges(["3.2.1"..<"3.2.4", "3.2.5"..<"4.0.0"]).difference(.ranges(["3.2.1"..<"3.2.3", "3.2.3"..<"4.0.0"])), .exact("3.2.3"))
+        XCTAssertEqual(VersionSetSpecifier.range("1.0.0"..<"5.0.0").difference(.ranges(["1.0.0"..<"2.0.0", "2.0.1"..<"5.0.0"])), .range("2.0.0"..<"2.0.1"))
+        XCTAssertEqual(VersionSetSpecifier.ranges(["3.2.1"..<"3.2.4", "3.2.5"..<"4.0.0"]).difference(.ranges(["3.2.1"..<"3.2.3", "3.2.3"..<"4.0.0"])), .empty)
 
         XCTAssertEqual(VersionSetSpecifier.ranges(["1.0.0"..<"2.0.0", "2.0.1"..<"5.0.0"]).difference(.ranges(["1.0.0"..<"2.0.0", "2.0.1"..<"5.0.0"])), .empty)
         XCTAssertEqual(VersionSetSpecifier.ranges(["0.0.0"..<"0.9.1", "1.0.0"..<"2.0.0", "2.0.1"..<"5.0.0"]).difference(.ranges(["1.0.0"..<"1.4.0", "2.4.1"..<"4.0.0"])), .ranges(["0.0.0"..<"0.9.1", "1.4.0"..<"2.0.0", "2.0.1"..<"2.4.1", "4.0.0"..<"5.0.0"]))
 
         XCTAssertEqual(VersionSetSpecifier.ranges(["1.0.0"..<"2.0.0", "2.0.1"..<"5.0.0"]).difference(.range("1.0.0"..<"2.0.0")), .range("2.0.1"..<"5.0.0"))
-        XCTAssertEqual(VersionSetSpecifier.ranges(["3.2.0"..<"3.2.3", "3.2.4"..<"4.0.0"]).difference(.exact("3.2.2")), .ranges(["3.2.0"..<"3.2.2", "3.2.4"..<"4.0.0"]))
-        XCTAssertEqual(VersionSetSpecifier.ranges(["3.2.0"..<"3.2.1", "3.2.3"..<"4.0.0"]).difference(.exact("3.2.0")), .range("3.2.3"..<"4.0.0"))
+        XCTAssertFalse(VersionSetSpecifier.ranges(["3.2.0"..<"3.2.3", "3.2.4"..<"4.0.0"]).difference(.exact("3.2.2")).contains("3.2.2"))
+        XCTAssertTrue(VersionSetSpecifier.ranges(["3.2.0"..<"3.2.3", "3.2.4"..<"4.0.0"]).difference(.exact("3.2.2")).contains("3.2.2+other"))
+        XCTAssertFalse(VersionSetSpecifier.ranges(["3.2.0"..<"3.2.1", "3.2.3"..<"4.0.0"]).difference(.exact("3.2.0")).contains("3.2.0"))
 
 
         XCTAssertEqual(VersionSetSpecifier.exact("1.0.0-beta").difference(.exact("1.0.0-beta")), .empty)
@@ -111,8 +118,9 @@ final class VersionSetSpecifierTests: XCTestCase {
         XCTAssertEqual(VersionSetSpecifier.range("2.0.0-beta"..<"2.0.0-beta").difference(.range("1.0.0-beta"..<"2.0.0")), .range("2.0.0-beta"..<"2.0.0-beta"))
 
         XCTAssertEqual(VersionSetSpecifier.range("1.0.0-beta"..<"2.0.0").difference(.exact("2.0.0")), .range("1.0.0-beta"..<"2.0.0"))
-        XCTAssertEqual(VersionSetSpecifier.range("1.0.0-beta"..<"2.0.0").difference(.exact("1.0.0-beta")), .range("1.0.0-beta.0"..<"2.0.0"))
-        XCTAssertEqual(VersionSetSpecifier.range("1.0.0-beta"..<"2.0.0").difference(.exact("1.0.0-beta.5")), .ranges(["1.0.0-beta"..<"1.0.0-beta.5", "1.0.0-beta.5.0"..<"2.0.0"]))
+        XCTAssertFalse(VersionSetSpecifier.range("1.0.0-beta"..<"2.0.0").difference(.exact("1.0.0-beta")).contains("1.0.0-beta"))
+        XCTAssertTrue(VersionSetSpecifier.range("1.0.0-beta"..<"2.0.0").difference(.exact("1.0.0-beta")).contains("1.0.0-beta+other"))
+        XCTAssertFalse(VersionSetSpecifier.range("1.0.0-beta"..<"2.0.0").difference(.exact("1.0.0-beta.5")).contains("1.0.0-beta.5"))
 
         XCTAssertEqual(VersionSetSpecifier.range("1.0.0-beta"..<"2.0.0").difference(.range("1.0.0-beta.3" ..< "2.0.0")), .range("1.0.0-beta"..<"1.0.0-beta.3"))
         XCTAssertEqual(VersionSetSpecifier.range("1.0.0-beta.5"..<"1.0.0-beta.30").difference(.range("1.0.0-beta.10" ..< "2.0.0")), .range("1.0.0-beta.5"..<"1.0.0-beta.10"))
@@ -140,17 +148,56 @@ final class VersionSetSpecifierTests: XCTestCase {
         XCTAssertTrue(VersionSetSpecifier.empty == VersionSetSpecifier.range("2.0.0"..<"2.0.0"))
         XCTAssertTrue(VersionSetSpecifier.range("2.0.0"..<"2.0.0") == VersionSetSpecifier.empty)
 
-        // Exact is equal to a range that spans a single patch.
-        XCTAssertTrue(VersionSetSpecifier.exact("2.0.1") == VersionSetSpecifier.range("2.0.1"..<"2.0.2"))
-        XCTAssertTrue(VersionSetSpecifier.range("2.0.1"..<"2.0.2") == VersionSetSpecifier.exact("2.0.1"))
+        // Exact identifies one parsed identifier, while a range includes all identifiers at each precedence.
+        XCTAssertFalse(VersionSetSpecifier.exact("2.0.1") == VersionSetSpecifier.range("2.0.1"..<"2.0.2"))
+        XCTAssertFalse(VersionSetSpecifier.range("2.0.1"..<"2.0.2") == VersionSetSpecifier.exact("2.0.1"))
 
-        // Exact is also equal to a list of ranges with one entry that spans a single patch.
-        XCTAssertTrue(VersionSetSpecifier.exact("2.0.1") == VersionSetSpecifier.ranges(["2.0.1"..<"2.0.2"]))
-        XCTAssertTrue(VersionSetSpecifier.ranges(["2.0.1"..<"2.0.2"]) == VersionSetSpecifier.exact("2.0.1"))
+        XCTAssertFalse(VersionSetSpecifier.exact("2.0.1") == VersionSetSpecifier.ranges(["2.0.1"..<"2.0.2"]))
+        XCTAssertFalse(VersionSetSpecifier.ranges(["2.0.1"..<"2.0.2"]) == VersionSetSpecifier.exact("2.0.1"))
 
         // A range is equal to a list of ranges with that one range.
         XCTAssertTrue(VersionSetSpecifier.range("2.0.1"..<"2.0.2") == VersionSetSpecifier.ranges(["2.0.1"..<"2.0.2"]))
         XCTAssertTrue(VersionSetSpecifier.ranges(["2.0.1"..<"2.0.2"]) == VersionSetSpecifier.range("2.0.1"..<"2.0.2"))
+    }
+
+    func testExactIdentifierSemantics() {
+        let plain = VersionSetSpecifier.exact("1.2.3")
+        let debug = VersionSetSpecifier.exact("1.2.3+debug")
+        let release = VersionSetSpecifier.exact("1.2.3+release")
+
+        XCTAssertNotEqual(plain, debug)
+        XCTAssertNotEqual(debug, release)
+        XCTAssertTrue(plain.contains("1.2.3"))
+        XCTAssertFalse(plain.contains("1.2.3+debug"))
+        XCTAssertTrue(debug.contains("1.2.3+debug"))
+        XCTAssertFalse(debug.contains("1.2.3"))
+        XCTAssertEqual(Set([plain, debug, release]).count, 3)
+
+        let enclosingRange = VersionSetSpecifier.range("1.0.0"..<"2.0.0")
+        XCTAssertEqual(debug.intersection(enclosingRange), debug)
+        XCTAssertEqual(plain.intersection(debug), .empty)
+    }
+
+    func testCompositeIdentifierOverrides() {
+        let plain = VersionSetSpecifier.exact("1.2.3")
+        let debug = VersionSetSpecifier.exact("1.2.3+debug")
+        let release = VersionSetSpecifier.exact("1.2.3+release")
+        let variants = plain.union(debug).union(release)
+
+        XCTAssertTrue(variants.contains("1.2.3"))
+        XCTAssertTrue(variants.contains("1.2.3+debug"))
+        XCTAssertTrue(variants.contains("1.2.3+release"))
+        XCTAssertFalse(variants.contains("1.2.3+other"))
+        XCTAssertEqual(variants.intersection(debug), debug)
+        XCTAssertEqual(variants.difference(debug), plain.union(release))
+
+        let range = VersionSetSpecifier.range("1.0.0"..<"2.0.0")
+        let excludingDebug = range.difference(debug)
+        XCTAssertTrue(excludingDebug.contains("1.2.3"))
+        XCTAssertFalse(excludingDebug.contains("1.2.3+debug"))
+        XCTAssertTrue(excludingDebug.contains("1.2.3+release"))
+        XCTAssertEqual(excludingDebug.union(debug), range)
+        XCTAssertEqual(excludingDebug.intersection(debug), .empty)
     }
 
     func testPrereleases() {
@@ -176,5 +223,22 @@ final class VersionSetSpecifierTests: XCTestCase {
             "0.0.1" ..< "0.0.2",
             "0.0.1" ..< "2.0.0",
         ]).supportsPrereleases)
+    }
+
+    func testCompositePrereleaseNormalization() {
+        let variants = VersionSetSpecifier.exact("1.0.0-alpha+debug")
+            .union(.exact("1.0.0-beta+debug"))
+        XCTAssertEqual(variants.withoutPrereleases, .exact("1.0.0+debug"))
+
+        let conflictingOverrides = VersionSetSpecifier._set(
+            _VersionSetSpecifierSet(
+                ranges: [],
+                identifierOverrides: [
+                    VersionIdentifierKey("1.0.0-alpha+debug"): true,
+                    VersionIdentifierKey("1.0.0-beta+debug"): false,
+                ]
+            )
+        )
+        XCTAssertEqual(conflictingOverrides.withoutPrereleases, .empty)
     }
 }

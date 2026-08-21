@@ -180,6 +180,34 @@ final class PubGrubTests: XCTestCase {
         XCTAssertEqual(Term("¬a^1.5.0").relation(with: "¬a^1.0.0"), .overlap)
     }
 
+    func testMetadataSpecificTermRelations() throws {
+        let node = DependencyResolutionNode.empty(package: "a")
+        let plain = Term(node, .exact("1.0.0"))
+        let debug = Term(node, .exact("1.0.0+debug"))
+        let notPlain = plain.inverse
+        let notDebug = debug.inverse
+        let range = Term(node, .range("1.0.0"..<"2.0.0"))
+
+        XCTAssertEqual(plain.relation(with: debug), .disjoint)
+        XCTAssertEqual(debug.relation(with: plain), .disjoint)
+        XCTAssertEqual(plain.relation(with: range), .subset)
+        XCTAssertEqual(debug.relation(with: notPlain), .subset)
+        XCTAssertEqual(plain.relation(with: notPlain), .disjoint)
+        XCTAssertEqual(notPlain.relation(with: debug), .overlap)
+        XCTAssertEqual(notPlain.relation(with: notDebug), .overlap)
+
+        let rangeWithoutDebug = try XCTUnwrap(range.intersect(with: notDebug))
+        XCTAssertTrue(rangeWithoutDebug.requirement.contains("1.0.0"))
+        XCTAssertFalse(rangeWithoutDebug.requirement.contains("1.0.0+debug"))
+        XCTAssertTrue(rangeWithoutDebug.requirement.contains("1.0.0+release"))
+
+        let excludingBoth = try XCTUnwrap(notPlain.intersect(with: notDebug))
+        XCTAssertFalse(excludingBoth.isPositive)
+        XCTAssertTrue(excludingBoth.requirement.contains("1.0.0"))
+        XCTAssertTrue(excludingBoth.requirement.contains("1.0.0+debug"))
+        XCTAssertFalse(excludingBoth.requirement.contains("1.0.0+release"))
+    }
+
     func testTermIsValidDecision() {
         let solution100_150 = PartialSolution(assignments: [
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 1),
@@ -465,6 +493,11 @@ final class PubGrubTests: XCTestCase {
             state.derive(Term(node: .root(package: bRef), requirement: .exact("1.1.0"), isPositive: false), cause: cause)
         }
 
+        let remainingBVersions = ["1.3.0", "1.2.0", "1.1.0"].reduce(
+            VersionSetSpecifier.range("1.1.0" ..< "1.3.1")
+        ) { requirement, version in
+            requirement.difference(.exact(Version(version)!))
+        }
         let conflict = Incompatibility(
             terms: .init([
                 Term(node: .root(package: aRef),
@@ -472,7 +505,7 @@ final class PubGrubTests: XCTestCase {
                      isPositive: true
                 ),
                 Term(node: .root(package: bRef),
-                     requirement: .ranges(["1.1.1" ..< "1.2.0", "1.2.1" ..< "1.3.0"]),
+                     requirement: remainingBVersions,
                      isPositive: true
                 )
             ]),
@@ -526,6 +559,8 @@ final class PubGrubTests: XCTestCase {
             state.derive(Term(node: .root(package: bRef), requirement: .exact("1.1.0"), isPositive: false), cause: cause)
         }
 
+        let remainingBVersions = VersionSetSpecifier.range("1.1.0" ..< "1.2.0")
+            .difference(.exact("1.1.0"))
         let conflict = Incompatibility(
             terms: .init([
                 Term(node: .root(package: aRef),
@@ -533,7 +568,7 @@ final class PubGrubTests: XCTestCase {
                      isPositive: true
                 ),
                 Term(node: .root(package: bRef),
-                     requirement: .ranges(["1.1.1" ..< "1.2.0"]),
+                     requirement: remainingBVersions,
                      isPositive: true
                 )
             ]),
@@ -1428,6 +1463,35 @@ final class PubGrubTests: XCTestCase {
         ])
     }
 
+    func testPinnedResolvedPackagePreservesVersionIdentifier() async throws {
+        try builder.serve("a", at: v1, with: [
+            "a": ["b": (.versionSet(v1Range), .specific(["b"]))],
+        ])
+        try builder.serve("b", at: ["1.0.0+debug", "1.0.0+release"])
+
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(.exact(v1)), .specific(["a"])),
+            "b": (.versionSet(v1Range), .specific(["b"])),
+        ])
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
+            "a": (.version(v1), .specific(["a"])),
+            "b": (.version("1.0.0+debug"), .specific(["b"])),
+        ])
+
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
+        let result = try await resolver.solve(root: rootNode, constraints: dependencies)
+
+        AssertResult(Result.success(result.bindings), [
+            ("a", .version(v1)),
+            ("b", .version("1.0.0+debug")),
+        ])
+        let pinnedBinding = try XCTUnwrap(result.bindings.first { $0.package.identity == .plain("b") })
+        guard case .version(let version) = pinnedBinding.boundVersion else {
+            return XCTFail("expected version binding for pinned package")
+        }
+        XCTAssertEqual(version.description, "1.0.0+debug")
+    }
+
     func testPartialResolvedPackages() async throws {
         // This checks that we can drop resolved packages that are not valid anymore but still keep the ones
         // which fit the constraints.
@@ -1457,6 +1521,87 @@ final class PubGrubTests: XCTestCase {
             ("b", .version(v1_1)),
             ("c", .version(v1))
         ])
+    }
+
+    func testExactSelectsFullVersionIdentifier() async throws {
+        try builder.serve("a", at: ["1.0.0", "1.0.0+debug", "1.0.0+release"])
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(.exact("1.0.0+debug")), .specific(["a"])),
+        ])
+
+        let result = await builder.create().solve(constraints: dependencies)
+        AssertResult(result, [("a", .version("1.0.0+debug"))])
+    }
+
+    func testPlainExactDoesNotSelectMetadataVariant() async throws {
+        try builder.serve("a", at: ["1.0.0+debug", "1.0.0+release"])
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(.exact("1.0.0")), .specific(["a"])),
+        ])
+
+        let result = await builder.create().solve(constraints: dependencies)
+        guard case .failure = result else {
+            return XCTFail("expected exact plain identifier to be unavailable")
+        }
+    }
+
+    func testConflictingMetadataSpecificTransitiveRequirements() async throws {
+        try builder.serve("a", at: ["1.0.0+debug", "1.0.0+release"])
+        try builder.serve("b", at: "1.0.0", with: [
+            "b": ["a": (.versionSet(.exact("1.0.0+debug")), .specific(["a"]))],
+        ])
+        try builder.serve("c", at: "1.0.0", with: [
+            "c": ["a": (.versionSet(.exact("1.0.0+release")), .specific(["a"]))],
+        ])
+        let dependencies = try builder.create(dependencies: [
+            "b": (.versionSet(.exact("1.0.0")), .specific(["b"])),
+            "c": (.versionSet(.exact("1.0.0")), .specific(["c"])),
+        ])
+
+        let result = await builder.create().solve(constraints: dependencies)
+        guard case .failure = result else {
+            return XCTFail("expected metadata-specific exact requirements to conflict")
+        }
+    }
+
+    func testRangeAndPinPreserveSelectedIdentifier() async throws {
+        try builder.serve("a", at: ["1.0.0", "1.0.0+debug", "1.0.0+release"])
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(.range("1.0.0"..<"2.0.0")), .specific(["a"])),
+        ])
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
+            "a": (.version("1.0.0+debug"), .specific(["a"])),
+        ])
+
+        let result = await builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
+            .solve(constraints: dependencies)
+        AssertResult(result, [("a", .version("1.0.0+debug"))])
+    }
+
+    func testMissingPinnedIdentifierFallsBackToAvailableVariant() async throws {
+        try builder.serve("a", at: ["1.0.0", "1.0.0+release"])
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(.range("1.0.0"..<"2.0.0")), .specific(["a"])),
+        ])
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
+            "a": (.version("1.0.0+debug"), .specific(["a"])),
+        ])
+
+        let result = await builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
+            .solve(constraints: dependencies)
+        AssertResult(result, [("a", .version("1.0.0+release"))])
+    }
+
+    func testToolsVersionIncompatibilityDoesNotWidenAcrossMetadataVariants() async throws {
+        try builder.serve("a", at: "1.0.0")
+        try builder.serve("a", at: "1.0.0+debug", toolsVersion: .v5)
+        try builder.serve("a", at: "1.0.0+release")
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(.exact("1.0.0+release")), .specific(["a"])),
+        ])
+
+        let result = await builder.create().solve(constraints: dependencies)
+        AssertResult(result, [("a", .version("1.0.0+release"))])
     }
 
     func testMissingResolvedPackage() async throws {
@@ -3189,7 +3334,7 @@ public class MockContainer: PackageContainer {
 
     /// The list of versions that have incompatible tools version.
     var toolsVersion: ToolsVersion = ToolsVersion.current
-    var versionsToolsVersions = [Version: ToolsVersion]()
+    var versionsToolsVersions = [VersionIdentifierKey: ToolsVersion]()
 
     private var _versions: [BoundVersion]
 
@@ -3224,7 +3369,7 @@ public class MockContainer: PackageContainer {
     public func toolsVersion(for version: Version) throws -> ToolsVersion {
         struct NotFound: Error {}
 
-        guard let version = versionsToolsVersions[version] else {
+        guard let version = versionsToolsVersions[VersionIdentifierKey(version)] else {
             throw NotFound()
         }
         return version
@@ -3273,6 +3418,9 @@ public class MockContainer: PackageContainer {
             .sorted(by: { lhs, rhs -> Bool in
                 guard case .version(let lv) = lhs, case .version(let rv) = rhs else {
                     return true
+                }
+                if lv == rv {
+                    return lv.description < rv.description
                 }
                 return lv < rv
             })
@@ -3447,7 +3595,7 @@ class DependencyGraphBuilder {
         let container = self.containers[packageReference.identity.description] ?? MockContainer(package: packageReference)
 
         if case .version(let v) = version {
-            container.versionsToolsVersions[v] = toolsVersion ?? container.toolsVersion
+            container.versionsToolsVersions[VersionIdentifierKey(v)] = toolsVersion ?? container.toolsVersion
         }
 
         container.appendVersion(version)

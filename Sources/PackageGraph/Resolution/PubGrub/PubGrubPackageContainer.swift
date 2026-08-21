@@ -93,7 +93,10 @@ final class PubGrubPackageContainer {
                     return pinnedVersion
                 } else {
                     // Make sure the pinned version is still available
-                    let version = try await self.underlying.versionsDescending().first { pinnedVersion == $0 }
+                    let pinnedKey = VersionIdentifierKey(pinnedVersion)
+                    let version = try await self.underlying.versionsDescending().first {
+                        VersionIdentifierKey($0) == pinnedKey
+                    }
                     if version != nil {
                         return version
                     }
@@ -105,24 +108,24 @@ final class PubGrubPackageContainer {
         return try await self.underlying.versionsDescending().first { versionSet.contains($0) }
     }
 
-    /// Compute the bounds of incompatible tools version starting from the given version.
-    private func computeIncompatibleToolsVersionBounds(fromVersion: Version) async throws -> VersionSetSpecifier {
+    /// Compute the incompatible identifiers adjacent to the given version.
+    private func computeIncompatibleToolsVersionRequirement(fromVersion: Version) async throws -> VersionSetSpecifier {
         // TODO: do we really want to compute this for an assert?
         // assert(!self.underlying.isToolsVersionCompatible(at: fromVersion))
         let versions: [Version] = try await self.underlying.versionsAscending()
 
         // This is guaranteed to be present.
-        let idx = versions.firstIndex(of: fromVersion)!
+        let fromVersionKey = VersionIdentifierKey(fromVersion)
+        let idx = versions.firstIndex { VersionIdentifierKey($0) == fromVersionKey }!
 
-        var lowerBound = fromVersion
-        var upperBound = fromVersion
+        var incompatibleVersions = [fromVersion]
 
         for version in versions.dropFirst(idx + 1) {
             let isToolsVersionCompatible = await self.underlying.isToolsVersionCompatible(at: version)
             if isToolsVersionCompatible {
                 break
             }
-            upperBound = version
+            incompatibleVersions.append(version)
         }
 
         for version in versions.dropLast(versions.count - idx).reversed() {
@@ -130,29 +133,12 @@ final class PubGrubPackageContainer {
             if isToolsVersionCompatible {
                 break
             }
-            lowerBound = version
+            incompatibleVersions.append(version)
         }
 
-        // If lower and upper bounds didn't change then this is the sole incompatible version.
-        if lowerBound == upperBound {
-            return .exact(lowerBound)
+        return incompatibleVersions.reduce(.empty) { result, version in
+            result.union(.exact(version))
         }
-
-        // If lower bound is the first version then we can use 0 as the sentinel. This
-        // will end up producing a better diagnostic since we can omit the lower bound.
-        if lowerBound == versions.first {
-            lowerBound = "0.0.0"
-        }
-
-        if upperBound == versions.last {
-            // If upper bound is the last version then we can use the next major version as the sentinel.
-            // This will end up producing a better diagnostic since we can omit the upper bound.
-            upperBound = Version(upperBound.major + 1, 0, 0)
-        } else {
-            // Use the next patch since the upper bound needs to be inclusive here.
-            upperBound = upperBound.nextPatch()
-        }
-        return .range(lowerBound ..< upperBound.nextPatch())
     }
 
     /// Returns the incompatibilities of a package at the given version.
@@ -164,7 +150,7 @@ final class PubGrubPackageContainer {
     ) async throws -> [Incompatibility] {
         // FIXME: It would be nice to compute bounds for this as well.
         if await !self.underlying.isToolsVersionCompatible(at: version) {
-            let requirement = try await self.computeIncompatibleToolsVersionBounds(fromVersion: version)
+            let requirement = try await self.computeIncompatibleToolsVersionRequirement(fromVersion: version)
             let toolsVersion = try await self.underlying.toolsVersion(for: version)
             return try [Incompatibility(
                 Term(node, requirement),

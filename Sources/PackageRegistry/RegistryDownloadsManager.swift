@@ -31,7 +31,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
 
     struct PackageLookup: Hashable {
         let package: PackageIdentity
-        let version: Version
+        let version: VersionIdentifierKey
     }
 
     private var pendingLookups = [PackageLookup: Task<Basics.AbsolutePath, Error>]()
@@ -68,7 +68,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
             return packagePath
         }
 
-        let lookupId = PackageLookup(package: package, version: version)
+        let lookupId = PackageLookup(package: package, version: VersionIdentifierKey(version))
         let task = await withCheckedContinuation { continuation in
             self.pendingLookupsLock.lock()
             defer { self.pendingLookupsLock.unlock() }

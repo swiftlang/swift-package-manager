@@ -39,4 +39,42 @@ final class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             }
         }
     }
+
+    func testExactVersionIdentifierDependencies() async throws {
+        let content = """
+            import PackageDescription
+
+            let package = Package(
+                name: "MyPackage",
+                dependencies: [
+                    .package(url: "http://localhost/foo", exact: "1.1.1+debug"),
+                    .package(id: "org.foo", exact: "1.1.1+release"),
+                ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(
+            content,
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        XCTAssertNoDiagnostics(validationDiagnostics)
+
+        let dependencies = Dictionary(
+            uniqueKeysWithValues: manifest.dependencies.map { ($0.identity.description, $0) }
+        )
+        XCTAssertEqual(
+            dependencies["foo"],
+            .remoteSourceControl(
+                identity: .plain("foo"),
+                url: "http://localhost/foo",
+                requirement: .exact("1.1.1+debug")
+            )
+        )
+        XCTAssertEqual(
+            dependencies["org.foo"],
+            .registry(identity: "org.foo", requirement: .exact("1.1.1+release"))
+        )
+    }
 }

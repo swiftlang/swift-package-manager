@@ -86,14 +86,15 @@ final class ResolvedPackagesStoreTests: XCTestCase {
             var store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
             store.track(
                 packageRef: .localSourceControl(identity: identity, path: path),
-                state: .version("1.2.3", revision: revision)
+                state: .version("1.2.3+debug", revision: revision)
             )
             try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
             store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
             let resolution = store.resolvedPackages[identity]!
-            XCTAssertEqual(resolution.state, .version("1.2.3", revision: revision))
-            XCTAssertEqual(resolution.state.description, "1.2.3")
+            XCTAssertEqual(resolution.state, .version("1.2.3+debug", revision: revision))
+            XCTAssertEqual(resolution.state.description, "1.2.3+debug")
+            XCTAssertNotEqual(resolution.state, .version("1.2.3+release", revision: revision))
         }
 
         // Test source control branch resolution.
@@ -144,14 +145,15 @@ final class ResolvedPackagesStoreTests: XCTestCase {
             var store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
             store.track(
                 packageRef: .registry(identity: identity),
-                state: .version("1.2.3", revision: .none)
+                state: .version("1.2.3+release", revision: .none)
             )
             try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
             store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
             let resolution = store.resolvedPackages[identity]!
-            XCTAssertEqual(resolution.state, .version("1.2.3", revision: .none))
-            XCTAssertEqual(resolution.state.description, "1.2.3")
+            XCTAssertEqual(resolution.state, .version("1.2.3+release", revision: .none))
+            XCTAssertEqual(resolution.state.description, "1.2.3+release")
+            XCTAssertNotEqual(resolution.state, .version("1.2.3+debug", revision: .none))
         }
     }
 
