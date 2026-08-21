@@ -158,7 +158,7 @@ internal struct PluginContextSerializer {
                 artifactKind = .artifactsArchive
             case .xcframework:
                 artifactKind = .xcframework
-            case .unknown:
+            case .unknown, .prebuilt:
                 // Skip unknown binary targets.
                 return nil
             }
