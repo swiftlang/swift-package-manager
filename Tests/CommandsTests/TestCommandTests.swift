@@ -89,6 +89,49 @@ struct TestCommandTests {
         )
     }
 
+    @Test( .bug("https://github.com/swiftlang/swift-package-manager/issues/10381", "swift test last subcommand isn't hidden by default"), arguments: SupportedBuildSystemOnAllPlatforms,)
+    func lastSubcommandIsHiddenFromHelp(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        let stdout = try await execute(
+            ["--help"],
+            configuration: configuration,
+            buildSystem: buildSystem,
+        ).stdout
+        guard let subcommandsHeaderRange = stdout.range(of: "SUBCOMMANDS:") else {
+               Issue.record("Could not locate SUBCOMMANDS: section in --help output:\n\(stdout)"
+               )
+               return
+           }
+           let afterHeader = stdout[subcommandsHeaderRange.upperBound...]
+           let subcommandsSection = afterHeader.components(separatedBy: "\n\n").first ?? String(afterHeader)
+
+           let lastSubcommandRegex = try Regex(#"(?m)^\s*last\s*$"#)
+           #expect(
+               !subcommandsSection.contains(lastSubcommandRegex),
+               "got stdout:\n\(stdout)",
+        )
+    }
+
+    @Test( arguments: SupportedBuildSystemOnAllPlatforms,)
+    func lastSubcommandStillRunsWhenInvokedDirectly(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
+            _ = try await execute([],
+                                  packagePath: fixturePath,
+                                  configuration: configuration,
+                                  buildSystem: buildSystem
+            )
+            _ = try await execute(["last"],
+                                  packagePath: fixturePath,
+                                  configuration: configuration, buildSystem: buildSystem
+            )
+        }
+    }
+    
     @Test(
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
