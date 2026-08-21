@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2017 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -80,10 +80,28 @@ struct BuildCommandOptions: ParsableArguments {
     var buildTests: Bool = false
 
     /// Whether to enable code coverage.
-    @Flag(name: .customLong("code-coverage"),
-          inversion: .prefixedEnableDisable,
-          help: "Determines whether the build measures code coverage.")
-    var enableCodeCoverage: Bool = false
+    @Flag(
+        name: [
+            .customLong("coverage"),
+        ],
+        inversion: .prefixedEnableDisable,
+        help: "Enable code coverage.",
+    )
+    var _enableCoverage: Bool = false
+
+    /// Whether to enable code coverage. (deprecated options)
+    @Flag(
+        name: [
+            .customLong("code-coverage"),
+        ],
+        inversion: .prefixedEnableDisable,
+        help: "Enable code coverage. (deprecated. use '--enable-coverage/--disable-coverage' instead)",
+    )
+    var _enableCodeCoverageDeprecated: Bool?
+
+    var enableCodeCoverage: Bool {
+        return self._enableCoverage || (self._enableCodeCoverageDeprecated ?? false)
+    }
 
     /// Determines whether the build command prints the binary output path.
     @Flag(name: .customLong("show-bin-path"), help: "Print the binary output path.")
@@ -139,6 +157,11 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
     var options: BuildCommandOptions
 
     public func run(_ swiftCommandState: SwiftCommandState) async throws {
+
+        if options._enableCodeCoverageDeprecated != nil {
+            swiftCommandState.observabilityScope.emit(Basics.Diagnostic.deprecatedEnableDisableCoverage)
+        }
+
         if options.shouldPrintBinPath {
             let buildSystem = try await swiftCommandState.createBuildSystem()
             return try await print(buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters).description)
