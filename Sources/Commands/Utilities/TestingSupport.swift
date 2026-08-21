@@ -596,6 +596,8 @@ struct DebugTestRunner {
                     lldbCommands.append("run")
                 }
                 lldbCommands.append("quit")
+            } else {
+                lldbCommands.append(#"script print("LLDB is ready. Type 'run' or 'r' to start test execution.")"#)
             }
 
             let commandScript = lldbCommands.joined(separator: "\n")
