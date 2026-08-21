@@ -1368,10 +1368,15 @@ public final class UserToolchain: Toolchain {
         configuration.swiftPMLibrariesLocation
     }
 
+    /// The path to XCTest.
+    ///
+    /// - Important: On Darwin, this path is to the `xctest` command-line executable.
+    ///   On Windows, it is to the directory containing `XCTest.dll`.
     public var xctestPath: AbsolutePath? {
         configuration.xctestPath
     }
 
+    /// The path to the directory containing the Swift Testing framework or library.
     public var swiftTestingPath: AbsolutePath? {
         configuration.swiftTestingPath
     }

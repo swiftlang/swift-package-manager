@@ -1184,6 +1184,13 @@ extension ProjectModel.BuildSettings {
 
         // Are we building a framework?
         if !createDylibForDynamicProducts {
+            // Disambiguate the framework's name for automatic library products so the built.
+            // We deliberately scope this to automatic products to match the
+            // previous PIF builder behavior
+            if let product, product.type == .library(.automatic) {
+                self[.PRODUCT_NAME] = PackagePIFBuilder.computePackageProductFrameworkName(productName: productName)
+            }
+
             // Apply delegate overrides for *executable name* and *bundle identifier prefix* on frameworks.
             // This can be used by SwiftPM clients to disambiguate framework names and bundle IDs, if necessary.
             if let product {

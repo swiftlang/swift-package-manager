@@ -872,4 +872,66 @@ struct SwiftBuildSystemTests {
             #expect(runDestination.sdk == sdkRoot.pathString)
         }
     }
+
+    @Suite
+    struct AdHocEntitlementsTests {
+        private static let getTaskAllowKey = "com.apple.security.get-task-allow"
+        private static let applicationIdentifierKeys = [
+            "com.apple.application-identifier",
+            "application-identifier",
+        ]
+
+        @Test
+        func macOSSignatureAppliesOnlyGetTaskAllow() throws {
+            let (signed, simulated) = SwiftBuildSystemPlanningOperationDelegate.adHocSignedEntitlements(
+                sdkRoot: "macosx.sdk",
+                entitlementsDestination: "Signature",
+                shouldEnableDebuggingEntitlement: true
+            )
+
+            #expect(signed == [Self.getTaskAllowKey: .plBool(true)])
+            #expect(simulated.isEmpty)
+            for key in Self.applicationIdentifierKeys {
+                #expect(signed[key] == nil, "ad-hoc signature must not inject \(key)")
+            }
+        }
+
+        @Test
+        func macOSWithoutDebuggingEntitlementSignsNothing() throws {
+            let (signed, simulated) = SwiftBuildSystemPlanningOperationDelegate.adHocSignedEntitlements(
+                sdkRoot: "macosx.sdk",
+                entitlementsDestination: "Signature",
+                shouldEnableDebuggingEntitlement: false
+            )
+
+            #expect(signed.isEmpty)
+            #expect(simulated.isEmpty)
+        }
+
+        @Test
+        func simulatorAppliesGetTaskAllowToSimulatedEntitlements() throws {
+            let (signed, simulated) = SwiftBuildSystemPlanningOperationDelegate.adHocSignedEntitlements(
+                sdkRoot: "iphonesimulator.sdk",
+                entitlementsDestination: "__entitlements",
+                shouldEnableDebuggingEntitlement: true
+            )
+
+            #expect(signed.isEmpty)
+            #expect(simulated == [Self.getTaskAllowKey: .plBool(true)])
+            for key in Self.applicationIdentifierKeys {
+                #expect(simulated[key] == nil, "ad-hoc simulated entitlements must not inject \(key)")
+            }
+        }
+
+        @Test
+        func nonDarwinUsesUnprefixedGetTaskAllowKey() throws {
+            let (signed, _) = SwiftBuildSystemPlanningOperationDelegate.adHocSignedEntitlements(
+                sdkRoot: "linux",
+                entitlementsDestination: "Signature",
+                shouldEnableDebuggingEntitlement: true
+            )
+
+            #expect(signed == ["get-task-allow": .plBool(true)])
+        }
+    }
 }
