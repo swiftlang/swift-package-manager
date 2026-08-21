@@ -230,6 +230,28 @@ public struct CachingOptions: ParsableArguments {
         help: .hidden
     )
     public var prebuiltsRootCertPath: String?
+
+    func resolvedPrebuiltsDownloadURL(relativeTo scratchDirectory: AbsolutePath) throws -> String? {
+        guard let prebuiltsDownloadURL,
+              let url = URL(string: prebuiltsDownloadURL),
+              url.isFileURL
+        else {
+            return prebuiltsDownloadURL
+        }
+
+        if (try? AbsolutePath(validating: url.path)) != nil {
+            return prebuiltsDownloadURL
+        }
+
+        let path = try AbsolutePath(validating: url.path, relativeTo: scratchDirectory)
+        return URL(fileURLWithPath: path.pathString).absoluteString
+    }
+
+    func resolvedPrebuiltsRootCertPath(relativeTo scratchDirectory: AbsolutePath) throws -> String? {
+        try prebuiltsRootCertPath.map {
+            try AbsolutePath(validating: $0, relativeTo: scratchDirectory).pathString
+        }
+    }
 }
 
 public struct LoggingOptions: ParsableArguments {
