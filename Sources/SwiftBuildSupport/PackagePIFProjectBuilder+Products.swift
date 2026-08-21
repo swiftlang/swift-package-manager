@@ -526,7 +526,11 @@ extension PackagePIFProjectBuilder {
                         indent: 1,
                         "Added \(shouldLinkProduct ? "linked " : "")dependency on target '\(dependencyGUID)'"
                     )
+
+                case .custom:
+                    fatalError("TODO")
                 }
+
 
             case .product(let productDependency, let packageConditions):
                 let isLinkable = productDependency.isLinkable
@@ -975,6 +979,42 @@ extension PackagePIFProjectBuilder {
             deploymentTargets: self.deploymentTargets,
             toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
+    }
+
+    // MARK: - Custom Target Products
+
+    mutating func makeCustomTargetProduct(_ product: PackageGraph.ResolvedProduct) throws {
+        precondition(product.type == .custom)
+
+        let customTargetKeyPath = try self.project.addAggregateTarget { _ in
+            ProjectModel.AggregateTarget(
+                id: product.pifTargetGUID,
+                name: product.targetName(),
+            )
+        }
+        do {
+            let customTargetKeyPath = self.project[keyPath: customTargetKeyPath]
+            log(
+                .debug,
+                "Created target '\(customTargetKeyPath.id) with name '\(customTargetKeyPath.name)'"
+            )
+        }
+
+        let buildSettings = self.package.underlying.packageBaseBuildSettings
+        self.project[keyPath: customTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Debug", settings: buildSettings)
+        }
+        self.project[keyPath: customTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Release", settings: buildSettings)
+        }
+
+        for module in product.modules {
+            self.project[keyPath: customTargetKeyPath].common.addDependency(
+                on: module.pifTargetGUID,
+                platformFilters: [],
+                linkProduct: false
+            )
+        }
     }
 
     // MARK: - System Library Products

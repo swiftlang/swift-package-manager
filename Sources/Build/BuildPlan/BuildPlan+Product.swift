@@ -178,7 +178,7 @@ extension BuildPlan {
                         product: $0.product,
                         context: $0.destination
                     ) }
-                case .test, .executable, .snippet, .macro:
+                case .test, .executable, .snippet, .macro, .custom:
                     return []
                 }
             }
@@ -327,6 +327,8 @@ extension BuildPlan {
                         throw InternalError("unknown binary target '\(module.name)' type")
                     }
                 case .plugin:
+                    continue
+                case .custom:
                     continue
                 }
 
