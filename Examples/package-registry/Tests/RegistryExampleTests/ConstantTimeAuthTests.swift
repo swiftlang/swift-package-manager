@@ -40,18 +40,23 @@ struct ConstantTimeAuthTests {
     private func authenticator(
         recording recorder: VerifyRecorder,
         seed: (UserRegistrar) async throws -> Void
-    ) async throws -> UserAuthenticator {
-        let store = UserStore()
-        try await seed(UserRegistrar(store: store))
+    ) async throws -> ClientAuthenticator {
+        let clientStore = ClientStore()
+        try await seed(
+            UserRegistrar(
+                store: UserStore(),
+                clientRegistrar: ClientRegistrar(store: clientStore)
+            )
+        )
         let verifier = PasswordVerifier { _, hash in await recorder.record(against: hash) }
-        return UserAuthenticator(store: store, passwordVerifier: verifier)
+        return ClientAuthenticator(clientStore: clientStore, passwordVerifier: verifier)
     }
 
     @Test func `an unknown email still runs one verification, against the decoy`() async throws {
         let recorder = VerifyRecorder()
         let auth = try await authenticator(recording: recorder) { _ in }
         _ = await auth.authenticate(email: "ghost@example.com", password: "hunter2")
-        #expect(await recorder.hashes == [UserAuthenticator.decoyHash])
+        #expect(await recorder.hashes == [ClientAuthenticator.decoyHash])
     }
 
     @Test func `a wrong password runs one verification, against the stored hash`() async throws {
@@ -62,7 +67,7 @@ struct ConstantTimeAuthTests {
         _ = await auth.authenticate(email: "mona@example.com", password: "wrong")
         let hashes = await recorder.hashes
         #expect(hashes.count == 1)
-        #expect(hashes.first != UserAuthenticator.decoyHash)
+        #expect(hashes.first != ClientAuthenticator.decoyHash)
     }
 
     @Test func `known and unknown emails perform the same number of verifications`() async throws {
@@ -83,8 +88,8 @@ struct ConstantTimeAuthTests {
 
     @Test func `the decoy's cost factor matches a freshly hashed password`() throws {
         let fresh = try Bcrypt.hash("a password")
-        #expect(bcryptCost(UserAuthenticator.decoyHash) != nil)
-        #expect(bcryptCost(UserAuthenticator.decoyHash) == bcryptCost(fresh))
+        #expect(bcryptCost(ClientAuthenticator.decoyHash) != nil)
+        #expect(bcryptCost(ClientAuthenticator.decoyHash) == bcryptCost(fresh))
     }
 }
 

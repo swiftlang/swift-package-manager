@@ -19,11 +19,11 @@ import VaporTesting
 @Suite("Publish endpoint authentication gate")
 struct PublishAuthTests {
     private func seedPasswordUser(_ app: Application, email: String, password: String) async throws {
-        _ = try await UserRegistrar(store: app.userStore).register(email: email, password: password)
+        _ = try await userRegistrar(for: app).register(email: email, password: password)
     }
 
     private func seedTokenUser(_ app: Application, email: String, token: String) async throws {
-        _ = try await UserRegistrar(store: app.userStore, tokenGenerator: TokenGenerator { token })
+        _ = try await userRegistrar(for: app, tokenGenerator: TokenGenerator { token })
             .register(email: email, password: nil)
     }
 
@@ -104,6 +104,101 @@ struct PublishAuthTests {
             try await app.testing().test(
                 .PUT, "/catalogdev/HelloWorld/1.0.0",
                 headers: bearerPublishHeaders("the-token"),
+                body: try publishBody()
+            ) { res async in
+                #expect(res.status == .created)
+            }
+        }
+    }
+
+    @Test func `with auth enabled, either of a user's clients authorizes publishing`() async throws {
+        try await withRegistryApp(authEnabled: true) { app in
+            let registration = try await userRegistrar(for: app)
+                .register(email: "mona@example.com", password: "hunter2")
+            _ = try await ClientRegistrar(
+                store: app.clientStore,
+                tokenGenerator: TokenGenerator { "the-token" }
+            ).registerBearerClient(for: registration.user)
+            let tester = try app.testing()
+
+            try await tester.test(
+                .PUT, "/catalogdev/HelloWorld/1.0.0",
+                headers: basicPublishHeaders(email: "mona@example.com", password: "hunter2"),
+                body: try publishBody()
+            ) { res async in
+                #expect(res.status == .created)
+            }
+
+            try await tester.test(
+                .PUT, "/catalogdev/HelloWorld/2.0.0",
+                headers: bearerPublishHeaders("the-token"),
+                body: try publishBody()
+            ) { res async in
+                #expect(res.status == .created)
+            }
+        }
+    }
+
+    private struct MintedClient: Decodable {
+        let id: String
+        let token: String
+    }
+
+    @Test func `with auth enabled, a token minted through the clients endpoint authorizes publishing`() async throws {
+        try await withRegistryApp(authEnabled: true) { app in
+            _ = try await userRegistrar(for: app).register(email: "mona@example.com", password: "hunter2")
+            let tester = try app.testing()
+
+            var payload = ""
+            try await tester.test(
+                .POST, "/clients", headers: basicHeaders(email: "mona@example.com", password: "hunter2")
+            ) { res async in
+                #expect(res.status == .created)
+                payload = res.body.string
+            }
+            let minted = try JSONDecoder().decode(MintedClient.self, from: Data(payload.utf8))
+
+            try await tester.test(
+                .PUT, "/catalogdev/HelloWorld/1.0.0",
+                headers: bearerPublishHeaders(minted.token),
+                body: try publishBody()
+            ) { res async in
+                #expect(res.status == .created)
+            }
+        }
+    }
+
+    @Test func `with auth enabled, a revoked client no longer authorizes publishing`() async throws {
+        try await withRegistryApp(authEnabled: true) { app in
+            let registration = try await userRegistrar(for: app)
+                .register(email: "mona@example.com", password: "hunter2")
+            let ciClient = try await ClientRegistrar(
+                store: app.clientStore,
+                tokenGenerator: TokenGenerator { "the-token" }
+            ).registerBearerClient(for: registration.user)
+            let tester = try app.testing()
+
+            try await tester.test(
+                .PUT, "/catalogdev/HelloWorld/1.0.0",
+                headers: bearerPublishHeaders("the-token"),
+                body: try publishBody()
+            ) { res async in
+                #expect(res.status == .created)
+            }
+
+            try await app.clientStore.revoke(ciClient.client.id, of: registration.user)
+
+            try await tester.test(
+                .PUT, "/catalogdev/HelloWorld/2.0.0",
+                headers: bearerPublishHeaders("the-token"),
+                body: try publishBody()
+            ) { res async in
+                #expect(res.status == .unauthorized)
+            }
+
+            try await tester.test(
+                .PUT, "/catalogdev/HelloWorld/2.0.0",
+                headers: basicPublishHeaders(email: "mona@example.com", password: "hunter2"),
                 body: try publishBody()
             ) { res async in
                 #expect(res.status == .created)

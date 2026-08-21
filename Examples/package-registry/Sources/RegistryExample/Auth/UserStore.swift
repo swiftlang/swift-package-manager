@@ -15,47 +15,32 @@ public enum UserStoreError: Error, Equatable, Sendable {
     /// A user with the same normalized ``EmailAddress`` already exists.
     /// Surfaced to registration clients as a `409 Conflict`.
     case emailAlreadyExists
-    /// A token user whose token hashes to an already-registered value was
-    /// submitted. With 256-bit tokens this is astronomically unlikely and
-    /// is treated as a server-side condition rather than a client error.
-    case tokenAlreadyExists
 }
 
 /// An in-memory, actor-isolated store of registered ``User`` accounts.
 ///
-/// Two indices are maintained: users keyed by their normalized
-/// ``EmailAddress`` (for HTTP Basic login and duplicate detection) and a
-/// mapping from a token's hash to its owner's email (for Bearer login).
-/// Only token users appear in the second index, so a password user can
-/// never be resolved from a bearer token.
+/// Users are keyed by their normalized ``EmailAddress``, which is the whole
+/// of an account's identity. Credentials are not stored here: they belong to
+/// the ``RegisteredClient``s a user registers, so resolving a presented
+/// password or token is the ``ClientStore``'s job.
 ///
 /// Actor isolation serializes reads and writes; ``create(_:)`` is a single
-/// synchronous, suspension-free step that validates both indices before
-/// mutating either, so a duplicate can never leave a half-registered user
-/// behind and concurrent registrations of the same email cannot both
+/// synchronous, suspension-free step that checks for a duplicate before
+/// inserting, so concurrent registrations of the same email cannot both
 /// succeed. All state is ephemeral.
 public actor UserStore {
     private var usersByEmail: [EmailAddress: User] = [:]
-    private var emailByTokenHash: [TokenHash: EmailAddress] = [:]
 
     /// Creates an empty user store.
     public init() {}
 
-    /// Inserts a new user, indexing token users by their token hash.
+    /// Inserts a new user.
     ///
-    /// - Parameter user: The fully hashed ``User`` to persist.
-    /// - Throws: ``UserStoreError/emailAlreadyExists`` if the email is
-    ///   taken, or ``UserStoreError/tokenAlreadyExists`` if a token user's
-    ///   hash collides with an existing entry.
+    /// - Parameter user: The ``User`` to persist.
+    /// - Throws: ``UserStoreError/emailAlreadyExists`` if the email is taken.
     public func create(_ user: User) throws {
         guard usersByEmail[user.email] == nil else {
             throw UserStoreError.emailAlreadyExists
-        }
-        if case let .token(hash) = user.credential {
-            guard emailByTokenHash[hash] == nil else {
-                throw UserStoreError.tokenAlreadyExists
-            }
-            emailByTokenHash[hash] = user.email
         }
         usersByEmail[user.email] = user
     }
@@ -63,12 +48,5 @@ public actor UserStore {
     /// Returns the user registered under `email`, or `nil` if none.
     public func user(email: EmailAddress) -> User? {
         usersByEmail[email]
-    }
-
-    /// Returns the token user whose token hashes to `tokenHash`, or `nil`
-    /// if no token user matches.
-    public func user(tokenHash: TokenHash) -> User? {
-        guard let email = emailByTokenHash[tokenHash] else { return nil }
-        return usersByEmail[email]
     }
 }

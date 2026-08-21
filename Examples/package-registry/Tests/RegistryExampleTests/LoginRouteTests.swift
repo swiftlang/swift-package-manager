@@ -18,7 +18,7 @@ import VaporTesting
 @Suite("POST /login endpoint")
 struct LoginRouteTests {
     private func seedPasswordUser(_ app: Application, email: String, password: String) async throws {
-        _ = try await UserRegistrar(store: app.userStore).register(email: email, password: password)
+        _ = try await userRegistrar(for: app).register(email: email, password: password)
     }
 
     // MARK: Status-only cases
@@ -34,9 +34,9 @@ struct LoginRouteTests {
             case .none:
                 break
             case let .passwordUser(email, password):
-                _ = try await UserRegistrar(store: app.userStore).register(email: email, password: password)
+                _ = try await userRegistrar(for: app).register(email: email, password: password)
             case let .tokenUser(email, token):
-                _ = try await UserRegistrar(store: app.userStore, tokenGenerator: TokenGenerator { token })
+                _ = try await userRegistrar(for: app, tokenGenerator: TokenGenerator { token })
                     .register(email: email, password: nil)
             }
         }
