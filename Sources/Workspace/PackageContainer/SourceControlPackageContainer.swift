@@ -66,8 +66,15 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private let observabilityScope: ObservabilityScope
 
     /// The cached dependency information.
-    private var dependenciesCache = [String: [ProductFilter: (Manifest, [Constraint])]]()
+    /// Keyed by `enabledTraits` in addition to identifier and product filter.
+    private var dependenciesCache = [String: [ProductFilter: CachedDependency]]()
     private var dependenciesCacheLock = NSLock()
+
+    private struct CachedDependency {
+        let manifest: Manifest
+        let constraints: [Constraint]
+        let enabledTraits: EnabledTraits
+    }
 
     private var knownVersionsCache = ThreadSafeBox<[Version: String]?>()
     private var manifestsCache = ThrowingAsyncKeyValueMemoizer<String, Manifest>()
@@ -246,12 +253,12 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
     public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) async throws -> [Constraint] {
         do {
-            return try await self.getCachedDependencies(forIdentifier: version.description, productFilter: productFilter) {
+            return try await self.getCachedDependencies(forIdentifier: version.description, productFilter: productFilter, enabledTraits: enabledTraits) {
                 guard let tag = try self.knownVersions()[version] else {
                     throw StringError("unknown tag \(version)")
                 }
                 return try await self.loadDependencies(tag: tag, version: version, productFilter: productFilter, enabledTraits: enabledTraits)
-            }.1
+            }.constraints
         } catch {
             throw GetDependenciesError(
                 repository: self.repositorySpecifier,
@@ -264,11 +271,11 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
     public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) async throws -> [Constraint] {
         do {
-            return try await self.getCachedDependencies(forIdentifier: revision, productFilter: productFilter) {
+            return try await self.getCachedDependencies(forIdentifier: revision, productFilter: productFilter, enabledTraits: enabledTraits) {
                 // resolve the revision identifier and return its dependencies.
                 let revision = try repository.resolveRevision(identifier: revision)
                 return try await self.loadDependencies(at: revision, productFilter: productFilter, enabledTraits: enabledTraits)
-            }.1
+            }.constraints
         } catch {
             // Examine the error to see if we can come up with a more informative and actionable error message.  We know that the revision is expected to be a branch name or a hash (tags are handled through a different code path).
             if let error = error as? GitRepositoryError, error.description.contains("Needed a single revision") {
@@ -309,9 +316,10 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private func getCachedDependencies(
         forIdentifier identifier: String,
         productFilter: ProductFilter,
-        getDependencies: () async throws -> (Manifest, [Constraint])
-    ) async throws -> (Manifest, [Constraint]) {
-        if let result = (self.dependenciesCacheLock.withLock { self.dependenciesCache[identifier, default: [:]][productFilter] }) {
+        enabledTraits: EnabledTraits,
+        getDependencies: () async throws -> CachedDependency
+    ) async throws -> CachedDependency {
+        if let result = (self.dependenciesCacheLock.withLock { self.dependenciesCache[identifier, default: [:]][productFilter] }), result.enabledTraits == enabledTraits {
             return result
         }
         let result = try await getDependencies()
@@ -327,9 +335,9 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         version: Version? = nil,
         productFilter: ProductFilter,
         enabledTraits: EnabledTraits
-    ) async throws -> (Manifest, [Constraint]) {
+    ) async throws -> CachedDependency {
         let manifest = try await self.loadManifest(tag: tag, version: version)
-        return (manifest, try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits))
+        return .init(manifest: manifest, constraints: try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits), enabledTraits: enabledTraits)
     }
 
     /// Returns dependencies of a container at the given revision.
@@ -338,9 +346,9 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         version: Version? = nil,
         productFilter: ProductFilter,
         enabledTraits: EnabledTraits
-    ) async throws -> (Manifest, [Constraint]) {
+    ) async throws -> CachedDependency {
         let manifest = try await self.loadManifest(at: revision, version: version)
-        return (manifest, try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits))
+        return .init(manifest: manifest, constraints: try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits), enabledTraits: enabledTraits)
     }
 
     public func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) throws -> [Constraint] {
