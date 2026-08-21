@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import _InternalTestSupport
+import Foundation
 import PackageModel
 import XCTest
 
@@ -1272,5 +1273,93 @@ class ManifestTests: XCTestCase {
                 XCTAssertEqual(dependency.name, "Boo")
             }
         }
+    }
+
+    func testManifestEncodingIncludesProductDeprecation() throws {
+        let products = try [
+            ProductDescription(
+                name: "PaperLegacy",
+                type: .library(.automatic),
+                targets: ["PaperLegacy"],
+                deprecation: ProductDeprecation(
+                    message: "PaperLegacy is superseded by Paper.",
+                    replacement: .renamed("Paper"),
+                ),
+            ),
+            ProductDescription(
+                name: "paper-tool-old",
+                type: .executable,
+                targets: ["paper-tool-old"],
+                deprecation: ProductDeprecation(
+                    message: "Migrate to the standalone paper-tools package.",
+                    replacement: .renamed("paper-tool", package: "paper-tools"),
+                ),
+            ),
+            ProductDescription(
+                name: "PaperExperimental",
+                type: .library(.automatic),
+                targets: ["PaperExperimental"],
+                deprecation: ProductDeprecation(
+                    message: "PaperExperimental is going away with no replacement.",
+                    replacement: nil,
+                ),
+            ),
+            ProductDescription(
+                name: "Paper",
+                type: .library(.automatic),
+                targets: ["Paper"],
+            ),
+        ]
+        let targets = try [
+            TargetDescription(name: "Paper"),
+            TargetDescription(name: "PaperLegacy"),
+            TargetDescription(name: "PaperExperimental"),
+            TargetDescription(name: "paper-tool-old"),
+        ]
+        let manifest = Manifest.createRootManifest(
+            displayName: "Paper",
+            path: "/Paper",
+            products: products,
+            targets: targets,
+        )
+
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(manifest)
+        let root = try XCTUnwrap(
+            try JSONSerialization.jsonObject(with: data) as? [String: Any],
+        )
+        let productsJSON = try XCTUnwrap(root["products"] as? [[String: Any]])
+        XCTAssertEqual(productsJSON.count, 4)
+
+        let byName = Dictionary(uniqueKeysWithValues: productsJSON.map { product -> (String, [String: Any]) in
+            let name = product["name"] as? String ?? ""
+            return (name, product)
+        })
+
+        let renamedProduct = try XCTUnwrap(byName["PaperLegacy"])
+        let renamedDeprecation = try XCTUnwrap(renamedProduct["deprecation"] as? [String: Any])
+        XCTAssertEqual(renamedDeprecation["message"] as? String, "PaperLegacy is superseded by Paper.")
+        let renamedReplacement = try XCTUnwrap(renamedDeprecation["replacement"] as? [String: Any])
+        XCTAssertEqual(renamedReplacement["kind"] as? String, "renamed")
+        XCTAssertEqual(renamedReplacement["product"] as? String, "Paper")
+        XCTAssertNil(renamedReplacement["package"])
+
+        let crossPackageProduct = try XCTUnwrap(byName["paper-tool-old"])
+        let crossPackageDeprecation = try XCTUnwrap(crossPackageProduct["deprecation"] as? [String: Any])
+        let crossPackageReplacement = try XCTUnwrap(crossPackageDeprecation["replacement"] as? [String: Any])
+        XCTAssertEqual(crossPackageReplacement["kind"] as? String, "renamed")
+        XCTAssertEqual(crossPackageReplacement["package"] as? String, "paper-tools")
+        XCTAssertEqual(crossPackageReplacement["product"] as? String, "paper-tool")
+
+        let noReplacementProduct = try XCTUnwrap(byName["PaperExperimental"])
+        let noReplacementDeprecation = try XCTUnwrap(noReplacementProduct["deprecation"] as? [String: Any])
+        XCTAssertEqual(
+            noReplacementDeprecation["message"] as? String,
+            "PaperExperimental is going away with no replacement.",
+        )
+        XCTAssertNil(noReplacementDeprecation["replacement"])
+
+        let controlProduct = try XCTUnwrap(byName["Paper"])
+        XCTAssertNil(controlProduct["deprecation"])
     }
 }
