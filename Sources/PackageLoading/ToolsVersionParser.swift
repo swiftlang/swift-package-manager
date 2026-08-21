@@ -15,7 +15,6 @@ import Foundation
 import PackageModel
 
 import struct TSCBasic.ByteString
-import struct TSCBasic.RegEx
 
 import struct TSCUtility.Version
 
@@ -637,18 +636,17 @@ extension ManifestLoader {
         do { contents = try fileSystem.getDirectoryContents(packagePath) } catch {
             throw ToolsVersionParser.Error.inaccessiblePackage(path: packagePath, reason: String(describing: error))
         }
-        let regex = try! RegEx(pattern: #"^Package@swift-(\d+)(?:\.(\d+))?(?:\.(\d+))?.swift$"#)
+        let regex = #/^Package@swift-(\d+)(?:\.(\d+))?(?:\.(\d+))?.swift$/#
 
         // Collect all version-specific manifests at the given package path.
         let versionSpecificManifests = Dictionary(contents.compactMap{ file -> (ToolsVersion, String)? in
-            let parsedVersion = regex.matchGroups(in: file)
-            guard parsedVersion.count == 1, parsedVersion[0].count == 3 else {
+            guard let match = try? regex.wholeMatch(in: file) else {
                 return nil
             }
 
-            let major = Int(parsedVersion[0][0])!
-            let minor = parsedVersion[0][1].isEmpty ? 0 : Int(parsedVersion[0][1])!
-            let patch = parsedVersion[0][2].isEmpty ? 0 : Int(parsedVersion[0][2])!
+            let major = Int(match.output.1)!
+            let minor = match.output.2.flatMap { Int($0) } ?? 0
+            let patch = match.output.3.flatMap { Int($0) } ?? 0
 
             return (ToolsVersion(version: Version(major, minor, patch)), file)
         }, uniquingKeysWith: { $1 })
