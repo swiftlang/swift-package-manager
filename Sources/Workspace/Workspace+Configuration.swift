@@ -115,6 +115,16 @@ extension Workspace {
             self.sharedConfigurationDirectory.map { DefaultLocations.registriesConfigurationFile(at: $0) }
         }
 
+        /// Path to the local proxy configuration.
+        public var localProxyConfigurationFile: AbsolutePath {
+            DefaultLocations.proxyConfigurationFile(at: self.localConfigurationDirectory)
+        }
+
+        /// Path to the shared proxy configuration.
+        public var sharedProxyConfigurationFile: AbsolutePath? {
+            self.sharedConfigurationDirectory.map { DefaultLocations.proxyConfigurationFile(at: $0) }
+        }
+
         // security locations
 
         /// Path to the shared fingerprints directory.
@@ -243,6 +253,14 @@ extension Workspace {
 
         public static func registriesConfigurationFile(at path: AbsolutePath) -> AbsolutePath {
             path.appending("registries.json")
+        }
+
+        public static func proxyConfigurationFile(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
+            self.proxyConfigurationFile(at: self.configurationDirectory(forRootPackage: rootPath))
+        }
+
+        public static func proxyConfigurationFile(at path: AbsolutePath) -> AbsolutePath {
+            path.appending("proxy.json")
         }
 
         public static func manifestsDirectory(at path: AbsolutePath) -> AbsolutePath {
