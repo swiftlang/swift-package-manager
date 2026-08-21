@@ -393,7 +393,7 @@ extension EnabledTraitsMap: ExpressibleByDictionaryLiteral {
 /// convenience. When unifying two `EnabledTrait`s, it will combine the list of setters if the `name`s match. This is assuming
 /// that an `EnabledTrait` is correctly associated with the same `PackageIdentity` in the `EnabledTraitsMap`.
 ///
-public struct EnabledTrait: Identifiable {
+public struct EnabledTrait: Identifiable, Sendable {
     /// Convenience typealias for a list of `Setter`
     public typealias Setters = Set<Setter>
 
@@ -450,7 +450,7 @@ public struct EnabledTrait: Identifiable {
 
 extension EnabledTrait {
     /// An enumeration that describes how a given trait was set as enabled.
-    public enum Setter: Hashable, CustomStringConvertible {
+    public enum Setter: Hashable, CustomStringConvertible, Sendable {
         case traitConfiguration
         case package(Manifest.PackageIdentifier)
         case trait(String)
@@ -546,7 +546,7 @@ extension EnabledTrait: ExpressibleByStringLiteral {
 /// An `EnabledTraits` instance can represent a "disabled" state when created with an empty collection
 /// and a `Setter`. In this case, the `disabledBy` property returns the setter that disabled default traits,
 /// allowing callers to track which parent package or configuration explicitly disabled default traits for a package.
-public struct EnabledTraits: Hashable {
+public struct EnabledTraits: Hashable, Sendable {
     public typealias Element = EnabledTrait
     public typealias Index = IdentifiableSet<Element>.Index
 
@@ -608,6 +608,10 @@ public struct EnabledTraits: Hashable {
 
     public static func ==(_ lhs: EnabledTraits, _ rhs: EnabledTraits) -> Bool {
         lhs._traits.names == rhs._traits.names
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        hasher.combine(self._traits.names)
     }
 }
 

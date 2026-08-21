@@ -109,7 +109,7 @@ public final class Manifest: Sendable {
     /// can depend on which traits are enabled (trait-guarded dependencies).
     private let _requiredDependencies = ThreadSafeKeyValueStore<RequiredDependenciesCacheKey, [PackageDependency]>()
 
-    private struct RequiredDependenciesCacheKey: Hashable {
+    private struct RequiredDependenciesCacheKey: Hashable, Sendable {
         let productFilter: ProductFilter
         let enabledTraits: EnabledTraits
     }
