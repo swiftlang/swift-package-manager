@@ -22,6 +22,12 @@ import XCTest
 import Testing
 
 import struct Basics.AsyncProcessResult
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 import struct TSCUtility.Version
 
@@ -177,7 +183,7 @@ public func XCTAssertBuilds(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: Environment? = nil,
+    env: Basics.Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line,
     buildSystem: BuildSystemProvider.Kind,
@@ -208,7 +214,7 @@ public func XCTAssertSwiftTest(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: Environment? = nil,
+    env: Basics.Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line,
     buildSystem: BuildSystemProvider.Kind,
@@ -236,7 +242,7 @@ public func XCTAssertBuildFails(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
-    env: Environment? = nil,
+    env: Basics.Environment? = nil,
     file: StaticString = #file,
     line: UInt = #line,
     buildSystem: BuildSystemProvider.Kind,
@@ -316,11 +322,10 @@ public func XCTAssertThrowsCommandExecutionError<T>(
     swiftTestingTestCalledAnXCTestAPI()
     await XCTAssertAsyncThrowsError(try await expression(), message(), file: file, line: line) { error in
         guard case SwiftPMError.executionFailure(let processError, let stdout, let stderr) = error,
-              case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
-              processResult.exitStatus != .terminated(code: 0) else {
+              let nonZeroExitError = processError as? NonZeroExitError else {
             return XCTFail("Unexpected error type: \(error.interpolationDescription)", file: file, line: line)
         }
-        errorHandler(CommandExecutionError(result: processResult, stdout: stdout, stderr: stderr))
+        errorHandler(CommandExecutionError(terminationStatus: nonZeroExitError.terminationStatus, stdout: stdout, stderr: stderr))
     }
 }
 
@@ -356,13 +361,13 @@ public func XCTAsyncUnwrap<T>(
 
 
 public struct CommandExecutionError: Error {
-    package let result: AsyncProcessResult
+    public let terminationStatus: TerminationStatus
     public let stdout: String
     public let stderr: String
     public let consoleOutput: String
 
-    package init(result: AsyncProcessResult, stdout: String, stderr: String) {
-        self.result = result
+    package init(terminationStatus: TerminationStatus, stdout: String, stderr: String) {
+        self.terminationStatus = terminationStatus
         self.stdout = stdout
         self.stderr = stderr
         self.consoleOutput = stdout + stderr
