@@ -16,9 +16,16 @@ import protocol TSCBasic.FileSystem
 
 import enum Basics.Sandbox
 import struct Basics.AbsolutePath
+import struct Basics.Environment
+import struct Basics.EnvironmentKey
 import struct Basics.SourceControlURL
 
 import enum SwiftBuild.ProjectModel
+
+@_spi(SwiftPMInternal)
+import SPMBuildCore
+
+import struct PackageGraph.ResolvedPackage
 
 extension PackagePIFBuilder {
     /// Contains all of the information resulting from applying a build tool plugin to a package target thats affect how
@@ -43,11 +50,16 @@ extension PackagePIFBuilder {
 
         public init(
             prebuildCommandOutputPaths: [AbsolutePath],
-            buildCommands: [CustomBuildCommand]
+            buildCommands: [CustomBuildCommand],
         ) {
             self.prebuildCommandOutputPaths = prebuildCommandOutputPaths
             self.buildCommands = buildCommands
         }
+    }
+
+    public struct ExternalBuilderPluginInvocationResult: Equatable {
+        /// Build commands to incorporate into the dependency graph.
+        public let buildCommands: [CustomBuildCommand]
     }
 
     /// A command provided by a build tool plugin.

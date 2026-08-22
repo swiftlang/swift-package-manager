@@ -101,7 +101,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
     case fileSystem(FileSystem)
     case sourceControl(SourceControl)
     case registry(Registry)
-    
+
     public struct FileSystem: Equatable, Hashable, Encodable, Sendable {
         public let identity: PackageIdentity
         public let nameForTargetDependencyResolutionOnly: String?
@@ -228,6 +228,25 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         case .registry(let settings):
             return settings.identity
         }
+    }
+
+    /// Create the package reference object for the dependency.
+    public var packageRef: PackageReference {
+        let packageKind: PackageReference.Kind
+        switch self {
+        case .fileSystem(let settings):
+            packageKind = .fileSystem(settings.path)
+        case .sourceControl(let settings):
+            switch settings.location {
+            case .local(let path):
+                packageKind = .localSourceControl(path)
+            case .remote(let url):
+                packageKind = .remoteSourceControl(url)
+            }
+        case .registry(let settings):
+            packageKind = .registry(settings.identity)
+        }
+        return PackageReference(identity: self.identity, kind: packageKind)
     }
 
     // FIXME: we should simplify target based dependencies such that this is no longer required

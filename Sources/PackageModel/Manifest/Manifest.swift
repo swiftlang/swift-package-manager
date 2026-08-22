@@ -43,6 +43,7 @@ public final class Manifest: Sendable {
 
     // FIXME: deprecate this, this is not part of the manifest information, we just use it as a container for this data
     // FIXME: This doesn't belong here, we want the Manifest to be purely tied
+    // TODO: No, really, it is time.
     // to the repository state, it shouldn't matter where it is.
     //
     /// The repository URL the manifest was loaded from.
@@ -73,6 +74,9 @@ public final class Manifest: Sendable {
 
     /// The declared package dependencies.
     public let dependencies: [PackageDependency]
+
+    /// Manifests for the external packages dependencies
+    public let externals: [Manifest]
 
     /// The targets declared in the manifest.
     public let targets: [TargetDescription]
@@ -126,6 +130,7 @@ public final class Manifest: Sendable {
         cxxLanguageStandard: String?,
         swiftLanguageVersions: [SwiftLanguageVersion]?,
         dependencies: [PackageDependency] = [],
+        externals: [Manifest] = [],
         products: [ProductDescription] = [],
         targets: [TargetDescription] = [],
         traits: Set<TraitDescription>,
@@ -147,6 +152,7 @@ public final class Manifest: Sendable {
         self.cxxLanguageStandard = cxxLanguageStandard
         self.swiftLanguageVersions = swiftLanguageVersions
         self.dependencies = dependencies
+        self.externals = externals
         self.products = products
         self.targets = targets
         self.targetMap = Dictionary(targets.lazy.map { ($0.name, $0) }, uniquingKeysWith: { $1 })

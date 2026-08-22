@@ -55,6 +55,10 @@ extension Package {
         @available(_PackageDescription, introduced: 5.6)
         public let kind: Kind
 
+        /// The type of the package in the dependency
+        @available(_PackageDescription, introduced: 6.5)
+        public let type: PackageType
+
         /// The dependencies traits configuration.
         @available(_PackageDescription, introduced: 6.1)
         public let traits: Set<Trait>
@@ -135,7 +139,7 @@ extension Package {
         ) {
             switch requirement {
             case .localPackageItem:
-                self.init(name: name, path: url, traits: traits)
+                self.init(name: name, type: .swift, path: url, traits: traits)
             case .branchItem(let branch):
                 self.init(name: name, location: url, requirement: .branch(branch), traits: traits)
             case .exactItem(let version):
@@ -147,13 +151,15 @@ extension Package {
             }
         }
 
-        init(kind: Kind, traits: Set<Trait>?) {
+        init(kind: Kind, type: PackageType, traits: Set<Trait>?) {
             self.kind = kind
+            self.type = type
             self.traits = traits ?? [.defaults]
         }
 
         convenience init(
             name: String?,
+            type: PackageType,
             path: String,
             traits: Set<Trait>?
         ) {
@@ -162,12 +168,14 @@ extension Package {
                     name: name,
                     path: path
                 ),
+                type: type,
                 traits: traits
             )
         }
 
         convenience init(
             name: String?,
+            type: PackageType = .swift,
             location: String,
             requirement: SourceControlRequirement,
             traits: Set<Trait>?
@@ -178,12 +186,14 @@ extension Package {
                     location: location,
                     requirement: requirement
                 ),
+                type: type,
                 traits: traits
             )
         }
 
         convenience init(
             id: String,
+            type: PackageType = .swift,
             requirement: RegistryRequirement,
             traits: Set<Trait>?
         ) {
@@ -192,6 +202,7 @@ extension Package {
                     id: id,
                     requirement: requirement
                 ),
+                type: type,
                 traits: traits
             )
         }
@@ -216,7 +227,7 @@ extension Package.Dependency {
     public static func package(
         path: String
     ) -> Package.Dependency {
-        return .init(name: nil, path: path, traits: nil)
+        return .init(name: nil, type: .swift, path: path, traits: nil)
     }
 
     /// Adds a local dependency to a package located at the path and with an optional set of traits you provide.
@@ -235,7 +246,7 @@ extension Package.Dependency {
         path: String,
         traits: Set<Trait> = [.defaults]
     ) -> Package.Dependency {
-        return .init(name: nil, path: path, traits: traits)
+        return .init(name: nil, type: .swift, path: path, traits: traits)
     }
 
     /// Adds a local dependency to a named package located at the path you provide.
@@ -257,7 +268,7 @@ extension Package.Dependency {
         name: String,
         path: String
     ) -> Package.Dependency {
-        return .init(name: name, path: path, traits: nil)
+        return .init(name: name, type: .swift, path: path, traits: nil)
     }
 
     /// Adds a local dependency to a named package located at the path and with an optional set of traits you provide.
@@ -279,7 +290,7 @@ extension Package.Dependency {
         path: String,
         traits: Set<Trait> = [.defaults]
     ) -> Package.Dependency {
-        return .init(name: name, path: path, traits: traits)
+        return .init(name: name, type: .swift, path: path, traits: traits)
     }
 }
 
@@ -1132,6 +1143,23 @@ extension Package.Dependency {
         }
 
         return .init(id: id, requirement: requirement, traits: traits)
+    }
+}
+
+// MARK: - external source
+
+extension Package.Dependency {
+    public static func externalSource(
+        name: String? = nil,
+        path: String,
+        traits: Set<Trait>? = nil
+    ) -> Package.Dependency {
+        .init(
+            name: name,
+            type: .external,
+            path: path,
+            traits: traits
+        )
     }
 }
 

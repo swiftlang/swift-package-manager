@@ -75,6 +75,10 @@ public struct Platform: Equatable, Sendable {
     public static let freebsd: Platform = Platform(name: "freebsd")
 }
 
+extension [Platform] {
+    public static let apple: [Platform] = [.macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .visionOS, .driverKit]
+}
+
 /// A platform that the Swift package supports.
 ///
 /// By default, Swift Package Manager assigns a predefined minimum deployment version for each

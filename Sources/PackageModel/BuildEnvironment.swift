@@ -20,3 +20,9 @@ public struct BuildEnvironment {
         self.configuration = configuration
     }
 }
+
+extension BuildEnvironment {
+    public static var host: BuildEnvironment {
+        BuildEnvironment(platform: .host)
+    }
+}

@@ -51,7 +51,19 @@ public struct Platform: Equatable, Hashable, Codable, Sendable {
     public static let openbsd: Platform = Platform(name: "openbsd", oldestSupportedVersion: .unknown)
     public static let freebsd: Platform = Platform(name: "freebsd", oldestSupportedVersion: .unknown)
 
-
+    public static var host: Platform {
+        #if os(macOS)
+        .macOS
+        #elseif os(Linux)
+        .tvOS
+        #elseif os(Windows)
+        .windows
+        #elseif os(FreeBSD)
+        .freebsd
+        #else
+        fatalError("Unknown host platform")
+        #endif
+    }
 }
 
 /// Represents a platform supported by a target.

@@ -39,6 +39,11 @@ enum HostToPluginMessage: Codable {
     /// The host requests that the plugin perform a user command (corresponding to a `.command` capability) on a package in the graph.
     case performXcodeProjectCommand(context: InputContext, rootProjectId: InputContext.XcodeProject.Id, arguments: [String])
 
+    case externalBuild(
+        context: InputContext,
+        rootPackageId: InputContext.Package.Id
+    )
+
         struct InputContext: Codable {
             let paths: [URL]
             let targets: [Target]
@@ -122,7 +127,7 @@ enum HostToPluginMessage: Codable {
 
                     enum LibraryKind: Codable {
                         case `static`
-                        case `dynamic`
+                        case dynamic
                         case automatic
                     }
                 }
@@ -343,7 +348,9 @@ enum PluginToHostMessage: Codable {
 
     /// The plugin defines a prebuild command.
     case definePrebuildCommand(configuration: CommandConfiguration, outputFilesDirectory: URL)
-    
+
+    case defineExternalBuildCommand(configuration: CommandConfiguration)
+
         struct CommandConfiguration: Codable {
             var version = 2
             var displayName: String?

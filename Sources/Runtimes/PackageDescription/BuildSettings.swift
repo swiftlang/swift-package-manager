@@ -162,6 +162,12 @@ public struct CSetting: Sendable {
         return CSetting(name: "headerSearchPath", value: [path], condition: condition)
     }
 
+    /// A header path also used by consumers of this target to find it's header files.
+    @available(_PackageDescription, introduced: 6.5)
+    public static func publicHeaderPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> CSetting {
+        return CSetting(name: "publicHeaderPath", value: [path], condition: condition)
+    }
+
     /// Defines a value for a macro.
     ///
     /// If you don't specify a value, the macro's default value is 1.

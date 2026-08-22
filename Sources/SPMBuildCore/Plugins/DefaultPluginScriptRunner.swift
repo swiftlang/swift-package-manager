@@ -137,11 +137,23 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
+        let parent = pluginLibraryPath.parentDirectory
         if pluginLibraryPath.extension == "framework" {
+            // If not in the PackageFrameworks directory, need the swiftmodule that's in the same directory
+            if pluginLibraryPath.parentDirectory.basename == "PackageFrameworks" {
+                commandLine += [
+                    "-I", parent.parentDirectory.pathString
+                ]
+            } else {
+                commandLine += [
+                    "-I", parent.pathString,
+                ]
+            }
+
             commandLine += [
-                "-F", pluginLibraryPath.parentDirectory.pathString,
+                "-F", parent.pathString,
                 "-framework", "PackagePlugin",
-                "-Xlinker", "-rpath", "-Xlinker", pluginLibraryPath.parentDirectory.pathString,
+                "-Xlinker", "-rpath", "-Xlinker", parent.pathString,
             ]
         } else {
             commandLine += [
@@ -533,6 +545,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             // Pass on any available data to the delegate.
             if data.isEmpty { return }
             stderrData.append(contentsOf: data)
+            print(String(data: data, encoding: .utf8)!)
             callbackQueue.async { delegate.handleOutput(data: data) }
         }
         stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in

@@ -104,6 +104,10 @@ public final class Package {
     /// The list of package dependencies.
     public var dependencies: [Dependency]
 
+    /// The list of external packages
+    @available(_PackageDescription, introduced: 6.5)
+    public var externals: [Package]
+
     /// The list of Swift language modes with which this package is compatible.
     public var swiftLanguageModes: [SwiftLanguageMode]?
     
@@ -152,6 +156,7 @@ public final class Package {
         self.providers = providers
         self.products = products
         self.dependencies = dependencies
+        self.externals = []
         self.targets = targets
         self.traits = []
         self.swiftLanguageModes = swiftLanguageVersions.map{ $0.map{ .version("\($0)") } }
@@ -192,6 +197,7 @@ public final class Package {
         self.providers = providers
         self.products = products
         self.dependencies = dependencies
+        self.externals = []
         self.targets = targets
         self.traits = []
         self.swiftLanguageModes = swiftLanguageVersions
@@ -235,6 +241,7 @@ public final class Package {
         self.providers = providers
         self.products = products
         self.dependencies = dependencies
+        self.externals = []
         self.targets = targets
         self.traits = []
         self.swiftLanguageModes = swiftLanguageVersions
@@ -281,6 +288,7 @@ public final class Package {
         self.providers = providers
         self.products = products
         self.dependencies = dependencies
+        self.externals = []
         self.targets = targets
         self.traits = []
         self.swiftLanguageModes = swiftLanguageVersions
@@ -307,12 +315,14 @@ public final class Package {
     @available(_PackageDescription, introduced: 6)
     public init(
         name: String,
+        type: PackageType = .swift,
         defaultLocalization: LanguageTag? = nil,
         platforms: [SupportedPlatform]? = nil,
         pkgConfig: String? = nil,
         providers: [SystemPackageProvider]? = nil,
         products: [Product] = [],
         dependencies: [Dependency] = [],
+        externals: [Package] = [],
         targets: [Target] = [],
         swiftLanguageModes: [SwiftLanguageMode]? = nil,
         cLanguageStandard: CLanguageStandard? = nil,
@@ -325,6 +335,7 @@ public final class Package {
         self.providers = providers
         self.products = products
         self.dependencies = dependencies
+        self.externals = externals
         self.targets = targets
         self.traits = []
         self.swiftLanguageModes = swiftLanguageModes
@@ -353,6 +364,7 @@ public final class Package {
     @available(_PackageDescription, introduced: 6.1)
     public init(
         name: String,
+        type: PackageType = .swift,
         defaultLocalization: LanguageTag? = nil,
         platforms: [SupportedPlatform]? = nil,
         pkgConfig: String? = nil,
@@ -360,10 +372,11 @@ public final class Package {
         products: [Product] = [],
         traits: Set<Trait> = [],
         dependencies: [Dependency] = [],
+        externals: [Package] = [],
         targets: [Target] = [],
         swiftLanguageModes: [SwiftLanguageMode]? = nil,
         cLanguageStandard: CLanguageStandard? = nil,
-        cxxLanguageStandard: CXXLanguageStandard? = nil
+        cxxLanguageStandard: CXXLanguageStandard? = nil,
     ) {
         self.name = name
         self.defaultLocalization = defaultLocalization
@@ -373,6 +386,7 @@ public final class Package {
         self.products = products
         self.traits = traits
         self.dependencies = dependencies
+        self.externals = externals
         self.targets = targets
         self.swiftLanguageModes = swiftLanguageModes
         self.cLanguageStandard = cLanguageStandard
@@ -410,6 +424,18 @@ public final class Package {
         }
 #endif
     }
+}
+
+/// The type of the package
+@available(_PackageDescription, introduced: 6.5)
+public struct PackageType: Hashable {
+    let type: String
+}
+
+extension PackageType {
+    public static let swift = PackageType(type: "swift")
+    public static let external = PackageType(type: "external")
+    public static let binary = PackageType(type: "binary")
 }
 
 /// A wrapper around an IETF language tag.

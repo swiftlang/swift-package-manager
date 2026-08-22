@@ -143,6 +143,10 @@ public struct ResolvedProduct {
         self.modules.contains { $0.underlying is SwiftModule }
     }
 
+    public var isExternal: Bool {
+        self.modules.allSatisfy({ $0.packageIdentity.type != .swift })
+    }
+
     @available(*, deprecated, renamed: "recursiveModuleDependencies")
     public func recursiveTargetDependencies() throws -> [ResolvedModule] { try self.recursiveModuleDependencies() }
 

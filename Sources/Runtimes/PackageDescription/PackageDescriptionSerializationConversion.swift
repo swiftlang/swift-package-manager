@@ -129,7 +129,7 @@ extension Serialization.Version {
     }
 }
 
-extension Serialization.PackageDependency.SourceControlRequirement {
+extension Serialization.SourceControlRequirement {
     init(_ requirement: PackageDescription.Package.Dependency.SourceControlRequirement) {
         switch requirement {
         case .range(let range):
@@ -168,9 +168,16 @@ extension Serialization.PackageDependency.Kind {
     }
 }
 
+extension Serialization.PackageType {
+    init(_ type: PackageDescription.PackageType) {
+        self.type = type.type
+    }
+}
+
 extension Serialization.PackageDependency {
     init(_ dependency: PackageDescription.Package.Dependency) {
         self.kind = .init(dependency.kind)
+        self.type = .init(dependency.type)
         self.moduleAliases = dependency.moduleAliases
         self.traits = dependency.traits.map { Serialization.PackageDependency.Trait.init($0) }
             .sorted { $0.name < $1.name }
@@ -203,7 +210,7 @@ extension Serialization.SupportedPlatform {
     }
 }
 
-extension Serialization.TargetDependency.Condition {
+extension Serialization.TargetDependencyCondition {
     init(_ condition: TargetDependencyCondition) {
         self.platforms = condition.platforms?.map { .init($0) }
         self.traits = condition.traits?.sorted()
@@ -235,6 +242,7 @@ extension Serialization.TargetType {
         case .executable: self = .executable
         case .test: self = .test
         case .system: self = .system
+        case .externalLibrary: self = .externalLibrary
         case .binary: self = .binary
         case .plugin: self = .plugin
         case .macro: self = .macro
@@ -246,6 +254,7 @@ extension Serialization.PluginCapability {
     init(_ capability: PackageDescription.Target.PluginCapability) {
         switch capability {
         case .buildTool: self = .buildTool
+        case .externalBuilder: self = .externalBuilder
         case .command(let intent, let permissions): self = .command(
                 intent: .init(intent),
                 permissions: permissions.map { .init($0) }
@@ -289,7 +298,7 @@ extension Serialization.PluginNetworkPermissionScope {
 }
 
 extension Serialization.PluginUsage {
-    init(_ usage: PackageDescription.Target.PluginUsage) {
+    init(_ usage: PackageDescription.PluginUsage) {
         switch usage {
         case .plugin(let name, let package): self = .plugin(name: name, package: package)
         }
@@ -317,6 +326,7 @@ extension Serialization.Target {
         self.linkerSettings = target.linkerSettings?.map { .init($0) }
         self.checksum = target.checksum
         self.pluginUsages = target.plugins?.map { .init($0) }
+        self.condition = target.condition.map { .init($0) }
     }
 }
 
@@ -408,6 +418,7 @@ extension Serialization.Package {
         self.traits = package.traits.map { Serialization.Trait($0) }
             .sorted { $0.name < $1.name }
         self.dependencies = package.dependencies.map { .init($0) }
+        self.externals = package.externals.map { .init($0) }
         self.swiftLanguageVersions = package.swiftLanguageModes?.map { .init($0) }
         self.cLanguageStandard = package.cLanguageStandard.map { .init($0) }
         self.cxxLanguageStandard = package.cxxLanguageStandard.map { .init($0) }

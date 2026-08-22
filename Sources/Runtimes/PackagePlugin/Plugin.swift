@@ -397,6 +397,57 @@ extension Plugin {
             // Exit with a zero exit code to indicate success.
             exit(0)
 
+        case .externalBuild(let wireInput, let rootPackageId):
+            // Deserialize the context from the wire input structures. The root
+            // package is the one we'll set the context's `package` property to.
+            let context: PluginContext
+            do {
+                var deserializer = PluginContextDeserializer(wireInput)
+                let package = try deserializer.package(for: rootPackageId)
+                let pluginWorkDirectory = try deserializer.url(for: wireInput.pluginWorkDirId)
+                let toolSearchDirectories = try wireInput.toolSearchDirIds.map {
+                    try deserializer.url(for: $0)
+                }
+                let accessibleTools = try wireInput.accessibleTools.mapValues { (tool: HostToPluginMessage.InputContext.Tool) -> (URL, [String]?) in
+                    let path = try deserializer.url(for: tool.path)
+                    return (path, tool.triples)
+                }
+
+                context = try PluginContext(
+                    package: package,
+                    pluginWorkDirectory: Path(url: pluginWorkDirectory),
+                    pluginWorkDirectoryURL: pluginWorkDirectory,
+                    accessibleTools: accessibleTools,
+                    toolSearchDirectories: toolSearchDirectories.map { try Path(url: $0) },
+                    toolSearchDirectoryURLs: toolSearchDirectories)
+            }
+
+            catch {
+                internalError("Couldn’t deserialize input from host: \(error).")
+            }
+
+            let plugin = self.init()
+
+            guard let plugin = plugin as? ExternalBuilderPlugin else {
+                throw PluginDeserializationError.missingCommandPluginProtocolConformance(protocolName: "ExternalBuilderPlugin")
+            }
+
+            // Invoke the plugin to create build commands for the target.
+            let externalBuildCommand = try await plugin.createExternalBuildCommand(context: context)
+
+            // Send each of the generated command to the host.
+            let command = PluginToHostMessage.CommandConfiguration(
+                displayName: externalBuildCommand.displayName,
+                executable: externalBuildCommand.executable,
+                arguments: externalBuildCommand.arguments,
+                environment: externalBuildCommand.environment
+            )
+            let message = PluginToHostMessage.defineExternalBuildCommand(
+                configuration: command
+            )
+            try pluginHostConnection.sendMessage(message)
+            exit(0)
+
         default:
             internalError("unexpected top-level message \(message)")
         }

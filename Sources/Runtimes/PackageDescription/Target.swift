@@ -23,16 +23,18 @@
 public final class Target {
 
     /// The different types of a target.
-    public enum TargetType: String {
+    public enum TargetType: Equatable {
         /// A target that contains code for the Swift package's functionality.
         case regular
         /// A target that contains code for an executable's main module.
         case executable
         /// A target that contains tests for the Swift package's other targets.
         case test
-        /// A target that adapts a library on the system to work with Swift
-        /// packages.
+        /// A target that produces a module for a library on the system
         case system
+        /// A library target that comes from an external package
+        /// TODO: external executable
+        case externalLibrary
         /// A target that references a binary artifact.
         case binary
         /// A target that provides a package plug-in.
@@ -120,7 +122,11 @@ public final class Target {
 
     /// A Boolean value that indicates whether this is a test target.
     public var isTest: Bool {
-        return type == .test
+        if case .test = type {
+            return true
+        } else {
+            return false
+        }
     }
 
     /// The target's dependencies on other entities inside or outside the package.
@@ -133,6 +139,9 @@ public final class Target {
 
     /// The type of the target.
     public let type: TargetType
+
+    /// The condition that determines whether the target is included in the build.
+    public let condition: TargetDependencyCondition?
 
     /// If true, access to package declarations from other targets in the package is allowed.
     public let packageAccess: Bool
@@ -162,6 +171,11 @@ public final class Target {
         /// that run before or during the build of the target.
         @available(_PackageDescription, introduced: 5.5)
         case buildTool
+
+        /// A plugin used by an external package source dependency to bulid the
+        /// source and create build artifacts registered as external library targets
+        /// or executable targets.
+        case externalBuilder
 
         /// Specifies that the plug-in provides a user command capability.
         ///
@@ -218,17 +232,6 @@ public final class Target {
     @available(_PackageDescription, introduced: 5.5)
     public var plugins: [PluginUsage]?
     
-    /// A plug-in used in a target.
-    @available(_PackageDescription, introduced: 5.5)
-    public enum PluginUsage {
-        /// Specifies the use of a plug-in product in a package dependency.
-        ///
-        /// - Parameters:
-        ///   - name: The name of the plug-in target.
-        ///   - package: The name of the package that defines the plug-in target.
-        case plugin(name: String, package: String?)
-    }
-
     /// Construct a target.
     @_spi(PackageDescriptionInternal)
     public init(
@@ -250,7 +253,8 @@ public final class Target {
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
         checksum: String? = nil,
-        plugins: [PluginUsage]? = nil
+        plugins: [PluginUsage]? = nil,
+        condition: TargetDependencyCondition? = nil
     ) {
         self.name = name
         self.dependencies = dependencies
@@ -271,6 +275,7 @@ public final class Target {
         self.linkerSettings = linkerSettings
         self.checksum = checksum
         self.plugins = plugins
+        self.condition = condition
 
         switch type {
         case .regular, .executable, .test:
@@ -296,6 +301,17 @@ public final class Target {
                 linkerSettings == nil &&
                 checksum == nil &&
                 plugins == nil
+            )
+        case .externalLibrary:
+            precondition(
+                url == nil &&
+                dependencies.isEmpty &&
+                exclude.isEmpty &&
+                sources == nil &&
+                resources == nil &&
+                publicHeadersPath == nil &&
+                pluginCapability == nil &&
+                checksum == nil
             )
         case .binary:
             precondition(
@@ -1053,6 +1069,45 @@ public final class Target {
             providers: providers)
     }
 
+    /// Creates an external library target.
+    ///
+    /// External library targets represent libraries made available by external packages.
+    /// They are not modules so would still need to be wrapped by a target in the
+    /// parent package to produce the module map.
+    ///
+    /// - Parameters:
+    ///   - name: name of the target.
+    ///   - path: the path to the library binary relative to the binary output path of the package.
+    ///   - cSettings: settings consuming targets use to make use of the library
+    ///   - cxxSettings: settings consuming targets use to make use of the library
+    ///   - swiftSettings: settings consuming targets use to make use of the library
+    ///   - linkerSettings: settings consuming targets use to make use of the library
+    public static func externalLibrary(
+        name: String,
+        path: String? = nil,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: [],
+            path: path,
+            exclude: [],
+            sources: nil,
+            publicHeadersPath: nil,
+            type: .externalLibrary,
+            packageAccess: false,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins
+        )
+    }
+
     /// Creates a binary target that references a remote artifact.
     ///
     /// Binary targets are only available on Apple platforms.
@@ -1524,13 +1579,13 @@ public enum PluginNetworkPermissionScope {
     }
 }
 
-extension Target.PluginUsage {
+extension PluginUsage {
     /// Specifies use of a plugin target in the same package.
     ///
     /// - Parameter name: The name of the plugin target.
     /// - Returns: A `PluginUsage` instance.
     @available(_PackageDescription, introduced: 5.5)
-    public static func plugin(name: String) -> Target.PluginUsage {
+    public static func plugin(name: String) -> PluginUsage {
         return .plugin(name: name, package: nil)
     }
 }
@@ -1550,10 +1605,27 @@ extension Target.Dependency: ExpressibleByStringLiteral {
     }
 }
 
+/// A plug-in used in a target.
+@available(_PackageDescription, introduced: 5.5)
+public enum PluginUsage {
+    /// Specifies the use of a plug-in product in a package dependency.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the plug-in target.
+    ///   - package: The name of the package that defines the plug-in target.
+    case plugin(name: String, package: String?)
+
+    internal var name: String {
+        switch self {
+        case .plugin(name: let name, package: _):
+            return name
+        }
+    }
+}
+
 /// `ExpressibleByStringLiteral` conformance.
 ///
-extension Target.PluginUsage: ExpressibleByStringLiteral {
-
+extension PluginUsage: ExpressibleByStringLiteral {
     /// Specifies use of a plugin target in the same package.
     ///
     /// - Parameter value: A string literal.
@@ -1561,4 +1633,3 @@ extension Target.PluginUsage: ExpressibleByStringLiteral {
         self = .plugin(name: value, package: nil)
     }
 }
-

@@ -438,7 +438,7 @@ struct PackagePIFProjectBuilder {
                 )
 
                 generatedFiles.add(files)
-                if !files.headers.isEmpty {
+                if !files.headers.isEmpty, package.manifest.toolsVersion < .v6_5 {
                     // Capture the public include directory if there were header files generated there
                     // Hardcoding as the default for now
                     let publicDir = command.pluginOutputDir.appending(ClangModule.defaultPublicHeadersComponent)
@@ -528,6 +528,73 @@ struct PackagePIFProjectBuilder {
                 preparesForIndexing: true
             )
         )
+    }
+
+    mutating func addExternalBuildComands() throws {
+        for results in pifBuilder.externalBuilderResults {
+            // Create target for the external build
+            // TODO: Should this be one per plugin?
+            let package = self.package
+            let externalTargetKeyPath = try self.project.addAggregateTarget { _ in
+                ProjectModel.AggregateTarget(
+                    id: package.pifTargetGUID,
+                    name: package.name
+                )
+            }
+            do {
+                let externalTarget = self.project[keyPath: externalTargetKeyPath]
+                log(.debug, "Created aggregate target '\(externalTarget.id) with name \(externalTarget.name)")
+            }
+
+            // Add in the custom task for the build commands
+            for command in results.buildCommands {
+                var commandLine = [command.executable] + command.arguments
+
+                if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
+                    commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
+                }
+
+                var environment = command.environment
+                environment["SWIFT_CONFIGURATION"] = "$(CONFIGURATION)"
+                environment["SWIFT_PLATFORM"] = "$(EFFECTIVE_PLATFORM_NAME)"
+                environment["SWIFT_ARCHS"] = "$(ARCHS)"
+                environment["SWIFT_VENDOR"] = "$(LLVM_TARGET_TRIPLE_VENDOR)"
+                environment["SWIFT_OS"] = "$(LLVM_TARGET_TRIPLE_OS_VERSION)"
+                environment["SWIFT_SUFFIX"] = "$(LLVM_TARGET_TRIPLE_SUFFIX)"
+                environment["SWIFT_SDK"] = "$(SYSROOT)"
+
+                self.project[keyPath: externalTargetKeyPath].customTasks.append(
+                    ProjectModel.CustomTask(
+                        commandLine: commandLine,
+                        environment: environment.map { Pair($0, $1) }.sorted(by: <),
+                        workingDirectory: command.workingDir?.pathString,
+                        executionDescription: command.displayName ?? "Performing external build",
+                        inputFilePaths: [command.executable] + command.inputPaths.map(\.pathString),
+                        outputFilePaths: command.outputPaths,
+                        enableSandboxing: false,
+                        preparesForIndexing: false,
+                        alwaysOutOfDate: true
+                    )
+                )
+            }
+
+            // Add in the build configs
+            self.project[keyPath: externalTargetKeyPath].common.addBuildConfig { id in
+                BuildConfig(
+                    id: id,
+                    name: "Debug",
+                    settings: .init()
+                )
+            }
+
+            self.project[keyPath: externalTargetKeyPath].common.addBuildConfig { id in
+                BuildConfig(
+                    id: id,
+                    name: "Release",
+                    settings: .init(),
+                )
+            }
+        }
     }
 
     /// Processes the paths of plugin-generated files for a particular package target,

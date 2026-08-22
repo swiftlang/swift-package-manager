@@ -75,6 +75,8 @@ public enum ModuleError: Swift.Error {
     /// Invalid header search path.
     case invalidHeaderSearchPath(String)
 
+    case invalidLibrarySearchPath(String)
+
     /// Default localization not set in the presence of localized resources.
     case defaultLocalizationNotSet
 
@@ -145,6 +147,8 @@ extension ModuleError: CustomStringConvertible {
             return "invalid custom path '\(path)' for target '\(target)'"
         case .invalidHeaderSearchPath(let path):
             return "invalid header search path '\(path)'; header search path should not be outside the package root"
+        case .invalidLibrarySearchPath(let path):
+            return "invalid library search path '\(path)'; header search path should not be outside the package root"
         case .defaultLocalizationNotSet:
             return "manifest property 'defaultLocalization' not set; it is required in the presence of localized resources"
         case .pluginCapabilityNotDeclared(let target):
@@ -283,6 +287,9 @@ public final class PackageBuilder {
     /// The manifest for the package being constructed.
     private let manifest: Manifest
 
+    /// For an external package, the parent of this package
+    private let parentPackage: Package?
+
     /// The product filter to apply to the package.
     private let productFilter: ProductFilter
 
@@ -344,6 +351,7 @@ public final class PackageBuilder {
     public init(
         identity: PackageIdentity,
         manifest: Manifest,
+        parentPackage: Package? = nil,
         productFilter: ProductFilter,
         path: AbsolutePath,
         additionalFileRules: [FileRuleDescription],
@@ -358,6 +366,7 @@ public final class PackageBuilder {
     ) {
         self.identity = identity
         self.manifest = manifest
+        self.parentPackage = parentPackage
         self.productFilter = productFilter
         self.packagePath = path
         self.additionalFileRules = additionalFileRules
@@ -689,7 +698,7 @@ public final class PackageBuilder {
                     // has to present, we always expect this target to be present in
                     // potentialModules dictionary.
                     return potentialModuleMap[name]!
-                case .product:
+                case .product: // TODO: anything?
                     return nil
                 case .byName(let name, _):
                     // By name dependency may or may not be a target dependency.
@@ -782,13 +791,26 @@ public final class PackageBuilder {
                         if let package {
                             return .product(Module.ProductReference(name: name, package: package), conditions: [])
                         } else {
-                            if let target = targets[name] {
-                                return .module(target, conditions: [])
-                            } else if let targetName = pluginTargetName(for: name), let target = targets[targetName] {
-                                return .module(target, conditions: [])
+                            if let parentPackage {
+                                if let target = parentPackage.modules.first(where: { $0.name == name }) {
+                                    return .module(target, conditions: [])
+                                } else if let product = parentPackage.products.first(where: { $0.type == .plugin && $0.name == name }),
+                                          let target = product.modules.first
+                                {
+                                    return .module(target, conditions: [])
+                                } else {
+                                    self.observabilityScope.emit(.pluginNotFound(name: name))
+                                    return nil
+                                }
                             } else {
-                                self.observabilityScope.emit(.pluginNotFound(name: name))
-                                return nil
+                                if let target = targets[name] {
+                                    return .module(target, conditions: [])
+                                } else if let targetName = pluginTargetName(for: name), let target = targets[targetName] {
+                                    return .module(target, conditions: [])
+                                } else {
+                                    self.observabilityScope.emit(.pluginNotFound(name: name))
+                                    return nil
+                                }
                             }
                         }
                     }
@@ -865,6 +887,20 @@ public final class PackageBuilder {
                 path: potentialModule.path, isImplicit: false,
                 pkgConfig: manifestTarget.pkgConfig,
                 providers: manifestTarget.providers
+            )
+        } else if potentialModule.type == .externalLibrary {
+            let buildSettings = try self.buildSettings(
+                for: manifestTarget,
+                targetRoot: potentialModule.path, // TODO: need to figure out what's right here
+                toolsSwiftVersion: self.toolsSwiftVersion()
+            )
+
+            return ExternalLibrary(
+                name: potentialModule.name,
+                path: potentialModule.path, // TODO: and here
+                dependencies: dependencies,
+                buildSettings: buildSettings,
+                buildSettingsDescription: manifestTarget.settings
             )
         } else if potentialModule.type == .binary {
             guard let artifact = self.binaryArtifacts[potentialModule.name] else {
@@ -1116,6 +1152,24 @@ public final class PackageBuilder {
                 // Ensure that the search path is contained within the package.
                 _ = try RelativePath(validating: value)
                 let path = try AbsolutePath(validating: value, relativeTo: targetRoot)
+                guard path.isDescendantOfOrEqual(to: self.packagePath) else {
+                    throw ModuleError.invalidHeaderSearchPath(value)
+                }
+
+            case .publicHeaderPath(let value):
+                values = [value]
+
+                switch setting.tool {
+                case .c, .cxx:
+                    decl = .PUBLIC_HEADER_PATHS
+                case .swift, .linker:
+                    throw InternalError("unexpected tool for setting type \(setting)")
+                }
+
+                // Ensure that the search path is contained within the package.
+                _ = try RelativePath(validating: value)
+                let root = target.type == .externalLibrary ? self.packagePath : targetRoot
+                let path = try AbsolutePath(validating: value, relativeTo: root)
                 guard path.isDescendantOfOrEqual(to: self.packagePath) else {
                     throw ModuleError.invalidHeaderSearchPath(value)
                 }
@@ -1653,6 +1707,8 @@ public final class PackageBuilder {
                 }
             }
         }
+
+        // Wrap external libraries in a product
 
         // Create a special REPL product that contains all the library targets.
 
