@@ -1,0 +1,30 @@
+import SwiftUI
+
+enum {{ enumName }}: String, CaseIterable {
+    {% for palette in palettes %}
+    case {{ palette.name | lowercase }}
+    {% endfor %}
+
+    {% for palette in palettes %}
+    static var {{ palette.name | lowercase }}Colors: [Color] {
+        return [
+            {% for color in palette.colors %}
+            Color(red: {{ color.red }}, green: {{ color.green }}, blue: {{ color.blue }}, opacity: {{ color.alpha }}),
+            {% endfor %}
+        ]
+    }
+    {% endfor %}
+}
+
+{% if publicAccess %}
+public extension {{ enumName }} {
+    var colors: [Color] {
+        switch self {
+            {% for palette in palettes %}
+            case .{{ palette.name | lowercase }}:
+                return {{ enumName }}.{{ palette.name | lowercase }}Colors
+            {% endfor %}
+        }
+    }
+}
+{% endif %}
