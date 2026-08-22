@@ -2377,6 +2377,72 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test func commandPluginToolDependencyIncludedInAggregates() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/RootLib/RootLib.swift",
+            "/Root/Sources/PluginTool/main.swift",
+            "/Root/Plugins/MyPlugin/plugin.swift",
+            "/Root/Sources/Dep/dep.swift"
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v5_9,
+                    targets: [
+                        TargetDescription(name: "RootLib"),
+                        TargetDescription(name: "PluginTool", dependencies: ["Dep"], type: .executable),
+                        TargetDescription(name: "Dep"),
+                        TargetDescription(
+                            name: "MyPlugin",
+                            dependencies: ["PluginTool"],
+                            type: .plugin,
+                            pluginCapability: .command(
+                                intent: .custom(verb: "my-plugin", description: "does something"),
+                                permissions: []
+                            )
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always,
+                pluginScriptRunner: NoOpPluginScriptRunner()
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+
+        let errors = observability.diagnostics.filter { $0.severity == .error }
+        #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+        let rootProject = try pif.workspace.project(named: "Root")
+        let rootLibID = try rootProject.target(named: "RootLib").common.id.value
+        let toolProductID = try rootProject.target(named: "PluginTool-product").common.id.value
+        let depModuleID = try rootProject.target(named: "Dep").common.id.value
+
+        let aggregate = try pif.workspace.project(named: "Aggregate")
+        for aggregateName in [PIFBuilder.allExcludingTestsTargetName, PIFBuilder.allIncludingTestsTargetName] {
+            let deps = Set(try aggregate.target(named: aggregateName).common.dependencies.map(\.targetId.value))
+            #expect(deps.contains(rootLibID))
+            #expect(deps.contains(toolProductID))
+            #expect(deps.contains(depModuleID))
+        }
+    }
+
     @Test func standaloneTargetIncludedInAggregates() async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let fs = InMemoryFileSystem(emptyFiles: [
