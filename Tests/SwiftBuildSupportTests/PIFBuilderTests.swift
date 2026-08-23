@@ -439,7 +439,7 @@ struct PIFBuilderTests {
 
         struct Verify {
             let targetName: String
-            let expectedAliases: [String]
+            let expectedAliases: [String]?
         }
     }
     @Test(
@@ -451,13 +451,13 @@ struct PIFBuilderTests {
                 verify: [
                     ModuleAliasTestData.Verify(
                         targetName: "App-product",
-                        expectedAliases: ["Utils=AppUtils"],
+                        expectedAliases: nil,
                     ),
                 ],
             ),
         ]
     )
-    func moduleAliasesPropagateToExecutableProduct(
+    func directlyDeclaredModuleAliasesAreOmittedFromExecutableProduct(
         data: ModuleAliasTestData,
     ) async throws {
         try await withGeneratedPIF(

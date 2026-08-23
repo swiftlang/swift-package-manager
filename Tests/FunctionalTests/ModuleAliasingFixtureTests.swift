@@ -29,6 +29,25 @@ import Testing
 )
 struct ModuleAliasingFixtureTests {
     @Test(
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func moduleAliasInExecutableTarget(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "ModuleAliasing/Executable") { fixturePath in
+            let pkgPath = fixturePath.appending(component: "App")
+            try await executeSwiftBuild(
+                pkgPath,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+        }
+    }
+
+    @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/10417", "Module aliases are propagated within the consuming package"),
         .tags(
             Tag.Feature.Command.Build,
