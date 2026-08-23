@@ -8546,6 +8546,123 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testExtractUpdatesArtifactModificationDates() async throws {
+        try await testWithTemporaryDirectory { directory in
+            let fs = localFileSystem
+            let archivedModificationDate = Date(timeIntervalSince1970: 0)
+            let archivePath = directory.appending("A.zip")
+            try fs.writeFileContents(archivePath, bytes: ByteString([0xAA]))
+
+            let archiver = MockArchiver(handler: { _, _, destinationPath, completion in
+                do {
+                    try createDummyXCFramework(fileSystem: fs, path: destinationPath, name: "A")
+                    try FileManager.default.setAttributes(
+                        [.modificationDate: archivedModificationDate],
+                        ofItemAtPath: destinationPath.appending(components: "A.xcframework", "info.plist").pathString
+                    )
+                    completion(.success(()))
+                } catch {
+                    completion(.failure(error))
+                }
+            })
+
+            let binaryArtifactsManager = try Workspace.BinaryArtifactsManager(
+                fileSystem: fs,
+                authorizationProvider: .none,
+                hostToolchain: UserToolchain.default,
+                checksumAlgorithm: MockHashAlgorithm(),
+                cachePath: .none,
+                customHTTPClient: .none,
+                customArchiver: archiver,
+                delegate: .none
+            )
+            let packageRef = PackageReference.root(identity: .plain("root"), path: directory)
+            let artifact = Workspace.ManagedArtifact.local(
+                packageRef: packageRef,
+                targetName: "A",
+                path: archivePath,
+                kind: .xcframework
+            )
+            let artifactsDirectory = directory.appending("artifacts")
+
+            let artifacts = try await binaryArtifactsManager.extract(
+                [artifact],
+                artifactsDirectory: artifactsDirectory,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+
+            let modificationDate = try XCTUnwrap(
+                FileManager.default.attributesOfItem(
+                    atPath: artifactsDirectory.appending(components: "root", "A", "A.xcframework", "info.plist")
+                        .pathString
+                )[.modificationDate] as? Date
+            )
+            XCTAssertEqual(artifacts.count, 1)
+            XCTAssertGreaterThan(modificationDate, archivedModificationDate)
+        }
+    }
+
+    func testFetchUpdatesArtifactModificationDates() async throws {
+        try await testWithTemporaryDirectory { directory in
+            let fs = localFileSystem
+            let archivedModificationDate = Date(timeIntervalSince1970: 0)
+            let httpClient = HTTPClient { request, _ in
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+                try fileSystem.writeFileContents(destination, bytes: ByteString([0xAA]))
+                return .okay()
+            }
+            let archiver = MockArchiver(handler: { _, _, destinationPath, completion in
+                do {
+                    try createDummyXCFramework(fileSystem: fs, path: destinationPath, name: "A")
+                    try FileManager.default.setAttributes(
+                        [.modificationDate: archivedModificationDate],
+                        ofItemAtPath: destinationPath.appending(components: "A.xcframework", "info.plist").pathString
+                    )
+                    completion(.success(()))
+                } catch {
+                    completion(.failure(error))
+                }
+            })
+            let binaryArtifactsManager = try Workspace.BinaryArtifactsManager(
+                fileSystem: fs,
+                authorizationProvider: .none,
+                hostToolchain: UserToolchain.default,
+                checksumAlgorithm: MockHashAlgorithm(),
+                cachePath: .none,
+                customHTTPClient: httpClient,
+                customArchiver: archiver,
+                delegate: .none
+            )
+            let packageRef = PackageReference.root(identity: .plain("root"), path: directory)
+            let artifact = Workspace.BinaryArtifactsManager.RemoteArtifact(
+                packageRef: packageRef,
+                targetName: "A",
+                url: URL("https://example.com/A.zip"),
+                checksum: "aa",
+                originalURL: nil,
+                originalChecksum: nil
+            )
+            let artifactsDirectory = directory.appending("artifacts")
+
+            let artifacts = try await binaryArtifactsManager.fetch(
+                [artifact],
+                artifactsDirectory: artifactsDirectory,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+
+            let modificationDate = try XCTUnwrap(
+                FileManager.default.attributesOfItem(
+                    atPath: artifactsDirectory.appending(components: "root", "A", "A.xcframework", "info.plist")
+                        .pathString
+                )[.modificationDate] as? Date
+            )
+            XCTAssertEqual(artifacts.count, 1)
+            XCTAssertGreaterThan(modificationDate, archivedModificationDate)
+        }
+    }
+
     func testDownloadedArtifactChecksumChange() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
