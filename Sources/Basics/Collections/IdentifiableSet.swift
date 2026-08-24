@@ -13,7 +13,7 @@
 import struct OrderedCollections.OrderedDictionary
 
 /// Replacement for `Set` elements that can't be `Hashable`, but can be `Identifiable`.
-public struct IdentifiableSet<Element: Identifiable>: Collection {
+public struct IdentifiableSet<Element: Identifiable & Sendable>: Collection, Sendable where Element.ID: Sendable {
     public init() {
         self.storage = [:]
     }
