@@ -46,21 +46,15 @@ extension Workspace {
 
         var enabledTraits = try manifest.enabledTraits(using: explicitlyEnabledTraits)
 
-        // Check if any parents requested default traits for this package
-        // If so, expand the default traits and union them with existing traits
+        // Check if any parents requested default traits for this package, and expand and
+        // union them.
+        // Traits are unified across the graph, so once a parent explicitly opts into specific
+        // traits, that explicit selection must be unioned with its defaults.
         if let defaultSetters = self.enabledTraitsMap[defaultSettersFor: manifest.packageIdentity],
            !defaultSetters.isEmpty {
             // Calculate what the default traits are for this manifest
             let defaultTraits = try manifest.enabledTraits(using: .defaults)
-
-            // Create enabled traits for each setter that requested defaults
-            for setter in defaultSetters {
-                let traitsFromSetter = EnabledTraits(
-                    defaultTraits.map(\.name),
-                    setBy: setter
-                )
-                enabledTraits.formUnion(traitsFromSetter)
-            }
+            enabledTraits.formUnion(defaultTraits)
         }
 
         self.enabledTraitsMap[manifest] = enabledTraits
