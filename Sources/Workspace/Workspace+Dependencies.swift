@@ -78,7 +78,8 @@ extension PackageWorkspace {
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try await self.loadRootManifests(
             packages: root.packages,
-            observabilityScope: observabilityScope
+            workspaceManifest: root.workspaceManifest,
+            observabilityScope: observabilityScope,
         )
         let rootManifestsMinimumToolsVersion = rootManifests.values.map(\.toolsVersion).min() ?? ToolsVersion.current
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
@@ -442,7 +443,8 @@ extension PackageWorkspace {
 
         let rootManifests = try await self.loadRootManifests(
             packages: root.packages,
-            observabilityScope: observabilityScope
+            workspaceManifest: root.workspaceManifest,
+            observabilityScope: observabilityScope,
         )
         let graphRoot = try PackageGraphRoot(
             input: root,
@@ -573,7 +575,7 @@ extension PackageWorkspace {
             automaticallyAddManagedDependencies: true,
             observabilityScope: observabilityScope
         )
-        
+
         try await self.updateBinaryArtifacts(
             manifests: currentManifests,
             addedOrUpdatedPackages: [],
@@ -625,7 +627,8 @@ extension PackageWorkspace {
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try await self.loadRootManifests(
             packages: root.packages,
-            observabilityScope: observabilityScope
+            workspaceManifest: root.workspaceManifest,
+            observabilityScope: observabilityScope,
         )
         let rootManifestsMinimumToolsVersion = rootManifests.values.map(\.toolsVersion).min() ?? ToolsVersion.current
         let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
@@ -1536,6 +1539,15 @@ extension PackageDependency {
         case .registry:
             // FIXME: placeholder
             return self.identity.description
+        case .workspaceMember(let settings):
+            // Workspace members are local packages; the location string
+            // is their resolved on-disk path.
+            guard let path = settings.path else {
+                preconditionFailure(
+                    ".workspaceMember reached locationString with nil path — identity: \(settings.identity), productFilter: \(settings.productFilter), traits: \(String(describing: settings.traits)) - validator should have caught this."
+                )
+            }
+            return path.pathString
         }
     }
 }

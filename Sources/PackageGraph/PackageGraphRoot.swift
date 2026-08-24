@@ -26,15 +26,23 @@ public struct PackageGraphRootInput {
     /// The trait configuration for the root packages.
     public let traitConfiguration: TraitConfiguration
 
+    /// When set, workspace-scoped dependency rewriting is applied to each
+    /// member's manifest before graph construction. Populated when the
+    /// graph roots are the members of a workspace declared via
+    /// `Workspace.swift`.
+    public let workspaceManifest: WorkspaceManifest?
+
     /// Create a package graph root.
     public init(
         packages: [AbsolutePath],
         dependencies: [PackageDependency] = [],
-        traitConfiguration: TraitConfiguration = .default
+        traitConfiguration: TraitConfiguration = .default,
+        workspaceManifest: WorkspaceManifest? = nil,
     ) {
         self.packages = packages
         self.dependencies = dependencies
         self.traitConfiguration = traitConfiguration
+        self.workspaceManifest = workspaceManifest
     }
 }
 
@@ -194,6 +202,11 @@ extension PackageDependency {
             return try settings.requirement.toConstraintRequirement()
         case .registry(let settings):
             return try settings.requirement.toConstraintRequirement()
+        case .workspaceMember:
+            // Workspace members are unversioned local packages, the
+            // same as `.fileSystem`. Path is not needed to derive the
+            // constraint requirement.
+            return .unversioned
         }
     }
 }

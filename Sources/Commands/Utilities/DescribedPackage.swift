@@ -64,25 +64,26 @@ struct DescribedPackage: Encodable {
         self.cxxLanguageStandard = package.manifest.cxxLanguageStandard
         self.swiftLanguagesVersions = package.manifest.swiftLanguageVersions?.map{ $0.description }
     }
-    
+
     /// Represents a platform restriction for the sole purpose of generating a description.
     struct DescribedPlatformRestriction: Encodable {
         let name: String
         let version: String
         let options: [String]?
-        
+
         init(from platform: PlatformDescription) {
             self.name = platform.platformName
             self.version = platform.version
             self.options = platform.options.isEmpty ? nil : platform.options
         }
     }
-    
+
     /// Represents a package dependency for the sole purpose of generating a description.
     enum DescribedPackageDependency: Encodable {
         case fileSystem(identity: PackageIdentity, path: AbsolutePath)
         case sourceControl(identity: PackageIdentity, location: String, requirement: PackageDependency.SourceControl.Requirement)
         case registry(identity: PackageIdentity, requirement: PackageDependency.Registry.Requirement)
+        case workspaceMember(identity: PackageIdentity, path: AbsolutePath)
 
         init(from dependency: PackageDependency) {
             switch dependency {
@@ -97,6 +98,15 @@ struct DescribedPackage: Encodable {
                 }
             case .registry(let settings):
                 self = .registry(identity: settings.identity, requirement: settings.requirement)
+            case .workspaceMember(let settings):
+                // Preserve the kind in describe output so tooling can
+                // distinguish workspace members from ordinary path deps.
+                guard let path = settings.path else {
+                    preconditionFailure(
+                        ".workspaceMember reached DescribedPackageDependency with nil path — identity: \(settings.identity), productFilter: \(settings.productFilter), traits: \(String(describing: settings.traits)) - validator should have caught this."
+                    )
+                }
+                self = .workspaceMember(identity: settings.identity, path: path)
             }
         }
 
@@ -112,6 +122,7 @@ struct DescribedPackage: Encodable {
             case fileSystem
             case sourceControl
             case registry
+            case workspaceMember
         }
 
         func encode(to encoder: Encoder) throws {
@@ -130,6 +141,10 @@ struct DescribedPackage: Encodable {
                 try container.encode(Kind.registry, forKey: .type)
                 try container.encode(identity, forKey: .identity)
                 try container.encode(requirement, forKey: .requirement)
+            case .workspaceMember(let identity, let path):
+                try container.encode(Kind.workspaceMember, forKey: .type)
+                try container.encode(identity, forKey: .identity)
+                try container.encode(path, forKey: .path)
             }
         }
     }
@@ -165,12 +180,12 @@ struct DescribedPackage: Encodable {
                 self.permissions = permissions.map{ .init(from: $0) }
             }
         }
-        
+
         struct CommandIntent: Encodable {
             let type: String
             let verb: String?
             let description: String?
-            
+
             init(from intent: PackageModel.PluginCommandIntent) {
                 switch intent {
                 case .documentationGeneration:
@@ -211,7 +226,7 @@ struct DescribedPackage: Encodable {
             let type: String
             let reason: String
             let networkScope: NetworkScope
-            
+
             init(from permission: PackageModel.PluginPermission) {
                 switch permission {
                 case .writeToPackageDirectory(let reason):
@@ -240,7 +255,7 @@ struct DescribedPackage: Encodable {
         let targetDependencies: [String]?
         let productDependencies: [String]?
         let productMemberships: [String]?
-        
+
         init(from target: Module, in package: Package, productMemberships: [String]?) {
             self.name = target.name
             self.type = target.type.rawValue

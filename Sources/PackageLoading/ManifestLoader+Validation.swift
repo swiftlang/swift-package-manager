@@ -445,6 +445,8 @@ extension PackageDependency {
             }
         case .registry(let settings):
             return settings.identity.description
+        case .workspaceMember(let settings):
+            return "workspace-member:\(settings.identity)"
         }
     }
 
@@ -464,6 +466,8 @@ extension PackageDependency {
                 }
             case .registry:
                 return .none
+            case .workspaceMember(let settings):
+                return "workspace member '\(settings.identity)'"
             }
         }() {
             description += " (\(locationsString))"
