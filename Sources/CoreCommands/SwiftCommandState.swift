@@ -322,6 +322,7 @@ public final class SwiftCommandState {
     /// 3. Otherwise, fall back to single-package `Package.swift` discovery.
     public func getWorkspaceRoot() async throws -> PackageGraphRootInput {
         let packages: [AbsolutePath]
+        var workspaceManifest: WorkspaceManifest?
 
         if let workspace = options.locations.multirootPackageDataFile {
             packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope)
@@ -331,18 +332,23 @@ public final class SwiftCommandState {
             fileSystem: self.fileSystem,
         ) {
             let manifestLoader = try ManifestLoader(toolchain: self.getHostToolchain())
-            let workspaceManifest = try await PackageWorkspace.loadWorkspaceManifest(
+            let manifest = try await PackageWorkspace.loadWorkspaceManifest(
                 at: workspaceRoot,
                 manifestLoader: manifestLoader,
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,
             )
-            packages = workspaceManifest.members.map(\.path)
+            packages = manifest.members.map(\.path)
+            workspaceManifest = manifest
         } else {
             packages = try [self.getPackageRoot()]
         }
 
-        return PackageGraphRootInput(packages: packages, traitConfiguration: self.traitConfiguration)
+        return PackageGraphRootInput(
+            packages: packages,
+            traitConfiguration: self.traitConfiguration,
+            workspaceManifest: workspaceManifest,
+        )
     }
 
     /// Scratch space (.build) directory.

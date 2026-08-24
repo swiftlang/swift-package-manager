@@ -61,4 +61,35 @@ struct WorkspaceFeatureTests {
             expectFileExists(at: libBModule)
         }
     }
+
+    @Test(
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func s02_memberToMemberDependencyBuildsAndRuns(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S02_MemberToMemberDep") { fixturePath in
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+
+            let binPath = try await getBinPath(
+                fixturePath,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+            let appBinary = binPath.appending("app")
+            expectFileExists(at: appBinary)
+
+            let output = try await AsyncProcess.checkNonZeroExit(
+                args: appBinary.pathString,
+            ).withSwiftLineEnding
+            #expect(output == "Hello from lib-a\n")
+        }
+    }
 }

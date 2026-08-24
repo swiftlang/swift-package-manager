@@ -164,6 +164,8 @@ extension Serialization.PackageDependency.Kind {
             self = .sourceControl(name: name, location: location, requirement: .init(requirement))
         case .registry(let identity, let requirement):
             self = .registry(id: identity, requirement: .init(requirement))
+        case .workspaceMember(let identity):
+            self = .workspaceMember(identity: identity)
         }
     }
 }

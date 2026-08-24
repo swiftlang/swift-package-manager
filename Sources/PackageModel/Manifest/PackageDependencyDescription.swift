@@ -101,6 +101,14 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
     case fileSystem(FileSystem)
     case sourceControl(SourceControl)
     case registry(Registry)
+    /// A dependency on another member of the current workspace.
+    ///
+    /// This case appears only in pre-rewrite manifests. `PackageWorkspace`
+    /// rewrites these to concrete `.fileSystem` dependencies at graph-load
+    /// time using the workspace's member map. A manifest that reaches the
+    /// package graph builder with this case has been loaded outside a
+    /// workspace context — a hard error.
+    case workspaceMember(WorkspaceMember)
     
     public struct FileSystem: Equatable, Hashable, Encodable, Sendable {
         public let identity: PackageIdentity
@@ -206,6 +214,51 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         }
     }
 
+    /// A dependency on another member of the current workspace, identified
+    /// by its `PackageIdentity`.
+    ///
+    /// The `path` field is populated by `PackageWorkspace` at graph-load
+    /// time using the workspace member map. Parse-time output has
+    /// `path == nil`. Consumers that observe this case with `nil` path
+    /// are looking at a pre-load manifest; consumers that observe it
+    /// with a non-nil path are looking at a workspace-loaded manifest
+    /// and can treat it as an unversioned local package at that path.
+    public struct WorkspaceMember: Equatable, Hashable, Encodable, Sendable {
+        public let identity: PackageIdentity
+        /// The resolved absolute path of the workspace member.
+        ///
+        /// `nil` in parse-time output; populated by
+        /// `PackageWorkspace.resolveWorkspaceMemberPaths` before graph
+        /// construction. Non-nil after successful workspace load.
+        public let path: AbsolutePath?
+        public let productFilter: ProductFilter
+        package let traits: Set<Trait>?
+
+        private enum CodingKeys: CodingKey {
+            case identity, path, productFilter, traits
+        }
+
+        public init(
+            identity: PackageIdentity,
+            path: AbsolutePath? = nil,
+            productFilter: ProductFilter,
+            traits: Set<Trait>?,
+        ) {
+            self.identity = identity
+            self.path = path
+            self.productFilter = productFilter
+            self.traits = traits
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(identity, forKey: .identity)
+            try container.encodeIfPresent(path, forKey: .path)
+            try container.encode(productFilter, forKey: .productFilter)
+            try container.encodeIfPresent(traits?.sorted { $0.name < $1.name }, forKey: .traits)
+        }
+    }
+
     /// Describes the traits that are enabled for this package, and overrides this dependency's manifest's
     /// default traits.
     package var traits: Set<Trait>? {
@@ -215,6 +268,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         case .sourceControl(let settings):
             return settings.traits
         case .registry(let settings):
+            return settings.traits
+        case .workspaceMember(let settings):
             return settings.traits
         }
     }
@@ -226,6 +281,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         case .sourceControl(let settings):
             return settings.identity
         case .registry(let settings):
+            return settings.identity
+        case .workspaceMember(let settings):
             return settings.identity
         }
     }
@@ -245,6 +302,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             }
         case .registry:
             return self.identity.description.lowercased()
+        case .workspaceMember:
+            return self.identity.description.lowercased()
         }
     }
 
@@ -258,6 +317,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             return settings.nameForTargetDependencyResolutionOnly
         case .registry:
             return nil
+        case .workspaceMember:
+            return nil
         }
     }
 
@@ -268,6 +329,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         case .sourceControl(let settings):
             return settings.productFilter
         case .registry(let settings):
+            return settings.productFilter
+        case .workspaceMember(let settings):
             return settings.productFilter
         }
     }
@@ -298,6 +361,14 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
                 requirement: settings.requirement,
                 productFilter: productFilter,
                 traits: settings.traits
+            )
+        case .workspaceMember(let settings):
+            return .workspaceMember(
+                WorkspaceMember(
+                    identity: settings.identity,
+                    productFilter: productFilter,
+                    traits: settings.traits,
+                )
             )
         }
     }
@@ -500,6 +571,8 @@ extension PackageDependency: CustomStringConvertible {
             return "sourceControl[\(data)]"
         case .registry(let data):
             return "registry[\(data)]"
+        case .workspaceMember(let data):
+            return "workspaceMember[\(data)]"
         }
     }
 }
@@ -532,7 +605,7 @@ extension PackageDependency.Registry.Requirement: CustomStringConvertible {
 
 extension PackageDependency: Encodable {
     private enum CodingKeys: String, CodingKey {
-        case local, fileSystem, scm, sourceControl, registry
+        case local, fileSystem, scm, sourceControl, registry, workspaceMember
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -546,6 +619,9 @@ extension PackageDependency: Encodable {
             try unkeyedContainer.encode(settings)
         case .registry(let settings):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .registry)
+            try unkeyedContainer.encode(settings)
+        case .workspaceMember(let settings):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .workspaceMember)
             try unkeyedContainer.encode(settings)
         }
     }

@@ -196,6 +196,8 @@ fileprivate extension SourceCodeFragment {
             case .range(let range):
                 params.append(SourceCodeFragment("\"\(range.lowerBound)\"..<\"\(range.upperBound)\""))
             }
+        case .workspaceMember(let settings):
+            params.append(SourceCodeFragment(key: "workspaceMember", string: settings.identity.description))
         }
 
         if let traits = dependency.traits {

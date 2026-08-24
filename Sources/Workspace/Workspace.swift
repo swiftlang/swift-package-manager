@@ -1106,6 +1106,20 @@ extension PackageWorkspace {
         packages: [AbsolutePath],
         observabilityScope: ObservabilityScope
     ) async throws -> [AbsolutePath: Manifest] {
+        try await self.loadRootManifests(
+            packages: packages,
+            workspaceManifest: nil,
+            observabilityScope: observabilityScope,
+        )
+    }
+
+    /// Overload that applies workspace-member dependency rewriting when a
+    /// workspace context is provided.
+    package func loadRootManifests(
+        packages: [AbsolutePath],
+        workspaceManifest: WorkspaceManifest?,
+        observabilityScope: ObservabilityScope,
+    ) async throws -> [AbsolutePath: Manifest] {
         try await withThrowingTaskGroup(of: Optional<(AbsolutePath, Manifest)>.self) { group in
             var rootManifests = [AbsolutePath: Manifest]()
             for package in Set(packages) {
@@ -1119,7 +1133,17 @@ extension PackageWorkspace {
                             packageLocation: package.pathString,
                             observabilityScope: observabilityScope
                         )
-                        return (package, manifest)
+                        let processed: Manifest
+                        if let workspaceManifest {
+                            processed = try PackageWorkspace.resolveWorkspaceMemberPaths(
+                                in: manifest,
+                                using: workspaceManifest,
+                            )
+                        } else {
+                            try PackageWorkspace.validateNoWorkspaceMemberDependencies(in: manifest)
+                            processed = manifest
+                        }
+                        return (package, processed)
                     } catch {
                         // Propagate the TraitError if it exists.
                         if let error = error as? TraitError {
@@ -1502,19 +1526,23 @@ extension PackageReference {
     }
 }
 
-// FIXME: remove this when remove the single call site that uses it
-extension PackageDependency {
-    private var isLocal: Bool {
-        switch self {
-        case .fileSystem:
-            true
-        case .sourceControl:
-            false
-        case .registry:
-            false
-        }
-    }
-}
+// // FIXME: remove this when remove the single call site that uses it
+// extension PackageDependency {
+//     private var isLocal: Bool {
+//         switch self {
+//         case .fileSystem:
+//             true
+//         case .sourceControl:
+//             false
+//         case .registry:
+//             false
+//         case .workspaceMember:
+//             // `.workspaceMember` dependencies are always rewritten to
+//             // `.fileSystem` before reaching this predicate.
+//             false
+//         }
+//     }
+// }
 
 extension PackageWorkspace {
     public static func format(workspaceResolveReason reason: WorkspaceResolveReason) -> String {

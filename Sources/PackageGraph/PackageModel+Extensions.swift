@@ -28,6 +28,17 @@ extension PackageDependency {
             }
         case .registry(let settings):
             packageKind = .registry(settings.identity)
+        case .workspaceMember(let settings):
+            // Workspace members are local packages at the resolved path.
+            // The path is populated by `resolveWorkspaceMemberPaths`
+            // before graph construction; a nil `path` here indicates
+            // the manifest was not routed through a workspace context.
+            guard let path = settings.path else {
+                preconditionFailure(
+                    ".workspaceMember reached packageRef with nil path — identity: \(settings.identity), productFilter: \(settings.productFilter), traits: \(String(describing: settings.traits)) - validator should have caught this."
+                )
+            }
+            packageKind = .fileSystem(path)
         }
         return PackageReference(identity: self.identity, kind: packageKind)
     }

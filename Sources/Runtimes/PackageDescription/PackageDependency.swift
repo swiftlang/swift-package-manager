@@ -49,6 +49,15 @@ extension Package {
             ///   - id: The package identifier of the dependency.
             ///   - requirement: The version based requirement for a package.
             case registry(id: String, requirement: RegistryRequirement)
+            /// A dependency on another member of the current workspace.
+            ///
+            /// The `identity` names a member declared in the workspace's
+            /// `Workspace.swift`. The workspace loader rewrites this at
+            /// graph-load time to a concrete path dependency.
+            /// - Parameter identity: The `PackageIdentity` of the workspace
+            ///   member (typically the last path component of its directory).
+            @available(_PackageDescription, introduced: 999.0)
+            case workspaceMember(identity: String)
         }
 
         /// A description of the package dependency.
@@ -73,6 +82,8 @@ extension Package {
                     return name
                 case .registry:
                     return nil
+                case .workspaceMember(identity: let identity):
+                    return identity
                 }
             }
         }
@@ -87,6 +98,8 @@ extension Package {
                 case .sourceControl(name: _, location: let location, requirement: _):
                     return location
                 case .registry:
+                    return nil
+                case .workspaceMember:
                     return nil
                 }
             }
@@ -121,6 +134,8 @@ extension Package {
                     case .range(let range):
                         return .rangeItem(range)
                     }
+                case .workspaceMember:
+                    return .localPackageItem
                 }
             }
         }
@@ -193,6 +208,16 @@ extension Package {
                     requirement: requirement
                 ),
                 traits: traits
+            )
+        }
+
+        convenience init(
+            workspaceMember identity: String,
+            traits: Set<Trait>?,
+        ) {
+            self.init(
+                kind: .workspaceMember(identity: identity),
+                traits: traits,
             )
         }
     }
@@ -1132,6 +1157,30 @@ extension Package.Dependency {
         }
 
         return .init(id: id, requirement: requirement, traits: traits)
+    }
+
+    /// Adds a dependency on another member of the current workspace.
+    ///
+    /// The `identity` names a member of the workspace declared in
+    /// `Workspace.swift`. At workspace-graph-load time the workspace
+    /// rewrites this to a concrete path dependency pointing at the
+    /// member's on-disk directory.
+    ///
+    /// Using this factory in a `Package.swift` that is loaded outside a
+    /// workspace context is a hard error at graph-load time.
+    ///
+    /// - Parameters:
+    ///   - workspaceMember: The `PackageIdentity` of the workspace member
+    ///     (typically the last path component of the member's directory).
+    ///   - traits: The trait configuration of this dependency. The default
+    ///     value enables the default traits of the package.
+    /// - Returns: A `Package.Dependency` instance.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func package(
+        workspaceMember identity: String,
+        traits: Set<Trait> = [.defaults],
+    ) -> Package.Dependency {
+        return .init(workspaceMember: identity, traits: traits)
     }
 }
 
