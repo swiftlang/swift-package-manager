@@ -53,7 +53,7 @@ import struct PackageModel.TraitDescription
 import enum PackageModel.TraitConfiguration
 import class PackageModel.Manifest
 
-extension Workspace {
+extension PackageWorkspace {
     enum ResolvedFileStrategy {
         case lockFile
         case update(forceResolution: Bool)
@@ -65,7 +65,7 @@ extension Workspace {
         packages: [String] = [],
         dryRun: Bool = false,
         observabilityScope: ObservabilityScope
-    ) async throws -> [(PackageReference, Workspace.PackageStateChange)]? {
+    ) async throws -> [(PackageReference, PackageWorkspace.PackageStateChange)]? {
         let start = DispatchTime.now()
         self.delegate?.willUpdateDependencies()
         defer {
@@ -1476,10 +1476,10 @@ extension Workspace {
 }
 
 private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
-    private weak var workspaceDelegate: Workspace.Delegate?
+    private weak var workspaceDelegate: PackageWorkspace.Delegate?
     private let resolving = ThreadSafeKeyValueStore<PackageIdentity, Bool>()
 
-    init(_ delegate: Workspace.Delegate) {
+    init(_ delegate: PackageWorkspace.Delegate) {
         self.workspaceDelegate = delegate
     }
 
@@ -1540,7 +1540,7 @@ extension PackageDependency {
     }
 }
 
-extension Workspace.ManagedDependencies {
+extension PackageWorkspace.ManagedDependencies {
     fileprivate func hasEditedDependencies() -> Bool {
         self.contains(where: {
             switch $0.state {

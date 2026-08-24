@@ -701,7 +701,7 @@ final class PluginInvocationTests: XCTestCase {
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try PackageWorkspace(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
                 customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
@@ -1087,7 +1087,7 @@ final class PluginInvocationTests: XCTestCase {
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try PackageWorkspace(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
                 customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
@@ -1166,7 +1166,7 @@ final class PluginInvocationTests: XCTestCase {
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try PackageWorkspace(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
                 customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
@@ -1305,7 +1305,7 @@ final class PluginInvocationTests: XCTestCase {
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try PackageWorkspace(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
                 customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
@@ -1448,7 +1448,7 @@ final class PluginInvocationTests: XCTestCase {
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try PackageWorkspace(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
                 customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
@@ -1637,9 +1637,9 @@ final class PluginInvocationTests: XCTestCase {
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
             let environment = Environment.current
-            let workspace = try Workspace(
+            let workspace = try PackageWorkspace(
                 fileSystem: localFileSystem,
-                location: try Workspace.Location(forRootPackage: packageDir, fileSystem: localFileSystem),
+                location: try PackageWorkspace.Location(forRootPackage: packageDir, fileSystem: localFileSystem),
                 customHostToolchain: UserToolchain(
                     swiftSDK: .hostSwiftSDK(
                         environment: environment
@@ -1790,7 +1790,7 @@ final class PluginInvocationTests: XCTestCase {
             )
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try PackageWorkspace(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
                 customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),

@@ -33,12 +33,12 @@ final class PrebuiltsTests: XCTestCase {
         artifact: Data,
         swiftSyntaxVersion: String,
         swiftSyntaxURL: String? = nil,
-        run: (Workspace.SignedPrebuiltsManifest, AbsolutePath, MockPackage, MockPackage) async throws -> ()
+        run: (PackageWorkspace.SignedPrebuiltsManifest, AbsolutePath, MockPackage, MockPackage) async throws -> ()
     ) async throws {
         try await fixtureXCTest(name: "Signing") { fixturePath in
             let swiftSyntaxURL = swiftSyntaxURL ?? "https://github.com/swiftlang/swift-syntax"
 
-            let manifest = Workspace.PrebuiltsManifest(libraries: [
+            let manifest = PackageWorkspace.PrebuiltsManifest(libraries: [
                 .init(
                     name: "MacroSupport",
                     checksum: SHA256().hash(ByteString(artifact)).hexadecimalRepresentation,
@@ -87,7 +87,7 @@ final class PrebuiltsTests: XCTestCase {
             // Make sure the signing is valid
             try await signer.validate(manifest: manifest, signature: signature, fileSystem: fileSystem)
 
-            let signedManifest = Workspace.SignedPrebuiltsManifest(manifest: manifest, signature: signature)
+            let signedManifest = PackageWorkspace.SignedPrebuiltsManifest(manifest: manifest, signature: signature)
 
             let rootPackage = try MockPackage(
                 name: "Foo",
@@ -687,7 +687,7 @@ final class PrebuiltsTests: XCTestCase {
             // Make a change in the manifest
             var manifest = goodManifest.manifest
             manifest.libraries[0].checksum = "BAD"
-            let badManifest = Workspace.SignedPrebuiltsManifest(
+            let badManifest = PackageWorkspace.SignedPrebuiltsManifest(
                 manifest: manifest,
                 signature: goodManifest.signature
             )

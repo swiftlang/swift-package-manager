@@ -52,7 +52,7 @@ func withInstantiatedSwiftBuildSystem(
             let observabilitySystem: TestingObservability = ObservabilitySystem.makeForTesting()
             var workspaceConfiguration = WorkspaceConfiguration.default
             workspaceConfiguration.createREPLProduct = createREPLProduct
-            let workspace = try Workspace(
+            let workspace = try PackageWorkspace(
                 fileSystem: fileSystem,
                 forRootPackage: fixturePath,
                 configuration: workspaceConfiguration,

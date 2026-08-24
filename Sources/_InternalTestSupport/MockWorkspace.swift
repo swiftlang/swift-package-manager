@@ -90,8 +90,8 @@ public final class MockWorkspace {
     let mirrors: DependencyMirrors
     public var registryClient: RegistryClient
     let registry: MockRegistry
-    let customBinaryArtifactsManager: Workspace.CustomBinaryArtifactsManager
-    let customPrebuiltsManager: Workspace.CustomPrebuiltsManager?
+    let customBinaryArtifactsManager: PackageWorkspace.CustomBinaryArtifactsManager
+    let customPrebuiltsManager: PackageWorkspace.CustomPrebuiltsManager?
     public var checksumAlgorithm: MockHashAlgorithm
     public private(set) var manifestLoader: MockManifestLoader
     public let repositoryProvider: InMemoryGitRepositoryProvider
@@ -116,8 +116,8 @@ public final class MockWorkspace {
         signingEntities customSigningEntities: MockPackageSigningEntityStorage? = .none,
         mirrors customMirrors: DependencyMirrors? = nil,
         registryClient customRegistryClient: RegistryClient? = .none,
-        binaryArtifactsManager customBinaryArtifactsManager: Workspace.CustomBinaryArtifactsManager? = .none,
-        prebuiltsManager customPrebuiltsManager: Workspace.CustomPrebuiltsManager? = .none,
+        binaryArtifactsManager customBinaryArtifactsManager: PackageWorkspace.CustomBinaryArtifactsManager? = .none,
+        prebuiltsManager customPrebuiltsManager: PackageWorkspace.CustomPrebuiltsManager? = .none,
         checksumAlgorithm customChecksumAlgorithm: MockHashAlgorithm? = .none,
         customPackageContainerProvider: MockPackageContainerProvider? = .none,
         skipDependenciesUpdates: Bool = false,
@@ -182,7 +182,7 @@ public final class MockWorkspace {
         self.sandbox.appending(components: ".build", "artifacts")
     }
 
-    public var workspaceLocation: Workspace.Location? {
+    public var workspaceLocation: PackageWorkspace.Location? {
         self._workspace?.location
     }
 
@@ -378,19 +378,19 @@ public final class MockWorkspace {
         self.manifestLoader = MockManifestLoader(manifests: manifests)
     }
 
-    public func getOrCreateWorkspace() throws -> Workspace {
+    public func getOrCreateWorkspace() throws -> PackageWorkspace {
         if let workspace = self._workspace {
             return workspace
         }
 
-        let workspace = try Workspace._init(
+        let workspace = try PackageWorkspace._init(
             fileSystem: self.fileSystem,
             environment: .mockEnvironment,
             location: .init(
                 scratchDirectory: self.sandbox.appending(".build"),
                 editsDirectory: self.sandbox.appending("edits"),
-                resolvedVersionsFile: Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.sandbox),
-                localConfigurationDirectory: Workspace.DefaultLocations
+                resolvedVersionsFile: PackageWorkspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.sandbox),
+                localConfigurationDirectory: PackageWorkspace.DefaultLocations
                     .configurationDirectory(forRootPackage: self.sandbox),
                 sharedConfigurationDirectory: self.fileSystem.swiftPMConfigurationDirectory,
                 sharedSecurityDirectory: self.fileSystem.swiftPMSecurityDirectory,
@@ -435,7 +435,7 @@ public final class MockWorkspace {
         return workspace
     }
 
-    private var _workspace: Workspace?
+    private var _workspace: PackageWorkspace?
 
     public func closeWorkspace(resetState: Bool = true, resetResolvedFile: Bool = true) async throws {
         if resetState {
@@ -571,7 +571,7 @@ public final class MockWorkspace {
     public func checkUpdateDryRun(
         roots: [String] = [],
         deps: [MockDependency] = [],
-        _ result: ([(PackageReference, Workspace.PackageStateChange)]?, [Basics.Diagnostic]) -> Void
+        _ result: ([(PackageReference, PackageWorkspace.PackageStateChange)]?, [Basics.Diagnostic]) -> Void
     ) async throws {
         let dependencies = try deps.map { try $0.convert(
             baseURL: self.packagesDir,
@@ -584,7 +584,7 @@ public final class MockWorkspace {
         )
 
         let observability = ObservabilitySystem.makeForTesting()
-        let changes = await observability.topScope.trap { () -> [(PackageReference, Workspace.PackageStateChange)]? in
+        let changes = await observability.topScope.trap { () -> [(PackageReference, PackageWorkspace.PackageStateChange)]? in
             let workspace = try self.getOrCreateWorkspace()
             return try await workspace.updateDependencies(
                 root: rootInput,
@@ -672,7 +672,7 @@ public final class MockWorkspace {
     }
 
     public struct ResolutionPrecomputationResult {
-        public let result: Workspace.ResolutionPrecomputationResult
+        public let result: PackageWorkspace.ResolutionPrecomputationResult
         public let diagnostics: [Basics.Diagnostic]
     }
 
@@ -715,8 +715,8 @@ public final class MockWorkspace {
 
     public func set(
         resolvedPackages: [PackageReference: CheckoutState] = [:],
-        managedDependencies: [AbsolutePath: Workspace.ManagedDependency] = [:],
-        managedArtifacts: [Workspace.ManagedArtifact] = []
+        managedDependencies: [AbsolutePath: PackageWorkspace.ManagedDependency] = [:],
+        managedArtifacts: [PackageWorkspace.ManagedArtifact] = []
     ) async throws {
         let resolvedPackages = resolvedPackages.mapValues { checkoutState -> ResolvedPackagesStore.ResolutionState in
             switch checkoutState {
@@ -737,8 +737,8 @@ public final class MockWorkspace {
 
     public func set(
         resolvedPackages: [PackageReference: ResolvedPackagesStore.ResolutionState],
-        managedDependencies: [AbsolutePath: Workspace.ManagedDependency] = [:],
-        managedArtifacts: [Workspace.ManagedArtifact] = []
+        managedDependencies: [AbsolutePath: PackageWorkspace.ManagedDependency] = [:],
+        managedArtifacts: [PackageWorkspace.ManagedArtifact] = []
     ) async throws {
         let workspace = try self.getOrCreateWorkspace()
         let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
@@ -788,9 +788,9 @@ public final class MockWorkspace {
     }
 
     public struct ManagedDependencyResult {
-        public let managedDependencies: Workspace.ManagedDependencies
+        public let managedDependencies: PackageWorkspace.ManagedDependencies
 
-        public init(_ managedDependencies: Workspace.ManagedDependencies) {
+        public init(_ managedDependencies: PackageWorkspace.ManagedDependencies) {
             self.managedDependencies = managedDependencies
         }
 
@@ -863,9 +863,9 @@ public final class MockWorkspace {
     }
 
     public struct ManagedArtifactResult {
-        public let managedArtifacts: Workspace.ManagedArtifacts
+        public let managedArtifacts: PackageWorkspace.ManagedArtifacts
 
-        public init(_ managedArtifacts: Workspace.ManagedArtifacts) {
+        public init(_ managedArtifacts: PackageWorkspace.ManagedArtifacts) {
             self.managedArtifacts = managedArtifacts
         }
 
@@ -900,7 +900,7 @@ public final class MockWorkspace {
         public func check(
             packageName: String,
             targetName: String,
-            source: Workspace.ManagedArtifact.Source,
+            source: PackageWorkspace.ManagedArtifact.Source,
             path: AbsolutePath,
             file: StaticString = #file,
             line: UInt = #line
@@ -918,7 +918,7 @@ public final class MockWorkspace {
         public func check(
             packageIdentity: PackageIdentity,
             targetName: String,
-            source: Workspace.ManagedArtifact.Source,
+            source: PackageWorkspace.ManagedArtifact.Source,
             path: AbsolutePath,
             file: StaticString = #file,
             line: UInt = #line
@@ -943,7 +943,7 @@ public final class MockWorkspace {
     public func loadDependencyManifests(
         roots: [String] = [],
         deps: [MockDependency] = [],
-        _ result: (Workspace.DependencyManifests, [Basics.Diagnostic]) -> Void
+        _ result: (PackageWorkspace.DependencyManifests, [Basics.Diagnostic]) -> Void
     ) async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let dependencies = try deps.map { try $0.convert(

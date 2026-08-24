@@ -30,7 +30,7 @@ public class RegistryPackageContainer: PackageContainer {
     private let manifestLoader: ManifestLoaderProtocol
     private let currentToolsVersion: ToolsVersion
     private let observabilityScope: ObservabilityScope
-    private let identityLookupCache: Workspace.IdentityLookupCache
+    private let identityLookupCache: PackageWorkspace.IdentityLookupCache
 
     private var knownVersionsCache = AsyncThrowingValueMemoizer<[Version]>()
     private var toolsVersionsCache = ThrowingAsyncKeyValueMemoizer<Version, ToolsVersion>()
@@ -46,7 +46,7 @@ public class RegistryPackageContainer: PackageContainer {
         manifestLoader: ManifestLoaderProtocol,
         currentToolsVersion: ToolsVersion,
         observabilityScope: ObservabilityScope,
-        identityLookupCache: Workspace.IdentityLookupCache
+        identityLookupCache: PackageWorkspace.IdentityLookupCache
     ) {
         self.package = package
         self.identityResolver = identityResolver

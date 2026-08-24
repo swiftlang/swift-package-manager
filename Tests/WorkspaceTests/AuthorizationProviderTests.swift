@@ -35,7 +35,7 @@ fileprivate struct AuthorizationProviderTests {
                 string: "machine mymachine.labkey.org login custom@labkey.org password custom"
             )
 
-            let configuration = Workspace.Configuration.Authorization(netrc: .custom(customPath), keychain: .disabled)
+            let configuration = PackageWorkspace.Configuration.Authorization(netrc: .custom(customPath), keychain: .disabled)
             let authorizationProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? CompositeAuthorizationProvider
             let netrcProviders = try #require(authorizationProvider?.providers.compactMap { $0 as? NetrcAuthorizationProvider })
 
@@ -65,7 +65,7 @@ fileprivate struct AuthorizationProviderTests {
                 string: "machine mymachine.labkey.org login user@labkey.org password user"
             )
 
-            let configuration = Workspace.Configuration.Authorization(netrc: .user, keychain: .disabled)
+            let configuration = PackageWorkspace.Configuration.Authorization(netrc: .user, keychain: .disabled)
             let authorizationProvider = try configuration.makeAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? CompositeAuthorizationProvider
             let netrcProviders = try #require(authorizationProvider?.providers.compactMap { $0 as? NetrcAuthorizationProvider })
 
@@ -102,7 +102,7 @@ fileprivate struct AuthorizationProviderTests {
                 string: "machine mymachine.labkey.org login custom@labkey.org password custom"
             )
 
-            let configuration = Workspace.Configuration.Authorization(netrc: .custom(customPath), keychain: .disabled)
+            let configuration = PackageWorkspace.Configuration.Authorization(netrc: .custom(customPath), keychain: .disabled)
             let netrcProvider = try configuration.makeRegistryAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope, registryURLs: { [] }) as? NetrcAuthorizationProvider
 
             let expectedNetrcProvider = try resolveSymlinks(customPath)
@@ -132,7 +132,7 @@ fileprivate struct AuthorizationProviderTests {
                 string: "machine mymachine.labkey.org login user@labkey.org password user"
             )
 
-            let configuration = Workspace.Configuration.Authorization(netrc: .user, keychain: .disabled)
+            let configuration = PackageWorkspace.Configuration.Authorization(netrc: .user, keychain: .disabled)
             let netrcProvider = try configuration.makeRegistryAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope, registryURLs: { [] }) as? NetrcAuthorizationProvider
 
             let expectedNetrcProvider = try resolveSymlinks(userPath)

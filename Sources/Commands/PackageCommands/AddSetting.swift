@@ -101,7 +101,7 @@ extension SwiftPackageCommand {
 
         private static func applyEdits(
             packagePath: Basics.AbsolutePath,
-            workspace: Workspace,
+            workspace: PackageWorkspace,
             target: String,
             swiftSettings: [(SwiftSetting, String)],
             verbose: Bool = false

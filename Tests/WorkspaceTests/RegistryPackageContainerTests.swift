@@ -86,7 +86,7 @@ final class RegistryPackageContainerTests: XCTestCase {
                 }
             )
 
-            return try Workspace._init(
+            return try PackageWorkspace._init(
                 fileSystem: fs,
                 environment: .mockEnvironment,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
@@ -152,7 +152,7 @@ final class RegistryPackageContainerTests: XCTestCase {
                 }
             )
 
-            return try Workspace._init(
+            return try PackageWorkspace._init(
                 fileSystem: fs,
                 environment: .mockEnvironment,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),
@@ -251,7 +251,7 @@ final class RegistryPackageContainerTests: XCTestCase {
                 }
             )
 
-            return try Workspace._init(
+            return try PackageWorkspace._init(
                 fileSystem: fs,
                 environment: .mockEnvironment,
                 location: .init(forRootPackage: packagePath, fileSystem: fs),

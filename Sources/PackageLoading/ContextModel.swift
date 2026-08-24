@@ -19,7 +19,7 @@ import Foundation
 struct ContextModel {
     let packageDirectory : String
     let gitInformation: GitInformation?
-    
+
     var environment : [String : String] {
         ProcessInfo.processInfo.environment
     }

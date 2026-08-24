@@ -94,7 +94,7 @@ extension SwiftPackageCommand {
 
         private func createSourceControlPackage(
             packagePath: Basics.AbsolutePath,
-            workspace: Workspace,
+            workspace: PackageWorkspace,
             url: String
         ) throws {
             // Collect all of the possible version requirements.
@@ -162,7 +162,7 @@ extension SwiftPackageCommand {
 
         private func createRegistryPackage(
             packagePath: Basics.AbsolutePath,
-            workspace: Workspace,
+            workspace: PackageWorkspace,
             id: String
         ) throws {
             // Collect all of the possible version requirements.
@@ -222,7 +222,7 @@ extension SwiftPackageCommand {
 
         private func createFileSystemPackage(
             packagePath: Basics.AbsolutePath,
-            workspace: Workspace,
+            workspace: PackageWorkspace,
             directory: String
         ) throws {
             try self.applyEdits(
@@ -234,7 +234,7 @@ extension SwiftPackageCommand {
 
         private func applyEdits(
             packagePath: Basics.AbsolutePath,
-            workspace: Workspace,
+            workspace: PackageWorkspace,
             packageDependency: PackageDependency
         ) throws {
             // Load the manifest file

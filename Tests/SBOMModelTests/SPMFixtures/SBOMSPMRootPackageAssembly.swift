@@ -108,7 +108,7 @@ extension SBOMTestModulesGraph {
         let resolvedSPMLLBuildModule = coreResult.resolvedModules.first { $0.name == "SPMLLBuild" }!
         let resolvedSourceControlModule = coreResult.resolvedModules.first { $0.name == "SourceControl" }!
         let resolvedSourceKitLSPAPIModule = coreResult.resolvedModules.first { $0.name == "SourceKitLSPAPI" }!
-        let resolvedWorkspaceModule = coreResult.resolvedModules.first { $0.name == "Workspace" }!
+        let resolvedWorkspaceModule = coreResult.resolvedModules.first { $0.name == "PackageWorkspace" }!
 
         let resolvedCompilerPluginSupportModule = commandResult.resolvedModules
             .first { $0.name == "CompilerPluginSupport" }!
@@ -160,7 +160,7 @@ extension SBOMTestModulesGraph {
                 allModules.first { $0.name == "SPMLLBuild" }!,
                 allModules.first { $0.name == "SourceControl" }!,
                 allModules.first { $0.name == "SourceKitLSPAPI" }!,
-                allModules.first { $0.name == "Workspace" }!,
+                allModules.first { $0.name == "PackageWorkspace" }!,
             ]
         )
 
@@ -177,7 +177,7 @@ extension SBOMTestModulesGraph {
                 allModules.first { $0.name == "PackageMetadata" }!,
                 allModules.first { $0.name == "PackageModel" }!,
                 allModules.first { $0.name == "SourceControl" }!,
-                allModules.first { $0.name == "Workspace" }!,
+                allModules.first { $0.name == "PackageWorkspace" }!,
             ]
         )
 
@@ -198,7 +198,7 @@ extension SBOMTestModulesGraph {
                 allModules.first { $0.name == "SPMLLBuild" }!,
                 allModules.first { $0.name == "SourceControl" }!,
                 allModules.first { $0.name == "SourceKitLSPAPI" }!,
-                allModules.first { $0.name == "Workspace" }!,
+                allModules.first { $0.name == "PackageWorkspace" }!,
             ]
         )
 
@@ -214,7 +214,7 @@ extension SBOMTestModulesGraph {
                 allModules.first { $0.name == "PackageMetadata" }!,
                 allModules.first { $0.name == "PackageModel" }!,
                 allModules.first { $0.name == "SourceControl" }!,
-                allModules.first { $0.name == "Workspace" }!,
+                allModules.first { $0.name == "PackageWorkspace" }!,
             ]
         )
 

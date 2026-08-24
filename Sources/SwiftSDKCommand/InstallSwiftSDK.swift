@@ -18,7 +18,7 @@ import Foundation
 import PackageModel
 
 import var TSCBasic.stdoutStream
-import class Workspace.Workspace
+import class Workspace.PackageWorkspace
 
 struct InstallSwiftSDK: SwiftSDKSubcommand {
     static let configuration = CommandConfiguration(
@@ -79,7 +79,7 @@ struct InstallSwiftSDK: SwiftSDKSubcommand {
             UniversalArchiver(self.fileSystem, cancellator),
             HTTPClient(),
             hasher: {
-                try Workspace.BinaryArtifactsManager.checksum(
+                try PackageWorkspace.BinaryArtifactsManager.checksum(
                     forBinaryArtifactAt: $0,
                     fileSystem: self.fileSystem
                 )

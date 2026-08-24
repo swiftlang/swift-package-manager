@@ -657,7 +657,7 @@ struct PluginTests {
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try PackageWorkspace(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
                 customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
@@ -881,7 +881,7 @@ struct PluginTests {
         try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { packageDir in
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try PackageWorkspace(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
                 customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
@@ -980,7 +980,7 @@ struct PluginTests {
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try PackageWorkspace(
                 fileSystem: localFileSystem,
                 forRootPackage: packageDir,
                 customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
@@ -1300,7 +1300,7 @@ struct PluginTests {
 
             // Load a workspace from the package.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try PackageWorkspace(
                 fileSystem: localFileSystem,
                 location: .init(forRootPackage: packageDir, fileSystem: localFileSystem),
                 customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),

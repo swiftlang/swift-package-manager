@@ -23,7 +23,7 @@ import struct PackageModel.PackageReference
 
 // MARK: - Package container provider
 
-extension Workspace: PackageContainerProvider {
+extension PackageWorkspace: PackageContainerProvider {
     public func getContainer(
         for package: PackageReference,
         updateStrategy: ContainerUpdateStrategy,

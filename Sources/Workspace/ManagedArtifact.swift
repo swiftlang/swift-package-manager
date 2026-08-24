@@ -16,7 +16,7 @@ import PackageModel
 import SourceControl
 import TSCBasic
 
-extension Workspace {
+extension PackageWorkspace {
     /// A downloaded artifact managed by the workspace.
     public struct ManagedArtifact {
         /// The package reference.
@@ -96,13 +96,13 @@ extension Workspace {
     }
 }
 
-extension Workspace.ManagedArtifact: CustomStringConvertible {
+extension PackageWorkspace.ManagedArtifact: CustomStringConvertible {
     public var description: String {
         return "<ManagedArtifact: \(self.packageRef.identity).\(self.targetName) \(self.source) \(self.path)>"
     }
 }
 
-extension Workspace.ManagedArtifact.Source: CustomStringConvertible {
+extension PackageWorkspace.ManagedArtifact.Source: CustomStringConvertible {
     public var description: String {
         switch self {
         case .local(let checksum):
@@ -115,7 +115,7 @@ extension Workspace.ManagedArtifact.Source: CustomStringConvertible {
 
 // MARK: - ManagedArtifacts
 
-extension Workspace {
+extension PackageWorkspace {
     /// A collection of managed artifacts which have been downloaded.
     public final class ManagedArtifacts {
         /// A mapping from package identity, to target name, to ManagedArtifact.
@@ -158,7 +158,7 @@ extension Workspace {
     }
 }
 
-extension Workspace.ManagedArtifacts: Collection {
+extension PackageWorkspace.ManagedArtifacts: Collection {
     public var startIndex: AnyIndex {
         self.artifacts.startIndex
     }
@@ -167,7 +167,7 @@ extension Workspace.ManagedArtifacts: Collection {
         self.artifacts.endIndex
     }
 
-    public subscript(index: AnyIndex) -> Workspace.ManagedArtifact {
+    public subscript(index: AnyIndex) -> PackageWorkspace.ManagedArtifact {
         self.artifacts[index]
     }
 
@@ -176,7 +176,7 @@ extension Workspace.ManagedArtifacts: Collection {
     }
 }
 
-extension Workspace.ManagedArtifacts: CustomStringConvertible {
+extension PackageWorkspace.ManagedArtifacts: CustomStringConvertible {
     public var description: String {
         "<ManagedArtifacts: \(Array(self.artifacts))>"
     }

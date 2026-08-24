@@ -40,7 +40,7 @@ extension SigningEntityCheckingMode {
 
 // MARK: - Signatures
 
-extension Workspace {
+extension PackageWorkspace {
     func validateSignatures(
         packageGraph: ModulesGraph,
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity]

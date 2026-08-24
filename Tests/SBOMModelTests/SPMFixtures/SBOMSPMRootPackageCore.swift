@@ -56,7 +56,7 @@ extension SBOMTestModulesGraph {
         let packageSigningModule = self.createSwiftModule(name: "PackageSigning")
         let packageRegistryModule = self.createSwiftModule(name: "PackageRegistry")
         let spmBuildCoreModule = self.createSwiftModule(name: "SPMBuildCore")
-        let workspaceModule = self.createSwiftModule(name: "Workspace")
+        let workspaceModule = self.createSwiftModule(name: "PackageWorkspace")
         let llbuildManifestModule = self.createSwiftModule(name: "LLBuildManifest")
         let spmLLBuildModule = self.createSwiftModule(name: "SPMLLBuild")
         let driverSupportModule = self.createSwiftModule(name: "DriverSupport")

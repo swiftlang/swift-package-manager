@@ -159,7 +159,7 @@ extension SwiftPackageCommand {
         // directly in `./Sources`. If so, move the sources into a folder named after
         // the target before adding a new target.
         private func moveSingleTargetSources(
-            workspace: Workspace,
+            workspace: PackageWorkspace,
             packagePath: AbsolutePath,
             verbose: Bool = false,
             observabilityScope: ObservabilityScope

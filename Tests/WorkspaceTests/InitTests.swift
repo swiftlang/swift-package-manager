@@ -20,7 +20,7 @@ import struct SPMBuildCore.BuildSystemProvider
 
 @Suite(
     .tags(
-        .FunctionalArea.Workspace,
+        .FunctionalArea.PackageWorkspace,
     ),
 )
 struct InitTests {

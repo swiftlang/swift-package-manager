@@ -43,7 +43,7 @@ import struct TSCBasic.StringError
 import struct TSCUtility.Version
 
 import Foundation
-import class Workspace.Workspace
+import class Workspace.PackageWorkspace
 import struct Workspace.WorkspaceConfiguration
 
 public struct GlobalOptions: ParsableArguments {

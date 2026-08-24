@@ -158,7 +158,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             delegate: MockRepositoryManagerDelegate()
         )
 
-        let provider = try Workspace._init(
+        let provider = try PackageWorkspace._init(
             fileSystem: fs,
             environment: .mockEnvironment,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
@@ -218,7 +218,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
         )
 
         func createProvider(_ currentToolsVersion: ToolsVersion) throws -> PackageContainerProvider {
-            return try Workspace._init(
+            return try PackageWorkspace._init(
                 fileSystem: fs,
                 environment: .mockEnvironment,
                 location: .init(forRootPackage: repoPath, fileSystem: fs),
@@ -363,7 +363,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             delegate: MockRepositoryManagerDelegate()
         )
 
-        let provider = try Workspace._init(
+        let provider = try PackageWorkspace._init(
             fileSystem: fs,
             environment: .mockEnvironment,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
@@ -419,7 +419,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             delegate: MockRepositoryManagerDelegate()
         )
 
-        let provider = try Workspace._init(
+        let provider = try PackageWorkspace._init(
             fileSystem: fs,
             environment: .mockEnvironment,
             location: .init(forRootPackage: repoPath, fileSystem: fs),
@@ -605,7 +605,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
                     try TargetDescription(name: packageDir.basename, path: packageDir.pathString),
                 ]
             )
-            let containerProvider = try Workspace._init(
+            let containerProvider = try PackageWorkspace._init(
                 fileSystem: localFileSystem,
                 environment: .current,
                 location: .init(forRootPackage: packageDir, fileSystem: localFileSystem),
@@ -658,7 +658,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
                 delegate: repositoryManagerDelegate
             )
 
-            let containerProvider = try Workspace._init(
+            let containerProvider = try PackageWorkspace._init(
                 fileSystem: localFileSystem,
                 environment: .current,
                 location: .init(forRootPackage: packageDirectory, fileSystem: localFileSystem),
@@ -770,7 +770,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
                     ),
                 ]
             )
-            let containerProvider = try Workspace._init(
+            let containerProvider = try PackageWorkspace._init(
                 fileSystem: localFileSystem,
                 environment: .current,
                 location: .init(forRootPackage: packageDirectory, fileSystem: localFileSystem),

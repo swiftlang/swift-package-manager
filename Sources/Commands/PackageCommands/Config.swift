@@ -124,12 +124,12 @@ extension SwiftPackageCommand.Config {
         }
     }
 
-    static func getMirrorsConfig(_ swiftCommandState: SwiftCommandState, global: Bool) throws -> Workspace.Configuration.Mirrors {
+    static func getMirrorsConfig(_ swiftCommandState: SwiftCommandState, global: Bool) throws -> PackageWorkspace.Configuration.Mirrors {
         if global {
-            let sharedMirrorsFile = Workspace.DefaultLocations.mirrorsConfigurationFile(
+            let sharedMirrorsFile = PackageWorkspace.DefaultLocations.mirrorsConfigurationFile(
                 at: swiftCommandState.sharedConfigurationDirectory
             )
-            // Workspace not needed when working with user-level mirrors config
+            // PackageWorkspace not needed when working with user-level mirrors config
             return try .init(
                 fileSystem: swiftCommandState.fileSystem,
                 localMirrorsFile: .none,

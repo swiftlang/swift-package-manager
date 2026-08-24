@@ -80,7 +80,7 @@ extension Tag.FunctionalArea {
     @Tag public static var Metal: Tag
     @Tag public static var ModuleMaps: Tag
     @Tag public static var Resources: Tag
-    @Tag public static var Workspace: Tag
+    @Tag public static var PackageWorkspace: Tag
 }
 
 extension Tag.Feature {

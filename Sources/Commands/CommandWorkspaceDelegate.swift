@@ -123,7 +123,7 @@ package final class CommandWorkspaceDelegate: WorkspaceDelegate {
     }
 
     package func willResolveDependencies(reason: WorkspaceResolveReason) {
-        self.outputHandler(Workspace.format(workspaceResolveReason: reason), .onlyWhenVerbose)
+        self.outputHandler(PackageWorkspace.format(workspaceResolveReason: reason), .onlyWhenVerbose)
     }
 
     package func willComputeVersion(package: PackageIdentity, location: String) {

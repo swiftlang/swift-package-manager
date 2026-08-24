@@ -25,7 +25,7 @@ import struct TSCUtility.Version
 
 // FIXME: this mixes quite a bit of workspace logic with repository specific one
 // need to better separate the concerns
-extension Workspace {
+extension PackageWorkspace {
     /// Create a local clone of the given `repository` checked out to `checkoutState`.
     ///
     /// If an existing clone is present, the repository will be reset to the

@@ -34,9 +34,9 @@ public enum PIF {
     
     /// The top-level PIF object.
     public struct TopLevelObject: Encodable {
-        public let workspace: PIF.Workspace
+        public let workspace: PIF.PackageWorkspace
         
-        public init(workspace: PIF.Workspace) {
+        public init(workspace: PIF.PackageWorkspace) {
             self.workspace = workspace
         }
         
@@ -71,7 +71,7 @@ public enum PIF {
     ///     "type" : "workspace",
     ///     "signature" : "22e9436958aec481799",
     ///     "contents" : {
-    ///         "guid" : "Workspace:/Users/foo/BarPackage",
+    ///         "guid" : "PackageWorkspace:/Users/foo/BarPackage",
     ///         "name" : "BarPackage",
     ///         "path" : "/Users/foo/BarPackage",
     ///         "projects" : [
@@ -113,7 +113,7 @@ public enum PIF {
     }
     
     /// The high-level PIF *workspace* object.
-    public final class Workspace: HighLevelObject {
+    public final class PackageWorkspace: HighLevelObject {
         override class var type: String { "workspace" }
         
         public let id: GUID
@@ -265,7 +265,7 @@ extension CodingUserInfoKey {
 
 extension PIF {
     /// Add signature to workspace and its high-level subobjects.
-    static func sign(workspace: PIF.Workspace) throws {
+    static func sign(workspace: PIF.PackageWorkspace) throws {
         let encoder = JSONEncoder.makeWithDefaults()
 
         func signature(of obj: some Encodable) throws -> String {

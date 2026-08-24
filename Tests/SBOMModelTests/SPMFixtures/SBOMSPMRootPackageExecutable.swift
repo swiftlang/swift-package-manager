@@ -39,7 +39,7 @@ extension SBOMTestModulesGraph {
         let resolvedPackageModelModule = coreResolvedModules.first { $0.name == "PackageModel" }!
         let resolvedPackageLoadingModule = coreResolvedModules.first { $0.name == "PackageLoading" }!
         let resolvedPackageGraphModule = coreResolvedModules.first { $0.name == "PackageGraph" }!
-        let resolvedWorkspaceModule = coreResolvedModules.first { $0.name == "Workspace" }!
+        let resolvedWorkspaceModule = coreResolvedModules.first { $0.name == "PackageWorkspace" }!
 
         let resolvedCommandsModule = commandResolvedModules.first { $0.name == "Commands" }!
         let resolvedXCBuildSupportModule = commandResolvedModules.first { $0.name == "XCBuildSupport" }!

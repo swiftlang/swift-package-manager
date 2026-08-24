@@ -282,7 +282,7 @@ struct APIDiff: AsyncSwiftCommand {
         try workingCopy.checkout(revision: baselineRevision)
 
         // Create the workspace for this package.
-        let workspace = try Workspace(
+        let workspace = try PackageWorkspace(
             forRootPackage: baselinePackageRoot,
             cancellator: swiftCommandState.cancellator
         )

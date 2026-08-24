@@ -129,7 +129,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
             // Update package with the libraries
             let packageFile = repoDir.appending(component: "Package.swift")
-            let workspace = try Workspace(fileSystem: fileSystem, location: .init(forRootPackage: repoDir, fileSystem: fileSystem))
+            let workspace = try PackageWorkspace(fileSystem: fileSystem, location: .init(forRootPackage: repoDir, fileSystem: fileSystem))
             let package = try await workspace.loadRootPackage(
                 at: repoDir,
                 observabilityScope: ObservabilitySystem({ _, diag in print(diag) }, outputStream: stdoutStream, logLevel: .debug).topScope
@@ -213,13 +213,13 @@ struct BuildPrebuilts: AsyncParsableCommand {
 
                 // Manifest fragment for the zip file
                 let checksum = SHA256().hash(contents).hexadecimalRepresentation
-                let library = Workspace.PrebuiltsManifest.Library(
+                let library = PackageWorkspace.PrebuiltsManifest.Library(
                     name: libraryName,
                     checksum: checksum,
                     products: package.products.map(\.name),
                     includePath: cModules.map({ $0.includeDir.relative(to: repoDir) })
                 )
-                let manifest = Workspace.PrebuiltsManifest(libraries: [library])
+                let manifest = PackageWorkspace.PrebuiltsManifest(libraries: [library])
 
                 let unsignedJsonFile = versionDir.appending("\(prebuiltName).unsigned")
                 try fileSystem.writeFileContents(unsignedJsonFile, data: encoder.encode(manifest))
@@ -286,7 +286,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                 let signedJsonFile = versionDir.appending(unsignedJsonFile.basenameWithoutExt + ".json")
 
                 let unsignedData: Data = try fileSystem.readFileContents(unsignedJsonFile)
-                let manifest = try decoder.decode(Workspace.PrebuiltsManifest.self, from: unsignedData)
+                let manifest = try decoder.decode(PackageWorkspace.PrebuiltsManifest.self, from: unsignedData)
 
                 try await withTemporaryDirectory { tmpDir in
                     try fileSystem.copy(from: rootCertPath, to: tmpDir.appending(rootCertPath.basename))
@@ -303,7 +303,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
                         fileSystem: fileSystem
                     )
 
-                    let signedManifest = Workspace.SignedPrebuiltsManifest(manifest: manifest, signature: signature)
+                    let signedManifest = PackageWorkspace.SignedPrebuiltsManifest(manifest: manifest, signature: signature)
                     try fileSystem.writeFileContents(signedJsonFile, data: encoder.encode(signedManifest))
                 }
             }

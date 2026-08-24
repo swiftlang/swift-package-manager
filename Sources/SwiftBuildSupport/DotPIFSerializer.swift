@@ -20,7 +20,7 @@ import SwiftBuild
 ///
 /// * [DOT command line](https://graphviz.org/doc/info/command.html)
 /// * [DOT language specs](https://graphviz.org/doc/info/lang.html)
-func writePIF(_ workspace: PIF.Workspace, toDOT outputStream: OutputByteStream) {
+func writePIF(_ workspace: PIF.PackageWorkspace, toDOT outputStream: OutputByteStream) {
     var graph = DotPIFSerializer()
 
     graph.node(

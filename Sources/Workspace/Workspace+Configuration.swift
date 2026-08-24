@@ -22,8 +22,8 @@ import struct TSCBasic.ByteString
 
 // MARK: - Location
 
-extension Workspace {
-    /// Workspace location configuration
+extension PackageWorkspace {
+    /// PackageWorkspace location configuration
     public struct Location {
         /// Path to scratch space (working) directory for this workspace (aka .build).
         public var scratchDirectory: AbsolutePath
@@ -205,8 +205,8 @@ extension Workspace {
 
 // MARK: - Default locations
 
-extension Workspace {
-    /// Workspace default locations utilities
+extension PackageWorkspace {
+    /// PackageWorkspace default locations utilities
     public struct DefaultLocations {
         public static var resolvedFileName = "Package.resolved"
 
@@ -282,7 +282,7 @@ extension Workspace {
 
 // MARK: - Authorization
 
-extension Workspace.Configuration {
+extension PackageWorkspace.Configuration {
     public struct Authorization {
         public var netrc: Netrc
         public var keychain: Keychain
@@ -466,7 +466,7 @@ extension Workspace.Configuration {
 
 // MARK: - Mirrors
 
-extension Workspace.Configuration {
+extension PackageWorkspace.Configuration {
     public struct Mirrors {
         private let localMirrors: MirrorsStorage?
         private let sharedMirrors: MirrorsStorage?
@@ -494,7 +494,7 @@ extension Workspace.Configuration {
             sharedMirrorFile: AbsolutePath?,
             fileSystem: FileSystem
         ) throws {
-            let localMirrorConfigFile = Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: rootPath)
+            let localMirrorConfigFile = PackageWorkspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: rootPath)
             try self.init(
                 fileSystem: fileSystem,
                 localMirrorsFile: localMirrorConfigFile,
@@ -569,7 +569,7 @@ extension Workspace.Configuration {
     }
 }
 
-extension Workspace.Configuration {
+extension PackageWorkspace.Configuration {
     public struct MirrorsStorage {
         private let path: AbsolutePath
         private let fileSystem: FileSystem
@@ -669,7 +669,7 @@ extension Workspace.Configuration {
 
 // MARK: - Registries
 
-extension Workspace.Configuration {
+extension PackageWorkspace.Configuration {
     public class Registries {
         private let localRegistries: RegistriesStorage?
         private let sharedRegistries: RegistriesStorage?
@@ -752,7 +752,7 @@ extension Workspace.Configuration {
     }
 }
 
-extension Workspace.Configuration {
+extension PackageWorkspace.Configuration {
     private struct RegistriesStorage {
         private let path: AbsolutePath
         private let fileSystem: FileSystem
@@ -933,7 +933,7 @@ public struct WorkspaceConfiguration {
 
 // MARK: - Deprecated 8/20201
 
-extension Workspace {
+extension PackageWorkspace {
     /// Manages a package workspace's configuration.
     // FIXME: change into enum after deprecation grace period
     public final class Configuration {}

@@ -85,7 +85,7 @@ fileprivate func withGeneratedPIF(
         let toolchain = try UserToolchain.default
         var config = WorkspaceConfiguration.default
         config.shouldCreateMultipleTestProducts = true
-        let workspace = try Workspace(
+        let workspace = try PackageWorkspace(
             fileSystem: localFileSystem,
             forRootPackage: fixturePath,
             configuration: config,
@@ -115,7 +115,7 @@ fileprivate func withGeneratedPIF(
     }
 }
 
-extension SwiftBuildSupport.PIF.Workspace {
+extension SwiftBuildSupport.PIF.PackageWorkspace {
     func project(named name: String) throws -> SwiftBuildSupport.PIF.Project {
         let matchingProjects = projects.filter {
             $0.underlying.name == name

@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 ///
-/// This file tests `Workspace.rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`.
+/// This file tests `PackageWorkspace.rewriteToolsVersionSpecification(toDefaultManifestIn:specifying:fileSystem:)`.
 ///
 
 import Basics

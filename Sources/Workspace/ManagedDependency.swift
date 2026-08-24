@@ -18,7 +18,7 @@ import TSCBasic
 
 import struct TSCUtility.Version
 
-extension Workspace {
+extension PackageWorkspace {
     /// An individual managed dependency.
     ///
     /// Each dependency will have a checkout containing the sources at a
@@ -171,7 +171,7 @@ extension Workspace {
     }
 }
 
-extension Workspace.ManagedDependency: CustomStringConvertible {
+extension PackageWorkspace.ManagedDependency: CustomStringConvertible {
     public var description: String {
         return "<ManagedDependency: \(self.packageRef.identity) \(self.state)>"
     }
@@ -179,7 +179,7 @@ extension Workspace.ManagedDependency: CustomStringConvertible {
 
 // MARK: - ManagedDependencies
 
-extension Workspace {
+extension PackageWorkspace {
     /// A collection of managed dependencies.
     public struct ManagedDependencies {
         private var dependencies: [PackageIdentity: ManagedDependency]
@@ -209,7 +209,7 @@ extension Workspace {
             return self.dependencies[identity]
         }
 
-        // When loading manifests in Workspace, there are cases where we must also compare the location
+        // When loading manifests in PackageWorkspace, there are cases where we must also compare the location
         // as it may attempt to load manifests for dependencies that have the same identity but from a different location
         // (e.g. dependency is changed to a fork with the same identity)
         public subscript(comparingLocation package: PackageReference) -> ManagedDependency? {
@@ -233,9 +233,9 @@ extension Workspace {
     }
 }
 
-extension Workspace.ManagedDependencies: Collection {
-    public typealias Index = Dictionary<PackageIdentity, Workspace.ManagedDependency>.Index
-    public typealias Element = Workspace.ManagedDependency
+extension PackageWorkspace.ManagedDependencies: Collection {
+    public typealias Index = Dictionary<PackageIdentity, PackageWorkspace.ManagedDependency>.Index
+    public typealias Element = PackageWorkspace.ManagedDependency
 
     public var startIndex: Index {
         self.dependencies.startIndex
@@ -254,7 +254,7 @@ extension Workspace.ManagedDependencies: Collection {
     }
 }
 
-extension Workspace.ManagedDependencies: CustomStringConvertible {
+extension PackageWorkspace.ManagedDependencies: CustomStringConvertible {
     public var description: String {
         "<ManagedDependencies: \(Array(self.dependencies.values))>"
     }

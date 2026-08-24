@@ -58,7 +58,7 @@ extension SwiftPackageCommand {
             }
         }
         
-        private func logPackageChanges(changes: [(PackageReference, Workspace.PackageStateChange)], store: ResolvedPackagesStore) {
+        private func logPackageChanges(changes: [(PackageReference, PackageWorkspace.PackageStateChange)], store: ResolvedPackagesStore) {
             let changes = changes.filter { $0.1 != .unchanged }
             
             var report = "[Dry-run] \(changes.count) dependenc\(changes.count == 1 ? "y would" : "ies would") change\(changes.count > 0 ? ":" : ".")"
