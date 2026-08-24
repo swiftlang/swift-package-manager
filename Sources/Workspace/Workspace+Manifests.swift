@@ -50,7 +50,7 @@ import struct TSCUtility.Version
 
 // MARK: - Manifest Loading and caching
 
-extension Workspace {
+extension PackageWorkspace {
     /// A struct representing all the current manifests (root + external) in a package graph.
     public struct DependencyManifests {
         /// The package graph root.
@@ -64,7 +64,7 @@ extension Workspace {
             fileSystem: FileSystem
         )]
 
-        private let workspace: Workspace
+        private let workspace: PackageWorkspace
 
         private let observabilityScope: ObservabilityScope
 
@@ -84,7 +84,7 @@ extension Workspace {
                 productFilter: ProductFilter,
                 fileSystem: FileSystem
             )],
-            workspace: Workspace,
+            workspace: PackageWorkspace,
             observabilityScope: ObservabilityScope
         ) {
             self.root = root
@@ -182,7 +182,7 @@ extension Workspace {
                 productFilter: ProductFilter,
                 fileSystem: FileSystem
             )],
-            workspace: Workspace,
+            workspace: PackageWorkspace,
             observabilityScope: ObservabilityScope
         ) throws
             -> (
@@ -388,7 +388,7 @@ extension Workspace {
                 productFilter: ProductFilter,
                 fileSystem: FileSystem
             )],
-            workspace: Workspace
+            workspace: PackageWorkspace
         ) throws -> [PackageContainerConstraint] {
             var allConstraints = [PackageContainerConstraint]()
 
@@ -453,7 +453,7 @@ extension Workspace {
     /// Registry dependencies will return the subpath inside `registryDownloadsPath` and
     /// edited dependencies will either return a subpath inside `editablesPath` or
     /// a custom path.
-    public func path(to dependency: Workspace.ManagedDependency) -> AbsolutePath {
+    public func path(to dependency: PackageWorkspace.ManagedDependency) -> AbsolutePath {
         switch dependency.state {
         case .sourceControlCheckout:
             self.location.repositoriesCheckoutSubdirectory(for: dependency)
@@ -922,7 +922,7 @@ extension Workspace {
     private func fixManagedDependencies(
         observabilityScope: ObservabilityScope
     ) async {
-        // Reset managed dependencies if the state file was removed during the lifetime of the Workspace object.
+        // Reset managed dependencies if the state file was removed during the lifetime of the PackageWorkspace object.
         if await !self.state.dependencies.isEmpty, await !self.state.stateFileExists() {
             try? await self.state.reset()
         }
@@ -1006,7 +1006,7 @@ extension Workspace {
 
     private func getFileSystem(
         package: PackageReference,
-        state: Workspace.ManagedDependency.State,
+        state: PackageWorkspace.ManagedDependency.State,
         observabilityScope: ObservabilityScope
     ) async throws -> FileSystem? {
         // Only custom containers may provide a file system.

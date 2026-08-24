@@ -64,7 +64,7 @@ struct AuditBinaryArtifact: AsyncSwiftCommand {
             fileSystem: fileSystem, scratchDirectory: swiftCommandState.scratchDirectory)
 
         guard
-            let artifactKind = try Workspace.BinaryArtifactsManager.deriveBinaryArtifactKind(
+            let artifactKind = try PackageWorkspace.BinaryArtifactsManager.deriveBinaryArtifactKind(
                 fileSystem: fileSystem,
                 path: extractedArtifact,
                 observabilityScope: swiftCommandState.observabilityScope

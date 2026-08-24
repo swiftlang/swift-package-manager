@@ -22,7 +22,7 @@ import protocol TSCBasic.HashAlgorithm
 import struct TSCBasic.SHA256
 import enum TSCUtility.Diagnostics
 
-extension Workspace {
+extension PackageWorkspace {
     // marked public for testing
     public struct CustomBinaryArtifactsManager {
         let httpClient: HTTPClient?
@@ -723,7 +723,7 @@ public protocol BinaryArtifactsManagerDelegate {
     func didDownloadAllBinaryArtifacts()
 }
 
-extension Workspace.BinaryArtifactsManager {
+extension PackageWorkspace.BinaryArtifactsManager {
     struct RemoteArtifact {
         let packageRef: PackageReference
         let targetName: String
@@ -734,7 +734,7 @@ extension Workspace.BinaryArtifactsManager {
     }
 }
 
-extension Workspace.BinaryArtifactsManager {
+extension PackageWorkspace.BinaryArtifactsManager {
     struct ArchiveIndexFile: Decodable {
         let schemaVersion: String
         let archives: [Archive]
@@ -760,7 +760,7 @@ extension Workspace.BinaryArtifactsManager {
     }
 }
 
-extension Workspace.BinaryArtifactsManager {
+extension PackageWorkspace.BinaryArtifactsManager {
     static func deriveBinaryArtifact(
         fileSystem: FileSystem,
         path: AbsolutePath,
@@ -860,7 +860,7 @@ extension Workspace.BinaryArtifactsManager {
     }
 }
 
-extension Workspace {
+extension PackageWorkspace {
     func updateBinaryArtifacts(
         manifests: DependencyManifests,
         addedOrUpdatedPackages: [PackageReference],

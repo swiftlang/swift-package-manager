@@ -21,14 +21,14 @@ import struct TSCUtility.Version
 
 /// Represents the workspace internal state persisted on disk.
 public actor WorkspaceState {
-    /// The dependencies managed by the Workspace.
-    public private(set) var dependencies: Workspace.ManagedDependencies
+    /// The dependencies managed by the PackageWorkspace.
+    public private(set) var dependencies: PackageWorkspace.ManagedDependencies
 
-    /// The artifacts managed by the Workspace.
-    public private(set) var artifacts: Workspace.ManagedArtifacts
+    /// The artifacts managed by the PackageWorkspace.
+    public private(set) var artifacts: PackageWorkspace.ManagedArtifacts
 
-    /// The prebuilts managed by the Workspace
-    public private(set) var prebuilts: Workspace.ManagedPrebuilts
+    /// The prebuilts managed by the PackageWorkspace
+    public private(set) var prebuilts: PackageWorkspace.ManagedPrebuilts
 
     /// Path to the state file.
     public let storagePath: Basics.AbsolutePath
@@ -67,9 +67,9 @@ public actor WorkspaceState {
     }
 
     func reset() throws {
-        self.dependencies = Workspace.ManagedDependencies()
-        self.artifacts = Workspace.ManagedArtifacts()
-        self.prebuilts = Workspace.ManagedPrebuilts()
+        self.dependencies = PackageWorkspace.ManagedDependencies()
+        self.artifacts = PackageWorkspace.ManagedArtifacts()
+        self.prebuilts = PackageWorkspace.ManagedPrebuilts()
         try self.save()
     }
 
@@ -90,7 +90,7 @@ public actor WorkspaceState {
         self.prebuilts = storedState.prebuilts
     }
     
-    public func add(dependency: Workspace.ManagedDependency) {
+    public func add(dependency: PackageWorkspace.ManagedDependency) {
         dependencies = dependencies.add(dependency)
     }
 
@@ -113,9 +113,9 @@ private struct WorkspaceStateStorage {
     }
 
     struct State {
-        let dependencies: Workspace.ManagedDependencies
-        let artifacts: Workspace.ManagedArtifacts
-        let prebuilts: Workspace.ManagedPrebuilts
+        let dependencies: PackageWorkspace.ManagedDependencies
+        let artifacts: PackageWorkspace.ManagedArtifacts
+        let prebuilts: PackageWorkspace.ManagedPrebuilts
     }
 
     func load() throws -> State {
@@ -128,24 +128,24 @@ private struct WorkspaceStateStorage {
             switch version.version {
             case 1, 2, 3, 4:
                 let v4 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V4.self)
-                let dependencies = try v4.object.dependencies.map { try Workspace.ManagedDependency($0) }
-                let artifacts = try v4.object.artifacts.map { try Workspace.ManagedArtifact($0) }
+                let dependencies = try v4.object.dependencies.map { try PackageWorkspace.ManagedDependency($0) }
+                let artifacts = try v4.object.artifacts.map { try PackageWorkspace.ManagedArtifact($0) }
                 return try .init(dependencies: .init(dependencies), artifacts: .init(artifacts), prebuilts: .init())
             case 5:
                 let v5 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V5.self)
-                let dependencies = try v5.object.dependencies.map { try Workspace.ManagedDependency($0) }
-                let artifacts = try v5.object.artifacts.map { try Workspace.ManagedArtifact($0) }
+                let dependencies = try v5.object.dependencies.map { try PackageWorkspace.ManagedDependency($0) }
+                let artifacts = try v5.object.artifacts.map { try PackageWorkspace.ManagedArtifact($0) }
                 return try .init(dependencies: .init(dependencies), artifacts: .init(artifacts), prebuilts: .init())
             case 6:
                 let v6 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V6.self)
-                let dependencies = try v6.object.dependencies.map { try Workspace.ManagedDependency($0) }
-                let artifacts = try v6.object.artifacts.map { try Workspace.ManagedArtifact($0) }
+                let dependencies = try v6.object.dependencies.map { try PackageWorkspace.ManagedDependency($0) }
+                let artifacts = try v6.object.artifacts.map { try PackageWorkspace.ManagedArtifact($0) }
                 return try .init(dependencies: .init(dependencies), artifacts: .init(artifacts), prebuilts: .init())
             case 7:
                 let v7 = try self.decoder.decode(path: self.path, fileSystem: self.fileSystem, as: V7.self)
-                let dependencies = try v7.object.dependencies.map { try Workspace.ManagedDependency($0) }
-                let artifacts = try v7.object.artifacts.map { try Workspace.ManagedArtifact($0) }
-                let prebuilts = try v7.object.prebuilts.map { try Workspace.ManagedPrebuilt($0) }
+                let dependencies = try v7.object.dependencies.map { try PackageWorkspace.ManagedDependency($0) }
+                let artifacts = try v7.object.artifacts.map { try PackageWorkspace.ManagedArtifact($0) }
+                let prebuilts = try v7.object.prebuilts.map { try PackageWorkspace.ManagedPrebuilt($0) }
                 return try .init(dependencies: .init(dependencies), artifacts: .init(artifacts), prebuilts: .init(prebuilts))
 
             default:
@@ -155,9 +155,9 @@ private struct WorkspaceStateStorage {
     }
 
     func save(
-        dependencies: Workspace.ManagedDependencies,
-        artifacts: Workspace.ManagedArtifacts,
-        prebuilts: Workspace.ManagedPrebuilts
+        dependencies: PackageWorkspace.ManagedDependencies,
+        artifacts: PackageWorkspace.ManagedArtifacts,
+        prebuilts: PackageWorkspace.ManagedPrebuilts
     ) throws {
         if !self.fileSystem.exists(self.path.parentDirectory) {
             try self.fileSystem.createDirectory(self.path.parentDirectory)
@@ -201,9 +201,9 @@ extension WorkspaceStateStorage {
         let object: Container
 
         init(
-            dependencies: Workspace.ManagedDependencies,
-            artifacts: Workspace.ManagedArtifacts,
-            prebuilts: Workspace.ManagedPrebuilts
+            dependencies: PackageWorkspace.ManagedDependencies,
+            artifacts: PackageWorkspace.ManagedArtifacts,
+            prebuilts: PackageWorkspace.ManagedPrebuilts
         ) {
             self.version = 7
             self.object = .init(
@@ -230,7 +230,7 @@ extension WorkspaceStateStorage {
                 self.subpath = subpath
             }
 
-            init(_ dependency: Workspace.ManagedDependency) {
+            init(_ dependency: PackageWorkspace.ManagedDependency) {
                 self.packageRef = .init(dependency.packageRef)
                 self.state = .init(underlying: dependency.state)
                 self.subpath = dependency.subpath.pathString
@@ -273,9 +273,9 @@ extension WorkspaceStateStorage {
             }
 
             struct State: Encodable {
-                let underlying: Workspace.ManagedDependency.State
+                let underlying: PackageWorkspace.ManagedDependency.State
 
-                init(underlying: Workspace.ManagedDependency.State) {
+                init(underlying: PackageWorkspace.ManagedDependency.State) {
                     self.underlying = underlying
                 }
 
@@ -382,7 +382,7 @@ extension WorkspaceStateStorage {
             let path: String
             let kind: Kind
 
-            init(_ artifact: Workspace.ManagedArtifact) {
+            init(_ artifact: PackageWorkspace.ManagedArtifact) {
                 self.packageRef = .init(artifact.packageRef)
                 self.targetName = artifact.targetName
                 self.source = .init(underlying: artifact.source)
@@ -391,9 +391,9 @@ extension WorkspaceStateStorage {
             }
 
             struct Source: Codable {
-                let underlying: Workspace.ManagedArtifact.Source
+                let underlying: PackageWorkspace.ManagedArtifact.Source
 
-                init(underlying: Workspace.ManagedArtifact.Source) {
+                init(underlying: PackageWorkspace.ManagedArtifact.Source) {
                     self.underlying = underlying
                 }
 
@@ -477,7 +477,7 @@ extension WorkspaceStateStorage {
             let includePath: [Basics.RelativePath]?
             let cModules: [String]
 
-            init(_ managedPrebuilt: Workspace.ManagedPrebuilt) {
+            init(_ managedPrebuilt: PackageWorkspace.ManagedPrebuilt) {
                 self.identity = managedPrebuilt.identity
                 self.version = managedPrebuilt.version
                 self.libraryName = managedPrebuilt.libraryName
@@ -529,7 +529,7 @@ extension WorkspaceStateStorage {
     }
 }
 
-extension Workspace.ManagedDependency {
+extension PackageWorkspace.ManagedDependency {
     fileprivate init(_ dependency: WorkspaceStateStorage.V7.Dependency) throws {
         try self.init(
             packageRef: .init(dependency.packageRef),
@@ -539,7 +539,7 @@ extension Workspace.ManagedDependency {
     }
 }
 
-extension Workspace.ManagedArtifact {
+extension PackageWorkspace.ManagedArtifact {
     fileprivate init(_ artifact: WorkspaceStateStorage.V7.Artifact) throws {
         try self.init(
             packageRef: .init(artifact.packageRef),
@@ -551,7 +551,7 @@ extension Workspace.ManagedArtifact {
     }
 }
 
-extension Workspace.ManagedPrebuilt {
+extension PackageWorkspace.ManagedPrebuilt {
     fileprivate init(_ prebuilt: WorkspaceStateStorage.V7.Prebuilt) throws {
         self.init(
             identity: prebuilt.identity,
@@ -612,7 +612,7 @@ extension WorkspaceStateStorage {
         let version: Int
         let object: Container
 
-        init(dependencies: Workspace.ManagedDependencies, artifacts: Workspace.ManagedArtifacts) {
+        init(dependencies: PackageWorkspace.ManagedDependencies, artifacts: PackageWorkspace.ManagedArtifacts) {
             self.version = 6
             self.object = .init(
                 dependencies: dependencies.map { .init($0) }.sorted { $0.packageRef.identity < $1.packageRef.identity },
@@ -636,7 +636,7 @@ extension WorkspaceStateStorage {
                 self.subpath = subpath
             }
 
-            init(_ dependency: Workspace.ManagedDependency) {
+            init(_ dependency: PackageWorkspace.ManagedDependency) {
                 self.packageRef = .init(dependency.packageRef)
                 self.state = .init(underlying: dependency.state)
                 self.subpath = dependency.subpath.pathString
@@ -679,9 +679,9 @@ extension WorkspaceStateStorage {
             }
 
             struct State: Encodable {
-                let underlying: Workspace.ManagedDependency.State
+                let underlying: PackageWorkspace.ManagedDependency.State
 
-                init(underlying: Workspace.ManagedDependency.State) {
+                init(underlying: PackageWorkspace.ManagedDependency.State) {
                     self.underlying = underlying
                 }
 
@@ -780,7 +780,7 @@ extension WorkspaceStateStorage {
             let path: String
             let kind: Kind
 
-            init(_ artifact: Workspace.ManagedArtifact) {
+            init(_ artifact: PackageWorkspace.ManagedArtifact) {
                 self.packageRef = .init(artifact.packageRef)
                 self.targetName = artifact.targetName
                 self.source = .init(underlying: artifact.source)
@@ -789,9 +789,9 @@ extension WorkspaceStateStorage {
             }
 
             struct Source: Codable {
-                let underlying: Workspace.ManagedArtifact.Source
+                let underlying: PackageWorkspace.ManagedArtifact.Source
 
-                init(underlying: Workspace.ManagedArtifact.Source) {
+                init(underlying: PackageWorkspace.ManagedArtifact.Source) {
                     self.underlying = underlying
                 }
 
@@ -900,7 +900,7 @@ extension WorkspaceStateStorage {
     }
 }
 
-extension Workspace.ManagedDependency {
+extension PackageWorkspace.ManagedDependency {
     fileprivate init(_ dependency: WorkspaceStateStorage.V6.Dependency) throws {
         try self.init(
             packageRef: .init(dependency.packageRef),
@@ -910,7 +910,7 @@ extension Workspace.ManagedDependency {
     }
 }
 
-extension Workspace.ManagedArtifact {
+extension PackageWorkspace.ManagedArtifact {
     fileprivate init(_ artifact: WorkspaceStateStorage.V6.Artifact) throws {
         try self.init(
             packageRef: .init(artifact.packageRef),
@@ -968,7 +968,7 @@ extension WorkspaceStateStorage {
         let version: Int
         let object: Container
 
-        init(dependencies: Workspace.ManagedDependencies, artifacts: Workspace.ManagedArtifacts) {
+        init(dependencies: PackageWorkspace.ManagedDependencies, artifacts: PackageWorkspace.ManagedArtifacts) {
             self.version = 5
             self.object = .init(
                 dependencies: dependencies.map { .init($0) }.sorted { $0.packageRef.identity < $1.packageRef.identity },
@@ -992,7 +992,7 @@ extension WorkspaceStateStorage {
                 self.subpath = subpath
             }
 
-            init(_ dependency: Workspace.ManagedDependency) {
+            init(_ dependency: PackageWorkspace.ManagedDependency) {
                 self.packageRef = .init(dependency.packageRef)
                 self.state = .init(underlying: dependency.state)
                 self.subpath = dependency.subpath.pathString
@@ -1035,9 +1035,9 @@ extension WorkspaceStateStorage {
             }
 
             struct State: Encodable {
-                let underlying: Workspace.ManagedDependency.State
+                let underlying: PackageWorkspace.ManagedDependency.State
 
-                init(underlying: Workspace.ManagedDependency.State) {
+                init(underlying: PackageWorkspace.ManagedDependency.State) {
                     self.underlying = underlying
                 }
 
@@ -1135,7 +1135,7 @@ extension WorkspaceStateStorage {
             let source: Source
             let path: String
 
-            init(_ artifact: Workspace.ManagedArtifact) {
+            init(_ artifact: PackageWorkspace.ManagedArtifact) {
                 self.packageRef = .init(artifact.packageRef)
                 self.targetName = artifact.targetName
                 self.source = .init(underlying: artifact.source)
@@ -1143,9 +1143,9 @@ extension WorkspaceStateStorage {
             }
 
             struct Source: Codable {
-                let underlying: Workspace.ManagedArtifact.Source
+                let underlying: PackageWorkspace.ManagedArtifact.Source
 
-                init(underlying: Workspace.ManagedArtifact.Source) {
+                init(underlying: PackageWorkspace.ManagedArtifact.Source) {
                     self.underlying = underlying
                 }
 
@@ -1226,7 +1226,7 @@ extension WorkspaceStateStorage {
     }
 }
 
-extension Workspace.ManagedDependency {
+extension PackageWorkspace.ManagedDependency {
     fileprivate init(_ dependency: WorkspaceStateStorage.V5.Dependency) throws {
         try self.init(
             packageRef: .init(dependency.packageRef),
@@ -1236,7 +1236,7 @@ extension Workspace.ManagedDependency {
     }
 }
 
-extension Workspace.ManagedArtifact {
+extension PackageWorkspace.ManagedArtifact {
     fileprivate init(_ artifact: WorkspaceStateStorage.V5.Artifact) throws {
         let path = try Basics.AbsolutePath(validating: artifact.path)
         try self.init(
@@ -1341,9 +1341,9 @@ extension WorkspaceStateStorage {
             }
 
             struct State {
-                let underlying: Workspace.ManagedDependency.State
+                let underlying: PackageWorkspace.ManagedDependency.State
 
-                init(underlying: Workspace.ManagedDependency.State) {
+                init(underlying: PackageWorkspace.ManagedDependency.State) {
                     self.underlying = underlying
                 }
 
@@ -1408,9 +1408,9 @@ extension WorkspaceStateStorage {
             let path: String
 
             struct Source: Decodable {
-                let underlying: Workspace.ManagedArtifact.Source
+                let underlying: PackageWorkspace.ManagedArtifact.Source
 
-                init(underlying: Workspace.ManagedArtifact.Source) {
+                init(underlying: PackageWorkspace.ManagedArtifact.Source) {
                     self.underlying = underlying
                 }
 
@@ -1469,7 +1469,7 @@ extension WorkspaceStateStorage {
     }
 }
 
-extension Workspace.ManagedDependency {
+extension PackageWorkspace.ManagedDependency {
     fileprivate init(_ dependency: WorkspaceStateStorage.V4.Dependency) throws {
         try self.init(
             packageRef: .init(dependency.packageRef),
@@ -1479,7 +1479,7 @@ extension Workspace.ManagedDependency {
     }
 }
 
-extension Workspace.ManagedArtifact {
+extension PackageWorkspace.ManagedArtifact {
     fileprivate init(_ artifact: WorkspaceStateStorage.V4.Artifact) throws {
         let path = try Basics.AbsolutePath(validating: artifact.path)
         try self.init(

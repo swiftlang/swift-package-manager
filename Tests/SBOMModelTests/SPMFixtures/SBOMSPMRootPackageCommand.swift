@@ -52,7 +52,7 @@ extension SBOMTestModulesGraph {
         let resolvedPackageRegistryModule = coreResolvedModules.first { $0.name == "PackageRegistry" }!
         let resolvedPackageSigningModule = coreResolvedModules.first { $0.name == "PackageSigning" }!
         let resolvedSourceControlModule = coreResolvedModules.first { $0.name == "SourceControl" }!
-        let resolvedWorkspaceModule = coreResolvedModules.first { $0.name == "Workspace" }!
+        let resolvedWorkspaceModule = coreResolvedModules.first { $0.name == "PackageWorkspace" }!
         let resolvedSBOMModelModule = coreResolvedModules.first { $0.name == "SBOMModel" }!
         let resolvedSPMBuildCoreModule = coreResolvedModules.first { $0.name == "SPMBuildCore" }!
 

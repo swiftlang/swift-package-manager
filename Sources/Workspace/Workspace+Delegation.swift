@@ -122,7 +122,7 @@ public protocol WorkspaceDelegate: AnyObject {
 
     /// Called when the Package.resolved file is changed *outside* of libSwiftPM operations.
     ///
-    /// This is only fired when activated using Workspace's watchResolvedFile() method.
+    /// This is only fired when activated using PackageWorkspace's watchResolvedFile() method.
     func resolvedFileChanged()
 
     /// The workspace has started downloading a binary artifact.
@@ -217,9 +217,9 @@ extension WorkspaceDelegate {
 }
 
 struct WorkspaceManifestLoaderDelegate: ManifestLoader.Delegate, @unchecked Sendable {
-    private weak var workspaceDelegate: Workspace.Delegate?
+    private weak var workspaceDelegate: PackageWorkspace.Delegate?
 
-    init(workspaceDelegate: Workspace.Delegate) {
+    init(workspaceDelegate: PackageWorkspace.Delegate) {
         self.workspaceDelegate = workspaceDelegate
     }
 
@@ -280,9 +280,9 @@ struct WorkspaceManifestLoaderDelegate: ManifestLoader.Delegate, @unchecked Send
 }
 
 struct WorkspaceRepositoryManagerDelegate: RepositoryManager.Delegate, @unchecked Sendable {
-    private weak var workspaceDelegate: Workspace.Delegate?
+    private weak var workspaceDelegate: PackageWorkspace.Delegate?
 
-    init(workspaceDelegate: Workspace.Delegate) {
+    init(workspaceDelegate: PackageWorkspace.Delegate) {
         self.workspaceDelegate = workspaceDelegate
     }
 
@@ -336,9 +336,9 @@ struct WorkspaceRepositoryManagerDelegate: RepositoryManager.Delegate, @unchecke
 }
 
 struct WorkspaceRegistryDownloadsManagerDelegate: RegistryDownloadsManager.Delegate, @unchecked Sendable {
-    private weak var workspaceDelegate: Workspace.Delegate?
+    private weak var workspaceDelegate: PackageWorkspace.Delegate?
 
-    init(workspaceDelegate: Workspace.Delegate) {
+    init(workspaceDelegate: PackageWorkspace.Delegate) {
         self.workspaceDelegate = workspaceDelegate
     }
 
@@ -378,9 +378,9 @@ struct WorkspaceRegistryDownloadsManagerDelegate: RegistryDownloadsManager.Deleg
 }
 
 struct WorkspaceRegistryClientDelegate: RegistryClient.Delegate {
-    private weak var workspaceDelegate: Workspace.Delegate?
+    private weak var workspaceDelegate: PackageWorkspace.Delegate?
 
-    init(workspaceDelegate: Workspace.Delegate?) {
+    init(workspaceDelegate: PackageWorkspace.Delegate?) {
         self.workspaceDelegate = workspaceDelegate
     }
 
@@ -415,10 +415,10 @@ struct WorkspaceRegistryClientDelegate: RegistryClient.Delegate {
     }
 }
 
-struct WorkspaceBinaryArtifactsManagerDelegate: Workspace.BinaryArtifactsManager.Delegate {
-    private weak var workspaceDelegate: Workspace.Delegate?
+struct WorkspaceBinaryArtifactsManagerDelegate: PackageWorkspace.BinaryArtifactsManager.Delegate {
+    private weak var workspaceDelegate: PackageWorkspace.Delegate?
 
-    init(workspaceDelegate: Workspace.Delegate) {
+    init(workspaceDelegate: PackageWorkspace.Delegate) {
         self.workspaceDelegate = workspaceDelegate
     }
 
@@ -447,10 +447,10 @@ struct WorkspaceBinaryArtifactsManagerDelegate: Workspace.BinaryArtifactsManager
     }
 }
 
-struct WorkspacePrebuiltsManagerDelegate: Workspace.PrebuiltsManager.Delegate {
-    private weak var workspaceDelegate: Workspace.Delegate?
+struct WorkspacePrebuiltsManagerDelegate: PackageWorkspace.PrebuiltsManager.Delegate {
+    private weak var workspaceDelegate: PackageWorkspace.Delegate?
 
-    init(workspaceDelegate: Workspace.Delegate) {
+    init(workspaceDelegate: PackageWorkspace.Delegate) {
         self.workspaceDelegate = workspaceDelegate
     }
 

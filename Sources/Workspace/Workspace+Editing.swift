@@ -21,7 +21,7 @@ import struct Basics.RelativePath
 import struct PackageGraph.PackageGraphRootInput
 import struct SourceControl.Revision
 
-extension Workspace {
+extension PackageWorkspace {
     /// Edit implementation.
     func _edit(
         packageIdentity: String,

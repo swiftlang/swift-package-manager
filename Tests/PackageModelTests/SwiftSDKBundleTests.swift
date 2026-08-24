@@ -18,7 +18,7 @@ import XCTest
 
 import struct TSCBasic.ByteString
 import protocol TSCBasic.FileSystem
-import class Workspace.Workspace
+import class Workspace.PackageWorkspace
 
 private let testArtifactID = "test-artifact"
 
@@ -194,7 +194,7 @@ final class SwiftSDKBundleTests: XCTestCase {
                     }
                 )
                 try await store.install(bundlePathOrURL: bundleURLString, checksum: checksum, archiver, httpClient) {
-                    try Workspace.BinaryArtifactsManager.checksum(forBinaryArtifactAt: $0, fileSystem: localFileSystem)
+                    try PackageWorkspace.BinaryArtifactsManager.checksum(forBinaryArtifactAt: $0, fileSystem: localFileSystem)
                 }
 
                 let bundleURL = URL(string: bundleURLString)!

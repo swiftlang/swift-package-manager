@@ -26,20 +26,20 @@ enum ResolverPrecomputationError: Error {
     /// Represents the error when a different requirement of a package was requested.
     case differentRequirement(
         package: PackageReference,
-        state: Workspace.ManagedDependency.State?,
+        state: PackageWorkspace.ManagedDependency.State?,
         requirement: PackageRequirement
     )
 }
 
-/// PackageContainerProvider implementation used by Workspace to do a dependency pre-calculation using the cached
-/// dependency information (Workspace.DependencyManifests) to check if dependency resolution is required before
+/// PackageContainerProvider implementation used by PackageWorkspace to do a dependency pre-calculation using the cached
+/// dependency information (PackageWorkspace.DependencyManifests) to check if dependency resolution is required before
 /// performing a full resolution.
 struct ResolverPrecomputationProvider: PackageContainerProvider {
     /// The package graph inputs.
     let root: PackageGraphRoot
 
     /// The managed manifests to make available to the resolver.
-    let dependencyManifests: Workspace.DependencyManifests
+    let dependencyManifests: PackageWorkspace.DependencyManifests
 
     /// The tools version currently in use.
     let currentToolsVersion: ToolsVersion
@@ -52,7 +52,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
 
     init(
         root: PackageGraphRoot,
-        dependencyManifests: Workspace.DependencyManifests,
+        dependencyManifests: PackageWorkspace.DependencyManifests,
         currentToolsVersion: ToolsVersion = ToolsVersion.current,
         allowedLocalPackageIdentities: Set<PackageIdentity>? = nil,
         fallbackProvider: PackageContainerProvider? = nil
@@ -72,7 +72,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
         let canUseLocalContainer = self.allowedLocalPackageIdentities?
             .contains(package.identity) ?? true
         if canUseLocalContainer {
-            // Start by searching manifests from the Workspace's resolved dependencies.
+            // Start by searching manifests from the PackageWorkspace's resolved dependencies.
             if let manifest = self.dependencyManifests.dependencies.first(where: { _, managed, _, _ in managed.packageRef == package }) {
                 let container = LocalPackageContainer(
                     package: package,
@@ -83,7 +83,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
                 return container
             }
 
-            // Continue searching from the Workspace's root manifests.
+            // Continue searching from the PackageWorkspace's root manifests.
             if let rootPackage = self.dependencyManifests.root.packages[package.identity] {
                 let container = LocalPackageContainer(
                     package: package,
@@ -112,7 +112,7 @@ private struct LocalPackageContainer: PackageContainer {
     let package: PackageReference
     let manifest: Manifest
     /// The managed dependency if the package is not a root package.
-    let dependency: Workspace.ManagedDependency?
+    let dependency: PackageWorkspace.ManagedDependency?
     let currentToolsVersion: ToolsVersion
     let shouldInvalidatePinnedVersions = false
 

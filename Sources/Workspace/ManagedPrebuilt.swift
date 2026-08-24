@@ -16,7 +16,7 @@ import struct TSCBasic.StringError
 import Basics
 import PackageModel
 
-extension Workspace {
+extension PackageWorkspace {
     /// A downloaded prebuilt managed by the workspace.
     public struct ManagedPrebuilt {
         /// The package identity
@@ -45,7 +45,7 @@ extension Workspace {
     }
 }
 
-extension Workspace.ManagedPrebuilt: CustomStringConvertible {
+extension PackageWorkspace.ManagedPrebuilt: CustomStringConvertible {
     public var description: String {
         return "<ManagedArtifact: \(self.identity).\(self.libraryName)>"
     }
@@ -53,7 +53,7 @@ extension Workspace.ManagedPrebuilt: CustomStringConvertible {
 
 // MARK: - ManagedArtifacts
 
-extension Workspace {
+extension PackageWorkspace {
     /// A collection of managed artifacts which have been downloaded.
     public final class ManagedPrebuilts {
         /// A mapping from package identity, to target name, to ManagedArtifact.
@@ -91,7 +91,7 @@ extension Workspace {
     }
 }
 
-extension Workspace.ManagedPrebuilts: Collection {
+extension PackageWorkspace.ManagedPrebuilts: Collection {
     public var startIndex: AnyIndex {
         self.prebuilts.startIndex
     }
@@ -100,7 +100,7 @@ extension Workspace.ManagedPrebuilts: Collection {
         self.prebuilts.endIndex
     }
 
-    public subscript(index: AnyIndex) -> Workspace.ManagedPrebuilt {
+    public subscript(index: AnyIndex) -> PackageWorkspace.ManagedPrebuilt {
         self.prebuilts[index]
     }
 
@@ -109,7 +109,7 @@ extension Workspace.ManagedPrebuilts: Collection {
     }
 }
 
-extension Workspace.ManagedPrebuilts: CustomStringConvertible {
+extension PackageWorkspace.ManagedPrebuilts: CustomStringConvertible {
     public var description: String {
         "<ManagedArtifacts: \(Array(self.prebuilts))>"
     }

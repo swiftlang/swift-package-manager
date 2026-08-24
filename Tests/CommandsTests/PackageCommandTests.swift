@@ -4136,10 +4136,10 @@ struct PackageCommandTests {
                 let fs = localFileSystem
                 let packageRoot = fixturePath.appending("Foo")
                 let configOverride = fixturePath.appending("configoverride")
-                let localConfigFile = Workspace.DefaultLocations.mirrorsConfigurationFile(
+                let localConfigFile = PackageWorkspace.DefaultLocations.mirrorsConfigurationFile(
                     forRootPackage: packageRoot
                 )
-                let sharedConfigFile = Workspace.DefaultLocations.mirrorsConfigurationFile(
+                let sharedConfigFile = PackageWorkspace.DefaultLocations.mirrorsConfigurationFile(
                     at: try fs.swiftPMConfigurationDirectory
                 )
 
@@ -4312,7 +4312,7 @@ struct PackageCommandTests {
             try await testWithTemporaryDirectory { fixturePath in
                 let fs = localFileSystem
                 let packageRoot = fixturePath.appending("MyPackage")
-                let configFile = Workspace.DefaultLocations.mirrorsConfigurationFile(
+                let configFile = PackageWorkspace.DefaultLocations.mirrorsConfigurationFile(
                     forRootPackage: packageRoot
                 )
 
@@ -4381,7 +4381,7 @@ struct PackageCommandTests {
             try await testWithTemporaryDirectory { fixturePath in
                 let fs = localFileSystem
                 let packageRoot = fixturePath.appending("MyPackage")
-                let configFile = Workspace.DefaultLocations.mirrorsConfigurationFile(
+                let configFile = PackageWorkspace.DefaultLocations.mirrorsConfigurationFile(
                     forRootPackage: packageRoot
                 )
 
@@ -4447,7 +4447,7 @@ struct PackageCommandTests {
             try await testWithTemporaryDirectory { fixturePath in
                 let fs = localFileSystem
                 let packageRoot = fixturePath.appending("MyPackage")
-                let configFile = Workspace.DefaultLocations.mirrorsConfigurationFile(
+                let configFile = PackageWorkspace.DefaultLocations.mirrorsConfigurationFile(
                     forRootPackage: packageRoot
                 )
 
@@ -8137,7 +8137,7 @@ struct PackageCommandTests {
 
                 // Load a workspace from the package.
                 let observability = ObservabilitySystem.makeForTesting()
-                let workspace = try Workspace(
+                let workspace = try PackageWorkspace(
                     fileSystem: localFileSystem,
                     forRootPackage: packageDir,
                     customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),

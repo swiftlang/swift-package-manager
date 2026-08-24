@@ -543,8 +543,8 @@ public final class PIFBuilder {
             let rootPackagesPaths = rootPackagesSorted.map { $0.path }
             let ids: String = rootPackagesPaths.map { $0.pathString}.joined(separator: ",")
             let names = rootPackagesSorted.map { $0.manifest.displayName }.joined(separator: ",")
-            let workspace = PIF.Workspace(
-                id: "Workspace:\(ids)",
+            let workspace = PIF.PackageWorkspace(
+                id: "PackageWorkspace:\(ids)",
                 name: names,
                 path: try getCommonParentDirectory(paths: rootPackagesPaths),
                 projects: pifProjects

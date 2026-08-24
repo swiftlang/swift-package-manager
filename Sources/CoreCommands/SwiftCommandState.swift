@@ -354,7 +354,7 @@ public final class SwiftCommandState {
     /// It is not initialized in init() because for some of the commands like `package init`, usage etc,
     /// a workspace is not needed. In fact it would be an error to ask for the workspace object
     /// for `package init` because the manifest file should *not* be present.
-    private var _workspace: Workspace?
+    private var _workspace: PackageWorkspace?
     private var _workspaceDelegate: WorkspaceDelegate?
 
     private let observabilityHandler: SwiftCommandObservabilityHandler
@@ -597,7 +597,7 @@ public final class SwiftCommandState {
     }
 
     /// Returns the currently active workspace.
-    public func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false, enableAllTraits: Bool = false) throws -> Workspace {
+    public func getActiveWorkspace(emitDeprecatedConfigurationWarning: Bool = false, enableAllTraits: Bool = false) throws -> PackageWorkspace {
         if var workspace = _workspace {
             // if we decide to override the trait configuration, we can resolve accordingly for
             // calls like createSymbolGraphForPlugin.
@@ -621,7 +621,7 @@ public final class SwiftCommandState {
             self.observabilityHandler.progress,
             self.observabilityHandler.prompt
         )
-        let workspace = try Workspace(
+        let workspace = try PackageWorkspace(
             fileSystem: self.fileSystem,
             location: .init(
                 scratchDirectory: self.scratchDirectory,
@@ -685,7 +685,7 @@ public final class SwiftCommandState {
         // Create manifest loader for manifest cache
         let manifestLoader = ManifestLoader(
             toolchain: try self.getHostToolchain(),
-            cacheDir: Workspace.DefaultLocations.manifestsDirectory(at: self.sharedCacheDirectory),
+            cacheDir: PackageWorkspace.DefaultLocations.manifestsDirectory(at: self.sharedCacheDirectory),
             importRestrictions: nil,
             delegate: nil,
             pruneDependencies: false
@@ -760,7 +760,7 @@ public final class SwiftCommandState {
         if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
             return multiRootPackageDataFile.appending("Packages")
         }
-        return try Workspace.DefaultLocations.editsDirectory(forRootPackage: self.getPackageRoot())
+        return try PackageWorkspace.DefaultLocations.editsDirectory(forRootPackage: self.getPackageRoot())
     }
 
     private func getResolvedVersionsFile() throws -> AbsolutePath {
@@ -769,10 +769,10 @@ public final class SwiftCommandState {
             return multiRootPackageDataFile.appending(
                 components: "xcshareddata",
                 "swiftpm",
-                Workspace.DefaultLocations.resolvedFileName
+                PackageWorkspace.DefaultLocations.resolvedFileName
             )
         }
-        return try Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.getPackageRoot())
+        return try PackageWorkspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.getPackageRoot())
     }
 
     func getLocalConfigurationDirectory() throws -> AbsolutePath {
@@ -781,12 +781,12 @@ public final class SwiftCommandState {
         if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
             // migrate from legacy location
             let legacyPath = multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "config")
-            let newPath = Workspace.DefaultLocations
+            let newPath = PackageWorkspace.DefaultLocations
                 .mirrorsConfigurationFile(
                     at: multiRootPackageDataFile
                         .appending(components: "xcshareddata", "swiftpm", "configuration")
                 )
-            return try Workspace.migrateMirrorsConfiguration(
+            return try PackageWorkspace.migrateMirrorsConfiguration(
                 from: legacyPath,
                 to: newPath,
                 observabilityScope: self.observabilityScope
@@ -794,8 +794,8 @@ public final class SwiftCommandState {
         } else {
             // migrate from legacy location
             let legacyPath = try self.getPackageRoot().appending(components: ".swiftpm", "config")
-            let newPath = try Workspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: self.getPackageRoot())
-            return try Workspace.migrateMirrorsConfiguration(
+            let newPath = try PackageWorkspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: self.getPackageRoot())
+            return try PackageWorkspace.migrateMirrorsConfiguration(
                 from: legacyPath,
                 to: newPath,
                 observabilityScope: self.observabilityScope
@@ -804,7 +804,7 @@ public final class SwiftCommandState {
     }
 
     public func getAuthorizationProvider() throws -> AuthorizationProvider? {
-        var authorization = Workspace.Configuration.Authorization.default
+        var authorization = PackageWorkspace.Configuration.Authorization.default
         if !self.options.security.netrc {
             authorization.netrc = .disabled
         } else if let configuredPath = options.security.netrcFilePath {
@@ -826,7 +826,7 @@ public final class SwiftCommandState {
     public func getRegistryAuthorizationProvider(
         additionalRegistryURLs: [URL] = []
     ) throws -> AuthorizationProvider? {
-        var authorization = Workspace.Configuration.Authorization.default
+        var authorization = PackageWorkspace.Configuration.Authorization.default
         if let configuredPath = options.security.netrcFilePath {
             authorization.netrc = .custom(configuredPath)
         } else {
@@ -1275,7 +1275,7 @@ public final class SwiftCommandState {
         case (false, .local):
             self.scratchDirectory
         case (false, .shared):
-            Workspace.DefaultLocations.manifestsDirectory(at: self.sharedCacheDirectory)
+            PackageWorkspace.DefaultLocations.manifestsDirectory(at: self.sharedCacheDirectory)
         }
 
         var extraManifestFlags = self.options.build.manifestFlags
@@ -1489,7 +1489,7 @@ extension SwiftCommandState {
     }
 }
 
-extension Workspace.ManagedDependency {
+extension PackageWorkspace.ManagedDependency {
     fileprivate var isEdited: Bool {
         if case .edited = self.state { return true }
         return false

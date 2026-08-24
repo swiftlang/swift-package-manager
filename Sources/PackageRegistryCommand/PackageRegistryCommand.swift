@@ -144,12 +144,12 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
         case credentialLengthLimitExceeded(Int)
     }
 
-    static func getRegistriesConfig(_ swiftCommandState: SwiftCommandState, global: Bool) throws -> Workspace.Configuration.Registries {
+    static func getRegistriesConfig(_ swiftCommandState: SwiftCommandState, global: Bool) throws -> PackageWorkspace.Configuration.Registries {
         if global {
-            let sharedRegistriesFile = Workspace.DefaultLocations.registriesConfigurationFile(
+            let sharedRegistriesFile = PackageWorkspace.DefaultLocations.registriesConfigurationFile(
                 at: swiftCommandState.sharedConfigurationDirectory
             )
-            // Workspace not needed when working with user-level registries config
+            // PackageWorkspace not needed when working with user-level registries config
             return try .init(
                 fileSystem: swiftCommandState.fileSystem,
                 localRegistriesFile: .none,

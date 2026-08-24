@@ -102,7 +102,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
     private let connectionToUnderlyingBuildServer: LocalConnection
     private let packageRoot: Basics.AbsolutePath
     private let buildSystem: SwiftBuildSystem
-    private let workspace: Workspace
+    private let workspace: PackageWorkspace
     private let defaultScratchDirectory: Basics.AbsolutePath
 
     public let messageHandlingHelper = QueueBasedMessageHandlerHelper(
@@ -152,12 +152,12 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
     /// Allows customization of server exit behavior.
     var exitHandler: (Int) -> Void
 
-    public init(packageRoot: Basics.AbsolutePath, buildSystem: SwiftBuildSystem, workspace: Workspace, connectionToClient: any Connection, exitHandler: @escaping (Int) -> Void) async throws {
+    public init(packageRoot: Basics.AbsolutePath, buildSystem: SwiftBuildSystem, workspace: PackageWorkspace, connectionToClient: any Connection, exitHandler: @escaping (Int) -> Void) async throws {
         self.packageRoot = packageRoot
         self.buildSystem = buildSystem
         self.workspace = workspace
         self.pifGenerationInputs = PIFGenerationInputs.fallbackInputs(packageRoot: packageRoot)
-        self.defaultScratchDirectory = Workspace.DefaultLocations.scratchDirectory(forRootPackage: packageRoot)
+        self.defaultScratchDirectory = PackageWorkspace.DefaultLocations.scratchDirectory(forRootPackage: packageRoot)
         self.connectionToClient = connectionToClient
         self.exitHandler = exitHandler
         let session = try await buildSystem.createLongLivedSession(name: "swiftpm-build-server")

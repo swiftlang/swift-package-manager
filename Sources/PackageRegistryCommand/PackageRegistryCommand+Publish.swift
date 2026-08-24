@@ -121,7 +121,7 @@ extension PackageRegistryCommand {
                 }
             }
 
-            let workingDirectory = self.customWorkingDirectory ?? Workspace.DefaultLocations
+            let workingDirectory = self.customWorkingDirectory ?? PackageWorkspace.DefaultLocations
                 .scratchDirectory(forRootPackage: packageDirectory).appending(components: ["registry", "publish"])
             if localFileSystem.exists(workingDirectory) {
                 try localFileSystem.removeFileTree(workingDirectory)

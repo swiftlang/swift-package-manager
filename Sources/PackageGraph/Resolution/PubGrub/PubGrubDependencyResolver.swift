@@ -271,7 +271,7 @@ public struct PubGrubDependencyResolver {
 
             // Empty during `swift package update` (pins cleared to force
             // re-resolution) or fresh checkout (no Package.resolved yet).
-            // Fall back to packages the Workspace read from disk.
+            // Fall back to packages the PackageWorkspace read from disk.
             if prefetchSet.isEmpty {
                 prefetchSet = self.prefetchPackages
                     .filter { !inputs.overriddenPackages.keys.contains($0) }

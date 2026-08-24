@@ -43,7 +43,7 @@ fileprivate struct MirrorsConfigurationTests {
             """
         )
 
-        let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
+        let config = PackageWorkspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
         let mirrors = try config.get()
 
         #expect(mirrors.mirror(for: originalURL) == mirrorURL)
@@ -56,7 +56,7 @@ fileprivate struct MirrorsConfigurationTests {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/config/mirrors.json")
 
-        let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
+        let config = PackageWorkspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
         let mirrors = try config.get()
 
         #expect(throws: StringError("Mirror not found for '\(gitUrl)'")) {
@@ -69,7 +69,7 @@ fileprivate struct MirrorsConfigurationTests {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/config/mirrors.json")
 
-        let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
+        let config = PackageWorkspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
 
         try config.apply{ _ in }
         #expect(!fs.exists(configFile))
@@ -93,7 +93,7 @@ fileprivate struct MirrorsConfigurationTests {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/config/mirrors.json")
 
-        let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: false)
+        let config = PackageWorkspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: false)
 
         try config.apply{ _ in }
         #expect(!fs.exists(configFile))
@@ -118,7 +118,7 @@ fileprivate struct MirrorsConfigurationTests {
         let fs = InMemoryFileSystem()
 
         #expect(throws: StringError("No mirrors configuration provided")) {
-            try Workspace.Configuration.Mirrors(
+            try PackageWorkspace.Configuration.Mirrors(
                 fileSystem: fs,
                 localMirrorsFile: nil,
                 sharedMirrorsFile: nil
@@ -132,7 +132,7 @@ fileprivate struct MirrorsConfigurationTests {
         let localConfigFile = AbsolutePath("/config/local-mirrors.json")
         let sharedConfigFile = AbsolutePath("/config/shared-mirrors.json")
 
-        let config = try Workspace.Configuration.Mirrors(
+        let config = try PackageWorkspace.Configuration.Mirrors(
             fileSystem: fs,
             localMirrorsFile: localConfigFile,
             sharedMirrorsFile: sharedConfigFile
@@ -174,7 +174,7 @@ fileprivate struct MirrorsConfigurationTests {
         let fs = InMemoryFileSystem()
         let sharedConfigFile = AbsolutePath("/config/shared-mirrors.json")
 
-        let config = try Workspace.Configuration.Mirrors(
+        let config = try PackageWorkspace.Configuration.Mirrors(
             fileSystem: fs,
             localMirrorsFile: nil,
             sharedMirrorsFile: sharedConfigFile
@@ -212,7 +212,7 @@ fileprivate struct MirrorsConfigurationTests {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/config/mirrors.json")
 
-        let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
+        let config = PackageWorkspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
 
         // Add multiple mirrors in a specific order
         let mirrorsToAdd = [
@@ -254,7 +254,7 @@ fileprivate struct MirrorsConfigurationTests {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/config/mirrors.json")
 
-        let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
+        let config = PackageWorkspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
 
         let mirrorsToAdd = [
             ("https://github.com/third/package.git", "https://mirror3.com/third/package.git"),
@@ -298,8 +298,8 @@ fileprivate struct MirrorsConfigurationTests {
         let configFile1 = AbsolutePath("/config/mirrors1.json")
         let configFile2 = AbsolutePath("/config/mirrors2.json")
 
-        let config1 = Workspace.Configuration.MirrorsStorage(path: configFile1, fileSystem: fs1, deleteWhenEmpty: true)
-        let config2 = Workspace.Configuration.MirrorsStorage(path: configFile2, fileSystem: fs2, deleteWhenEmpty: true)
+        let config1 = PackageWorkspace.Configuration.MirrorsStorage(path: configFile1, fileSystem: fs1, deleteWhenEmpty: true)
+        let config2 = PackageWorkspace.Configuration.MirrorsStorage(path: configFile2, fileSystem: fs2, deleteWhenEmpty: true)
 
         // Identical mirror configurations
         let mirrors = [
@@ -332,7 +332,7 @@ fileprivate struct MirrorsConfigurationTests {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/config/mirrors.json")
 
-        let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
+        let config = PackageWorkspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
 
         // First, add initial mirrors
         let initialMirrors = [
@@ -404,7 +404,7 @@ fileprivate struct MirrorsConfigurationTests {
         let configFile = AbsolutePath("/config/edge-cases-mirrors.json")
         let fs = InMemoryFileSystem()
 
-        let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: false)
+        let config = PackageWorkspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: false)
 
         // Test empty configuration - need to add at least one mirror first to create the file
         try config.apply { mirrors in
@@ -441,7 +441,7 @@ fileprivate struct MirrorsConfigurationTests {
         let fs = InMemoryFileSystem()
         let configFile = AbsolutePath("/config/mirrors.json")
 
-        let config = Workspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
+        let config = PackageWorkspace.Configuration.MirrorsStorage(path: configFile, fileSystem: fs, deleteWhenEmpty: true)
 
         // Add mirrors in non-alphabetical order
         let mirrors = [

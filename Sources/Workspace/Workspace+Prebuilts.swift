@@ -45,7 +45,7 @@ public protocol PrebuiltsManagerDelegate {
     func didDownloadAllPrebuilts()
 }
 
-extension Workspace {
+extension PackageWorkspace {
     public struct PrebuiltsManifest: Codable {
         public var libraries: [Library]
 
@@ -220,7 +220,7 @@ extension Workspace {
             return prebuilts
         }
 
-        func prebuiltName(workspace: Workspace) throws -> String {
+        func prebuiltName(workspace: PackageWorkspace) throws -> String {
             if let customSwiftCompilerVersion {
                 return "\(customSwiftCompilerVersion)"
             } else {
@@ -230,7 +230,7 @@ extension Workspace {
         }
 
         func downloadManifest(
-            workspace: Workspace,
+            workspace: PackageWorkspace,
             package: PrebuiltPackage,
             version: Version,
             observabilityScope: ObservabilityScope
@@ -374,7 +374,7 @@ extension Workspace {
         }
 
         func downloadPrebuilt(
-            workspace: Workspace,
+            workspace: PackageWorkspace,
             package: PrebuiltPackage,
             version: Version,
             library: PrebuiltsManifest.Library,
@@ -535,7 +535,7 @@ extension Workspace {
     }
 }
 
-extension Workspace {
+extension PackageWorkspace {
     func updatePrebuilts(
         manifests: DependencyManifests,
         addedOrUpdatedPackages: [PackageReference],

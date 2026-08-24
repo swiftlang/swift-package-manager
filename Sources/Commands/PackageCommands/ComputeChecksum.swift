@@ -30,7 +30,7 @@ struct ComputeChecksum: SwiftCommand {
     var path: AbsolutePath
 
     func run(_ swiftCommandState: SwiftCommandState) throws {
-        let checksum = try Workspace.BinaryArtifactsManager.checksum(
+        let checksum = try PackageWorkspace.BinaryArtifactsManager.checksum(
             forBinaryArtifactAt: self.path,
             fileSystem: swiftCommandState.fileSystem
         )

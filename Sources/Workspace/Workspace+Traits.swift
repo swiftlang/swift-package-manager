@@ -21,16 +21,16 @@ import enum PackageModel.TraitError
 import class Basics.ObservabilityScope
 import Basics
 
-extension Workspace {
+extension PackageWorkspace {
     /// Given a loaded `Manifest`, determine the traits that are enabled for it and
     /// calculate whichever traits are enabled transitively from this, if possible, and update the
-    /// map of enabled traits on `Workspace` (`Workspace.enabledTraitsMap`).
+    /// map of enabled traits on `PackageWorkspace` (`PackageWorkspace.enabledTraitsMap`).
     ///
     /// If the package defines a dependency with an explicit set of enabled traits, it will also
     /// add them to the enabled traits map.
     public func updateEnabledTraits(for manifest: Manifest, observabilityScope: ObservabilityScope) async throws {
         // If the `Manifest` is a root, then we should default to using
-        // the trait configuration set in the `Workspace`. Otherwise,
+        // the trait configuration set in the `PackageWorkspace`. Otherwise,
         // check the enabled traits map to see if there are traits
         // that have already been recorded as enabled.
         let explicitlyEnabledTraits = manifest.packageKind.isRoot ?
@@ -190,7 +190,7 @@ extension Workspace {
     }
 }
 
-extension Workspace {
+extension PackageWorkspace {
     internal func validateUpdatedTraits(
         manifests: DependencyManifests,
         addedOrUpdatedPackages: [PackageReference],

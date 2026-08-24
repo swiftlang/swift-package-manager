@@ -43,7 +43,7 @@ public enum WorkspaceResolveReason: Equatable {
     /// The requirement of a dependency has changed.
     case packageRequirementChange(
         package: PackageReference,
-        state: Workspace.ManagedDependency.State?,
+        state: PackageWorkspace.ManagedDependency.State?,
         requirement: PackageRequirement
     )
 
@@ -74,7 +74,7 @@ public struct PackageFetchDetails {
 /// manager to maintain working package directories.
 ///
 /// This class does *not* support concurrent operations.
-public class Workspace {
+public class PackageWorkspace {
     public typealias Delegate = WorkspaceDelegate
 
     /// The delegate interface.
@@ -161,7 +161,7 @@ public class Workspace {
     /// The workspace configuration settings
     let configuration: WorkspaceConfiguration
 
-    /// The trait configuration as described in the Workspace's configuration.
+    /// The trait configuration as described in the PackageWorkspace's configuration.
     public var traitConfiguration: TraitConfiguration {
         configuration.traitConfiguration
     }
@@ -184,7 +184,7 @@ public class Workspace {
     ///
     /// - Parameters:
     ///   - fileSystem: The file system to use.
-    ///   - location: Workspace location configuration.
+    ///   - location: PackageWorkspace location configuration.
     ///   - authorizationProvider: Provider of authentication information for outbound network requests.
     ///   - registryAuthorizationProvider: Provider of authentication information for registry requests.
     ///   - configuration: Configuration to fine tune the dependency resolution behavior.
@@ -392,7 +392,7 @@ public class Workspace {
         customChecksumAlgorithm: HashAlgorithm? = .none,
         // delegate
         delegate: Delegate? = .none
-    ) throws -> Workspace {
+    ) throws -> PackageWorkspace {
         try .init(
             fileSystem: fileSystem,
             environment: environment,
@@ -486,7 +486,7 @@ public class Workspace {
 
         let configuration = configuration ?? .default
 
-        let mirrors = try customMirrors ?? Workspace.Configuration.Mirrors(
+        let mirrors = try customMirrors ?? PackageWorkspace.Configuration.Mirrors(
             fileSystem: fileSystem,
             localMirrorsFile: location.localMirrorsConfigurationFile,
             sharedMirrorsFile: location.sharedMirrorsConfigurationFile
@@ -525,7 +525,7 @@ public class Workspace {
             )
         }
 
-        let registriesConfiguration = try customRegistriesConfiguration ?? Workspace.Configuration.Registries(
+        let registriesConfiguration = try customRegistriesConfiguration ?? PackageWorkspace.Configuration.Registries(
             fileSystem: fileSystem,
             localRegistriesFile: location.localRegistriesConfigurationFile,
             sharedRegistriesFile: location.sharedRegistriesConfigurationFile
@@ -719,7 +719,7 @@ public class Workspace {
 
 // MARK: - Public API
 
-extension Workspace {
+extension PackageWorkspace {
     /// Puts a dependency in edit mode creating a checkout in editables directory.
     ///
     /// - Parameters:
@@ -984,7 +984,7 @@ extension Workspace {
         packages: [String] = [],
         dryRun: Bool = false,
         observabilityScope: ObservabilityScope
-    ) async throws -> [(PackageReference, Workspace.PackageStateChange)]? {
+    ) async throws -> [(PackageReference, PackageWorkspace.PackageStateChange)]? {
         try await self._updateDependencies(
             root: root,
             packages: packages,
@@ -1384,7 +1384,7 @@ extension Workspace {
     }
 }
 
-extension Workspace {
+extension PackageWorkspace {
     /// Removes the clone and checkout of the provided specifier.
     ///
     /// - Parameters:
@@ -1414,7 +1414,7 @@ extension Workspace {
         if case .edited(let _basedOn, let unmanagedPath) = dependency.state, let basedOn = _basedOn {
             // Remove the underlying dependency for edited packages.
             dependencyToRemove = basedOn
-            let updatedDependency = Workspace.ManagedDependency.edited(
+            let updatedDependency = PackageWorkspace.ManagedDependency.edited(
                 packageRef: dependency.packageRef,
                 subpath: dependency.subpath,
                 basedOn: .none,
@@ -1445,15 +1445,15 @@ extension Workspace {
 
 // MARK: - Utility extensions
 
-extension Workspace {
+extension PackageWorkspace {
     /// Creates and returns a copy of the current workspace with an updated configuration using the passed parameters.
     /// - Parameters:
     /// - traitConfiguration: A configuration of traits that will override the existing trait configuration in the WorkspaceConfiguration.
-    public func updateConfiguration(with traitConfiguration: TraitConfiguration) -> Workspace {
+    public func updateConfiguration(with traitConfiguration: TraitConfiguration) -> PackageWorkspace {
         var newConfig = self.configuration
         newConfig.traitConfiguration = traitConfiguration
-        
-        return Workspace(
+
+        return PackageWorkspace(
             fileSystem: self.fileSystem,
             configuration: newConfig,
             location: self.location,
@@ -1478,7 +1478,7 @@ extension Workspace {
     }
 }
 
-extension Workspace.ManagedArtifact {
+extension PackageWorkspace.ManagedArtifact {
     fileprivate var originURL: String? {
         switch self.source {
         case .remote(let url, _):
@@ -1516,7 +1516,7 @@ extension PackageDependency {
     }
 }
 
-extension Workspace {
+extension PackageWorkspace {
     public static func format(workspaceResolveReason reason: WorkspaceResolveReason) -> String {
         guard reason != .errorsPreviouslyReported else {
             return ""
@@ -1577,24 +1577,24 @@ extension Workspace {
     }
 }
 
-extension Workspace.Location {
+extension PackageWorkspace.Location {
     /// Returns the path to the dependency's repository checkout directory.
-    func repositoriesCheckoutSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
+    func repositoriesCheckoutSubdirectory(for dependency: PackageWorkspace.ManagedDependency) -> AbsolutePath {
         self.repositoriesCheckoutsDirectory.appending(dependency.subpath)
     }
 
     /// Returns the path to the  dependency's download directory.
-    func registryDownloadSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
+    func registryDownloadSubdirectory(for dependency: PackageWorkspace.ManagedDependency) -> AbsolutePath {
         self.registryDownloadDirectory.appending(dependency.subpath)
     }
 
     /// Returns the path to the dependency's edit directory.
-    func editSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
+    func editSubdirectory(for dependency: PackageWorkspace.ManagedDependency) -> AbsolutePath {
         self.editsDirectory.appending(dependency.subpath)
     }
 }
 
-extension Workspace.Location {
+extension PackageWorkspace.Location {
     func validatingSharedLocations(
         fileSystem: FileSystem,
         warningHandler: @escaping (String) -> Void
@@ -1637,7 +1637,7 @@ extension Workspace.Location {
     }
 
     mutating func validate(
-        keyPath: WritableKeyPath<Workspace.Location, AbsolutePath?>,
+        keyPath: WritableKeyPath<PackageWorkspace.Location, AbsolutePath?>,
         fileSystem: FileSystem,
         getOrCreateHandler: () throws -> AbsolutePath,
         warningHandler: @escaping (String) -> Void
@@ -1684,3 +1684,8 @@ extension ContainerUpdateStrategy {
         }
     }
 }
+
+/// Deprecated typealias for backward compatibility.
+/// Use `PackageWorkspace` in new code.
+@available(*, deprecated, renamed: "PackageWorkspace")
+public typealias Workspace = PackageWorkspace

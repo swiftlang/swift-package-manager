@@ -163,13 +163,13 @@ final class WorkspaceTests: XCTestCase {
             let foo = path.appending("foo")
             let packageManifest = foo.appending("Package.swift")
 
-            func createWorkspace(_ content: String) throws -> Workspace {
+            func createWorkspace(_ content: String) throws -> PackageWorkspace {
                 try fs.writeFileContents(packageManifest, string: content)
 
                 let manifestLoader = try ManifestLoader(toolchain: UserToolchain.default)
 
                 let sandbox = path.appending("ws")
-                return try Workspace(
+                return try PackageWorkspace(
                     fileSystem: fs,
                     forRootPackage: sandbox,
                     customManifestLoader: manifestLoader,
@@ -346,7 +346,7 @@ final class WorkspaceTests: XCTestCase {
                 )
                 """
             )
-            let workspace = try Workspace(
+            let workspace = try PackageWorkspace(
                 fileSystem: localFileSystem,
                 forRootPackage: pkgDir,
                 customManifestLoader: ManifestLoader(toolchain: UserToolchain.default),
@@ -1726,10 +1726,10 @@ final class WorkspaceTests: XCTestCase {
         try await workspace.checkUpdateDryRun(roots: ["Root"]) { changes, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION
-            let stateChange = Workspace.PackageStateChange
+            let stateChange = PackageWorkspace.PackageStateChange
                 .updated(.init(requirement: .version(Version("1.5.0")), products: .specific(["Foo"])))
             #else
-            let stateChange = Workspace.PackageStateChange
+            let stateChange = PackageWorkspace.PackageStateChange
                 .updated(.init(requirement: .version(Version("1.5.0")), products: .everything))
             #endif
 
@@ -4330,7 +4330,7 @@ final class WorkspaceTests: XCTestCase {
                 // check resolution mode
                 testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
                     result.checkUnordered(
-                        diagnostic: "resolving and updating '\(Workspace.DefaultLocations.resolvedFileName)'",
+                        diagnostic: "resolving and updating '\(PackageWorkspace.DefaultLocations.resolvedFileName)'",
                         severity: .debug
                     )
                 }
@@ -4360,7 +4360,7 @@ final class WorkspaceTests: XCTestCase {
                 // check resolution mode
                 testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
                     result.checkUnordered(
-                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash matches manifest dependencies, attempting resolution based on this file",
+                        diagnostic: "'\(PackageWorkspace.DefaultLocations.resolvedFileName)' origin hash matches manifest dependencies, attempting resolution based on this file",
                         severity: .debug
                     )
                 }
@@ -4386,11 +4386,11 @@ final class WorkspaceTests: XCTestCase {
                 // check resolution mode
                 testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
                     result.checkUnordered(
-                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash does do not match manifest dependencies. resolving and updating accordingly",
+                        diagnostic: "'\(PackageWorkspace.DefaultLocations.resolvedFileName)' origin hash does do not match manifest dependencies. resolving and updating accordingly",
                         severity: .debug
                     )
                     result.checkUnordered(
-                        diagnostic: "resolving and updating '\(Workspace.DefaultLocations.resolvedFileName)'",
+                        diagnostic: "resolving and updating '\(PackageWorkspace.DefaultLocations.resolvedFileName)'",
                         severity: .debug
                     )
                 }
@@ -4411,7 +4411,7 @@ final class WorkspaceTests: XCTestCase {
                 // check resolution mode
                 testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
                     result.checkUnordered(
-                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash matches manifest dependencies, attempting resolution based on this file",
+                        diagnostic: "'\(PackageWorkspace.DefaultLocations.resolvedFileName)' origin hash matches manifest dependencies, attempting resolution based on this file",
                         severity: .debug
                     )
                 }
@@ -4436,11 +4436,11 @@ final class WorkspaceTests: XCTestCase {
                 // check resolution mode
                 testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
                     result.checkUnordered(
-                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash does do not match manifest dependencies. resolving and updating accordingly",
+                        diagnostic: "'\(PackageWorkspace.DefaultLocations.resolvedFileName)' origin hash does do not match manifest dependencies. resolving and updating accordingly",
                         severity: .debug
                     )
                     result.checkUnordered(
-                        diagnostic: "resolving and updating '\(Workspace.DefaultLocations.resolvedFileName)'",
+                        diagnostic: "resolving and updating '\(PackageWorkspace.DefaultLocations.resolvedFileName)'",
                         severity: .debug
                     )
                 }
@@ -4459,11 +4459,11 @@ final class WorkspaceTests: XCTestCase {
                 // check resolution mode
                 testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
                     result.checkUnordered(
-                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash does do not match manifest dependencies. resolving and updating accordingly",
+                        diagnostic: "'\(PackageWorkspace.DefaultLocations.resolvedFileName)' origin hash does do not match manifest dependencies. resolving and updating accordingly",
                         severity: .debug
                     )
                     result.checkUnordered(
-                        diagnostic: "resolving and updating '\(Workspace.DefaultLocations.resolvedFileName)'",
+                        diagnostic: "resolving and updating '\(PackageWorkspace.DefaultLocations.resolvedFileName)'",
                         severity: .debug
                     )
                 }
@@ -4482,7 +4482,7 @@ final class WorkspaceTests: XCTestCase {
                 // check resolution mode
                 testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
                     result.checkUnordered(
-                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash matches manifest dependencies, attempting resolution based on this file",
+                        diagnostic: "'\(PackageWorkspace.DefaultLocations.resolvedFileName)' origin hash matches manifest dependencies, attempting resolution based on this file",
                         severity: .debug
                     )
                 }
@@ -4503,7 +4503,7 @@ final class WorkspaceTests: XCTestCase {
                 // check resolution mode
                 testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
                     result.checkUnordered(
-                        diagnostic: "resolving and updating '\(Workspace.DefaultLocations.resolvedFileName)'",
+                        diagnostic: "resolving and updating '\(PackageWorkspace.DefaultLocations.resolvedFileName)'",
                         severity: .debug
                     )
                 }
@@ -5516,7 +5516,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: .prefix(
-                        "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: sandbox)). Running resolver because the following dependencies were added:"
+                        "a resolved file is required when automatic dependency resolution is disabled and should be placed at \(PackageWorkspace.DefaultLocations.resolvedVersionsFile(forRootPackage: sandbox)). Running resolver because the following dependencies were added:"
                     ),
                     severity: .error
                 )
@@ -5753,7 +5753,7 @@ final class WorkspaceTests: XCTestCase {
 
             // Load the workspace.
             let observability = ObservabilitySystem.makeForTesting()
-            let workspace = try Workspace(
+            let workspace = try PackageWorkspace(
                 forRootPackage: packagePath,
                 customHostToolchain: UserToolchain.default
             )
@@ -8479,7 +8479,7 @@ final class WorkspaceTests: XCTestCase {
         try fs.createDirectory(sandbox, recursive: true)
 
         let checksumAlgorithm = MockHashAlgorithm()
-        let binaryArtifactsManager = try Workspace.BinaryArtifactsManager(
+        let binaryArtifactsManager = try PackageWorkspace.BinaryArtifactsManager(
             fileSystem: fs,
             authorizationProvider: .none,
             hostToolchain: UserToolchain.mockHostToolchain(fs),
@@ -13783,7 +13783,7 @@ final class WorkspaceTests: XCTestCase {
 
             let manifestLoader = try ManifestLoader(toolchain: UserToolchain.default)
             let sandbox = path.appending("ws")
-            let workspace = try Workspace(
+            let workspace = try PackageWorkspace(
                 fileSystem: fs,
                 forRootPackage: sandbox,
                 customManifestLoader: manifestLoader,
@@ -13857,7 +13857,7 @@ final class WorkspaceTests: XCTestCase {
         do {
             // no error
             let delegate = MockWorkspaceDelegate()
-            let workspace = try Workspace(
+            let workspace = try PackageWorkspace(
                 fileSystem: fs,
                 environment: .mockEnvironment,
                 forRootPackage: .root,
@@ -13875,7 +13875,7 @@ final class WorkspaceTests: XCTestCase {
         do {
             // actual error
             let delegate = MockWorkspaceDelegate()
-            let workspace = try Workspace(
+            let workspace = try PackageWorkspace(
                 fileSystem: fs,
                 environment: .mockEnvironment,
                 forRootPackage: .root,
@@ -14670,7 +14670,7 @@ final class WorkspaceTests: XCTestCase {
 
         // Write a registries.json containing replaceScmWithRegistry: true into the
         // local configuration directory the workspace will read on init.
-        let registriesFile = Workspace.DefaultLocations.registriesConfigurationFile(forRootPackage: sandbox)
+        let registriesFile = PackageWorkspace.DefaultLocations.registriesConfigurationFile(forRootPackage: sandbox)
         try fs.createDirectory(registriesFile.parentDirectory, recursive: true)
         try fs.writeFileContents(registriesFile, string: #"""
         {
@@ -16846,7 +16846,7 @@ final class WorkspaceTests: XCTestCase {
 
         // for mock manifest loader to work with an actual registry download
         // we populate the mock manifest with a pointer to the correct download location
-        let defaultLocations = try Workspace.Location(forRootPackage: sandbox, fileSystem: fs)
+        let defaultLocations = try PackageWorkspace.Location(forRootPackage: sandbox, fileSystem: fs)
         let packagePath = defaultLocations.registryDownloadDirectory.appending(components: ["org", "foo", "1.5.1"])
         workspace.manifestLoader.manifests[.init(url: "org.foo", version: "1.5.1")] =
             try Manifest.createManifest(
@@ -17078,7 +17078,7 @@ final class WorkspaceTests: XCTestCase {
                 PackageIdentity.plain("org.bar"): expectedSigningEntity,
             ]) { _, _ in }
             XCTFail("should not succeed")
-        } catch Workspace.SigningError.mismatchedSigningEntity(_, let expected, let actual) {
+        } catch PackageWorkspace.SigningError.mismatchedSigningEntity(_, let expected, let actual) {
             XCTAssertEqual(actual, actualMetadata.signature?.signedBy)
             XCTAssertEqual(expected, expectedSigningEntity)
         } catch {
@@ -17101,7 +17101,7 @@ final class WorkspaceTests: XCTestCase {
                 PackageIdentity.plain("org.bar"): expectedSigningEntity,
             ]) { _, _ in }
             XCTFail("should not succeed")
-        } catch Workspace.SigningError.unsigned(_, let expected) {
+        } catch PackageWorkspace.SigningError.unsigned(_, let expected) {
             XCTAssertEqual(expected, expectedSigningEntity)
         } catch {
             XCTFail("unexpected error: \(error)")
@@ -17123,7 +17123,7 @@ final class WorkspaceTests: XCTestCase {
                 PackageIdentity.plain("foo.bar"): expectedSigningEntity,
             ]) { _, _ in }
             XCTFail("should not succeed")
-        } catch Workspace.SigningError.expectedIdentityNotFound(let package) {
+        } catch PackageWorkspace.SigningError.expectedIdentityNotFound(let package) {
             XCTAssertEqual(package.description, "foo.bar")
         } catch {
             XCTFail("unexpected error: \(error)")
@@ -17188,7 +17188,7 @@ final class WorkspaceTests: XCTestCase {
                 PackageIdentity.plain("org.bar"): expectedSigningEntity,
             ]) { _, _ in }
             XCTFail("should not succeed")
-        } catch Workspace.SigningError.mismatchedSigningEntity(_, let expected, let actual) {
+        } catch PackageWorkspace.SigningError.mismatchedSigningEntity(_, let expected, let actual) {
             XCTAssertEqual(actual, actualMetadata.signature?.signedBy)
             XCTAssertEqual(expected, expectedSigningEntity)
         } catch {
@@ -17214,7 +17214,7 @@ final class WorkspaceTests: XCTestCase {
                 PackageIdentity.plain("org.bar"): expectedSigningEntity,
             ]) { _, _ in }
             XCTFail("should not succeed")
-        } catch Workspace.SigningError.unsigned(_, let expected) {
+        } catch PackageWorkspace.SigningError.unsigned(_, let expected) {
             XCTAssertEqual(expected, expectedSigningEntity)
         } catch {
             XCTFail("unexpected error: \(error)")
@@ -17239,7 +17239,7 @@ final class WorkspaceTests: XCTestCase {
                 PackageIdentity.plain("org.bar"): expectedSigningEntity,
             ]) { _, _ in }
             XCTFail("should not succeed")
-        } catch Workspace.SigningError.expectedSignedMirroredToSourceControl(_, let expected) {
+        } catch PackageWorkspace.SigningError.expectedSignedMirroredToSourceControl(_, let expected) {
             XCTAssertEqual(expected, expectedSigningEntity)
         } catch {
             XCTFail("unexpected error: \(error)")

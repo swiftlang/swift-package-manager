@@ -82,7 +82,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private var knownVersionsCache = AsyncThrowingValueMemoizer<[Version: String]>()
     private var manifestsCache = ThrowingAsyncKeyValueMemoizer<String, Manifest>()
     private var toolsVersionsCache = ThrowingAsyncKeyValueMemoizer<Version, ToolsVersion>()
-    private var identityLookupCache: Workspace.IdentityLookupCache
+    private var identityLookupCache: PackageWorkspace.IdentityLookupCache
 
     /// This is used to remember if tools version of a particular version is
     /// valid or not.
@@ -101,7 +101,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         fingerprintStorage: PackageFingerprintStorage?,
         fingerprintCheckingMode: FingerprintCheckingMode,
         observabilityScope: ObservabilityScope,
-        identityLookupCache: Workspace.IdentityLookupCache
+        identityLookupCache: PackageWorkspace.IdentityLookupCache
     ) throws {
         self.package = package
         self.identityResolver = identityResolver

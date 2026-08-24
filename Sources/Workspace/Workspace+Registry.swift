@@ -35,7 +35,7 @@ import struct TSCUtility.Version
 // Need to import the whole module to get access to `+` operator on `DispatchTimeInterval`
 import Dispatch
 
-extension Workspace {
+extension PackageWorkspace {
     // the goal of this code is to help align dependency identities across source control and registry origins
     // the issue this solves is that dependencies will have different identities across the origins
     // for example, source control based dependency on http://github.com/apple/swift-nio would have an identifier of
@@ -57,13 +57,13 @@ extension Workspace {
         private let underlying: ManifestLoaderProtocol
         private let registryClient: RegistryClient
         private let transformationMode: TransformationMode
-        private let identityLookupCache: Workspace.IdentityLookupCache
+        private let identityLookupCache: PackageWorkspace.IdentityLookupCache
 
         init(
             underlying: ManifestLoaderProtocol,
             registryClient: RegistryClient,
             transformationMode: TransformationMode,
-            identityLookupCache: Workspace.IdentityLookupCache
+            identityLookupCache: PackageWorkspace.IdentityLookupCache
         ) {
             self.underlying = underlying
             self.registryClient = registryClient
@@ -392,7 +392,7 @@ extension PackageDependency.SourceControl.Requirement {
 
 // MARK: - Registry Source archive management
 
-extension Workspace {
+extension PackageWorkspace {
     func downloadRegistryArchive(
         package: PackageReference,
         at version: Version,
@@ -453,7 +453,7 @@ extension Workspace {
     }
 }
 
-extension Workspace {
+extension PackageWorkspace {
     public class IdentityLookupCache {
         public typealias Key = SourceControlURL
         public typealias Value = CacheResult
@@ -501,7 +501,7 @@ extension Workspace {
         }
 
         /// Derives an identity lookup cache from the Package.resolved file if applicable.
-        /// Asserts against the transformation mode set in the Workspace to determine how to store
+        /// Asserts against the transformation mode set in the PackageWorkspace to determine how to store
         /// source control packages and their identity mappings.
         public func deriveCache(
             from resolvedPackages: ResolvedPackagesStore.ResolvedPackages,

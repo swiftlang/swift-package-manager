@@ -18,7 +18,7 @@ import struct PackageModel.PackageReference
 import struct PackageModel.ToolsVersion
 import struct TSCUtility.Version
 
-extension Workspace {
+extension PackageWorkspace {
     /// Saves all of the current managed dependencies at their checkout state in `Package.resolved` file.
     func saveResolvedFile(
         resolvedPackagesStore: ResolvedPackagesStore,
@@ -115,7 +115,7 @@ extension ResolvedPackagesStore {
     /// Add a managed dependency at its checkout state as resolved.
     ///
     /// This method does nothing if the dependency is in edited state.
-    func add(_ dependency: Workspace.ManagedDependency) {
+    func add(_ dependency: PackageWorkspace.ManagedDependency) {
         if let resolvedPackage = ResolvedPackagesStore.ResolvedPackage(dependency) {
             self.add(resolvedPackage)
         }
@@ -123,7 +123,7 @@ extension ResolvedPackagesStore {
 }
 
 extension ResolvedPackagesStore.ResolvedPackage {
-    fileprivate init?(_ dependency: Workspace.ManagedDependency) {
+    fileprivate init?(_ dependency: PackageWorkspace.ManagedDependency) {
         switch dependency.state {
         case .sourceControlCheckout(.version(let version, let revision)):
             self.init(

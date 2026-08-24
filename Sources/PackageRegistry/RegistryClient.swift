@@ -857,7 +857,7 @@ public final class RegistryClient: AsyncCancellable {
                     // file at `evil/authorized_keys` would let the archiver
                     // write outside the package's destination directory.
                     // Mirrors the existing guard in
-                    // Sources/Workspace/Workspace+BinaryArtifacts.swift after
+                    // Sources/PackageWorkspace/PackageWorkspace+BinaryArtifacts.swift after
                     // every archiver.extract call.
                     //
                     // If validation fails the archive has already been written
