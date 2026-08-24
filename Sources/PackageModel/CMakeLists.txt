@@ -28,6 +28,7 @@ add_library(PackageModel
   Manifest/TargetBuildSettingDescription.swift
   Manifest/TargetDescription.swift
   Manifest/TraitDescription.swift
+  Manifest/WorkspaceManifest.swift
   ManifestSourceGeneration.swift
   MinimumDeploymentTarget.swift
   Module/BinaryModule.swift
@@ -65,7 +66,8 @@ add_library(PackageModel
   ToolsVersion.swift
   ToolsVersionSpecificationGeneration.swift
   UserToolchain.swift
-  WindowsToolchainInfo.swift)
+  WindowsToolchainInfo.swift
+  WorkspaceManifest.swift)
 target_link_libraries(PackageModel PUBLIC
   TSCBasic
   TSCUtility

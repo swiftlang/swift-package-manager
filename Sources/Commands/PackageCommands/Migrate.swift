@@ -164,7 +164,7 @@ extension SwiftPackageCommand {
             print("> Updating manifest")
             for target in targetsToMigrate.sorted() {
                 swiftCommandState.observabilityScope.emit(debug: "Adding feature(s) to '\(target)'")
-                try self.updateManifest(
+                try await self.updateManifest(
                     for: target,
                     add: features,
                     using: swiftCommandState
@@ -262,7 +262,7 @@ extension SwiftPackageCommand {
             for target: String,
             add features: [SwiftCompilerFeature],
             using swiftCommandState: SwiftCommandState
-        ) throws {
+        ) async throws {
             typealias SwiftSetting = SwiftPackageCommand.AddSetting.SwiftSetting
 
             let settings: [(SwiftSetting, String)] = try features.map {
@@ -270,7 +270,7 @@ extension SwiftPackageCommand {
             }
 
             do {
-                try SwiftPackageCommand.AddSetting.editSwiftSettings(
+                try await SwiftPackageCommand.AddSetting.editSwiftSettings(
                     of: target,
                     using: swiftCommandState,
                     settings,

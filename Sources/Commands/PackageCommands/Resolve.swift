@@ -51,7 +51,7 @@ extension SwiftPackageCommand {
                 let workspace = try swiftCommandState.getActiveWorkspace()
                 try await workspace.resolve(
                     packageName: packageName,
-                    root: swiftCommandState.getWorkspaceRoot(),
+                    root: try await swiftCommandState.getWorkspaceRoot(),
                     version: resolveOptions.version,
                     branch: resolveOptions.branch,
                     revision: resolveOptions.revision,

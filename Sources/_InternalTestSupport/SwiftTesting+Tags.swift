@@ -81,6 +81,7 @@ extension Tag.FunctionalArea {
     @Tag public static var ModuleMaps: Tag
     @Tag public static var Resources: Tag
     @Tag public static var PackageWorkspace: Tag
+    @Tag public static var WorkspaceManiest: Tag
 }
 
 extension Tag.Feature {

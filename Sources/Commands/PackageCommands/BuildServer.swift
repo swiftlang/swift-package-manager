@@ -61,7 +61,7 @@ struct BuildServer: AsyncSwiftCommand {
             throw ArgumentParser.ValidationError("Failed to initialize the '--build-system swiftbuild' backend; expected a 'SwiftBuildSystem' but got '\(buildSystem)'")
         }
 
-        guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
+        guard let packagePath = try await swiftCommandState.getWorkspaceRoot().packages.first else {
             throw ArgumentParser.ValidationError("unknown package")
         }
 

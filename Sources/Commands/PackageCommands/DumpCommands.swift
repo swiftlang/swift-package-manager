@@ -165,7 +165,7 @@ struct DumpPackage: AsyncSwiftCommand {
 
     func run(_ swiftCommandState: SwiftCommandState) async throws {
         let workspace = try swiftCommandState.getActiveWorkspace()
-        let root = try swiftCommandState.getWorkspaceRoot()
+        let root = try await swiftCommandState.getWorkspaceRoot()
 
         let rootManifests = try await workspace.loadRootManifests(
             packages: root.packages,

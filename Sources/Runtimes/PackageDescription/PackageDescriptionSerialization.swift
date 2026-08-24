@@ -304,6 +304,26 @@ enum Serialization {
         let cLanguageStandard: CLanguageStandard?
         let cxxLanguageStandard: CXXLanguageStandard?
     }
+
+    // MARK: - workspace serialization
+
+    struct Workspace: Codable {
+        let members: [WorkspaceMember]
+        let dependencies: [PackageDependency]
+    }
+
+    struct WorkspaceMember: Codable {
+        let path: String
+        let ignoredStateDirectories: [WorkspaceStateDirectoryKind]
+    }
+
+    enum WorkspaceStateDirectoryKind: String, Codable {
+        case build
+        case packageResolved
+        case packages
+        case swiftpmConfig
+    }
+
 }
 
 #if ENABLE_APPLE_PRODUCT_TYPES
@@ -314,7 +334,7 @@ extension Serialization {
         case displayVersion(String)
         case bundleVersion(String)
         case iOSAppInfo(IOSAppInfo)
-        
+
         struct IOSAppInfo: Codable {
             var appIcon: AppIcon?
             var accentColor: AccentColor?
@@ -323,42 +343,42 @@ extension Serialization {
             var capabilities: [Capability] = []
             var appCategory: AppCategory?
             var additionalInfoPlistContentFilePath: String?
-            
+
             enum AccentColor: Codable {
                 struct PresetColor: Codable {
                     var rawValue: String
                 }
-                
+
                 case presetColor(PresetColor)
                 case asset(String)
             }
-            
+
             enum AppIcon: Codable {
                 struct PlaceholderIcon: Codable {
                     var rawValue: String
                 }
-                
+
                 case placeholder(icon: PlaceholderIcon)
                 case asset(String)
             }
-            
+
             enum DeviceFamily: String, Codable {
                 case phone
                 case pad
                 case mac
             }
-            
+
             struct DeviceFamilyCondition: Codable {
                 var deviceFamilies: [DeviceFamily]
             }
-            
+
             enum InterfaceOrientation: Codable {
                 case portrait(_ condition: DeviceFamilyCondition? = nil)
                 case portraitUpsideDown(_ condition: DeviceFamilyCondition? = nil)
                 case landscapeRight(_ condition: DeviceFamilyCondition? = nil)
                 case landscapeLeft(_ condition: DeviceFamilyCondition? = nil)
             }
-            
+
             enum Capability: Codable {
                 case appTransportSecurity(configuration: AppTransportSecurityConfiguration, _ condition: DeviceFamilyCondition? = nil)
                 case bluetoothAlways(purposeString: String, _ condition: DeviceFamilyCondition? = nil)
@@ -382,14 +402,14 @@ extension Serialization {
                 case speechRecognition(purposeString: String, _ condition: DeviceFamilyCondition? = nil)
                 case userTracking(purposeString: String, _ condition: DeviceFamilyCondition? = nil)
             }
-            
+
             struct AppTransportSecurityConfiguration: Codable {
                 var allowsArbitraryLoadsInWebContent: Bool? = nil
                 var allowsArbitraryLoadsForMedia: Bool? = nil
                 var allowsLocalNetworking: Bool? = nil
                 var exceptionDomains: [ExceptionDomain]? = nil
                 var pinnedDomains: [PinnedDomain]? = nil
-                
+
                 struct ExceptionDomain: Codable {
                     var domainName: String
                     var includesSubdomains: Bool? = nil
@@ -398,7 +418,7 @@ extension Serialization {
                     var exceptionRequiresForwardSecrecy: Bool? = nil
                     var requiresCertificateTransparency: Bool? = nil
                 }
-                
+
                 struct PinnedDomain: Codable {
                     var domainName: String
                     var includesSubdomains : Bool? = nil
@@ -406,7 +426,7 @@ extension Serialization {
                     var pinnedLeafIdentities : [[String: String]]? = nil
                 }
             }
-            
+
             enum FileAccessLocation: String, Codable {
                 case userSelectedFiles
                 case downloadsFolder
@@ -414,12 +434,12 @@ extension Serialization {
                 case musicFolder
                 case moviesFolder
             }
-            
+
             enum FileAccessMode: String, Codable {
                 case readOnly
                 case readWrite
             }
-            
+
             struct AppCategory: Codable {
                 var rawValue: String
             }

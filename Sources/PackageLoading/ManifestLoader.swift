@@ -405,6 +405,78 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         return manifest
     }
 
+    /// Loads a `Workspace.swift` manifest by spawning the compiled manifest
+    /// binary, reading its JSON output via a file descriptor, and parsing
+    /// the result into a `WorkspaceManifest`.
+    ///
+    /// Mirrors the mechanism used by `load()` for `Package.swift` — the
+    /// evaluator subprocess uses the same `-fileno` protocol; the DSL side
+    /// dumps a `Workspace` instance in place of a `Package` instance.
+    ///
+    /// - Parameters:
+    ///   - manifestPath: Absolute path to the `Workspace.swift` file.
+    ///   - toolsVersion: The tools version declared in the workspace manifest.
+    ///   - workspaceRoot: The directory containing `Workspace.swift`; used
+    ///     to resolve relative member paths.
+    ///   - observabilityScope: Scope for diagnostics.
+    /// - Returns: A fully-resolved `WorkspaceManifest`.
+    public func loadWorkspaceManifest(
+        at manifestPath: AbsolutePath,
+        toolsVersion: ToolsVersion,
+        workspaceRoot: AbsolutePath,
+        observabilityScope: ObservabilityScope,
+    ) async throws -> WorkspaceManifest {
+        let evaluationResult = try await self.evaluateManifest(
+            at: manifestPath,
+            packageIdentity: PackageIdentity(path: workspaceRoot),
+            packageLocation: workspaceRoot.pathString,
+            toolsVersion: toolsVersion,
+            observabilityScope: observabilityScope,
+            delegate: nil,
+            delegateQueue: nil,
+        )
+
+        guard let manifestJSON = evaluationResult.manifestJSON, !manifestJSON.isEmpty else {
+            let errors = evaluationResult.errorOutput
+                ?? evaluationResult.compilerOutput
+                ?? "Missing or empty JSON output from workspace manifest compilation"
+            throw ManifestParseError.invalidManifestFormat(
+                errors,
+                diagnosticFile: evaluationResult.diagnosticFile,
+                compilerCommandLine: evaluationResult.compilerCommandLine,
+            )
+        }
+
+        if let compilerOutput = evaluationResult.compilerOutput {
+            let metadata = evaluationResult.diagnosticFile.map { diagnosticFile -> ObservabilityMetadata in
+                var metadata = ObservabilityMetadata()
+                metadata.manifestLoadingDiagnosticFile = diagnosticFile
+                return metadata
+            }
+            observabilityScope.emit(warning: compilerOutput, metadata: metadata)
+        }
+
+        let parsed = try WorkspaceManifestJSONParser.parse(
+            v2: manifestJSON,
+            workspaceRoot: workspaceRoot,
+        )
+
+        let members = parsed.members.map {
+            WorkspaceManifest.Member(
+                identity: $0.identity,
+                path: $0.path,
+                ignoredStateDirectories: $0.ignoredStateDirectories,
+            )
+        }
+
+        return WorkspaceManifest(
+            path: manifestPath,
+            toolsVersion: toolsVersion,
+            members: members,
+            dependencies: parsed.dependencies,
+        )
+    }
+
     /// Load the JSON string for the given manifest.
     private func parseManifest(
         _ result: EvaluationResult,

@@ -546,6 +546,22 @@ private func manifestToJSON(_ package: Package) -> String {
     return String(decoding: data, as: UTF8.self)
 }
 
+// MARK: - Workspace Dumping
+
+@available(_PackageDescription, introduced: 999.0)
+internal func workspaceManifestToJSON(_ workspace: Workspace) -> String {
+    struct Output: Codable {
+        let workspace: Serialization.Workspace
+        let errors: [String]
+        let version: Int
+    }
+
+    let encoder = JSONEncoder()
+    encoder.outputFormatting = [.sortedKeys, .withoutEscapingSlashes]
+    let data = try! encoder.encode(Output(workspace: .init(workspace), errors: errors, version: 2))
+    return String(decoding: data, as: UTF8.self)
+}
+
 var errors: [String] = []
 
 #if os(Windows)

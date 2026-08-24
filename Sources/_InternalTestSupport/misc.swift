@@ -361,8 +361,10 @@ fileprivate func setup(
     }
 
     // The fixture contains either a checkout or just a Git directory.
-    if localFileSystem.isFile(fixtureDir.appending("Package.swift")) {
-        // It's a single package, so copy the whole directory as-is.
+    if localFileSystem.isFile(fixtureDir.appending(Manifest.filename))
+        || localFileSystem.isFile(fixtureDir.appending(WorkspaceManifest.filename))
+    {
+        // It's a single package or workspace, so copy the whole directory as-is.
         let dstDir = tmpDirPath.appending(component: copyName)
         try copy(from: fixtureDir, to: dstDir)
         // Invoke the block, passing it the path of the copied fixture.

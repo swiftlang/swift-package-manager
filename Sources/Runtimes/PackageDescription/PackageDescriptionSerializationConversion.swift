@@ -431,6 +431,36 @@ extension Serialization.SystemPackageProvider {
     }
 }
 
+@available(_PackageDescription, introduced: 999.0)
+extension Serialization.Workspace {
+    init(_ workspace: PackageDescription.Workspace) {
+        self.members = workspace.members.map { .init($0) }
+        self.dependencies = workspace.dependencies.map { .init($0) }
+    }
+}
+
+@available(_PackageDescription, introduced: 999.0)
+extension Serialization.WorkspaceMember {
+    init(_ member: PackageDescription.Workspace.Member) {
+        self.path = member.path
+        self.ignoredStateDirectories = member.ignoredStateDirectories
+            .map { Serialization.WorkspaceStateDirectoryKind($0) }
+            .sorted { $0.rawValue < $1.rawValue }
+    }
+}
+
+@available(_PackageDescription, introduced: 999.0)
+extension Serialization.WorkspaceStateDirectoryKind {
+    init(_ kind: PackageDescription.Workspace.StateDirectoryKind) {
+        switch kind {
+        case .build: self = .build
+        case .packageResolved: self = .packageResolved
+        case .packages: self = .packages
+        case .swiftpmConfig: self = .swiftpmConfig
+        }
+    }
+}
+
 #if ENABLE_APPLE_PRODUCT_TYPES
 extension Serialization.ProductSetting {
     init(_ setting: PackageDescription.ProductSetting) {

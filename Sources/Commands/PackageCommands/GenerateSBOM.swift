@@ -42,7 +42,7 @@ extension SwiftPackageCommand {
             do {
                 let workspace = try swiftCommandState.getActiveWorkspace()
                 let packageGraph = try await workspace.loadPackageGraph(
-                    rootInput: swiftCommandState.getWorkspaceRoot(),
+                    rootInput: try await swiftCommandState.getWorkspaceRoot(),
                     explicitProduct: self.product,
                     forceResolvedVersions: self.globalOptions.resolver.forceResolvedVersions,
                     observabilityScope: swiftCommandState.observabilityScope

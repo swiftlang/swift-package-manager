@@ -24,6 +24,7 @@ add_library(Workspace
   PackageContainer/FileSystemPackageContainer.swift
   PackageContainer/RegistryPackageContainer.swift
   PackageContainer/SourceControlPackageContainer.swift
+  PackageWorkspace+Discovery.swift
   ResolvedFileWatcher.swift
   ResolverPrecomputationProvider.swift
   ToolsVersionSpecificationRewriter.swift

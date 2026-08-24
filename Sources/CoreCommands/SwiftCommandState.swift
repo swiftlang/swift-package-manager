@@ -312,12 +312,32 @@ public final class SwiftCommandState {
     }
 
     /// Get the current workspace root object.
-    public func getWorkspaceRoot() throws -> PackageGraphRootInput {
+    ///
+    /// Discovery order:
+    /// 1. If `--multiroot-data-file` is specified, load the referenced
+    ///    Xcode workspace and use its packages.
+    /// 2. Otherwise, walk up from CWD looking for `Workspace.swift`. When
+    ///    found, load the workspace manifest and expand its members into
+    ///    the root package paths.
+    /// 3. Otherwise, fall back to single-package `Package.swift` discovery.
+    public func getWorkspaceRoot() async throws -> PackageGraphRootInput {
         let packages: [AbsolutePath]
 
         if let workspace = options.locations.multirootPackageDataFile {
             packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope)
                 .load(workspace: workspace)
+        } else if let workspaceRoot = PackageWorkspace.discoverWorkspaceRoot(
+            from: self.fileSystem.currentWorkingDirectory ?? .root,
+            fileSystem: self.fileSystem,
+        ) {
+            let manifestLoader = try ManifestLoader(toolchain: self.getHostToolchain())
+            let workspaceManifest = try await PackageWorkspace.loadWorkspaceManifest(
+                at: workspaceRoot,
+                manifestLoader: manifestLoader,
+                fileSystem: self.fileSystem,
+                observabilityScope: self.observabilityScope,
+            )
+            packages = workspaceManifest.members.map(\.path)
         } else {
             packages = try [self.getPackageRoot()]
         }
@@ -720,7 +740,7 @@ public final class SwiftCommandState {
 
     public func getRootPackageInformation(_ enableAllTraits: Bool = false) async throws -> (dependencies: [PackageIdentity: [PackageIdentity]], targets: [PackageIdentity: [String]]) {
         let workspace = try self.getActiveWorkspace(enableAllTraits: enableAllTraits)
-        let root = try self.getWorkspaceRoot()
+        let root = try await self.getWorkspaceRoot()
         let rootManifests = try await workspace.loadRootManifests(
             packages: root.packages,
             observabilityScope: self.observabilityScope
@@ -860,7 +880,7 @@ public final class SwiftCommandState {
     /// Resolve the dependencies.
     public func resolve() async throws {
         let workspace = try getActiveWorkspace()
-        let root = try getWorkspaceRoot()
+        let root = try await getWorkspaceRoot()
 
         try await workspace.resolve(
             root: root,
@@ -917,7 +937,7 @@ public final class SwiftCommandState {
 
             // Fetch and load the package graph.
             let graph = try await workspace.loadPackageGraph(
-                rootInput: self.getWorkspaceRoot(),
+                rootInput: try await self.getWorkspaceRoot(),
                 explicitProduct: explicitProduct,
                 forceResolvedVersions: self.options.resolver.forceResolvedVersions,
                 testEntryPointPath: testEntryPointPath,
@@ -969,7 +989,7 @@ public final class SwiftCommandState {
     /// - Returns: The current tools version, nil if no manifests are found.
     public func getToolsVersion() async throws -> ToolsVersion? {
         let workspace = try self.getActiveWorkspace()
-        let root = try self.getWorkspaceRoot()
+        let root = try await self.getWorkspaceRoot()
         let rootManifests = try await workspace.loadRootManifests(
             packages: root.packages,
             observabilityScope: self.observabilityScope
@@ -1419,7 +1439,9 @@ private func findPackageRoot(fileSystem: FileSystem) -> AbsolutePath? {
     }
     // FIXME: It would be nice to move this to a generalized method which takes path and predicate and
     // finds the lowest path for which the predicate is true.
-    while !fileSystem.isFile(root.appending(component: Manifest.filename)) {
+    while !fileSystem.isFile(root.appending(component: Manifest.filename))
+        && !fileSystem.isFile(root.appending(component: WorkspaceManifest.filename))
+    {
         root = root.parentDirectory
         guard !root.isRoot else {
             return nil

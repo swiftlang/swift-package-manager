@@ -24,7 +24,8 @@ add_library(PackageDescription
   Trait.swift
   Version.swift
   Version+StringLiteralConvertible.swift
-  WarningLevel.swift)
+  WarningLevel.swift
+  Workspace.swift)
 
 set_target_properties(PackageDescription PROPERTIES
   INTERFACE_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_BINARY_DIR})
