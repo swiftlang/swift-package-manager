@@ -39,7 +39,7 @@ extension SwiftPackageCommand {
             let workspace = try swiftCommandState.getActiveWorkspace()
             
             let changes = try await workspace.updateDependencies(
-                root: swiftCommandState.getWorkspaceRoot(),
+                root: try await swiftCommandState.getWorkspaceRoot(),
                 packages: packages,
                 dryRun: dryRun,
                 observabilityScope: swiftCommandState.observabilityScope

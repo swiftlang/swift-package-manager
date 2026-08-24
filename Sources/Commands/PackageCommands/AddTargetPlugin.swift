@@ -24,7 +24,7 @@ import TSCUtility
 import Workspace
 
 extension SwiftPackageCommand {
-    struct AddTargetPlugin: SwiftCommand {
+    struct AddTargetPlugin: AsyncSwiftCommand {
         package static let configuration = CommandConfiguration(
             abstract: "Add a new target plugin to the manifest"
         )
@@ -41,10 +41,10 @@ extension SwiftPackageCommand {
         @Option(help: "The package in which the plugin resides")
         var package: String?
 
-        func run(_ swiftCommandState: SwiftCommandState) throws {
+        func run(_ swiftCommandState: SwiftCommandState) async throws {
             let workspace = try swiftCommandState.getActiveWorkspace()
 
-            guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
+            guard let packagePath = try await swiftCommandState.getWorkspaceRoot().packages.first else {
                 throw StringError("unknown package")
             }
 

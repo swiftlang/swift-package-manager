@@ -76,7 +76,7 @@ extension SwiftPackageCommand {
             try await workspace.unedit(
                 packageIdentity: packageIdentity,
                 forceRemove: shouldForceRemove,
-                root: swiftCommandState.getWorkspaceRoot(),
+                root: try await swiftCommandState.getWorkspaceRoot(),
                 observabilityScope: swiftCommandState.observabilityScope
             )
         }

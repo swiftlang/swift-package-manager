@@ -21,7 +21,8 @@ add_library(PackageLoading
   RegistryReleaseMetadataSerialization.swift
   Target+PkgConfig.swift
   TargetSourcesBuilder.swift
-  ToolsVersionParser.swift)
+  ToolsVersionParser.swift
+  WorkspaceManifestJSONParser.swift)
 target_link_libraries(PackageLoading PUBLIC
   TSCBasic
   Basics

@@ -990,7 +990,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     ) async throws {
         swiftCommandState.observabilityScope.emit(info: "Processing code coverage data...")
         let workspace = try swiftCommandState.getActiveWorkspace()
-        let root = try swiftCommandState.getWorkspaceRoot()
+        let root = try await swiftCommandState.getWorkspaceRoot()
         let rootManifests = try await workspace.loadRootManifests(
             packages: root.packages,
             observabilityScope: swiftCommandState.observabilityScope
@@ -1326,7 +1326,7 @@ extension SwiftTestCommand {
     ) async throws -> String {
         // Load prerequisites once so we don't repeat expensive work per format.
         let workspace = try swiftCommandState.getActiveWorkspace()
-        let root = try swiftCommandState.getWorkspaceRoot()
+        let root = try await swiftCommandState.getWorkspaceRoot()
         let rootManifests = try await workspace.loadRootManifests(
             packages: root.packages,
             observabilityScope: swiftCommandState.observabilityScope

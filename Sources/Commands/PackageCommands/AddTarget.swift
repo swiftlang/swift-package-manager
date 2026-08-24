@@ -78,7 +78,7 @@ extension SwiftPackageCommand {
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             let workspace = try swiftCommandState.getActiveWorkspace()
 
-            guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
+            guard let packagePath = try await swiftCommandState.getWorkspaceRoot().packages.first else {
                 throw StringError("unknown package")
             }
 
