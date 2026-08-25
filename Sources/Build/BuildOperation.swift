@@ -484,15 +484,15 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
 
         let subsetDescriptor: String?
         switch subset {
-        case .product(let productName, _):
+        case .product(let productName, _, _):
             subsetDescriptor = "product '\(productName)'"
-        case .target(let targetName, _):
+        case .target(let targetName, _, _):
             subsetDescriptor = "target: '\(targetName)'"
-        case .allExcludingTests, .allIncludingTests:
+        case .allExcludingTests(nil), .allIncludingTests(nil):
             subsetDescriptor = nil
-        case .workspaceMember:
+        case .workspaceMember, .allExcludingTests(.some), .allIncludingTests(.some):
             preconditionFailure(
-                ".workspaceMember focus is not supported by the native build system — Commands must reject it before dispatch",
+                "workspace-member focus is not supported by the native build system — Commands must reject it before dispatch",
             )
         }
 
@@ -597,18 +597,18 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         let pluginsToCompile: [PluginBuildDescription]
         let continueBuilding: Bool
         switch subset {
-        case .allExcludingTests, .allIncludingTests:
+        case .allExcludingTests(nil), .allIncludingTests(nil):
             pluginsToCompile = allPlugins
             continueBuilding = true
-        case .product(let productName, _):
+        case .product(let productName, _, _):
             pluginsToCompile = allPlugins.filter{ $0.productNames.contains(productName) }
             continueBuilding = pluginsToCompile.isEmpty
-        case .target(let targetName, _):
+        case .target(let targetName, _, _):
             pluginsToCompile = allPlugins.filter{ $0.moduleName == targetName }
             continueBuilding = pluginsToCompile.isEmpty
-        case .workspaceMember:
+        case .workspaceMember, .allExcludingTests(.some), .allIncludingTests(.some):
             preconditionFailure(
-                ".workspaceMember focus is not supported by the native build system — Commands must reject it before dispatch",
+                "workspace-member focus is not supported by the native build system — Commands must reject it before dispatch",
             )
         }
 
@@ -707,11 +707,11 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         }
 
         switch subset {
-        case .allExcludingTests:
+        case .allExcludingTests(nil):
             return LLBuildManifestBuilder.TargetKind.main.targetName
-        case .allIncludingTests:
+        case .allIncludingTests(nil):
             return LLBuildManifestBuilder.TargetKind.test.targetName
-        case .product(let productName, let destination):
+        case .product(let productName, let destination, _):
             // FIXME: This is super unfortunate that we might need to load the package graph.
             let graph = try await getPackageGraph()
 
@@ -742,7 +742,7 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
                 return LLBuildManifestBuilder.TargetKind.main.targetName
             }
             return try product.getLLBuildTargetName(buildParameters: buildParameters)
-        case .target(let targetName, let destination):
+        case .target(let targetName, let destination, _):
             // FIXME: This is super unfortunate that we might need to load the package graph.
             let graph = try await getPackageGraph()
 
@@ -764,9 +764,9 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
 
             return module.getLLBuildTargetName(buildParameters: buildParameters)
-        case .workspaceMember:
+        case .workspaceMember, .allExcludingTests(.some), .allIncludingTests(.some):
             preconditionFailure(
-                ".workspaceMember focus is not supported by the native build system — Commands must reject it before dispatch",
+                "workspace-member focus is not supported by the native build system — Commands must reject it before dispatch",
             )
         }
     }
@@ -1154,25 +1154,25 @@ extension BuildDescription {
 extension BuildSubset {
     func recursiveDependencies(for graph: ModulesGraph, observabilityScope: ObservabilityScope) throws -> [ResolvedModule]? {
         switch self {
-        case .allIncludingTests:
+        case .allIncludingTests(nil):
             return Array(graph.reachableModules)
-        case .allExcludingTests:
+        case .allExcludingTests(nil):
             return graph.reachableModules.filter { $0.type != .test }
-        case .product(let productName, _):
+        case .product(let productName, _, _):
             guard let product = graph.product(for: productName) else {
                 observabilityScope.emit(error: "no product named '\(productName)'")
                 return nil
             }
             return try product.recursiveModuleDependencies()
-        case .target(let targetName, _):
+        case .target(let targetName, _, _):
             guard let target = graph.module(for: targetName) else {
                 observabilityScope.emit(error: "no target named '\(targetName)'")
                 return nil
             }
             return try target.recursiveModuleDependencies()
-        case .workspaceMember:
+        case .workspaceMember, .allExcludingTests(.some), .allIncludingTests(.some):
             preconditionFailure(
-                ".workspaceMember focus is not supported by the native build system — Commands must reject it before dispatch",
+                "workspace-member focus is not supported by the native build system — Commands must reject it before dispatch",
             )
         }
     }

@@ -2354,7 +2354,7 @@ private func buildTestsIfNeeded(
     let subset: BuildSubset = if let testProduct {
         .product(testProduct)
     } else {
-        .allIncludingTests
+        .allIncludingTests()
     }
 
     try await buildSystem.build(subset: subset, buildOutputs: [])

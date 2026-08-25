@@ -175,7 +175,7 @@ public struct MappablePackageDependency {
         case fileSystem(name: String?, path: String)
         case sourceControl(name: String?, location: String, requirement: PackageDependency.SourceControl.Requirement)
         case registry(id: String, requirement: PackageDependency.Registry.Requirement)
-        case workspaceMember(identity: String)
+        case workspaceMember(PackageDependency.WorkspaceMember)
     }
 
     public enum Requirement {
@@ -230,7 +230,7 @@ extension MappablePackageDependency {
         case .workspaceMember(let settings):
             self.init(
                 parentPackagePath: parentPackagePath,
-                kind: .workspaceMember(identity: settings.identity.description),
+                kind: .workspaceMember(settings),
                 productFilter: settings.productFilter,
                 traits: settings.traits,
             )
@@ -247,8 +247,8 @@ extension MappablePackageDependency {
             return location
         case .registry(let id, _):
             return id
-        case .workspaceMember(let identity):
-            return identity
+        case .workspaceMember(let member):
+            return member.identity.description
         }
     }
 
@@ -260,8 +260,8 @@ extension MappablePackageDependency {
             return name
         case .registry:
             return .none
-        case .workspaceMember(let identity):
-            return identity
+        case .workspaceMember(let member):
+            return member.identity.description
         }
     }
 
@@ -273,8 +273,8 @@ extension MappablePackageDependency {
             return requirement
         case .registry(_, let requirement):
             return .init(requirement)
-        case .workspaceMember(let identity):
-            throw DependencyMappingError.invalidMapping("mapping of workspace-member dependency (\(identity)) to source control (\(location)) is invalid")
+        case .workspaceMember(let member):
+            throw DependencyMappingError.invalidMapping("mapping of workspace-member dependency (\(member.identity)) to source control (\(location)) is invalid")
         }
     }
 
@@ -286,8 +286,8 @@ extension MappablePackageDependency {
             return try .init(requirement, from: location, to: identity)
         case .registry(_, let requirement):
             return requirement
-        case .workspaceMember(let memberIdentity):
-            throw DependencyMappingError.invalidMapping("mapping of workspace-member dependency (\(memberIdentity)) to registry (\(identity)) is invalid")
+        case .workspaceMember(let member):
+            throw DependencyMappingError.invalidMapping("mapping of workspace-member dependency (\(member.identity)) to registry (\(identity)) is invalid")
         }
     }
 }
@@ -355,6 +355,7 @@ extension PackageDependency {
                 productFilter: seed.productFilter,
                 traits: seed.traits
             )
+<<<<<<< HEAD
         case .workspaceMember(let identity):
             self = .workspaceMember(
                 PackageDependency.WorkspaceMember(
@@ -363,6 +364,12 @@ extension PackageDependency {
                     traits: seed.traits,
                 )
             )
+=======
+        case .workspaceMember(let member):
+            self = .workspaceMember(member)
+        case .workspaceInherited(let inherited):
+            self = .workspaceInherited(inherited)
+>>>>>>> 94cc9314e (Workspace: Add --package to scope `swift build` to a workspace member)
         }
     }
 }

@@ -100,7 +100,7 @@ extension SwiftPackageCommand {
             var diagnosticFiles: [[AbsolutePath]] = []
             if self.options.targets.isEmpty {
                 // No targets were requested. Build everything.
-                let buildResult = try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [])
+                let buildResult = try await buildSystem.build(subset: .allIncludingTests(), buildOutputs: [])
                 for (target, files) in try buildResult.serializedDiagnosticPathsByTargetName.get() {
                     if targetsToMigrate.contains(target) {
                         diagnosticFiles.append(files)
