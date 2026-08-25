@@ -95,6 +95,9 @@ public struct DefaultDependencyMapper: DependencyMapper {
         // workspace-member deps are rewritten to .fileSystem before mapping runs.
         case .workspaceMember:
             return .none
+        // workspace-inherited deps carry only an identity; no location to normalize.
+        case .workspaceInherited:
+            return .none
         // location may be a relative path so we need to normalize it
         case .fileSystem, .sourceControl:
             let dependencyLocation = dependency.locationString
@@ -176,6 +179,7 @@ public struct MappablePackageDependency {
         case sourceControl(name: String?, location: String, requirement: PackageDependency.SourceControl.Requirement)
         case registry(id: String, requirement: PackageDependency.Registry.Requirement)
         case workspaceMember(identity: String)
+        case workspaceInherited(identity: String)
     }
 
     public enum Requirement {
@@ -234,6 +238,13 @@ extension MappablePackageDependency {
                 productFilter: settings.productFilter,
                 traits: settings.traits,
             )
+        case .workspaceInherited(let settings):
+            self.init(
+                parentPackagePath: parentPackagePath,
+                kind: .workspaceInherited(identity: settings.identity.description),
+                productFilter: settings.productFilter,
+                traits: settings.traits,
+            )
         }
     }
 }
@@ -249,6 +260,8 @@ extension MappablePackageDependency {
             return id
         case .workspaceMember(let identity):
             return identity
+        case .workspaceInherited(let identity):
+            return identity
         }
     }
 
@@ -261,6 +274,8 @@ extension MappablePackageDependency {
         case .registry:
             return .none
         case .workspaceMember(let identity):
+            return identity
+        case .workspaceInherited(let identity):
             return identity
         }
     }
@@ -275,6 +290,8 @@ extension MappablePackageDependency {
             return .init(requirement)
         case .workspaceMember(let identity):
             throw DependencyMappingError.invalidMapping("mapping of workspace-member dependency (\(identity)) to source control (\(location)) is invalid")
+        case .workspaceInherited(let identity):
+            throw DependencyMappingError.invalidMapping("mapping of workspace-inherited dependency (\(identity)) to source control (\(location)) is invalid — workspace-inherited deps must be rewritten before mapping")
         }
     }
 
@@ -288,6 +305,8 @@ extension MappablePackageDependency {
             return requirement
         case .workspaceMember(let memberIdentity):
             throw DependencyMappingError.invalidMapping("mapping of workspace-member dependency (\(memberIdentity)) to registry (\(identity)) is invalid")
+        case .workspaceInherited(let memberIdentity):
+            throw DependencyMappingError.invalidMapping("mapping of workspace-inherited dependency (\(memberIdentity)) to registry (\(identity)) is invalid — workspace-inherited deps must be rewritten before mapping")
         }
     }
 }
@@ -358,6 +377,14 @@ extension PackageDependency {
         case .workspaceMember(let identity):
             self = .workspaceMember(
                 PackageDependency.WorkspaceMember(
+                    identity: .plain(identity),
+                    productFilter: seed.productFilter,
+                    traits: seed.traits,
+                )
+            )
+        case .workspaceInherited(let identity):
+            self = .workspaceInherited(
+                PackageDependency.WorkspaceInherited(
                     identity: .plain(identity),
                     productFilter: seed.productFilter,
                     traits: seed.traits,

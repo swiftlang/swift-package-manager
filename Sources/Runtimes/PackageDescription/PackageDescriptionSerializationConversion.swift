@@ -166,6 +166,8 @@ extension Serialization.PackageDependency.Kind {
             self = .registry(id: identity, requirement: .init(requirement))
         case .workspaceMember(let identity):
             self = .workspaceMember(identity: identity)
+        case .workspaceInherited(let identity):
+            self = .workspaceInherited(identity: identity)
         }
     }
 }

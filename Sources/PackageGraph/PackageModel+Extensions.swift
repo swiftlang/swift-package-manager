@@ -39,6 +39,28 @@ extension PackageDependency {
                 )
             }
             packageKind = .fileSystem(path)
+        case .workspaceInherited(let settings):
+            // `.workspaceInherited` is augmented at workspace-load time
+            // with the concrete workspace-declared source. Dispatch on
+            // `resolved` to construct the corresponding `PackageKind`.
+            guard let resolved = settings.resolved else {
+                preconditionFailure(
+                    ".workspaceInherited reached packageRef with nil `resolved` — identity: \(settings.identity), productFilter: \(settings.productFilter), traits: \(String(describing: settings.traits)) - resolver should have populated this."
+                )
+            }
+            switch resolved {
+            case .sourceControl(let location, _, _, _):
+                switch location {
+                case .local(let path):
+                    packageKind = .localSourceControl(path)
+                case .remote(let url):
+                    packageKind = .remoteSourceControl(url)
+                }
+            case .registry:
+                packageKind = .registry(settings.identity)
+            case .fileSystem(let path, _):
+                packageKind = .fileSystem(path)
+            }
         }
         return PackageReference(identity: self.identity, kind: packageKind)
     }

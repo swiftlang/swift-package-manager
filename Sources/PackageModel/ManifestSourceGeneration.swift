@@ -198,6 +198,8 @@ fileprivate extension SourceCodeFragment {
             }
         case .workspaceMember(let settings):
             params.append(SourceCodeFragment(key: "workspaceMember", string: settings.identity.description))
+        case .workspaceInherited(let settings):
+            params.append(SourceCodeFragment(key: "workspaceInherited", string: settings.identity.description))
         }
 
         if let traits = dependency.traits {

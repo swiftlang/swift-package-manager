@@ -142,6 +142,7 @@ enum Serialization {
             case sourceControl(name: String?, location: String, requirement: SourceControlRequirement)
             case registry(id: String, requirement: RegistryRequirement)
             case workspaceMember(identity: String)
+            case workspaceInherited(identity: String)
         }
 
         let kind: Kind

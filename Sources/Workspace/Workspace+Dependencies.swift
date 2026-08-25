@@ -1548,6 +1548,30 @@ extension PackageDependency {
                 )
             }
             return path.pathString
+        case .workspaceInherited(let settings):
+            // `.workspaceInherited` is augmented at workspace-load time
+            // with the concrete workspace-declared source. Dispatch on
+            // `resolved` — the location string mirrors what the concrete
+            // case would return.
+            guard let resolved = settings.resolved else {
+                preconditionFailure(
+                    ".workspaceInherited reached locationString with nil `resolved` — identity: \(settings.identity), productFilter: \(settings.productFilter), traits: \(String(describing: settings.traits)) - resolver should have populated this."
+                )
+            }
+            switch resolved {
+            case .sourceControl(let location, _, _, _):
+                switch location {
+                case .local(let path):
+                    return path.pathString
+                case .remote(let url):
+                    return url.absoluteString
+                }
+            case .registry:
+                // FIXME: placeholder — mirrors the `.registry` case above.
+                return self.identity.description
+            case .fileSystem(let path, _):
+                return path.pathString
+            }
         }
     }
 }

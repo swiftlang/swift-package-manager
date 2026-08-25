@@ -103,12 +103,21 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
     case registry(Registry)
     /// A dependency on another member of the current workspace.
     ///
-    /// This case appears only in pre-rewrite manifests. `PackageWorkspace`
-    /// rewrites these to concrete `.fileSystem` dependencies at graph-load
-    /// time using the workspace's member map. A manifest that reaches the
-    /// package graph builder with this case has been loaded outside a
-    /// workspace context — a hard error.
+    /// The `WorkspaceMember.path` field is `nil` in parse-time output and
+    /// populated by `PackageWorkspace.resolveWorkspaceMemberPaths` at
+    /// workspace-graph-load time. Downstream code handles this case
+    /// natively using the augmented path.
     case workspaceMember(WorkspaceMember)
+    /// A dependency inherited from the enclosing workspace's
+    /// `dependencies:` declaration.
+    ///
+    /// This case appears only in pre-rewrite manifests. `PackageWorkspace`
+    /// rewrites these to concrete `.sourceControl` or `.registry`
+    /// dependencies at workspace-graph-load time, using the workspace-
+    /// level dependency declaration keyed by identity. A manifest that
+    /// reaches the package graph builder with this case has been loaded
+    /// outside a workspace context — a hard error.
+    case workspaceInherited(WorkspaceInherited)
     
     public struct FileSystem: Equatable, Hashable, Encodable, Sendable {
         public let identity: PackageIdentity
@@ -259,6 +268,97 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         }
     }
 
+    /// A dependency inherited from the enclosing workspace's
+    /// `dependencies:` declaration, identified by its `PackageIdentity`.
+    ///
+    /// `PackageWorkspace` augments the `resolved` field at workspace-
+    /// graph-load time with the concrete source (source-control URL +
+    /// requirement, registry requirement, or file-system path) taken
+    /// from the matched workspace-level dependency. The consumer's
+    /// `traits` (if any) are unioned with the workspace-declared
+    /// dependency's traits; the workspace's version constraint is
+    /// authoritative — members cannot override versions.
+    ///
+    /// Parse-time output has `resolved == nil`; downstream code that
+    /// observes `.workspaceInherited` after workspace load can assume
+    /// `resolved` is non-nil and dispatches on it as if handling the
+    /// concrete `.sourceControl` / `.registry` / `.fileSystem` case.
+    public struct WorkspaceInherited: Equatable, Hashable, Encodable, Sendable {
+        public let identity: PackageIdentity
+        public let productFilter: ProductFilter
+        package let traits: Set<Trait>?
+        /// The resolved concrete source for this inherited dependency.
+        ///
+        /// `nil` in parse-time output; populated by
+        /// `PackageWorkspace.resolveWorkspaceMemberPaths` before graph
+        /// construction. Non-nil after successful workspace load.
+        public let resolved: ResolvedInherited?
+
+        /// The concrete workspace-declared source that a member's
+        /// `.workspaceInherited` case is bound to. Populated at
+        /// workspace-graph-load time; not authored by users directly.
+        public enum ResolvedInherited: Equatable, Hashable, Encodable, Sendable {
+            case sourceControl(
+                location: SourceControl.Location,
+                requirement: SourceControl.Requirement,
+                nameForTargetDependencyResolutionOnly: String?,
+                registryIdentity: PackageIdentity?,
+            )
+            case registry(requirement: Registry.Requirement)
+            case fileSystem(
+                path: AbsolutePath,
+                nameForTargetDependencyResolutionOnly: String?,
+            )
+
+            private enum CodingKeys: CodingKey {
+                case kind, location, requirement, nameForTargetDependencyResolutionOnly, registryIdentity, path
+            }
+
+            public func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                switch self {
+                case .sourceControl(let location, let requirement, let name, let registryIdentity):
+                    try container.encode("sourceControl", forKey: .kind)
+                    try container.encode(location, forKey: .location)
+                    try container.encode(requirement, forKey: .requirement)
+                    try container.encodeIfPresent(name, forKey: .nameForTargetDependencyResolutionOnly)
+                    try container.encodeIfPresent(registryIdentity, forKey: .registryIdentity)
+                case .registry(let requirement):
+                    try container.encode("registry", forKey: .kind)
+                    try container.encode(requirement, forKey: .requirement)
+                case .fileSystem(let path, let name):
+                    try container.encode("fileSystem", forKey: .kind)
+                    try container.encode(path, forKey: .path)
+                    try container.encodeIfPresent(name, forKey: .nameForTargetDependencyResolutionOnly)
+                }
+            }
+        }
+
+        private enum CodingKeys: CodingKey {
+            case identity, productFilter, traits, resolved
+        }
+
+        public init(
+            identity: PackageIdentity,
+            productFilter: ProductFilter,
+            traits: Set<Trait>?,
+            resolved: ResolvedInherited? = nil,
+        ) {
+            self.identity = identity
+            self.productFilter = productFilter
+            self.traits = traits
+            self.resolved = resolved
+        }
+
+        public func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(identity, forKey: .identity)
+            try container.encode(productFilter, forKey: .productFilter)
+            try container.encodeIfPresent(traits?.sorted { $0.name < $1.name }, forKey: .traits)
+            try container.encodeIfPresent(resolved, forKey: .resolved)
+        }
+    }
+
     /// Describes the traits that are enabled for this package, and overrides this dependency's manifest's
     /// default traits.
     package var traits: Set<Trait>? {
@@ -270,6 +370,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         case .registry(let settings):
             return settings.traits
         case .workspaceMember(let settings):
+            return settings.traits
+        case .workspaceInherited(let settings):
             return settings.traits
         }
     }
@@ -283,6 +385,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         case .registry(let settings):
             return settings.identity
         case .workspaceMember(let settings):
+            return settings.identity
+        case .workspaceInherited(let settings):
             return settings.identity
         }
     }
@@ -304,6 +408,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             return self.identity.description.lowercased()
         case .workspaceMember:
             return self.identity.description.lowercased()
+        case .workspaceInherited:
+            return self.identity.description.lowercased()
         }
     }
 
@@ -319,6 +425,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             return nil
         case .workspaceMember:
             return nil
+        case .workspaceInherited:
+            return nil
         }
     }
 
@@ -331,6 +439,8 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         case .registry(let settings):
             return settings.productFilter
         case .workspaceMember(let settings):
+            return settings.productFilter
+        case .workspaceInherited(let settings):
             return settings.productFilter
         }
     }
@@ -368,6 +478,15 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
                     identity: settings.identity,
                     productFilter: productFilter,
                     traits: settings.traits,
+                )
+            )
+        case .workspaceInherited(let settings):
+            return .workspaceInherited(
+                WorkspaceInherited(
+                    identity: settings.identity,
+                    productFilter: productFilter,
+                    traits: settings.traits,
+                    resolved: settings.resolved,
                 )
             )
         }
@@ -573,6 +692,8 @@ extension PackageDependency: CustomStringConvertible {
             return "registry[\(data)]"
         case .workspaceMember(let data):
             return "workspaceMember[\(data)]"
+        case .workspaceInherited(let data):
+            return "workspaceInherited[\(data)]"
         }
     }
 }
@@ -605,7 +726,7 @@ extension PackageDependency.Registry.Requirement: CustomStringConvertible {
 
 extension PackageDependency: Encodable {
     private enum CodingKeys: String, CodingKey {
-        case local, fileSystem, scm, sourceControl, registry, workspaceMember
+        case local, fileSystem, scm, sourceControl, registry, workspaceMember, workspaceInherited
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -622,6 +743,9 @@ extension PackageDependency: Encodable {
             try unkeyedContainer.encode(settings)
         case .workspaceMember(let settings):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .workspaceMember)
+            try unkeyedContainer.encode(settings)
+        case .workspaceInherited(let settings):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .workspaceInherited)
             try unkeyedContainer.encode(settings)
         }
     }

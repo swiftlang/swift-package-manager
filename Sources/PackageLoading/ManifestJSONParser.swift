@@ -916,6 +916,13 @@ extension MappablePackageDependency {
                 productFilter: .everything,
                 traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) },
             )
+        case .workspaceInherited(let identity):
+            self.init(
+                parentPackagePath: parentPackagePath,
+                kind: .workspaceInherited(identity: identity),
+                productFilter: .everything,
+                traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) },
+            )
         }
     }
 }

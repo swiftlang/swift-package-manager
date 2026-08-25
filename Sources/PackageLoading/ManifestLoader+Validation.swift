@@ -447,6 +447,8 @@ extension PackageDependency {
             return settings.identity.description
         case .workspaceMember(let settings):
             return "workspace-member:\(settings.identity)"
+        case .workspaceInherited(let settings):
+            return "workspace-inherited:\(settings.identity)"
         }
     }
 
@@ -468,6 +470,8 @@ extension PackageDependency {
                 return .none
             case .workspaceMember(let settings):
                 return "workspace member '\(settings.identity)'"
+            case .workspaceInherited(let settings):
+                return "workspace-inherited '\(settings.identity)'"
             }
         }() {
             description += " (\(locationsString))"

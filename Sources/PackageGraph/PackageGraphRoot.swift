@@ -207,6 +207,25 @@ extension PackageDependency {
             // same as `.fileSystem`. Path is not needed to derive the
             // constraint requirement.
             return .unversioned
+        case .workspaceInherited(let settings):
+            // `.workspaceInherited` is augmented at workspace-load time
+            // with the concrete workspace-declared source. Dispatch on
+            // `resolved` — semantically equivalent to handling the
+            // underlying concrete `.sourceControl` / `.registry` /
+            // `.fileSystem` case directly.
+            guard let resolved = settings.resolved else {
+                preconditionFailure(
+                    ".workspaceInherited reached toConstraintRequirement with nil `resolved` — identity: \(settings.identity), productFilter: \(settings.productFilter), traits: \(String(describing: settings.traits)) - resolver should have populated this."
+                )
+            }
+            switch resolved {
+            case .fileSystem:
+                return .unversioned
+            case .sourceControl(_, let requirement, _, _):
+                return try requirement.toConstraintRequirement()
+            case .registry(let requirement):
+                return try requirement.toConstraintRequirement()
+            }
         }
     }
 }

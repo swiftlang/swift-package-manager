@@ -39,7 +39,8 @@ extension PackageWorkspace: PackageContainerProvider {
                 manifestLoader: self.manifestLoader,
                 currentToolsVersion: self.currentToolsVersion,
                 fileSystem: self.fileSystem,
-                observabilityScope: observabilityScope
+                observabilityScope: observabilityScope,
+                workspaceManifest: self.workspaceManifest,
             )
             return container
         // Resolve the container using the repository manager.

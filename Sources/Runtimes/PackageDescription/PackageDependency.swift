@@ -58,6 +58,20 @@ extension Package {
             ///   member (typically the last path component of its directory).
             @available(_PackageDescription, introduced: 999.0)
             case workspaceMember(identity: String)
+            /// A dependency inherited from the enclosing workspace's
+            /// `dependencies:` declaration.
+            ///
+            /// The `identity` names a dependency declared in the
+            /// `Workspace.swift`'s `dependencies:` array. The workspace
+            /// loader rewrites this at graph-load time to the concrete
+            /// declared dependency (source-control, registry, or
+            /// file-system), unioning any traits specified by the member
+            /// with the workspace's traits. Versions are workspace-
+            /// authoritative — members cannot override them.
+            /// - Parameter identity: The `PackageIdentity` of the
+            ///   workspace-level dependency to inherit.
+            @available(_PackageDescription, introduced: 999.0)
+            case workspaceInherited(identity: String)
         }
 
         /// A description of the package dependency.
@@ -84,6 +98,8 @@ extension Package {
                     return nil
                 case .workspaceMember(identity: let identity):
                     return identity
+                case .workspaceInherited(identity: let identity):
+                    return identity
                 }
             }
         }
@@ -100,6 +116,8 @@ extension Package {
                 case .registry:
                     return nil
                 case .workspaceMember:
+                    return nil
+                case .workspaceInherited:
                     return nil
                 }
             }
@@ -135,6 +153,8 @@ extension Package {
                         return .rangeItem(range)
                     }
                 case .workspaceMember:
+                    return .localPackageItem
+                case .workspaceInherited:
                     return .localPackageItem
                 }
             }
@@ -217,6 +237,16 @@ extension Package {
         ) {
             self.init(
                 kind: .workspaceMember(identity: identity),
+                traits: traits,
+            )
+        }
+
+        convenience init(
+            workspaceInherited identity: String,
+            traits: Set<Trait>?,
+        ) {
+            self.init(
+                kind: .workspaceInherited(identity: identity),
                 traits: traits,
             )
         }
@@ -1181,6 +1211,37 @@ extension Package.Dependency {
         traits: Set<Trait> = [.defaults],
     ) -> Package.Dependency {
         return .init(workspaceMember: identity, traits: traits)
+    }
+
+    /// Adds a dependency inherited from the enclosing workspace's
+    /// `dependencies:` declaration.
+    ///
+    /// The `identity` names a workspace-level dependency declared in
+    /// `Workspace.swift`'s `dependencies:` array. At workspace-graph-load
+    /// time the workspace rewrites this to the concrete declared
+    /// dependency (source-control, registry, or file-system). Traits
+    /// specified here are unioned with the workspace's traits for that
+    /// dependency; the workspace's version constraint is authoritative
+    /// — the member cannot override it.
+    ///
+    /// Using this factory in a `Package.swift` that is loaded outside a
+    /// workspace context is a hard error at graph-load time. Referencing
+    /// an identity that is not declared in the workspace's
+    /// `dependencies:` is also a hard error.
+    ///
+    /// - Parameters:
+    ///   - workspaceInherited: The `PackageIdentity` of the workspace-
+    ///     level dependency to inherit.
+    ///   - traits: Additional traits to layer onto the workspace's trait
+    ///     set for this dependency. The default value enables the
+    ///     default traits of the package.
+    /// - Returns: A `Package.Dependency` instance.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func package(
+        workspaceInherited identity: String,
+        traits: Set<Trait> = [.defaults],
+    ) -> Package.Dependency {
+        return .init(workspaceInherited: identity, traits: traits)
     }
 }
 

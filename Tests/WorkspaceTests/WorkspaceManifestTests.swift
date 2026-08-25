@@ -209,6 +209,253 @@ struct WorkspaceManifestTests {
         }
     }
 
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func parseJSON_withOneFileSystemDependency_yieldsResolvedDependency() throws {
+        // Workspace declares a single .fileSystem dependency pointing to
+        // `external/some-lib` (relative to the workspace root). The parser
+        // should populate `result.dependencies` with a model
+        // PackageDependency of the corresponding kind, with the path
+        // resolved to an absolute path anchored at the workspace root.
+        let json = """
+        {"errors":[],"version":2,"workspace":{"dependencies":[{"kind":{"fileSystem":{"name":null,"path":"external/some-lib"}},"moduleAliases":null,"traits":null}],"members":[{"ignoredStateDirectories":[],"path":"packages/lib-a"}]}}
+        """
+        let workspaceRoot = AbsolutePath("/repo")
+
+        let result = try WorkspaceManifestJSONParser.parse(
+            v2: json,
+            workspaceRoot: workspaceRoot,
+        )
+
+        try #require(result.dependencies.count == 1)
+        guard case .fileSystem(let fs) = result.dependencies[0] else {
+            Issue.record("expected .fileSystem, got: \(result.dependencies[0])")
+            return
+        }
+        #expect(fs.path == workspaceRoot.appending(components: "external", "some-lib"))
+        #expect(fs.identity == PackageIdentity(path: fs.path))
+    }
+
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func parseJSON_withOneSourceControlDependency_yieldsResolvedDependency() throws {
+        // Workspace declares a single .sourceControl dep pointing to a
+        // remote git URL with a version range [2.0.0, 3.0.0).
+        let version200 = #"{"buildMetadataIdentifiers":[],"major":2,"minor":0,"patch":0,"prereleaseIdentifiers":[]}"#
+        let version300 = #"{"buildMetadataIdentifiers":[],"major":3,"minor":0,"patch":0,"prereleaseIdentifiers":[]}"#
+        let requirement = #"{"range":{"lowerBound":\#(version200),"upperBound":\#(version300)}}"#
+        let scDep = #"{"kind":{"sourceControl":{"location":"https://github.com/apple/swift-nio","name":null,"requirement":\#(requirement)}},"moduleAliases":null,"traits":null}"#
+        let json = #"{"errors":[],"version":2,"workspace":{"dependencies":[\#(scDep)],"members":[{"ignoredStateDirectories":[],"path":"packages/lib-a"}]}}"#
+        let workspaceRoot = AbsolutePath("/repo")
+
+        let result = try WorkspaceManifestJSONParser.parse(
+            v2: json,
+            workspaceRoot: workspaceRoot,
+        )
+
+        try #require(result.dependencies.count == 1)
+        guard case .sourceControl(let sc) = result.dependencies[0] else {
+            Issue.record("expected .sourceControl, got: \(result.dependencies[0])")
+            return
+        }
+        #expect(sc.identity.description == "swift-nio")
+        if case .remote(let url) = sc.location {
+            #expect(url.absoluteString == "https://github.com/apple/swift-nio")
+        } else {
+            Issue.record("expected .remote location, got: \(sc.location)")
+        }
+        if case .range(let range) = sc.requirement {
+            #expect(range.lowerBound.description == "2.0.0")
+            #expect(range.upperBound.description == "3.0.0")
+        } else {
+            Issue.record("expected .range requirement, got: \(sc.requirement)")
+        }
+    }
+
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func parseJSON_withOneRegistryDependency_yieldsResolvedDependency() throws {
+        // Workspace declares a registry dep with a version range.
+        let version100 = #"{"buildMetadataIdentifiers":[],"major":1,"minor":0,"patch":0,"prereleaseIdentifiers":[]}"#
+        let version200 = #"{"buildMetadataIdentifiers":[],"major":2,"minor":0,"patch":0,"prereleaseIdentifiers":[]}"#
+        let requirement = #"{"range":{"lowerBound":\#(version100),"upperBound":\#(version200)}}"#
+        let regDep = #"{"kind":{"registry":{"id":"scope.pkg","requirement":\#(requirement)}},"moduleAliases":null,"traits":null}"#
+        let json = #"{"errors":[],"version":2,"workspace":{"dependencies":[\#(regDep)],"members":[{"ignoredStateDirectories":[],"path":"packages/lib-a"}]}}"#
+        let workspaceRoot = AbsolutePath("/repo")
+
+        let result = try WorkspaceManifestJSONParser.parse(
+            v2: json,
+            workspaceRoot: workspaceRoot,
+        )
+
+        try #require(result.dependencies.count == 1)
+        guard case .registry(let reg) = result.dependencies[0] else {
+            Issue.record("expected .registry, got: \(result.dependencies[0])")
+            return
+        }
+        #expect(reg.identity.description == "scope.pkg")
+        if case .range(let range) = reg.requirement {
+            #expect(range.lowerBound.description == "1.0.0")
+            #expect(range.upperBound.description == "2.0.0")
+        } else {
+            Issue.record("expected .range requirement, got: \(reg.requirement)")
+        }
+    }
+
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func parseJSON_withMultipleWorkspaceDependencies_yieldsAllInOrder() throws {
+        // Workspace with three deps: fileSystem + sourceControl + registry.
+        // Verifies the parser produces all three and preserves order.
+        let fsDep = #"{"kind":{"fileSystem":{"name":null,"path":"external/some-lib"}},"moduleAliases":null,"traits":null}"#
+        let version200 = #"{"buildMetadataIdentifiers":[],"major":2,"minor":0,"patch":0,"prereleaseIdentifiers":[]}"#
+        let version300 = #"{"buildMetadataIdentifiers":[],"major":3,"minor":0,"patch":0,"prereleaseIdentifiers":[]}"#
+        let scRequirement = #"{"range":{"lowerBound":\#(version200),"upperBound":\#(version300)}}"#
+        let scDep = #"{"kind":{"sourceControl":{"location":"https://github.com/apple/swift-nio","name":null,"requirement":\#(scRequirement)}},"moduleAliases":null,"traits":null}"#
+        let version100 = #"{"buildMetadataIdentifiers":[],"major":1,"minor":0,"patch":0,"prereleaseIdentifiers":[]}"#
+        let regRequirement = #"{"range":{"lowerBound":\#(version100),"upperBound":\#(version200)}}"#
+        let regDep = #"{"kind":{"registry":{"id":"scope.pkg","requirement":\#(regRequirement)}},"moduleAliases":null,"traits":null}"#
+        let json = #"{"errors":[],"version":2,"workspace":{"dependencies":[\#(fsDep),\#(scDep),\#(regDep)],"members":[{"ignoredStateDirectories":[],"path":"packages/lib-a"}]}}"#
+        let workspaceRoot = AbsolutePath("/repo")
+
+        let result = try WorkspaceManifestJSONParser.parse(
+            v2: json,
+            workspaceRoot: workspaceRoot,
+        )
+
+        try #require(result.dependencies.count == 3)
+        guard case .fileSystem = result.dependencies[0] else {
+            Issue.record("expected .fileSystem at index 0")
+            return
+        }
+        guard case .sourceControl = result.dependencies[1] else {
+            Issue.record("expected .sourceControl at index 1")
+            return
+        }
+        guard case .registry = result.dependencies[2] else {
+            Issue.record("expected .registry at index 2")
+            return
+        }
+    }
+
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func parseJSON_withAbsolutePathFileSystemDependency_yieldsAbsolutePath() throws {
+        // Workspace declares a .fileSystem dep with an absolute path.
+        // The parser should recognize the absolute path and NOT anchor
+        // it at the workspace root.
+        let json = #"{"errors":[],"version":2,"workspace":{"dependencies":[{"kind":{"fileSystem":{"name":null,"path":"/absolute/external/some-lib"}},"moduleAliases":null,"traits":null}],"members":[{"ignoredStateDirectories":[],"path":"packages/lib-a"}]}}"#
+        let workspaceRoot = AbsolutePath("/repo")
+
+        let result = try WorkspaceManifestJSONParser.parse(
+            v2: json,
+            workspaceRoot: workspaceRoot,
+        )
+
+        try #require(result.dependencies.count == 1)
+        guard case .fileSystem(let fs) = result.dependencies[0] else {
+            Issue.record("expected .fileSystem")
+            return
+        }
+        #expect(fs.path == AbsolutePath("/absolute/external/some-lib"))
+        #expect(fs.identity == PackageIdentity(path: fs.path))
+    }
+
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func parseJSON_workspaceDependenciesWithWorkspaceMember_throwsActionableError() throws {
+        // Workspace.swift's own `dependencies:` list contains a
+        // `.package(workspaceMember: "foo")` entry — invalid because
+        // workspace-scoped kinds are member-level, not workspace-level.
+        let json = """
+        {"errors":[],"version":2,"workspace":{"dependencies":[{"kind":{"workspaceMember":{"identity":"foo"}},"moduleAliases":null,"traits":null}],"members":[{"ignoredStateDirectories":[],"path":"packages/lib-a"}]}}
+        """
+        let workspaceRoot = AbsolutePath("/repo")
+
+        var caughtError: Error?
+        do {
+            _ = try WorkspaceManifestJSONParser.parse(
+                v2: json,
+                workspaceRoot: workspaceRoot,
+            )
+        } catch {
+            caughtError = error
+        }
+
+        guard let error = caughtError as? ManifestParseError,
+              case .runtimeManifestErrors(let messages) = error
+        else {
+            Issue.record("expected ManifestParseError.runtimeManifestErrors, got: \(String(describing: caughtError))")
+            return
+        }
+        try #require(messages.count == 1)
+        let message = messages[0]
+        // Message must identify: kind (workspaceMember), the offending
+        // identity ("foo"), and suggest concrete alternatives.
+        #expect(message.contains("workspaceMember"))
+        #expect(message.contains("\"foo\""))
+        #expect(message.contains(".package(path:)"))
+        #expect(message.contains(".package(url:)"))
+        #expect(message.contains(".package(id:)"))
+    }
+
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func parseJSON_workspaceDependenciesWithWorkspaceInherited_throwsActionableError() throws {
+        // Workspace.swift's own `dependencies:` list contains a
+        // `.package(workspaceInherited: "foo")` entry — invalid because
+        // a workspace cannot inherit from itself.
+        let json = """
+        {"errors":[],"version":2,"workspace":{"dependencies":[{"kind":{"workspaceInherited":{"identity":"foo"}},"moduleAliases":null,"traits":null}],"members":[{"ignoredStateDirectories":[],"path":"packages/lib-a"}]}}
+        """
+        let workspaceRoot = AbsolutePath("/repo")
+
+        var caughtError: Error?
+        do {
+            _ = try WorkspaceManifestJSONParser.parse(
+                v2: json,
+                workspaceRoot: workspaceRoot,
+            )
+        } catch {
+            caughtError = error
+        }
+
+        guard let error = caughtError as? ManifestParseError,
+              case .runtimeManifestErrors(let messages) = error
+        else {
+            Issue.record("expected ManifestParseError.runtimeManifestErrors, got: \(String(describing: caughtError))")
+            return
+        }
+        try #require(messages.count == 1)
+        let message = messages[0]
+        #expect(message.contains("workspaceInherited"))
+        #expect(message.contains("\"foo\""))
+        #expect(message.contains(".package(path:)"))
+        #expect(message.contains(".package(url:)"))
+        #expect(message.contains(".package(id:)"))
+    }
+
     // MARK: - ManifestLoader.loadWorkspaceManifest
 
     @Test(

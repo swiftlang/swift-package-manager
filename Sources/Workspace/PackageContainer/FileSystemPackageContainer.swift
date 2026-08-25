@@ -32,6 +32,14 @@ public struct FileSystemPackageContainer: PackageContainer {
     private let manifestLoader: ManifestLoaderProtocol
     private let currentToolsVersion: ToolsVersion
 
+    /// The enclosing `Workspace.swift` manifest, when this container is
+    /// resolving a workspace member. Populated by `PackageWorkspace` at
+    /// container-construction time; when non-nil, the container applies
+    /// `PackageWorkspace.resolveWorkspaceMemberPaths` on manifests it
+    /// loads so that `.workspaceMember` / `.workspaceInherited` deps
+    /// are rewritten before they reach downstream consumers.
+    private let workspaceManifest: WorkspaceManifest?
+
     /// File system that should be used to load this package.
     private let fileSystem: FileSystem
 
@@ -48,7 +56,8 @@ public struct FileSystemPackageContainer: PackageContainer {
         manifestLoader: ManifestLoaderProtocol,
         currentToolsVersion: ToolsVersion,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        workspaceManifest: WorkspaceManifest? = nil,
     ) throws {
         switch package.kind {
         case .root, .fileSystem:
@@ -61,13 +70,14 @@ public struct FileSystemPackageContainer: PackageContainer {
         self.dependencyMapper = dependencyMapper
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
+        self.workspaceManifest = workspaceManifest
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(
             description: "FileSystemPackageContainer",
             metadata: package.diagnosticsMetadata)
     }
 
-    private func loadManifest() async throws -> Manifest {
+    package func loadManifest() async throws -> Manifest {
         try await manifest.memoize {
             let packagePath: AbsolutePath
             switch self.package.kind {
@@ -78,7 +88,7 @@ public struct FileSystemPackageContainer: PackageContainer {
             }
 
             // Load the manifest.
-            return try await manifestLoader.load(
+            let raw = try await manifestLoader.load(
                 packagePath: packagePath,
                 packageIdentity: self.package.identity,
                 packageKind: self.package.kind,
@@ -90,6 +100,17 @@ public struct FileSystemPackageContainer: PackageContainer {
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,
                 delegateQueue: .sharedConcurrent
+            )
+
+            // Apply workspace-scoped dependency rewriting when this
+            // container is resolving a workspace member. The pass is
+            // idempotent for concrete dep kinds, so it's safe to run
+            // even for containers whose manifests happen to have no
+            // workspace-scoped deps.
+            guard let workspaceManifest else { return raw }
+            return try PackageWorkspace.resolveWorkspaceMemberPaths(
+                in: raw,
+                using: workspaceManifest,
             )
         }
     }

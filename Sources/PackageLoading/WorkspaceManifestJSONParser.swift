@@ -119,13 +119,87 @@ public enum WorkspaceManifestJSONParser {
 
         try Self.rejectDuplicateIdentities(in: members)
 
-        // Dependency resolution is deferred to Slice 3, where
-        // `.package(workspaceInherited:)` semantics land. Slice 1 fixtures
-        // declare no workspace-level dependencies.
+        let dependencies = try input.workspace.dependencies.map { serialized in
+            try Self.parseWorkspaceDependency(serialized, workspaceRoot: workspaceRoot)
+        }
+
         return Result(
             members: members,
-            dependencies: [],
+            dependencies: dependencies,
         )
+    }
+
+    /// Converts a workspace-level `Serialization.PackageDependency` into
+    /// a model `PackageDependency`.
+    ///
+    /// The three concrete kinds (`.fileSystem`, `.sourceControl`,
+    /// `.registry`) are accepted. Workspace-scoped kinds
+    /// (`.workspaceMember`, `.workspaceInherited`) are rejected — a
+    /// workspace's own `dependencies:` list cannot recursively refer to
+    /// workspace-scoped kinds.
+    private static func parseWorkspaceDependency(
+        _ serialized: Serialization.PackageDependency,
+        workspaceRoot: AbsolutePath,
+    ) throws -> PackageDependency {
+        let traits = serialized.traits.flatMap {
+            Set($0.map(PackageDependency.Trait.init))
+        }
+        switch serialized.kind {
+        case .fileSystem(let name, let path):
+            let absolute: AbsolutePath
+            if let abs = try? AbsolutePath(validating: path) {
+                absolute = abs
+            } else {
+                let rel = try RelativePath(validating: path)
+                absolute = workspaceRoot.appending(rel)
+            }
+            return .fileSystem(
+                identity: PackageIdentity(path: absolute),
+                nameForTargetDependencyResolutionOnly: name,
+                path: absolute,
+                productFilter: .everything,
+                traits: traits,
+            )
+        case .sourceControl(let name, let location, let requirement):
+            let scLocation: PackageDependency.SourceControl.Location
+            let identity: PackageIdentity
+            if location.contains("://") {
+                scLocation = .remote(SourceControlURL(location))
+                identity = PackageIdentity(urlString: location)
+            } else if let abs = try? AbsolutePath(validating: location) {
+                scLocation = .local(abs)
+                identity = PackageIdentity(path: abs)
+            } else {
+                let rel = try RelativePath(validating: location)
+                let abs = workspaceRoot.appending(rel)
+                scLocation = .local(abs)
+                identity = PackageIdentity(path: abs)
+            }
+            return .sourceControl(
+                identity: identity,
+                nameForTargetDependencyResolutionOnly: name,
+                location: scLocation,
+                requirement: .init(requirement),
+                productFilter: .everything,
+                traits: traits,
+                registryIdentity: nil,
+            )
+        case .registry(let id, let requirement):
+            return .registry(
+                identity: .plain(id),
+                requirement: .init(requirement),
+                productFilter: .everything,
+                traits: traits,
+            )
+        case .workspaceMember(let identity):
+            throw ManifestParseError.runtimeManifestErrors([
+                "Workspace.swift `dependencies:` entry uses `.package(workspaceMember: \"\(identity)\")`, which is not allowed at the workspace level. `.package(workspaceMember:)` is a member-level API used by a member's Package.swift to depend on a sibling workspace member. The workspace's own `dependencies:` list must use concrete dependency kinds: `.package(path:)`, `.package(url:)`, or `.package(id:)`.",
+            ])
+        case .workspaceInherited(let identity):
+            throw ManifestParseError.runtimeManifestErrors([
+                "Workspace.swift `dependencies:` entry uses `.package(workspaceInherited: \"\(identity)\")`, which is not allowed at the workspace level. `.package(workspaceInherited:)` is a member-level API used by a member's Package.swift to inherit a dependency declared in the workspace's `dependencies:` list. A workspace cannot inherit from itself; declare the dependency directly using `.package(path:)`, `.package(url:)`, or `.package(id:)`.",
+            ])
+        }
     }
 
     private static func resolveMember(

@@ -107,6 +107,13 @@ struct DescribedPackage: Encodable {
                     )
                 }
                 self = .workspaceMember(identity: settings.identity, path: path)
+            case .workspaceInherited(let settings):
+                // `.workspaceInherited` is rewritten to a concrete kind
+                // before describe runs — reaching this point indicates
+                // the rewrite pass was skipped.
+                preconditionFailure(
+                    ".workspaceInherited reached DescribedPackageDependency — identity: \(settings.identity), productFilter: \(settings.productFilter), traits: \(String(describing: settings.traits)) - rewrite pass should have replaced this."
+                )
             }
         }
 

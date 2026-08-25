@@ -166,6 +166,14 @@ public class PackageWorkspace {
         configuration.traitConfiguration
     }
 
+    /// The currently-loaded `Workspace.swift` manifest, when this
+    /// `PackageWorkspace` is operating in workspaces mode. Populated by
+    /// `loadRootManifests(packages:workspaceManifest:...)` at the start
+    /// of a graph-load pass; consumed by container providers that need
+    /// to apply workspace-scoped dependency rewriting on manifests
+    /// loaded through non-root paths (e.g. `FileSystemPackageContainer`).
+    public package(set) var workspaceManifest: WorkspaceManifest?
+
     // MARK: State
 
     /// The active package resolver. This is set during a dependency resolution operation.
@@ -1120,7 +1128,8 @@ extension PackageWorkspace {
         workspaceManifest: WorkspaceManifest?,
         observabilityScope: ObservabilityScope,
     ) async throws -> [AbsolutePath: Manifest] {
-        try await withThrowingTaskGroup(of: Optional<(AbsolutePath, Manifest)>.self) { group in
+        self.workspaceManifest = workspaceManifest
+        return try await withThrowingTaskGroup(of: Optional<(AbsolutePath, Manifest)>.self) { group in
             var rootManifests = [AbsolutePath: Manifest]()
             for package in Set(packages) {
                 group.addTask {
@@ -1172,6 +1181,16 @@ extension PackageWorkspace {
                 // For now, matching the original behavior of returning an empty dictionary on error.
                 // Consider throwing an error instead for better error propagation.
                 return [:]
+            }
+
+            if let workspaceManifest {
+                let unused = PackageWorkspace.findUnusedWorkspaceDependencies(
+                    workspace: workspaceManifest,
+                    memberManifests: Array(rootManifests.values),
+                )
+                for identity in unused {
+                    observabilityScope.emit(.unusedWorkspaceDepencency(identity: identity))
+                }
             }
 
             return rootManifests
@@ -1692,6 +1711,12 @@ extension PackageWorkspace.Location {
     }
 }
 
+extension Basics.Diagnostic {
+    @_spi(SwiftPMTesting)
+    public static func unusedWorkspaceDepencency(identity: PackageIdentity) -> Self {
+        .warning("workspace dependency '\(identity)' is declared in Workspace.swift but not inherited by any member via `.package(workspaceInherited:)`",)
+    }
+}
 private func warnToStderr(_ message: String) {
     TSCBasic.stderrStream.write("warning: \(message)\n")
     TSCBasic.stderrStream.flush()
