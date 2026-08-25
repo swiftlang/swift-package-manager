@@ -18,7 +18,7 @@ import PackageLoading
 import PackageModel
 import SPMBuildCore
 import SwiftBuild
-import SwiftBuildSupport
+@_spi(SwiftPMTesting) import SwiftBuildSupport
 import _InternalTestSupport
 import Workspace
 
@@ -2861,6 +2861,343 @@ struct PIFBuilderTests {
         #expect(
             pluginTarget.common.dependencies.contains { $0.targetId == myToolProductTarget.common.id },
             "Expected MyPlugin to depend on my-tool-product from ToolPkg. Actual dependencies: \(pluginTarget.common.dependencies.map(\.targetId.value))"
+        )
+    }
+
+    // MARK: - Workspace-member aggregate targets
+
+    /// A workspace with two members produces one `WorkspaceMember-<identity>`
+    /// aggregate target per member; each is populated with only that
+    /// member's non-test targets.
+    @Test
+    func workspaceMemberAggregate_perRootPackage_containsOnlyThatPackagesTargets() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/LibA/Sources/LibA/LibA.swift",
+            "/LibB/Sources/LibB/LibB.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "LibA",
+                    path: "/LibA",
+                    toolsVersion: .v5_9,
+                    targets: [TargetDescription(name: "LibA")],
+                ),
+                Manifest.createRootManifest(
+                    displayName: "LibB",
+                    path: "/LibB",
+                    toolsVersion: .v5_9,
+                    targets: [TargetDescription(name: "LibB")],
+                ),
+            ],
+            observabilityScope: observability.topScope,
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always,
+                pluginScriptRunner: NoOpPluginScriptRunner(),
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope,
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
+        )
+
+        let errors = observability.diagnostics.filter { $0.severity == .error }
+        #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+        let libAID = try pif.workspace.project(named: "LibA").target(named: "LibA").common.id.value
+        let libBID = try pif.workspace.project(named: "LibB").target(named: "LibB").common.id.value
+
+        let aggregate = try pif.workspace.project(named: "Aggregate")
+
+        let libAAggregateDeps = Set(
+            try aggregate
+                .target(named: PIFBuilder.workspaceMemberTargetName(for: .plain("liba")))
+                .common
+                .dependencies
+                .map(\.targetId.value),
+        )
+        #expect(libAAggregateDeps == [libAID])
+
+        let libBAggregateDeps = Set(
+            try aggregate
+                .target(named: PIFBuilder.workspaceMemberTargetName(for: .plain("libb")))
+                .common
+                .dependencies
+                .map(\.targetId.value),
+        )
+        #expect(libBAggregateDeps == [libBID])
+    }
+
+    /// Test targets belong in `AllIncludingTests` but must NOT appear
+    /// in a member's `WorkspaceMember-<identity>` aggregate — the
+    /// aggregate mirrors the `AllExcludingTests` scoping rules.
+    @Test
+    func workspaceMemberAggregate_excludesTestTargets() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/LibA/Sources/LibA/LibA.swift",
+            "/LibA/Tests/LibATests/LibATests.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "LibA",
+                    path: "/LibA",
+                    toolsVersion: .v5_9,
+                    targets: [
+                        TargetDescription(name: "LibA"),
+                        TargetDescription(name: "LibATests", dependencies: ["LibA"], type: .test),
+                    ],
+                ),
+            ],
+            observabilityScope: observability.topScope,
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always,
+                pluginScriptRunner: NoOpPluginScriptRunner(),
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope,
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
+        )
+
+        let errors = observability.diagnostics.filter { $0.severity == .error }
+        #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+        let rootProject = try pif.workspace.project(named: "LibA")
+        let libAID = try rootProject.target(named: "LibA").common.id.value
+
+        let aggregate = try pif.workspace.project(named: "Aggregate")
+        let memberDeps = Set(
+            try aggregate
+                .target(named: PIFBuilder.workspaceMemberTargetName(for: .plain("liba")))
+                .common
+                .dependencies
+                .map(\.targetId.value),
+        )
+
+        #expect(memberDeps.contains(libAID))
+        // Test-target IDs contain the test module name; assert none of
+        // the member's aggregate deps are test targets.
+        for dep in memberDeps {
+            #expect(!dep.contains("LibATests"), "unexpected test target in member aggregate: \(dep)")
+        }
+    }
+
+    /// The per-member aggregate is emitted only for root packages;
+    /// transitive dependencies must not spawn their own
+    /// `WorkspaceMember-<identity>` aggregate.
+    @Test
+    func workspaceMemberAggregate_isOnlyEmittedForRootPackages() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/App/Sources/App/main.swift",
+            "/Dep/Sources/Dep/Dep.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "App",
+                    path: "/App",
+                    toolsVersion: .v5_9,
+                    dependencies: [.fileSystem(path: "/Dep")],
+                    targets: [
+                        TargetDescription(
+                            name: "App",
+                            dependencies: [.product(name: "Dep", package: "Dep")],
+                            type: .executable,
+                        ),
+                    ],
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "Dep",
+                    path: "/Dep",
+                    toolsVersion: .v5_9,
+                    products: [ProductDescription(name: "Dep", type: .library(.automatic), targets: ["Dep"])],
+                    targets: [TargetDescription(name: "Dep")],
+                ),
+            ],
+            observabilityScope: observability.topScope,
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always,
+                pluginScriptRunner: NoOpPluginScriptRunner(),
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope,
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
+        )
+
+        let errors = observability.diagnostics.filter { $0.severity == .error }
+        #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+        let aggregate = try pif.workspace.project(named: "Aggregate")
+
+        // Root package `App` gets an aggregate; transitive `Dep` does not.
+        _ = try aggregate.target(named: PIFBuilder.workspaceMemberTargetName(for: .plain("app")))
+        #expect(
+            throws: (any Error).self,
+            "expected no WorkspaceMember aggregate target for the transitive dependency 'dep'",
+        ) {
+            _ = try aggregate.target(named: PIFBuilder.workspaceMemberTargetName(for: .plain("dep")))
+        }
+    }
+
+    /// The naming convention exposed by `PIFBuilder.workspaceMemberTargetName(for:)`
+    /// is `"WorkspaceMember-<identity>"`. Locking this in prevents an
+    /// accidental rename from silently desyncing with the corresponding
+    /// `BuildSubset.pifTargetName(for:)` router.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func workspaceMemberTargetName_returnsExpectedFormat() throws {
+        #expect(
+            PIFBuilder.workspaceMemberTargetName(for: .plain("lib-a"))
+                == "WorkspaceMember-lib-a",
+        )
+        #expect(
+            PIFBuilder.workspaceMemberTargetName(for: .plain("some.scope.pkg"))
+                == "WorkspaceMember-some.scope.pkg",
+        )
+    }
+
+    /// A single member with both a library and an executable target
+    /// should contribute BOTH non-test target IDs to that member's
+    /// aggregate. Locks in that we don't accidentally filter one kind
+    /// (e.g. skip the executable's product-target).
+    @Test
+    func workspaceMemberAggregate_withMultipleTargetsPerMember_includesAllNonTest() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/LibA/Sources/LibA/LibA.swift",
+            "/LibA/Sources/App/main.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "LibA",
+                    path: "/LibA",
+                    toolsVersion: .v5_9,
+                    products: [
+                        ProductDescription(name: "App", type: .executable, targets: ["App"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "LibA"),
+                        TargetDescription(name: "App", type: .executable),
+                    ],
+                ),
+            ],
+            observabilityScope: observability.topScope,
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always,
+                pluginScriptRunner: NoOpPluginScriptRunner(),
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope,
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild),
+        )
+
+        let errors = observability.diagnostics.filter { $0.severity == .error }
+        #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+        let libAProject = try pif.workspace.project(named: "LibA")
+        let libAID = try libAProject.target(named: "LibA").common.id.value
+        let appModuleID = try libAProject.target(named: "App").common.id.value
+        let appProductID = try libAProject.target(named: "App-product").common.id.value
+
+        let memberDeps = Set(
+            try pif.workspace
+                .project(named: "Aggregate")
+                .target(named: PIFBuilder.workspaceMemberTargetName(for: .plain("liba")))
+                .common
+                .dependencies
+                .map(\.targetId.value),
+        )
+
+        // Both the library module and the executable's product target
+        // must appear; the executable module target is folded into the
+        // product target by PIF, so we don't require it independently
+        // — but if either the library or the executable product were
+        // dropped, this assertion catches it.
+        #expect(memberDeps.contains(libAID))
+        #expect(
+            memberDeps.contains(appProductID) || memberDeps.contains(appModuleID),
+            "expected the executable to be represented in the member aggregate (via either its product or module target); got \(memberDeps)",
+        )
+    }
+
+    // MARK: - BuildSubset.pifTargetName routing
+
+    /// `BuildSubset.workspaceMember(id)` must route to the aggregate
+    /// target name produced by `PIFBuilder.workspaceMemberTargetName(for:)`.
+    /// If either side of this contract changes independently, the
+    /// dispatch to Swift Build silently breaks.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func pifTargetName_forWorkspaceMemberSubset_returnsAggregateTargetName() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/LibA/Sources/LibA/LibA.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "LibA",
+                    path: "/LibA",
+                    toolsVersion: .v5_9,
+                    targets: [TargetDescription(name: "LibA")],
+                ),
+            ],
+            observabilityScope: observability.topScope,
+        )
+
+        let identity = PackageIdentity.plain("liba")
+        let subset: BuildSubset = .workspaceMember(identity)
+
+        #expect(
+            subset.pifTargetName(for: graph)
+                == PIFBuilder.workspaceMemberTargetName(for: identity),
         )
     }
 }

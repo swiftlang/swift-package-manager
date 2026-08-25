@@ -14,11 +14,12 @@ import Basics
 import PackageGraph
 
 import enum PackageModel.TraitConfiguration
+import struct PackageModel.PackageIdentity
 
 import protocol TSCBasic.OutputByteStream
 
 /// An enum representing what subset of the package to build.
-public enum BuildSubset {
+public enum BuildSubset: Equatable {
     /// Represents the subset of all products and non-test targets.
     case allExcludingTests
 
@@ -32,6 +33,14 @@ public enum BuildSubset {
     /// Represents a specific target. Allows to set a specific
     /// destination if it's known.
     case target(String, for: BuildParameters.Destination? = .none)
+
+    /// Represents all non-test products/targets belonging to a specific
+    /// workspace member's package. Populated when a `Workspace.swift`
+    /// is discovered and the invoking command is focused on a single
+    /// member (e.g. CWD is inside that member, or `--package <identity>`
+    /// was supplied). Only honored by the Swift Build build system;
+    /// the native build system rejects it as a hard error.
+    case workspaceMember(PackageIdentity)
 }
 
 /// Represents possible extra build outputs for a build. Some build systems

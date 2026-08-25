@@ -303,6 +303,13 @@ public final class SwiftCommandState {
     /// Path to the root package directory, nil if manifest is not found.
     private let packageRoot: AbsolutePath?
 
+    /// When a `Workspace.swift` is discovered and CWD is inside one of
+    /// its members, this holds the enclosing member's identity. Nil
+    /// when CWD is at the workspace root, when no workspace is present,
+    /// or when `--multiroot-data-file` is in use. Populated by
+    /// `getWorkspaceRoot()`.
+    public private(set) var currentWorkspaceMemberFocus: PackageIdentity?
+
     /// Helper function to get package root or throw error if it is not found.
     public func getPackageRoot() throws -> AbsolutePath {
         guard let packageRoot else {
@@ -340,6 +347,17 @@ public final class SwiftCommandState {
             )
             packages = manifest.members.map(\.path)
             workspaceManifest = manifest
+            self.currentWorkspaceMemberFocus = PackageWorkspace.findEnclosingMember(
+                cwd: self.fileSystem.currentWorkingDirectory ?? .root,
+                in: manifest.members,
+            )
+            if let diagnostic = Self.workspaceMemberFocusRequiresSwiftBuildDiagnostic(
+                focus: self.currentWorkspaceMemberFocus,
+                buildSystem: self.options.build.buildSystem,
+            ) {
+                self.observabilityScope.emit(diagnostic)
+                throw ExitCode.failure
+            }
         } else {
             packages = try [self.getPackageRoot()]
         }
@@ -519,10 +537,27 @@ public final class SwiftCommandState {
         }
 
         self.packageRoot = packageRoot
+        // Workspaces share a single `.build/` at the workspace root
+        // across all members. Detect the enclosing `Workspace.swift`
+        // now (at init, before any workspace loading) so paths like
+        // `scratchDirectory` reflect that intent even when CWD is
+        // inside a member directory (Case A).
+        //
+        // Start the walk from the just-computed `packageRoot` (or the
+        // post-`chdir` CWD when no package root exists yet) — NOT from
+        // the `cwd` captured before `chdirIfNeeded` ran, which may sit
+        // outside the workspace entirely (e.g. the user's shell CWD
+        // when `--package-path` was supplied).
+        let workspaceDiscoveryStart =
+            packageRoot ?? fileSystem.currentWorkingDirectory ?? cwd
+        let workspaceRootForScratch = PackageWorkspace.discoverWorkspaceRoot(
+            from: workspaceDiscoveryStart,
+            fileSystem: fileSystem,
+        )
         self.scratchDirectory =
             try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd) ??
             options.locations.scratchDirectory ??
-            (packageRoot ?? cwd).appending(".build")
+            (workspaceRootForScratch ?? packageRoot ?? cwd).appending(".build")
 
         // make sure common directories are created
         self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: options, fileSystem: fileSystem)
@@ -1415,6 +1450,29 @@ public final class SwiftCommandState {
     }
 }
 
+extension SwiftCommandState {
+    /// Returns an error `Diagnostic` when a workspace-member focus was
+    /// resolved but the selected build system does not support it.
+    /// Returns `nil` when the combination is compatible.
+    ///
+    /// Workspaces are currently only supported with the Swift Build
+    /// build system. If a user invokes any workspace-aware command
+    /// (i.e. one that runs `getWorkspaceRoot()`) from inside a
+    /// workspace member while requesting a different build system, we
+    /// surface a hard error rather than silently building the whole
+    /// workspace under the wrong backend.
+    ///
+    /// Extracted as a pure static helper so it can be unit-tested
+    /// without instantiating a full `SwiftCommandState`.
+    static func workspaceMemberFocusRequiresSwiftBuildDiagnostic(
+        focus: PackageIdentity?,
+        buildSystem: BuildSystemProvider.Kind,
+    ) -> Diagnostic? {
+        guard let focus, buildSystem != .swiftbuild else { return nil }
+        return .invalidWorkspaceBuildSystem(focus: focus)
+    }
+}
+
 extension BuildSystemProvider.Kind {
     fileprivate var shouldCreateMultipleTestProducts: Bool {
         switch self {
@@ -1609,6 +1667,17 @@ extension Basics.Diagnostic {
     package static func deprecatedBuildSystem(buildSystem: BuildSystemProvider.Kind) -> Self {
         .warning(
             "'--build-system \(buildSystem)' has been deprecated and will be removed in a future release; please report an issue at https://github.com/swiftlang/swift-package-manager/issues if you are unable to adopt the default build system."
+        )
+    }
+
+    static func invalidWorkspaceBuildSystem(focus: PackageIdentity) -> Self {
+        .error(
+            """
+            workspace-member focus (current directory is inside member '\(focus)') \
+            requires --build-system \(BuildSystemProvider.Kind.swiftbuild); re-run with \
+            --build-system \(BuildSystemProvider.Kind.swiftbuild), or run from the workspace \
+            root to build every member.
+            """,
         )
     }
 }

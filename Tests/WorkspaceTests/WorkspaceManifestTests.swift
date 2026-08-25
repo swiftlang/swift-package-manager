@@ -103,6 +103,148 @@ struct WorkspaceManifestTests {
         #expect(discovered == inner)
     }
 
+    // MARK: - findEnclosingMember
+
+    /// Convenience: build a `WorkspaceManifest.Member` at a fixed
+    /// identity + path for the `findEnclosingMember` tests.
+    private static func member(
+        _ identity: String,
+        at path: AbsolutePath,
+    ) -> WorkspaceManifest.Member {
+        WorkspaceManifest.Member(
+            identity: PackageIdentity.plain(identity),
+            path: path,
+        )
+    }
+
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func findEnclosingMember_whenCwdEqualsMemberPath_returnsThatIdentity() throws {
+        let workspaceRoot = AbsolutePath("/repo")
+        let memberPath = workspaceRoot.appending(components: "packages", "lib-a")
+        let members = [Self.member("lib-a", at: memberPath)]
+
+        let focus = PackageWorkspace.findEnclosingMember(
+            cwd: memberPath,
+            in: members,
+        )
+
+        #expect(focus == PackageIdentity.plain("lib-a"))
+    }
+
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func findEnclosingMember_whenCwdDeepInsideMember_returnsThatIdentity() throws {
+        let workspaceRoot = AbsolutePath("/repo")
+        let memberPath = workspaceRoot.appending(components: "packages", "lib-a")
+        let cwd = memberPath.appending(components: "Sources", "LibA", "sub")
+        let members = [Self.member("lib-a", at: memberPath)]
+
+        let focus = PackageWorkspace.findEnclosingMember(
+            cwd: cwd,
+            in: members,
+        )
+
+        #expect(focus == PackageIdentity.plain("lib-a"))
+    }
+
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func findEnclosingMember_whenCwdAtWorkspaceRoot_returnsNil() throws {
+        let workspaceRoot = AbsolutePath("/repo")
+        let members = [
+            Self.member(
+                "lib-a",
+                at: workspaceRoot.appending(components: "packages", "lib-a"),
+            ),
+            Self.member(
+                "lib-b",
+                at: workspaceRoot.appending(components: "packages", "lib-b"),
+            ),
+        ]
+
+        let focus = PackageWorkspace.findEnclosingMember(
+            cwd: workspaceRoot,
+            in: members,
+        )
+
+        #expect(focus == nil)
+    }
+
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func findEnclosingMember_whenCwdInUnrelatedSibling_returnsNil() throws {
+        // CWD is in `external/some-lib`, which is not a workspace
+        // member (it's a workspace-level dependency source).
+        let workspaceRoot = AbsolutePath("/repo")
+        let members = [
+            Self.member(
+                "lib-a",
+                at: workspaceRoot.appending(components: "packages", "lib-a"),
+            ),
+        ]
+        let cwd = workspaceRoot.appending(components: "external", "some-lib")
+
+        let focus = PackageWorkspace.findEnclosingMember(
+            cwd: cwd,
+            in: members,
+        )
+
+        #expect(focus == nil)
+    }
+
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func findEnclosingMember_whenNestedMembers_returnsDeepestMatch() throws {
+        // Pathological but valid: a member is nested inside another
+        // member's directory. `findEnclosingMember` must select the
+        // deepest matching member.
+        let workspaceRoot = AbsolutePath("/repo")
+        let outerPath = workspaceRoot.appending("outer")
+        let innerPath = outerPath.appending(components: "nested", "inner")
+        let members = [
+            Self.member("outer", at: outerPath),
+            Self.member("inner", at: innerPath),
+        ]
+        let cwd = innerPath.appending("Sources")
+
+        let focus = PackageWorkspace.findEnclosingMember(
+            cwd: cwd,
+            in: members,
+        )
+
+        #expect(focus == PackageIdentity.plain("inner"))
+    }
+
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func findEnclosingMember_whenMembersEmpty_returnsNil() throws {
+        let focus = PackageWorkspace.findEnclosingMember(
+            cwd: AbsolutePath("/repo/packages/anywhere"),
+            in: [],
+        )
+
+        #expect(focus == nil)
+    }
+
     // MARK: - WorkspaceManifestJSONParser
 
     @Test(
@@ -629,7 +771,7 @@ struct WorkspaceManifestTests {
     /// Writes a minimal Workspace.swift plus each member's Package.swift and
     /// a bare Sources directory. Used by medium tests that need a valid
     /// on-disk workspace layout.
-    private static func writeMinimalWorkspaceAndMembers(
+    static func writeMinimalWorkspaceAndMembers(
         at workspaceRoot: AbsolutePath,
         memberPaths: [String],
     ) throws {
@@ -677,6 +819,77 @@ struct WorkspaceManifestTests {
             try localFileSystem.writeFileContents(
                 sourceDir.appending("\(name).swift"),
                 string: "public enum \(name.replacingOccurrences(of: "-", with: "_")) {}",
+            )
+        }
+    }
+}
+
+// MARK: - findEnclosingMember (integration)
+
+@Suite(
+    .tags(
+        .FunctionalArea.WorkspaceManiest,
+    ),
+)
+struct FindEnclosingMemberIntegrationTests {
+    /// End-to-end for the focus-computation wiring: load a real
+    /// `Workspace.swift` from disk through `PackageWorkspace.loadWorkspaceManifest`,
+    /// then feed its `members` array into `findEnclosingMember` for
+    /// a variety of CWDs. Complements the pure-function unit tests in
+    /// `WorkspaceManifestTests` by proving the two APIs compose
+    /// correctly against a filesystem-loaded manifest.
+    @Test(
+        .tags(
+            Tag.TestSize.medium,
+        ),
+    )
+    func loadedWorkspace_findEnclosingMember_returnsExpectedFocusForCwd() async throws {
+        try await withTemporaryDirectory { tempDir in
+            let workspaceRoot = tempDir.appending("workspace")
+            try WorkspaceManifestTests.writeMinimalWorkspaceAndMembers(
+                at: workspaceRoot,
+                memberPaths: [
+                    "packages/lib-a",
+                    "packages/lib-b",
+                ],
+            )
+
+            let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default)
+            let observability = ObservabilitySystem.makeForTesting()
+
+            let manifest = try await PackageWorkspace.loadWorkspaceManifest(
+                at: workspaceRoot,
+                manifestLoader: manifestLoader,
+                fileSystem: localFileSystem,
+                observabilityScope: observability.topScope,
+            )
+
+            let libAPath = workspaceRoot.appending(components: "packages", "lib-a")
+            let libBPath = workspaceRoot.appending(components: "packages", "lib-b")
+
+            #expect(
+                PackageWorkspace.findEnclosingMember(
+                    cwd: libAPath,
+                    in: manifest.members,
+                ) == PackageIdentity.plain("lib-a"),
+            )
+            #expect(
+                PackageWorkspace.findEnclosingMember(
+                    cwd: libAPath.appending(components: "Sources", "lib-a"),
+                    in: manifest.members,
+                ) == PackageIdentity.plain("lib-a"),
+            )
+            #expect(
+                PackageWorkspace.findEnclosingMember(
+                    cwd: libBPath,
+                    in: manifest.members,
+                ) == PackageIdentity.plain("lib-b"),
+            )
+            #expect(
+                PackageWorkspace.findEnclosingMember(
+                    cwd: workspaceRoot,
+                    in: manifest.members,
+                ) == nil,
             )
         }
     }

@@ -454,6 +454,10 @@ extension BuildSubset {
             PIFBuilder.allExcludingTestsTargetName
         case .allIncludingTests:
             PIFBuilder.allIncludingTestsTargetName
+        case .workspaceMember:
+            preconditionFailure(
+                ".workspaceMember focus is unsupported by the legacy XCBuild path — the Commands layer must reject it before dispatch",
+            )
         }
     }
 }

@@ -201,6 +201,10 @@ struct PrebuiltsPIFTests {
             "swift-syntaxPackageTests-product",
             "MyRootPackageTests-product",
             "MyPackagePackageTests-product",
+            // Per-root workspace-member aggregate target introduced by
+            // the workspaces feature; MyRoot is the sole root package
+            // in this fixture, so only its aggregate appears here.
+            "WorkspaceMember-myroot",
         ])
 
         let targets = pif.workspace.projects.flatMap({ $0.underlying.targets })

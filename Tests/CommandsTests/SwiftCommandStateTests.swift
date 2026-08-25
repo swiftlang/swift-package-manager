@@ -228,6 +228,57 @@ struct SwiftCommandStateTestSuites {
             #expect(resourceValues.isExcludedFromBackup == true)
         }
     }
+    // MARK: - workspaceMemberFocusRequiresSwiftBuildDiagnostic
+
+    func workspaceMemberFocusDiagnostic_withNilFocus_returnsNil() throws {
+        for buildSystem in BuildSystemProvider.Kind.allCases {
+            let diagnostic = SwiftCommandState.workspaceMemberFocusRequiresSwiftBuildDiagnostic(
+                focus: nil,
+                buildSystem: buildSystem,
+            )
+            #expect(
+                diagnostic == nil,
+                "no focus should never surface a diagnostic (buildSystem: \(buildSystem))",
+            )
+        }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func workspaceMemberFocusDiagnostic_withFocusAndSwiftBuild_returnsNil() throws {
+        let diagnostic = SwiftCommandState.workspaceMemberFocusRequiresSwiftBuildDiagnostic(
+            focus: PackageIdentity.plain("app"),
+            buildSystem: .swiftbuild,
+        )
+        #expect(diagnostic == nil)
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+        arguments: BuildSystemProvider.Kind.allCases.filter { $0 != .swiftbuild },
+    )
+    func workspaceMemberFocusDiagnostic_withFocusAndNonSwiftBuild_returnsInvalidWorkspaceBuildSystemDiagnostic(
+        buildSystem: BuildSystemProvider.Kind,
+    ) throws {
+        let focus = PackageIdentity.plain("app")
+        let expected = Diagnostic.invalidWorkspaceBuildSystem(focus: focus)
+
+        let actual = try #require(
+            SwiftCommandState.workspaceMemberFocusRequiresSwiftBuildDiagnostic(
+                focus: focus,
+                buildSystem: buildSystem,
+            ),
+            "expected a diagnostic when focus is set and buildSystem is \(buildSystem)",
+        )
+
+        #expect(actual.severity == expected.severity)
+        #expect(actual.message == expected.message)
+    }
 }
 
 final class SwiftCommandStateTests: XCTestCase {

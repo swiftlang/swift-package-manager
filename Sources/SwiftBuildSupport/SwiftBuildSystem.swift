@@ -572,6 +572,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         case .target(let targetName, _):
             pluginsToCompile = allPlugins.filter{ $0.moduleName == targetName }
             continueBuilding = pluginsToCompile.isEmpty
+        case .workspaceMember(let identity):
+            pluginsToCompile = allPlugins.filter { $0.package == identity }
+            continueBuilding = pluginsToCompile.isEmpty
         }
 
         final class Delegate: PluginScriptCompilerDelegate {
