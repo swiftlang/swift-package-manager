@@ -139,9 +139,9 @@ func deprecatedTypealiasCompiles() async throws {
 ### Success Criteria
 
 #### Automated Verification:
-- [ ] `swift build --disable-sandbox` succeeds
-- [ ] `swift test --disable-sandbox --xunit-output xunit.xml --experimental-xunit-message-failure` — full suite green
-- [ ] `PackageWorkspaceDeprecationTests.deprecatedTypealiasCompiles` passes
+- [x] `swift build --disable-sandbox` succeeds
+- [x] `swift test --disable-sandbox --xunit-output xunit.xml --experimental-xunit-message-failure` — full suite green
+- [x] `PackageWorkspaceDeprecationTests.deprecatedTypealiasCompiles` passes
 - [ ] Add `PackageWorkspaceRenameTests.noOldClassNameRemains` that shells out to `grep -rn '\bclass Workspace\b' Sources/Workspace/` and asserts zero hits — mechanical regression guard against reintroducing the old declaration
 - [ ] Add `PackageWorkspaceRenameTests.typealiasEmitsDeprecationWarning` that compiles a small Swift snippet using the `Workspace` typealias in a subprocess with `-warnings-as-errors` OR captures compiler diagnostics stream and asserts the deprecation diagnostic is present
 
@@ -967,6 +967,10 @@ func s04_buildFromInsideMemberBuildsOnlyThatMember(...) async throws {
 
 `--package <identity>` narrows build/test/run to a specific member from anywhere. Reuses the `BuildSubset.workspaceMember` case introduced in Slice 4 — this slice adds the CLI flag and the identity resolution logic, not new build-plumbing.
 
+### Deferred from Slice 4
+
+- **Nested-`.workspaceInherited` end-to-end test.** Slice 4 covers `.workspaceInherited` in the focused member (S04's `app` inherits `some-lib`), and the container-side rewrite for a workspace member is pinned by the unit test `fileSystemContainer_forWorkspaceMember_rewritesInheritedDep`. What's missing is the combined case where the focused member depends on a sibling member via `.workspaceMember`, and that sibling member itself uses `.workspaceInherited`. Extending the S05 fixture to a two-tier dep chain (`app` → `.workspaceMember("lib-a")` → `lib-a` uses `.workspaceInherited("some-lib")`) exercises the container-side rewrite for a *transitive* workspace member, not just for roots that go through `loadRootManifests`. See the `TODO(Slice 5)` in `s04_buildFromInsideMemberBuildsOnlyThatMember`.
+
 ### Changes Required
 
 #### 1. CLI flag
@@ -1040,7 +1044,7 @@ Iterate test targets across all in-scope members (union at root; single at CWD-i
 #### 2. xUnit aggregation
 **File**: `Sources/Commands/SwiftTestCommand.swift` (xUnit output section)
 
-Emit a single `<testsuites>` root element containing one `<testsuite>` per test target. Add `package="<member-identity>"` attribute to each `<testsuite>`. The combined file lives at `<workspace-root>/xunit.xml` (or wherever `--xunit-output` points, but the file is single).
+Emit a single `<testsuites>` root element containing one `<testsuite>` per test target. Add `<properties><property name="package" value="<member-identity"/></properties>` element to each `<testsuite>`. The combined file lives at `<workspace-root>/xunit.xml` (or wherever `--xunit-output` points, but the file is single).
 
 #### 3. Filter application
 Filters (`--filter`, `--skip`) apply across the union of in-scope members' test cases.
