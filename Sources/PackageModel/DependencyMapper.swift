@@ -178,8 +178,15 @@ public struct MappablePackageDependency {
         case fileSystem(name: String?, path: String)
         case sourceControl(name: String?, location: String, requirement: PackageDependency.SourceControl.Requirement)
         case registry(id: String, requirement: PackageDependency.Registry.Requirement)
-        case workspaceMember(identity: String)
-        case workspaceInherited(identity: String)
+        /// Workspace-scoped cases hold the entire `PackageDependency.WorkspaceMember`
+        /// / `PackageDependency.WorkspaceInherited` payload so any augmentation
+        /// field populated by `PackageWorkspace.resolveWorkspaceMemberPaths`
+        /// (e.g. `WorkspaceMember.path`, `WorkspaceInherited.resolved`) is
+        /// preserved verbatim across a mapper round-trip. Adding a new field
+        /// on either struct in a future slice is picked up automatically —
+        /// no case-by-case threading required.
+        case workspaceMember(PackageDependency.WorkspaceMember)
+        case workspaceInherited(PackageDependency.WorkspaceInherited)
     }
 
     public enum Requirement {
@@ -234,14 +241,14 @@ extension MappablePackageDependency {
         case .workspaceMember(let settings):
             self.init(
                 parentPackagePath: parentPackagePath,
-                kind: .workspaceMember(identity: settings.identity.description),
+                kind: .workspaceMember(settings),
                 productFilter: settings.productFilter,
                 traits: settings.traits,
             )
         case .workspaceInherited(let settings):
             self.init(
                 parentPackagePath: parentPackagePath,
-                kind: .workspaceInherited(identity: settings.identity.description),
+                kind: .workspaceInherited(settings),
                 productFilter: settings.productFilter,
                 traits: settings.traits,
             )
@@ -258,10 +265,10 @@ extension MappablePackageDependency {
             return location
         case .registry(let id, _):
             return id
-        case .workspaceMember(let identity):
-            return identity
-        case .workspaceInherited(let identity):
-            return identity
+        case .workspaceMember(let member):
+            return member.identity.description
+        case .workspaceInherited(let inherited):
+            return inherited.identity.description
         }
     }
 
@@ -273,10 +280,10 @@ extension MappablePackageDependency {
             return name
         case .registry:
             return .none
-        case .workspaceMember(let identity):
-            return identity
-        case .workspaceInherited(let identity):
-            return identity
+        case .workspaceMember(let member):
+            return member.identity.description
+        case .workspaceInherited(let inherited):
+            return inherited.identity.description
         }
     }
 
@@ -288,10 +295,10 @@ extension MappablePackageDependency {
             return requirement
         case .registry(_, let requirement):
             return .init(requirement)
-        case .workspaceMember(let identity):
-            throw DependencyMappingError.invalidMapping("mapping of workspace-member dependency (\(identity)) to source control (\(location)) is invalid")
-        case .workspaceInherited(let identity):
-            throw DependencyMappingError.invalidMapping("mapping of workspace-inherited dependency (\(identity)) to source control (\(location)) is invalid — workspace-inherited deps must be rewritten before mapping")
+        case .workspaceMember(let member):
+            throw DependencyMappingError.invalidMapping("mapping of workspace-member dependency (\(member.identity)) to source control (\(location)) is invalid")
+        case .workspaceInherited(let inherited):
+            throw DependencyMappingError.invalidMapping("mapping of workspace-inherited dependency (\(inherited.identity)) to source control (\(location)) is invalid — workspace-inherited deps must be rewritten before mapping")
         }
     }
 
@@ -303,10 +310,10 @@ extension MappablePackageDependency {
             return try .init(requirement, from: location, to: identity)
         case .registry(_, let requirement):
             return requirement
-        case .workspaceMember(let memberIdentity):
-            throw DependencyMappingError.invalidMapping("mapping of workspace-member dependency (\(memberIdentity)) to registry (\(identity)) is invalid")
-        case .workspaceInherited(let memberIdentity):
-            throw DependencyMappingError.invalidMapping("mapping of workspace-inherited dependency (\(memberIdentity)) to registry (\(identity)) is invalid — workspace-inherited deps must be rewritten before mapping")
+        case .workspaceMember(let member):
+            throw DependencyMappingError.invalidMapping("mapping of workspace-member dependency (\(member.identity)) to registry (\(identity)) is invalid")
+        case .workspaceInherited(let inherited):
+            throw DependencyMappingError.invalidMapping("mapping of workspace-inherited dependency (\(inherited.identity)) to registry (\(identity)) is invalid — workspace-inherited deps must be rewritten before mapping")
         }
     }
 }
@@ -374,22 +381,10 @@ extension PackageDependency {
                 productFilter: seed.productFilter,
                 traits: seed.traits
             )
-        case .workspaceMember(let identity):
-            self = .workspaceMember(
-                PackageDependency.WorkspaceMember(
-                    identity: .plain(identity),
-                    productFilter: seed.productFilter,
-                    traits: seed.traits,
-                )
-            )
-        case .workspaceInherited(let identity):
-            self = .workspaceInherited(
-                PackageDependency.WorkspaceInherited(
-                    identity: .plain(identity),
-                    productFilter: seed.productFilter,
-                    traits: seed.traits,
-                )
-            )
+        case .workspaceMember(let member):
+            self = .workspaceMember(member)
+        case .workspaceInherited(let inherited):
+            self = .workspaceInherited(inherited)
         }
     }
 }

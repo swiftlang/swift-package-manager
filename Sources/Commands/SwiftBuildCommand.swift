@@ -55,37 +55,72 @@ extension BuildSubset {
 
 struct BuildCommandOptions: ParsableArguments {
     /// Pure decision logic for translating command-line options + Case A
-    /// focus into a `BuildSubset`. Extracted for direct unit testing;
-    /// the instance method `buildSubset(observabilityScope:workspaceMemberFocus:)`
+    /// focus + `--package` selector into a `BuildSubset`. Extracted for
+    /// direct unit testing; the instance method
+    /// `buildSubset(observabilityScope:workspaceMemberFocus:availableMemberIdentities:)`
     /// simply forwards its stored fields to this helper.
     ///
     /// Ordering:
-    /// 1. Any explicit override (`--product` / `--target` / `--build-tests`)
-    ///    takes precedence over an implicit workspace-member focus.
-    /// 2. If more than one explicit override is present, emits a mutual-
-    ///    exclusion error and returns `nil`.
-    /// 3. Otherwise, if a workspace-member focus is available, returns
-    ///    `.workspaceMember(focus)`.
-    /// 4. Otherwise, returns `.allExcludingTests`.
+    /// 1. `--product` and `--target` compose with `--package` — the
+    ///    named artifact is scoped to the selected member.
+    /// 2. `--product`, `--target`, and `--build-tests` are mutually
+    ///    exclusive with each other. `--package` is compatible with
+    ///    any single one.
+    /// 3. `--package` supplied without a workspace: hard error.
+    ///    `--package` naming an unknown identity: hard error listing
+    ///    known identities.
+    /// 4. When only `--package` is set → `.workspaceMember(<id>)`.
+    /// 5. When no explicit override and no `--package` but a
+    ///    `workspaceMemberFocus` is set → `.workspaceMember(focus)`.
+    /// 6. Fallback → `.allExcludingTests`.
     static func computeBuildSubset(
         product: String?,
         target: String?,
         buildTests: Bool,
+        selectedPackage: PackageIdentity? = nil,
         workspaceMemberFocus: PackageIdentity?,
+        availableMemberIdentities: Set<PackageIdentity>? = nil,
         observabilityScope: ObservabilityScope,
     ) -> BuildSubset? {
+        // Resolve `--package` first: emits its own errors and either
+        // returns a validated PackageIdentity or nil to abort.
+        let resolvedPackage: PackageIdentity?
+        if let selectedPackage {
+            guard let availableMemberIdentities else {
+                observabilityScope.emit(
+                    .packageSelectorRequiresWorkspace(requested: selectedPackage),
+                )
+                return nil
+            }
+            guard availableMemberIdentities.contains(selectedPackage) else {
+                observabilityScope.emit(
+                    .unknownWorkspaceMember(
+                        requested: selectedPackage,
+                        known: availableMemberIdentities,
+                    ),
+                )
+                return nil
+            }
+            resolvedPackage = selectedPackage
+        } else {
+            resolvedPackage = nil
+        }
+
+        // Mutual exclusion applies across `--product`, `--target`,
+        // `--build-tests`; `--package` composes with (at most one of)
+        // these to scope the lookup.
         var allSubsets: [BuildSubset] = []
 
         if let product {
-            allSubsets.append(.product(product))
+            allSubsets.append(.product(product, for: nil, package: resolvedPackage))
         }
 
         if let target {
-            allSubsets.append(.target(target))
+            allSubsets.append(.target(target, for: nil, package: resolvedPackage))
         }
 
         if buildTests {
-            allSubsets.append(.allIncludingTests)
+            allSubsets.append(.allIncludingTests(package: resolvedPackage))
         }
 
         guard allSubsets.count < 2 else {
@@ -99,23 +134,30 @@ struct BuildCommandOptions: ParsableArguments {
             return explicit
         }
 
+        if let resolvedPackage {
+            return .workspaceMember(resolvedPackage)
+        }
+
         if let workspaceMemberFocus {
             return .workspaceMember(workspaceMemberFocus)
         }
 
-        return .allExcludingTests
+        return .allExcludingTests()
     }
 
     /// Returns the build subset specified with the options.
     func buildSubset(
         observabilityScope: ObservabilityScope,
         workspaceMemberFocus: PackageIdentity? = nil,
+        availableMemberIdentities: Set<PackageIdentity>? = nil,
     ) -> BuildSubset? {
         Self.computeBuildSubset(
             product: self.product,
             target: self.target,
             buildTests: self.buildTests,
+            selectedPackage: self.selectedPackage,
             workspaceMemberFocus: workspaceMemberFocus,
+            availableMemberIdentities: availableMemberIdentities,
             observabilityScope: observabilityScope,
         )
     }
@@ -169,6 +211,16 @@ struct BuildCommandOptions: ParsableArguments {
     /// Specific product to build.
     @Option(help: "Build the specified product.")
     var product: String?
+
+    /// Select a specific workspace member by identity. Requires a
+    /// `Workspace.swift` to be discoverable; scopes the build to that
+    /// member's products (or, when combined with `--product` /
+    /// `--target`, scopes the lookup to that member).
+    @Option(
+        name: .customLong("package"),
+        help: "Select a specific workspace member by identity.",
+    )
+    var selectedPackage: PackageIdentity?
 
     /// Testing library options.
     ///
@@ -239,6 +291,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         guard let subset = options.buildSubset(
             observabilityScope: swiftCommandState.observabilityScope,
             workspaceMemberFocus: swiftCommandState.currentWorkspaceMemberFocus,
+            availableMemberIdentities: swiftCommandState.currentWorkspaceMemberIdentities,
         ) else {
             throw ExitCode.failure
         }

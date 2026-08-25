@@ -310,6 +310,13 @@ public final class SwiftCommandState {
     /// `getWorkspaceRoot()`.
     public private(set) var currentWorkspaceMemberFocus: PackageIdentity?
 
+    /// When a `Workspace.swift` is discovered, holds the full set of
+    /// declared member identities. Nil when no workspace is present.
+    /// Consumed by build/test/run commands to validate `--package
+    /// <identity>` selections and to surface "known members" lists in
+    /// diagnostics.
+    public private(set) var currentWorkspaceMemberIdentities: Set<PackageIdentity>?
+
     /// Helper function to get package root or throw error if it is not found.
     public func getPackageRoot() throws -> AbsolutePath {
         guard let packageRoot else {
@@ -347,6 +354,7 @@ public final class SwiftCommandState {
             )
             packages = manifest.members.map(\.path)
             workspaceManifest = manifest
+            self.currentWorkspaceMemberIdentities = Set(manifest.members.map(\.identity))
             self.currentWorkspaceMemberFocus = PackageWorkspace.findEnclosingMember(
                 cwd: self.fileSystem.currentWorkingDirectory ?? .root,
                 in: manifest.members,
@@ -1677,6 +1685,36 @@ extension Basics.Diagnostic {
             requires --build-system \(BuildSystemProvider.Kind.swiftbuild); re-run with \
             --build-system \(BuildSystemProvider.Kind.swiftbuild), or run from the workspace \
             root to build every member.
+            """,
+        )
+    }
+
+    /// Diagnostic emitted when `--package <identity>` is supplied but
+    /// the identity is not a declared workspace member. Lists the known
+    /// identities so the user can correct the invocation.
+    @_spi(SwiftPMInternal)
+    public static func unknownWorkspaceMember(
+        requested: PackageIdentity,
+        known: Set<PackageIdentity>,
+    ) -> Self {
+        let sortedKnown = known.map(\.description).sorted()
+        return .error(
+            """
+            no workspace member with identity '\(requested)'; known members: \
+            \(sortedKnown.map { "'\($0)'" }.joined(separator: ", "))
+            """,
+        )
+    }
+
+    /// Diagnostic emitted when `--package <identity>` is supplied but
+    /// there is no `Workspace.swift` discoverable from CWD. Points the
+    /// user at the missing precondition.
+    @_spi(SwiftPMInternal)
+    public static func packageSelectorRequiresWorkspace(requested: PackageIdentity) -> Self {
+        .error(
+            """
+            --package '\(requested)' requires a Workspace.swift; either \
+            run from inside a workspace, or invoke without --package.
             """,
         )
     }

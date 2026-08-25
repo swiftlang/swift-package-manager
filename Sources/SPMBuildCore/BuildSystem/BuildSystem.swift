@@ -21,18 +21,41 @@ import protocol TSCBasic.OutputByteStream
 /// An enum representing what subset of the package to build.
 public enum BuildSubset: Equatable {
     /// Represents the subset of all products and non-test targets.
-    case allExcludingTests
+    ///
+    /// When `package` is non-nil, the subset is scoped to that
+    /// workspace member. Nil means "workspace-wide / whole graph"
+    /// (the pre-workspaces behavior).
+    case allExcludingTests(package: PackageIdentity? = nil)
 
     /// Represents the subset of all products and targets.
-    case allIncludingTests
+    ///
+    /// When `package` is non-nil, the subset is scoped to that
+    /// workspace member. Nil means "workspace-wide / whole graph".
+    case allIncludingTests(package: PackageIdentity? = nil)
 
     /// Represents a specific product. Allows to set a specific
     /// destination if it's known.
-    case product(String, for: BuildParameters.Destination? = .none)
+    ///
+    /// When `package` is non-nil, the product name is scoped to the
+    /// named workspace member (disambiguating products of the same
+    /// name across multiple members). When `package` is nil, the
+    /// product is looked up against the full graph as before.
+    case product(
+        String,
+        for: BuildParameters.Destination? = .none,
+        package: PackageIdentity? = nil,
+    )
 
     /// Represents a specific target. Allows to set a specific
     /// destination if it's known.
-    case target(String, for: BuildParameters.Destination? = .none)
+    ///
+    /// When `package` is non-nil, the target name is scoped to the
+    /// named workspace member.
+    case target(
+        String,
+        for: BuildParameters.Destination? = .none,
+        package: PackageIdentity? = nil,
+    )
 
     /// Represents all non-test products/targets belonging to a specific
     /// workspace member's package. Populated when a `Workspace.swift`
@@ -41,6 +64,49 @@ public enum BuildSubset: Equatable {
     /// was supplied). Only honored by the Swift Build build system;
     /// the native build system rejects it as a hard error.
     case workspaceMember(PackageIdentity)
+}
+
+extension BuildSubset {
+    /// Validates a workspace-scoped subset against the loaded package
+    /// graph. Callers dispatch on the result — a `nil` return means the
+    /// subset is valid and can be routed to the build system; a non-nil
+    /// return is the diagnostic to emit before failing the invocation.
+    ///
+    /// Currently checks two conditions:
+    /// - `.product(name, package: X)` — `name` must be one of member
+    ///   `X`'s declared products.
+    /// - `.target(name, package: X)` — `name` must be one of member
+    ///   `X`'s declared targets (modules).
+    ///
+    /// All other subset shapes (whole-graph, unscoped `.product` /
+    /// `.target`, `.workspaceMember`) have no cross-member scoping to
+    /// validate and return `nil`. When `package` is set but the member
+    /// isn't in `graph.rootPackages`, this also returns `nil` — the
+    /// missing-member case is caught earlier by the CLI-level
+    /// `unknownWorkspaceMember` diagnostic.
+    @_spi(SwiftPMInternal)
+    public func validate(against graph: ModulesGraph) -> Basics.Diagnostic? {
+        switch self {
+        case .product(let name, _, let package?):
+            guard let member = graph.rootPackages.first(where: { $0.identity == package }) else {
+                return nil
+            }
+            let known = Set(member.products.map { PackageIdentity.plain($0.name) })
+            guard !known.contains(.plain(name)) else { return nil }
+            return .unknownProductInMember(requested: name, package: package, known: known)
+        case .target(let name, _, let package?):
+            guard let member = graph.rootPackages.first(where: { $0.identity == package }) else {
+                return nil
+            }
+            let known = Set(member.modules.map { PackageIdentity.plain($0.name) })
+            guard !known.contains(.plain(name)) else { return nil }
+            return .unknownTargetInMember(requested: name, package: package, known: known)
+        case .product, .target,
+             .allExcludingTests, .allIncludingTests,
+             .workspaceMember:
+            return nil
+        }
+    }
 }
 
 /// Represents possible extra build outputs for a build. Some build systems
@@ -115,7 +181,7 @@ extension BuildSystem {
     /// Builds the default subset: all targets excluding tests with no extra build outputs.
     @discardableResult
     public func build() async throws -> BuildResult {
-        try await build(subset: .allExcludingTests, buildOutputs: [])
+        try await build(subset: .allExcludingTests(), buildOutputs: [])
     }
 
     /// The path to the index store directory for the given build parameters.

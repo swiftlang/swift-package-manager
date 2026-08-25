@@ -16,7 +16,7 @@ import Testing
 import PackageGraph
 import PackageLoading
 import PackageModel
-import SPMBuildCore
+@_spi(SwiftPMInternal) import SPMBuildCore
 import SwiftBuild
 @_spi(SwiftPMTesting) import SwiftBuildSupport
 import _InternalTestSupport
@@ -3199,6 +3199,214 @@ struct PIFBuilderTests {
             subset.pifTargetName(for: graph)
                 == PIFBuilder.workspaceMemberTargetName(for: identity),
         )
+    }
+
+    // MARK: - BuildSubset.validate(against:)
+
+    /// A `.product(name, package: X)` subset where product `name` does
+    /// exist in the selected member's product list validates cleanly —
+    /// `validate` returns nil.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+            .FunctionalArea.WorkspaceManiest,
+        ),
+    )
+    func validate_productExistsInSelectedPackage_returnsNil() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/LibB/Sources/LibB/LibB.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "lib-b",
+                    path: "/LibB",
+                    toolsVersion: .v5_9,
+                    products: [
+                        ProductDescription(name: "LibB", type: .library(.automatic), targets: ["LibB"]),
+                    ],
+                    targets: [TargetDescription(name: "LibB")],
+                ),
+            ],
+            observabilityScope: observability.topScope,
+        )
+
+        let subset: BuildSubset = .product("LibB", for: nil, package: .plain("libb"))
+        #expect(subset.validate(against: graph) == nil)
+    }
+
+    /// A `.product(name, package: X)` subset where the selected member
+    /// `X` exists but product `name` is NOT one of its products returns
+    /// the `unknownProductInMember` diagnostic listing the member's
+    /// known products.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+            .FunctionalArea.WorkspaceManiest,
+        ),
+    )
+    func validate_productMissingFromSelectedPackage_returnsUnknownProductDiagnostic() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/LibB/Sources/LibB/LibB.swift",
+            "/LibB/Sources/LibBExtra/LibBExtra.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "lib-b",
+                    path: "/LibB",
+                    toolsVersion: .v5_9,
+                    products: [
+                        ProductDescription(name: "LibB", type: .library(.automatic), targets: ["LibB"]),
+                        ProductDescription(name: "LibBExtra", type: .library(.automatic), targets: ["LibBExtra"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "LibB"),
+                        TargetDescription(name: "LibBExtra"),
+                    ],
+                ),
+            ],
+            observabilityScope: observability.topScope,
+        )
+
+        let subset: BuildSubset = .product("NonExistent", for: nil, package: .plain("libb"))
+        let expected = Basics.Diagnostic.unknownProductInMember(
+            requested: "NonExistent",
+            package: .plain("libb"),
+            known: [.plain("LibB"), .plain("LibBExtra")],
+        )
+        let actual = try #require(subset.validate(against: graph))
+        #expect(actual.severity == expected.severity)
+        #expect(actual.message == expected.message)
+    }
+
+    /// Subset kinds that don't specify a package (`.product(_, package: nil)`,
+    /// `.workspaceMember`, etc.) have no cross-member scoping to validate
+    /// and must pass through — this is the non-workspace / whole-graph path.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+            .FunctionalArea.WorkspaceManiest,
+        ),
+    )
+    func validate_subsetWithoutPackageScope_returnsNil() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/LibA/Sources/LibA/LibA.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "liba",
+                    path: "/LibA",
+                    toolsVersion: .v5_9,
+                    targets: [TargetDescription(name: "LibA")],
+                ),
+            ],
+            observabilityScope: observability.topScope,
+        )
+
+        // `.product` without a package scope: no cross-member validation.
+        #expect(
+            BuildSubset.product("AnythingGoes", for: nil, package: nil)
+                .validate(against: graph) == nil,
+        )
+        // `.target` without a package scope: same.
+        #expect(
+            BuildSubset.target("AnythingGoes", for: nil, package: nil)
+                .validate(against: graph) == nil,
+        )
+        // `.workspaceMember` isn't a product-scoped subset; nothing to validate.
+        #expect(
+            BuildSubset.workspaceMember(.plain("liba"))
+                .validate(against: graph) == nil,
+        )
+        // Whole-graph subsets have no scoping to validate.
+        #expect(BuildSubset.allExcludingTests().validate(against: graph) == nil)
+        #expect(BuildSubset.allIncludingTests().validate(against: graph) == nil)
+    }
+
+    /// A `.target(name, package: X)` subset where target `name` does
+    /// exist as a module in the selected member validates cleanly.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+            .FunctionalArea.WorkspaceManiest,
+        ),
+    )
+    func validate_targetExistsInSelectedPackage_returnsNil() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/LibB/Sources/LibB/LibB.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "lib-b",
+                    path: "/LibB",
+                    toolsVersion: .v5_9,
+                    targets: [TargetDescription(name: "LibB")],
+                ),
+            ],
+            observabilityScope: observability.topScope,
+        )
+
+        let subset: BuildSubset = .target("LibB", for: nil, package: .plain("libb"))
+        #expect(subset.validate(against: graph) == nil)
+    }
+
+    /// A `.target(name, package: X)` subset where the selected member
+    /// `X` exists but target `name` is NOT one of its modules returns
+    /// the `unknownTargetInMember` diagnostic listing the member's
+    /// known targets.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+            .FunctionalArea.WorkspaceManiest,
+        ),
+    )
+    func validate_targetMissingFromSelectedPackage_returnsUnknownTargetDiagnostic() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/LibB/Sources/LibB/LibB.swift",
+            "/LibB/Sources/LibBExtra/LibBExtra.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "lib-b",
+                    path: "/LibB",
+                    toolsVersion: .v5_9,
+                    targets: [
+                        TargetDescription(name: "LibB"),
+                        TargetDescription(name: "LibBExtra"),
+                    ],
+                ),
+            ],
+            observabilityScope: observability.topScope,
+        )
+
+        let subset: BuildSubset = .target("NonExistent", for: nil, package: .plain("libb"))
+        let expected = Basics.Diagnostic.unknownTargetInMember(
+            requested: "NonExistent",
+            package: .plain("libb"),
+            known: [.plain("LibB"), .plain("LibBExtra")],
+        )
+        let actual = try #require(subset.validate(against: graph))
+        #expect(actual.severity == expected.severity)
+        #expect(actual.message == expected.message)
     }
 }
 

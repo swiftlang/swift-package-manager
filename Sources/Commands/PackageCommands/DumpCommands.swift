@@ -66,7 +66,7 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
             enableAllTraits: swiftCommandState.traitConfiguration == .default,
             cacheBuildManifest: false
         )
-        let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.symbolGraph(
+        let buildResult = try await buildSystem.build(subset: .allExcludingTests(), buildOutputs: [.symbolGraph(
             BuildOutput.SymbolGraphOptions(
                 prettyPrint: prettyPrint,
                 minimumAccessLevel: .accessLevel(minimumAccessLevel),

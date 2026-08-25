@@ -145,7 +145,7 @@ struct APIDigesterBaselineDumper {
             toolsBuildParameters: toolsBuildParameters,
             packageGraphLoader: { graph }
         )
-        let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.buildPlan])
+        let buildResult = try await buildSystem.build(subset: .allExcludingTests(), buildOutputs: [.buildPlan])
 
         guard let buildPlan = buildResult.buildPlan else {
             throw Diagnostics.fatalError

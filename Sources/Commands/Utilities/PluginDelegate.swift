@@ -146,7 +146,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         let buildSubset: BuildSubset
         switch subset {
         case .all(let includingTests):
-            buildSubset = includingTests ? .allIncludingTests : .allExcludingTests
+            buildSubset = includingTests ? .allIncludingTests() : .allExcludingTests()
             if includingTests {
                 // Enable testability if we're building tests explicitly.
                 buildParameters.testingParameters.explicitlyEnabledTestability = true
@@ -218,7 +218,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         let buildSystem = try await swiftCommandState.createBuildSystem(
             toolsBuildParameters: toolsBuildParameters
         )
-        try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [])
+        try await buildSystem.build(subset: .allIncludingTests(), buildOutputs: [])
 
         // Clean out the code coverage directory that may contain stale `profraw` files from a previous run of
         // the code coverage tool.

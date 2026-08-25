@@ -910,18 +910,33 @@ extension MappablePackageDependency {
                 traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
             )
         case .workspaceMember(let identity):
+            let memberTraits = seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
             self.init(
                 parentPackagePath: parentPackagePath,
-                kind: .workspaceMember(identity: identity),
+                kind: .workspaceMember(
+                    PackageDependency.WorkspaceMember(
+                        identity: .plain(identity),
+                        productFilter: .everything,
+                        traits: memberTraits,
+                    )
+                ),
                 productFilter: .everything,
-                traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) },
+                traits: memberTraits,
             )
         case .workspaceInherited(let identity):
+            let inheritedTraits = seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) }
             self.init(
                 parentPackagePath: parentPackagePath,
-                kind: .workspaceInherited(identity: identity),
+                kind: .workspaceInherited(
+                    PackageDependency.WorkspaceInherited(
+                        identity: .plain(identity),
+                        productFilter: .everything,
+                        traits: inheritedTraits,
+                        resolved: nil,
+                    )
+                ),
                 productFilter: .everything,
-                traits: seed.traits.flatMap { Set($0.map { PackageDependency.Trait.init($0) } ) },
+                traits: inheritedTraits,
             )
         }
     }

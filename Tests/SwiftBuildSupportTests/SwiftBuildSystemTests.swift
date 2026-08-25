@@ -158,7 +158,7 @@ struct SwiftBuildSystemTests {
             createREPLProduct: true,
         ) { swiftBuild, _, _, _, _ in
             let result = try await swiftBuild.build(
-                subset: .allExcludingTests,
+                subset: .allExcludingTests(),
                 buildOutputs: [.replArguments],
             )
             let replArguments = try #require(result.replArguments)

@@ -14,7 +14,10 @@ import Basics
 import Foundation
 import Testing
 import _InternalTestSupport
+import struct PackageModel.PackageIdentity
 
+@_spi(SwiftPMInternal) import CoreCommands
+@_spi(SwiftPMInternal) import SPMBuildCore
 import struct SPMBuildCore.BuildSystemProvider
 
 @Suite(
@@ -222,6 +225,310 @@ struct WorkspaceFeatureTests {
             // be produced when focus narrows the build to the app
             // member.
             expectFileDoesNotExist(at: binPath.appending("LibA.swiftmodule"))
+        }
+    }
+
+    /// `--package X` from the workspace root builds only member X's
+    /// products (and its transitive deps), even when the caller isn't
+    /// inside any member. This is the "explicit selector, no CWD-based
+    /// focus" path.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s05_packageSelectorFromRoot_buildsSelectedMemberOnly(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S05_PackageSelector") { fixturePath in
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["--package", "lib-b"],
+                buildSystem: buildSystem,
+            )
+
+            let binPath = try await getBinPath(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["--package", "lib-b"],
+                buildSystem: buildSystem,
+            )
+
+            expectFileExists(at: binPath.appending("LibB.swiftmodule"))
+            // Unrelated members did not build.
+            expectFileDoesNotExist(at: binPath.appending("app"))
+            expectFileDoesNotExist(at: binPath.appending("LibA.swiftmodule"))
+        }
+    }
+
+    /// `--package X --product Y` builds product `Y` scoped to member
+    /// `X`. Exercises the composition path where the selector narrows
+    /// which member's product namespace `--product` resolves against —
+    /// the case that motivates supporting both flags together rather
+    /// than treating them as mutually exclusive.
+    ///
+    /// `lib-b` exposes two products (`LibB` + `LibBExtra`); asserting
+    /// that only `LibB.swiftmodule` is produced proves `--product`
+    /// narrows WITHIN the selected member, not just across members.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s05_packageSelectorWithProduct_buildsSelectedProductFromSelectedMember(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S05_PackageSelector") { fixturePath in
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["--package", "lib-b", "--product", "LibB"],
+                buildSystem: buildSystem,
+            )
+
+            let binPath = try await getBinPath(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["--package", "lib-b", "--product", "LibB"],
+                buildSystem: buildSystem,
+            )
+
+            expectFileExists(at: binPath.appending("LibB.swiftmodule"))
+            // Sibling products in the same member must not be built.
+            expectFileDoesNotExist(at: binPath.appending("LibBExtra.swiftmodule"))
+            // Sibling members' products must not be built.
+            expectFileDoesNotExist(at: binPath.appending("app"))
+            expectFileDoesNotExist(at: binPath.appending("LibA.swiftmodule"))
+        }
+    }
+
+    /// `--package X --product Y` where member `X` exists but product
+    /// `Y` doesn't emits the `unknownProductInMember` diagnostic
+    /// listing the member's known products. Guards the SwiftBuild
+    /// dispatch path from silently falling through to an opaque
+    /// downstream failure.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s05_packageSelectorWithInvalidProduct_errorsWithHelpfulMessage(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S05_PackageSelector") { fixturePath in
+            let (_, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["--package", "lib-b", "--product", "DoesNotExist"],
+                buildSystem: buildSystem,
+                throwIfCommandFails: false,
+            )
+
+            let expected = Basics.Diagnostic.unknownProductInMember(
+                requested: "DoesNotExist",
+                package: .plain("lib-b"),
+                known: [.plain("LibB"), .plain("LibBExtra")],
+            )
+            #expect(
+                stderr.contains(expected.message),
+                "expected unknown-product-in-member diagnostic; got: \(stderr)",
+            )
+        }
+    }
+
+    /// `--package X --target Y` builds target `Y` scoped to member `X`.
+    /// Mirrors the `--product` composition path for target selection.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s05_packageSelectorWithTarget_buildsSelectedTargetFromSelectedMember(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S05_PackageSelector") { fixturePath in
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["--package", "lib-b", "--target", "LibB"],
+                buildSystem: buildSystem,
+            )
+
+            let binPath = try await getBinPath(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["--package", "lib-b", "--target", "LibB"],
+                buildSystem: buildSystem,
+            )
+
+            expectFileExists(at: binPath.appending("LibB.swiftmodule"))
+            // Sibling targets in the same member must not be built.
+            expectFileDoesNotExist(at: binPath.appending("LibBExtra.swiftmodule"))
+            // Sibling members' products must not be built.
+            expectFileDoesNotExist(at: binPath.appending("app"))
+            expectFileDoesNotExist(at: binPath.appending("LibA.swiftmodule"))
+        }
+    }
+
+    /// `--package X --target Y` where member `X` exists but target `Y`
+    /// doesn't emits the `unknownTargetInMember` diagnostic listing the
+    /// member's known targets.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s05_packageSelectorWithInvalidTarget_errorsWithHelpfulMessage(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S05_PackageSelector") { fixturePath in
+            let (_, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["--package", "lib-b", "--target", "DoesNotExist"],
+                buildSystem: buildSystem,
+                throwIfCommandFails: false,
+            )
+
+            let expected = Basics.Diagnostic.unknownTargetInMember(
+                requested: "DoesNotExist",
+                package: .plain("lib-b"),
+                known: [.plain("LibB"), .plain("LibBExtra")],
+            )
+            #expect(
+                stderr.contains(expected.message),
+                "expected unknown-target-in-member diagnostic; got: \(stderr)",
+            )
+        }
+    }
+
+    /// `--package X` supplied from inside a DIFFERENT member `Y`
+    /// overrides the CWD-derived focus on `Y`. The selector wins; only
+    /// `X`'s products are built. This is the cross-member escape valve.
+    ///
+    /// Also exercises the deferred-from-Slice-4 nested-`.workspaceInherited`
+    /// chain: `app` uses `.package(workspaceMember: "lib-a")` and
+    /// `lib-a` uses `.package(workspaceInherited: "some-lib")`. Focus
+    /// on `app` must pull `lib-a` in transitively and resolve `lib-a`'s
+    /// inherited dep against the workspace's `some-lib` — exercising
+    /// the container-side rewrite (from Slice 3) for a NON-root member
+    /// manifest.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s05_packageSelectorFromInsideAnotherMember_buildsSelectedMemberAndTransitiveDeps(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S05_PackageSelector") { fixturePath in
+            let libBPath = fixturePath.appending(components: "packages", "lib-b")
+
+            // Invoke from inside `lib-b`, but select `--package app`.
+            // Slice 5 semantics: `--package` wins over CWD focus, so
+            // `app` builds even though CWD's focus is `lib-b`.
+            try await executeSwiftBuild(
+                libBPath,
+                configuration: .debug,
+                extraArgs: ["--package", "app"],
+                buildSystem: buildSystem,
+            )
+
+            let binPath = try await getBinPath(
+                libBPath,
+                configuration: .debug,
+                extraArgs: ["--package", "app"],
+                buildSystem: buildSystem,
+            )
+
+            // `app` was built via the selector.
+            expectFileExists(at: binPath.appending("app"))
+            // `lib-a` (transitive workspace-member dep of `app`) was
+            // built too — and its `.workspaceInherited("some-lib")`
+            // was resolved through the container-side rewrite.
+            expectFileExists(at: binPath.appending("LibA.swiftmodule"))
+            // `SomeLib` (transitive workspace-inherited dep of `lib-a`
+            // via `app`) was built.
+            expectFileExists(at: binPath.appending("SomeLib.swiftmodule"))
+            // `lib-b` (the CWD's enclosing member, NOT a dep of `app`)
+            // was NOT built — proves the selector overrides focus and
+            // doesn't pull in the CWD member.
+            expectFileDoesNotExist(at: binPath.appending("LibB.swiftmodule"))
+        }
+    }
+
+    /// `--package invalid` where `invalid` isn't a declared workspace
+    /// member yields a non-zero exit and stderr naming the unknown
+    /// identity AND listing the known identities.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s05_packageSelectorWithUnknownIdentity_errorsWithHelpfulMessage(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S05_PackageSelector") { fixturePath in
+            let (_, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["--package", "does-not-exist"],
+                buildSystem: buildSystem,
+                throwIfCommandFails: false,
+            )
+
+            let knownPackageIds = Set(["app", "lib-a", "lib-b"].map { PackageIdentity.plain($0) })
+            let expectedDiagnostic = Basics.Diagnostic.unknownWorkspaceMember(
+                requested: "does-not-exist",
+                known: knownPackageIds,
+            )
+            #expect(
+                stderr.contains(expectedDiagnostic.message),
+                "expected unknown workspace member diagnostic; got: \(stderr)",
+            )
+        }
+    }
+
+    /// `--package X` outside a workspace (a single-package fixture,
+    /// no `Workspace.swift` in scope) errors with a "requires a
+    /// Workspace.swift" diagnostic. Reuses S01 with a member as the
+    /// CWD — S01's `packages/lib-a` has no enclosing workspace when
+    /// isolated (we run swift-build INSIDE the member to break the
+    /// workspace discovery walk-up).
+    @Test(
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s05_packageSelectorOutsideWorkspace_errorsWithRequiresWorkspaceDiagnostic(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/Simple") { fixturePath in
+            let  requestedPackageName = "anything"
+            let (_, stderr) = try await executeSwiftBuild(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["--package", requestedPackageName],
+                buildSystem: buildSystem,
+                throwIfCommandFails: false,
+            )
+
+            let packageId = PackageIdentity.plain(requestedPackageName)
+            let expectedDiagnostic = Basics.Diagnostic.packageSelectorRequiresWorkspace(requested: packageId)
+
+            #expect(
+                stderr.contains(expectedDiagnostic.message),
+                "expected requires-Workspace.swift diagnostic; got: \(stderr)",
+            )
         }
     }
 }

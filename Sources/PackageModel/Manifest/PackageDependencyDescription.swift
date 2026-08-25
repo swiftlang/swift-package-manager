@@ -476,6 +476,7 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
             return .workspaceMember(
                 WorkspaceMember(
                     identity: settings.identity,
+                    path: settings.path,
                     productFilter: productFilter,
                     traits: settings.traits,
                 )
