@@ -84,7 +84,7 @@ dependencies: [
 
 Swift package manager determines the traits to enable using the entire graph of dependencies in a project.
 The traits enabled for a dependency is the union of all of the traits that for packages that depend upon it.
-For example, if you opt out of all traits, but a dependency you use uses the same package with some trait enabled, the package will use the depdendency with the requested traits enabled.
+For example, if you opt out of all traits, but a dependency you use uses the same package with some trait enabled, the package will use the dependency with the requested traits enabled.
 
 > Note: By disabling any default traits, you may be removing available APIs from the dependency you use. 
 

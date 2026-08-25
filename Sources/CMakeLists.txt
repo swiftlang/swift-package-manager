@@ -54,7 +54,7 @@ add_subdirectory(tsan_utils)
 if(SwiftPM_ENABLE_RUNTIME)
   add_subdirectory(Runtimes)
   # NOTE: maintain the custom output directory for the ManifestAPI modules to
-  # allow the boostrap scripts to continue functioning as they have historically.
+  # allow the bootstrap scripts to continue functioning as they have historically.
   # This is unnecessary with the split runtime build, but is left here to
   # minimize disruption.
   set_target_properties(CompilerPluginSupport PROPERTIES

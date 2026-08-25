@@ -32,7 +32,7 @@ public struct InternalError: Error {
 
 /// Wraps another error and provides additional context when printed.
 /// This is useful for user facing errors that need to provide a user friendly message
-/// explaning why an error might have occured, while still showing the detailed underlying error.
+/// explaining why an error might have occurred, while still showing the detailed underlying error.
 public struct ErrorWithContext<E: Error>: Error {
     public let error: E
     public let context: String
