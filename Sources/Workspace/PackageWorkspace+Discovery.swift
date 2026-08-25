@@ -42,6 +42,34 @@ extension PackageWorkspace {
         }
     }
 
+    /// Returns the identity of the workspace member whose path is the
+    /// closest ancestor of (or equal to) `cwd`.
+    ///
+    /// Used to implement "Case A": when a SwiftPM command is invoked
+    /// from inside a workspace member's directory, the enclosing member
+    /// is treated as the default focus for build/test/run.
+    ///
+    /// The comparison is purely syntactic. Callers that care about
+    /// symlinks are expected to pass already-resolved (`realpath`)
+    /// absolute paths for both `cwd` and each member.
+    ///
+    /// - Parameters:
+    ///   - cwd: The current working directory (or any path being tested
+    ///     for enclosure).
+    ///   - members: The workspace's declared members.
+    /// - Returns: The identity of the enclosing member, preferring the
+    ///   deepest match when members are nested. `nil` when no member
+    ///   encloses `cwd`.
+    public static func findEnclosingMember(
+        cwd: AbsolutePath,
+        in members: [WorkspaceManifest.Member],
+    ) -> PackageIdentity? {
+        members
+            .filter { $0.path.isAncestorOfOrEqual(to: cwd) }
+            .max(by: { $0.path.pathString.count < $1.path.pathString.count })?
+            .identity
+    }
+
     /// Loads and validates the `Workspace.swift` manifest at `workspaceRoot`.
     ///
     /// Reads the tools-version header, invokes the manifest loader (which

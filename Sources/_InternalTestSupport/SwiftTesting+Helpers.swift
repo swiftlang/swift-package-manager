@@ -45,7 +45,7 @@ public func expectFileExists(
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
     #expect(
-        fs.exists(path),
+        fs.exists(path) == true,
         fileErrorMessage(
             at: path,
             prefix: comment,
@@ -63,7 +63,7 @@ public func requireFileExists(
     sourceLocation: SourceLocation = #_sourceLocation,
 ) throws {
     try #require(
-        fs.exists(path),
+        fs.exists(path) == true,
         fileErrorMessage(
             at: path,
             prefix: comment,
@@ -96,7 +96,7 @@ public func expectFileDoesNotExist(
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
     #expect(
-        !fs.exists(path),
+        fs.exists(path) == false,
         fileErrorMessage(
             at: path,
             prefix: comment,
@@ -129,7 +129,7 @@ public func requireFileDoesNotExist(
     sourceLocation: SourceLocation = #_sourceLocation,
 ) throws {
     try #require(
-        !fs.exists(path),
+        fs.exists(path) == false,
         fileErrorMessage(
             at: path,
             prefix: comment,
@@ -153,7 +153,7 @@ public func expectFileIsExecutable(
             ""
         }
     #expect(
-        fs.isExecutableFile(fixturePath),
+        fs.isExecutableFile(fixturePath) == true,
         "\(commentPrefix)File '\(fixturePath)' expected to be executable, but is not.",
         sourceLocation: sourceLocation,
     )
@@ -186,7 +186,7 @@ public func requireDirectoryExists(
     sourceLocation: SourceLocation = #_sourceLocation,
 ) throws {
     try #require(
-        fs.isDirectory(path),
+        fs.isDirectory(path) == true,
         directoryExistsErrorMessage(for: path, comment: comment),
         sourceLocation: sourceLocation,
     )
@@ -199,7 +199,7 @@ public func expectDirectoryExists(
     sourceLocation: SourceLocation = #_sourceLocation,
 ) {
     #expect(
-        fs.isDirectory(path),
+        fs.isDirectory(path) == true,
         directoryExistsErrorMessage(for: path, comment: comment, fileSystem: fs),
         sourceLocation: sourceLocation,
     )
@@ -217,7 +217,7 @@ public func requireDirectoryDoesNotExist(
         msgSuffix = ""
     }
     try #require(
-        !fs.isDirectory(path),
+        fs.isDirectory(path) == false,
         "Directory exists unexpectedly: '\(path)'.\(msgSuffix)",
         sourceLocation: sourceLocation,
     )
@@ -236,7 +236,7 @@ public func expectDirectoryDoesNotExist(
         msgSuffix = ""
     }
     #expect(
-        !fs.isDirectory(path),
+        fs.isDirectory(path) == false,
         "Directory exists unexpectedly: '\(path)'.\(msgSuffix)",
         sourceLocation: sourceLocation,
     )
@@ -266,13 +266,13 @@ public func expectSymlink(
     sourceLocation: SourceLocation = #_sourceLocation,
 ) throws {
     #expect(
-        fs.isSymlink(path),
+        fs.isSymlink(path) == true,
         "Source (\(path)) is not a symbolic link",
         sourceLocation: sourceLocation,
     )
 
     #expect(
-        fs.exists(path, followSymlink: true),
+        fs.exists(path, followSymlink: true) == true,
         "Source (\(path)) does not exists while following symliks",
         sourceLocation: sourceLocation,
     )

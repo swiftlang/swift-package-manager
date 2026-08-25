@@ -125,6 +125,16 @@ public final class PIFBuilder {
     /// Name of the PIF target aggregating all targets (*including* tests).
     public static let allIncludingTestsTargetName = "AllIncludingTests"
 
+    /// Name of the per-workspace-member PIF aggregate target. There is one
+    /// such target per root package when the graph was assembled from a
+    /// `Workspace.swift`; each aggregates the non-test products/targets
+    /// of a single member so `.workspaceMember(identity)` build subsets
+    /// can be dispatched to Swift Build without pulling in unrelated
+    /// members.
+    public static func workspaceMemberTargetName(for identity: PackageIdentity) -> String {
+        "WorkspaceMember-\(identity)"
+    }
+
     /// The package graph to build from.
     let graph: ModulesGraph
 
@@ -943,6 +953,26 @@ fileprivate func buildAggregatePIFProject(
     let isCrossCompiling = !hostTriple.isRuntimeCompatible(with: buildParameters.triple)
     let hostOnlyModuleIDs = isCrossCompiling ? computeHostOnlyModuleIDsInRootPackages(in: modulesGraph) : []
 
+    // Emit a per-workspace-member aggregate target (`WorkspaceMember-<identity>`)
+    // for each root package. Populated with the same non-test dependencies
+    // that go into `AllExcludingTests` but scoped to a single member's
+    // package. Used to service `.workspaceMember(identity)` build subsets
+    // when a `Workspace.swift` was discovered.
+    var workspaceMemberTargetKeyPaths:
+        [PackageIdentity: WritableKeyPath<ProjectModel.Project, ProjectModel.AggregateTarget>] = [:]
+    for (package, _) in packagesAndProjects where package.manifest.packageKind.isRoot {
+        let identity = package.identity
+        let keyPath = try aggregateProject.addAggregateTarget { _ in
+            ProjectModel.AggregateTarget(
+                id: "WORKSPACE-MEMBER-\(identity)",
+                name: PIFBuilder.workspaceMemberTargetName(for: identity),
+            )
+        }
+        addEmptyBuildConfig(to: keyPath, name: "Debug")
+        addEmptyBuildConfig(to: keyPath, name: "Release")
+        workspaceMemberTargetKeyPaths[identity] = keyPath
+    }
+
     for (package, packageProject) in packagesAndProjects where package.manifest.packageKind.isRoot {
         for target in packageProject.targets {
             switch target {
@@ -977,6 +1007,13 @@ fileprivate func buildAggregatePIFProject(
                         platformFilters: [],
                         linkProduct: false
                     )
+                    if let memberKeyPath = workspaceMemberTargetKeyPaths[package.identity] {
+                        aggregateProject[keyPath: memberKeyPath].common.addDependency(
+                            on: target.id,
+                            platformFilters: [],
+                            linkProduct: false,
+                        )
+                    }
                 }
             case .aggregate:
                 break

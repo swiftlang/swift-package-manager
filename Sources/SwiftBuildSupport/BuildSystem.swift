@@ -24,7 +24,8 @@ extension BuildConfiguration {
 }
 
 extension BuildSubset {
-    func pifTargetName(for graph: ModulesGraph) -> String {
+    @_spi(SwiftPMTesting)
+    public func pifTargetName(for graph: ModulesGraph) -> String {
         switch self {
         case .product(let name, _):
             PackagePIFBuilder.targetName(forProductName: name)
@@ -44,6 +45,8 @@ extension BuildSubset {
             PIFBuilder.allExcludingTestsTargetName
         case .allIncludingTests:
             PIFBuilder.allIncludingTestsTargetName
+        case .workspaceMember(let identity):
+            PIFBuilder.workspaceMemberTargetName(for: identity)
         }
     }
 }

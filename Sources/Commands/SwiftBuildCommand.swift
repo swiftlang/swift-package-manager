@@ -23,6 +23,7 @@ import PackageGraph
 import SPMBuildCore
 import XCBuildSupport
 import SwiftBuildSupport
+import struct PackageModel.PackageIdentity
 
 import class Basics.AsyncProcess
 import var TSCBasic.stdoutStream
@@ -46,13 +47,33 @@ extension BuildSubset {
             return "--product"
         case .target:
             return "--target"
+        case .workspaceMember:
+            fatalError("no corresponding argument")
         }
     }
 }
 
 struct BuildCommandOptions: ParsableArguments {
-    /// Returns the build subset specified with the options.
-    func buildSubset(observabilityScope: ObservabilityScope) -> BuildSubset? {
+    /// Pure decision logic for translating command-line options + Case A
+    /// focus into a `BuildSubset`. Extracted for direct unit testing;
+    /// the instance method `buildSubset(observabilityScope:workspaceMemberFocus:)`
+    /// simply forwards its stored fields to this helper.
+    ///
+    /// Ordering:
+    /// 1. Any explicit override (`--product` / `--target` / `--build-tests`)
+    ///    takes precedence over an implicit workspace-member focus.
+    /// 2. If more than one explicit override is present, emits a mutual-
+    ///    exclusion error and returns `nil`.
+    /// 3. Otherwise, if a workspace-member focus is available, returns
+    ///    `.workspaceMember(focus)`.
+    /// 4. Otherwise, returns `.allExcludingTests`.
+    static func computeBuildSubset(
+        product: String?,
+        target: String?,
+        buildTests: Bool,
+        workspaceMemberFocus: PackageIdentity?,
+        observabilityScope: ObservabilityScope,
+    ) -> BuildSubset? {
         var allSubsets: [BuildSubset] = []
 
         if let product {
@@ -68,11 +89,35 @@ struct BuildCommandOptions: ParsableArguments {
         }
 
         guard allSubsets.count < 2 else {
-            observabilityScope.emit(.mutuallyExclusiveArgumentsError(arguments: allSubsets.map{ $0.argumentName }))
+            observabilityScope.emit(
+                .mutuallyExclusiveArgumentsError(arguments: allSubsets.map { $0.argumentName }),
+            )
             return nil
         }
 
-        return allSubsets.first ?? .allExcludingTests
+        if let explicit = allSubsets.first {
+            return explicit
+        }
+
+        if let workspaceMemberFocus {
+            return .workspaceMember(workspaceMemberFocus)
+        }
+
+        return .allExcludingTests
+    }
+
+    /// Returns the build subset specified with the options.
+    func buildSubset(
+        observabilityScope: ObservabilityScope,
+        workspaceMemberFocus: PackageIdentity? = nil,
+    ) -> BuildSubset? {
+        Self.computeBuildSubset(
+            product: self.product,
+            target: self.target,
+            buildTests: self.buildTests,
+            workspaceMemberFocus: workspaceMemberFocus,
+            observabilityScope: observabilityScope,
+        )
     }
 
     /// If the test should be built.
@@ -183,7 +228,18 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             return
         }
 
-        guard let subset = options.buildSubset(observabilityScope: swiftCommandState.observabilityScope) else {
+        // Eagerly discover the workspace (if any) so that
+        // `currentWorkspaceMemberFocus` is populated before the build
+        // subset is computed. Without this, `getWorkspaceRoot()` would
+        // only run when the build system lazily loads root manifests —
+        // long after `options.buildSubset(workspaceMemberFocus:)` has
+        // already been evaluated against a nil focus.
+        _ = try await swiftCommandState.getWorkspaceRoot()
+
+        guard let subset = options.buildSubset(
+            observabilityScope: swiftCommandState.observabilityScope,
+            workspaceMemberFocus: swiftCommandState.currentWorkspaceMemberFocus,
+        ) else {
             throw ExitCode.failure
         }
 

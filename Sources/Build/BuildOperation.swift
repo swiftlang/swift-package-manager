@@ -490,6 +490,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             subsetDescriptor = "target: '\(targetName)'"
         case .allExcludingTests, .allIncludingTests:
             subsetDescriptor = nil
+        case .workspaceMember:
+            preconditionFailure(
+                ".workspaceMember focus is not supported by the native build system — Commands must reject it before dispatch",
+            )
         }
 
         progressTracker.buildComplete(
@@ -602,6 +606,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
         case .target(let targetName, _):
             pluginsToCompile = allPlugins.filter{ $0.moduleName == targetName }
             continueBuilding = pluginsToCompile.isEmpty
+        case .workspaceMember:
+            preconditionFailure(
+                ".workspaceMember focus is not supported by the native build system — Commands must reject it before dispatch",
+            )
         }
 
         // Compile any plugins we ended up with. If any of them fails, it will
@@ -756,6 +764,10 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             }
 
             return module.getLLBuildTargetName(buildParameters: buildParameters)
+        case .workspaceMember:
+            preconditionFailure(
+                ".workspaceMember focus is not supported by the native build system — Commands must reject it before dispatch",
+            )
         }
     }
 
@@ -1158,6 +1170,10 @@ extension BuildSubset {
                 return nil
             }
             return try target.recursiveModuleDependencies()
+        case .workspaceMember:
+            preconditionFailure(
+                ".workspaceMember focus is not supported by the native build system — Commands must reject it before dispatch",
+            )
         }
     }
 }
