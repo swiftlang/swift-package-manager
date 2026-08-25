@@ -138,7 +138,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             )
 
             // Perform build.
-            let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.replArguments])
+            let buildResult = try await buildSystem.build(subset: .allExcludingTests(), buildOutputs: [.replArguments])
             guard let arguments = buildResult.replArguments else {
                 swiftCommandState.observabilityScope.emit(error: "\(globalOptions.build.buildSystem) build system does not support this command")
                 throw ExitCode.failure
@@ -163,7 +163,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                 )
                 let productName = try await findProductName(in: buildSystem.getPackageGraph())
                 if options.shouldBuildTests {
-                    try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [])
+                    try await buildSystem.build(subset: .allIncludingTests(), buildOutputs: [])
                 } else if options.shouldBuild {
                     try await buildSystem.build(subset: .product(productName), buildOutputs: [])
                 }
@@ -226,7 +226,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                 let modulesGraph = try await buildSystem.getPackageGraph()
                 let productName = try findProductName(in: modulesGraph)
                 if options.shouldBuildTests {
-                    try await buildSystem.build(subset: .allIncludingTests, buildOutputs: [])
+                    try await buildSystem.build(subset: .allIncludingTests(), buildOutputs: [])
                 } else if options.shouldBuild {
                     try await buildSystem.build(subset: .product(productName), buildOutputs: [])
                 }

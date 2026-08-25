@@ -475,6 +475,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
 
         let graph = try await getPackageGraph()
+        if let diagnostic = subset.validate(against: graph) {
+            self.observabilityScope.emit(diagnostic)
+            throw Diagnostics.fatalError
+        }
         return try await startSWBuildOperation(
             pifTargetName: subset.pifTargetName(for: graph),
             buildOutputs: buildOutputs,
@@ -563,16 +567,30 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         let pluginsToCompile: [PluginBuildDescription]
         let continueBuilding: Bool
         switch subset {
-        case .allExcludingTests, .allIncludingTests:
+        case .allExcludingTests(nil), .allIncludingTests(nil):
             pluginsToCompile = allPlugins
             continueBuilding = true
-        case .product(let productName, _):
-            pluginsToCompile = allPlugins.filter{ $0.productNames.contains(productName) }
+        case .product(let productName, _, let scopedPackage):
+            pluginsToCompile = allPlugins.filter { plugin in
+                guard plugin.productNames.contains(productName) else { return false }
+                if let scopedPackage {
+                    return plugin.package == scopedPackage
+                }
+                return true
+            }
             continueBuilding = pluginsToCompile.isEmpty
-        case .target(let targetName, _):
-            pluginsToCompile = allPlugins.filter{ $0.moduleName == targetName }
+        case .target(let targetName, _, let scopedPackage):
+            pluginsToCompile = allPlugins.filter { plugin in
+                guard plugin.moduleName == targetName else { return false }
+                if let scopedPackage {
+                    return plugin.package == scopedPackage
+                }
+                return true
+            }
             continueBuilding = pluginsToCompile.isEmpty
-        case .workspaceMember(let identity):
+        case .allExcludingTests(let identity?),
+             .allIncludingTests(let identity?),
+             .workspaceMember(let identity):
             pluginsToCompile = allPlugins.filter { $0.package == identity }
             continueBuilding = pluginsToCompile.isEmpty
         }

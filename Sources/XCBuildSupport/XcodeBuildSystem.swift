@@ -446,17 +446,17 @@ extension PIFBuilderParameters {
 extension BuildSubset {
     var pifTargetName: String {
         switch self {
-        case .product(let name, _):
+        case .product(let name, _, _):
             PackagePIFProjectBuilder.targetName(for: name)
-        case .target(let name, _):
+        case .target(let name, _, _):
             name
-        case .allExcludingTests:
+        case .allExcludingTests(nil):
             PIFBuilder.allExcludingTestsTargetName
-        case .allIncludingTests:
+        case .allIncludingTests(nil):
             PIFBuilder.allIncludingTestsTargetName
-        case .workspaceMember:
+        case .workspaceMember, .allExcludingTests(.some), .allIncludingTests(.some):
             preconditionFailure(
-                ".workspaceMember focus is unsupported by the legacy XCBuild path — the Commands layer must reject it before dispatch",
+                "workspace-member focus is unsupported by the legacy XCBuild path — the Commands layer must reject it before dispatch",
             )
         }
     }

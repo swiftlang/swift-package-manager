@@ -303,7 +303,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 shouldDisableLocalRpath: shouldDisableLocalRpath,
                 logLevel: logLevel
             )
-            try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [])
+            try await buildSystem.build(subset: .allExcludingTests(), buildOutputs: [])
         }
 
         func createBuildParameters(
