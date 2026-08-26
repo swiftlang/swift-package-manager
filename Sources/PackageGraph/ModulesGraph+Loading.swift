@@ -656,7 +656,8 @@ private func createResolvedPackages(
     let dupProductsChecker = DuplicateProductsChecker(
         packageBuilders: packageBuilders,
         moduleAliasingUsed: moduleAliasingUsed,
-        observabilityScope: observabilityScope
+        allowRootPackageCollisions: root.workspaceManifest != nil,
+        observabilityScope: observabilityScope,
     )
     try dupProductsChecker.run(lookupByProductIDs: moduleAliasingUsed, observabilityScope: observabilityScope)
 
@@ -807,6 +808,20 @@ private func createResolvedPackages(
                 .map(\.package)
             if packages.count > 1 {
                 duplicateModules[moduleName, default: []].append(contentsOf: packages)
+            }
+        }
+
+        // Name collisions confined to root packages (workspace members)
+        // are legitimate under Slice 1's workspaces model: two members
+        // can each declare a target with the same name; the CLI
+        // disambiguates via `--package X` and build subset scoping.
+        // Only relax the check when the graph load came from a
+        // `Workspace.swift` context — Xcode `--multiroot-data-file`
+        // and other non-workspace multi-root loads still error, since
+        // those consumers don't have the CLI-level disambiguation.
+        if root.workspaceManifest != nil {
+            duplicateModules = duplicateModules.filter { _, packages in
+                !packages.allSatisfy { $0.manifest.packageKind.isRoot }
             }
         }
 
@@ -1237,14 +1252,27 @@ private class DuplicateProductsChecker {
     var checkedPkgIDs = [PackageIdentity]()
 
     let moduleAliasingUsed: Bool
+    /// When `true`, root packages are exempt from the bulk untracked-
+    /// products uniqueness check. Set for `Workspace.swift` loads where
+    /// per-member namespaces + CLI disambiguation make workspace-wide
+    /// product name uniqueness unnecessary. Non-workspace multi-root
+    /// loads (e.g. Xcode `--multiroot-data-file`) keep the strict
+    /// check.
+    let allowRootPackageCollisions: Bool
     let observabilityScope: ObservabilityScope
 
-    init(packageBuilders: [ResolvedPackageBuilder], moduleAliasingUsed: Bool, observabilityScope: ObservabilityScope) {
+    init(
+        packageBuilders: [ResolvedPackageBuilder],
+        moduleAliasingUsed: Bool,
+        allowRootPackageCollisions: Bool,
+        observabilityScope: ObservabilityScope,
+    ) {
         for packageBuilder in packageBuilders {
             let pkgID = packageBuilder.package.identity
             self.packageIDToBuilder[pkgID] = packageBuilder
         }
         self.moduleAliasingUsed = moduleAliasingUsed
+        self.allowRootPackageCollisions = allowRootPackageCollisions
         self.observabilityScope = observabilityScope
     }
 
@@ -1285,8 +1313,21 @@ private class DuplicateProductsChecker {
             }
         }
 
-        // Check packages that exist but are not in a dependency graph
-        let untrackedPkgs = self.packageIDToBuilder.filter { !self.checkedPkgIDs.contains($0.key) }
+        // Check packages that exist but are not in a dependency graph.
+        // In a workspace context, root packages (members) are exempt:
+        // orphan product-name collisions between members are resolved
+        // at the CLI level (`swift run`, `swift build --package X
+        // --product Y`), not the graph-load level. Non-workspace loads
+        // keep the strict global uniqueness check so that Xcode
+        // `--multiroot-data-file` and similar consumers still flag
+        // conflicts.
+        let untrackedPkgs = self.packageIDToBuilder.filter { pkgID, pkgBuilder in
+            guard !self.checkedPkgIDs.contains(pkgID) else { return false }
+            if self.allowRootPackageCollisions && pkgBuilder.package.manifest.packageKind.isRoot {
+                return false
+            }
+            return true
+        }
         for (pkgID, pkgBuilder) in untrackedPkgs {
             for product in pkgBuilder.products {
                 // Check if checking product ID only is safe

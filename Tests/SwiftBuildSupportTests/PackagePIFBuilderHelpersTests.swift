@@ -12,6 +12,7 @@
 
 import Testing
 import SwiftBuildSupport
+import struct PackageModel.PackageIdentity
 
 @Suite(
     .tags(
@@ -20,22 +21,60 @@ import SwiftBuildSupport
     )
 )
 struct PackagePIFBuilderHelpersTests {
-    
-    // MARK: - targetName(forProductName:) Tests
 
-    @Test("targetName(forProductName:) converts product names correctly")
-    func targetNameForProduct() {
-        // Test with various product names
-        #expect(PackagePIFBuilder.targetName(forProductName: "swiftly") == "swiftly-product")
-        #expect(PackagePIFBuilder.targetName(forProductName: "test-swiftly") == "test-swiftly-product")
-        #expect(PackagePIFBuilder.targetName(forProductName: "ArgumentParser") == "ArgumentParser-product")
-        #expect(PackagePIFBuilder.targetName(forProductName: "AsyncHTTPClient") == "AsyncHTTPClient-product")
-        #expect(PackagePIFBuilder.targetName(forProductName: "OpenAPIRuntime") == "OpenAPIRuntime-product")
-        #expect(PackagePIFBuilder.targetName(forProductName: "SystemPackage") == "SystemPackage-product")
+    // Shared placeholder identity used across the tests below. The
+    // exact value is arbitrary — the tests assert against the format
+    // that includes it.
+    private static let pkg: PackageIdentity = .plain("mypkg")
 
-        #expect(PackagePIFBuilder.targetName(forProductName: "") == "-product")
-        #expect(PackagePIFBuilder.targetName(forProductName: "A") == "A-product")
-        #expect(PackagePIFBuilder.targetName(forProductName: "product") == "product-product")
+    // MARK: - targetName(forProductName:packageIdentity:) Tests
+
+    /// One row of the `targetNameForProduct` parameterized test.
+    ///
+    /// `packageIdentity` is spelled as a `String` so test-case literals stay
+    /// terse; conversion to `PackageIdentity.plain` happens in the accessor.
+    struct TargetNameCase: Sendable, CustomTestStringConvertible {
+        let productName: String
+        let packageIdentityString: String
+        let expected: String
+
+        init(productName: String, packageIdentity: String, expected: String) {
+            self.productName = productName
+            self.packageIdentityString = packageIdentity
+            self.expected = expected
+        }
+
+        var packageIdentity: PackageIdentity { .plain(packageIdentityString) }
+
+        var testDescription: String { "\(packageIdentityString)/\(productName)" }
+    }
+
+    @Test(
+        "targetName(forProductName:packageIdentity:) prefixes the package identity to disambiguate members",
+        arguments: [
+            TargetNameCase(productName: "swiftly", packageIdentity: "mypkg", expected: "mypkg.swiftly-product"),
+            TargetNameCase(productName: "test-swiftly", packageIdentity: "mypkg", expected: "mypkg.test-swiftly-product"),
+            TargetNameCase(productName: "ArgumentParser", packageIdentity: "mypkg", expected: "mypkg.ArgumentParser-product"),
+            TargetNameCase(productName: "AsyncHTTPClient", packageIdentity: "mypkg", expected: "mypkg.AsyncHTTPClient-product"),
+            TargetNameCase(productName: "OpenAPIRuntime", packageIdentity: "mypkg", expected: "mypkg.OpenAPIRuntime-product"),
+            TargetNameCase(productName: "SystemPackage", packageIdentity: "mypkg", expected: "mypkg.SystemPackage-product"),
+            TargetNameCase(productName: "", packageIdentity: "mypkg", expected: "mypkg.-product"),
+            TargetNameCase(productName: "A", packageIdentity: "mypkg", expected: "mypkg.A-product"),
+            TargetNameCase(productName: "product", packageIdentity: "mypkg", expected: "mypkg.product-product"),
+            // Distinct packages, same product name → distinct target
+            // names. This is the invariant Slice 7 relies on so that
+            // two workspace members can each declare an executable
+            // product `hello` without colliding in Swift Build's PIF.
+            TargetNameCase(productName: "hello", packageIdentity: "member-a", expected: "member-a.hello-product"),
+            TargetNameCase(productName: "hello", packageIdentity: "member-b", expected: "member-b.hello-product"),
+        ],
+    )
+    func targetNameForProduct(_ testCase: TargetNameCase) {
+        let actual = PackagePIFBuilder.targetName(
+            forProductName: testCase.productName,
+            packageIdentity: testCase.packageIdentity,
+        )
+        #expect(actual == testCase.expected)
     }
 
     // MARK: - targetName(forModuleName:) Tests
@@ -48,11 +87,11 @@ struct PackagePIFBuilderHelpersTests {
         #expect(PackagePIFBuilder.targetName(forModuleName: "ArgumentParser") == "ArgumentParser")
         #expect(PackagePIFBuilder.targetName(forModuleName: "SwiftlyCore") == "SwiftlyCore")
         #expect(PackagePIFBuilder.targetName(forModuleName: "MacOSPlatform") == "MacOSPlatform")
-        
+
         // Modules with leading underscores
         #expect(PackagePIFBuilder.targetName(forModuleName: "_CryptoExtras") == "_CryptoExtras")
         #expect(PackagePIFBuilder.targetName(forModuleName: "__AsyncFileSystem") == "__AsyncFileSystem")
-        
+
         #expect(PackagePIFBuilder.targetName(forModuleName: "") == "")
         #expect(PackagePIFBuilder.targetName(forModuleName: "A") == "A")
     }
@@ -86,23 +125,23 @@ struct PackagePIFBuilderHelpersTests {
         // Test -dynamic suffix removal from PACKAGE-PRODUCT GUIDs
         // PACKAGE-PRODUCT:swift-build_SwiftBuild.SwiftBuild-6FA70E1059D35307-dynamic
         #expect(PackagePIFBuilder.productName(forTargetName: "SwiftBuild-dynamic-product") == "SwiftBuild")
-        
+
         // PACKAGE-PRODUCT:swift-build_SWBProtocol.SWBProtocol-479FEB9464127B49-dynamic
         #expect(PackagePIFBuilder.productName(forTargetName: "SWBProtocol-dynamic-product") == "SWBProtocol")
-        
+
         // Test -testable suffix removal
         // snippet-extract-4D525650E9464C3A-testable
         #expect(PackagePIFBuilder.productName(forTargetName: "snippet-extract-testable-product") == "snippet-extract")
-        
+
         // swift-run--4E81F76B4FDE3E48-testable
         #expect(PackagePIFBuilder.productName(forTargetName: "swift-run-testable-product") == "swift-run")
-        
+
         // swift-experimental-sdk--453A89A57E5CD913-testable
         #expect(PackagePIFBuilder.productName(forTargetName: "swift-experimental-sdk-testable-product") == "swift-experimental-sdk")
-        
+
         // swift-bootstrap-19E6669016298B47-testable
         #expect(PackagePIFBuilder.productName(forTargetName: "swift-bootstrap-testable-product") == "swift-bootstrap")
-        
+
         // Test products without suffixes
         #expect(PackagePIFBuilder.productName(forTargetName: "SwiftBuild-product") == "SwiftBuild")
         #expect(PackagePIFBuilder.productName(forTargetName: "ArgumentParser-product") == "ArgumentParser")
@@ -161,50 +200,78 @@ struct PackagePIFBuilderHelpersTests {
         // Test -dynamic suffix removal from PACKAGE-TARGET GUIDs
         // PACKAGE-TARGET:SWBTaskConstruction--13A05A6A6704C663-dynamic
         #expect(PackagePIFBuilder.moduleName(forTargetName: "SWBTaskConstruction-dynamic") == "SWBTaskConstruction")
-        
+
         // PACKAGE-TARGET:_IntegrationTestSupport-1FB010E086040497-dynamic
         #expect(PackagePIFBuilder.moduleName(forTargetName: "_IntegrationTestSupport-dynamic") == "_IntegrationTestSupport")
-        
+
         // PACKAGE-TARGET:_AsyncFileSystem--4E4E671E738B868E-dynamic
         #expect(PackagePIFBuilder.moduleName(forTargetName: "_AsyncFileSystem-dynamic") == "_AsyncFileSystem")
-        
+
         // PACKAGE-TARGET:PackageSigning--7F242844F5C56277-dynamic
         #expect(PackagePIFBuilder.moduleName(forTargetName: "PackageSigning-dynamic") == "PackageSigning")
-        
+
         // Test -testable suffix removal
         // snippet-extract-4D525650E9464C3A-testable
         #expect(PackagePIFBuilder.moduleName(forTargetName: "snippet-extract-testable") == "snippet-extract")
-        
+
         // swift-run--4E81F76B4FDE3E48-testable
         #expect(PackagePIFBuilder.moduleName(forTargetName: "swift-run-testable") == "swift-run")
-        
+
         // swift-experimental-sdk--453A89A57E5CD913-testable
         #expect(PackagePIFBuilder.moduleName(forTargetName: "swift-experimental-sdk-testable") == "swift-experimental-sdk")
-        
+
         // swift-bootstrap-19E6669016298B47-testable
         #expect(PackagePIFBuilder.moduleName(forTargetName: "swift-bootstrap-testable") == "swift-bootstrap")
-        
+
         // Test modules without suffixes
         #expect(PackagePIFBuilder.moduleName(forTargetName: "SwiftBuild") == "SwiftBuild")
         #expect(PackagePIFBuilder.moduleName(forTargetName: "_AsyncFileSystem") == "_AsyncFileSystem")
         #expect(PackagePIFBuilder.moduleName(forTargetName: "ArgumentParser") == "ArgumentParser")
-        
+
         // Test that product targets still return nil even with suffixes
         #expect(PackagePIFBuilder.moduleName(forTargetName: "SwiftBuild-dynamic-product") == nil)
         #expect(PackagePIFBuilder.moduleName(forTargetName: "swift-run-testable-product") == nil)
     }
 
     // MARK: - Round-trip and Mutual Exclusivity Tests
+/// One row of the `productNameMappingRoundTrip` parameterized test.
+    struct ProductRoundTripCase: Sendable, CustomTestStringConvertible {
+        let productName: String
+        let packageIdentityString: String
 
-    @Test("name mapping functions are inverses for products")
-    func productNameMappingRoundTrip() {
-        let productNames = ["swiftly", "test-swiftly", "ArgumentParser", "AsyncHTTPClient", "OpenAPIRuntime"]
-
-        for productName in productNames {
-            let targetName = PackagePIFBuilder.targetName(forProductName: productName)
-            let recoveredName = PackagePIFBuilder.productName(forTargetName: targetName)
-            #expect(recoveredName == productName, "Round trip failed for product '\(productName)'")
+        init(productName: String, packageIdentity: String) {
+            self.productName = productName
+            self.packageIdentityString = packageIdentity
         }
+
+        var packageIdentity: PackageIdentity { .plain(packageIdentityString) }
+
+        var testDescription: String { "\(packageIdentityString)/\(productName)" }
+    }
+
+    @Test(
+        "name mapping functions are inverses for products",
+        arguments: [
+            ProductRoundTripCase(productName: "swiftly", packageIdentity: "mypkg"),
+            ProductRoundTripCase(productName: "test-swiftly", packageIdentity: "mypkg"),
+            ProductRoundTripCase(productName: "ArgumentParser", packageIdentity: "mypkg"),
+            ProductRoundTripCase(productName: "AsyncHTTPClient", packageIdentity: "mypkg"),
+            ProductRoundTripCase(productName: "OpenAPIRuntime", packageIdentity: "mypkg"),
+            // Same product name across different packages: each must
+            // round-trip independently, proving the reverse function
+            // strips the package prefix instead of confusing it with
+            // the product name.
+            ProductRoundTripCase(productName: "hello", packageIdentity: "member-a"),
+            ProductRoundTripCase(productName: "hello", packageIdentity: "member-b"),
+        ],
+    )
+    func productNameMappingRoundTrip(_ testCase: ProductRoundTripCase) {
+        let targetName = PackagePIFBuilder.targetName(
+            forProductName: testCase.productName,
+            packageIdentity: testCase.packageIdentity,
+        )
+        let recoveredName = PackagePIFBuilder.productName(forTargetName: targetName)
+        #expect(recoveredName == testCase.productName, "Round trip failed for \(testCase)")
     }
 
     @Test("product and module mapping functions are mutually exclusive")

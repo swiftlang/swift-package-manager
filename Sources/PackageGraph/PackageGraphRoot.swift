@@ -52,6 +52,14 @@ public struct PackageGraphRoot {
     /// The root packages.
     public let packages: [PackageIdentity: (reference: PackageReference, manifest: Manifest)]
 
+    /// The `Workspace.swift` manifest that produced these roots, when
+    /// the graph was loaded from a workspace. `nil` for single-package,
+    /// Xcode `--multiroot-data-file`, and other non-workspace loads.
+    /// Downstream graph checks that are safe to relax under workspace
+    /// semantics (e.g. same-named products across members) consult
+    /// this signal.
+    public let workspaceManifest: WorkspaceManifest?
+
     /// The root manifests.
     public var manifests: [PackageIdentity: Manifest] {
         return self.packages.compactMapValues { $0.manifest }
@@ -114,6 +122,7 @@ public struct PackageGraphRoot {
                 partial[identity] = (.root(identity: identity, path: packagePath), manifest)
             }
         })
+        self.workspaceManifest = input.workspaceManifest
 
         // FIXME: Deprecate special casing once the manifest supports declaring used executable products.
         // Special casing explicit products like this is necessary to pass the test suite and satisfy backwards compatibility.
