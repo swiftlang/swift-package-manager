@@ -23,8 +23,11 @@ internal struct SBOMGraphsConverter {
     // Resource bundle target names are packageName_moduleName
     // SBOMs ignore resource bundles
 
-    internal static func getTargetName(fromProduct name: String) -> String {
-        return PackagePIFBuilder.targetName(forProductName: name)
+    internal static func getTargetName(fromProduct product: ResolvedProduct) -> String {
+        return PackagePIFBuilder.targetName(
+            forProductName: product.name,
+            packageIdentity: product.packageIdentity,
+        )
     }
 
     internal static func getTargetName(fromModule name: String) -> String {

@@ -530,6 +530,7 @@ public func executeSwiftRun(
     Xswiftc: [String] = [],
     env: Environment? = nil,
     buildSystem: BuildSystemProvider.Kind,
+    throwIfCommandFails: Bool = true,
 ) async throws -> (stdout: String, stderr: String) {
     var args = swiftArgs(
         configuration: configuration,
@@ -542,7 +543,12 @@ public func executeSwiftRun(
     if let executable {
         args.append(executable)
     }
-    return try await SwiftPM.Run.execute(args, packagePath: packagePath, env: env)
+    return try await SwiftPM.Run.execute(
+        args,
+        packagePath: packagePath,
+        env: env,
+        throwIfCommandFails: throwIfCommandFails,
+    )
 }
 
 @discardableResult

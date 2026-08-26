@@ -453,7 +453,7 @@ struct PIFBuilderTests {
                 projectName: "App",
                 verify: [
                     ModuleAliasTestData.Verify(
-                        targetName: "App-product",
+                        targetName: "app.App-product",
                         expectedAliases: ["Utils=AppUtils"],
                     ),
                 ],
@@ -642,7 +642,7 @@ struct PIFBuilderTests {
         try await withGeneratedPIF(fromFixture: "PIFBuilder/CCPackage") { pif, observabilitySystem, fixturePath in
             let releaseConfig = try pif.workspace
                 .project(named: "CCPackage")
-                .target(id: "PACKAGE-TARGET:CCTarget")
+                .target(id: "PACKAGE-TARGET:ccpackage.CCTarget")
                 .buildConfig(named: .release)
 
             for platform in ProjectModel.BuildSettings.Platform.allCases {
@@ -715,7 +715,7 @@ struct PIFBuilderTests {
             hostBuildProductsPath: hostBuildPath
         ) { pif, observabilitySystem, fixturePath in
             let project = try pif.workspace.project(named: "MySourceGenPlugin")
-            let target = try project.target(named: "MyLocalTool-product")
+            let target = try project.target(named: "mysourcegenplugin.MyLocalTool-product")
             for task in target.common.customTasks {
                 let commandLine = task.commandLine
                 #expect(commandLine.contains { $0.contains(hostBuildPath.pathString) })
@@ -739,7 +739,7 @@ struct PIFBuilderTests {
 
             let target = try pif.workspace
                 .project(named: "Library")
-                .target(named: "LibraryDynamic-product")
+                .target(named: "library.LibraryDynamic-product")
 
             guard case .target(let concreteTarget) = target else {
                 Issue.record("Expected a regular target, got \(target)")
@@ -760,7 +760,7 @@ struct PIFBuilderTests {
 
             let target = try pif.workspace
                 .project(named: "Library")
-                .target(named: "LibraryDynamic-product")
+                .target(named: "library.LibraryDynamic-product")
 
             let config = try target.buildConfig(named: configuration)
             #expect(config.settings[.EXECUTABLE_PREFIX] == nil)
@@ -823,7 +823,7 @@ struct PIFBuilderTests {
             return
         }
 
-        let productVariant = try project.target(named: "MyLibDynamic-product")
+        let productVariant = try project.target(named: "mypkg.MyLibDynamic-product")
         guard case .target(let productTarget) = productVariant else {
             Issue.record("Expected a regular target for the dynamic product, got \(productVariant)")
             return
@@ -930,7 +930,11 @@ struct PIFBuilderTests {
 
         let widgetProject = try pif.workspace.project(named: "Widget")
 
-        let dynamicVariantName = PackagePIFBuilder.targetName(forProductName: "Widget", suffix: .dynamic)
+        let dynamicVariantName = PackagePIFBuilder.targetName(
+            forProductName: "Widget",
+            packageIdentity: .plain("widget"),
+            suffix: .dynamic,
+        )
         let dynamicVariant = try widgetProject.target(named: dynamicVariantName)
 
         guard case .target(let dynamicTarget) = dynamicVariant else {
@@ -1034,7 +1038,11 @@ struct PIFBuilderTests {
 
         // The `Media.framework` dynamic variant cannot collide with the vended `Codec.framework`, so it
         // should still be synthesized to support Previews/Playgrounds
-        let dynamicVariantName = PackagePIFBuilder.targetName(forProductName: "Media", suffix: .dynamic)
+        let dynamicVariantName = PackagePIFBuilder.targetName(
+            forProductName: "Media",
+            packageIdentity: .plain("media"),
+            suffix: .dynamic,
+        )
         let dynamicVariant = mediaProject.underlying.targets.first { $0.common.name == dynamicVariantName }
 
         guard case .target(let dynamicTarget) = dynamicVariant else {
@@ -1110,17 +1118,17 @@ struct PIFBuilderTests {
             }
             let targetsUnderTest = [
                 ExpectedValue(
-                    targetName: "LibraryDynamic-product",
+                    targetName: "library.LibraryDynamic-product",
                     expectedValue: "lib",
                     expectedValueForWindows: "",
                 ),
                 ExpectedValue(
-                    targetName: "LibraryStatic-product",
+                    targetName: "library.LibraryStatic-product",
                     expectedValue: "lib",
                     expectedValueForWindows: "",
                 ),
                 ExpectedValue(
-                    targetName: "LibraryAuto-product",
+                    targetName: "library.LibraryAuto-product",
                     expectedValue: "lib",
                     expectedValueForWindows: "",
                 ),
@@ -1149,7 +1157,7 @@ struct PIFBuilderTests {
 
             let targetConfig = try pif.workspace
                 .project(named: "ConditionalBuildSettings")
-                .target(id: "PACKAGE-TARGET:ConditionalBuildSettings")
+                .target(id: "PACKAGE-TARGET:conditionalbuildsettings.ConditionalBuildSettings")
                 .buildConfig(named: configuration)
 
             let ldflags = targetConfig.settings[.OTHER_LDFLAGS]
@@ -1272,7 +1280,7 @@ struct PIFBuilderTests {
 
         let project = try pif.workspace.project(named: "Root")
 
-        let settings = try project.target(named: "CLibTests-product")
+        let settings = try project.target(named: "root.CLibTests-product")
             .buildConfig(named: configuration)
             .settings
 
@@ -1331,7 +1339,7 @@ struct PIFBuilderTests {
         let project = try pif.workspace.project(named: "Root")
 
         for productName in ["Exe", "LibTests", "Lib"] {
-            let settings = try project.target(named: "\(productName)-product")
+            let settings = try project.target(named: "root.\(productName)-product")
                 .buildConfig(named: configuration)
                 .settings
             #expect(settings[.BUILD_SERVER_PROTOCOL_TARGET_DISPLAY_NAME] == productName)
@@ -1390,7 +1398,7 @@ struct PIFBuilderTests {
             .macOS, .macCatalyst, .driverKit, .iOS, .watchOS, .tvOS, .xrOS,
         ]
 
-        let testSettings = try project.target(named: "LibTests-product")
+        let testSettings = try project.target(named: "root.LibTests-product")
             .buildConfig(named: configuration)
             .settings
 
@@ -1816,7 +1824,7 @@ struct PIFBuilderTests {
 
                 let testTargetConfig = try pif.workspace
                     .project(named: "Simple")
-                    .target(named: "SimpleTests-product")
+                    .target(named: "simple.SimpleTests-product")
                     .buildConfig(named: configuration)
                 switch indexStoreSettingUT {
                     case .on, .off:
@@ -1955,9 +1963,9 @@ struct PIFBuilderTests {
 
         let project = try pif.workspace.project(named: "Root")
 
-        let automaticLibTarget = try project.target(named: "AutomaticLib-product")
+        let automaticLibTarget = try project.target(named: "root.AutomaticLib-product")
         guard case .target(let automaticLibStandardTarget) = automaticLibTarget else {
-            Issue.record("Expected 'AutomaticLib-product' to be a standard target")
+            Issue.record("Expected 'root.AutomaticLib-product' to be a standard target")
             return
         }
         #expect(automaticLibStandardTarget.dynamicTargetVariantId != nil)
@@ -2009,7 +2017,7 @@ struct PIFBuilderTests {
                 let id = target.common.id.value
                 let config = try target.buildConfig(named: .debug)
                 let platforms = config.settings[.SUPPORTED_PLATFORMS]
-                if id == "PACKAGE-TARGET:MacroImpl" {
+                if id == "PACKAGE-TARGET:minimalmacropackage.MacroImpl" {
                     #expect(platforms == ["$(HOST_PLATFORM)"], "target \(id) did not have the expected supported platform setting")
                 } else {
                     #expect(platforms == nil, "target \(id) has supported platforms set, unexpectedly")
@@ -2024,7 +2032,7 @@ struct PIFBuilderTests {
 
             let project = try pif.workspace.project(named: "MinimalMacroPackage")
 
-            let testProduct = try project.target(named: "MinimalMacroPackageTests-product")
+            let testProduct = try project.target(named: "minimalmacropackage.MinimalMacroPackageTests-product")
             guard case .target(let testTarget) = testProduct else {
                 Issue.record("Expected MinimalMacroPackageTests-product to be a regular target")
                 return
@@ -2036,9 +2044,9 @@ struct PIFBuilderTests {
             // The macro implementation is a transitive dependency of the tests. The PIF should represent this
             // dependency, but it should not be a linkage dependency, and the macro helpers also should not be
             // linked.
-            #expect(depIDs.contains("PACKAGE-TARGET:MacroImpl"))
-            #expect(!depIDs.contains { $0.hasPrefix("PACKAGE-TARGET:MacroImpl-") && $0.hasSuffix("-testable") })
-            #expect(!depIDs.contains("PACKAGE-TARGET:MacroImplHelpers"))
+            #expect(depIDs.contains("PACKAGE-TARGET:minimalmacropackage.MacroImpl"))
+            #expect(!depIDs.contains { $0.hasPrefix("PACKAGE-TARGET:minimalmacropackage.MacroImpl-") && $0.hasSuffix("-testable") })
+            #expect(!depIDs.contains("PACKAGE-TARGET:minimalmacropackage.MacroImplHelpers"))
         }
     }
 
@@ -2048,7 +2056,7 @@ struct PIFBuilderTests {
 
             let project = try pif.workspace.project(named: "MacroWithDirectTestDependency")
 
-            let testProduct = try project.target(named: "MacroImplTests-product")
+            let testProduct = try project.target(named: "macrowithdirecttestdependency.MacroImplTests-product")
             guard case .target(let testTarget) = testProduct else {
                 Issue.record("Expected MacroImplTests-product to be a regular target")
                 return
@@ -2059,8 +2067,8 @@ struct PIFBuilderTests {
 
             // The macro implementation is a direct dependency of the test target. Ensure the testable variant and
             // the helpers are linkage dependencies.
-            #expect(depIDs.contains { $0.hasPrefix("PACKAGE-TARGET:MacroImpl-") && $0.hasSuffix("-testable") })
-            #expect(depIDs.contains("PACKAGE-TARGET:MacroImplHelpers"))
+            #expect(depIDs.contains { $0.hasPrefix("PACKAGE-TARGET:macrowithdirecttestdependency.MacroImpl-") && $0.hasSuffix("-testable") })
+            #expect(depIDs.contains("PACKAGE-TARGET:macrowithdirecttestdependency.MacroImplHelpers"))
         }
     }
 
@@ -2156,25 +2164,25 @@ struct PIFBuilderTests {
 
             // There must be no test bundle product for TestUtils.
             #expect(throws: (any Error).self) {
-                try project.target(named: "TestUtils-product")
+                try project.target(named: "testtargetdependsontesttarget.TestUtils-product")
             }
 
             // Both consuming test targets are still unit test bundles.
-            let fooTests = try project.target(named: "FooTests-product")
+            let fooTests = try project.target(named: "testtargetdependsontesttarget.FooTests-product")
             guard case .target(let fooTestsTarget) = fooTests else {
                 Issue.record("Expected FooTests-product to be a regular target")
                 return
             }
             #expect(fooTestsTarget.productType == .unitTest)
-            #expect(fooTestsTarget.common.dependencies.map(\.targetId).contains("PACKAGE-TARGET:TestUtils"))
+            #expect(fooTestsTarget.common.dependencies.map(\.targetId).contains("PACKAGE-TARGET:testtargetdependsontesttarget.TestUtils"))
 
-            let barTests = try project.target(named: "BarTests-product")
+            let barTests = try project.target(named: "testtargetdependsontesttarget.BarTests-product")
             guard case .target(let barTestsTarget) = barTests else {
                 Issue.record("Expected BarTests-product to be a regular target")
                 return
             }
             #expect(barTestsTarget.productType == .unitTest)
-            #expect(barTestsTarget.common.dependencies.map(\.targetId).contains("PACKAGE-TARGET:TestUtils"))
+            #expect(barTestsTarget.common.dependencies.map(\.targetId).contains("PACKAGE-TARGET:testtargetdependsontesttarget.TestUtils"))
         }
     }
 
@@ -2341,7 +2349,7 @@ struct PIFBuilderTests {
 
         let pluginPkgProject = try pif.workspace.project(named: "PluginPkg")
         // The explicit product generates a PIF target named "<productName>-product".
-        let pluginToolProductTarget = try pluginPkgProject.target(named: "plugin-tool-product")
+        let pluginToolProductTarget = try pluginPkgProject.target(named: "pluginpkg.plugin-tool-product")
         let pluginTarget = try pluginPkgProject.target(named: "MyPlugin")
 
         #expect(
@@ -2403,7 +2411,7 @@ struct PIFBuilderTests {
         let rootProject = try pif.workspace.project(named: "Root")
         let rootLibID = try rootProject.target(named: "RootLib").common.id.value
         let toolModuleID = try rootProject.target(named: "PluginTool").common.id.value
-        let toolProductID = try rootProject.target(named: "PluginTool-product").common.id.value
+        let toolProductID = try rootProject.target(named: "root.PluginTool-product").common.id.value
 
         let aggregate = try pif.workspace.project(named: "Aggregate")
         for aggregateName in [PIFBuilder.allExcludingTestsTargetName, PIFBuilder.allIncludingTestsTargetName] {
@@ -2470,7 +2478,7 @@ struct PIFBuilderTests {
         let rootLibID = try rootProject.target(named: "RootLib").common.id.value
         let toolModuleID = try rootProject.target(named: "PluginTool").common.id.value
         let depModuleID = try rootProject.target(named: "Dep").common.id.value
-        let toolProductID = try rootProject.target(named: "PluginTool-product").common.id.value
+        let toolProductID = try rootProject.target(named: "root.PluginTool-product").common.id.value
 
         let aggregate = try pif.workspace.project(named: "Aggregate")
         for aggregateName in [PIFBuilder.allExcludingTestsTargetName, PIFBuilder.allIncludingTestsTargetName] {
@@ -2542,7 +2550,7 @@ struct PIFBuilderTests {
         let otherLibID = try rootProject.target(named: "OtherLib").common.id.value
         let toolModuleID = try rootProject.target(named: "PluginTool").common.id.value
         let depModuleID = try rootProject.target(named: "Dep").common.id.value
-        let toolProductID = try rootProject.target(named: "PluginTool-product").common.id.value
+        let toolProductID = try rootProject.target(named: "root.PluginTool-product").common.id.value
 
         let aggregate = try pif.workspace.project(named: "Aggregate")
         for aggregateName in [PIFBuilder.allExcludingTestsTargetName, PIFBuilder.allIncludingTestsTargetName] {
@@ -2612,7 +2620,7 @@ struct PIFBuilderTests {
         let rootLibID = try rootProject.target(named: "RootLib").common.id.value
         let toolModuleID = try rootProject.target(named: "PluginTool").common.id.value
         let depModuleID = try rootProject.target(named: "Dep").common.id.value
-        let toolProductID = try rootProject.target(named: "PluginTool-product").common.id.value
+        let toolProductID = try rootProject.target(named: "root.PluginTool-product").common.id.value
 
         let aggregate = try pif.workspace.project(named: "Aggregate")
         for aggregateName in [PIFBuilder.allExcludingTestsTargetName, PIFBuilder.allIncludingTestsTargetName] {
@@ -2684,7 +2692,7 @@ struct PIFBuilderTests {
         let rootLibID = try rootProject.target(named: "RootLib").common.id.value
         let toolModuleID = try rootProject.target(named: "PluginTool").common.id.value
         let depModuleID = try rootProject.target(named: "Dep").common.id.value
-        let toolProductID = try rootProject.target(named: "PluginTool-product").common.id.value
+        let toolProductID = try rootProject.target(named: "root.PluginTool-product").common.id.value
 
         let aggregate = try pif.workspace.project(named: "Aggregate")
         for aggregateName in [PIFBuilder.allExcludingTestsTargetName, PIFBuilder.allIncludingTestsTargetName] {
@@ -2756,7 +2764,7 @@ struct PIFBuilderTests {
         let rootLibID = try rootProject.target(named: "RootLib").common.id.value
         let toolModuleID = try rootProject.target(named: "PluginTool").common.id.value
         let depModuleID = try rootProject.target(named: "Dep").common.id.value
-        let toolProductID = try rootProject.target(named: "PluginTool-product").common.id.value
+        let toolProductID = try rootProject.target(named: "root.PluginTool-product").common.id.value
 
         let aggregate = try pif.workspace.project(named: "Aggregate")
         for aggregateName in [PIFBuilder.allExcludingTestsTargetName, PIFBuilder.allIncludingTestsTargetName] {
@@ -2855,7 +2863,7 @@ struct PIFBuilderTests {
         let toolPkgProject = try pif.workspace.project(named: "ToolPkg")
         let pluginPkgProject = try pif.workspace.project(named: "PluginPkg")
 
-        let myToolProductTarget = try toolPkgProject.target(named: "my-tool-product")
+        let myToolProductTarget = try toolPkgProject.target(named: "toolpkg.my-tool-product")
         let pluginTarget = try pluginPkgProject.target(named: "MyPlugin")
 
         #expect(
@@ -3139,7 +3147,7 @@ struct PIFBuilderTests {
         let libAProject = try pif.workspace.project(named: "LibA")
         let libAID = try libAProject.target(named: "LibA").common.id.value
         let appModuleID = try libAProject.target(named: "App").common.id.value
-        let appProductID = try libAProject.target(named: "App-product").common.id.value
+        let appProductID = try libAProject.target(named: "liba.App-product").common.id.value
 
         let memberDeps = Set(
             try pif.workspace
@@ -3198,6 +3206,79 @@ struct PIFBuilderTests {
         #expect(
             subset.pifTargetName(for: graph)
                 == PIFBuilder.workspaceMemberTargetName(for: identity),
+        )
+    }
+
+    /// `swift run <exec>` in a single-package project can reach an
+    /// executable declared by a transitive dependency (not the root).
+    /// `BuildSubset.pifTargetName(for:)` must therefore fall back to
+    /// searching the whole graph — not just root packages — when no
+    /// `--package` scope is provided. Regression test: with the
+    /// packageID-prefixed target-name format, an unqualified fallback
+    /// to `"<name>-product"` would produce a name Swift Build can no
+    /// longer find, causing `swift run <transitive-exec>` to fail with
+    /// "Could not find target named '<exec>-product'".
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func pifTargetName_forTransitiveDependencyExecutable_resolvesToDependencyProduct() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/RootLib/RootLib.swift",
+            "/Dep/Sources/DepLib/DepLib.swift",
+            "/Dep/Sources/DepExe/main.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "root",
+                    path: "/Root",
+                    toolsVersion: .v5_9,
+                    dependencies: [
+                        .fileSystem(path: "/Dep"),
+                    ],
+                    products: [
+                        ProductDescription(name: "RootLib", type: .library(.automatic), targets: ["RootLib"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "RootLib",
+                            dependencies: [.product(name: "DepLib", package: "dep")],
+                        ),
+                    ],
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "dep",
+                    path: "/Dep",
+                    toolsVersion: .v5_9,
+                    products: [
+                        ProductDescription(name: "DepLib", type: .library(.automatic), targets: ["DepLib"]),
+                        ProductDescription(name: "DepExe", type: .executable, targets: ["DepExe"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "DepLib"),
+                        TargetDescription(name: "DepExe"),
+                    ],
+                ),
+            ],
+            observabilityScope: observability.topScope,
+        )
+
+        let subset: BuildSubset = .product("DepExe", for: nil, package: nil)
+
+        // The router should return the dependency-package-scoped target
+        // name so Swift Build's PIF lookup finds it, not a bare
+        // "DepExe-product" that no longer matches any target.
+        #expect(
+            subset.pifTargetName(for: graph)
+                == PackagePIFBuilder.targetName(
+                    forProductName: "DepExe",
+                    packageIdentity: .plain("dep"),
+                ),
         )
     }
 
@@ -3607,11 +3688,13 @@ extension ProjectModel.Project {
         }
     }
 
-    /// The testable variant target for an executable module, e.g. `PACKAGE-TARGET:AppModule-<hash>-testable`.
-    fileprivate func testableVariantTarget(forModule moduleName: String) throws -> ProjectModel.Target {
+    /// The testable variant target for an executable module, e.g.
+    /// `PACKAGE-TARGET:app.AppModule-<hash>-testable`. The package
+    /// identity is required to match the module GUID format.
+    fileprivate func testableVariantTarget(forModule moduleName: String, packageIdentity: String) throws -> ProjectModel.Target {
         try self.onlyTarget {
             guard case .target(let t) = $0 else { return false }
-            return t.id.value.hasPrefix("PACKAGE-TARGET:\(moduleName)") && t.id.value.hasSuffix("-testable")
+            return t.id.value.hasPrefix("PACKAGE-TARGET:\(packageIdentity).\(moduleName)") && t.id.value.hasSuffix("-testable")
         }
     }
 
@@ -3649,7 +3732,7 @@ struct PromotedExecutableProductPIFTests {
 
         // Promoted to an application: the product installs its module (setting is left unset).
         let promotedProject = try await buildAppProject(promotedProductType: .application)
-        let promotedProductSettings = try promotedProject.productTarget(named: "App-product").debugSettings()
+        let promotedProductSettings = try promotedProject.productTarget(named: "app.App-product").debugSettings()
         #expect(
             promotedProductSettings[.SWIFT_INSTALL_MODULE] != "NO",
             "A promoted (non-executable) product must install its own Swift module"
@@ -3657,7 +3740,7 @@ struct PromotedExecutableProductPIFTests {
 
         // A genuine executable product does not install its module — the testable variant does.
         let executableProject = try await buildAppProject(promotedProductType: nil)
-        let executableProductSettings = try executableProject.productTarget(named: "App-product").debugSettings()
+        let executableProductSettings = try executableProject.productTarget(named: "app.App-product").debugSettings()
         #expect(
             executableProductSettings[.SWIFT_INSTALL_MODULE] == "NO",
             "A genuine executable product must not install its Swift module"
@@ -3672,8 +3755,8 @@ struct PromotedExecutableProductPIFTests {
         // so exactly one target installs the module.
         let project = try await buildAppProject(promotedProductType: .application)
 
-        let productSettings = try project.productTarget(named: "App-product").debugSettings()
-        let testableVariantSettings = try project.testableVariantTarget(forModule: "AppModule").debugSettings()
+        let productSettings = try project.productTarget(named: "app.App-product").debugSettings()
+        let testableVariantSettings = try project.testableVariantTarget(forModule: "AppModule", packageIdentity: "app").debugSettings()
 
         // The product installs the module; the testable variant is suppressed. Exactly one installer, no collision.
         #expect(
@@ -3692,7 +3775,7 @@ struct PromotedExecutableProductPIFTests {
         // share one executable target, so the per-target testable variant remains the installer. This guards against
         // over-suppressing the fix above.
         let project = try await buildAppProject(promotedProductType: nil)
-        let testableVariantSettings = try project.testableVariantTarget(forModule: "AppModule").debugSettings()
+        let testableVariantSettings = try project.testableVariantTarget(forModule: "AppModule", packageIdentity: "app").debugSettings()
         #expect(
             testableVariantSettings[.SWIFT_INSTALL_MODULE] != "NO",
             "A genuine executable's testable variant must still install its Swift module"

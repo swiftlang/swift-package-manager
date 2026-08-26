@@ -1046,7 +1046,7 @@ extension PackagePIFProjectBuilder {
         }
 
         self.project[keyPath: systemLibraryTargetKeyPath].common.addDependency(
-            on: product.systemModule!.pifTargetGUID,
+            on: product.systemModule!.pifTargetGUID(packageIdentity: product.packageIdentity),
             platformFilters: [],
             linkProduct: false
         )
@@ -1092,7 +1092,9 @@ extension PackagePIFProjectBuilder {
             BuildConfig(id: id, name: "Release", settings: buildSettings)
         }
 
-        for pluginModule in pluginProduct.pluginModules! {
+
+        for pluginModule in pluginProduct.modules where pluginModule.type == .plugin {
+        // for pluginModule in pluginProduct.pluginModules! {
             self.project[keyPath: pluginTargetKeyPath].common.addDependency(
                 on: pluginModule.pifTargetGUID,
                 platformFilters: []
@@ -1145,7 +1147,10 @@ extension PackagePIFProjectBuilder {
 
         let name = "\(unitTestProduct.name)-test-runner"
         let moduleName = "\(unitTestModuleName)_test_runner"
-        let guid = PackagePIFBuilder.targetGUID(forModuleName: moduleName)
+        let guid = PackagePIFBuilder.targetGUID(
+            forModuleName: moduleName,
+            packageIdentity: self.package.identity,
+        )
 
         let testRunnerTargetKeyPath = try self.project.addTarget { _ in
             ProjectModel.Target (
@@ -1253,7 +1258,10 @@ extension PackagePIFProjectBuilder {
         let packageTestProductKeyPath = try project.addAggregateTarget { _ in
             ProjectModel.AggregateTarget(
                 id: PackagePIFBuilder.targetGUID(forProductName: productName, withId: "\(packageIdentity.description)-\(productName)"),
-                name: PackagePIFBuilder.targetName(forProductName: productName)
+                name: PackagePIFBuilder.targetName(
+                    forProductName: productName,
+                    packageIdentity: packageIdentity,
+                )
             )
         }
 

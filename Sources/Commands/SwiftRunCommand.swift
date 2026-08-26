@@ -12,10 +12,15 @@
 
 import ArgumentParser
 import Basics
+
+@_spi(SwiftPMInternal)
 import CoreCommands
+
 import Foundation
 import PackageGraph
 import PackageModel
+
+@_spi(SwiftPMInternal)
 import SPMBuildCore
 
 import enum TSCBasic.ProcessEnv
@@ -87,10 +92,175 @@ struct RunCommandOptions: ParsableArguments {
     @Argument(help: "The executable to run.", completion: .shellCommand("swift package completion-tool list-executables"))
     var executable: String?
 
+    /// Select a specific workspace member by identity. Requires a
+    /// `Workspace.swift` to be discoverable; disambiguates executable
+    /// name collisions between members and scopes the lookup to that
+    /// member's declared executables.
+    @Option(
+        name: .customLong("package"),
+        help: "Select a specific workspace member by identity.",
+    )
+    var selectedPackage: PackageIdentity?
+
     /// The arguments to pass to the executable.
     @Argument(parsing: .captureForPassthrough,
               help: "The arguments to pass to the executable.")
     var arguments: [String] = []
+}
+
+/// The outcome of `resolveRunTarget`: the executable product name to
+/// build and run, plus an optional workspace member identity to scope
+/// the build subset to (nil when the resolved product is the only
+/// candidate or the workspace has a single member).
+public struct ResolvedRunTarget: Equatable, Sendable {
+    public let productName: String
+    public let packageFocus: PackageIdentity?
+
+    public init(productName: String, packageFocus: PackageIdentity?) {
+        self.productName = productName
+        self.packageFocus = packageFocus
+    }
+}
+
+extension RunCommandOptions {
+    /// Pure decision logic for translating command-line options + Case
+    /// A focus + `--package` selector into a `ResolvedRunTarget`.
+    /// Extracted for direct unit testing; wired into the run/debugger
+    /// paths by the instance method
+    /// `SwiftRunCommand.resolveRunTarget(graph:swiftCommandState:)`.
+    ///
+    /// Ordering:
+    /// 1. `--package` is validated first — outside a workspace it
+    ///    emits `packageSelectorRequiresWorkspace`; unknown identity
+    ///    emits `unknownWorkspaceMember`.
+    /// 2. Scope selection: `--package X` restricts to X; else Case A
+    ///    focus restricts to the enclosing member; else search across
+    ///    all workspace members.
+    /// 3. When the caller supplied an executable name:
+    ///    - Not found in scope → `executableNotFoundInMember` (scoped)
+    ///      or `executableNotFoundInWorkspace` (unscoped).
+    ///    - Multiple candidates across members (unscoped only) →
+    ///      `ambiguousExecutable`.
+    /// 4. When no executable name was supplied:
+    ///    - No candidates in scope → `noExecutableFoundInWorkspace`.
+    ///    - More than one candidate in scope →
+    ///      `multipleExecutablesInWorkspace`.
+    ///
+    /// The `packageFocus` field on the result is populated whenever
+    /// the resolution was scoped to a specific member (by `--package`,
+    /// Case A, or single-candidate disambiguation); the caller uses
+    /// it to scope the build subset to that member.
+    @_spi(SwiftPMInternal)
+    public static func resolveRunTarget(
+        requestedExecutable: String?,
+        selectedPackage: PackageIdentity?,
+        workspaceMemberFocus: PackageIdentity?,
+        availableMemberIdentities: Set<PackageIdentity>?,
+        executablesByMember: [PackageIdentity: [String]],
+        observabilityScope: ObservabilityScope,
+    ) -> ResolvedRunTarget? {
+        // 1. Validate `--package` first.
+        let resolvedPackage: PackageIdentity?
+        if let selectedPackage {
+            guard let availableMemberIdentities else {
+                observabilityScope.emit(
+                    .packageSelectorRequiresWorkspace(requested: selectedPackage),
+                )
+                return nil
+            }
+            guard availableMemberIdentities.contains(selectedPackage) else {
+                observabilityScope.emit(
+                    .unknownWorkspaceMember(
+                        requested: selectedPackage,
+                        known: availableMemberIdentities,
+                    ),
+                )
+                return nil
+            }
+            resolvedPackage = selectedPackage
+        } else {
+            resolvedPackage = workspaceMemberFocus
+        }
+
+        // 2. Explicit-name resolution.
+        if let requestedExecutable {
+            if let scope = resolvedPackage {
+                let members = executablesByMember[scope] ?? []
+                guard members.contains(requestedExecutable) else {
+                    observabilityScope.emit(
+                        .executableNotFoundInMember(
+                            requested: requestedExecutable,
+                            package: scope,
+                            known: Set(members.map(PackageIdentity.plain)),
+                        ),
+                    )
+                    return nil
+                }
+                return ResolvedRunTarget(
+                    productName: requestedExecutable,
+                    packageFocus: scope,
+                )
+            }
+
+            let matches = executablesByMember
+                .flatMap { member, execs in
+                    execs.filter { $0 == requestedExecutable }.map { (member, $0) }
+                }
+            if matches.isEmpty {
+                let known = Dictionary(
+                    uniqueKeysWithValues: executablesByMember.map { (member, execs) in
+                        (member, Set(execs.map(PackageIdentity.plain)))
+                    },
+                )
+                observabilityScope.emit(
+                    .executableNotFoundInWorkspace(
+                        requested: requestedExecutable,
+                        known: known,
+                    ),
+                )
+                return nil
+            }
+            if matches.count > 1 {
+                observabilityScope.emit(
+                    .ambiguousExecutable(
+                        requested: requestedExecutable,
+                        candidates: matches.map { (member: $0.0, product: $0.1) },
+                    ),
+                )
+                return nil
+            }
+            let (member, product) = matches[0]
+            return ResolvedRunTarget(productName: product, packageFocus: member)
+        }
+
+        // 3. Implicit resolution — collect candidates in scope.
+        let candidates: [(member: PackageIdentity, product: String)]
+        if let scope = resolvedPackage {
+            candidates = (executablesByMember[scope] ?? []).map { (scope, $0) }
+        } else {
+            candidates = executablesByMember
+                .flatMap { member, execs in execs.map { (member, $0) } }
+        }
+
+        if candidates.isEmpty {
+            if let scope = resolvedPackage {
+                observabilityScope.emit(.noExecutableFoundInMember(package: scope))
+            } else {
+                observabilityScope.emit(.noExecutableFoundInWorkspace())
+            }
+            return nil
+        }
+        if candidates.count > 1 {
+            observabilityScope.emit(
+                .multipleExecutablesInWorkspace(candidates: candidates),
+            )
+            return nil
+        }
+        return ResolvedRunTarget(
+            productName: candidates[0].product,
+            packageFocus: candidates[0].member,
+        )
+    }
 }
 
 /// swift-run command namespace
@@ -158,14 +328,28 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
 
         case .debugger:
             do {
+                _ = try await swiftCommandState.getWorkspaceRoot()
                 let buildSystem = try await swiftCommandState.createBuildSystem(
                     explicitProduct: options.executable,
                 )
-                let productName = try await findProductName(in: buildSystem.getPackageGraph())
+                let modulesGraph = try await buildSystem.getPackageGraph()
+                guard let target = self.resolveRunTarget(
+                    graph: modulesGraph,
+                    swiftCommandState: swiftCommandState,
+                ) else {
+                    throw ExitCode.failure
+                }
+                let productName = target.productName
                 if options.shouldBuildTests {
-                    try await buildSystem.build(subset: .allIncludingTests(), buildOutputs: [])
+                    try await buildSystem.build(
+                        subset: .allIncludingTests(package: target.packageFocus),
+                        buildOutputs: [],
+                    )
                 } else if options.shouldBuild {
-                    try await buildSystem.build(subset: .product(productName), buildOutputs: [])
+                    try await buildSystem.build(
+                        subset: .product(productName, for: nil, package: target.packageFocus),
+                        buildOutputs: [],
+                    )
                 }
 
                 let productRelativePath = try swiftCommandState.productsBuildParameters.executablePath(for: productName)
@@ -196,6 +380,8 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                         observabilityScope: swiftCommandState.observabilityScope
                     )
                 }
+            } catch Diagnostics.fatalError {
+                throw ExitCode.failure
             } catch let error as RunError {
                 swiftCommandState.observabilityScope.emit(error)
                 throw ExitCode.failure
@@ -220,15 +406,28 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             }
 
             do {
+                _ = try await swiftCommandState.getWorkspaceRoot()
                 let buildSystem = try await swiftCommandState.createBuildSystem(
                     explicitProduct: options.executable,
                 )
                 let modulesGraph = try await buildSystem.getPackageGraph()
-                let productName = try findProductName(in: modulesGraph)
+                guard let target = self.resolveRunTarget(
+                    graph: modulesGraph,
+                    swiftCommandState: swiftCommandState,
+                ) else {
+                    throw ExitCode.failure
+                }
+                let productName = target.productName
                 if options.shouldBuildTests {
-                    try await buildSystem.build(subset: .allIncludingTests(), buildOutputs: [])
+                    try await buildSystem.build(
+                        subset: .allIncludingTests(package: target.packageFocus),
+                        buildOutputs: [],
+                    )
                 } else if options.shouldBuild {
-                    try await buildSystem.build(subset: .product(productName), buildOutputs: [])
+                    try await buildSystem.build(
+                        subset: .product(productName, for: nil, package: target.packageFocus),
+                        buildOutputs: [],
+                    )
                 }
 
                 let executablePath = try await buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)
@@ -264,6 +463,54 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                 throw ExitCode.failure
             }
         }
+    }
+
+    /// Bridge between the CLI-level state (workspace context + graph)
+    /// and the pure `RunCommandOptions.resolveRunTarget`. In a
+    /// workspace, delegates to the pure function with an
+    /// `executablesByMember` map built from the loaded root packages.
+    /// Outside a workspace, delegates to the pre-workspaces
+    /// `findProductName` — its `RunError` diagnostics remain the
+    /// appropriate UX for single-package invocations, except when
+    /// `--package` was supplied, in which case we still route through
+    /// the workspace-aware resolver to surface the
+    /// `packageSelectorRequiresWorkspace` diagnostic.
+    private func resolveRunTarget(
+        graph: ModulesGraph,
+        swiftCommandState: SwiftCommandState,
+    ) -> ResolvedRunTarget? {
+        let availableMembers = swiftCommandState.currentWorkspaceMemberIdentities
+
+        if availableMembers == nil, options.selectedPackage == nil {
+            do {
+                let productName = try findProductName(in: graph)
+                return ResolvedRunTarget(productName: productName, packageFocus: nil)
+            } catch let error as RunError {
+                swiftCommandState.observabilityScope.emit(error)
+                return nil
+            } catch {
+                swiftCommandState.observabilityScope.emit(error)
+                return nil
+            }
+        }
+
+        let executablesByMember = Dictionary(
+            uniqueKeysWithValues: graph.rootPackages.map { pkg -> (PackageIdentity, [String]) in
+                let executables = pkg.products
+                    .filter { $0.type == ProductType.executable || $0.type == ProductType.snippet }
+                    .map(\.name)
+                return (pkg.identity, executables)
+            },
+        )
+
+        return RunCommandOptions.resolveRunTarget(
+            requestedExecutable: options.executable,
+            selectedPackage: options.selectedPackage,
+            workspaceMemberFocus: swiftCommandState.currentWorkspaceMemberFocus,
+            availableMemberIdentities: availableMembers,
+            executablesByMember: executablesByMember,
+            observabilityScope: swiftCommandState.observabilityScope,
+        )
     }
 
     /// Returns the path to the correct executable based on options.

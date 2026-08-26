@@ -53,7 +53,7 @@ final class BuildGraphDependencySource: DependencySourceStrategy {
     }
     
     func getDependencies(for product: ResolvedProduct) async throws -> [SBOMExtractor.DependencyReference] {
-        guard let targetDeps = dependencyGraph[SBOMGraphsConverter.getTargetName(fromProduct: product.name)] else {
+        guard let targetDeps = dependencyGraph[SBOMGraphsConverter.getTargetName(fromProduct: product)] else {
             return []
         }
         

@@ -59,4 +59,106 @@ extension Basics.Diagnostic {
             """,
         )
     }
+
+    /// Diagnostic emitted when `swift run <name>` at the workspace root
+    /// finds `<name>` declared as an executable in more than one
+    /// workspace member. Lists each `(member, product)` candidate so
+    /// the user can disambiguate with `--package <identity>`.
+    @_spi(SwiftPMInternal)
+    public static func ambiguousExecutable(
+        requested: String,
+        candidates: [(member: PackageIdentity, product: String)],
+    ) -> Self {
+        let sorted = candidates.sorted {
+            ($0.product, $0.member.description) < ($1.product, $1.member.description)
+        }
+        let listing = sorted
+            .map { "'\($0.product)' in member '\($0.member)'" }
+            .joined(separator: ", ")
+        return .error(
+            """
+            ambiguous executable '\(requested)' in workspace; candidates: \(listing); \
+            select one with --package <identity>
+            """,
+        )
+    }
+
+    /// Diagnostic emitted when `swift run <name>` (or `swift run
+    /// --package X <name>`) names an executable not declared by the
+    /// member being searched. Lists the member's known executables so
+    /// the user can correct the invocation.
+    @_spi(SwiftPMInternal)
+    public static func executableNotFoundInMember(
+        requested: String,
+        package: PackageIdentity,
+        known: Set<PackageIdentity>,
+    ) -> Self {
+        let sortedKnown = known.sorted()
+        return .error(
+            """
+            no executable named '\(requested)' in workspace member '\(package)'; \
+            known executables: \(sortedKnown.map { "'\($0.description)'" }.joined(separator: ", "))
+            """,
+        )
+    }
+
+    /// Diagnostic emitted when `swift run <name>` names an executable
+    /// declared by no workspace member. Lists each `(member,
+    /// executable)` pair known to the workspace so the user can spot
+    /// typos.
+    @_spi(SwiftPMInternal)
+    public static func executableNotFoundInWorkspace(
+        requested: String,
+        known: [PackageIdentity: Set<PackageIdentity>],
+    ) -> Self {
+        let listing = known
+            .flatMap { member, execs in execs.map { (member, $0) } }
+            .sorted { ($0.1.description, $0.0.description) < ($1.1.description, $1.0.description) }
+            .map { "'\($0.1.description)' in member '\($0.0)'" }
+            .joined(separator: ", ")
+        let suffix = listing.isEmpty ? "no executables declared" : "known executables: \(listing)"
+        return .error(
+            """
+            no executable named '\(requested)' in workspace; \(suffix)
+            """,
+        )
+    }
+
+    /// Diagnostic emitted when `swift run` (no explicit name) at the
+    /// workspace root finds more than one executable across all
+    /// members. Lists the candidates so the user can pick one with
+    /// `swift run <name>` or `--package <identity>`.
+    @_spi(SwiftPMInternal)
+    public static func multipleExecutablesInWorkspace(
+        candidates: [(member: PackageIdentity, product: String)],
+    ) -> Self {
+        let sorted = candidates.sorted {
+            ($0.product, $0.member.description) < ($1.product, $1.member.description)
+        }
+        let listing = sorted
+            .map { "'\($0.product)' in member '\($0.member)'" }
+            .joined(separator: ", ")
+        return .error(
+            """
+            multiple executables available in workspace: \(listing); \
+            select one with `swift run <name>` or `--package <identity>`
+            """,
+        )
+    }
+
+    /// Diagnostic emitted when `swift run` (no explicit name) at the
+    /// workspace root finds no executables in any member.
+    @_spi(SwiftPMInternal)
+    public static func noExecutableFoundInWorkspace() -> Self {
+        .error("no executable product available in workspace")
+    }
+
+    /// Diagnostic emitted when `swift run` (no explicit name) is
+    /// scoped to a specific workspace member (via `--package X` or
+    /// CWD-inside-member focus) and that member declares no
+    /// executables.
+    @_spi(SwiftPMInternal)
+    public static func noExecutableFoundInMember(package: PackageIdentity) -> Self {
+        .error("no executable product available in workspace member '\(package)'")
+    }
 }

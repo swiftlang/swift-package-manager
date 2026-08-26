@@ -89,10 +89,12 @@ extension GUID {
 }
 
 extension PackageModel.Module {
-    var pifTargetGUID: GUID { pifTargetGUID(suffix: nil) }
-
-    func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
-        PackagePIFBuilder.targetGUID(forModuleName: self.name, suffix: suffix)
+    func pifTargetGUID(packageIdentity: PackageIdentity, suffix: TargetSuffix? = nil) -> GUID {
+        PackagePIFBuilder.targetGUID(
+            forModuleName: self.name,
+            packageIdentity: packageIdentity,
+            suffix: suffix,
+        )
     }
 
     var doccCatalogPaths: Set<AbsolutePath> {
@@ -110,7 +112,7 @@ extension PackageGraph.ResolvedModule {
     var pifTargetGUID: GUID { pifTargetGUID(suffix: nil) }
 
     func pifTargetGUID(suffix: TargetSuffix?) -> GUID {
-        self.underlying.pifTargetGUID(suffix: suffix)
+        self.underlying.pifTargetGUID(packageIdentity: self.packageIdentity, suffix: suffix)
     }
 }
 
@@ -130,7 +132,11 @@ extension PackageGraph.ResolvedProduct {
     }
 
     func targetName(suffix: TargetSuffix? = nil) -> String {
-        PackagePIFBuilder.targetName(forProductName: self.name, suffix: suffix)
+        PackagePIFBuilder.targetName(
+            forProductName: self.name,
+            packageIdentity: self.packageIdentity,
+            suffix: suffix,
+        )
     }
 }
 
@@ -139,9 +145,17 @@ extension PackagePIFBuilder {
     ///
     /// This format helps make sure that there is no collision with any other PIF targets,
     /// and in particular that a PIF target and a PIF product can have the same name (as they often do).
-    static func targetGUID(forModuleName name: String, suffix: TargetSuffix? = nil) -> GUID {
+    ///
+    /// The `packageIdentity` is included so that two workspace members
+    /// that each declare a target with the same name (e.g. two executable
+    /// targets both called `hello`) don't collide on the PIF GUID.
+    static func targetGUID(
+        forModuleName name: String,
+        packageIdentity: PackageIdentity,
+        suffix: TargetSuffix? = nil,
+    ) -> GUID {
         let suffixDescription = suffix.uniqueDescription(forName: name)
-        return "PACKAGE-TARGET:\(name)\(suffixDescription)"
+        return "PACKAGE-TARGET:\(packageIdentity.description).\(name)\(suffixDescription)"
     }
 
     /// Helper function to consistently generate a PIF target identifier string for a product in a package.
@@ -156,10 +170,19 @@ extension PackagePIFBuilder {
     /// Helper function to consistently generate a target name string for a product in a package.
     ///
     /// This format helps make sure that modules and products with the same name (as they often have)
-    /// have different target names in the PIF.
-    public static func targetName(forProductName name: String, suffix: TargetSuffix? = nil) -> String {
+    /// have different target names in the PIF. The `packageIdentity` prefix
+    /// additionally disambiguates same-named products declared by
+    /// distinct workspace members (e.g. two executable products both
+    /// called `hello`) — Swift Build enforces unique target names
+    /// across all projects in a workspace, so the package identity
+    /// segment is required for member-collision cases.
+    public static func targetName(
+        forProductName name: String,
+        packageIdentity: PackageIdentity,
+        suffix: TargetSuffix? = nil,
+    ) -> String {
         let suffix = suffix?.rawValue ?? ""
-        return "\(name)\(suffix)-product"
+        return "\(packageIdentity.description).\(name)\(suffix)-product"
     }
 
     /// Helper function to consistently generate a target name string for a module in a product.
@@ -185,8 +208,18 @@ extension PackagePIFBuilder {
 
     /// Extracts a Swift Package product name from a PIF target name.
     ///
-    /// This reverses the conversion performed by `targetName(forProductName:suffix:)`.
-    /// Returns `nil` if the target name doesn't represent a product (i.e., doesn't end with "-product").
+    /// This reverses the conversion performed by
+    /// `targetName(forProductName:packageIdentity:suffix:)`.
+    /// Returns `nil` if the target name doesn't represent a product
+    /// (i.e., doesn't end with "-product").
+    ///
+    /// The current target-name format is
+    /// `<packageIdentity>.<productName>[-<suffix>]-product`. The
+    /// `<packageIdentity>.` prefix is stripped by splitting on the
+    /// first `.` — package identities are normalized to lowercase
+    /// alphanumerics + `-` / `_`, so they never contain `.`.
+    /// Legacy target names without the prefix are still returned
+    /// unchanged so that migration is source-compatible.
     ///
     /// - Parameter targetName: The PIF target name to parse
     /// - Returns: The Swift Package product name, or `nil` if this isn't a product target name
@@ -195,7 +228,11 @@ extension PackagePIFBuilder {
             return nil
         }
         let nameWithoutProduct = String(targetName.dropLast("-product".count))
-        return removeSuffix(from: nameWithoutProduct)
+        let nameWithoutSuffix = removeSuffix(from: nameWithoutProduct)
+        if let dotIndex = nameWithoutSuffix.firstIndex(of: ".") {
+            return String(nameWithoutSuffix[nameWithoutSuffix.index(after: dotIndex)...])
+        }
+        return nameWithoutSuffix
     }
 
         /// Extracts a Swift Package module name from a PIF target name.
@@ -1120,11 +1157,15 @@ extension ProjectModel.Project {
     @discardableResult
     public mutating func addTarget(
         packageModuleName: String,
+        packageIdentity: PackageIdentity,
         productType: ProjectModel.Target.ProductType
     ) throws -> WritableKeyPath<ProjectModel.Project, ProjectModel.Target> {
         let targetKeyPath = try self.addTarget { _ in
             ProjectModel.Target(
-                id: PackagePIFBuilder.targetGUID(forModuleName: packageModuleName),
+                id: PackagePIFBuilder.targetGUID(
+                    forModuleName: packageModuleName,
+                    packageIdentity: packageIdentity,
+                ),
                 productType: productType,
                 name: packageModuleName,
                 productName: packageModuleName

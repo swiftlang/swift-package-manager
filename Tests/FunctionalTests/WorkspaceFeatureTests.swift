@@ -875,6 +875,304 @@ struct WorkspaceFeatureTests {
             )
         }
     }
+
+    // MARK: - Slice 7: `swift run` collisions
+
+    /// `swift run hello` at workspace root with two members both
+    /// declaring an executable `hello` errors with the
+    /// `ambiguousExecutable` diagnostic and lists both member+product
+    /// candidates.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Run,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s07_ambiguousExecutableErrorsWithCandidates(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S07_RunAmbiguity") { fixturePath in
+            let (_, stderr) = try await executeSwiftRun(
+                fixturePath,
+                "hello",
+                configuration: .debug,
+                buildSystem: buildSystem,
+                throwIfCommandFails: false,
+            )
+
+            let expected = Basics.Diagnostic.ambiguousExecutable(
+                requested: "hello",
+                candidates: [
+                    (member: .plain("member-a"), product: "hello"),
+                    (member: .plain("member-b"), product: "hello"),
+                ],
+            )
+            #expect(
+                stderr.contains(expected.message),
+                "expected ambiguous-executable diagnostic; got: \(stderr)",
+            )
+        }
+    }
+
+    /// `swift run --package member-a hello` at workspace root
+    /// disambiguates the collision and runs member-a's `hello`
+    /// executable. Ambiguity resolved by the selector.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Run,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s07_packageSelectorResolvesAmbiguity(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S07_RunAmbiguity") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftRun(
+                fixturePath,
+                "hello",
+                configuration: .debug,
+                extraArgs: ["--package", "member-a"],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stdout.contains("hello from member-a"),
+                "expected member-a's hello output; got stdout=\(stdout) stderr=\(stderr)",
+            )
+            #expect(
+                stdout.contains("hello from member-b") == false,
+                "did not expect member-b's hello output; got stdout=\(stdout)",
+            )
+        }
+    }
+
+    /// From inside `member-a`, `swift run hello` scopes to member-a's
+    /// `hello` — no ambiguity, no error — even though member-b also
+    /// declares `hello`. Exercises the CWD-inside-member (Case A)
+    /// workspace focus.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Run,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s07_runFromInsideMemberScopedToMember(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S07_RunAmbiguity") { fixturePath in
+            let memberPath = fixturePath.appending(components: "packages", "member-a")
+
+            let (stdout, stderr) = try await executeSwiftRun(
+                memberPath,
+                "hello",
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stdout.contains("hello from member-a"),
+                "expected member-a's hello output; got stdout=\(stdout) stderr=\(stderr)",
+            )
+        }
+    }
+
+    /// From inside `member-a`, `swift run unique` (member-c's
+    /// executable) must NOT be silently found via cross-member search.
+    /// Emit `executableNotFoundInMember` listing member-a's known
+    /// executables and fail.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Run,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s07_runFromInsideMemberDoesNotFindCrossMemberExecutable(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S07_RunAmbiguity") { fixturePath in
+            let memberPath = fixturePath.appending(components: "packages", "member-a")
+
+            let (_, stderr) = try await executeSwiftRun(
+                memberPath,
+                "unique",
+                configuration: .debug,
+                buildSystem: buildSystem,
+                throwIfCommandFails: false,
+            )
+
+            let expected = Basics.Diagnostic.executableNotFoundInMember(
+                requested: "unique",
+                package: .plain("member-a"),
+                known: [.plain("hello")],
+            )
+            #expect(
+                stderr.contains(expected.message),
+                "expected executable-not-found-in-member diagnostic; got: \(stderr)",
+            )
+        }
+    }
+
+    /// `--package X hello` supplied from inside a DIFFERENT member
+    /// (member-a) runs member-b's `hello`. Confirms that `--package`
+    /// wins over the CWD-derived focus at the e2e level, matching the
+    /// mid-tier `resolveRunTarget_selectedPackageOverridesFocus_...`
+    /// unit test.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Run,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s07_packageSelectorFromInsideAnotherMember_invokesSelectedMemberExecutable(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S07_RunAmbiguity") { fixturePath in
+            let memberPath = fixturePath.appending(components: "packages", "member-a")
+
+            let (stdout, stderr) = try await executeSwiftRun(
+                memberPath,
+                "hello",
+                configuration: .debug,
+                extraArgs: ["--package", "member-b"],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stdout.contains("hello from member-b"),
+                "expected member-b's hello output; got stdout=\(stdout) stderr=\(stderr)",
+            )
+            #expect(
+                stdout.contains("hello from member-a") == false,
+                "did not expect member-a's hello output; got stdout=\(stdout)",
+            )
+        }
+    }
+
+    /// `swift run` at the workspace root of a workspace whose members
+    /// declare no executables errors with the
+    /// `noExecutableFoundInWorkspace` diagnostic.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Run,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s07_runAtRootWithNoExecutables_errorsWithNoExecutableFoundDiagnostic(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S07_NoExecutables") { fixturePath in
+            let (_, stderr) = try await executeSwiftRun(
+                fixturePath,
+                nil,
+                configuration: .debug,
+                buildSystem: buildSystem,
+                throwIfCommandFails: false,
+            )
+
+            let expected = Basics.Diagnostic.noExecutableFoundInWorkspace()
+            #expect(
+                stderr.contains(expected.message),
+                "expected no-executable-found-in-workspace diagnostic; got: \(stderr)",
+            )
+        }
+    }
+
+    /// `swift run --package X` at workspace root where member `X`
+    /// declares no executables emits the scoped
+    /// `noExecutableFoundInMember(X)` diagnostic (not the workspace-
+    /// wide variant), because the selector narrowed the search to X.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Run,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s07_runWithPackageSelectorAndNoExecutablesInMember_errorsWithScopedDiagnostic(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S07_NoExecutables") { fixturePath in
+            let (_, stderr) = try await executeSwiftRun(
+                fixturePath,
+                nil,
+                configuration: .debug,
+                extraArgs: ["--package", "lib-a"],
+                buildSystem: buildSystem,
+                throwIfCommandFails: false,
+            )
+
+            let expected = Basics.Diagnostic.noExecutableFoundInMember(
+                package: .plain("lib-a"),
+            )
+            #expect(
+                stderr.contains(expected.message),
+                "expected no-executable-found-in-member diagnostic; got: \(stderr)",
+            )
+        }
+    }
+
+    /// From inside library-only member `lib-only`, `swift run` (no
+    /// name) emits `noExecutableFoundInMember(lib-only)` — the Case A
+    /// focus scopes the search, and cross-member executables are not
+    /// silently reached.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Run,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s07_runFromInsideLibOnlyMember_errorsWithScopedDiagnostic(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S07_RunAmbiguity") { fixturePath in
+            let memberPath = fixturePath.appending(components: "packages", "lib-only")
+
+            let (_, stderr) = try await executeSwiftRun(
+                memberPath,
+                nil,
+                configuration: .debug,
+                buildSystem: buildSystem,
+                throwIfCommandFails: false,
+            )
+
+            let expected = Basics.Diagnostic.noExecutableFoundInMember(
+                package: .plain("lib-only"),
+            )
+            #expect(
+                stderr.contains(expected.message),
+                "expected no-executable-found-in-member diagnostic; got: \(stderr)",
+            )
+        }
+    }
+
+    /// From inside library-only member `lib-only`, `swift run --package
+    /// member-a hello` invokes member-a's `hello` — `--package`
+    /// provides an escape hatch from a member with no executables.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Run,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s07_packageSelectorFromLibOnlyMember_invokesSelectedMemberExecutable(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S07_RunAmbiguity") { fixturePath in
+            let memberPath = fixturePath.appending(components: "packages", "lib-only")
+
+            let (stdout, stderr) = try await executeSwiftRun(
+                memberPath,
+                "hello",
+                configuration: .debug,
+                extraArgs: ["--package", "member-a"],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stdout.contains("hello from member-a"),
+                "expected member-a's hello output; got stdout=\(stdout) stderr=\(stderr)",
+            )
+        }
+    }
 }
 
 /// A single `swift test` invocation flavor for parameterizing tests

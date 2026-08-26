@@ -269,8 +269,8 @@ struct PIFOrderingTests {
             "expected exactly one MyPkg project"
         )
         return try #require(
-            project.underlying.targets.filter { $0.common.id.value == "PACKAGE-TARGET:\(name)" }.only,
-            "expected exactly one target with id PACKAGE-TARGET:\(name)"
+            project.underlying.targets.filter { $0.common.id.value == "PACKAGE-TARGET:mypkg.\(name)" }.only,
+            "expected exactly one target with id PACKAGE-TARGET:mypkg.\(name)"
         )
     }
 
