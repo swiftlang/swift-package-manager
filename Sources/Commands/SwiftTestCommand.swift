@@ -91,6 +91,19 @@ struct SharedOptions: ParsableArguments {
     /// to choose from (usually in multiroot packages).
     @Option(help: .hidden)
     var testProduct: String?
+
+    /// Select a specific workspace member by identity. Requires a
+    /// `Workspace.swift` to be discoverable; scopes the command to
+    /// that member's test products. Declared on `SharedOptions` so both
+    /// `TestCommandOptions` (`swift test`) and `SwiftTestCommand.List`
+    /// (`swift test list`) see a single, consistent binding — declaring
+    /// the flag on both parent and subcommand directly causes
+    /// ArgumentParser to bind the value to only one of them.
+    @Option(
+        name: .customLong("package"),
+        help: "Select a specific workspace member by identity.",
+    )
+    var selectedPackage: PackageIdentity?
 }
 
 struct TestEventStreamOptions: ParsableArguments {
@@ -243,15 +256,6 @@ struct TestCommandOptions: ParsableArguments {
     var enableExperimentalTestOutput: Bool {
         return testOutput == .experimentalSummary
     }
-
-    /// Select a specific workspace member by identity. Requires a
-    /// `Workspace.swift` to be discoverable; scopes test execution to
-    /// that member's test products.
-    @Option(
-        name: .customLong("package"),
-        help: "Select a specific workspace member by identity.",
-    )
-    var selectedPackage: PackageIdentity?
 
     /// Validates the `--package` selection against the workspace's
     /// member set. Emits a diagnostic and returns `nil` on invalid
@@ -603,7 +607,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             // (CWD-inside-member) focus so a `swift test` run from inside
             // a member scopes to that member's tests.
             let resolvedPackage = TestCommandOptions.resolveSelectedPackage(
-                selected: self.options.selectedPackage,
+                selected: self.options.sharedOptions.selectedPackage,
                 availableMemberIdentities: swiftCommandState.currentWorkspaceMemberIdentities,
                 observabilityScope: swiftCommandState.observabilityScope,
             ) ?? swiftCommandState.currentWorkspaceMemberFocus
@@ -1562,6 +1566,21 @@ extension SwiftTestCommand {
         }
 
         func runCommand(_ swiftCommandState: SwiftCommandState) async throws {
+            // Eagerly discover the workspace (if any) so that
+            // `currentWorkspaceMemberFocus` / `currentWorkspaceMemberIdentities`
+            // are populated before we resolve `--package` and build. Mirrors
+            // the pattern established in `SwiftTestCommand.run`.
+            _ = try await swiftCommandState.getWorkspaceRoot()
+
+            let resolvedPackage = TestCommandOptions.resolveSelectedPackage(
+                selected: self.sharedOptions.selectedPackage,
+                availableMemberIdentities: swiftCommandState.currentWorkspaceMemberIdentities,
+                observabilityScope: swiftCommandState.observabilityScope,
+            ) ?? swiftCommandState.currentWorkspaceMemberFocus
+            if swiftCommandState.observabilityScope.errorsReported {
+                throw ExitCode.failure
+            }
+
             let (productsBuildParameters, toolsBuildParameters) = try swiftCommandState.buildParametersForTest(
                 enableCodeCoverage: false,
                 shouldSkipBuilding: sharedOptions.shouldSkipBuilding
@@ -1569,7 +1588,8 @@ extension SwiftTestCommand {
             let (buildSystem, testProducts) = try await buildTestsIfNeeded(
                 swiftCommandState: swiftCommandState,
                 productsBuildParameters: productsBuildParameters,
-                toolsBuildParameters: toolsBuildParameters
+                toolsBuildParameters: toolsBuildParameters,
+                package: resolvedPackage,
             )
 
             let toolchain = try swiftCommandState.getTargetToolchain()
@@ -1644,14 +1664,15 @@ extension SwiftTestCommand {
         private func buildTestsIfNeeded(
             swiftCommandState: SwiftCommandState,
             productsBuildParameters: BuildParameters,
-            toolsBuildParameters: BuildParameters
+            toolsBuildParameters: BuildParameters,
+            package: PackageIdentity?,
         ) async throws -> (buildSystem: any BuildSystem, testProducts: [BuiltTestProduct]) {
             return try await Commands.buildTestsIfNeeded(
                 swiftCommandState: swiftCommandState,
                 productsBuildParameters: productsBuildParameters,
                 toolsBuildParameters: toolsBuildParameters,
                 testProduct: self.sharedOptions.testProduct,
-                package: nil,
+                package: package,
                 traitConfiguration: .init(traitOptions: self.globalOptions.traits)
             )
         }

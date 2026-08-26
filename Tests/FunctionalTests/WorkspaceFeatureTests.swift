@@ -716,4 +716,174 @@ struct WorkspaceFeatureTests {
             }
         }
     }
+
+    /// `swift test list` at workspace root lists the test specifiers of
+    /// every member — for BOTH testing libraries. S06 has `lib-a` and
+    /// `lib-b`, each with a Swift Testing target and an XCTest target,
+    /// so all four kinds of specifiers must appear.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Test,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s06_swiftTestListFromRoot_listsAllMembersTests(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S06_SwiftTest") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftTest(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["list"],
+                buildSystem: buildSystem,
+            )
+
+            // XCTest specifiers (LibAXCTests / LibBXCTests classes).
+            #expect(
+                stdout.contains("LibAXCTests"),
+                "expected lib-a's XCTest specifier in list output; got stdout=\(stdout) stderr=\(stderr)",
+            )
+            #expect(
+                stdout.contains("LibBXCTests"),
+                "expected lib-b's XCTest specifier in list output; got stdout=\(stdout) stderr=\(stderr)",
+            )
+            // Swift Testing specifiers (@Test function names).
+            #expect(
+                stdout.contains("libAGreeting_returnsExpected"),
+                "expected lib-a's Swift Testing specifier in list output; got stdout=\(stdout) stderr=\(stderr)",
+            )
+            #expect(
+                stdout.contains("libBGreeting_returnsExpected"),
+                "expected lib-b's Swift Testing specifier in list output; got stdout=\(stdout) stderr=\(stderr)",
+            )
+        }
+    }
+
+    /// `swift test list --package lib-a` at workspace root narrows the
+    /// listing to ONLY `lib-a`'s test specifiers, across both testing
+    /// libraries. `lib-b`'s specifiers (of either kind) must not appear.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Test,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s06_swiftTestListPackageSelector_listsOnlySelectedMemberTests(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S06_SwiftTest") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftTest(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["list", "--package", "lib-a"],
+                buildSystem: buildSystem,
+            )
+
+            // lib-a's specifiers (both libraries) appear.
+            #expect(
+                stdout.contains("LibAXCTests"),
+                "expected lib-a's XCTest specifier in list output; got stdout=\(stdout) stderr=\(stderr)",
+            )
+            #expect(
+                stdout.contains("libAGreeting_returnsExpected"),
+                "expected lib-a's Swift Testing specifier in list output; got stdout=\(stdout) stderr=\(stderr)",
+            )
+            // lib-b's specifiers (both libraries) do NOT appear.
+            #expect(
+                stdout.contains("LibBXCTests") == false,
+                "expected lib-b's XCTest specifier to NOT appear when --package lib-a; got stdout=\(stdout) stderr=\(stderr)",
+            )
+            #expect(
+                stdout.contains("libBGreeting_returnsExpected") == false,
+                "expected lib-b's Swift Testing specifier to NOT appear when --package lib-a; got stdout=\(stdout) stderr=\(stderr)",
+            )
+        }
+    }
+
+    /// `swift test --package <unknown>` (and `swift test list --package
+    /// <unknown>`) at a workspace root emit the "unknown workspace
+    /// member" diagnostic listing the known member identities. Both
+    /// invocation forms share the same underlying decision logic —
+    /// parameterizing over the subcommand prefix keeps that symmetry
+    /// visible.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Test,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+        [
+            SwiftTestInvocation(subcommand: [], label: "swift test"),
+            SwiftTestInvocation(subcommand: ["list"], label: "swift test list"),
+        ],
+    )
+    func s06_swiftTestWithUnknownIdentity_errorsWithHelpfulMessage(
+        buildSystem: BuildSystemProvider.Kind,
+        invocation: SwiftTestInvocation,
+    ) async throws {
+        try await fixture(name: "Workspaces/S06_SwiftTest") { fixturePath in
+            let (_, stderr) = try await executeSwiftTest(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: invocation.subcommand + ["--package", "does-not-exist"],
+                buildSystem: buildSystem,
+            )
+
+            let knownPackageIds = Set(["lib-a", "lib-b"].map { PackageIdentity.plain($0) })
+            let expectedDiagnostic = Basics.Diagnostic.unknownWorkspaceMember(
+                requested: "does-not-exist",
+                known: knownPackageIds,
+            )
+            #expect(
+                stderr.contains(expectedDiagnostic.message),
+                "\(invocation.label): expected unknown workspace member diagnostic; got: \(stderr)",
+            )
+        }
+    }
+
+    /// `swift test --package X` (and `swift test list --package X`)
+    /// invoked outside a workspace emit the "requires a Workspace.swift"
+    /// diagnostic. Parameterized over the subcommand prefix.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Test,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+        [
+            SwiftTestInvocation(subcommand: [], label: "swift test"),
+            SwiftTestInvocation(subcommand: ["list"], label: "swift test list"),
+        ],
+    )
+    func s06_swiftTestOutsideWorkspace_errorsWithRequiresWorkspaceDiagnostic(
+        buildSystem: BuildSystemProvider.Kind,
+        invocation: SwiftTestInvocation,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/Simple") { fixturePath in
+            let requestedPackageName = "anything"
+            let (_, stderr) = try await executeSwiftTest(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: invocation.subcommand + ["--package", requestedPackageName],
+                buildSystem: buildSystem,
+            )
+
+            let packageId = PackageIdentity.plain(requestedPackageName)
+            let expectedDiagnostic = Basics.Diagnostic.packageSelectorRequiresWorkspace(requested: packageId)
+
+            #expect(
+                stderr.contains(expectedDiagnostic.message),
+                "\(invocation.label): expected requires-Workspace.swift diagnostic; got: \(stderr)",
+            )
+        }
+    }
+}
+
+/// A single `swift test` invocation flavor for parameterizing tests
+/// that assert behavior common to both `swift test` and
+/// `swift test list`. The `subcommand` is prepended to `extraArgs`;
+/// the `label` distinguishes the two cases in assertion failure text.
+struct SwiftTestInvocation: Sendable, CustomTestStringConvertible {
+    let subcommand: [String]
+    let label: String
+
+    var testDescription: String { label }
 }
