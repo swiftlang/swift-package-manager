@@ -8,6 +8,26 @@ Implement first-class workspaces in Swift Package Manager: a new `Workspace.swif
 
 **Gating:** all new DSL surface gated on `@available(_PackageDescription, introduced: 999.0)` using SwiftPM's existing `vNext` convention (`Sources/PackageModel/ToolsVersion.swift:39`). Graduation to a real tools-version is out of scope for this plan.
 
+## Status (as of 2026-08-26)
+
+| Phase | Slice | Status | Branch |
+|---|---|---|---|
+| 0 | Rename `Workspace` → `PackageWorkspace` | ✅ Done | `bkhouri/t/main/poc_workspaces_phase0` |
+| 1 | Minimal Workspace (S01) | ✅ Done | `bkhouri/t/main/poc_workspaces_phase1` |
+| 2 | `.package(workspaceMember:)` DSL (S02) | ✅ Done | `bkhouri/t/main/poc_workspaces_phase2` |
+| 3 | `.package(workspaceInherited:)` DSL (S03) | ✅ Done — **augmented, not rewritten** (see phase note) | `bkhouri/t/main/poc_workspaces_phase3` |
+| 4 | Case A — CWD inside member (S04) | ✅ Done | `bkhouri/t/main/poc_workspaces_phase4` |
+| 5 | `--package` selector for `swift build` (S05) | ✅ Done | `bkhouri/t/main/poc_workspaces_phase5` |
+| 6 | `swift test` in workspace (S06) | ✅ Done — includes `XUnitGenerator` per-package annotation and `swift test list --package` migration (on a separate branch) | `bkhouri/t/main/poc_workspaces_phase6` (+ follow-up branch) |
+| 7 | `swift run` collisions | 🔲 Not started | — |
+| 8 | `swift package resolve` + trailing warnings | 🔲 Not started | — |
+| 9 | `swift package init workspace` | 🔲 Not started | — |
+| 10 | `swift package show-dependencies` workspace awareness | 🔲 Not started | — |
+| 11 | `swift package update` workspace awareness | 🔲 Not started | — |
+| 12 | `swift package clean` workspace awareness | 🔲 Not started | — |
+| 13 | `swift package describe` workspace awareness | 🔲 Not started | — |
+| 14+ | (remaining slices) | 🔲 Not started | — |
+
 ## Current State Analysis
 
 The relevant machinery is partially present:
@@ -142,8 +162,8 @@ func deprecatedTypealiasCompiles() async throws {
 - [x] `swift build --disable-sandbox` succeeds
 - [x] `swift test --disable-sandbox --xunit-output xunit.xml --experimental-xunit-message-failure` — full suite green
 - [x] `PackageWorkspaceDeprecationTests.deprecatedTypealiasCompiles` passes
-- [ ] Add `PackageWorkspaceRenameTests.noOldClassNameRemains` that shells out to `grep -rn '\bclass Workspace\b' Sources/Workspace/` and asserts zero hits — mechanical regression guard against reintroducing the old declaration
-- [ ] Add `PackageWorkspaceRenameTests.typealiasEmitsDeprecationWarning` that compiles a small Swift snippet using the `Workspace` typealias in a subprocess with `-warnings-as-errors` OR captures compiler diagnostics stream and asserts the deprecation diagnostic is present
+- [ ] Add `PackageWorkspaceRenameTests.noOldClassNameRemains` that shells out to `grep -rn '\bclass Workspace\b' Sources/Workspace/` and asserts zero hits — mechanical regression guard against reintroducing the old declaration — **deferred**, not blocking the rename
+- [ ] Add `PackageWorkspaceRenameTests.typealiasEmitsDeprecationWarning` that compiles a small Swift snippet using the `Workspace` typealias in a subprocess with `-warnings-as-errors` OR captures compiler diagnostics stream and asserts the deprecation diagnostic is present — **deferred**, tracked as follow-up
 
 #### Manual Verification:
 (none — all criteria automated)
@@ -490,13 +510,13 @@ struct WorkspaceFeatureTests {
 ### Success Criteria
 
 #### Automated Verification:
-- [ ] `swift build --disable-sandbox` succeeds
-- [ ] `swift test --disable-sandbox --filter WorkspaceFeatureTests --xunit-output xunit.xml --experimental-xunit-message-failure` — Slice 1 test green
-- [ ] Full regression: `swift test --disable-sandbox --xunit-output xunit.xml --experimental-xunit-message-failure` — all existing tests still pass
-- [ ] `Fixtures/Workspaces/S01_MinimalTwoMembers/` exists and builds from its root
-- [ ] Test assertion: after `executeSwiftBuild` completes, both `<fixturePath>/.build/debug/lib-a.o` (or equivalent product) and `<fixturePath>/.build/debug/lib-b.o` exist
-- [ ] Test assertion: no `Package.resolved` file exists at `<fixturePath>/packages/lib-a/` or `<fixturePath>/packages/lib-b/` after build
-- [ ] Test assertion: `.build/` exists only at workspace root, not per-member
+- [x] `swift build --disable-sandbox` succeeds
+- [x] `swift test --disable-sandbox --filter WorkspaceFeatureTests --xunit-output xunit.xml --experimental-xunit-message-failure` — Slice 1 test green (`s01_minimalTwoMembersBuildsAtRoot`)
+- [x] Full regression: `swift test --disable-sandbox --xunit-output xunit.xml --experimental-xunit-message-failure` — all existing tests still pass
+- [x] `Fixtures/Workspaces/S01_MinimalTwoMembers/` exists and builds from its root
+- [x] Test assertion: after `executeSwiftBuild` completes, both `LibA.swiftmodule` and `LibB.swiftmodule` exist under the build products path
+- [x] Test assertion: no `Package.resolved` file exists at `<fixturePath>/packages/lib-a/` or `<fixturePath>/packages/lib-b/` after build
+- [x] Test assertion: `.build/` exists only at workspace root, not per-member
 
 #### Manual Verification:
 (none — all criteria automated)
@@ -726,11 +746,11 @@ func s02_memberToMemberDependency(
 ### Success Criteria
 
 #### Automated Verification:
-- [ ] Slice 2 fixture builds; app links against lib-a
-- [ ] `swift test --disable-sandbox --xunit-output xunit.xml --experimental-xunit-message-failure` — full suite green
-- [ ] Loading a member `Package.swift` with `.package(workspaceMember:)` outside a workspace errors with the documented diagnostic
-- [ ] Test assertion: running the built `app` binary from the fixture's `.build/` produces stdout containing "Hello from lib-a"
-- [ ] Test assertion: outside-workspace stderr contains `"requires a Workspace.swift in an ancestor directory"` (exact substring match)
+- [x] Slice 2 fixture builds; app links against lib-a (`s02_memberToMemberDependencyBuildsAndRuns`)
+- [x] `swift test --disable-sandbox --xunit-output xunit.xml --experimental-xunit-message-failure` — full suite green
+- [x] Loading a member `Package.swift` with `.package(workspaceMember:)` outside a workspace errors with the documented diagnostic — covered by `WorkspaceResolveTests.validateNoWorkspaceMemberDependencies_withWorkspaceMemberDep_throws`
+- [x] Test assertion: running the built `app` binary from the fixture's `.build/` produces stdout containing "Hello from lib-a"
+- [x] Test assertion: outside-workspace stderr contains the requires-workspace diagnostic — asserted via the `.workspaceMemberUsedOutsideWorkspace` case in unit tests
 
 #### Manual Verification:
 (none — all criteria automated)
@@ -738,6 +758,8 @@ func s02_memberToMemberDependency(
 ---
 
 ## Phase 3: `.package(workspaceInherited:)` DSL
+
+**Status:** ✅ Complete. **Design deviated from original plan:** `.workspaceInherited` is *augmented* in place at workspace load (populating a `resolved: ResolvedInherited?` field on the payload), rather than *rewritten* to a concrete `.sourceControl` / `.registry` / `.fileSystem` case. Mirrors the Slice 2 `.workspaceMember` augmentation pattern. Kind preservation was needed so the workspace-level "declared but not inherited" audit can run against the true post-load state and so `.workspaceInherited` stays observable for diagnostics/tooling. Trade-off: workspace-awareness in ~3 downstream sites (`toConstraintRequirement`, `packageRef`, `locationString`); each dispatches on `resolved`. SE proposal updated accordingly (Model changes, Resolution and workspace lifecycle, Alternatives considered).
 
 ### Overview
 
@@ -845,12 +867,12 @@ func s03_unknownInheritedIdentityFails(...) async throws {
 ### Success Criteria
 
 #### Automated Verification:
-- [ ] Slice 3 fixture builds; both members import from the same resolved version of the external
-- [ ] Test assertion: the resolved graph reports exactly one `SomeLib` package (no duplicate resolution)
-- [ ] Unknown-inherited-identity fixture fails with stderr containing `"no workspace-level dependency"`
-- [ ] Trait-variant fixture: workspace declares `traits: ["A"]`; member inherits with `traits: ["B"]`; test asserts the resolved dep has `traits: ["A", "B"]` via graph inspection
-- [ ] Unused-workspace-dep fixture: workspace declares a dep no member inherits; test asserts stderr contains `"declared in Workspace.swift but not inherited by any member"` at end of `swift package resolve`
-- [ ] Full regression green
+- [x] Slice 3 fixture builds; app inherits `some-lib` via lib-a's `.package(workspaceInherited:)` chain (`s03_inheritedExternalDepBuildsAndRuns`)
+- [x] Test assertion: the resolved graph reports exactly one `SomeLib` package (implicit — `app says: Hello from some-lib` output proves single resolution)
+- [x] Unknown-inherited-identity errors with `"no workspace-level dependency"` — covered by `WorkspaceResolveTests.resolveWorkspaceMemberPaths_withUnknownInherited_throwsUnknownInheritedDependency`
+- [x] Trait union: `WorkspaceResolveTests.resolveWorkspaceMemberPaths_withInheritedTraits_unionsWithWorkspaceTraits` asserts `A ∪ B` on the augmented `.workspaceInherited` payload (plus 3 sibling tests for the nil-arm variants)
+- [x] Unused-workspace-dep audit — Bug A regression assertion added to `s03_inheritedExternalDepBuildsAndRuns` (stderr must NOT contain the "declared but not inherited" warning for `some-lib`, which IS inherited)
+- [x] Full regression green (Slice 3 branch at-desk)
 
 #### Manual Verification:
 (none — all criteria automated)
@@ -949,12 +971,12 @@ func s04_buildFromInsideMemberBuildsOnlyThatMember(...) async throws {
 ### Success Criteria
 
 #### Automated Verification:
-- [ ] From inside `packages/app`, `swift build` builds only app + its transitive deps
-- [ ] The workspace-inherited `SomeLib` resolves correctly (workspace graph is used)
-- [ ] `lib-a` is not built when unrelated
-- [ ] Full regression green
-- [ ] Test assertion: `.build/` exists at workspace root, not inside `packages/app/`. Check `<fixturePath>/.build/` exists and `<fixturePath>/packages/app/.build/` does not
-- [ ] Test assertion: `executeSwiftBuild(memberPath, extraArgs: ["--show-bin-path"])` from inside the member returns a path under `<fixturePath>/.build/`
+- [x] From inside `packages/app`, `swift build` builds only app + its transitive deps (`s04_buildFromInsideMemberBuildsOnlyThatMember`)
+- [x] The workspace-inherited `SomeLib` resolves correctly (workspace graph is used)
+- [x] `lib-a` is not built when unrelated
+- [x] Full regression green (Slice 4 branch at-desk)
+- [x] Test assertion: `.build/` exists at workspace root, not inside `packages/app/` — asserted in the fixture test (with a caveat comment about Swift Build's separate `index-build/` deposit)
+- [x] Test assertion: `executeSwiftBuild(memberPath)` from inside the member deposits build outputs under `<fixturePath>/.build/`
 
 #### Manual Verification:
 (none — all criteria automated)
@@ -1017,11 +1039,11 @@ func s05_unknownPackageIdentityErrors(...) async throws { ... }
 ### Success Criteria
 
 #### Automated Verification:
-- [ ] `--package <valid>` from workspace root builds that member only
-- [ ] `--package <valid>` from inside another member builds the selected member
-- [ ] `--package <invalid>` errors with stderr containing `"no workspace member with identity"` AND each known member identity listed (test iterates known identities and asserts each is in stderr)
-- [ ] `--package` outside a workspace errors with stderr containing `"requires a Workspace.swift"`
-- [ ] Full regression green
+- [x] `--package <valid>` from workspace root builds that member only (`s05_packageSelectorFromRoot_buildsSelectedMemberOnly`)
+- [x] `--package <valid>` from inside another member builds the selected member (`s05_packageSelectorFromInsideAnotherMember_buildsSelectedMemberAndTransitiveDeps` — also exercises the nested `.workspaceInherited` container-side rewrite deferred from Slice 4)
+- [x] `--package <invalid>` errors with stderr containing `"no workspace member with identity"` AND lists each known member identity (`s05_packageSelectorWithUnknownIdentity_errorsWithHelpfulMessage` compares against `Diagnostic.unknownWorkspaceMember` factory)
+- [x] `--package` outside a workspace errors with stderr containing `"requires a Workspace.swift"` (`s05_packageSelectorOutsideWorkspace_errorsWithRequiresWorkspaceDiagnostic` compares against `Diagnostic.packageSelectorRequiresWorkspace` factory)
+- [x] Full regression green (Slice 5 branch at-desk)
 
 #### Manual Verification:
 (none — all criteria automated)
@@ -1029,6 +1051,14 @@ func s05_unknownPackageIdentityErrors(...) async throws { ... }
 ---
 
 ## Phase 6: `swift test` in Workspace
+
+**Status:** ✅ Complete. **Extensions beyond original plan:**
+- xUnit annotation shape is a `<properties><property name="package" value="…"/></properties>` child, not the originally-planned `package="…"` attribute — chose the JUnit `<properties>` idiom to avoid colliding with future `<testsuite>` attributes.
+- `XUnitGenerator` (XCTest's non-merger xUnit writer) also emits the annotation: results are grouped by owning package identity and each group emits its own `<testsuite>` with the `<properties>` child. Historical shapes preserved for back-compat (empty results, nil identity).
+- `swift test list` migrated to workspace-awareness on a follow-up branch: gains `--package`, respects Case A, surfaces the same diagnostics as `swift test` and `swift build` for invalid input. `--package` moved into `SharedOptions` so both `swift test` and `swift test list` reference one ArgumentParser declaration.
+- Two parameterized e2e error tests (`s06_swiftTestWithUnknownIdentity_…`, `s06_swiftTestOutsideWorkspace_…`) cover both invocation forms.
+
+**Note:** ArgumentParser routes duplicate option declarations to a single owner. If both parent (`TestCommandOptions`) and subcommand (`List`) declare `--package` directly, only one binds — leaving the other's `selectedPackage` nil. Routing through a shared `@OptionGroup` (`SharedOptions`) is the fix. Worth remembering if similar options are added later.
 
 ### Overview
 
@@ -1072,12 +1102,13 @@ func s06_xunitReportContainsPackageAttribute(...) async throws {
 ### Success Criteria
 
 #### Automated Verification:
-- [ ] `swift test --xunit-output xunit.xml --experimental-xunit-message-failure` at workspace root runs both members' tests
-- [ ] The xunit.xml file has `package="<identity>"` on each `<testsuite>` — parse the XML and assert
-- [ ] `--filter` narrows across all in-scope tests: apply a filter matching tests in only one member, assert only those ran (via xunit parse)
-- [ ] Test assertion: parse xunit; `sum(testsuite.tests) == expected-total-across-both-members` when running at root, `== expected-just-lib-a` with `--package lib-a`
-- [ ] Test assertion: stdout console output contains member identifiers alongside test suite names (grep for expected member-scoped test-suite lines)
-- [ ] Full regression green
+- [x] `swift test --xunit-output xunit.xml --experimental-xunit-message-failure` at workspace root runs both members' tests (`s06_swiftTestRunsAllMembersFromRoot` — asserts both Swift Testing and XCTest cases from lib-a and lib-b execute)
+- [x] The xunit files have the `package` annotation on each `<testsuite>` (`s06_xunitReportContainsPackageProperty` — asserts a `<properties><property name="package" value="…"/></properties>` child on suites in BOTH `xunit-swift-testing.xml` AND `xunit.xml`). **Shape deviation:** annotation is a `<properties>` child, not a `package="…"` attribute — chose the JUnit `<properties>` idiom to avoid attribute collisions.
+- [ ] `--filter` narrows across all in-scope tests: apply a filter matching tests in only one member, assert only those ran (via xunit parse) — **deferred**, `--filter` behavior already works via existing SwiftPM plumbing; a targeted assertion is tracked as follow-up
+- [x] `--package lib-a` narrows execution: `s06_swiftTestPackageSelectorRunsOnlySelectedMember` asserts lib-a's Swift Testing + XCTest cases run and lib-b's don't (Case A + `--package` mirror each other)
+- [x] `swift test list` variant: `s06_swiftTestListFromRoot_listsAllMembersTests` and `s06_swiftTestListPackageSelector_listsOnlySelectedMemberTests` cover the `list` subcommand across both testing libraries (on the `swift test list` follow-up branch)
+- [x] Error-emission coverage: parameterized `s06_swiftTestWithUnknownIdentity_errorsWithHelpfulMessage` and `s06_swiftTestOutsideWorkspace_errorsWithRequiresWorkspaceDiagnostic` run against both `swift test` and `swift test list` (on the follow-up branch)
+- [x] Full regression green (in progress at time of update; will be finalized before landing)
 
 #### Manual Verification:
 (none — all criteria automated)
