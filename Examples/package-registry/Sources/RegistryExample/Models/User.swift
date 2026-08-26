@@ -10,42 +10,22 @@
 //
 //===----------------------------------------------------------------------===//
 
-/// A registered account, identified solely by its ``EmailAddress`` and
-/// holding exactly one authentication credential.
+/// A registered account, identified solely by its ``EmailAddress``.
 ///
 /// The registry deliberately stores nothing else about a user: no display
-/// name, no profile, no timestamps. This keeps the example focused on the
-/// two credential shapes SwiftPM's registry login supports — HTTP Basic
-/// (a password) and Bearer (a token).
-///
-/// Only *hashes* are retained. A password is stored as a bcrypt hash and a
-/// token as the hex-encoded SHA-256 of the plaintext, so the value that a
-/// client presents at login can be verified without the server ever
-/// persisting the secret itself.
+/// name, no profile, no timestamps, and no secrets — a credential belongs to a
+/// ``RegisteredClient``, not to the account it acts for. An account is simply
+/// the name that one or more clients act on behalf of, and keeping it this
+/// thin is what lets a user's password and tokens be separate clients with
+/// separate permissions rather than one indivisible identity.
 public struct User: Sendable, Equatable {
     /// The account's identity and lookup key.
     public let email: EmailAddress
-    /// The single credential this user authenticates with.
-    public let credential: Credential
 
-    /// Creates a user with the given identity and credential.
+    /// Creates a user with the given identity.
     ///
-    /// - Parameters:
-    ///   - email: The normalized email identifying the account.
-    ///   - credential: The hashed credential used to authenticate.
-    public init(email: EmailAddress, credential: Credential) {
+    /// - Parameter email: The normalized email identifying the account.
+    public init(email: EmailAddress) {
         self.email = email
-        self.credential = credential
-    }
-
-    /// The authentication material stored for a ``User`` — always a hash,
-    /// never a plaintext secret.
-    public enum Credential: Sendable, Equatable {
-        /// A bcrypt hash of the user's password, verified on HTTP Basic
-        /// login.
-        case password(hash: String)
-        /// The hex-encoded SHA-256 of the user's token, matched on Bearer
-        /// login.
-        case token(hash: TokenHash)
     }
 }

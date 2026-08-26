@@ -19,47 +19,41 @@ struct UserStoreTests {
         try #require(EmailAddress(raw))
     }
 
-    @Test func `round-trips a password user by email`() async throws {
+    @Test func `round-trips a user by email`() async throws {
         let store = UserStore()
-        let mona = User(email: try email("mona@example.com"), credential: .password(hash: "bcrypt"))
+        let mona = User(email: try email("mona@example.com"))
         try await store.create(mona)
         #expect(await store.user(email: try email("mona@example.com")) == mona)
     }
 
-    @Test func `round-trips a token user by token hash`() async throws {
+    @Test func `distinct emails each resolve to their own user`() async throws {
         let store = UserStore()
-        let mona = User(email: try email("mona@example.com"), credential: .token(hash: TokenHasher.hash("abc123")))
+        let mona = User(email: try email("mona@example.com"))
+        let harry = User(email: try email("harry@example.com"))
         try await store.create(mona)
-        #expect(await store.user(tokenHash: TokenHasher.hash("abc123")) == mona)
+        try await store.create(harry)
+        #expect(await store.user(email: try email("mona@example.com")) == mona)
+        #expect(await store.user(email: try email("harry@example.com")) == harry)
     }
 
     @Test func `duplicate email throws emailAlreadyExists`() async throws {
         let store = UserStore()
-        try await store.create(User(email: try email("mona@example.com"), credential: .password(hash: "h1")))
+        try await store.create(User(email: try email("mona@example.com")))
         await #expect(throws: UserStoreError.emailAlreadyExists) {
-            try await store.create(User(email: try email("mona@example.com"), credential: .password(hash: "h2")))
+            try await store.create(User(email: try email("mona@example.com")))
         }
     }
 
-    @Test func `token collision throws and leaves no partial state`() async throws {
+    @Test func `an email differing only in casing and whitespace is a duplicate`() async throws {
         let store = UserStore()
-        try await store.create(User(email: try email("a@example.com"), credential: .token(hash: TokenHasher.hash("shared"))))
-        await #expect(throws: UserStoreError.tokenAlreadyExists) {
-            try await store.create(User(email: try email("b@example.com"), credential: .token(hash: TokenHasher.hash("shared"))))
+        try await store.create(User(email: try email("Mona@Example.com")))
+        await #expect(throws: UserStoreError.emailAlreadyExists) {
+            try await store.create(User(email: try email("  mona@example.com ")))
         }
-        #expect(await store.user(email: try email("b@example.com")) == nil)
-        #expect(await store.user(tokenHash: TokenHasher.hash("shared"))?.email == (try email("a@example.com")))
-    }
-
-    @Test func `password users are absent from the token index`() async throws {
-        let store = UserStore()
-        try await store.create(User(email: try email("mona@example.com"), credential: .password(hash: "h")))
-        #expect(await store.user(tokenHash: TokenHasher.hash("h")) == nil)
     }
 
     @Test func `unknown lookups return nil`() async throws {
         let store = UserStore()
         #expect(await store.user(email: try email("nobody@example.com")) == nil)
-        #expect(await store.user(tokenHash: TokenHasher.hash("missing")) == nil)
     }
 }

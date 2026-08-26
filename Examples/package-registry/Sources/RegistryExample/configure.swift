@@ -19,9 +19,10 @@ import NIOSSL
 /// - Parameters:
 ///   - app: The application to configure.
 ///   - authEnabled: When `true` (the default), the publish endpoint is gated
-///     behind ``UserAuthenticator`` (an `AsyncRequestAuthenticator`
-///     middleware) plus `AuthenticatedUser.guardMiddleware()`, together
-///     re-verifying the credentials presented on every publish request.
+///     behind ``ClientAuthenticator`` (an `AsyncRequestAuthenticator`
+///     middleware) plus ``AuthenticatedClientGuardMiddleware``, together
+///     re-verifying the credentials presented on every publish request and
+///     re-resolving the client they identify.
 ///     Authentication is on by default so the registry is secure by default;
 ///     pass `authEnabled: false` (the server's `--disable-auth` flag) to open
 ///     publishing to unauthenticated clients, e.g. for a quick local demo.
@@ -36,19 +37,23 @@ public func configure(_ app: Application, authEnabled: Bool = true) async throws
 
     let store = app.registryStore
     let userStore = app.userStore
-    let authenticator = UserAuthenticator(store: userStore)
+    let clientStore = app.clientStore
+    let authenticator = ClientAuthenticator(clientStore: clientStore)
+    let resolver = ClientResolver(store: clientStore)
+    let clientRegistrar = ClientRegistrar(store: clientStore)
     let authGroup = app.grouped(authenticator)
 
     AvailabilityRoutes().register(app)
     IdentifiersRoutes(store: store).register(app)
     let publishRouter: any RoutesBuilder = authEnabled
-        ? authGroup.grouped(AuthenticatedUser.guardMiddleware())
+        ? authGroup.grouped(AuthenticatedClientGuardMiddleware(resolver: resolver))
         : app
     PublishRoutes(publisher: ReleasePublisher(store: store)).register(publishRouter)
     MetadataRoutes(store: store).register(app)
 
-    UserRoutes(registrar: UserRegistrar(store: userStore)).register(app)
-    LoginRoutes().register(authGroup)
+    UserRoutes(registrar: UserRegistrar(store: userStore, clientRegistrar: clientRegistrar)).register(app)
+    LoginRoutes(resolver: resolver).register(authGroup)
+    ClientRoutes(resolver: resolver, registrar: clientRegistrar, store: clientStore).register(authGroup)
 }
 
 private func configureTLS(_ app: Application) throws {

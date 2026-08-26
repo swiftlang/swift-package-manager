@@ -14,6 +14,9 @@ put up a PR against this project to show how the proposal could be implemented.
 - `GET /identifiers?url=…`: URL → identifier lookup
 - `POST /users`: create an account (unauthenticated) with a password or a server-minted token
 - `POST /login`: validate credentials for SwiftPM's `login` subcommand (HTTP Basic or Bearer)
+- `POST /clients`: mint an additional token for the calling account (one per machine or CI job)
+- `GET /clients`: list the clients on the calling account
+- `DELETE /clients/{id}`: revoke one of the calling account's clients (never its last)
 
 This implementation does not implement signatures, async `202 Accepted` publishing, or mirrors.
 
@@ -104,14 +107,23 @@ swift test
 
 ## Authentication
 
-The registry associates a single credential with an email address — nothing
-else is stored about a user. Passwords are kept as bcrypt hashes and tokens as
-the SHA-256 of the plaintext, so no secret is ever persisted in the clear.
+The registry stores nothing about a user but their email address. Credentials
+belong to *clients* — a client is one credential acting for one account — and an
+account may hold several: a password for the developer at their desk and a token
+per machine or CI job. Passwords are kept as bcrypt hashes and tokens as the
+SHA-256 of the plaintext, so no secret is ever persisted in the clear.
+
+Each client has a `ClientID`: a public name, safe to display, that lets an
+account list what is registered to it and retire one client without touching the
+others. A credential cannot serve as that name — the plaintext token is never
+stored, and its hash has no business appearing in a listing.
 
 > **Note:** Authorization is coarse-grained. Any authenticated account may
 > publish *any* package — the registry records no per-package ownership and
 > checks nothing beyond "the request carries valid credentials." A production
-> registry would scope which accounts may publish which package identifiers.
+> registry would scope which accounts may publish which package identifiers, and
+> would scope permissions per client so that a CI token could be narrower than
+> the developer's password.
 
 ### Create an account
 
@@ -159,4 +171,81 @@ Equivalently with curl:
 ```bash
 curl -skX POST https://localhost:8000/login -u 'harry@hogwarts.com:ginny'   # → 200
 curl -skX POST https://localhost:8000/login -H 'Authorization: Bearer kR8f…QeE'  # → 200
+```
+
+### Stateless login
+
+When auth is enabled, every publish request must carry its own valid
+credentials — an `Authorization` header (HTTP Basic or Bearer) that verifies
+against a registered account. There is no server-side session: credentials are
+re-checked on every request, so a prior `POST /login` does not authorize a later
+credential-less publish, and nothing needs to be remembered across requests or
+survive a restart. A request with missing or invalid credentials is rejected
+with `401 Unauthorized`.
+
+### Add a token for another machine
+
+`POST /clients` mints an extra bearer token for whoever authenticated. Any of an
+account's clients may ask — a password, or an existing token — and the plaintext
+comes back once, alongside the id under which it can later be revoked:
+
+```bash
+curl -skX POST https://localhost:8000/clients -u 'harry@hogwarts.com:ginny'
+# → 201 {"id":"9F3C…A1","token":"tS2h…LmQ"}
+```
+
+An account can hold as many tokens as it has machines. Each logs in and
+publishes as the same user:
+
+```bash
+curl -skX POST https://localhost:8000/login -H 'Authorization: Bearer tS2h…LmQ'
+# → 200 {"email":"harry@hogwarts.com"}
+```
+
+The password is the exception: an account holds at most one, because a Basic
+client is keyed by the email that doubles as its username. Registering a second
+is rejected rather than silently replacing the first.
+
+### List and revoke clients
+
+`GET /clients` reports what is registered to the calling account and nothing
+else — no other account's clients, and no credential material. Every client on
+an account sees the same listing:
+
+```bash
+curl -sk https://localhost:8000/clients -u 'harry@hogwarts.com:ginny'
+# → 200 {"clients":[{"id":"4B7E…D2","method":"basic"},
+#                   {"id":"9F3C…A1","method":"bearer"}]}
+```
+
+`DELETE /clients/{id}` retires one:
+
+```bash
+curl -skX DELETE https://localhost:8000/clients/9F3C…A1 -u 'harry@hogwarts.com:ginny'
+# → 204
+```
+
+Revocation takes effect on the next request, since credentials are re-resolved
+every time; the revoked token's next `login` or `publish` is a `401`. An id
+belonging to another account is refused with the same `404` as an id belonging to
+nobody, so the response cannot be used to discover other accounts' clients.
+
+A client may revoke itself — that is how a machine logs out. What no account may
+do is revoke its *last* client, which is refused with `409 Conflict`:
+
+```bash
+curl -skX DELETE https://localhost:8000/clients/4B7E…D2 -u 'harry@hogwarts.com:ginny'
+# → 409 {"detail":"an account must keep at least one client; register another before revoking this one"}
+```
+
+With nothing left to authenticate as, the account would be unusable and this
+registry has no way back into it: there is no operator, no recovery credential,
+and `POST /users` refuses an email it already knows. So rotate a credential by
+minting its replacement first, then revoking the old one — which is the safer
+order anyway, since the new token is in hand before the old one stops working:
+
+```bash
+# From the machine holding the old token:
+curl -skX POST https://localhost:8000/clients -H 'Authorization: Bearer old…'   # → 201, new token
+curl -skX DELETE https://localhost:8000/clients/<old-id> -H 'Authorization: Bearer new…'  # → 204
 ```

@@ -14,14 +14,22 @@ import Testing
 import Vapor
 @testable import RegistryExample
 
-@Suite("UserAuthenticator")
-struct UserAuthenticatorTests {
+@Suite("ClientAuthenticator")
+struct ClientAuthenticatorTests {
     private func seededAuthenticator(
         _ seed: (UserRegistrar) async throws -> Void
-    ) async throws -> UserAuthenticator {
-        let store = UserStore()
-        try await seed(UserRegistrar(store: store, tokenGenerator: TokenGenerator { "the-token" }))
-        return UserAuthenticator(store: store)
+    ) async throws -> ClientAuthenticator {
+        let clientStore = ClientStore()
+        try await seed(
+            UserRegistrar(
+                store: UserStore(),
+                clientRegistrar: ClientRegistrar(
+                    store: clientStore,
+                    tokenGenerator: TokenGenerator { "the-token" }
+                )
+            )
+        )
+        return ClientAuthenticator(clientStore: clientStore)
     }
 
     // MARK: Basic
@@ -37,8 +45,8 @@ struct UserAuthenticatorTests {
         let auth = try await seededAuthenticator {
             _ = try await $0.register(email: "Mona@Example.com", password: "hunter2")
         }
-        let authenticated = await auth.authenticate(email: "  mona@example.com ", password: "hunter2")
-        #expect(authenticated?.value == "mona@example.com")
+        let credentials = await auth.authenticate(email: "  mona@example.com ", password: "hunter2")
+        #expect(credentials?.email.value == "mona@example.com")
     }
 
     @Test func `wrong password fails`() async throws {
@@ -65,10 +73,10 @@ struct UserAuthenticatorTests {
         // would let bcrypt short-circuit for an unknown account, leaking its
         // absence through response timing. Also confirms Vapor's Bcrypt
         // accepts the hash's revision.
-        #expect(!UserAuthenticator.decoyHash.isEmpty)
+        #expect(!ClientAuthenticator.decoyHash.isEmpty)
         #expect(try Bcrypt.verify(
             "decoy value for constant-time credential verification",
-            created: UserAuthenticator.decoyHash
+            created: ClientAuthenticator.decoyHash
         ))
     }
 
@@ -78,7 +86,7 @@ struct UserAuthenticatorTests {
         let auth = try await seededAuthenticator {
             _ = try await $0.register(email: "mona@example.com", password: nil)
         }
-        #expect(await auth.authenticate(token: "the-token") != nil)
+        #expect(await auth.authenticate(token: "the-token")?.tokenHash == TokenHasher.hash("the-token"))
     }
 
     @Test func `unknown token fails`() async throws {
@@ -99,7 +107,7 @@ struct UserAuthenticatorTests {
         let auth = try await seededAuthenticator {
             _ = try await $0.register(email: "mona@example.com", password: nil)
         }
-        let longToken = String(repeating: "a", count: UserAuthenticator.maxTokenLength + 1)
+        let longToken = String(repeating: "a", count: ClientAuthenticator.maxTokenLength + 1)
         #expect(await auth.authenticate(token: longToken) == nil)
     }
 

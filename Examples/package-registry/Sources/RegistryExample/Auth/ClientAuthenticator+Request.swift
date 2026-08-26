@@ -17,16 +17,22 @@ private enum AuthorizationScheme: String {
     case bearer
 }
 
-extension UserAuthenticator: AsyncRequestAuthenticator {
-    /// Populates `request.auth` with an ``AuthenticatedUser`` when the
-    /// request carries valid credentials.
+extension ClientAuthenticator: AsyncRequestAuthenticator {
+    /// Populates `request.auth` with an ``AuthenticatedClient`` — specialized
+    /// to whichever authentication method verified — when the request carries
+    /// valid credentials.
+    ///
+    /// Each method fills its own slot of Vapor's authentication cache, so a
+    /// request that verified a Basic credential is authenticated as an
+    /// `AuthenticatedClient<BasicAuth>` and nothing else. Two clients of the
+    /// same user therefore never stand in for one another.
     ///
     /// This follows Vapor's authenticator contract: a missing `Authorization`
     /// header or credentials that fail to verify leave the request
     /// *unauthenticated* rather than failing here. Rejecting such requests is
-    /// the job of a downstream guard — `AuthenticatedUser.guardMiddleware()`
-    /// on the publish group, or `request.auth.require(_:)` in the login
-    /// handler — which surfaces the absence as `401 Unauthorized`.
+    /// the job of a downstream guard — ``AuthenticatedClientGuardMiddleware``
+    /// on the publish group, or ``ClientResolver`` in the login handler —
+    /// which surfaces the absence as `401 Unauthorized`.
     ///
     /// The single exception is an *unsupported scheme*, which cannot be
     /// modeled as "unauthenticated": it is thrown as `501 Not Implemented` so
@@ -47,15 +53,15 @@ extension UserAuthenticator: AsyncRequestAuthenticator {
         switch AuthorizationScheme(rawValue: scheme) {
         case .basic:
             guard let basic = request.headers.basicAuthorization,
-                  let email = await authenticate(email: basic.username, password: basic.password)
+                  let credentials = await authenticate(email: basic.username, password: basic.password)
             else { return }
-            request.auth.login(AuthenticatedUser(email: email))
+            request.auth.login(AuthenticatedClient<BasicAuth>(credentials: credentials))
 
         case .bearer:
             guard let bearer = request.headers.bearerAuthorization,
-                  let email = await authenticate(token: bearer.token)
+                  let credentials = await authenticate(token: bearer.token)
             else { return }
-            request.auth.login(AuthenticatedUser(email: email))
+            request.auth.login(AuthenticatedClient<BearerAuth>(credentials: credentials))
 
         case nil:
             throw ProblemDetails.notImplemented("Unsupported authentication scheme")
