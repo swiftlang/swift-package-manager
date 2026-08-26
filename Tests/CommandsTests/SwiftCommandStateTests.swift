@@ -13,7 +13,7 @@
 @testable import Basics
 @testable import Build
 @testable import Commands
-@testable import CoreCommands
+@_spi(SwiftPMTesting) @testable import CoreCommands
 
 import struct SPMBuildCore.BuildSystemProvider
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
@@ -33,7 +33,8 @@ import var TSCBasic.stderrStream
 import Testing
 
 @Suite()
-struct SwiftCommandStateTestSuites {
+struct SwiftCommandStateTests {
+
     @Test(
         .tags(
             .TestSize.small,
@@ -279,9 +280,300 @@ struct SwiftCommandStateTestSuites {
         #expect(actual.severity == expected.severity)
         #expect(actual.message == expected.message)
     }
+    // MARK: - computeResolvedVersionsFile (Slice 8a)
+
+    @Suite(
+        .tags(
+            .FunctionalArea.WorkspaceManiest,
+        ),
+    )
+    struct ComputeResolvedVersionsFileTests {
+
+        /// Baseline: no workspace, no `--multiroot-data-file` → the
+        /// resolver falls back to per-package `Package.resolved` at the
+        /// current package root. Preserves single-package behavior.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func singlePackage_returnsPerPackagePath() throws {
+            let packageRoot = AbsolutePath("/Pkg")
+            let actual = try SwiftCommandState.computeResolvedVersionsFile(
+                multiRootPackageDataFile: nil,
+                workspaceRoot: nil,
+                packageRoot: packageRoot,
+                buildSystem: .swiftbuild,
+            )
+            #expect(actual == packageRoot.appending("Package.resolved"))
+        }
+
+        /// When a `Workspace.swift` is discovered AND the build system
+        /// is Swift Build, `Package.resolved` moves to the workspace
+        /// root. This is the Slice 8a invariant: all members share a
+        /// single `Package.resolved` and no member ever writes its own.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func withWorkspaceRootAndSwiftBuild_returnsWorkspaceRootPath() throws {
+            let workspaceRoot = AbsolutePath("/Workspace")
+            let packageRoot = AbsolutePath("/Workspace/packages/app")
+            let actual = try SwiftCommandState.computeResolvedVersionsFile(
+                multiRootPackageDataFile: nil,
+                workspaceRoot: workspaceRoot,
+                packageRoot: packageRoot,
+                buildSystem: .swiftbuild,
+            )
+            #expect(actual == workspaceRoot.appending("Package.resolved"))
+        }
+
+        /// A `Workspace.swift` is present but the invocation targets a
+        /// non-Swift Build backend (native or Xcode). The workspace
+        /// model is Slice-1-and-later infrastructure wired only through
+        /// Swift Build; the native / XCBuild backends still expect
+        /// per-package `Package.resolved`. Letting them see a
+        /// workspace-root file would cause them to re-resolve on every
+        /// build. So the workspace-root branch is suppressed and the
+        /// resolver falls back to the per-package path.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+            arguments: BuildSystemProvider.Kind.allCases.filter { $0 != .swiftbuild },
+        )
+        func withWorkspaceRootAndNonSwiftBuild_fallsBackToPerPackagePath(
+            buildSystem: BuildSystemProvider.Kind,
+        ) throws {
+            let workspaceRoot = AbsolutePath("/Workspace")
+            let packageRoot = AbsolutePath("/Workspace/packages/app")
+            let actual = try SwiftCommandState.computeResolvedVersionsFile(
+                multiRootPackageDataFile: nil,
+                workspaceRoot: workspaceRoot,
+                packageRoot: packageRoot,
+                buildSystem: buildSystem,
+            )
+            #expect(
+                actual == packageRoot.appending("Package.resolved"),
+                "non-Swift Build backend (\(buildSystem)) must not see workspace-root Package.resolved",
+            )
+        }
+
+        /// `--multiroot-data-file` still wins over the workspace-root
+        /// preference — its `xcshareddata/swiftpm/Package.resolved`
+        /// location is an explicit Xcode-workspace override that predates
+        /// the Slice 1 workspace model and must remain honored,
+        /// regardless of the build system in play.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+            arguments: BuildSystemProvider.Kind.allCases,
+        )
+        func withMultirootDataFile_takesPrecedenceOverWorkspaceRoot(
+            buildSystem: BuildSystemProvider.Kind,
+        ) throws {
+            let multirootDataFile = AbsolutePath("/App.xcworkspace")
+            let workspaceRoot = AbsolutePath("/Workspace")
+            let packageRoot = AbsolutePath("/Workspace/packages/app")
+            let actual = try SwiftCommandState.computeResolvedVersionsFile(
+                multiRootPackageDataFile: multirootDataFile,
+                workspaceRoot: workspaceRoot,
+                packageRoot: packageRoot,
+                buildSystem: buildSystem,
+            )
+            #expect(
+                actual == multirootDataFile.appending(components: "xcshareddata", "swiftpm", "Package.resolved"),
+            )
+        }
+
+        /// Terminal fallback: no workspace, no multiroot override, and no
+        /// package root either — nothing to anchor `Package.resolved` to.
+        /// The function throws `SwiftCommandStateError.packageManifestNotFound`
+        /// so callers can distinguish "no manifest" from other filesystem
+        /// errors, and the pre-workspaces error path stays intact.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func withNoInputs_throwsPackageManifestNotFound() throws {
+            #expect(throws: SwiftCommandStateError.packageManifestNotFound) {
+                _ = try SwiftCommandState.computeResolvedVersionsFile(
+                    multiRootPackageDataFile: nil,
+                    workspaceRoot: nil,
+                    packageRoot: nil,
+                    buildSystem: .swiftbuild,
+                )
+            }
+
+        }
+    }
+
+    // MARK: - flushMemberStateFindings (Slice 8c)
+
+    /// End-to-end integration coverage for the
+    /// `SwiftCommandState.memberStateFindings` push buffer and its
+    /// `flushMemberStateFindings()` drain. The unit-level formatter
+    /// and scanner are covered in `MemberStateFindingsTests`; this
+    /// suite pins the `SwiftCommandState` boundary — that seeded
+    /// findings actually reach the observability sink as a single
+    /// aggregated warning, and that the buffer's `nil` sentinel makes
+    /// the drain idempotent so both the sync and async command
+    /// runners can safely call it.
+    @Suite(
+        .tags(
+            .FunctionalArea.WorkspaceManiest,
+        ),
+    )
+    struct FlushMemberStateFindingsTests {
+
+        /// Seed one finding, flush, and observe the aggregated warning
+        /// on the tool's output stream. Pins the happy-path contract:
+        /// `flushMemberStateFindings()` routes buffered findings
+        /// through `MemberStateFindings.formatWarning` and emits the
+        /// resulting diagnostic on `observabilityScope`.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func withFindingsInBuffer_emitsAggregatedWarning() async throws {
+            try fixture(name: "Miscellaneous/Simple") { fixturePath in
+                let outputStream = BufferedOutputByteStream()
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString])
+                let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options)
+
+                tool.memberStateFindings = [
+                    MemberStateFindings(
+                        memberIdentity: .plain("lib-a"),
+                        detectedStateFiles: [.build, .packageResolved],
+                    ),
+                ]
+                tool.flushMemberStateFindings()
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+
+                let output = try #require(outputStream.bytes.validDescription)
+                #expect(output.contains("workspace members have ignored state:"))
+                #expect(output.contains("lib-a"))
+                #expect(output.contains(".build/, Package.resolved"))
+                #expect(tool.memberStateFindings == nil)
+            }
+        }
+
+        /// After a successful flush, `memberStateFindings` must be
+        /// `nil` — not an empty array. The nil sentinel is what makes
+        /// a second flush (from the other command runner) a no-op
+        /// rather than an empty-diagnostic re-emission.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func afterFlush_bufferIsNil() async throws {
+            try fixture(name: "Miscellaneous/Simple") { fixturePath in
+                let outputStream = BufferedOutputByteStream()
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString])
+                let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options)
+
+                tool.memberStateFindings = [
+                    MemberStateFindings(
+                        memberIdentity: .plain("lib-a"),
+                        detectedStateFiles: [.build],
+                    ),
+                ]
+                tool.flushMemberStateFindings()
+
+                #expect(tool.memberStateFindings == nil)
+            }
+        }
+
+        /// When workspace discovery never ran, `memberStateFindings`
+        /// stays `nil` and flush is a no-op — nothing on the wire, no
+        /// spurious buffer initialization. Covers the guard clause
+        /// that keeps single-package commands quiet.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func withNilBuffer_emitsNothing() async throws {
+            try fixture(name: "Miscellaneous/Simple") { fixturePath in
+                let outputStream = BufferedOutputByteStream()
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString])
+                let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options)
+
+                tool.flushMemberStateFindings()
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+
+                let output = try #require(outputStream.bytes.validDescription)
+                #expect(output.contains("workspace members have ignored state:") == false)
+                #expect(tool.memberStateFindings == nil)
+            }
+        }
+
+        /// Workspace discovery ran but no member has stale state:
+        /// buffer is `[]`. Flush must still consume the buffer (set
+        /// to `nil`) and emit nothing — the empty case is not a
+        /// diagnostic, just a clean workspace.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func withEmptyBuffer_emitsNothing() async throws {
+            try fixture(name: "Miscellaneous/Simple") { fixturePath in
+                let outputStream = BufferedOutputByteStream()
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString])
+                let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options)
+
+                tool.memberStateFindings = []
+                tool.flushMemberStateFindings()
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+
+                let output = try #require(outputStream.bytes.validDescription)
+                #expect(output.contains("workspace members have ignored state:") == false)
+                #expect(tool.memberStateFindings == nil)
+            }
+        }
+
+        /// Both `SwiftCommand.run()` and `AsyncSwiftCommand.run()`
+        /// call `flushMemberStateFindings()` from their runners; a
+        /// tool invoked via one entry point then torn down through
+        /// the other must not double-emit. Seed once, flush twice,
+        /// assert the aggregated warning appears exactly once in the
+        /// captured bytes.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func doubleFlush_secondCallIsNoOp() async throws {
+            try fixture(name: "Miscellaneous/Simple") { fixturePath in
+                let outputStream = BufferedOutputByteStream()
+                let options = try GlobalOptions.parse(["--package-path", fixturePath.pathString])
+                let tool = try SwiftCommandState.makeMockState(outputStream: outputStream, options: options)
+
+                tool.memberStateFindings = [
+                    MemberStateFindings(
+                        memberIdentity: .plain("lib-a"),
+                        detectedStateFiles: [.build],
+                    ),
+                ]
+                tool.flushMemberStateFindings()
+                tool.flushMemberStateFindings()
+                tool.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+
+                let output = try #require(outputStream.bytes.validDescription)
+                let occurrences = output.components(separatedBy: "workspace members have ignored state:").count - 1
+                #expect(occurrences == 1, "expected the aggregated warning to be emitted exactly once, got \(occurrences)")
+            }
+        }
+    }
 }
 
-final class SwiftCommandStateTests: XCTestCase {
+final class SwiftCommandStateTestsXCTest: XCTestCase {
     /// Original working directory before the test ran (if known).
     private var originalWorkingDirectory: AbsolutePath? = .none
 

@@ -13,6 +13,7 @@
 import _Concurrency
 
 import struct Basics.AbsolutePath
+import protocol Basics.FileSystem
 import struct Basics.InternalError
 import class Basics.ObservabilityScope
 import func Basics.os_signpost
@@ -367,18 +368,101 @@ extension PackageWorkspace {
     }
 
     private func computeResolvedFileOriginHash(root: PackageGraphRootInput) throws -> String {
-        var content = try root.packages.reduce(into: "") { partial, element in
+        try Self.resolvedFileOriginHash(
+            root: root,
+            fileSystem: self.fileSystem,
+            currentToolsVersion: self.currentToolsVersion,
+        )
+    }
+
+    /// Testable seam that reads member `Package.swift` and (when
+    /// present) `Workspace.swift` contents from the injected
+    /// `FileSystem` and threads them into the pure payload builder.
+    /// The `PackageWorkspace` instance method is a thin wrapper —
+    /// every branch reachable via the instance method is reachable
+    /// from here with a controlled `FileSystem`.
+    ///
+    /// The wiring under test: `PackageGraphRootInput.workspaceManifest?
+    /// .path` must reach the hash payload as raw file bytes. Reading
+    /// `Workspace.swift` directly on every call also bypasses the
+    /// manifest-loader's parsed-value cache: any edit to the file
+    /// changes the payload immediately, even if a subsequent parse
+    /// were to return a stale `WorkspaceManifest.dependencies` value.
+    static func resolvedFileOriginHash(
+        root: PackageGraphRootInput,
+        fileSystem: FileSystem,
+        currentToolsVersion: ToolsVersion,
+    ) throws -> String {
+        let manifestContents = try root.packages.map { element -> String in
             let path = try ManifestLoader.findManifest(
                 packagePath: element,
-                fileSystem: self.fileSystem,
-                currentToolsVersion: self.currentToolsVersion
+                fileSystem: fileSystem,
+                currentToolsVersion: currentToolsVersion,
             )
-            try partial.append(self.fileSystem.readFileContents(path))
+            return try fileSystem.readFileContents(path)
         }
-        content += root.dependencies.reduce(into: "") { partial, element in
-            partial += element.locationString
+        let workspaceManifestContent: String? = try root.workspaceManifest.map { manifest in
+            try fileSystem.readFileContents(manifest.path)
+        }
+        return Self.computeResolvedFileOriginHash(
+            manifestContents: manifestContents,
+            dependencyLocations: root.dependencies.map(\.locationString),
+            workspaceManifestContent: workspaceManifestContent,
+        )
+    }
+
+    /// Pure hash-payload builder for the resolved-file origin hash.
+    ///
+    /// The payload is: concatenated `manifestContents`, then
+    /// concatenated `dependencyLocations` in their supplied order,
+    /// then — when `workspaceManifestContent` is non-nil — the raw
+    /// `Workspace.swift` bytes. Hashing the file content directly
+    /// (rather than a parsed dep list) mirrors how each member's
+    /// `Package.swift` is hashed and gives us three properties for
+    /// free: (1) any edit to `Workspace.swift` invalidates resolution,
+    /// (2) reordering `dependencies:` in the DSL still changes the
+    /// hash — same as reordering `dependencies:` in a `Package.swift`
+    /// would — so we don't need a separate stability rule, (3) the
+    /// hash is decoupled from the manifest-loader's parsed-value cache.
+    ///
+    /// Backward compatibility: passing `nil` for
+    /// `workspaceManifestContent` reproduces the pre-workspace hash
+    /// payload byte-for-byte.
+    static func computeResolvedFileOriginHash(
+        manifestContents: [String],
+        dependencyLocations: [String],
+        workspaceManifestContent: String?,
+    ) -> String {
+        var content = manifestContents.joined()
+        content += dependencyLocations.joined()
+        if let workspaceManifestContent {
+            content += workspaceManifestContent
         }
         return content.sha256Checksum
+    }
+
+    /// Refresh the persisted `Package.resolved` origin hash when the
+    /// workspace manifest is in play and the stored hash drifts from
+    /// the current one. `saveResolvedFile` only rewrites the resolved
+    /// file when the URL set actually shifts, so a workspace-manifest
+    /// edit whose deps aren't inherited by any member (or a cosmetic
+    /// edit) would otherwise leave the on-disk hash stale — and
+    /// `_resolveBasedOnResolvedVersionsFile`'s hash check would then
+    /// force a re-resolve every command. Single-package (no
+    /// `Workspace.swift`) invocations skip this refresh entirely so
+    /// cosmetic manifest edits don't churn `Package.resolved`.
+    private func refreshResolvedFileOriginHashIfNeeded(
+        root: PackageGraphRootInput,
+        originHash: String,
+        rootManifestsMinimumToolsVersion: ToolsVersion,
+    ) throws {
+        guard root.workspaceManifest != nil else { return }
+        guard let stored = try? self.resolvedPackagesStore.load() else { return }
+        guard stored.originHash != originHash else { return }
+        try stored.saveState(
+            toolsVersion: rootManifestsMinimumToolsVersion,
+            originHash: originHash,
+        )
     }
 
     @discardableResult
@@ -682,6 +766,12 @@ extension PackageWorkspace {
 
             switch result {
             case .notRequired:
+                try self.refreshResolvedFileOriginHashIfNeeded(
+                    root: root,
+                    originHash: resolvedFileOriginHash,
+                    rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
+                )
+
                 // since nothing changed we can exit early,
                 // but need update resolved file and download an missing binary artifact
                 try await self.saveResolvedFile(
@@ -771,6 +861,12 @@ extension PackageWorkspace {
             observabilityScope.emit(BinaryArtifactsManagerError.exhaustedAttempts(missing: stillMissingPackages))
             return updatedDependencyManifests
         }
+
+        try self.refreshResolvedFileOriginHashIfNeeded(
+            root: root,
+            originHash: resolvedFileOriginHash,
+            rootManifestsMinimumToolsVersion: rootManifestsMinimumToolsVersion,
+        )
 
         // Update the resolved file.
         try await self.saveResolvedFile(
