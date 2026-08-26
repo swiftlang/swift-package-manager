@@ -48,7 +48,7 @@ struct ModuleAliasingFixtureTests {
     }
 
     @Test(
-        .bug("https://github.com/swiftlang/swift-package-manager/issues/10417", "Module aliases are propagated within the consuming package"),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10417", relationship: .verifies),
         .tags(
             Tag.Feature.Command.Build,
         ),
