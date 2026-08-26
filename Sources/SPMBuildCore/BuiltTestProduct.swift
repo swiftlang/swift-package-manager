@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import struct PackageModel.PackageIdentity
 
 /// Represents a test product which is built and is present on disk.
 public struct BuiltTestProduct: Codable, Hashable {
@@ -33,6 +34,18 @@ public struct BuiltTestProduct: Codable, Hashable {
 
     /// The path to the package this product was declared in.
     public let packagePath: AbsolutePath
+
+    /// The identity of the package this product was declared in, when
+    /// known. Used by workspace-aware consumers (e.g. `swift test`'s
+    /// xUnit aggregator) to attribute each test product to its owning
+    /// workspace member.
+    ///
+    /// Optional so that older cached `BuiltTestProduct` values (from
+    /// pre-workspace SwiftPM invocations that persisted this struct via
+    /// `Codable`) still decode; consumers that require the identity
+    /// should treat `nil` as "attribution unavailable" and fall back
+    /// to their pre-workspace behavior.
+    public let packageIdentity: PackageIdentity?
 
     /// The path of the test bundle.
     ///
@@ -62,6 +75,9 @@ public struct BuiltTestProduct: Codable, Hashable {
     ///   - productName: The test product name.
     ///   - binaryPath: The path of the test binary.
     ///   - packagePath: The path to the package this product was declared in.
+    ///   - packageIdentity: The identity of the package this product was
+    ///     declared in, when known. Defaults to `nil` for callers that
+    ///     don't have identity information (e.g. legacy tests).
     ///   - mainSourceFilePath: The path to the main source file used, if any.
     ///   - coverageBinaryPath: The path of the artifact whose coverage mapping should be
     ///     fed to `llvm-cov`. Defaults to `binaryPath`; callers that build a test product
@@ -71,6 +87,7 @@ public struct BuiltTestProduct: Codable, Hashable {
         umbrellaProductName: String?,
         binaryPath: AbsolutePath,
         packagePath: AbsolutePath,
+        packageIdentity: PackageIdentity? = nil,
         testEntryPointPath: AbsolutePath?,
         coverageBinaryPath: AbsolutePath? = nil,
     ) {
@@ -78,6 +95,7 @@ public struct BuiltTestProduct: Codable, Hashable {
         self.umbrellaProductName = umbrellaProductName
         self.binaryPath = binaryPath
         self.packagePath = packagePath
+        self.packageIdentity = packageIdentity
         self.testEntryPointPath = testEntryPointPath
         self.coverageBinaryPath = coverageBinaryPath ?? binaryPath
     }

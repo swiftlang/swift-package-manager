@@ -145,6 +145,7 @@ public struct BuildDescription: Codable {
                 umbrellaProductName: nil,
                 binaryPath: desc.binaryPath,
                 packagePath: desc.package.path,
+                packageIdentity: desc.package.identity,
                 testEntryPointPath: desc.product.underlying.testEntryPointPath
             )
         }
