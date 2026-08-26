@@ -62,6 +62,16 @@ public enum WorkspaceManifestJSONParser {
         public let identity: PackageIdentity
         public let path: AbsolutePath
         public let ignoredStateDirectories: Set<WorkspaceManifest.StateDirectoryKind>
+
+        public init(
+            identity: PackageIdentity,
+            path: AbsolutePath,
+            ignoredStateDirectories: Set<WorkspaceManifest.StateDirectoryKind>,
+        ) {
+            self.identity = identity
+            self.path = path
+            self.ignoredStateDirectories = ignoredStateDirectories
+        }
     }
 
     /// The parser's output. Does not include `path` or `toolsVersion`
