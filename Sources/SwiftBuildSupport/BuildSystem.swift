@@ -35,16 +35,39 @@ extension BuildSubset {
             // workspace member, look up the specific package's product
             // in the graph and use its canonical PIF target name. When
             // `package` is nil (or the specified member is missing from
-            // the graph), fall through to the current lookup by name.
+            // the graph), fall through to a graph-wide lookup that
+            // resolves the qualifying package by product name — first
+            // among root packages, then across the whole graph so
+            // executables provided by transitive dependencies remain
+            // reachable via `swift run`.
             if let package,
-               let qualified = graph.rootPackages
-                .first(where: { $0.identity == package })?
-                .products
-                .first(where: { $0.name == name })
+               let qualifiedPackage = graph.rootPackages.first(where: { $0.identity == package }),
+               let qualifiedProduct = qualifiedPackage.products.first(where: { $0.name == name })
             {
-                return PackagePIFBuilder.targetName(forProductName: qualified.name)
+                return PackagePIFBuilder.targetName(
+                    forProductName: qualifiedProduct.name,
+                    packageIdentity: qualifiedPackage.identity,
+                )
             }
-            return PackagePIFBuilder.targetName(forProductName: name)
+            if let inferred = graph.rootPackages
+                .flatMap({ pkg in pkg.products.filter { $0.name == name }.map { (pkg, $0) } })
+                .first
+            {
+                return PackagePIFBuilder.targetName(
+                    forProductName: inferred.1.name,
+                    packageIdentity: inferred.0.identity,
+                )
+            }
+            if let dependencyProduct = graph.allProducts.first(where: { $0.name == name }) {
+                return PackagePIFBuilder.targetName(
+                    forProductName: dependencyProduct.name,
+                    packageIdentity: dependencyProduct.packageIdentity,
+                )
+            }
+            // No matching product found — return an unqualified name
+            // (Swift Build will subsequently emit its own not-found
+            // diagnostic).
+            return "\(name)-product"
         case .target(let name, _, let package):
             // If the named target is the main module of a main-module product (e.g. a test or
             // executable target), it is represented in the PIF by that product's target.
@@ -61,7 +84,10 @@ extension BuildSubset {
                     && $0.mainModule?.name == name
                     && !($0.mainModule?.isTestSupportModule ?? false)
             }) {
-                return PackagePIFBuilder.targetName(forProductName: product.name)
+                return PackagePIFBuilder.targetName(
+                    forProductName: product.name,
+                    packageIdentity: product.packageIdentity,
+                )
             }
             return name
         case .allExcludingTests(nil):

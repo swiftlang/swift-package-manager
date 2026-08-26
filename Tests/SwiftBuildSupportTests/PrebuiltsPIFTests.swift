@@ -187,20 +187,20 @@ struct PrebuiltsPIFTests {
         ])
 
         let allPlatTargets = Set([
-            "MyRootPackageTests-product",
-            "MyPackagePackageTests-product",
-            "swift-syntaxPackageTests-product",
-            "MacroLib-product",
-            "MacroLibdynamic-product",
+            "myroot.MyRootPackageTests-product",
+            "mypackage.MyPackagePackageTests-product",
+            "swift-syntax.swift-syntaxPackageTests-product",
+            "mypackage.MacroLib-product",
+            "mypackage.MacroLibdynamic-product",
             "MacroLib",
-            "MyApp-product",
+            "myroot.MyApp-product",
             "AllIncludingTests",
             "AllExcludingTests",
-            "SwiftSyntaxMacros-product",
-            "SwiftSyntaxMacrosdynamic-product",
-            "swift-syntaxPackageTests-product",
-            "MyRootPackageTests-product",
-            "MyPackagePackageTests-product",
+            "swift-syntax.SwiftSyntaxMacros-product",
+            "swift-syntax.SwiftSyntaxMacrosdynamic-product",
+            "swift-syntax.swift-syntaxPackageTests-product",
+            "myroot.MyRootPackageTests-product",
+            "mypackage.MyPackagePackageTests-product",
             // Per-root workspace-member aggregate target introduced by
             // the workspaces feature; MyRoot is the sole root package
             // in this fixture, so only its aggregate appears here.
