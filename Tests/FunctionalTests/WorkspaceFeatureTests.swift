@@ -21,7 +21,6 @@ import struct PackageModel.PackageIdentity
 import struct SPMBuildCore.BuildSystemProvider
 
 @Suite(
-    .serializedIfOnWindows,
     .tags(
         .TestSize.large,
         .FunctionalArea.WorkspaceManiest,
@@ -529,6 +528,192 @@ struct WorkspaceFeatureTests {
                 stderr.contains(expectedDiagnostic.message),
                 "expected requires-Workspace.swift diagnostic; got: \(stderr)",
             )
+        }
+    }
+
+    /// `swift test` at workspace root runs the test suites of ALL
+    /// members. S06 has `lib-a` and `lib-b`, each with a single test
+    /// target — both should execute.
+    ///
+    /// Restricted to the Swift Build build system: workspace-scoped
+    /// `swift test` execution is only supported there in this slice.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Test,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s06_swiftTestRunsAllMembersFromRoot(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S06_SwiftTest") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftTest(
+                fixturePath,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+
+            let combined = stdout + stderr
+            // Swift Testing test cases (LibATests / LibBTests).
+            #expect(
+                combined.contains("libAGreeting_returnsExpected"),
+                "expected lib-a's Swift Testing case to run; got stdout=\(stdout) stderr=\(stderr)",
+            )
+            #expect(
+                combined.contains("libBGreeting_returnsExpected"),
+                "expected lib-b's Swift Testing case to run; got stdout=\(stdout) stderr=\(stderr)",
+            )
+            // XCTest cases (LibAXCTests / LibBXCTests). Each member also
+            // has an XCTest-based target so the merger has to aggregate
+            // two products per member; both cases must execute at root.
+            #expect(
+                combined.contains("testLibAGreeting"),
+                "expected lib-a's XCTest case to run; got stdout=\(stdout) stderr=\(stderr)",
+            )
+            #expect(
+                combined.contains("testLibBGreeting"),
+                "expected lib-b's XCTest case to run; got stdout=\(stdout) stderr=\(stderr)",
+            )
+        }
+    }
+
+    /// `swift test --package lib-a` at workspace root narrows execution
+    /// to ONLY `lib-a`'s tests. `lib-b`'s tests must not be built or
+    /// executed. Applies to both the Swift Testing and XCTest targets
+    /// each member owns.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Test,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s06_swiftTestPackageSelectorRunsOnlySelectedMember(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S06_SwiftTest") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftTest(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["--package", "lib-a"],
+                buildSystem: buildSystem,
+            )
+
+            let combined = stdout + stderr
+            // lib-a's cases (both libraries) execute.
+            #expect(
+                combined.contains("libAGreeting_returnsExpected"),
+                "expected lib-a's Swift Testing case to run; got stdout=\(stdout) stderr=\(stderr)",
+            )
+            #expect(
+                combined.contains("testLibAGreeting"),
+                "expected lib-a's XCTest case to run; got stdout=\(stdout) stderr=\(stderr)",
+            )
+            // lib-b's cases (both libraries) do NOT execute.
+            #expect(
+                combined.contains("libBGreeting_returnsExpected") == false,
+                "expected lib-b's Swift Testing case to NOT run when --package lib-a; got stdout=\(stdout) stderr=\(stderr)",
+            )
+            #expect(
+                combined.contains("testLibBGreeting") == false,
+                "expected lib-b's XCTest case to NOT run when --package lib-a; got stdout=\(stdout) stderr=\(stderr)",
+            )
+        }
+    }
+
+    @Test(
+        .tags(
+            Tag.Feature.Command.Test,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s06_swiftTestFromWithinAMemberRunsOnlySelectedMember(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S06_SwiftTest") { fixturePath in
+            let (stdout, stderr) = try await executeSwiftTest(
+                fixturePath.appending(components: ["packages", "lib-a"]),
+                configuration: .debug,
+                // extraArgs: ["--package", "lib-a"],
+                buildSystem: buildSystem,
+            )
+
+            let combined = stdout + stderr
+            // lib-a's cases (both libraries) execute.
+            #expect(
+                combined.contains("libAGreeting_returnsExpected"),
+                "expected lib-a's Swift Testing case to run; got stdout=\(stdout) stderr=\(stderr)",
+            )
+            #expect(
+                combined.contains("testLibAGreeting"),
+                "expected lib-a's XCTest case to run; got stdout=\(stdout) stderr=\(stderr)",
+            )
+            // lib-b's cases (both libraries) do NOT execute.
+            #expect(
+                combined.contains("libBGreeting_returnsExpected") == false,
+                "expected lib-b's Swift Testing case to NOT run when --package lib-a; got stdout=\(stdout) stderr=\(stderr)",
+            )
+            #expect(
+                combined.contains("testLibBGreeting") == false,
+                "expected lib-b's XCTest case to NOT run when --package lib-a; got stdout=\(stdout) stderr=\(stderr)",
+            )
+        }
+    }
+
+    /// The merged xUnit report emitted at workspace root carries a
+    /// `<properties><property name="package" value="<identity>"/></properties>`
+    /// entry on every `<testsuite>` so downstream consumers can
+    /// attribute each suite to its owning workspace member.
+    ///
+    /// Both xUnit files (Swift Testing's `xunit-swift-testing.xml` via
+    /// the per-product merger and XCTest's `xunit.xml` via
+    /// `XUnitGenerator`'s per-package grouping) must carry `package`
+    /// properties for each workspace member represented in the run.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Test,
+            Tag.Feature.CommandLineArguments.TestOutputXunit,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s06_xunitReportContainsPackageProperty(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S06_SwiftTest") { fixturePath in
+            let xctestXUnit = fixturePath.appending("xunit.xml")
+            // `--parallel` is required for XCTest to emit an xUnit file
+            // — SwiftPM's non-parallel XCTest path skips the generator.
+            // Swift Testing writes its own xUnit regardless.
+            _ = try await executeSwiftTest(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: [
+                    "--parallel",
+                    "--xunit-output", xctestXUnit.pathString,
+                    "--experimental-xunit-message-failure",
+                ],
+                buildSystem: buildSystem,
+            )
+
+            // SwiftPM writes Swift Testing's xUnit output to
+            // `<basename>-swift-testing.<ext>` and XCTest's to the
+            // requested `<basename>.<ext>` so the two libraries don't
+            // stomp on each other's file. Both must be present and
+            // both must carry per-suite `package` properties.
+            let swiftTestingXUnit = fixturePath.appending("xunit-swift-testing.xml")
+            expectFileExists(at: swiftTestingXUnit)
+            expectFileExists(at: xctestXUnit)
+
+            for reportPath in [swiftTestingXUnit, xctestXUnit] {
+                let contents: String = try localFileSystem.readFileContents(reportPath)
+                #expect(
+                    contents.contains("name=\"package\"") && contents.contains("value=\"lib-a\""),
+                    "expected <property name=\"package\" value=\"lib-a\"> in \(reportPath.basename):\n\(contents)",
+                )
+                #expect(
+                    contents.contains("value=\"lib-b\""),
+                    "expected <property name=\"package\" value=\"lib-b\"> in \(reportPath.basename):\n\(contents)",
+                )
+            }
         }
     }
 }

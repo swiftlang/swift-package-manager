@@ -243,6 +243,47 @@ struct TestCommandOptions: ParsableArguments {
     var enableExperimentalTestOutput: Bool {
         return testOutput == .experimentalSummary
     }
+
+    /// Select a specific workspace member by identity. Requires a
+    /// `Workspace.swift` to be discoverable; scopes test execution to
+    /// that member's test products.
+    @Option(
+        name: .customLong("package"),
+        help: "Select a specific workspace member by identity.",
+    )
+    var selectedPackage: PackageIdentity?
+
+    /// Validates the `--package` selection against the workspace's
+    /// member set. Emits a diagnostic and returns `nil` on invalid
+    /// input; returns the requested identity when it names a member.
+    ///
+    /// - Parameters:
+    ///   - selected: The `--package` value supplied on the command line
+    ///     (nil when the user did not pass `--package`).
+    ///   - availableMemberIdentities: The workspace's member identities
+    ///     as collected by `SwiftCommandState.getWorkspaceRoot`. `nil`
+    ///     when no `Workspace.swift` was discovered.
+    ///   - observabilityScope: Diagnostic sink.
+    /// - Returns: The validated identity, or `nil` when `selected` is
+    ///   nil or invalid.
+    static func resolveSelectedPackage(
+        selected: PackageIdentity?,
+        availableMemberIdentities: Set<PackageIdentity>?,
+        observabilityScope: ObservabilityScope,
+    ) -> PackageIdentity? {
+        guard let selected else { return nil }
+        guard let available = availableMemberIdentities else {
+            observabilityScope.emit(.packageSelectorRequiresWorkspace(requested: selected))
+            return nil
+        }
+        guard available.contains(selected) else {
+            observabilityScope.emit(
+                .unknownWorkspaceMember(requested: selected, known: available),
+            )
+            return nil
+        }
+        return selected
+    }
 }
 
 /// Tests filtering the specifier, which is used to filter tests to run.
@@ -548,8 +589,33 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             let command = try List.parse()
             try await command.run(swiftCommandState)
         } else {
+            // Eagerly discover the workspace (if any) so that
+            // `currentWorkspaceMemberFocus` / `currentWorkspaceMemberIdentities`
+            // are populated before the build subset is computed. Without
+            // this, `getWorkspaceRoot()` would only run when the build
+            // system lazily loads root manifests — long after the
+            // package-selector resolution has already been evaluated
+            // against nil state. Mirrors the SwiftBuildCommand pattern.
+            _ = try await swiftCommandState.getWorkspaceRoot()
+
+            // Resolve `--package X` against the workspace member set. When
+            // no explicit `--package` was given, fall back to Case A
+            // (CWD-inside-member) focus so a `swift test` run from inside
+            // a member scopes to that member's tests.
+            let resolvedPackage = TestCommandOptions.resolveSelectedPackage(
+                selected: self.options.selectedPackage,
+                availableMemberIdentities: swiftCommandState.currentWorkspaceMemberIdentities,
+                observabilityScope: swiftCommandState.observabilityScope,
+            ) ?? swiftCommandState.currentWorkspaceMemberFocus
+            if swiftCommandState.observabilityScope.errorsReported {
+                throw ExitCode.failure
+            }
+
             let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
-            let (buildSystem, testProducts) = try await buildTestsIfNeeded(swiftCommandState: swiftCommandState)
+            let (buildSystem, testProducts) = try await buildTestsIfNeeded(
+                swiftCommandState: swiftCommandState,
+                package: resolvedPackage,
+            )
 
             // Clean out the code coverage directory that may contain stale
             // profraw files from a previous run of the code coverage tool.
@@ -745,16 +811,19 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 prefix: "swiftpm-test-output-",
                 removeTreeOnDeinit: true,
             ) { tempDir in
-                let perProductSources: [[AbsolutePath]] = mergeableOutputs.enumerated().map { _, output in
+                let perProductSources: [[XUnitXMLMerger.Source]] = mergeableOutputs.enumerated().map { _, output in
                     testProducts.enumerated().map { productIndex, product in
-                        tempDir.appending(output.perProductFileName(productIndex, product.productName))
+                        XUnitXMLMerger.Source(
+                            path: tempDir.appending(output.perProductFileName(productIndex, product.productName)),
+                            package: product.packageIdentity?.description,
+                        )
                     }
                 }
 
                 var results: [TestProductResult] = []
                 for (index, product) in testProducts.enumerated() {
                     let forwardedOutputs = mergeableOutputs.enumerated().map { outputIndex, output in
-                        ForwardedTestOutput(flag: output.flag, path: perProductSources[outputIndex][index])
+                        ForwardedTestOutput(flag: output.flag, path: perProductSources[outputIndex][index].path)
                     }
                     let productResults = try await self.runTestProductsInSingleInvocation(
                         [product],
@@ -805,8 +874,12 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         let destination: AbsolutePath
         /// Builds the per-product file name for the given product index and name.
         let perProductFileName: (_ index: Int, _ productName: String) -> String
-        /// Merges the per-product outputs into the destination.
-        let merge: (_ sources: [AbsolutePath], _ destination: AbsolutePath) throws -> Void
+        /// Merges the per-product outputs into the destination. Each source
+        /// carries its owning workspace member's `PackageIdentity.description`
+        /// (or `nil` for single-package runs) — the xUnit merger uses this
+        /// to attribute each `<testsuite>` to its package; other mergers
+        /// (event stream) can ignore it.
+        let merge: (_ sources: [XUnitXMLMerger.Source], _ destination: AbsolutePath) throws -> Void
     }
 
     /// The mergeable outputs requested on the command line. Empty unless Swift Testing is in use
@@ -829,7 +902,11 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                     destination: swiftTestingXUnitDestinationPath(from: xUnitOutput, swiftCommandState: swiftCommandState),
                     perProductFileName: { index, productName in "xunit-\(index)-\(productName).xml" },
                     merge: { sources, destination in
-                        try XUnitXMLMerger.merge(sources: sources, into: destination, fileSystem: localFileSystem)
+                        try XUnitXMLMerger.merge(
+                            sources: sources,
+                            into: destination,
+                            fileSystem: localFileSystem,
+                        )
                     },
                 )
             )
@@ -852,7 +929,11 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                     destination: eventStreamOutput.path,
                     perProductFileName: { index, productName in "event-stream-\(index)-\(productName).jsonl" },
                     merge: { sources, destination in
-                        try FileContentsMerger.merge(sources: sources, into: destination, fileSystem: localFileSystem)
+                        try FileContentsMerger.merge(
+                            sources: sources.map(\.path),
+                            into: destination,
+                            fileSystem: localFileSystem,
+                        )
                     },
                 )
             )
@@ -1210,7 +1291,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     ///
     /// - Returns: The paths to the build test products.
     private func buildTestsIfNeeded(
-        swiftCommandState: SwiftCommandState
+        swiftCommandState: SwiftCommandState,
+        package: PackageIdentity?,
     ) async throws -> (buildSystem: any BuildSystem, testProducts: [BuiltTestProduct]) {
         let (productsBuildParameters, toolsBuildParameters) = try swiftCommandState.buildParametersForTest(options: self.options)
         return try await Commands.buildTestsIfNeeded(
@@ -1218,6 +1300,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
             testProduct: self.options.sharedOptions.testProduct,
+            package: package,
             traitConfiguration: .init(traitOptions: self.globalOptions.traits)
         )
     }
@@ -1568,6 +1651,7 @@ extension SwiftTestCommand {
                 productsBuildParameters: productsBuildParameters,
                 toolsBuildParameters: toolsBuildParameters,
                 testProduct: self.sharedOptions.testProduct,
+                package: nil,
                 traitConfiguration: .init(traitOptions: self.globalOptions.traits)
             )
         }
@@ -2134,6 +2218,17 @@ final class XUnitGenerator {
     }
 
     /// Generate the file at the given path.
+    ///
+    /// Results are grouped by `unitTest.testProduct.packageIdentity` so
+    /// each workspace member's suites are attributable in the merged
+    /// xUnit report. Every group emits one `<testsuite name="TestResults">`
+    /// element; groups with a known identity carry a
+    /// `<properties><property name="package" value="<identity>"/></properties>`
+    /// child so downstream CI consumers can attribute each suite to its
+    /// owning workspace member. The `nil`-identity group (cached
+    /// `BuiltTestProduct` values from pre-workspace SwiftPM invocations)
+    /// preserves the historical single-suite shape with no `<properties>`
+    /// block for back-compat.
     func generate(at path: AbsolutePath, detailedFailureMessage: Bool) throws {
         var content =
             """
@@ -2143,24 +2238,75 @@ final class XUnitGenerator {
 
             """
 
-        // Get the failure count.
+        // Group by owning package identity, preserving first-occurrence
+        // order so the output is deterministic. When `results` is empty
+        // we still emit one flat `<testsuite name="TestResults" tests="0"
+        // failures="0" ...>` (no `<properties>` block) — matches the
+        // historical shape callers rely on when a package has no tests.
+        var identityOrder: [PackageIdentity?] = []
+        var grouped: [PackageIdentity?: [TestResult]] = [:]
+        for result in self.results {
+            let identity = result.unitTest.testProduct.packageIdentity
+            if grouped[identity] == nil {
+                identityOrder.append(identity)
+            }
+            grouped[identity, default: []].append(result)
+        }
+        if identityOrder.isEmpty {
+            identityOrder = [nil]
+            grouped[nil] = []
+        }
+
+        for identity in identityOrder {
+            guard let groupResults = grouped[identity] else { continue }
+            content += Self.renderTestsuite(
+                identity: identity,
+                results: groupResults,
+                detailedFailureMessage: detailedFailureMessage,
+            )
+        }
+
+        content +=
+            """
+            </testsuites>
+
+            """
+
+        try self.fileSystem.writeFileContents(path, string: content)
+    }
+
+    /// Renders one `<testsuite>` element for `results` (all sharing
+    /// `identity`). Includes the `<properties>` package annotation when
+    /// `identity` is non-nil; otherwise emits the historical shape
+    /// unchanged for back-compat.
+    private static func renderTestsuite(
+        identity: PackageIdentity?,
+        results: [TestResult],
+        detailedFailureMessage: Bool,
+    ) -> String {
         let failures = results.filter({ !$0.success }).count
         let duration = results.compactMap({ $0.duration.timeInterval() }).reduce(0.0, +)
 
-        // We need better output reporting from XCTest.
-        content +=
+        var block =
             """
             <testsuite name="TestResults" errors="0" tests="\(results.count)" failures="\(failures)" time="\(duration)">
 
             """
 
-        // Generate a testcase entry for each result.
-        //
-        // FIXME: This is very minimal right now. We should allow including test output etc.
+        if let identity {
+            block +=
+                """
+                <properties>
+                <property name="package" value="\(identity.description)"></property>
+                </properties>
+
+                """
+        }
+
         for result in results {
             let test = result.unitTest
             let duration = result.duration.timeInterval() ?? 0.0
-            content +=
+            block +=
                 """
                 <testcase classname="\(test.testCase)" name="\(test.name)" time="\(duration)">
 
@@ -2168,20 +2314,18 @@ final class XUnitGenerator {
 
             if !result.success {
                 let failureMessage = detailedFailureMessage ? result.output.map(_escapeForXML).joined() : "failure"
-                content += "<failure message=\"\(failureMessage)\"></failure>\n"
+                block += "<failure message=\"\(failureMessage)\"></failure>\n"
             }
 
-            content += "</testcase>\n"
+            block += "</testcase>\n"
         }
 
-        content +=
+        block +=
             """
             </testsuite>
-            </testsuites>
 
             """
-
-        try self.fileSystem.writeFileContents(path, string: content)
+        return block
     }
 }
 
@@ -2344,6 +2488,7 @@ private func buildTestsIfNeeded(
     productsBuildParameters: BuildParameters,
     toolsBuildParameters: BuildParameters,
     testProduct: String?,
+    package: PackageIdentity?,
     traitConfiguration: TraitConfiguration
 ) async throws -> (buildSystem: any BuildSystem, testProducts: [BuiltTestProduct]) {
     let buildSystem = try await swiftCommandState.createBuildSystem(
@@ -2352,9 +2497,9 @@ private func buildTestsIfNeeded(
     )
 
     let subset: BuildSubset = if let testProduct {
-        .product(testProduct)
+        .product(testProduct, for: nil, package: package)
     } else {
-        .allIncludingTests()
+        .allIncludingTests(package: package)
     }
 
     try await buildSystem.build(subset: subset, buildOutputs: [])
@@ -2369,18 +2514,28 @@ private func buildTestsIfNeeded(
         }
     }
 
+    // When `--package` narrows the scope but `builtTestProducts` still
+    // reports products from other members (e.g. because the build system
+    // returned everything the graph knows about), filter by identity.
+    // This is a belt-and-suspenders check on top of the subset filter.
+    let scoped = if let package {
+        testProducts.filter { $0.packageIdentity == package }
+    } else {
+        testProducts
+    }
+
     if let testProductName = testProduct {
-        if let selectedTestProduct = testProducts.first(where: { $0.productName == testProductName }) {
+        if let selectedTestProduct = scoped.first(where: { $0.productName == testProductName }) {
             return (buildSystem, [selectedTestProduct])
         }
 
-        let selectedTestProducts = testProducts.filter({ $0.umbrellaProductName == testProductName })
+        let selectedTestProducts = scoped.filter({ $0.umbrellaProductName == testProductName })
         if !selectedTestProducts.isEmpty {
             return (buildSystem, selectedTestProducts)
         }
 
         throw TestError.testProductNotFound(productName: testProductName)
     } else {
-        return (buildSystem, testProducts)
+        return (buildSystem, scoped)
     }
 }

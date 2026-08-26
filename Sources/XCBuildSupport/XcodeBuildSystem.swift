@@ -62,6 +62,7 @@ public final class XcodeBuildSystem: SPMBuildCore.BuildSystem {
                                 umbrellaProductName: nil,
                                 binaryPath: binaryPath,
                                 packagePath: package.path,
+                                packageIdentity: package.identity,
                                 testEntryPointPath: product.underlying.testEntryPointPath
                             )
                         )

@@ -284,6 +284,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                                 umbrellaProductName: package.manifest.umbrellaPackageTestsProductName,
                                 binaryPath: binaryPath,
                                 packagePath: package.path,
+                                packageIdentity: package.identity,
                                 testEntryPointPath: product.underlying.testEntryPointPath,
                                 coverageBinaryPath: coverageBinaryPath,
                             )

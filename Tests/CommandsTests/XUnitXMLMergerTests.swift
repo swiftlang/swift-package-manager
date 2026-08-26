@@ -15,22 +15,12 @@
 import Basics
 import Foundation
 import Testing
+import struct _InternalTestSupport.XUnitXMLHelpers
 
 #if canImport(FoundationXML)
 import FoundationXML
 #endif
 
-
-private func parseTestsuites(_ xml: String) throws -> (root: XMLElement?, suites: [XMLElement]) {
-    let document = try XMLDocument(xmlString: xml, options: [])
-    let root = document.rootElement()
-    let suites = (root?.name == "testsuites" ? root?.elements(forName: "testsuite") : nil) ?? []
-    return (root: root, suites: suites)
-}
-
-private func testsuiteName(_ element: XMLElement) -> String? {
-    element.attribute(forName: "name")?.stringValue
-}
 
 @Suite(
     .tags(
@@ -89,13 +79,20 @@ struct XUnitXMLMergerTests {
         try fs.writeFileContents(a, string: sampleA)
         try fs.writeFileContents(b, string: sampleB)
 
-        try XUnitXMLMerger.merge(sources: [a, b], into: dest, fileSystem: fs)
+        try XUnitXMLMerger.merge(
+            sources: [
+                .init(path: a, package: nil),
+                .init(path: b, package: nil),
+            ],
+            into: dest,
+            fileSystem: fs,
+        )
 
         let merged: String = try fs.readFileContents(dest)
-        let (_, suites) = try parseTestsuites(merged)
+        let (_, suites) = try XUnitXMLHelpers.parseTestsuites(merged)
         #expect(suites.count == 2, "expected 2 <testsuite> elements in merged output, got \(suites.count)")
-        #expect(testsuiteName(suites[0]) == "TestResultsSampleA")
-        #expect(testsuiteName(suites[1]) == "TestResultsSampleB")
+        #expect(XUnitXMLHelpers.testsuiteName(suites[0]) == "TestResultsSampleA")
+        #expect(XUnitXMLHelpers.testsuiteName(suites[1]) == "TestResultsSampleB")
 
         let sampleATestcases = suites[0].elements(forName: "testcase")
             .compactMap { $0.attribute(forName: "name")?.stringValue }
@@ -117,12 +114,18 @@ struct XUnitXMLMergerTests {
         let dest = AbsolutePath("/merged.xml")
         try fs.writeFileContents(a, string: sampleA)
 
-        try XUnitXMLMerger.merge(sources: [a], into: dest, fileSystem: fs)
+        try XUnitXMLMerger.merge(
+            sources: [
+                .init(path: a, package: nil),
+            ],
+            into: dest,
+            fileSystem: fs,
+        )
 
         let merged: String = try fs.readFileContents(dest)
-        let (_, suites) = try parseTestsuites(merged)
+        let (_, suites) = try XUnitXMLHelpers.parseTestsuites(merged)
         #expect(suites.count == 1)
-        #expect(testsuiteName(suites[0]) == "TestResultsSampleA")
+        #expect(XUnitXMLHelpers.testsuiteName(suites[0]) == "TestResultsSampleA")
 
         let testcaseNames = suites[0].elements(forName: "testcase")
             .compactMap { $0.attribute(forName: "name")?.stringValue }
@@ -137,9 +140,13 @@ struct XUnitXMLMergerTests {
         try XUnitXMLMerger.merge(sources: [], into: dest, fileSystem: fs)
 
         let merged: String = try fs.readFileContents(dest)
-        let (root, suites) = try parseTestsuites(merged)
+        let (rootOptional, suites) = try XUnitXMLHelpers.parseTestsuites(merged)
+        let root = try #require(
+            rootOptional,
+            "Root element must not be nil",
+        )
         let rootName = try #require(
-            root?.name,
+            root.name,
             "Root element name is not set.  XML contents:\n\(merged)"
         )
         #expect(rootName == "testsuites")
@@ -154,12 +161,19 @@ struct XUnitXMLMergerTests {
         let dest = AbsolutePath("/merged.xml")
         try fs.writeFileContents(present, string: sampleA)
 
-        try XUnitXMLMerger.merge(sources: [missing, present], into: dest, fileSystem: fs)
+        try XUnitXMLMerger.merge(
+            sources: [
+                .init(path: missing, package: nil),
+                .init(path: present, package: nil),
+            ],
+            into: dest,
+            fileSystem: fs,
+        )
 
         let merged: String = try fs.readFileContents(dest)
-        let (_, suites) = try parseTestsuites(merged)
+        let (_, suites) = try XUnitXMLHelpers.parseTestsuites(merged)
         #expect(suites.count == 1)
-        #expect(testsuiteName(suites[0]) == "TestResultsSampleA")
+        #expect(XUnitXMLHelpers.testsuiteName(suites[0]) == "TestResultsSampleA")
     }
 
     @Test
@@ -169,13 +183,19 @@ struct XUnitXMLMergerTests {
         let dest = AbsolutePath("/merged.xml")
         try fs.writeFileContents(a, string: emptyResult)
 
-        try XUnitXMLMerger.merge(sources: [a], into: dest, fileSystem: fs)
+        try XUnitXMLMerger.merge(
+            sources: [
+                .init(path: a, package: nil),
+            ],
+            into: dest,
+            fileSystem: fs,
+        )
 
         let merged: String = try fs.readFileContents(dest)
-        let (_, suites) = try parseTestsuites(merged)
+        let (_, suites) = try XUnitXMLHelpers.parseTestsuites(merged)
         #expect(suites.count == 1, "empty testsuite should still be preserved for accurate reporting")
         let suite = suites[0]
-        #expect(testsuiteName(suite) == "TestResultsEmpty")
+        #expect(XUnitXMLHelpers.testsuiteName(suite) == "TestResultsEmpty")
         #expect(suite.attribute(forName: "errors")?.stringValue == "1")
         #expect(suite.attribute(forName: "tests")?.stringValue == "10")
         #expect(suite.attribute(forName: "failures")?.stringValue == "4")
@@ -192,16 +212,84 @@ struct XUnitXMLMergerTests {
         try fs.writeFileContents(a, string: sampleA)
         try fs.writeFileContents(b, string: sampleB)
 
-        try XUnitXMLMerger.merge(sources: [a, b], into: dest, fileSystem: fs)
+        try XUnitXMLMerger.merge(
+            sources: [
+                .init(path: a, package: nil),
+                .init(path: b, package: nil),
+            ],
+            into: dest,
+            fileSystem: fs,
+        )
 
         let merged: String = try fs.readFileContents(dest)
         let headerCount = merged.components(separatedBy: "<?xml").count - 1
         #expect(headerCount == 1)
     }
 
+    @Test
+    func annotatesTestsuitesWithPackagePropertyWhenSourceHasPackageIdentity() throws {
+        // Two sources, each attributed to a different workspace member.
+        // Every `<testsuite>` from a given source must carry a child
+        // `<properties><property name="package" value="<identity>"/></properties>`
+        // in the merged output (per SE proposal for workspace `swift test`).
+        let fs = InMemoryFileSystem()
+        let a = AbsolutePath("/a.xml")
+        let b = AbsolutePath("/b.xml")
+        let dest = AbsolutePath("/merged.xml")
+        try fs.writeFileContents(a, string: sampleA)
+        try fs.writeFileContents(b, string: sampleB)
+
+        try XUnitXMLMerger.merge(
+            sources: [
+                .init(path: a, package: "lib-a"),
+                .init(path: b, package: "lib-b"),
+            ],
+            into: dest,
+            fileSystem: fs,
+        )
+
+        let merged: String = try fs.readFileContents(dest)
+        let (_, suites) = try XUnitXMLHelpers.parseTestsuites(merged)
+        try #require(suites.count == 2)
+        #expect(XUnitXMLHelpers.testsuiteName(suites[0]) == "TestResultsSampleA")
+        #expect(XUnitXMLHelpers.testsuiteName(suites[1]) == "TestResultsSampleB")
+        #expect(XUnitXMLHelpers.packagePropertyValue(in: suites[0]) == "lib-a")
+        #expect(XUnitXMLHelpers.packagePropertyValue(in: suites[1]) == "lib-b")
+    }
+
+    @Test
+    func doesNotAddPackagePropertyWhenSourceIsUnannotated() throws {
+        // Back-compat: single-package (non-workspace) runs should still
+        // produce `<testsuite>` elements with no `package` property.
+        let fs = InMemoryFileSystem()
+        let a = AbsolutePath("/a.xml")
+        let dest = AbsolutePath("/merged.xml")
+        try fs.writeFileContents(a, string: sampleA)
+
+        try XUnitXMLMerger.merge(
+            sources: [
+                .init(path: a, package: nil),
+            ],
+            into: dest,
+            fileSystem: fs,
+        )
+
+        let merged: String = try fs.readFileContents(dest)
+        let (_, suites) = try XUnitXMLHelpers.parseTestsuites(merged)
+        try #require(suites.count == 1)
+        #expect(XUnitXMLHelpers.packagePropertyValue(in: suites[0]) == nil)
+    }
+
+    struct MergeSourcesReturnsExpectedxUnitContentsTestData: CustomTestStringConvertible {
+        let contents: [String]
+        let expected: String
+        let id: String
+
+        var testDescription: String { id }
+    }
     @Test(
         arguments: [
-            (
+            MergeSourcesReturnsExpectedxUnitContentsTestData(
                 contents: [],
                 expected: """
                     <?xml version="1.0" encoding="UTF-8"?>
@@ -211,7 +299,7 @@ struct XUnitXMLMergerTests {
                     """,
                     id: "No inputs",
             ),
-            (
+            MergeSourcesReturnsExpectedxUnitContentsTestData(
                 contents: [
                     """
                     <?xml version="1.0" encoding="UTF-8"?>
@@ -229,7 +317,7 @@ struct XUnitXMLMergerTests {
                     """,
                 id: "Single input without any <testsuite>",
             ),
-            (
+            MergeSourcesReturnsExpectedxUnitContentsTestData(
                 contents: [
                     """
                     <?xml version="1.0" encoding="UTF-8"?>
@@ -247,7 +335,7 @@ struct XUnitXMLMergerTests {
                     """,
                 id: "Single input with a single <testsuite>",
             ),
-            (
+            MergeSourcesReturnsExpectedxUnitContentsTestData(
                 contents: [
                     """
                     <?xml version="1.0" encoding="UTF-8"?>
@@ -268,7 +356,7 @@ struct XUnitXMLMergerTests {
                     """,
                 id: "Single input with a two <testsuite>",
             ),
-            (
+            MergeSourcesReturnsExpectedxUnitContentsTestData(
                 contents: [
                     """
                     <?xml version="1.0" encoding="UTF-8"?>
@@ -294,7 +382,7 @@ struct XUnitXMLMergerTests {
                     """,
                 id: "Two inputs each with a single <testsuite>",
             ),
-            (
+            MergeSourcesReturnsExpectedxUnitContentsTestData(
                 contents: [
                     """
                     <?xml version="1.0" encoding="UTF-8"?>
@@ -333,7 +421,7 @@ struct XUnitXMLMergerTests {
 
     )
     func mergeSourcesReturnsExpectedxUnitContents(
-        data: (contents: [String], expected: String, id: String),
+        data: MergeSourcesReturnsExpectedxUnitContentsTestData,
     ) async throws {
 
         func canonicalizeXML(_ xml: String) throws -> String {
@@ -375,12 +463,12 @@ struct XUnitXMLMergerTests {
         }
 
         let fs = InMemoryFileSystem()
-        var inputs = [AbsolutePath]()
+        var inputs = [XUnitXMLMerger.Source]()
         // GIVEN we have a few xUnit XML contents
         for (index, value) in data.contents.enumerated() {
             let filename = AbsolutePath("/input_\(index).xml")
             try fs.writeFileContents(filename, string: value)
-            inputs.append(filename)
+            inputs.append(.init(path: filename, package: nil))
         }
 
         let output = AbsolutePath("/merged.xml")
