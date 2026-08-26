@@ -173,7 +173,18 @@ public func testWithTemporaryDirectory<Result>(
             removeTreeOnDeinit: removeFixturePathOnDeinit,
         ) { tmpDirPath in
 
+            let originalCwd = localFileSystem.currentWorkingDirectory
             defer {
+                // Restore CWD before rm -rf'ing the fixture dir so any
+                // chdir the body performed (e.g. via
+                // SwiftCommandState.init -> chdirIfNeeded when
+                // --package-path is passed) doesn't leave the process
+                // rooted in a to-be-deleted path. Sibling parallel
+                // tests would otherwise inherit a dead CWD and fail
+                // at the getcwd() guard.
+                if let originalCwd, localFileSystem.currentWorkingDirectory != originalCwd {
+                    try? localFileSystem.changeCurrentWorkingDirectory(to: originalCwd)
+                }
                 if removeFixturePathOnDeinit {
                     // Unblock and remove the tmp dir on deinit.
                     try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
@@ -261,7 +272,18 @@ public enum TestError: Error {
             removeTreeOnDeinit: removeFixturePathOnDeinit
         ) { tmpDirPath in
 
+            let originalCwd = localFileSystem.currentWorkingDirectory
             defer {
+                // Restore CWD before rm -rf'ing the fixture dir so any
+                // chdir the body performed (e.g. via
+                // SwiftCommandState.init -> chdirIfNeeded when
+                // --package-path is passed) doesn't leave the process
+                // rooted in a to-be-deleted path. Sibling parallel
+                // tests would otherwise inherit a dead CWD and fail
+                // at the getcwd() guard.
+                if let originalCwd, localFileSystem.currentWorkingDirectory != originalCwd {
+                    try? localFileSystem.changeCurrentWorkingDirectory(to: originalCwd)
+                }
                 if removeFixturePathOnDeinit {
                     // Unblock and remove the tmp dir on deinit.
                     try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])

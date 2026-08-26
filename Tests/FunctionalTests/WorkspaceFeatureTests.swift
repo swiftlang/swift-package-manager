@@ -12,6 +12,7 @@
 
 import Basics
 import Foundation
+import SourceControl
 import Testing
 import _InternalTestSupport
 import struct PackageModel.PackageIdentity
@@ -1172,6 +1173,225 @@ struct WorkspaceFeatureTests {
                 "expected member-a's hello output; got stdout=\(stdout) stderr=\(stderr)",
             )
         }
+    }
+
+    // MARK: - Slice 8: `swift package resolve` at workspace root
+
+    /// `swift package resolve` at the workspace root writes
+    /// `Package.resolved` at the workspace root — not at any member's
+    /// package root. All members share this single resolution file so
+    /// the workspace is the sole owner of dependency-resolution state.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Resolve,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s08_packageResolvedWrittenAtWorkspaceRoot(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S08_ResolveAndWarnings") { fixturePath in
+            let gitRepoPath = fixturePath.appending(components: "external", "some-lib")
+            try requireDirectoryExists(at: gitRepoPath)
+            try Self.initializeExternalRepo(at: gitRepoPath)
+
+            _ = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["resolve"],
+                buildSystem: buildSystem,
+            )
+
+            expectFileExists(at: fixturePath.appending("Package.resolved"))
+            for member in ["app", "lib-a", "lib-b"] {
+                expectFileDoesNotExist(
+                    at: fixturePath.appending(components: "packages", member, "Package.resolved"),
+                )
+            }
+        }
+    }
+
+    /// A workspace member with its own `.build/` and `Package.resolved`
+    /// on disk triggers a trailing warning at the end of the command.
+    /// The workspace root owns the authoritative state; per-member
+    /// state is detected but ignored. The warning tells the user
+    /// which members carry stale local state that could be deleted or
+    /// promoted to the workspace root.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Resolve,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s08_memberStateFilesTriggerTrailingWarning(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S08_ResolveAndWarnings") { fixturePath in
+            let gitRepoPath = fixturePath.appending(components: "external", "some-lib")
+            try requireDirectoryExists(at: gitRepoPath)
+            try Self.initializeExternalRepo(at: gitRepoPath)
+
+            let libAPath = fixturePath.appending(components: "packages", "lib-a")
+            try localFileSystem.createDirectory(libAPath.appending(".build"), recursive: true)
+            try localFileSystem.writeFileContents(libAPath.appending("Package.resolved"), string: "{}")
+
+            let (_, stderr) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["resolve"],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stderr.contains("workspace members have ignored state:"),
+                "expected trailing warning header; got stderr=\(stderr)",
+            )
+            #expect(
+                stderr.contains("lib-a: .build/, Package.resolved"),
+                "expected lib-a's detected state kinds to be listed; got stderr=\(stderr)",
+            )
+            #expect(
+                stderr.contains("Only workspace-root state is used."),
+                "expected the trailing warning epilogue; got stderr=\(stderr)",
+            )
+        }
+    }
+
+    /// A member whose `Workspace.swift` entry declares
+    /// `ignoredStateDirectories: [.build]` must be omitted from the
+    /// trailing warning even when `.build/` is present on disk. The
+    /// suppression is a per-member opt-out for state kinds that are
+    /// legitimately allowed to live at the member level. Other
+    /// members without the suppression still surface normally.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Resolve,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s08_ignoredStateDirectoriesSuppressesWarning(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S08_ResolveAndWarnings") { fixturePath in
+            let gitRepoPath = fixturePath.appending(components: "external", "some-lib")
+            try requireDirectoryExists(at: gitRepoPath)
+            try Self.initializeExternalRepo(at: gitRepoPath)
+
+            let libAPath = fixturePath.appending(components: "packages", "lib-a")
+            let libBPath = fixturePath.appending(components: "packages", "lib-b")
+            try localFileSystem.createDirectory(libAPath.appending(".build"), recursive: true)
+            try localFileSystem.createDirectory(libBPath.appending(".build"), recursive: true)
+
+            let (_, stderr) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["resolve"],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stderr.contains("lib-a: .build/"),
+                "expected lib-a's .build/ to be reported; got stderr=\(stderr)",
+            )
+            #expect(
+                stderr.contains("lib-b:") == false,
+                "expected lib-b to be suppressed via ignoredStateDirectories; got stderr=\(stderr)",
+            )
+        }
+    }
+
+    /// Workspace-level dependencies contribute to the resolved-file
+    /// `originHash`: two resolves whose member manifests are
+    /// identical but whose `Workspace.swift` `dependencies:` clauses
+    /// differ must produce different origin hashes. This is what lets
+    /// SwiftPM correctly invalidate a stale `Package.resolved` when a
+    /// workspace-level dep is added, removed, or changed — without
+    /// this, workspace-scope dependency edits would silently skip
+    /// re-resolution.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Resolve,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s08_originHashUnionsMembersAndWorkspaceDeps(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S08_ResolveAndWarnings") { fixturePath in
+            try Self.initializeExternalRepo(at: fixturePath.appending(components: "external", "some-lib"))
+            try Self.initializeExternalRepo(at: fixturePath.appending(components: "external", "other-lib"))
+
+            _ = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["resolve"],
+                buildSystem: buildSystem,
+            )
+            let hashBefore = try Self.readOriginHash(
+                from: fixturePath.appending("Package.resolved"),
+            )
+
+            let workspaceManifestPath = fixturePath.appending("Workspace.swift")
+            let augmentedManifest = """
+                // swift-tools-version: 999.0
+                import PackageDescription
+
+                let workspace = Workspace(
+                    members: [
+                        "packages/app",
+                        "packages/lib-a",
+                        .member(
+                            path: "packages/lib-b",
+                            ignoredStateDirectories: [.build],
+                        ),
+                    ],
+                    dependencies: [
+                        .package(url: "external/some-lib", from: "1.0.0"),
+                        .package(url: "external/other-lib", from: "1.0.0"),
+                    ],
+                )
+                """
+            try localFileSystem.writeFileContents(workspaceManifestPath, string: augmentedManifest)
+
+            _ = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["resolve"],
+                buildSystem: buildSystem,
+            )
+            let hashAfter = try Self.readOriginHash(
+                from: fixturePath.appending("Package.resolved"),
+            )
+
+            #expect(
+                hashBefore != hashAfter,
+                "originHash must change when a workspace-level dep is added; got \(hashBefore) both times",
+            )
+        }
+    }
+
+    /// Initializes an external-dependency directory in the S08
+    /// fixture as a git repository tagged `1.0.0`. The fixture ships
+    /// each `external/*` directory without a `.git/` folder (nothing
+    /// to commit); each test that exercises `swift package resolve`
+    /// calls this helper first so source-control dependencies
+    /// declared in `Workspace.swift` become resolvable.
+    private static func initializeExternalRepo(at fixturePath: AbsolutePath) throws {
+        let repo = GitRepository(path: fixturePath)
+        try repo.create()
+        try repo.stageEverything()
+        try repo.commit(message: "Initial commit at \(fixturePath.basename)")
+        try repo.tag(name: "1.0.0")
+    }
+
+    /// Reads a `Package.resolved` file and returns its `originHash`
+    /// field. The `Package.resolved` v3 schema serializes the hash as
+    /// a top-level `originHash` string; `nil` when the file predates
+    /// v3 or the hash wasn't recorded.
+    private static func readOriginHash(from resolvedFile: AbsolutePath) throws -> String? {
+        let contents: String = try localFileSystem.readFileContents(resolvedFile)
+        let json = try JSONSerialization.jsonObject(with: Data(contents.utf8)) as? [String: Any]
+        return json?["originHash"] as? String
     }
 }
 

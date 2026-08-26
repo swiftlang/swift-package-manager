@@ -310,10 +310,10 @@ struct RunCommandTests {
         try await withKnownIssue(isIntermittent: true) {
             try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
                 let filePath = AbsolutePath(fixturePath, "Sources/secho/main.swift").pathString
-                let cwd = try #require(localFileSystem.currentWorkingDirectory, "Current working directory should not be nil")
+                // let cwd = try #require(localFileSystem.currentWorkingDirectory, "Current working directory should not be nil")
                 let (stdout, stderr) = try await execute([filePath, "1", "2"], packagePath: fixturePath, buildSystem: buildSystem)
-                #expect(stdout.contains(#""\#(cwd)" "1" "2""#))
-                #expect(stderr.contains("warning: 'swift run \(filePath)' command to interpret swift files is deprecated; use 'swift \(filePath)' instead"))
+                #expect(stdout.contains(#""\#(fixturePath)" "1" "2""#) == true)
+                #expect(stderr.contains("warning: 'swift run \(filePath)' command to interpret swift files is deprecated; use 'swift \(filePath)' instead") == true)
             }
         } when: {
             ProcessInfo.hostOperatingSystem == .windows

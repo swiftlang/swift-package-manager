@@ -15,6 +15,7 @@ import PackageLoading
 import PackageModel
 import Testing
 import Workspace
+import _InternalTestSupport
 
 @Suite(
     .tags(
@@ -257,6 +258,12 @@ struct WorkspaceManifestTests {
         {"errors":[],"version":2,"workspace":{"dependencies":[],"members":[{"ignoredStateDirectories":[],"path":"packages/lib-a"}]}}
         """
         let workspaceRoot = AbsolutePath("/repo")
+        let expectedPath = workspaceRoot.appending(components: "packages", "lib-a")
+        let expected = WorkspaceManifestJSONParser.Member(
+            identity: PackageIdentity(path: expectedPath),
+            path: expectedPath,
+            ignoredStateDirectories: [],
+        )
 
         let result = try WorkspaceManifestJSONParser.parse(
             v2: json,
@@ -264,11 +271,106 @@ struct WorkspaceManifestTests {
         )
 
         try #require(result.members.count == 1)
-        let member = result.members[0]
-        #expect(member.path == workspaceRoot.appending(components: "packages", "lib-a"))
-        #expect(member.identity == PackageIdentity(path: member.path))
-        #expect(member.ignoredStateDirectories.isEmpty)
+        #expect(result.members[0] == expected)
         #expect(result.dependencies.isEmpty)
+    }
+
+    /// A single `ignoredStateDirectories` string maps to the matching
+    /// `WorkspaceManifest.StateDirectoryKind`. Locks in the wire-name
+    /// → enum-case mapping for `.build` — a boundary the string-
+    /// literal-based `Codable` enum silently depends on.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func parseJSON_withMemberHavingBuildIgnoredKind_yieldsSetContainingBuild() throws {
+        let json = """
+        {"errors":[],"version":2,"workspace":{"dependencies":[],"members":[{"ignoredStateDirectories":["build"],"path":"packages/lib-a"}]}}
+        """
+        let workspaceRoot = AbsolutePath("/repo")
+        let expectedPath = workspaceRoot.appending(components: "packages", "lib-a")
+        let expected = WorkspaceManifestJSONParser.Member(
+            identity: PackageIdentity(path: expectedPath),
+            path: expectedPath,
+            ignoredStateDirectories: [.build],
+        )
+
+        let result = try WorkspaceManifestJSONParser.parse(
+            v2: json,
+            workspaceRoot: workspaceRoot,
+        )
+
+        try #require(result.members.count == 1)
+        #expect(result.members[0] == expected)
+    }
+
+    /// All four `StateDirectoryKind` cases round-trip through the
+    /// wire format. If a new kind is added to the enum without a
+    /// corresponding entry in `WorkspaceManifestJSONParser.mapKind`,
+    /// this test won't fail — but it does pin the full mapping table
+    /// against silent regressions on the existing four kinds.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func parseJSON_withMemberHavingAllIgnoredKinds_yieldsSetWithAllKinds() throws {
+        let json = """
+        {"errors":[],"version":2,"workspace":{"dependencies":[],"members":[{"ignoredStateDirectories":["build","packageResolved","packages","swiftpmConfig"],"path":"packages/lib-a"}]}}
+        """
+        let workspaceRoot = AbsolutePath("/repo")
+        let expectedPath = workspaceRoot.appending(components: "packages", "lib-a")
+        let expected = WorkspaceManifestJSONParser.Member(
+            identity: PackageIdentity(path: expectedPath),
+            path: expectedPath,
+            ignoredStateDirectories: [.build, .packageResolved, .packages, .swiftpmConfig],
+        )
+
+        let result = try WorkspaceManifestJSONParser.parse(
+            v2: json,
+            workspaceRoot: workspaceRoot,
+        )
+
+        try #require(result.members.count == 1)
+        #expect(result.members[0] == expected)
+    }
+
+    /// Two members with different `ignoredStateDirectories` sets:
+    /// each member's set is parsed independently. Guards against a
+    /// bug where the parser accidentally shares or overwrites the set
+    /// across members while iterating the wire array.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func parseJSON_withTwoMembersHavingDistinctIgnoredKinds_parsesEachIndependently() throws {
+        let json = """
+        {"errors":[],"version":2,"workspace":{"dependencies":[],"members":[{"ignoredStateDirectories":["build"],"path":"packages/lib-a"},{"ignoredStateDirectories":["packageResolved","packages"],"path":"packages/lib-b"}]}}
+        """
+        let workspaceRoot = AbsolutePath("/repo")
+        let libAPath = workspaceRoot.appending(components: "packages", "lib-a")
+        let libBPath = workspaceRoot.appending(components: "packages", "lib-b")
+        let expectedLibA = WorkspaceManifestJSONParser.Member(
+            identity: PackageIdentity(path: libAPath),
+            path: libAPath,
+            ignoredStateDirectories: [.build],
+        )
+        let expectedLibB = WorkspaceManifestJSONParser.Member(
+            identity: PackageIdentity(path: libBPath),
+            path: libBPath,
+            ignoredStateDirectories: [.packageResolved, .packages],
+        )
+
+        let result = try WorkspaceManifestJSONParser.parse(
+            v2: json,
+            workspaceRoot: workspaceRoot,
+        )
+
+        try #require(result.members.count == 2)
+        #expect(result.members[0] == expectedLibA)
+        #expect(result.members[1] == expectedLibB)
     }
 
     @Test(

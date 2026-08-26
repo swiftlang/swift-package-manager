@@ -105,19 +105,19 @@ extension Workspace {
             self.path = path
             self.ignoredStateDirectories = ignoredStateDirectories
         }
-    }
 
-    /// Creates a workspace member with the given path and state-directory
-    /// suppressions.
-    ///
-    /// Use this factory when the string-literal shorthand is not sufficient,
-    /// for example when suppressing warnings for member-level state
-    /// directories that are legitimately present.
-    public static func member(
-        path: String,
-        ignoredStateDirectories: Set<StateDirectoryKind> = [],
-    ) -> Member {
-        Member(path: path, ignoredStateDirectories: ignoredStateDirectories)
+        /// Creates a workspace member with the given path and state-directory
+        /// suppressions.
+        ///
+        /// Use this factory when the string-literal shorthand is not sufficient,
+        /// for example when suppressing warnings for member-level state
+        /// directories that are legitimately present.
+        public static func member(
+            path: String,
+            ignoredStateDirectories: Set<StateDirectoryKind> = [],
+        ) -> Self {
+            Member(path: path, ignoredStateDirectories: ignoredStateDirectories)
+        }
     }
 
     /// Kinds of member-level state directories that a workspace may

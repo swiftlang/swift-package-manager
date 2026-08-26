@@ -159,6 +159,7 @@ extension SwiftCommand {
                 .deprecatedBuildSystem(buildSystem: globalOptions.build._buildSystem)
             )
         }
+        swiftCommandState.flushMemberStateFindings()
         // wait for all observability items to process
         swiftCommandState.waitForObservabilityEvents(timeout: .now() + 5)
 
@@ -279,6 +280,8 @@ extension AsyncSwiftCommand {
             )
         }
 
+        swiftCommandState.flushMemberStateFindings()
+
         // wait for all observability items to process
         swiftCommandState.waitForObservabilityEvents(timeout: .now() + 5)
 
@@ -303,6 +306,15 @@ public final class SwiftCommandState {
     /// Path to the root package directory, nil if manifest is not found.
     private let packageRoot: AbsolutePath?
 
+    /// The absolute path of the enclosing `Workspace.swift` directory,
+    /// discovered synchronously at init time (mirrors the discovery
+    /// used to place `scratchDirectory` at the workspace root). Nil
+    /// when no `Workspace.swift` is reachable from the CWD/package
+    /// root, or when `--multiroot-data-file` is in use. Consumed by
+    /// `getResolvedVersionsFile()` so `Package.resolved` lives at the
+    /// workspace root, shared across all members.
+    private let workspaceRoot: AbsolutePath?
+
     /// When a `Workspace.swift` is discovered and CWD is inside one of
     /// its members, this holds the enclosing member's identity. Nil
     /// when CWD is at the workspace root, when no workspace is present,
@@ -316,6 +328,17 @@ public final class SwiftCommandState {
     /// <identity>` selections and to surface "known members" lists in
     /// diagnostics.
     public private(set) var currentWorkspaceMemberIdentities: Set<PackageIdentity>?
+
+    /// Accumulated member-level state-file findings, aggregated across
+    /// the workspace's declared members during workspace discovery.
+    /// Flushed as a single trailing warning at end of command by
+    /// `flushMemberStateFindings()`. `nil` until `getWorkspaceRoot()`
+    /// runs; empty `[]` once the scan runs and finds nothing.
+    ///
+    /// Visibility is `internal` (not `private`) so tests can inject
+    /// findings directly and pin the flush behavior without spinning
+    /// up a full workspace load.
+    @_spi(SwiftPMTesting) public var memberStateFindings: [MemberStateFindings]?
 
     /// Helper function to get package root or throw error if it is not found.
     public func getPackageRoot() throws -> AbsolutePath {
@@ -365,6 +388,21 @@ public final class SwiftCommandState {
             ) {
                 self.observabilityScope.emit(diagnostic)
                 throw ExitCode.failure
+            }
+            // Scan each member for state files SwiftPM won't use
+            // (workspace-root state is authoritative). Findings are
+            // buffered here and emitted as a single trailing warning
+            // by `flushMemberStateFindings()` at end of command. The
+            // scan runs only once per invocation: `getWorkspaceRoot()`
+            // is called multiple times by different commands, but the
+            // `nil` sentinel on `memberStateFindings` gates it.
+            if self.memberStateFindings == nil {
+                self.memberStateFindings = manifest.members.compactMap { member in
+                    MemberStateFindings.scanMemberStateFiles(
+                        member: member,
+                        fileSystem: self.fileSystem,
+                    )
+                }
             }
         } else {
             packages = try [self.getPackageRoot()]
@@ -558,14 +596,21 @@ public final class SwiftCommandState {
         // when `--package-path` was supplied).
         let workspaceDiscoveryStart =
             packageRoot ?? fileSystem.currentWorkingDirectory ?? cwd
-        let workspaceRootForScratch = PackageWorkspace.discoverWorkspaceRoot(
+        let discoveredWorkspaceRoot = PackageWorkspace.discoverWorkspaceRoot(
             from: workspaceDiscoveryStart,
             fileSystem: fileSystem,
         )
+        // `--multiroot-data-file` targets an Xcode workspace layout;
+        // in that mode `Workspace.swift`-scoped state has no meaning,
+        // so suppress the discovery here even if a `Workspace.swift`
+        // happens to sit above the CWD.
+        self.workspaceRoot = options.locations.multirootPackageDataFile == nil
+            ? discoveredWorkspaceRoot
+            : nil
         self.scratchDirectory =
             try BuildSystemUtilities.getEnvBuildPath(workingDir: cwd) ??
             options.locations.scratchDirectory ??
-            (workspaceRootForScratch ?? packageRoot ?? cwd).appending(".build")
+            (discoveredWorkspaceRoot ?? packageRoot ?? cwd).appending(".build")
 
         // make sure common directories are created
         self.sharedSecurityDirectory = try getSharedSecurityDirectory(options: options, fileSystem: fileSystem)
@@ -663,6 +708,24 @@ public final class SwiftCommandState {
 
     package func waitForObservabilityEvents(timeout: DispatchTime) {
         self.observabilityHandler.wait(timeout: timeout)
+    }
+
+    /// Emit the aggregated member-state-file warning as a trailing
+    /// diagnostic at end of command, if any findings were collected
+    /// during workspace discovery. Idempotent — safe to call from
+    /// both the sync and async command runners; the second call is a
+    /// no-op because the buffer is nil'd out after emission.
+    ///
+    /// Ordering: this is invoked from the command runner right before
+    /// `waitForObservabilityEvents`, so the warning appears AFTER any
+    /// resolve/build progress lines the command produced. Users see
+    /// their command's output first, then the trailing summary.
+    func flushMemberStateFindings() {
+        guard let findings = self.memberStateFindings else { return }
+        self.memberStateFindings = nil
+        if let diagnostic = MemberStateFindings.formatWarning(findings: findings) {
+            self.observabilityScope.emit(diagnostic)
+        }
     }
 
     /// Returns the currently active workspace.
@@ -833,15 +896,12 @@ public final class SwiftCommandState {
     }
 
     private func getResolvedVersionsFile() throws -> AbsolutePath {
-        // TODO: replace multiroot-data-file with explicit overrides
-        if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
-            return multiRootPackageDataFile.appending(
-                components: "xcshareddata",
-                "swiftpm",
-                PackageWorkspace.DefaultLocations.resolvedFileName
-            )
-        }
-        return try PackageWorkspace.DefaultLocations.resolvedVersionsFile(forRootPackage: self.getPackageRoot())
+        try Self.computeResolvedVersionsFile(
+            multiRootPackageDataFile: options.locations.multirootPackageDataFile,
+            workspaceRoot: self.workspaceRoot,
+            packageRoot: self.packageRoot,
+            buildSystem: options.build.buildSystem,
+        )
     }
 
     func getLocalConfigurationDirectory() throws -> AbsolutePath {
@@ -1478,6 +1538,66 @@ extension SwiftCommandState {
     ) -> Diagnostic? {
         guard let focus, buildSystem != .swiftbuild else { return nil }
         return .invalidWorkspaceBuildSystem(focus: focus)
+    }
+
+    /// Pure decision logic for choosing where `Package.resolved` lives.
+    ///
+    /// Ordering:
+    /// 1. `--multiroot-data-file` — explicit Xcode-workspace override.
+    ///    Wins over everything else because it predates the Slice 1
+    ///    workspace model and is a stronger signal.
+    /// 2. `Workspace.swift` + Swift Build — when the workspace is
+    ///    discovered AND the build system is Swift Build,
+    ///    `Package.resolved` sits at the workspace root so all members
+    ///    share a single resolution file. No member ever writes its
+    ///    own. Restricted to Swift Build because the workspace model
+    ///    (Slice 1+) is only wired through that backend; letting the
+    ///    native / XCBuild systems observe a workspace-root
+    ///    `Package.resolved` would leave them looking for a per-package
+    ///    file that no longer exists and re-resolving on every build.
+    /// 3. Single-package (or workspace under a non-Swift Build
+    ///    backend) — the pre-workspaces default: sibling of the root
+    ///    `Package.swift`.
+    ///
+    /// Extracted so the ordering can be unit-tested without spinning
+    /// up a full `SwiftCommandState` or touching the filesystem.
+    static func
+    computeResolvedVersionsFile(
+        multiRootPackageDataFile: AbsolutePath?,
+        workspaceRoot: AbsolutePath?,
+        packageRoot: AbsolutePath?,
+        buildSystem: BuildSystemProvider.Kind,
+    ) throws -> AbsolutePath {
+        if let multiRootPackageDataFile {
+            return multiRootPackageDataFile.appending(
+                components: "xcshareddata",
+                "swiftpm",
+                PackageWorkspace.DefaultLocations.resolvedFileName,
+            )
+        }
+        if let workspaceRoot, buildSystem == .swiftbuild {
+            return workspaceRoot.appending(PackageWorkspace.DefaultLocations.resolvedFileName)
+        }
+        guard let packageRoot else {
+            throw SwiftCommandStateError.packageManifestNotFound
+        }
+        return PackageWorkspace.DefaultLocations.resolvedVersionsFile(forRootPackage: packageRoot)
+    }
+}
+
+/// Errors surfaced by `SwiftCommandState` decision helpers.
+public enum SwiftCommandStateError: Error, CustomStringConvertible {
+    /// `Package.swift` was not discoverable from the current working
+    /// directory or any of its parents, and no explicit anchor
+    /// (workspace root, `--multiroot-data-file`, or `--package-path`)
+    /// was supplied to substitute for one.
+    case packageManifestNotFound
+
+    public var description: String {
+        switch self {
+        case .packageManifestNotFound:
+            "Could not find \(Manifest.filename) in this directory or any of its parent directories."
+        }
     }
 }
 
