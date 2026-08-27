@@ -76,9 +76,6 @@ paths:
         - Releases
       summary: Create a package release
       operationId: createPackageRelease
-      security:
-        - basicAuth: []
-        - bearerAuth: []
       parameters:
         - in: header
           name: X-Swift-Package-Signature-Format
@@ -349,8 +346,6 @@ paths:
           $ref: '#/components/responses/BadRequest'
         '401':
           $ref: '#/components/responses/Unauthorized'
-        '404':
-          $ref: '#/components/responses/NotFound'
         '415':
           $ref: '#/components/responses/UnsupportedMediaType'
         '429':
@@ -361,9 +356,6 @@ paths:
         - Authentication
       summary: Log in to the package registry
       operationId: loginToRegistry
-      security:
-        - basicAuth: []
-        - bearerAuth: []
       description: |-
         Log in using either basic or token authentication. Use the `Authorization` header to provide credentials.
 
@@ -378,15 +370,6 @@ paths:
         '501':
           description: Registry does not support authentication.
 components:
-  securitySchemes:
-    basicAuth:
-      type: http
-      scheme: basic
-      description: An `email:password` pair, base64 encoded.
-    bearerAuth:
-      type: http
-      scheme: bearer
-      description: A token issued by the registry.
   parameters:
     SwiftVersion:
       name: swift-version
