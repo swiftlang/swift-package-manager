@@ -27,7 +27,7 @@ public struct SwiftWorkspaceCommand: AsyncParsableCommand {
         abstract: "Perform workspace-scope operations on the enclosing SwiftPM workspace.",
         discussion: "SEE ALSO: swift package, swift build, swift run, swift test",
         version: SwiftVersion.current.completeDisplayString,
-        subcommands: [Override.self],
+        subcommands: [Init.self, Override.self],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)],
     )
 
