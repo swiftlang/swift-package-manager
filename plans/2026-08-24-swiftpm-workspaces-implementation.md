@@ -22,10 +22,7 @@ Implement first-class workspaces in Swift Package Manager: a new `Workspace.swif
 | 7 | `swift run` collisions | ✅ Done | `bkhouri/t/main/poc_workspaces_phase7` |
 | 8 | `swift package resolve` + trailing warnings + workspace-scope originHash | ✅ Done | `bkhouri/t/main/poc_workspaces_phase8` |
 | 8B | Workspace dependency overrides (`.swiftpm/configuration/workspace-overrides.json`) | ✅ Done — folds overrides file content into origin hash | `bkhouri/t/main/poc_workspaces_phase8_diverge-workspace_deps_override` |
-<<<<<<< Updated upstream
-=======
 | 8C | `swift workspace override` subcommand (add / remove / list) | 🔲 Not started | — |
->>>>>>> Stashed changes
 | 9 | `swift package init workspace` | 🔲 Not started | — |
 | 10 | `swift package show-dependencies` workspace awareness | 🔲 Not started | — |
 | 11 | `swift package update` workspace awareness | 🔲 Not started | — |
@@ -1290,11 +1287,7 @@ is never contacted when an override redirects that identity.
 
 - **`Sources/PackageLoading/WorkspaceOverridesJSONParser.swift`** (new):
   - `Override` struct — `identity: PackageIdentity` + `overridingDependency: PackageDependency`.
-<<<<<<< Updated upstream
-  - `parse(v1:workspaceRoot:)` — decode `.swiftpm/configuration/workspace-overrides.json` v1 schema.
-=======
   - `parse(v1:workspaceRoot:)` — decode the v1 schema.
->>>>>>> Stashed changes
   - `loadIfPresent(overridesFile:workspaceRoot:fileSystem:)` — read + parse if present, empty otherwise.
   - `apply(_:to:)` — replace matching workspace-level deps by identity.
   - `WorkspaceOverridesParseError` — `.unsupportedVersion`, `.workspaceScopedKindNotAllowed`.
@@ -1330,12 +1323,8 @@ is never contacted when an override redirects that identity.
 
 ### Success Criteria
 
-<<<<<<< Updated upstream
-- [ ] `s09_workspaceOverrideRedirectsToLocalCheckout` — end-to-end: declared source-control dep redirected to a local `external/local-some-lib` checkout; `swift build` succeeds and `app` prints the local greeting.
-=======
-- [ ] `s09_workspaceOverrideRedirectsToLocalCheckout` — end-to-end: declared source-control dep redirected to a local `external/local-some-lib` checkout; `swift build` succeeds and `app` prints the local greeting. Covers manual case: author overrides file, verify checkout is used.
-- [ ] `s09_workspaceOverrideDeleted_reRoutesToOriginalSource` — fixture with a redirect file; test resolves once (uses local), deletes the overrides file, resolves again, and asserts `Package.resolved` now records the original source-control dep at the declared URL. Covers manual case: delete file, verify original source is re-resolved.
->>>>>>> Stashed changes
+- [ ] `s08_b_workspaceOverrideRedirectsToLocalCheckout` — end-to-end: declared source-control dep redirected to a local `external/local-some-lib` checkout; `swift build` succeeds and `app` prints the local greeting. Covers manual case: author overrides file, verify checkout is used.
+- [ ] `s08_b_workspaceOverrideDeleted_reRoutesToOriginalSource` — fixture with a redirect file; test resolves once (uses local), deletes the overrides file, resolves again, and asserts `Package.resolved` now records the original source-control dep at the declared URL. Covers manual case: delete file, verify original source is re-resolved.
 - [ ] Info diagnostic listing active overrides visible in stderr on every command that loads the workspace manifest.
 - [ ] Editing the overrides file changes `originHash` in `Package.resolved` → re-resolve triggered on next command.
 - [ ] Missing overrides file → zero overhead, no behavior change for workspaces without one.
@@ -1343,10 +1332,6 @@ is never contacted when an override redirects that identity.
 - [ ] Full regression green (all unit + integration + e2e tests).
 
 #### Manual Verification:
-<<<<<<< Updated upstream
-- [ ] Author `.swiftpm/configuration/workspace-overrides.json` redirecting a workspace-level dep to a local checkout. `swift build`, verify the checkout is used.
-- [ ] Delete the file. Next `swift build` re-resolves against the original source.
-=======
 (none — all criteria automated)
 
 ---
@@ -1420,7 +1405,6 @@ swift workspace override list
 
 #### Manual Verification:
 (none — all criteria automated)
->>>>>>> Stashed changes
 
 ---
 
