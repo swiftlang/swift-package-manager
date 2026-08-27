@@ -31,8 +31,8 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
-      - name: Install curl
-        run: apt-get -q update && apt-get -yq install --no-install-recommends curl
+      - name: Install curl and zip
+        run: apt-get -q update && apt-get -yq install --no-install-recommends curl zip
       - name: Build the registry server
         working-directory: Examples/package-registry
         shell: bash
@@ -56,17 +56,51 @@ jobs:
             sleep 1
           done
           exit 1
+      - name: Seed the registry
+        working-directory: Examples/package-registry
+        shell: bash
+        # A registry with an empty store answers every read with 404 and every
+        # write with 401, so a fuzz run against it can only ever exercise the
+        # error paths. Create the credential Schemathesis authenticates with,
+        # then publish the release the spec's `example` values point at
+        # (mona/LinkedList/1.2.3) so the documented 2xx responses are
+        # reachable. The `repositoryURLs` entry is the `url` example on
+        # `GET /identifiers`.
+        run: |
+          set -euo pipefail
+          curl() { command curl -sS --fail --cacert certs/cert.pem "$@"; }
+          curl -X POST https://127.0.0.1:8000/users \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"ci@example.com","password":"hunter2"}'
+          (cd Fixtures && zip -qr ../.build/LinkedList-1.2.3.zip HelloWorld)
+          cat >.build/metadata.json <<'JSON'
+          {
+            "author": { "name": "Mona" },
+            "description": "A linked list.",
+            "licenseURL": "https://example.com/mona/LinkedList/LICENSE",
+            "readmeURL": "https://example.com/mona/LinkedList/README.md",
+            "repositoryURLs": ["https://example.com/mona/LinkedList"]
+          }
+          JSON
+          curl -X PUT https://127.0.0.1:8000/mona/LinkedList/1.2.3 \
+            -u 'ci@example.com:hunter2' \
+            -H 'Accept: application/vnd.swift.registry.v1+json' \
+            -F 'source-archive=@.build/LinkedList-1.2.3.zip;type=application/zip' \
+            -F 'metadata=@.build/metadata.json;type=application/json'
       - name: Check responses against the OpenAPI spec
         uses: schemathesis/action@v3.0.0
         with:
           schema: Documentation/PackageRegistry/registry.openapi.yaml
           base-url: https://127.0.0.1:8000
           # The certificate is self-signed, so it doubles as its own CA bundle.
-          # The registry also requires a versioned `Accept` header on every
-          # request.
+          # The credentials are the ones the seeding step registered; without
+          # them every authenticated operation stops at 401. Schemathesis still
+          # covers 401 by replaying requests with the auth stripped, because the
+          # schema declares `security` on those operations.
           args: >-
             --tls-verify=Examples/package-registry/certs/cert.pem
             -H "Accept: application/vnd.swift.registry.v1+json"
+            -H "Authorization: Basic Y2lAZXhhbXBsZS5jb206aHVudGVyMg=="
           # Posting the schema coverage summary to the PR needs a write token,
           # which pull requests from forks do not get.
           coverage-pr-comment: false
