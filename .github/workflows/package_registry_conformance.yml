@@ -19,11 +19,8 @@ concurrency:
 jobs:
   openapi-conformance:
     name: OpenAPI Conformance
-    # `schemathesis/action` is a composite action, so it runs inside this
-    # container. Keep the runner image on the same Ubuntu release as the
-    # container so the Python build it installs matches.
     runs-on: ubuntu-24.04
-    timeout-minutes: 45
+    timeout-minutes: 30
     container:
       image: swiftlang/swift:nightly-main-noble
     steps:
@@ -56,16 +53,11 @@ jobs:
             sleep 1
           done
           exit 1
-      - name: Seed the registry
+      # If there are no packages in the example registry, Schemathesis cannot fetch packages,
+      # So the GET /{scope}/{name} endpoints would be left untested
+      - name: Seed the registry with a package
         working-directory: Examples/package-registry
         shell: bash
-        # A registry with an empty store answers every read with 404 and every
-        # write with 401, so a fuzz run against it can only ever exercise the
-        # error paths. Create the credential Schemathesis authenticates with,
-        # then publish the release the spec's `example` values point at
-        # (mona/LinkedList/1.2.3) so the documented 2xx responses are
-        # reachable. The `repositoryURLs` entry is the `url` example on
-        # `GET /identifiers`.
         run: |
           set -euo pipefail
           curl() { command curl -sS --fail --cacert certs/cert.pem "$@"; }
@@ -92,18 +84,10 @@ jobs:
         with:
           schema: Documentation/PackageRegistry/registry.openapi.yaml
           base-url: https://127.0.0.1:8000
-          # The certificate is self-signed, so it doubles as its own CA bundle.
-          # The credentials are the ones the seeding step registered; without
-          # them every authenticated operation stops at 401. Schemathesis still
-          # covers 401 by replaying requests with the auth stripped, because the
-          # schema declares `security` on those operations.
           args: >-
             --tls-verify=Examples/package-registry/certs/cert.pem
             -H "Accept: application/vnd.swift.registry.v1+json"
             -H "Authorization: Basic Y2lAZXhhbXBsZS5jb206aHVudGVyMg=="
-          # Posting the schema coverage summary to the PR needs a write token,
-          # which pull requests from forks do not get.
-          coverage-pr-comment: false
       - name: Registry server log
         if: always()
         working-directory: Examples/package-registry
