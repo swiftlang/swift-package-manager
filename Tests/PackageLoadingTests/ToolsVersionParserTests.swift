@@ -234,6 +234,42 @@ final class ToolsVersionParserTests: XCTestCase {
             }
     }
 
+    /// Verifies that a manifest with no Swift tools version specification is reported against the package it belongs to, rather than against the name of the manifest file.
+    func testMissingSpecificationInManifestFileNamesThePackage() throws {
+        let fs = InMemoryFileSystem()
+
+        let packageRoot = AbsolutePath("/lorem/ipsum/dolor")
+        try fs.createDirectory(packageRoot, recursive: true)
+
+        /// Manifests without a specification, the identity their package is known by, if any, and the identity the diagnostic should name.
+        let manifestsWithoutSpecification: [(manifestName: String, givenIdentity: PackageIdentity?, reportedIdentity: PackageIdentity)] = [
+            ("Package.swift", nil, PackageIdentity(path: packageRoot)),
+            ("Package@swift-5.5.swift", nil, PackageIdentity(path: packageRoot)),
+            ("Package.swift", .plain("mona.linkedlist"), .plain("mona.linkedlist")),
+        ]
+
+        for (manifestName, givenIdentity, reportedIdentity) in manifestsWithoutSpecification {
+            let manifestPath = packageRoot.appending(manifestName)
+            try fs.writeFileContents(manifestPath, bytes: "import PackageDescription\n")
+
+            XCTAssertThrowsError(
+                try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fs, packageIdentity: givenIdentity),
+                "an 'UnsupportedToolsVersion' should've been thrown, because '\(manifestName)' has no Swift tools version specification"
+            ) { error in
+                guard let error = error as? UnsupportedToolsVersion else {
+                    XCTFail("'UnsupportedToolsVersion' should've been thrown, but a different error is thrown")
+                    return
+                }
+
+                XCTAssertEqual(error.packageIdentity, reportedIdentity)
+                XCTAssertEqual(
+                    error.description,
+                    "package '\(reportedIdentity)' is using Swift tools version 3.1.0 which is no longer supported; consider using '\(ToolsVersion.current.specification(roundedTo: .minor))' to specify the current tools version"
+                )
+            }
+        }
+    }
+
     /// Verifies that the correct error is thrown for each non-empty manifest missing its Swift tools version specification.
     func testMissingSpecifications() throws {
         /// Leading snippets of manifest files that don't have Swift tools version specifications.

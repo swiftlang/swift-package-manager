@@ -206,7 +206,11 @@ extension ManifestLoaderProtocol {
             fileSystem: fileSystem,
             currentToolsVersion: currentToolsVersion
         )
-        let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
+        let manifestToolsVersion = try ToolsVersionParser.parse(
+            manifestPath: manifestPath,
+            fileSystem: fileSystem,
+            packageIdentity: packageIdentity
+        )
         // validate the manifest tools-version against the toolchain tools-version
         try manifestToolsVersion.validateToolsVersion(
             currentToolsVersion,
