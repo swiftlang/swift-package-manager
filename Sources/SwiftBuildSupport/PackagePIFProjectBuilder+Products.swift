@@ -640,6 +640,10 @@ extension PackagePIFProjectBuilder {
                 fatalError("Could not assign dynamic PIF target")
             }
             self.project[keyPath: pifTargetKeyPath].dynamicTargetVariantId = dynamicPifTarget.id
+
+            for module in libraryProduct.modules where module.isSourceModule {
+                self.modulesInPromotableAutomaticLibraries[module.name, default: []].insert(pifTarget.id)
+            }
         }
     }
 
@@ -769,8 +773,13 @@ extension PackagePIFProjectBuilder {
             // For dynamic libraries, track which source modules are DIRECT dependencies so we can set
             // SWIFT_COMPILE_FOR_STATIC_LINKING=NO on Windows for those modules.
             // Collect only DIRECT module dependencies (not recursive)
-            for module in product.modules where module.isSourceModule {
-                self.modulesInDynamicLibraries.insert(module.name)
+            //
+            // Skip the synthesized dynamic variant of an `.automatic` product: its modules are still
+            // linked statically by default, so flagging them here would compile them incorrectly.
+            if targetSuffix != .dynamic {
+                for module in product.modules where module.isSourceModule {
+                    self.modulesInDynamicLibraries.insert(module.name)
+                }
             }
         } else if productType == .staticArchive {
             settings[.TARGET_NAME] = product.targetName()
