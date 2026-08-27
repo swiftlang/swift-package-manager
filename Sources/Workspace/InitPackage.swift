@@ -52,7 +52,7 @@ public final class InitPackage {
     }
 
     /// Represents a package type for the purposes of initialization.
-    public enum PackageType: String, CustomStringConvertible {
+    public enum PackageType: String, CaseIterable, CustomStringConvertible {
         case empty = "empty"
         case library = "library"
         case executable = "executable"

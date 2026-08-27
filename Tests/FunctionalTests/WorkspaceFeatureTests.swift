@@ -1899,6 +1899,156 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    /// `swift package workspace init` (bare, no `--members`) creates
+    /// a `Workspace.swift` file in the current working directory with
+    /// an empty `members: []` list. Verifies the happy-path scaffold
+    /// of the CLI.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Init,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s09_workspaceInit_bareInit_scaffoldsEmptyManifest(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await testWithTemporaryDirectory { tempDir in
+            _ = try await executeSwiftWorkspace(
+                tempDir,
+                configuration: .debug,
+                extraArgs: ["init"],
+                buildSystem: buildSystem,
+            )
+
+            let manifestPath = tempDir.appending("Workspace.swift")
+            expectFileExists(at: manifestPath)
+            let manifestContent: String = try localFileSystem.readFileContents(manifestPath)
+            #expect(
+                manifestContent.contains("members: []"),
+                "expected empty members list; got manifest=\(manifestContent)",
+            )
+        }
+    }
+
+    /// `swift package workspace init --members packages/lib-a
+    /// --members packages/app` scaffolds both member directories with
+    /// their `Package.swift` files and lists them in the
+    /// `Workspace.swift` manifest.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Init,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s09_workspaceInit_scaffoldsWorkspaceManifestAndMembers(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await testWithTemporaryDirectory { tempDir in
+            _ = try await executeSwiftWorkspace(
+                tempDir,
+                configuration: .debug,
+                extraArgs: [
+                    "init",
+                    "--members", "packages/lib-a", "packages/app",
+                ],
+                buildSystem: buildSystem,
+            )
+
+            let workspaceManifest = tempDir.appending("Workspace.swift")
+            expectFileExists(at: workspaceManifest)
+            let manifestContent: String = try localFileSystem.readFileContents(workspaceManifest)
+            #expect(
+                manifestContent.contains("\"packages/lib-a\""),
+                "expected lib-a in members list; got manifest=\(manifestContent)",
+            )
+            #expect(
+                manifestContent.contains("\"packages/app\""),
+                "expected app in members list; got manifest=\(manifestContent)",
+            )
+
+            expectFileExists(
+                at: tempDir.appending(try RelativePath(validating: "packages/lib-a/Package.swift")),
+            )
+            expectFileExists(
+                at: tempDir.appending(try RelativePath(validating: "packages/app/Package.swift")),
+            )
+        }
+    }
+
+    /// `swift package workspace init` refuses to overwrite an existing
+    /// `Workspace.swift` — users must remove the existing file
+    /// themselves. Guards against destroying in-progress workspace
+    /// authoring by an accidental re-run.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Init,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s09_workspaceInit_whenWorkspaceManifestExists_fails(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await testWithTemporaryDirectory { tempDir in
+            try localFileSystem.writeFileContents(
+                tempDir.appending("Workspace.swift"),
+                string: "// pre-existing\n",
+            )
+
+            await #expect(throws: (any Error).self) {
+                try await executeSwiftWorkspace(
+                    tempDir,
+                    configuration: .debug,
+                    extraArgs: ["init"],
+                    buildSystem: buildSystem,
+                )
+            }
+
+            let manifestContent: String = try localFileSystem.readFileContents(
+                tempDir.appending("Workspace.swift"),
+            )
+            #expect(
+                manifestContent == "// pre-existing\n",
+                "pre-existing Workspace.swift must not be overwritten; got \(manifestContent)",
+            )
+        }
+    }
+
+    /// `swift package workspace init --package-path <dir>` scaffolds
+    /// into `<dir>` rather than the caller's current working directory.
+    /// Creates `<dir>` if it doesn't exist (matches `swift package
+    /// init` behaviour for the same flag). Locks in that the workspace
+    /// init CLI honors the global `--package-path` option.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Init,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s09_workspaceInit_respectsPackagePath(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await testWithTemporaryDirectory { tempDir in
+            let nested = tempDir.appending("nested-workspace")
+
+            _ = try await executeSwiftWorkspace(
+                tempDir,
+                configuration: .debug,
+                extraArgs: [
+                    "--package-path", nested.pathString,
+                    "init",
+                    "--members", "packages/lib-a",
+                ],
+                buildSystem: buildSystem,
+            )
+
+            expectFileExists(at: nested.appending("Workspace.swift"))
+            expectFileExists(
+                at: nested.appending(try RelativePath(validating: "packages/lib-a/Package.swift")),
+            )
+            expectFileDoesNotExist(at: tempDir.appending("Workspace.swift"))
+        }
+    }
+
     /// Initializes an external-dependency directory in the S08
     /// fixture as a git repository tagged `1.0.0`. The fixture ships
     /// each `external/*` directory without a `.git/` folder (nothing
