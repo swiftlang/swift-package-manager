@@ -1370,6 +1370,63 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    // MARK: - Slice 9: workspace dependency overrides
+
+    /// `.swiftpm/configuration/workspace-overrides.json` redirects a workspace-
+    /// declared source-control dependency to a local filesystem
+    /// checkout. The declared source-control URL is never contacted
+    /// — the override is applied at workspace-manifest load time,
+    /// before the resolver runs. Verifies the end-to-end flow: file
+    /// discovery, parse, apply, and downstream build against the
+    /// substituted dep.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Resolve,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s09_workspaceOverrideRedirectsToLocalCheckout(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S09_WorkspaceOverrides") { fixturePath in
+            let (_, stderr) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["resolve", "--verbose"],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stderr.contains("applying 1 workspace dependency override(s) from"),
+                "expected info diagnostic listing the applied override; got stderr=\(stderr)",
+            )
+            #expect(
+                stderr.contains("some-lib:"),
+                "expected the override entry to name the target identity; got stderr=\(stderr)",
+            )
+
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+            let binPath = try await getBinPath(
+                fixturePath,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+            let appBinary = binPath.appending("app")
+            expectFileExists(at: appBinary)
+            let output = try await AsyncProcess.checkNonZeroExit(
+                args: appBinary.pathString,
+            ).withSwiftLineEnding
+            #expect(
+                output == "app says: hello from LOCAL some-lib\n",
+                "expected the LOCAL some-lib greeting (override target), got: \(output)",
+            )
+        }
+    }
+
     /// Initializes an external-dependency directory in the S08
     /// fixture as a git repository tagged `1.0.0`. The fixture ships
     /// each `external/*` directory without a `.git/` folder (nothing

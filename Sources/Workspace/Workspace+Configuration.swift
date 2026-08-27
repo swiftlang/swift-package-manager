@@ -242,6 +242,21 @@ extension PackageWorkspace {
             path.appending("registries.json")
         }
 
+        /// Path to the workspace-overrides file for a workspace
+        /// rooted at `rootPath`. The file — `.swiftpm/configuration/workspace-overrides.json`
+        /// — declares developer-local dependency overrides that
+        /// replace `Workspace.swift`-declared workspace-level deps
+        /// at manifest-load time. See `WorkspaceOverridesJSONParser`
+        /// for the wire format. Users add the file to `.gitignore`;
+        /// it captures ephemeral local state.
+        public static func workspaceOverridesFile(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
+            self.workspaceOverridesFile(at: self.configurationDirectory(forRootPackage: rootPath))
+        }
+
+        public static func workspaceOverridesFile(at path: AbsolutePath) -> AbsolutePath {
+            path.appending(components: "workspace-overrides.json")
+        }
+
         public static func manifestsDirectory(at path: AbsolutePath) -> AbsolutePath {
             path.appending("manifests")
         }

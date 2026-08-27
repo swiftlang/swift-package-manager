@@ -24,12 +24,13 @@ import Testing
 struct WorkspaceOriginHashTests {
     // MARK: - computeResolvedFileOriginHash (Slice 8e)
 
-    /// Passing `nil` for `workspaceManifestContent` preserves the
+    /// Passing `nil` for both workspace-scope inputs preserves the
     /// pre-workspace hash payload — concatenated manifest contents
     /// followed by root-dep location strings. This is the regression
     /// guard for single-package invocations: the moment
-    /// `computeResolvedFileOriginHash` gains a workspace-aware branch,
-    /// non-workspace loads must still see the historical hash.
+    /// `computeResolvedFileOriginHash` gains workspace-aware
+    /// branches, non-workspace loads must still see the historical
+    /// hash.
     @Test(
         .tags(
             .TestSize.small,
@@ -44,6 +45,7 @@ struct WorkspaceOriginHashTests {
             manifestContents: manifestContents,
             dependencyLocations: dependencyLocations,
             workspaceManifestContent: nil,
+            workspaceOverridesContent: nil,
         )
 
         #expect(actual == expected)
@@ -66,11 +68,13 @@ struct WorkspaceOriginHashTests {
             manifestContents: manifestContents,
             dependencyLocations: dependencyLocations,
             workspaceManifestContent: nil,
+            workspaceOverridesContent: nil,
         )
         let withEmpty = PackageWorkspace.computeResolvedFileOriginHash(
             manifestContents: manifestContents,
             dependencyLocations: dependencyLocations,
             workspaceManifestContent: "",
+            workspaceOverridesContent: nil,
         )
 
         #expect(withNil == withEmpty)
@@ -95,11 +99,13 @@ struct WorkspaceOriginHashTests {
             manifestContents: manifestContents,
             dependencyLocations: dependencyLocations,
             workspaceManifestContent: nil,
+            workspaceOverridesContent: nil,
         )
         let withWorkspace = PackageWorkspace.computeResolvedFileOriginHash(
             manifestContents: manifestContents,
             dependencyLocations: dependencyLocations,
             workspaceManifestContent: "// Workspace.swift with one dep\n",
+            workspaceOverridesContent: nil,
         )
 
         #expect(withoutWorkspace != withWorkspace)
@@ -122,11 +128,75 @@ struct WorkspaceOriginHashTests {
             manifestContents: manifestContents,
             dependencyLocations: dependencyLocations,
             workspaceManifestContent: "workspace: [alpha]",
+            workspaceOverridesContent: nil,
         )
         let hashB = PackageWorkspace.computeResolvedFileOriginHash(
             manifestContents: manifestContents,
             dependencyLocations: dependencyLocations,
             workspaceManifestContent: "workspace: [alpha, beta]",
+            workspaceOverridesContent: nil,
+        )
+
+        #expect(hashA != hashB)
+    }
+
+    /// Providing a non-empty overrides file content to an otherwise
+    /// identical hash payload changes the hash. Adding or removing
+    /// `.swiftpm/configuration/workspace-overrides.json` must
+    /// invalidate the resolved-file cache so SwiftPM re-resolves
+    /// with the current override set.
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func withWorkspaceOverridesContent_differsFromNil() throws {
+        let manifestContents = ["// Package.swift for lib-a\n"]
+        let dependencyLocations: [String] = []
+        let workspaceManifestContent = "// Workspace.swift\n"
+
+        let withoutOverrides = PackageWorkspace.computeResolvedFileOriginHash(
+            manifestContents: manifestContents,
+            dependencyLocations: dependencyLocations,
+            workspaceManifestContent: workspaceManifestContent,
+            workspaceOverridesContent: nil,
+        )
+        let withOverrides = PackageWorkspace.computeResolvedFileOriginHash(
+            manifestContents: manifestContents,
+            dependencyLocations: dependencyLocations,
+            workspaceManifestContent: workspaceManifestContent,
+            workspaceOverridesContent: #"{"version":1,"overrides":[]}"#,
+        )
+
+        #expect(withoutOverrides != withOverrides)
+    }
+
+    /// Two workspaces differing only in their overrides file
+    /// contents produce different hashes. Covers the developer
+    /// workflow: editing `.swiftpm/configuration/workspace-overrides.json`
+    /// (adding, removing, or retargeting an override) forces a
+    /// fresh resolution.
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func withDifferentWorkspaceOverridesContent_produceDifferentHashes() throws {
+        let manifestContents = ["// Package.swift for lib-a\n"]
+        let dependencyLocations: [String] = []
+        let workspaceManifestContent = "// Workspace.swift\n"
+
+        let hashA = PackageWorkspace.computeResolvedFileOriginHash(
+            manifestContents: manifestContents,
+            dependencyLocations: dependencyLocations,
+            workspaceManifestContent: workspaceManifestContent,
+            workspaceOverridesContent: #"{"version":1,"overrides":[{"identity":"alpha","kind":{"fileSystem":{"name":null,"path":"a"}}}]}"#,
+        )
+        let hashB = PackageWorkspace.computeResolvedFileOriginHash(
+            manifestContents: manifestContents,
+            dependencyLocations: dependencyLocations,
+            workspaceManifestContent: workspaceManifestContent,
+            workspaceOverridesContent: #"{"version":1,"overrides":[{"identity":"alpha","kind":{"fileSystem":{"name":null,"path":"b"}}}]}"#,
         )
 
         #expect(hashA != hashB)
@@ -144,16 +214,19 @@ struct WorkspaceOriginHashTests {
         let manifestContents = ["// Package.swift for lib-a\n", "// Package.swift for lib-b\n"]
         let dependencyLocations = ["https://example.com/root-dep"]
         let workspaceManifestContent = "// Workspace.swift\nlet workspace = Workspace(...)\n"
+        let workspaceOverridesContent = #"{"version":1,"overrides":[]}"#
 
         let hash1 = PackageWorkspace.computeResolvedFileOriginHash(
             manifestContents: manifestContents,
             dependencyLocations: dependencyLocations,
             workspaceManifestContent: workspaceManifestContent,
+            workspaceOverridesContent: workspaceOverridesContent,
         )
         let hash2 = PackageWorkspace.computeResolvedFileOriginHash(
             manifestContents: manifestContents,
             dependencyLocations: dependencyLocations,
             workspaceManifestContent: workspaceManifestContent,
+            workspaceOverridesContent: workspaceOverridesContent,
         )
 
         #expect(hash1 == hash2)
@@ -227,6 +300,71 @@ struct WorkspaceOriginHashTests {
         )
     }
 
+    /// Two invocations against the same workspace root but with
+    /// different `.swiftpm/configuration/workspace-overrides.json`
+    /// contents on disk must produce different origin hashes. Locks
+    /// in the wiring that reads the overrides file into the payload
+    /// — without this, adding or editing an override would silently
+    /// skip re-resolution.
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func resolvedFileOriginHash_withDifferentWorkspaceOverridesFiles_producesDifferentHashes() throws {
+        let workspaceRoot = AbsolutePath("/repo")
+        let memberPath = workspaceRoot.appending("app")
+        let workspaceManifestPath = workspaceRoot.appending("Workspace.swift")
+        let overridesFile = PackageWorkspace.DefaultLocations.workspaceOverridesFile(
+            forRootPackage: workspaceRoot,
+        )
+        let fileSystem = InMemoryFileSystem()
+        try fileSystem.createDirectory(memberPath, recursive: true)
+        try fileSystem.writeFileContents(
+            memberPath.appending("Package.swift"),
+            string: "// swift-tools-version: 999.0\nimport PackageDescription\nlet package = Package(name: \"app\")\n",
+        )
+        try fileSystem.writeFileContents(
+            workspaceManifestPath,
+            string: "// Workspace.swift\n",
+        )
+        try fileSystem.createDirectory(overridesFile.parentDirectory, recursive: true)
+
+        let root = PackageGraphRootInput(
+            packages: [memberPath],
+            workspaceManifest: WorkspaceManifest(
+                path: workspaceManifestPath,
+                toolsVersion: .current,
+                members: [],
+                dependencies: [],
+            ),
+        )
+
+        try fileSystem.writeFileContents(
+            overridesFile,
+            string: #"{"version":1,"overrides":[{"identity":"alpha","kind":{"fileSystem":{"name":null,"path":"a"}}}]}"#,
+        )
+        let hashA = try PackageWorkspace.resolvedFileOriginHash(
+            root: root,
+            fileSystem: fileSystem,
+            currentToolsVersion: .current,
+        )
+        try fileSystem.writeFileContents(
+            overridesFile,
+            string: #"{"version":1,"overrides":[{"identity":"alpha","kind":{"fileSystem":{"name":null,"path":"b"}}}]}"#,
+        )
+        let hashB = try PackageWorkspace.resolvedFileOriginHash(
+            root: root,
+            fileSystem: fileSystem,
+            currentToolsVersion: .current,
+        )
+
+        #expect(
+            hashA != hashB,
+            "editing the workspace-overrides file must change the origin hash; got \(hashA) both times",
+        )
+    }
+
     /// A `PackageGraphRootInput` with `workspaceManifest == nil`
     /// produces the same hash as the pure helper's `nil` branch —
     /// the wiring must not spuriously synthesize a workspace-manifest
@@ -253,6 +391,7 @@ struct WorkspaceOriginHashTests {
             manifestContents: [manifestBody],
             dependencyLocations: [],
             workspaceManifestContent: nil,
+            workspaceOverridesContent: nil,
         )
 
         #expect(actual == expected)

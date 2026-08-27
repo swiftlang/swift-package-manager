@@ -105,7 +105,26 @@ extension PackageWorkspace {
 
         try Self.validateMembers(manifest.members, fileSystem: fileSystem)
 
-        return manifest
+        let overridesFile = PackageWorkspace.DefaultLocations.workspaceOverridesFile(
+            forRootPackage: workspaceRoot,
+        )
+        let overrides = try WorkspaceOverridesJSONParser.loadIfPresent(
+            overridesFile: overridesFile,
+            workspaceRoot: workspaceRoot,
+            fileSystem: fileSystem,
+        )
+        guard !overrides.isEmpty else {
+            return manifest
+        }
+        observabilityScope.emit(
+            info: "applying \(overrides.count) workspace dependency override(s) from \(overridesFile.pathString):",
+        )
+        for override in overrides {
+            observabilityScope.emit(
+                info: "  - \(override.identity): \(override.overridingDependency.locationString)",
+            )
+        }
+        return try WorkspaceOverridesJSONParser.apply(overrides, to: manifest)
     }
 
     private static func validateMembers(
