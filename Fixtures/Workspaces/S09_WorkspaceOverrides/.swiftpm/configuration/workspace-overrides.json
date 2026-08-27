@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "overrides": [
+    {
+      "identity": "some-lib",
+      "kind": {
+        "fileSystem": {
+          "name": null,
+          "path": "external/local-some-lib"
+        }
+      }
+    }
+  ]
+}

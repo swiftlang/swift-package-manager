@@ -404,10 +404,18 @@ extension PackageWorkspace {
         let workspaceManifestContent: String? = try root.workspaceManifest.map { manifest in
             try fileSystem.readFileContents(manifest.path)
         }
+        let workspaceOverridesContent: String? = try root.workspaceManifest.flatMap { manifest -> String? in
+            let overridesFile = PackageWorkspace.DefaultLocations.workspaceOverridesFile(
+                forRootPackage: manifest.path.parentDirectory,
+            )
+            guard fileSystem.exists(overridesFile) else { return nil }
+            return try fileSystem.readFileContents(overridesFile)
+        }
         return Self.computeResolvedFileOriginHash(
             manifestContents: manifestContents,
             dependencyLocations: root.dependencies.map(\.locationString),
             workspaceManifestContent: workspaceManifestContent,
+            workspaceOverridesContent: workspaceOverridesContent,
         )
     }
 
@@ -416,27 +424,33 @@ extension PackageWorkspace {
     /// The payload is: concatenated `manifestContents`, then
     /// concatenated `dependencyLocations` in their supplied order,
     /// then — when `workspaceManifestContent` is non-nil — the raw
-    /// `Workspace.swift` bytes. Hashing the file content directly
-    /// (rather than a parsed dep list) mirrors how each member's
-    /// `Package.swift` is hashed and gives us three properties for
-    /// free: (1) any edit to `Workspace.swift` invalidates resolution,
-    /// (2) reordering `dependencies:` in the DSL still changes the
-    /// hash — same as reordering `dependencies:` in a `Package.swift`
-    /// would — so we don't need a separate stability rule, (3) the
-    /// hash is decoupled from the manifest-loader's parsed-value cache.
+    /// `Workspace.swift` bytes, then — when
+    /// `workspaceOverridesContent` is non-nil — the raw
+    /// `.swiftpm/configuration/workspace-overrides.json` bytes.
+    /// Hashing file content directly (rather than parsed values)
+    /// mirrors how each member's `Package.swift` is hashed and gives
+    /// three properties for free: (1) any edit to a workspace-scope
+    /// input file invalidates resolution, (2) reordering entries in
+    /// the DSL still changes the hash so no separate stability rule
+    /// is needed, (3) the hash is decoupled from the manifest-loader's
+    /// parsed-value cache.
     ///
-    /// Backward compatibility: passing `nil` for
-    /// `workspaceManifestContent` reproduces the pre-workspace hash
-    /// payload byte-for-byte.
+    /// Backward compatibility: passing `nil` for both
+    /// `workspaceManifestContent` and `workspaceOverridesContent`
+    /// reproduces the pre-workspace hash payload byte-for-byte.
     static func computeResolvedFileOriginHash(
         manifestContents: [String],
         dependencyLocations: [String],
         workspaceManifestContent: String?,
+        workspaceOverridesContent: String?,
     ) -> String {
         var content = manifestContents.joined()
         content += dependencyLocations.joined()
         if let workspaceManifestContent {
             content += workspaceManifestContent
+        }
+        if let workspaceOverridesContent {
+            content += workspaceOverridesContent
         }
         return content.sha256Checksum
     }
