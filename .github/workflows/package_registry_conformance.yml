@@ -48,6 +48,7 @@ jobs:
             fi
             sleep 1
           done
+          curl https://127.0.0.1:8000
           echo "the registry server did not answer within 60s"
           cat .build/registry-server.log
           exit 1
