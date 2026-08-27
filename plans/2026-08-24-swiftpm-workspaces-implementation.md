@@ -8,7 +8,7 @@ Implement first-class workspaces in Swift Package Manager: a new `Workspace.swif
 
 **Gating:** all new DSL surface gated on `@available(_PackageDescription, introduced: 999.0)` using SwiftPM's existing `vNext` convention (`Sources/PackageModel/ToolsVersion.swift:39`). Graduation to a real tools-version is out of scope for this plan.
 
-## Status (as of 2026-08-26)
+## Status (as of 2026-08-27)
 
 | Phase | Slice | Status | Branch |
 |---|---|---|---|
@@ -19,8 +19,9 @@ Implement first-class workspaces in Swift Package Manager: a new `Workspace.swif
 | 4 | Case A — CWD inside member (S04) | ✅ Done | `bkhouri/t/main/poc_workspaces_phase4` |
 | 5 | `--package` selector for `swift build` (S05) | ✅ Done | `bkhouri/t/main/poc_workspaces_phase5` |
 | 6 | `swift test` in workspace (S06) | ✅ Done — includes `XUnitGenerator` per-package annotation and `swift test list --package` migration (on a separate branch) | `bkhouri/t/main/poc_workspaces_phase6` (+ follow-up branch) |
-| 7 | `swift run` collisions | 🔲 Not started | — |
-| 8 | `swift package resolve` + trailing warnings | 🔲 Not started | — |
+| 7 | `swift run` collisions | ✅ Done | `bkhouri/t/main/poc_workspaces_phase7` |
+| 8 | `swift package resolve` + trailing warnings + workspace-scope originHash | ✅ Done | `bkhouri/t/main/poc_workspaces_phase8` |
+| 8B | Workspace dependency overrides (`.swiftpm/configuration/workspace-overrides.json`) | ✅ Done — folds overrides file content into origin hash | `bkhouri/t/main/poc_workspaces_phase8_diverge-workspace_deps_override` |
 | 9 | `swift package init workspace` | 🔲 Not started | — |
 | 10 | `swift package show-dependencies` workspace awareness | 🔲 Not started | — |
 | 11 | `swift package update` workspace awareness | 🔲 Not started | — |
@@ -1259,6 +1260,78 @@ func s08_originHashUnionsMembersAndWorkspaceDeps(...) async throws { ... }
 
 #### Manual Verification:
 (none — all criteria automated)
+
+---
+
+## Phase 8B: Workspace Dependency Overrides
+
+### Overview
+
+Developer-local dependency overrides that redirect a workspace-declared
+dependency to an alternative source (typically a local filesystem
+checkout) for the duration of a debugging or bring-up session.
+Overrides live in `.swiftpm/configuration/workspace-overrides.json`
+under the workspace root, alongside the existing `mirrors.json` and
+`registries.json`. The file is intended to be listed in `.gitignore`
+— it captures ephemeral local state, not committed configuration.
+
+Applied at workspace-manifest load time in
+`PackageWorkspace.loadWorkspaceManifest`, so downstream code (graph
+loader, resolver, `.workspaceInherited` resolution) sees the
+overridden dependency list as if it had been declared directly in
+`Workspace.swift`. The originally-declared `.package(url:from:)` URL
+is never contacted when an override redirects that identity.
+
+### Changes Required
+
+- **`Sources/PackageLoading/WorkspaceOverridesJSONParser.swift`** (new):
+  - `Override` struct — `identity: PackageIdentity` + `overridingDependency: PackageDependency`.
+  - `parse(v1:workspaceRoot:)` — decode `.swiftpm/configuration/workspace-overrides.json` v1 schema.
+  - `loadIfPresent(overridesFile:workspaceRoot:fileSystem:)` — read + parse if present, empty otherwise.
+  - `apply(_:to:)` — replace matching workspace-level deps by identity.
+  - `WorkspaceOverridesParseError` — `.unsupportedVersion`, `.workspaceScopedKindNotAllowed`.
+  - `WorkspaceOverridesApplyError` — `.unknownIdentity` (typos surface as errors, not silent no-ops).
+
+- **`Sources/Workspace/Workspace+Configuration.swift`** — `DefaultLocations.workspaceOverridesFile(forRootPackage:)` and `workspaceOverridesFile(at:)` return the canonical path, mirroring the mirrors/registries pattern.
+
+- **`Sources/Workspace/PackageWorkspace+Discovery.swift`** — `loadWorkspaceManifest` reads, parses, and applies overrides after parsing `Workspace.swift`. Emits an info-level diagnostic listing each active override so users aren't silently redirected.
+
+- **`Sources/Workspace/Workspace+Dependencies.swift`** — `resolvedFileOriginHash` reads `.swiftpm/configuration/workspace-overrides.json` (when present) and folds its bytes into the payload alongside `Workspace.swift`. Adding, removing, or editing the overrides file invalidates the resolved-file cache and forces re-resolution.
+
+- **`Sources/_InternalTestSupport/misc.swift`** — fixture-copy no longer strips `.swiftpm/`. That directory can legitimately hold committed workspace-scope configuration (mirrors, registries, overrides); only `.build/` is transient state.
+
+### JSON schema (v1)
+
+```json
+{
+  "version": 1,
+  "overrides": [
+    {
+      "identity": "some-lib",
+      "kind": {
+        "fileSystem": {"name": null, "path": "external/local-some-lib"}
+      }
+    }
+  ]
+}
+```
+
+- Kinds: `fileSystem`, `sourceControl`, `registry` (mirrors `PackageDependency.Kind` wire format). Workspace-scoped kinds (`workspaceMember`, `workspaceInherited`) are rejected at parse time.
+- Relative paths in `.fileSystem` and `.sourceControl` overrides resolve against the workspace root.
+- Unknown identities (no matching workspace-level dep in `Workspace.swift`) are rejected at apply time.
+
+### Success Criteria
+
+- [ ] `s09_workspaceOverrideRedirectsToLocalCheckout` — end-to-end: declared source-control dep redirected to a local `external/local-some-lib` checkout; `swift build` succeeds and `app` prints the local greeting.
+- [ ] Info diagnostic listing active overrides visible in stderr on every command that loads the workspace manifest.
+- [ ] Editing the overrides file changes `originHash` in `Package.resolved` → re-resolve triggered on next command.
+- [ ] Missing overrides file → zero overhead, no behavior change for workspaces without one.
+- [ ] Unknown-identity override → hard error, no silent no-op.
+- [ ] Full regression green (all unit + integration + e2e tests).
+
+#### Manual Verification:
+- [ ] Author `.swiftpm/configuration/workspace-overrides.json` redirecting a workspace-level dep to a local checkout. `swift build`, verify the checkout is used.
+- [ ] Delete the file. Next `swift build` re-resolves against the original source.
 
 ---
 
