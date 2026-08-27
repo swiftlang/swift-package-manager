@@ -9,6 +9,7 @@
 add_library(PackageRegistryCommand
   PackageRegistryCommand+Auth.swift
   PackageRegistryCommand+Publish.swift
+  PackageRegistryCommand+Search.swift
   PackageRegistryCommand.swift)
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageRegistryCommand PROPERTIES
