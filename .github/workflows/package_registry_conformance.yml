@@ -44,6 +44,7 @@ jobs:
         run: |
           command -v curl
           "$REGISTRY_SERVER" >.build/registry-server.log 2>&1 &
+          echo "REGISTRY_SERVER_PID=$!" >>"$GITHUB_ENV"
           for _ in $(seq 1 120); do
             if curl -sS --fail --connect-timeout 2 --max-time 5 \
                  --cacert certs/cert.pem https://127.0.0.1:8000/availability >/dev/null; then
@@ -92,3 +93,7 @@ jobs:
         if: always()
         working-directory: Examples/package-registry
         run: cat .build/registry-server.log || true
+      - name: Stop the registry server
+        if: always()
+        shell: bash
+        run: kill "${REGISTRY_SERVER_PID:-}" 2>/dev/null || true
