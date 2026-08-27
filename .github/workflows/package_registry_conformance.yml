@@ -40,17 +40,36 @@ jobs:
           swift build --product PackageRegistryServer
       - name: Start the registry server
         working-directory: Examples/package-registry
+        env:
+          # curl honours a configured proxy even for loopback, which turns a
+          # refused connection into a hang.
+          NO_PROXY: localhost,127.0.0.1,::1
+          no_proxy: localhost,127.0.0.1,::1
         run: |
+          command -v curl
           swift run --skip-build PackageRegistryServer &>.build/registry-server.log &
-          for _ in $(seq 1 60); do
-            if curl -sSf --cacert certs/cert.pem https://127.0.0.1:8000/availability >/dev/null 2>&1; then
+          server_pid=$!
+          for _ in $(seq 1 120); do
+            if curl -sS --fail --connect-timeout 2 --max-time 5 \
+                 --cacert certs/cert.pem https://127.0.0.1:8000/availability >/dev/null; then
+              echo "registry server is up"
               exit 0
+            fi
+            if ! kill -0 "$server_pid" 2>/dev/null; then
+              echo "the registry server exited before accepting connections"
+              break
             fi
             sleep 1
           done
-          curl https://127.0.0.1:8000
-          echo "the registry server did not answer within 60s"
-          cat .build/registry-server.log
+          echo "--- /etc/hosts ---"
+          cat /etc/hosts
+          echo "--- listening sockets (port 8000 is :1F40) ---"
+          ss -lntp 2>/dev/null || echo "(ss unavailable)"
+          grep -iE ':1F40' /proc/net/tcp /proc/net/tcp6 \
+            || echo "(nothing bound to port 8000)"
+          echo "--- verbose probe ---"
+          curl -v --connect-timeout 2 --max-time 5 \
+            --cacert certs/cert.pem https://127.0.0.1:8000/availability || true
           exit 1
       - name: Check responses against the OpenAPI spec
         uses: schemathesis/action@v3.0.0
