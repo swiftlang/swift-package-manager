@@ -1,0 +1,71 @@
+name: Package Registry OpenAPI Conformance
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - 'Examples/package-registry/**'
+      - 'Documentation/PackageRegistry/registry.openapi.yaml'
+      - '.github/workflows/package_registry_conformance.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  openapi-conformance:
+    name: OpenAPI Conformance
+    # `schemathesis/action` is a composite action, so it runs inside this
+    # container. Keep the runner image on the same Ubuntu release as the
+    # container so the Python build it installs matches.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    container:
+      image: swiftlang/swift:nightly-main-noble
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Build the registry server
+        working-directory: Examples/package-registry
+        # Without a certificate the server falls back to plain HTTP on port
+        # 8080; the certificate is what moves it to https://localhost:8000.
+        run: |
+          ./scripts/generate-cert.sh
+          swift build --product PackageRegistryServer
+      - name: Start the registry server
+        working-directory: Examples/package-registry
+        run: |
+          swift run --skip-build PackageRegistryServer &>.build/registry-server.log &
+          for _ in $(seq 1 60); do
+            if curl -sSf --cacert certs/cert.pem https://localhost:8000/availability >/dev/null 2>&1; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "the registry server did not answer within 60s"
+          cat .build/registry-server.log
+          exit 1
+      - name: Check responses against the OpenAPI spec
+        uses: schemathesis/action@v3.0.0
+        with:
+          schema: Documentation/PackageRegistry/registry.openapi.yaml
+          base-url: https://localhost:8000
+          # The certificate is self-signed, so it doubles as its own CA bundle.
+          # The registry also requires a versioned `Accept` header on every
+          # request.
+          args: >-
+            --tls-verify=Examples/package-registry/certs/cert.pem
+            -H "Accept: application/vnd.swift.registry.v1+json"
+          # Posting the schema coverage summary to the PR needs a write token,
+          # which pull requests from forks do not get.
+          coverage-pr-comment: false
+      - name: Registry server log
+        if: always()
+        working-directory: Examples/package-registry
+        run: cat .build/registry-server.log || true
