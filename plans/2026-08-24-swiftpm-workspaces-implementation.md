@@ -22,6 +22,10 @@ Implement first-class workspaces in Swift Package Manager: a new `Workspace.swif
 | 7 | `swift run` collisions | ✅ Done | `bkhouri/t/main/poc_workspaces_phase7` |
 | 8 | `swift package resolve` + trailing warnings + workspace-scope originHash | ✅ Done | `bkhouri/t/main/poc_workspaces_phase8` |
 | 8B | Workspace dependency overrides (`.swiftpm/configuration/workspace-overrides.json`) | ✅ Done — folds overrides file content into origin hash | `bkhouri/t/main/poc_workspaces_phase8_diverge-workspace_deps_override` |
+<<<<<<< Updated upstream
+=======
+| 8C | `swift workspace override` subcommand (add / remove / list) | 🔲 Not started | — |
+>>>>>>> Stashed changes
 | 9 | `swift package init workspace` | 🔲 Not started | — |
 | 10 | `swift package show-dependencies` workspace awareness | 🔲 Not started | — |
 | 11 | `swift package update` workspace awareness | 🔲 Not started | — |
@@ -1286,7 +1290,11 @@ is never contacted when an override redirects that identity.
 
 - **`Sources/PackageLoading/WorkspaceOverridesJSONParser.swift`** (new):
   - `Override` struct — `identity: PackageIdentity` + `overridingDependency: PackageDependency`.
+<<<<<<< Updated upstream
   - `parse(v1:workspaceRoot:)` — decode `.swiftpm/configuration/workspace-overrides.json` v1 schema.
+=======
+  - `parse(v1:workspaceRoot:)` — decode the v1 schema.
+>>>>>>> Stashed changes
   - `loadIfPresent(overridesFile:workspaceRoot:fileSystem:)` — read + parse if present, empty otherwise.
   - `apply(_:to:)` — replace matching workspace-level deps by identity.
   - `WorkspaceOverridesParseError` — `.unsupportedVersion`, `.workspaceScopedKindNotAllowed`.
@@ -1322,7 +1330,12 @@ is never contacted when an override redirects that identity.
 
 ### Success Criteria
 
+<<<<<<< Updated upstream
 - [ ] `s09_workspaceOverrideRedirectsToLocalCheckout` — end-to-end: declared source-control dep redirected to a local `external/local-some-lib` checkout; `swift build` succeeds and `app` prints the local greeting.
+=======
+- [ ] `s09_workspaceOverrideRedirectsToLocalCheckout` — end-to-end: declared source-control dep redirected to a local `external/local-some-lib` checkout; `swift build` succeeds and `app` prints the local greeting. Covers manual case: author overrides file, verify checkout is used.
+- [ ] `s09_workspaceOverrideDeleted_reRoutesToOriginalSource` — fixture with a redirect file; test resolves once (uses local), deletes the overrides file, resolves again, and asserts `Package.resolved` now records the original source-control dep at the declared URL. Covers manual case: delete file, verify original source is re-resolved.
+>>>>>>> Stashed changes
 - [ ] Info diagnostic listing active overrides visible in stderr on every command that loads the workspace manifest.
 - [ ] Editing the overrides file changes `originHash` in `Package.resolved` → re-resolve triggered on next command.
 - [ ] Missing overrides file → zero overhead, no behavior change for workspaces without one.
@@ -1330,8 +1343,84 @@ is never contacted when an override redirects that identity.
 - [ ] Full regression green (all unit + integration + e2e tests).
 
 #### Manual Verification:
+<<<<<<< Updated upstream
 - [ ] Author `.swiftpm/configuration/workspace-overrides.json` redirecting a workspace-level dep to a local checkout. `swift build`, verify the checkout is used.
 - [ ] Delete the file. Next `swift build` re-resolves against the original source.
+=======
+(none — all criteria automated)
+
+---
+
+## Phase 8C: `swift workspace override` Subcommand
+
+### Overview
+
+CLI ergonomics for the overrides feature landed in Phase 8B. A new
+top-level `swift workspace` command groups workspace-scope operations;
+its first subcommand family is `override`, letting users manipulate
+`.swiftpm/configuration/workspace-overrides.json` without hand-editing
+JSON.
+
+The subcommand only exists when the current directory is inside a
+workspace (has a discoverable `Workspace.swift`). Outside a workspace,
+it prints an actionable error pointing users at `swift package init workspace`.
+
+### CLI surface
+
+```
+swift workspace override add <identity> --path <local-path>
+swift workspace override add <identity> --url <scm-url> --from <version>
+swift workspace override add <identity> --url <scm-url> --branch <name>
+swift workspace override add <identity> --url <scm-url> --revision <sha>
+swift workspace override add <identity> --registry <id> --from <version>
+
+swift workspace override remove <identity>
+swift workspace override list
+```
+
+- `add` writes (or overwrites) an entry in the overrides file. Fails
+  if `<identity>` does not match any workspace-level dep declared in
+  `Workspace.swift`.
+- `remove` removes an entry by identity. Fails with an actionable
+  error if the identity isn't currently overridden.
+- `list` prints the current overrides as a table (`identity | kind |
+  target`) sorted by identity. Empty output when there are no
+  overrides.
+- All three commands operate on the workspace root discovered from
+  CWD via the existing `PackageWorkspace.discoverWorkspaceRoot`
+  machinery.
+
+### Changes Required
+
+- **`Sources/Commands/WorkspaceCommands/`** (new directory):
+  - `WorkspaceCommand.swift` — parent `AsyncParsableCommand` registered from `SwiftPM.swift` under `swift workspace`.
+  - `WorkspaceCommands/Override/OverrideCommand.swift` — subcommand container.
+  - `WorkspaceCommands/Override/Add.swift`, `Remove.swift`, `List.swift` — leaf commands.
+
+- **`Sources/PackageLoading/WorkspaceOverridesJSONWriter.swift`** (new): companion to `WorkspaceOverridesJSONParser`. Serializes `[Override]` back to JSON with stable key order (matches parser's schema exactly, so round-trips are byte-identical when the same set of overrides is re-serialized). Reused by `add` and `remove`.
+
+- **Identity validation** — before writing, `add` loads the current `WorkspaceManifest` and verifies `<identity>` appears in `dependencies:`. This is the same guard `WorkspaceOverridesJSONParser.apply` enforces at load time; catching it at write time gives a much better error message.
+
+- **Diagnostic ergonomics**:
+  - `swift workspace override list` in a workspace with no overrides prints a hint: `(no overrides declared — add one with 'swift workspace override add <identity> --path <path>')`.
+  - `swift workspace override add <identity>` where `<identity>` is unknown lists the workspace-level dep identities as suggestions.
+
+### Success Criteria
+
+- [ ] `s10_workspaceOverrideAddWritesToOverridesFile` — `swift workspace override add some-lib --path ../some-lib` writes the expected entry to `.swiftpm/configuration/workspace-overrides.json`.
+- [ ] `s10_workspaceOverrideAdd_thenBuildUsesRedirect` — after `swift workspace override add some-lib --path ../local-some-lib`, a subsequent `swift build` (or `swift run`) uses the redirected checkout (asserted via the built binary's output). Covers manual case: add, then build, verify redirect.
+- [ ] `s10_workspaceOverrideRemove` — `swift workspace override remove some-lib` deletes the entry from the overrides file. When the removal empties the file, the file itself is removed rather than left as `{"version":1,"overrides":[]}`.
+- [ ] `s10_workspaceOverrideRemove_thenBuildUsesOriginalSource` — after adding an override, running a build, then removing the override, a fresh `swift build` re-resolves against the originally-declared source and no longer references the local path. Covers manual case: remove, then build, verify original source is used again.
+- [ ] `s10_workspaceOverrideList_showsAddedEntry` — after `add`, `swift workspace override list` prints the entry (identity + kind + target). Covers manual case: list shows the entry.
+- [ ] `s10_workspaceOverrideList_empty` — with no overrides declared, `list` prints the "no overrides declared" hint.
+- [ ] `s10_workspaceOverrideAddOutsideWorkspace_errors` — invoked outside a workspace, prints an actionable error and exits non-zero.
+- [ ] `s10_workspaceOverrideAddUnknownIdentity_errorsWithSuggestions` — unknown identity emits suggestions listing the workspace-level deps.
+- [ ] Unit tests: `WorkspaceOverridesJSONWriter` round-trips valid inputs (parse → write → parse round-trip is idempotent).
+- [ ] Full regression green.
+
+#### Manual Verification:
+(none — all criteria automated)
+>>>>>>> Stashed changes
 
 ---
 
