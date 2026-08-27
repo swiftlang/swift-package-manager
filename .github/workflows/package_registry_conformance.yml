@@ -34,7 +34,7 @@ jobs:
       - name: Build the registry server
         working-directory: Examples/package-registry
         # Without a certificate the server falls back to plain HTTP on port
-        # 8080; the certificate is what moves it to https://localhost:8000.
+        # 8080; the certificate is what moves it to https://127.0.0.1:8000.
         run: |
           ./scripts/generate-cert.sh
           swift build --product PackageRegistryServer
@@ -43,7 +43,7 @@ jobs:
         run: |
           swift run --skip-build PackageRegistryServer &>.build/registry-server.log &
           for _ in $(seq 1 60); do
-            if curl -sSf --cacert certs/cert.pem https://localhost:8000/availability >/dev/null 2>&1; then
+            if curl -sSf --cacert certs/cert.pem https://127.0.0.1:8000/availability >/dev/null 2>&1; then
               exit 0
             fi
             sleep 1
@@ -55,7 +55,7 @@ jobs:
         uses: schemathesis/action@v3.0.0
         with:
           schema: Documentation/PackageRegistry/registry.openapi.yaml
-          base-url: https://localhost:8000
+          base-url: https://127.0.0.1:8000
           # The certificate is self-signed, so it doubles as its own CA bundle.
           # The registry also requires a versioned `Accept` header on every
           # request.
