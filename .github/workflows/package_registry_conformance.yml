@@ -31,18 +31,24 @@ jobs:
         uses: actions/checkout@v7
         with:
           persist-credentials: false
+      - name: Install curl
+        run: apt-get -q update && apt-get -yq install --no-install-recommends curl
       - name: Build the registry server
         working-directory: Examples/package-registry
+        shell: bash
         # Without a certificate the server falls back to plain HTTP on port
         # 8080; the certificate is what moves it to https://127.0.0.1:8000.
         run: |
           ./scripts/generate-cert.sh
           swift build --product PackageRegistryServer
+          bin_path="$(swift build --product PackageRegistryServer --show-bin-path)"
+          echo "REGISTRY_SERVER=$bin_path/PackageRegistryServer" >>"$GITHUB_ENV"
       - name: Start the registry server
         working-directory: Examples/package-registry
+        shell: bash
         run: |
           command -v curl
-          swift run --skip-build PackageRegistryServer &>.build/registry-server.log &
+          "$REGISTRY_SERVER" >.build/registry-server.log 2>&1 &
           server_pid=$!
           for _ in $(seq 1 120); do
             if curl -sS --fail --connect-timeout 2 --max-time 5 \
