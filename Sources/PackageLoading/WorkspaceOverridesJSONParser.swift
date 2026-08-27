@@ -53,6 +53,21 @@ public enum WorkspaceOverridesApplyError: Error, Equatable {
     case unknownIdentity(String)
 }
 
+/// Errors surfaced when mutating an `[Override]` list via the `add`
+/// / `remove` helpers used by the `swift workspace override` CLI
+/// subcommands. Kept separate from parse and apply errors so callers
+/// can produce distinct diagnostics per phase.
+public enum WorkspaceOverridesMutationError: Error, Equatable {
+    /// `removeOverride(from:identity:)` was called with an identity
+    /// that isn't currently overridden. Silently doing nothing would
+    /// let typos hide; instead the CLI surfaces this as an
+    /// actionable message ("no override for '<id>'; run
+    /// `swift workspace override list` to see current entries").
+    /// - Parameter identity: The identity that was requested for
+    ///   removal.
+    case identityNotOverridden(String)
+}
+
 /// Parses the contents of `.swiftpm/configuration/workspace-overrides.json` into
 /// a resolved list of override entries ready for consumption by
 /// `PackageWorkspace.loadWorkspaceManifest`.
@@ -195,6 +210,53 @@ public enum WorkspaceOverridesJSONParser {
             members: manifest.members,
             dependencies: newDependencies,
         )
+    }
+
+    // MARK: - Mutating the override list
+
+    /// Adds an override to a list, replacing any existing entry with
+    /// the same identity. The insertion is idempotent: running the
+    /// `swift workspace override add` CLI twice with the same
+    /// identity but different targets updates the entry rather than
+    /// producing a duplicate.
+    ///
+    /// The caller is responsible for validating that
+    /// `override.identity` matches a declared workspace-level dep
+    /// (see `WorkspaceManifest.dependencies`); the CLI wraps this
+    /// with an identity-existence check to surface typos early.
+    ///
+    /// - Parameters:
+    ///   - overrides: The current override list.
+    ///   - override: The override entry to insert or replace.
+    /// - Returns: The updated override list. Order is preserved for
+    ///   entries not affected by the operation.
+    public static func addOverride(
+        to overrides: [Override],
+        override: Override,
+    ) -> [Override] {
+        var result = overrides.filter { $0.identity != override.identity }
+        result.append(override)
+        return result
+    }
+
+    /// Removes the override with the given identity.
+    ///
+    /// - Parameters:
+    ///   - overrides: The current override list.
+    ///   - identity: The identity to remove.
+    /// - Returns: The list with the matching entry removed.
+    /// - Throws: `WorkspaceOverridesMutationError.identityNotOverridden`
+    ///   when `identity` isn't currently overridden. A silent no-op
+    ///   would let typos hide; instead the CLI surfaces this as an
+    ///   actionable diagnostic.
+    public static func removeOverride(
+        from overrides: [Override],
+        identity: PackageIdentity,
+    ) throws -> [Override] {
+        guard overrides.contains(where: { $0.identity == identity }) else {
+            throw WorkspaceOverridesMutationError.identityNotOverridden(identity.description)
+        }
+        return overrides.filter { $0.identity != identity }
     }
 
     // MARK: - Resolution
