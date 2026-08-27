@@ -835,7 +835,12 @@ final class URLSessionHTTPClientTest: XCTestCase {
         MockURLProtocol.onRequest(request) { request in
             XCTAssertEqual(request.allHTTPHeaderFields?["Authorization"], testAuthHeader)
             MockURLProtocol.sendResponse(statusCode: 302, headers: ["Location": redirectURL.absoluteString], for: request)
-            MockURLProtocol.sendRedirect(for: request, to: URLRequest(url: redirectURL))
+            // URLSession carries the original request's headers (including `Authorization`) onto
+            // the redirected request it hands to the delegate, so mirror that here to actually
+            // exercise the delegate's header-stripping logic.
+            var redirectURLRequest = URLRequest(url: redirectURL)
+            redirectURLRequest.allHTTPHeaderFields = request.allHTTPHeaderFields
+            MockURLProtocol.sendRedirect(for: request, to: redirectURLRequest)
         }
         MockURLProtocol.onRequest(redirectedRequest) { request in
             XCTAssertNil(request.allHTTPHeaderFields?["Authorization"])
