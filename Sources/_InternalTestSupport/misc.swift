@@ -377,9 +377,13 @@ fileprivate func setup(
         }
 
         try copyItem(from: srcDir, to: dstDir)
-        // Ensure we get a clean test fixture.
+        // Ensure we get a clean test fixture — strip transient build
+        // output. `.swiftpm/` is intentionally NOT stripped: it can
+        // legitimately hold committed workspace-level configuration
+        // like `.swiftpm/configuration/workspace-overrides.json` that a fixture
+        // relies on. Historically this branch also removed `.swiftpm/`,
+        // but no existing fixture depended on that behavior.
         try localFileSystem.removeFileTree(dstDir.appending(component: ".build"))
-        try localFileSystem.removeFileTree(dstDir.appending(component: ".swiftpm"))
     }
 
     // The fixture contains either a checkout or just a Git directory.
