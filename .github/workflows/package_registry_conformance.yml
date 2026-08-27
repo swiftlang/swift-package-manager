@@ -40,11 +40,6 @@ jobs:
           swift build --product PackageRegistryServer
       - name: Start the registry server
         working-directory: Examples/package-registry
-        env:
-          # curl honours a configured proxy even for loopback, which turns a
-          # refused connection into a hang.
-          NO_PROXY: localhost,127.0.0.1,::1
-          no_proxy: localhost,127.0.0.1,::1
         run: |
           command -v curl
           swift run --skip-build PackageRegistryServer &>.build/registry-server.log &
