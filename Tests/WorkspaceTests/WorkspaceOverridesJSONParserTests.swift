@@ -406,6 +406,90 @@ struct WorkspaceOverridesJSONParserTests {
         #expect(result[0] == expected)
     }
 
+    // MARK: - addOverride
+
+    /// Appending an override for an identity not already overridden
+    /// grows the list by one. This is the common case for `swift
+    /// workspace override add` on a fresh workspace.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func addOverride_toEmptyList_appendsEntry() throws {
+        let override = Self.makeOverride(identity: "some-lib")
+
+        let result = WorkspaceOverridesJSONParser.addOverride(
+            to: [],
+            override: override,
+        )
+
+        #expect(result == [override])
+    }
+
+    /// Adding an override for an identity that is already overridden
+    /// replaces the existing entry rather than duplicating it. This
+    /// makes `swift workspace override add` idempotent — running it
+    /// twice with the same identity but a new target updates the
+    /// entry rather than creating a corrupt list with two entries
+    /// for the same identity.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func addOverride_whenIdentityAlreadyOverridden_replacesEntry() throws {
+        let existing = Self.makeOverride(identity: "some-lib", relativePath: "old")
+        let replacement = Self.makeOverride(identity: "some-lib", relativePath: "new")
+
+        let result = WorkspaceOverridesJSONParser.addOverride(
+            to: [existing],
+            override: replacement,
+        )
+
+        #expect(result == [replacement])
+    }
+
+    // MARK: - removeOverride
+
+    /// Removing an override by identity drops the matching entry
+    /// and leaves the rest untouched.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func removeOverride_whenIdentityPresent_dropsEntry() throws {
+        let some = Self.makeOverride(identity: "some-lib")
+        let other = Self.makeOverride(identity: "other-lib")
+
+        let result = try WorkspaceOverridesJSONParser.removeOverride(
+            from: [some, other],
+            identity: .plain("some-lib"),
+        )
+
+        #expect(result == [other])
+    }
+
+    /// Removing an identity that isn't currently overridden is an
+    /// error, not a silent no-op. The CLI turns this into an
+    /// actionable message pointing users at the identity list.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func removeOverride_whenIdentityAbsent_throws() throws {
+        let some = Self.makeOverride(identity: "some-lib")
+
+        #expect(throws: WorkspaceOverridesMutationError.identityNotOverridden("ghost-lib")) {
+            _ = try WorkspaceOverridesJSONParser.removeOverride(
+                from: [some],
+                identity: .plain("ghost-lib"),
+            )
+        }
+    }
+
     // MARK: - test helpers
 
     private static func makeManifest(
@@ -429,6 +513,20 @@ struct WorkspaceOverridesJSONParserTests {
             path: AbsolutePath("/repo").appending(try! RelativePath(validating: relativePath)),
             productFilter: .everything,
             traits: nil,
+        )
+    }
+
+    private static func makeOverride(
+        identity: String,
+        relativePath: String? = nil,
+    ) -> WorkspaceOverridesJSONParser.Override {
+        let path = relativePath ?? "external/\(identity)"
+        return WorkspaceOverridesJSONParser.Override(
+            identity: .plain(identity),
+            overridingDependency: Self.fileSystemDep(
+                identity: identity,
+                relativePath: path,
+            ),
         )
     }
 }

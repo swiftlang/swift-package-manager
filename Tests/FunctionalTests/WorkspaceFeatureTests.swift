@@ -1385,10 +1385,10 @@ struct WorkspaceFeatureTests {
         ),
         arguments: [BuildSystemProvider.Kind.swiftbuild],
     )
-    func s09_workspaceOverrideRedirectsToLocalCheckout(
+    func s08_b_workspaceOverrideRedirectsToLocalCheckout(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        try await fixture(name: "Workspaces/S09_WorkspaceOverrides") { fixturePath in
+        try await fixture(name: "Workspaces/S08_WorkspaceOverrides") { fixturePath in
             let (_, stderr) = try await executeSwiftPackage(
                 fixturePath,
                 configuration: .debug,
@@ -1423,6 +1423,184 @@ struct WorkspaceFeatureTests {
             #expect(
                 output == "app says: hello from LOCAL some-lib\n",
                 "expected the LOCAL some-lib greeting (override target), got: \(output)",
+            )
+        }
+    }
+
+    // MARK: - Slice 10: `swift package workspace override` subcommand
+
+    /// `swift package workspace override list` invoked in a workspace
+    /// with no overrides file emits the "no overrides declared" hint
+    /// and exits successfully. Verifies the empty-state UX before any
+    /// mutation happens.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Resolve,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s08_c_workspaceOverrideList_empty(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S08_WorkspaceOverrides") { fixturePath in
+            let overridesFile = fixturePath.appending(
+                components: ".swiftpm", "configuration", "workspace-overrides.json",
+            )
+            try localFileSystem.removeFileTree(overridesFile)
+
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["workspace", "override", "list"],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stdout.contains("(no overrides declared)"),
+                "expected empty-state hint; got stdout=\(stdout)",
+            )
+        }
+    }
+
+    /// `swift package workspace override add <identity> --path <path>`
+    /// writes the override to `.swiftpm/configuration/workspace-overrides.json`
+    /// and a subsequent `swift build` picks up the redirect — the
+    /// built binary prints the LOCAL greeting instead of contacting
+    /// the declared source-control URL.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Resolve,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s08_c_workspaceOverrideAdd_thenBuildUsesRedirect(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S08_WorkspaceOverrides") { fixturePath in
+            let overridesFile = fixturePath.appending(
+                components: ".swiftpm", "configuration", "workspace-overrides.json",
+            )
+            try localFileSystem.removeFileTree(overridesFile)
+
+            _ = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: [
+                    "workspace", "override", "add",
+                    "some-lib", "--path", "external/local-some-lib",
+                ],
+                buildSystem: buildSystem,
+            )
+            expectFileExists(at: overridesFile)
+
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+            let binPath = try await getBinPath(
+                fixturePath,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+            let output = try await AsyncProcess.checkNonZeroExit(
+                args: binPath.appending("app").pathString,
+            ).withSwiftLineEnding
+            #expect(
+                output == "app says: hello from LOCAL some-lib\n",
+                "expected the LOCAL some-lib greeting after CLI-added override; got: \(output)",
+            )
+        }
+    }
+
+    /// After adding an override via the CLI, `list` shows the entry
+    /// in the expected `identity: target` format.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Resolve,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s08_c_workspaceOverrideList_showsAddedEntry(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S08_WorkspaceOverrides") { fixturePath in
+            let overridesFile = fixturePath.appending(
+                components: ".swiftpm", "configuration", "workspace-overrides.json",
+            )
+            try localFileSystem.removeFileTree(overridesFile)
+
+            _ = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: [
+                    "workspace", "override", "add",
+                    "some-lib", "--path", "external/local-some-lib",
+                ],
+                buildSystem: buildSystem,
+            )
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["workspace", "override", "list"],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stdout.contains("some-lib:"),
+                "expected 'some-lib' identity in list output; got stdout=\(stdout)",
+            )
+            #expect(
+                stdout.contains("external/local-some-lib"),
+                "expected the redirected path in list output; got stdout=\(stdout)",
+            )
+        }
+    }
+
+    /// `swift package workspace override remove <identity>` deletes
+    /// the entry; when it was the only entry, the file itself is
+    /// removed. A subsequent `list` reverts to the empty-state hint.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Resolve,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s08_c_workspaceOverrideRemove_lastEntry_deletesFileAndListsEmpty(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S08_WorkspaceOverrides") { fixturePath in
+            let overridesFile = fixturePath.appending(
+                components: ".swiftpm", "configuration", "workspace-overrides.json",
+            )
+            try localFileSystem.removeFileTree(overridesFile)
+
+            _ = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: [
+                    "workspace", "override", "add",
+                    "some-lib", "--path", "external/local-some-lib",
+                ],
+                buildSystem: buildSystem,
+            )
+            _ = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["workspace", "override", "remove", "some-lib"],
+                buildSystem: buildSystem,
+            )
+            expectFileDoesNotExist(at: overridesFile)
+
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["workspace", "override", "list"],
+                buildSystem: buildSystem,
+            )
+            #expect(
+                stdout.contains("(no overrides declared)"),
+                "expected empty-state hint after remove; got stdout=\(stdout)",
             )
         }
     }
