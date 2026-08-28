@@ -11,7 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
+import struct Basics.AbsolutePath
 import CoreCommands
+import Workspace
 
 import struct Basics.SwiftVersion
 
@@ -27,7 +29,11 @@ public struct SwiftWorkspaceCommand: AsyncParsableCommand {
         abstract: "Perform workspace-scope operations on the enclosing SwiftPM workspace.",
         discussion: "SEE ALSO: swift package, swift build, swift run, swift test",
         version: SwiftVersion.current.completeDisplayString,
-        subcommands: [Init.self, Override.self],
+        subcommands: [
+            Init.self,
+            ListMembers.self,
+            Override.self,
+        ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)],
     )
 
@@ -35,4 +41,44 @@ public struct SwiftWorkspaceCommand: AsyncParsableCommand {
     var globalOptions: GlobalOptions
 
     public init() {}
+}
+
+/// File-level helper: locates the enclosing workspace root or throws a
+/// user-actionable error mentioning `subcommandDisplayName`. Shared by
+/// every `swift package workspace <sub>` subcommand that must be
+/// invoked from inside a workspace.
+package func requireWorkspaceRoot(
+    _ swiftCommandState: SwiftCommandState,
+    subcommandDisplayName: String,
+) throws -> AbsolutePath {
+    let cwd = swiftCommandState.fileSystem.currentWorkingDirectory ?? .root
+    guard let workspaceRoot = PackageWorkspace.discoverWorkspaceRoot(
+        from: cwd,
+        fileSystem: swiftCommandState.fileSystem,
+    ) else {
+        throw ValidationError(
+            "'\(subcommandDisplayName)' must be invoked inside a SwiftPM workspace (no Workspace.swift found starting from \(cwd.pathString))",
+        )
+    }
+    return workspaceRoot
+}
+
+
+/// Discovers the workspace root from the command's current working
+/// directory, throwing a user-actionable error when the command
+/// is invoked outside a workspace. Common to all three
+/// subcommands.
+package func requireWorkspaceRoot(
+    _ swiftCommandState: SwiftCommandState,
+) throws -> AbsolutePath {
+    let cwd = swiftCommandState.fileSystem.currentWorkingDirectory ?? .root
+    guard let workspaceRoot = PackageWorkspace.discoverWorkspaceRoot(
+        from: cwd,
+        fileSystem: swiftCommandState.fileSystem,
+    ) else {
+        throw ValidationError(
+            "'swift package workspace override' must be invoked inside a SwiftPM workspace (no Workspace.swift found starting from \(cwd.pathString))",
+        )
+    }
+    return workspaceRoot
 }
