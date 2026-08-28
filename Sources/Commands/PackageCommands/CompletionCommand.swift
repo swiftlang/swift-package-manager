@@ -82,7 +82,7 @@ extension SwiftPackageCommand {
                 // ie "swift package list-dependencies" should output to stdout
                 ShowDependencies.dumpDependenciesOf(
                     graph: graph,
-                    rootPackage: graph.rootPackages[graph.rootPackages.startIndex],
+                    rootPackages: Array(graph.rootPackages),
                     mode: .flatlist,
                     on: TSCBasic.stdoutStream
                 )

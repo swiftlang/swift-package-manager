@@ -2049,6 +2049,255 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    // MARK: - Slice 10: `swift package show-dependencies` workspace awareness
+
+    /// `swift package show-dependencies --format text` at the workspace
+    /// root must include every workspace member — the pre-workspaces
+    /// implementation picked the arbitrary "first" root package via
+    /// `graph.rootPackages.startIndex`, silently dropping every other
+    /// member. Uses S02 (two members with a member-to-member dep) so
+    /// we can assert both members' trees are rendered.
+    ///
+    /// In workspace context, each member's tree is preceded by a
+    /// `--- <identity> ---` header so the sections are visually
+    /// distinguishable in the concatenated output.
+    @Test(
+        .tags(
+            .Feature.Command.Package.ShowDependencies,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s10_showDependenciesTextIncludesAllMembersWithHeaders(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S10_ShowDependencies") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["show-dependencies", "--format", "text"],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stdout.contains("--- app ---"),
+                "expected 'app' section header; got stdout=\(stdout)",
+            )
+            #expect(
+                stdout.contains("--- lib-a ---"),
+                "expected 'lib-a' section header; got stdout=\(stdout)",
+            )
+        }
+    }
+
+    /// In workspace context, a dep that resolves to another workspace
+    /// member (via `.package(workspaceMember:)`) gets a trailing
+    /// ` [workspace member]` tag so a reader can tell at a glance which
+    /// entries live in the workspace vs. come from source control /
+    /// registry / filesystem. S02's app→lib-a edge is exactly this
+    /// case. Non-workspace-member deps carry no tag.
+    @Test(
+        .tags(
+            .Feature.Command.Package.ShowDependencies,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s10_showDependenciesTextTagsWorkspaceMemberDeps(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S10_ShowDependencies") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["show-dependencies", "--format", "text"],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stdout.contains("lib-a") && stdout.contains("[workspace member]"),
+                "expected workspace-member tag on lib-a in app's dep tree; got stdout=\(stdout)",
+            )
+        }
+    }
+
+    /// `show-dependencies` invoked from inside a workspace member
+    /// directory scopes output to that member's dep tree only — mirrors
+    /// Slice 4's Case A behaviour for `swift build`. Uses S04 (two
+    /// members; only `app` depends on `some-lib`) and runs from
+    /// `packages/app`. Expect only `app`'s section, no `--- lib-a ---`
+    /// header.
+    @Test(
+        .tags(
+            .Feature.Command.Package.ShowDependencies,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s10_showDependenciesInsideMemberScopedToMember(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S10_ShowDependencies") { fixturePath in
+            let memberPath = fixturePath.appending(components: "packages", "app")
+
+            let (stdout, _) = try await executeSwiftPackage(
+                memberPath,
+                configuration: .debug,
+                extraArgs: ["show-dependencies", "--format", "text"],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stdout.contains("some-lib"),
+                "expected app's dep `some-lib` in output; got stdout=\(stdout)",
+            )
+            #expect(
+                stdout.contains("--- lib-a ---") == false,
+                "expected NO `lib-a` header (scoped to app); got stdout=\(stdout)",
+            )
+        }
+    }
+
+    /// `swift package show-dependencies --package <identity>` restricts
+    /// output to the named workspace member from anywhere — overrides
+    /// both the workspace-root all-members default AND any Case A CWD
+    /// focus. Mirrors Slice 5's `--package` selector for `swift build`.
+    /// S02 has both `app` and `lib-a` as members; selecting `lib-a`
+    /// yields only its tree.
+    @Test(
+        .tags(
+            .Feature.Command.Package.ShowDependencies,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s10_showDependenciesWithPackageSelector(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S10_ShowDependencies") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: [
+                    "show-dependencies",
+                    "--format", "text",
+                    "--package", "lib-a",
+                ],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stdout.contains("--- app ---") == false,
+                "expected NO `app` header (scoped to lib-a via --package); got stdout=\(stdout)",
+            )
+        }
+    }
+
+    /// `show-dependencies --format flatlist` at the workspace root
+    /// emits a deduplicated union of every in-scope member's
+    /// transitive dep identities. Uses S03 (both `app` and `lib-a`
+    /// inherit the same `some-lib`) so a naive walk that concatenates
+    /// each root's tree without dedup would emit `some-lib` twice —
+    /// the assertion pins the emitted line count to prove dedup is
+    /// applied.
+    @Test(
+        .tags(
+            .Feature.Command.Package.ShowDependencies,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s10_showDependenciesFlatListIsDeduplicatedUnion(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S10_ShowDependencies") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["show-dependencies", "--format", "flatlist"],
+                buildSystem: buildSystem,
+            )
+
+            let lines = stdout
+                .split(whereSeparator: { $0.isNewline })
+                .map(String.init)
+            let someLibCount = lines.filter { $0 == "some-lib" }.count
+            #expect(
+                someLibCount == 1,
+                "expected `some-lib` to appear exactly once in the deduplicated flatlist; got count=\(someLibCount) lines=\(lines)",
+            )
+        }
+    }
+
+    /// `show-dependencies --format dot` at the workspace root wraps
+    /// each member in a `subgraph cluster_<sanitized_identity> { ... }`
+    /// block inside the outer `digraph`. The plan calls this out as
+    /// the visible marker of multi-root Dot output; the unit test
+    /// `showDependencies_dot_multipleRoots_emitsSubgraphClusters`
+    /// covers the same behaviour at the dumper level, and this e2e
+    /// pins it end-to-end through the CLI.
+    @Test(
+        .tags(
+            .Feature.Command.Package.ShowDependencies,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s10_showDependenciesDotEmitsSubgraphClusters(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S10_ShowDependencies") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["show-dependencies", "--format", "dot"],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stdout.contains("digraph DependenciesGraph"),
+                "expected outer `digraph DependenciesGraph` wrapper; got stdout=\(stdout)",
+            )
+            #expect(
+                stdout.contains("subgraph cluster_app"),
+                "expected `subgraph cluster_app` block for the app member; got stdout=\(stdout)",
+            )
+            #expect(
+                stdout.contains("subgraph cluster_lib_a"),
+                "expected `subgraph cluster_lib_a` block for the lib-a member (hyphen sanitized to underscore); got stdout=\(stdout)",
+            )
+        }
+    }
+
+    /// Non-workspace-member deps must NOT carry the `[workspace
+    /// member]` tag in text output — the tag is reserved for entries
+    /// that resolve to another declared member of the same workspace.
+    /// S10's `some-lib` is a file-system path dep declared at the
+    /// workspace level and inherited into each member's tree; every
+    /// line containing `some-lib` must be tag-free.
+    @Test(
+        .tags(
+            .Feature.Command.Package.ShowDependencies,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s10_showDependenciesNonMemberPathDepsHaveNoWorkspaceMemberTag(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S10_ShowDependencies") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["show-dependencies", "--format", "text"],
+                buildSystem: buildSystem,
+            )
+
+            let someLibLines = stdout
+                .split(whereSeparator: { $0.isNewline })
+                .map(String.init)
+                .filter { $0.contains("some-lib") }
+            try #require(!someLibLines.isEmpty)
+            #expect(
+                someLibLines.allSatisfy { !$0.contains("[workspace member]") },
+                "expected NO `[workspace member]` tag on `some-lib` (a file-system, non-member dep); got lines=\(someLibLines)",
+            )
+        }
+    }
+
     /// Initializes an external-dependency directory in the S08
     /// fixture as a git repository tagged `1.0.0`. The fixture ships
     /// each `external/*` directory without a `.git/` folder (nothing
