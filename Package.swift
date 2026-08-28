@@ -506,7 +506,7 @@ let package = Package(
                 "SourceControl",
                 "SPMBuildCore",
                 .product(name: "OrderedCollections", package: "swift-collections"),
-            ],
+            ] + swiftSyntaxDependencies(["SwiftSyntax", "SwiftSyntaxBuilder"]),
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures
         ),

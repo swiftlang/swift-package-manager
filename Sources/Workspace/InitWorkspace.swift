@@ -12,6 +12,8 @@
 
 import Basics
 import PackageModel
+import SwiftSyntax
+import SwiftSyntaxBuilder
 
 /// Errors raised by `InitWorkspace.write()` when scaffolding a new
 /// workspace under `swift package workspace init`.
@@ -44,7 +46,8 @@ public enum InitWorkspaceError: Error, Equatable {
 public struct InitWorkspace {
     /// The tools version emitted in the `Workspace.swift` header.
     /// Defaults to the SwiftPM's current tools version.
-    public static let newWorkspaceToolsVersion = ToolsVersion.current
+    public static let newWorkspaceToolsVersion = ToolsVersion.vNext
+    // public static let newWorkspaceToolsVersion = ToolsVersion.current
 
     /// Declaration of a workspace member. `path` is relative to the
     /// workspace root; `packageType` names the shape of the scaffold
@@ -135,27 +138,96 @@ public struct InitWorkspace {
         self.progressReporter?("Created \(manifestPath.pathString)")
     }
 
-    /// Renders the `Workspace.swift` source. Members are listed in
-    /// declared order; `dependencies:` is emitted as an empty array
-    /// for the POC — users edit the file to add workspace-level
-    /// dependencies after scaffolding.
+    /// Renders the `Workspace.swift` source using SwiftSyntax so the
+    /// output is structurally correct by construction. The tools-version
+    /// header is emitted as leading trivia on the `import` declaration
+    /// (SwiftPM's tools-version comment is not part of the Swift AST
+    /// itself). `dependencies:` is emitted as an empty array for the
+    /// POC — users edit the file to add workspace-level dependencies
+    /// after scaffolding.
     private func renderManifest() -> String {
         let toolsVersion = Self.newWorkspaceToolsVersion.specification()
-        var out = "// swift-tools-version: \(toolsVersion)\n"
-        out += "import PackageDescription\n"
-        out += "\n"
-        out += "let workspace = Workspace(\n"
+
+        let importDecl = ImportDeclSyntax(
+            leadingTrivia: Trivia(pieces: [
+                .lineComment(toolsVersion),
+                .newlines(1),
+            ]),
+            importKeyword: .keyword(.import, trailingTrivia: .space),
+            path: ImportPathComponentListSyntax([
+                ImportPathComponentSyntax(name: .identifier("PackageDescription")),
+            ]),
+        )
+
+        let workspaceCall = FunctionCallExprSyntax(
+            calledExpression: DeclReferenceExprSyntax(baseName: .identifier("Workspace")),
+            leftParen: .leftParenToken(trailingTrivia: .newline),
+            arguments: LabeledExprListSyntax {
+                LabeledExprSyntax(
+                    leadingTrivia: .spaces(4),
+                    label: .identifier("members"),
+                    colon: .colonToken(trailingTrivia: .space),
+                    expression: self.buildMembersArray(),
+                    trailingComma: .commaToken(trailingTrivia: .newline),
+                )
+                LabeledExprSyntax(
+                    leadingTrivia: .spaces(4),
+                    label: .identifier("dependencies"),
+                    colon: .colonToken(trailingTrivia: .space),
+                    expression: ArrayExprSyntax(elements: ArrayElementListSyntax([])),
+                    trailingComma: .commaToken(trailingTrivia: .newline),
+                )
+            },
+            rightParen: .rightParenToken(),
+        )
+
+        let workspaceBinding = VariableDeclSyntax(
+            leadingTrivia: .newlines(2),
+            bindingSpecifier: .keyword(.let, trailingTrivia: .space),
+            bindings: PatternBindingListSyntax([
+                PatternBindingSyntax(
+                    pattern: IdentifierPatternSyntax(identifier: .identifier("workspace")),
+                    initializer: InitializerClauseSyntax(
+                        equal: .equalToken(leadingTrivia: .space, trailingTrivia: .space),
+                        value: ExprSyntax(workspaceCall),
+                    ),
+                ),
+            ]),
+        )
+
+        let source = SourceFileSyntax(
+            statements: CodeBlockItemListSyntax {
+                CodeBlockItemSyntax(item: .decl(DeclSyntax(importDecl)))
+                CodeBlockItemSyntax(item: .decl(DeclSyntax(workspaceBinding)))
+            },
+            endOfFileToken: .endOfFileToken(leadingTrivia: .newline),
+        )
+
+        return source.description
+    }
+
+    /// Builds the `members:` array literal. Empty and non-empty
+    /// members produce different-shaped literals: `[]` on one line
+    /// versus one entry per line with 8-space indentation matching the
+    /// existing hand-written manifests.
+    private func buildMembersArray() -> ArrayExprSyntax {
         if self.options.members.isEmpty {
-            out += "    members: [],\n"
-        } else {
-            out += "    members: [\n"
-            for member in self.options.members {
-                out += "        \"\(member.path)\",\n"
-            }
-            out += "    ],\n"
+            return ArrayExprSyntax(elements: ArrayElementListSyntax([]))
         }
-        out += "    dependencies: [],\n"
-        out += ")\n"
-        return out
+        var elements: [ArrayElementSyntax] = []
+        for member in self.options.members {
+            elements.append(
+                ArrayElementSyntax(
+                    leadingTrivia: .newline + .spaces(8),
+                    expression: ExprSyntax(StringLiteralExprSyntax(content: member.path)),
+                    trailingComma: .commaToken(),
+                ),
+            )
+        }
+        return ArrayExprSyntax(
+            leftSquare: .leftSquareToken(),
+            elements: ArrayElementListSyntax(elements),
+            rightSquare: .rightSquareToken(leadingTrivia: .newline + .spaces(4)),
+        )
     }
 }
