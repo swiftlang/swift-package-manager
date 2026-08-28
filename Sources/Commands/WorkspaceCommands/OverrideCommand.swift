@@ -20,7 +20,6 @@ import Workspace
 
 import struct TSCUtility.Version
 
-
 extension SwiftWorkspaceCommand {
     /// Manage workspace-level dependency overrides
     /// (`.swiftpm/configuration/workspace-overrides.json`).
@@ -728,6 +727,7 @@ private func overrideRequirementJSON(_ dep: PackageDependency) -> RequirementJSO
         }
     }
 }
+
 
 /// Renders the target of an override for the `list` output. Uses the
 /// underlying kind's most user-facing location (file path, URL, or

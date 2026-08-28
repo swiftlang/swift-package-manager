@@ -2298,6 +2298,164 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    /// `swift package workspace add-member <path>` writes the new
+    /// member into `Workspace.swift` — a follow-up `list-members`
+    /// reports the added entry alongside the pre-existing ones.
+    /// Without `--scaffold`, no `Package.swift` is created for the
+    /// new member; the user brings their own package.
+    @Test(
+        .tags(
+            .Feature.Command.Package.ShowDependencies,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func workspace_addMember_editsManifestOnly(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S02_MemberToMemberDep") { fixturePath in
+            _ = try await executeSwiftWorkspace(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["add-member", "packages/lib-b"],
+                buildSystem: buildSystem,
+            )
+
+            let manifest: String = try localFileSystem.readFileContents(
+                fixturePath.appending("Workspace.swift"),
+            )
+            #expect(
+                manifest.contains("\"packages/lib-b\""),
+                "expected new member entry in Workspace.swift; got manifest=\(manifest)",
+            )
+            expectFileDoesNotExist(
+                at: fixturePath.appending(try RelativePath(validating: "packages/lib-b/Package.swift")),
+            )
+        }
+    }
+
+    /// `swift package workspace add-member <path> --scaffold <type>`
+    /// writes the new member into `Workspace.swift` AND scaffolds a
+    /// `Package.swift` for the new member using the given package
+    /// type — matches the composition of `swift package workspace
+    /// init --members <path>:<type>`.
+    @Test(
+        .tags(
+            .Feature.Command.Package.ShowDependencies,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func workspace_addMember_withScaffold_createsPackageManifest(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await withTemporaryDirectory { tmpDir in
+            let fixturePath = tmpDir.appending("workspace")
+
+            _ = try await executeSwiftWorkspace(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["init", "--package-path", fixturePath.pathString],
+                buildSystem: buildSystem,
+            )
+
+            _ = try await executeSwiftWorkspace(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["add-member", "packages/lib-b", "--scaffold", "library"],
+                buildSystem: buildSystem,
+            )
+
+            let manifest: String = try localFileSystem.readFileContents(
+                fixturePath.appending("Workspace.swift"),
+            )
+            #expect(
+                manifest.contains("\"packages/lib-b\""),
+                "expected new member entry in Workspace.swift; got manifest=\(manifest)",
+            )
+            expectFileExists(
+                at: fixturePath.appending(try RelativePath(validating: "packages/lib-b/Package.swift")),
+            )
+        }
+    }
+
+
+    @Test(
+        .tags(
+            .Feature.Command.Package.ShowDependencies,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func workspace_addMemberExisting_withScaffold_diagnosticIsEmitted(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S02_MemberToMemberDep") { fixturePath in
+            let existingMemberPath = "packages/lib-b"
+            // Pre-seed the target member so the CLI hits the
+            // "Package.swift already exists" branch and emits the
+            // diagnostic instead of scaffolding.
+            let memberDir = fixturePath.appending(try RelativePath(validating: existingMemberPath))
+            try localFileSystem.createDirectory(memberDir, recursive: true)
+            try localFileSystem.writeFileContents(
+                memberDir.appending("Package.swift"),
+                string: "// pre-existing\n",
+            )
+
+            let (stdout, stderr) = try await executeSwiftWorkspace(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["add-member", existingMemberPath, "--scaffold", "library"],
+                buildSystem: buildSystem,
+            )
+
+            let expectedDiagnostic = Basics.Diagnostic.scaffoldIgnoredMemberAlreadyExists(memberPath: existingMemberPath)
+            #expect(
+                stderr.contains(expectedDiagnostic.message),
+                "expected diagnotcis to be emitted, stdout=\(stdout), stderr=\(stderr)",
+            )
+        }
+    }
+
+
+    /// When `--scaffold <type>` is supplied but the target member's
+    /// `Package.swift` already exists, the CLI emits a warning
+    /// diagnostic and leaves the existing file byte-identical. The
+    /// manifest edit still happens (the entry is added to
+    /// `Workspace.swift` if missing) — only the scaffolding is
+    /// skipped, matching the warning-not-error framing.
+    @Test(
+        .tags(
+            .Feature.Command.Package.ShowDependencies,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func workspace_addMember_withScaffold_whenPackageExists_warnsAndPreservesFile(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S02_MemberToMemberDep") { fixturePath in
+            // `packages/lib-a` already has a Package.swift shipped by the fixture.
+            let existingManifestPath = fixturePath.appending(
+                try RelativePath(validating: "packages/lib-a/Package.swift"),
+            )
+            let beforeContent: String = try localFileSystem.readFileContents(existingManifestPath)
+
+            let (_, stderr) = try await executeSwiftWorkspace(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["add-member", "packages/lib-a", "--scaffold", "library"],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stderr.contains("--scaffold") && stderr.contains("already exists"),
+                "expected scaffold-ignored warning in stderr; got stderr=\(stderr)",
+            )
+            let afterContent: String = try localFileSystem.readFileContents(existingManifestPath)
+            #expect(
+                afterContent == beforeContent,
+                "pre-existing member Package.swift must not be overwritten",
+            )
+        }
+    }
+
     /// Initializes an external-dependency directory in the S08
     /// fixture as a git repository tagged `1.0.0`. The fixture ships
     /// each `external/*` directory without a `.git/` folder (nothing

@@ -10,7 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-@testable import Commands
+@_spi(SwiftPMInternal) @testable import Commands
+import Basics
 import Testing
 import _InternalTestSupport
 
@@ -118,5 +119,167 @@ struct WorkspaceManifestSyntaxTests {
         #expect(throws: (any Error).self) {
             try WorkspaceManifestSyntax.readMembers(from: source)
         }
+    }
+
+    // MARK: - addMember
+
+    /// Adding a member to an empty `members: []` list produces a
+    /// source where the new member is the sole entry — verified via
+    /// `readMembers` round-trip so the test is decoupled from
+    /// formatting choices (whitespace, trailing commas, comments).
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func addMember_toEmptyList_appendsNewMember() throws {
+        let source = """
+        // swift-tools-version: 999.0
+        import PackageDescription
+
+        let workspace = Workspace(
+            members: [],
+            dependencies: [],
+        )
+        """
+
+        let edited = try WorkspaceManifestSyntax.addMember("packages/lib-a", to: source)
+
+        let members = try WorkspaceManifestSyntax.readMembers(from: edited)
+        #expect(members == ["packages/lib-a"])
+    }
+
+    /// Adding a member to a non-empty list appends to the existing set
+    /// and preserves every prior entry — verified via `readMembers`
+    /// round-trip.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func addMember_toNonEmptyList_appendsAlongsideExisting() throws {
+        let source = """
+        // swift-tools-version: 999.0
+        import PackageDescription
+
+        let workspace = Workspace(
+            members: [
+                "packages/lib-a",
+            ],
+        )
+        """
+
+        let edited = try WorkspaceManifestSyntax.addMember("packages/app", to: source)
+
+        let members = try WorkspaceManifestSyntax.readMembers(from: edited)
+        #expect(members == ["packages/app", "packages/lib-a"])
+    }
+
+    /// Adding a member that already exists is a no-op — the returned
+    /// source is byte-identical to the input. Locks in idempotency so
+    /// `swift package workspace add-member` can be re-run safely
+    /// without producing spurious diffs.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func addMember_whenDuplicate_returnsUnchangedSource() throws {
+        let source = """
+        // swift-tools-version: 999.0
+        import PackageDescription
+
+        let workspace = Workspace(
+            members: [
+                "packages/lib-a",
+            ],
+        )
+        """
+
+        let edited = try WorkspaceManifestSyntax.addMember("packages/lib-a", to: source)
+
+        #expect(edited == source)
+    }
+
+    /// Adding a member to a source without a `Workspace(...)` call
+    /// throws — the CLI callers use this to distinguish "not a
+    /// workspace manifest" from "manifest exists but has no members".
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func addMember_whenNoWorkspaceCall_throws() throws {
+        let source = """
+        // swift-tools-version: 999.0
+        import PackageDescription
+
+        let package = Package(name: "foo")
+        """
+
+        #expect(throws: (any Error).self) {
+            try WorkspaceManifestSyntax.addMember("packages/lib-a", to: source)
+        }
+    }
+
+    // MARK: - AddMember.shouldScaffoldMemberPackage
+
+    /// When the target member manifest does not exist yet, the
+    /// pre-flight decision returns `true` and emits nothing — the
+    /// scaffold path runs.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func shouldScaffoldMemberPackage_whenManifestMissing_returnsTrueAndEmitsNothing() throws {
+        let fileSystem = InMemoryFileSystem()
+        let observability = ObservabilitySystem.makeForTesting()
+        let memberManifest = AbsolutePath("/repo/packages/lib-b/Package.swift")
+
+        let shouldScaffold = SwiftWorkspaceCommand.AddMember.shouldScaffoldMemberPackage(
+            memberPath: "packages/lib-b",
+            memberManifest: memberManifest,
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope,
+        )
+
+        #expect(shouldScaffold)
+        #expect(observability.diagnostics.isEmpty)
+    }
+
+    /// When the target member manifest already exists, the pre-flight
+    /// decision returns `false` and emits
+    /// `.scaffoldIgnoredMemberAlreadyExists` — matches the CLI
+    /// warning-not-error framing. Verified by comparing severity +
+    /// message against a freshly-constructed diagnostic to lock in
+    /// both the decision and the exact emission shape.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func shouldScaffoldMemberPackage_whenManifestExists_returnsFalseAndEmitsWarning() throws {
+        let fileSystem = InMemoryFileSystem()
+        let memberDir = AbsolutePath("/repo/packages/lib-a")
+        try fileSystem.createDirectory(memberDir, recursive: true)
+        let memberManifest = memberDir.appending("Package.swift")
+        try fileSystem.writeFileContents(memberManifest, string: "// pre-existing\n")
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let shouldScaffold = SwiftWorkspaceCommand.AddMember.shouldScaffoldMemberPackage(
+            memberPath: "packages/lib-a",
+            memberManifest: memberManifest,
+            fileSystem: fileSystem,
+            observabilityScope: observability.topScope,
+        )
+
+        #expect(shouldScaffold == false)
+        let expected = Basics.Diagnostic.scaffoldIgnoredMemberAlreadyExists(
+            memberPath: "packages/lib-a",
+        )
+        let actual = try #require(observability.diagnostics.first)
+        #expect(actual.severity == expected.severity)
+        #expect(actual.message == expected.message)
     }
 }

@@ -13,6 +13,7 @@
 import Basics
 import SwiftParser
 import SwiftSyntax
+import SwiftSyntaxBuilder
 
 /// Errors raised while parsing or editing a `Workspace.swift` source
 /// file.
@@ -81,6 +82,83 @@ public enum WorkspaceManifestSyntax {
         return members.sorted()
     }
 
+    /// Appends a new member string-literal to the `members:` array of
+    /// the `Workspace(...)` call in `source`. Returns the resulting
+    /// source text.
+    ///
+    /// - Idempotent: if `member` already appears in `members:`, the
+    ///   returned string is byte-identical to `source`.
+    /// - Preserves formatting: existing entries, whitespace, and any
+    ///   trailing-comma convention on the last element are kept
+    ///   intact; the new element mirrors the last element's leading
+    ///   trivia so indentation stays consistent.
+    /// - Throws `.cannotFindWorkspaceCall` if the source has no
+    ///   `Workspace(...)` call, or `.nonLiteralMemberEntry` if the
+    ///   `members:` argument isn't a plain array literal.
+    public static func addMember(_ member: String, to source: String) throws -> String {
+        let syntax = Parser.parse(source: source)
+        guard let workspaceCall = findWorkspaceCall(in: syntax) else {
+            throw WorkspaceManifestSyntaxError.cannotFindWorkspaceCall
+        }
+        guard let membersArgIndex = workspaceCall.arguments.firstIndex(where: {
+            $0.label?.text == "members"
+        }) else {
+            throw WorkspaceManifestSyntaxError.cannotFindWorkspaceCall
+        }
+        let membersArg = workspaceCall.arguments[membersArgIndex]
+        guard let array = membersArg.expression.as(ArrayExprSyntax.self) else {
+            throw WorkspaceManifestSyntaxError.nonLiteralMemberEntry(
+                membersArg.expression.trimmedDescription,
+            )
+        }
+        let existingLiterals = array.elements.compactMap {
+            $0.expression.as(StringLiteralExprSyntax.self)?.representedLiteralValue
+        }
+        if existingLiterals.contains(member) {
+            return source
+        }
+        let newArray = appendStringLiteralElement(member, to: array)
+        let rewriter = ReplaceArgumentExpression(
+            targetLabel: "members",
+            newExpression: ExprSyntax(newArray),
+        )
+        let newTree = rewriter.rewrite(Syntax(syntax))
+        return newTree.description
+    }
+
+    /// Builds a new array literal by appending a string-literal
+    /// element to `array`. Reuses the last existing element's leading
+    /// trivia so indentation matches, and ensures the previous last
+    /// element carries a trailing comma. When the array is empty the
+    /// new element is inserted as the sole entry.
+    private static func appendStringLiteralElement(
+        _ value: String,
+        to array: ArrayExprSyntax,
+    ) -> ArrayExprSyntax {
+        let stringLiteral = StringLiteralExprSyntax(content: value)
+        if let lastIndex = array.elements.indices.last {
+            let lastElement = array.elements[lastIndex]
+            let newLastElement = lastElement.with(\.trailingComma, .commaToken())
+            let newElement = ArrayElementSyntax(
+                leadingTrivia: lastElement.leadingTrivia,
+                expression: ExprSyntax(stringLiteral),
+                trailingComma: .commaToken(),
+                trailingTrivia: lastElement.trailingTrivia,
+            )
+            var newElements = array.elements
+            newElements = newElements.with(\.[lastIndex], newLastElement)
+            newElements = newElements.appending(newElement)
+            return array.with(\.elements, newElements)
+        }
+        let newElement = ArrayElementSyntax(
+            leadingTrivia: .newline + .spaces(8),
+            expression: ExprSyntax(stringLiteral),
+            trailingComma: .commaToken(),
+            trailingTrivia: .newline + .spaces(4),
+        )
+        return array.with(\.elements, ArrayElementListSyntax([newElement]))
+    }
+
     /// Walks `syntax` looking for the first `Workspace(...)` function
     /// call — a top-level `let workspace = Workspace(...)` binding is
     /// the standard shape. Returns `nil` when no such call exists.
@@ -109,5 +187,40 @@ private final class WorkspaceCallFinder: SyntaxVisitor {
             return .skipChildren
         }
         return .visitChildren
+    }
+}
+
+/// Replaces the expression of a labeled argument inside the first
+/// `Workspace(...)` call. Used by the source-edit APIs to swap in a
+/// new `members:` or `dependencies:` array literal while preserving
+/// the surrounding manifest.
+private final class ReplaceArgumentExpression: SyntaxRewriter {
+    let targetLabel: String
+    let newExpression: ExprSyntax
+    private var applied = false
+
+    init(targetLabel: String, newExpression: ExprSyntax) {
+        self.targetLabel = targetLabel
+        self.newExpression = newExpression
+    }
+
+    override func visit(_ node: FunctionCallExprSyntax) -> ExprSyntax {
+        if applied {
+            return super.visit(node)
+        }
+        guard let callee = node.calledExpression.as(DeclReferenceExprSyntax.self),
+              callee.baseName.text == "Workspace"
+        else {
+            return super.visit(node)
+        }
+        applied = true
+        var arguments = node.arguments
+        for index in arguments.indices where arguments[index].label?.text == targetLabel {
+            arguments = arguments.with(
+                \.[index],
+                arguments[index].with(\.expression, newExpression),
+            )
+        }
+        return ExprSyntax(node.with(\.arguments, arguments))
     }
 }
