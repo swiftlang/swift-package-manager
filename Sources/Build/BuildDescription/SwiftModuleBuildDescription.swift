@@ -759,6 +759,16 @@ public final class SwiftModuleBuildDescription {
             }
         }
 
+        if !self.resourcesToEmbedAsObjects.isEmpty,
+           !args.contains(["-enable-experimental-feature", "Lifetimes"])
+        {
+            throw StringError(
+                "target '\(self.target.name)' uses object-file resource embedding, which requires Swift's "
+                    + "experimental 'Lifetimes' feature; add '.enableExperimentalFeature(\"Lifetimes\")' "
+                    + "to the target's 'swiftSettings'"
+            )
+        }
+
         return args
     }
 

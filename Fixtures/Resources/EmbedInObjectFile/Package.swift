@@ -10,6 +10,9 @@ let package = Package(
             resources: [
                 .embedInCode("best.txt", representation: .objectFile),
                 .embedInCode("empty.bin", representation: .objectFile),
+            ],
+            swiftSettings: [
+                .enableExperimentalFeature("Lifetimes"),
             ]
         ),
         .executableTarget(

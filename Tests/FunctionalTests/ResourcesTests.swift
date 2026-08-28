@@ -335,6 +335,38 @@ struct ResourcesTests{
     }
 
     @Test(
+        .serialized,
+        .tags(
+            .Feature.Command.Build,
+        ),
+        arguments: [BuildSystemProvider.Kind.native],
+    )
+    func objectFileResourcesRequireLifetimes(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Resources/EmbedInObjectFileWithoutLifetimes") { fixturePath in
+            let error = try await #require(throws: SwiftPMError.self) {
+                try await executeSwiftBuild(
+                    fixturePath,
+                    buildSystem: buildSystem,
+                )
+            }
+
+            guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
+                Issue.record("Unexpected error type: \(error.interpolationDescription)")
+                return
+            }
+
+            #expect(
+                stderr.contains(
+                    "object-file resource embedding, which requires Swift's experimental 'Lifetimes' feature"
+                ),
+                "stderr:\n\(stderr)"
+            )
+        }
+    }
+
+    @Test(
         .serialized, // crash occurs when executed in parallel. needs investigation
         .tags(
             .Feature.Command.Test,

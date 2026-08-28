@@ -1,4 +1,6 @@
 public func embeddedResourceText() -> String {
     precondition(PackageResources.empty_bin.isEmpty)
-    return String(decoding: PackageResources.best_txt, as: UTF8.self)
+    return PackageResources.best_txt.withUnsafeBufferPointer {
+        String(decoding: $0, as: UTF8.self)
+    }
 }

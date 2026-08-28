@@ -242,11 +242,13 @@ public enum WriteAuxiliary {
                         """
                     properties +=
                         """
-                        static var \(variableName): UnsafeRawBufferPointer {
-                            let start = withUnsafePointer(to: &\(swiftDataName)) {
-                                UnsafeRawPointer($0)
+                        static var \(variableName): Span<UInt8> {
+                            @_lifetime(immortal)
+                            get {
+                                let start = withUnsafePointer(to: &\(swiftDataName)) { $0 }
+                                let span = unsafe Span(_unsafeStart: start, count: \(byteCount))
+                                return unsafe _overrideLifetime(span, copying: ())
                             }
-                            return UnsafeRawBufferPointer(start: start, count: \(byteCount))
                         }
                         """
                     properties += "\n"

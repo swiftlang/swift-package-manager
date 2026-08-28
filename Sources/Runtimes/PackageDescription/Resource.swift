@@ -41,7 +41,7 @@ public struct Resource: Sendable {
         case byteArray
 
         /// Embed the resource in a native object file and expose it as an
-        /// `UnsafeRawBufferPointer` backed directly by the linked image.
+        /// immutable `Span<UInt8>` backed directly by the linked image.
         case objectFile
     }
 
@@ -133,8 +133,9 @@ public struct Resource: Sendable {
     ///
     /// The `objectFile` representation avoids generating and compiling a Swift
     /// byte-array literal. Package Manager instead embeds the resource with the
-    /// toolchain's `llvm-objcopy` and generates an `UnsafeRawBufferPointer`
-    /// accessor into the linked image.
+    /// toolchain's `llvm-objcopy` and generates an immutable `Span<UInt8>`
+    /// accessor into the linked image. Targets using this representation must
+    /// explicitly enable Swift's experimental `Lifetimes` feature.
     ///
     /// - Parameters:
     ///   - path: The path for a resource.
