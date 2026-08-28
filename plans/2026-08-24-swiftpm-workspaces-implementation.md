@@ -24,7 +24,7 @@ Implement first-class workspaces in Swift Package Manager: a new `Workspace.swif
 | 8B | Workspace dependency overrides (`.swiftpm/configuration/workspace-overrides.json`) | ✅ Done — folds overrides file content into origin hash | `bkhouri/t/main/poc_workspaces_phase8_diverge-workspace_deps_override` |
 | 8C | `swift package workspace override` subcommand (add / remove / list) | ✅ Done — POC scope, nested under `swift package workspace` | `bkhouri/t/main/poc_workspaces_phase8` |
 | 9 | `swift package workspace init` | ✅ Done — POC scope, nested under `swift package workspace` (respects `--package-path`) | `bkhouri/t/main/poc_workspaces_phase8` |
-| 10 | `swift package show-dependencies` workspace awareness | 🔲 Not started | — |
+| 10 | `swift package show-dependencies` workspace awareness | ✅ Done — all four formats extended, coverage split between unit + e2e | `bkhouri/t/main/poc_workspaces_phase10` |
 | 11 | `swift package update` workspace awareness | 🔲 Not started | — |
 | 12 | `swift package clean` workspace awareness | 🔲 Not started | — |
 | 13 | `swift package describe` workspace awareness | 🔲 Not started | — |
@@ -1535,6 +1535,37 @@ func s09_initWorkspaceScaffoldsBuildableWorkspace(...) async throws {
 ---
 
 ## Phase 10: `swift package show-dependencies` Workspace Awareness
+
+**Status:** ✅ Complete. **Deviations from the original plan:**
+
+1. **Dumper coverage split unit + e2e** rather than e2e-only. The four
+   dumpers (`PlainTextDumper`, `FlatListDumper`, `DotDumper`,
+   `JSONDumper`) each got a unit test in
+   `Tests/CommandsTests/PackageCommandTests.swift` driving the shape
+   assertions directly against `dumpDependenciesOf` with an
+   `InMemoryFileSystem`-backed graph. The e2e coverage in
+   `Tests/FunctionalTests/WorkspaceFeatureTests.swift` uses the
+   `S10_ShowDependencies` fixture for CLI-shape assertions (headers,
+   subgraph clusters, `[workspace member]` tag, dedup line count).
+2. **JSON single-root shape retained.** Multi-root graphs emit a JSON
+   array of per-root objects; single-root graphs still emit the
+   pre-Phase-10 top-level object so existing tooling that consumes
+   `swift package show-dependencies --format=json` against a
+   non-workspace package keeps working. The regression is pinned by
+   the existing `showDependencies` test (asserts `case .dictionary`
+   on the parsed JSON).
+3. **`isWorkspaceMember` heuristic.** The plan sketched
+   `ModulesGraph.isWorkspaceMember(_:workspace:)` taking a
+   `WorkspaceManifest?`. The implemented helper delegates to
+   `isRootPackage(_:)` — the loader already installs every workspace
+   member as a root package, so root-membership is the invariant the
+   check needs. The `WorkspaceManifest?` parameter was dropped as
+   unnecessary given that invariant.
+4. **`S10_ShowDependencies` fixture is a single layout, not
+   Text/FlatList/Dot subdirectories.** The plan called for one
+   subdirectory per format, all with identical content; since the
+   payload is the same, a single top-level fixture drives every e2e
+   test and avoids maintaining three copies in lockstep.
 
 ### Overview
 
