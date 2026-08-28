@@ -2345,6 +2345,93 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    /// `swift package update --package app` runs cleanly through the
+    /// CLI's `--package` selector on the S11 fixture (two members
+    /// with distinct workspace-inherited deps: `app` → `some-lib`,
+    /// `lib-a` → `other-lib`). Both pins land in the workspace-root
+    /// `Package.resolved` — the subtree-restricted update does not
+    /// drop the sibling member's pin. Full semantic verification of
+    /// scope restriction lives in `UpdateSubsetSelectionTests`; this
+    /// e2e proves the CLI end-to-end plumbing (graph load →
+    /// transitive-dep walk → `packages: [String]` translation) runs
+    /// without regressions.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Resolve,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s11_updateWithPackageSelectorRestrictsToMemberSubtree(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S11_Update") { fixturePath in
+            try Self.initializeExternalRepo(at: fixturePath.appending(components: "external", "some-lib"))
+            try Self.initializeExternalRepo(at: fixturePath.appending(components: "external", "other-lib"))
+
+            _ = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["update", "--package", "app"],
+                buildSystem: buildSystem,
+            )
+
+            let workspaceResolved = fixturePath.appending("Package.resolved")
+            expectFileExists(at: workspaceResolved)
+            let contents: String = try localFileSystem.readFileContents(workspaceResolved)
+            #expect(
+                contents.contains("some-lib"),
+                "expected `some-lib` pin (app's inherited dep) after --package app update; got contents=\(contents)",
+            )
+            #expect(
+                contents.contains("other-lib"),
+                "expected `other-lib` pin (lib-a's inherited dep) to remain in workspace Package.resolved after --package app update; got contents=\(contents)",
+            )
+        }
+    }
+
+    /// `swift package update` invoked from inside a workspace member
+    /// picks up the CWD focus (Slice 4) and applies the same subtree
+    /// restriction as `--package app`. Uses the same S11 fixture as
+    /// `s11_updateWithPackageSelectorRestrictsToMemberSubtree`; runs
+    /// from `packages/app` instead of passing `--package`. Since 11b's
+    /// pure decision fn accepts both `selectedPackage` and
+    /// `workspaceMemberFocus` as peer inputs, no additional CLI code
+    /// is needed for 11c — only the observable end-to-end assertion.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Resolve,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s11_updateFromInsideMemberScopedToMember(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S11_Update") { fixturePath in
+            try Self.initializeExternalRepo(at: fixturePath.appending(components: "external", "some-lib"))
+            try Self.initializeExternalRepo(at: fixturePath.appending(components: "external", "other-lib"))
+            let appPath = fixturePath.appending(components: "packages", "app")
+
+            _ = try await executeSwiftPackage(
+                appPath,
+                configuration: .debug,
+                extraArgs: ["update"],
+                buildSystem: buildSystem,
+            )
+
+            let workspaceResolved = fixturePath.appending("Package.resolved")
+            expectFileExists(at: workspaceResolved)
+            let contents: String = try localFileSystem.readFileContents(workspaceResolved)
+            #expect(
+                contents.contains("some-lib"),
+                "expected `some-lib` pin (app's inherited dep) after CWD-inside-app update; got contents=\(contents)",
+            )
+            #expect(
+                contents.contains("other-lib"),
+                "expected `other-lib` pin (lib-a's inherited dep) to remain after CWD-inside-app update; got contents=\(contents)",
+            )
+        }
+    }
+
     /// `swift package workspace add-member <path>` writes the new
     /// member into `Workspace.swift` — a follow-up `list-members`
     /// reports the added entry alongside the pre-existing ones.
