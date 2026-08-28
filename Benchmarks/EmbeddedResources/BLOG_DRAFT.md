@@ -18,36 +18,36 @@ I have been exploring a second, opt-in representation:
 .embedInCode("payload.bin", representation: .objectFile)
 ```
 
-For this mode, SwiftPM compiles a small target-native object containing a
-pointer symbol. It then uses the toolchain's `llvm-objcopy` to inject the
-resource section and its data symbol. Mach-O requires a pre-sized section that
-`objcopy` updates, while ELF supports adding the section and symbol directly.
-The generated Swift source only declares the pointer symbol and exposes the
-linked bytes as an `UnsafeRawBufferPointer`:
+For this mode, SwiftPM creates a small target-native object and uses the
+toolchain's `llvm-objcopy` to inject the resource section and its data symbol.
+Mach-O requires a pre-sized section that `objcopy` updates, while ELF supports
+adding the section and symbol directly. The generated Swift source declares
+the linked data symbol and exposes its bytes as an `UnsafeRawBufferPointer`:
 
 ```swift
-@_silgen_name("swiftpm_resource_Benchmark_payload_bin_pointer")
-nonisolated(unsafe) private var _payload: UnsafeRawPointer
+@_silgen_name("swiftpm_resource_Benchmark_payload_bin_data")
+nonisolated(unsafe) private var _payload: UInt8
 
 static var payload_bin: UnsafeRawBufferPointer {
-    UnsafeRawBufferPointer(start: _payload, count: 8_388_608)
+    let start = withUnsafePointer(to: &_payload) { UnsafeRawPointer($0) }
+    return UnsafeRawBufferPointer(start: start, count: 8_388_608)
 }
 ```
 
-The resource and pointer live in the same object-file member. That detail lets
-the linker extract the resource correctly when a Swift target is packaged as a
-static archive, without requiring whole-archive linker options.
+The accessor's undefined data-symbol reference lets the linker extract the
+resource object correctly when a Swift target is packaged as a static archive,
+without requiring whole-archive linker options.
 
 ## Initial results
 
 With a 1 MiB payload, the existing representation generated 3.7 MiB of Swift
 source and took 67 seconds to build, peaking at 7.2 GB of resident memory. The
-object-file representation generated 339 bytes of Swift source and built in
+object-file representation generated 409 bytes of Swift source and built in
 1.3 seconds with about 103 MB peak RSS.
 
 At 8 MiB, the existing representation generated almost 30 MiB of source and
 failed because the compiler could not type-check the expression in reasonable
-time. The object-file version still generated 339 bytes of Swift and built in
+time. The object-file version still generated 409 bytes of Swift and built in
 under two seconds.
 
 One assumption did not survive measurement: this is not currently a runtime

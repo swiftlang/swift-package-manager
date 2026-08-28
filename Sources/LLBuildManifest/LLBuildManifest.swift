@@ -171,7 +171,7 @@ public enum WriteAuxiliary {
 
         public static func computeInputs(
             byteArrayResources: [Basics.AbsolutePath],
-            objectResources: [(path: Basics.AbsolutePath, pointerSymbol: String, byteCount: UInt64)]
+            objectResources: [(path: Basics.AbsolutePath, dataSymbol: String, byteCount: UInt64)]
         ) -> [Node] {
             var inputs: [Node] = [.virtual(Self.name)]
             for path in byteArrayResources {
@@ -180,7 +180,7 @@ public enum WriteAuxiliary {
             }
             for resource in objectResources {
                 inputs.append(.virtual(
-                    objectMarkerPrefix + resource.pointerSymbol + ":" + String(resource.byteCount)
+                    objectMarkerPrefix + resource.dataSymbol + ":" + String(resource.byteCount)
                 ))
                 inputs.append(.file(resource.path))
             }
@@ -190,7 +190,7 @@ public enum WriteAuxiliary {
         public static func getFileContents(inputs: [Node]) throws -> String {
             enum Representation {
                 case byteArray
-                case object(pointerSymbol: String, byteCount: UInt64)
+                case object(dataSymbol: String, byteCount: UInt64)
             }
 
             var representation: Representation?
@@ -211,7 +211,7 @@ public enum WriteAuxiliary {
                             throw Error.invalidObjectResourceMarker(marker)
                         }
                         representation = .object(
-                            pointerSymbol: String(value[..<separator]),
+                            dataSymbol: String(value[..<separator]),
                             byteCount: byteCount
                         )
                     }
@@ -232,18 +232,21 @@ public enum WriteAuxiliary {
                         .joined(separator: ",")
                     properties += "static let \(variableName): [UInt8] = [\(fileContent)]\n"
 
-                case .object(let pointerSymbol, let byteCount):
-                    let swiftPointerName = "_\(pointerSymbol)"
+                case .object(let dataSymbol, let byteCount):
+                    let swiftDataName = "_\(dataSymbol)"
                     declarations +=
                         """
-                        @_silgen_name("\(pointerSymbol)")
-                        nonisolated(unsafe) private var \(swiftPointerName): UnsafeRawPointer
+                        @_silgen_name("\(dataSymbol)")
+                        nonisolated(unsafe) private var \(swiftDataName): UInt8
 
                         """
                     properties +=
                         """
                         static var \(variableName): UnsafeRawBufferPointer {
-                            UnsafeRawBufferPointer(start: \(swiftPointerName), count: \(byteCount))
+                            let start = withUnsafePointer(to: &\(swiftDataName)) {
+                                UnsafeRawPointer($0)
+                            }
+                            return UnsafeRawBufferPointer(start: start, count: \(byteCount))
                         }
                         """
                     properties += "\n"
@@ -385,7 +388,7 @@ public struct LLBuildManifest {
 
     public mutating func addWriteEmbeddedResourcesCommand(
         byteArrayResources: [Basics.AbsolutePath],
-        objectResources: [(path: Basics.AbsolutePath, pointerSymbol: String, byteCount: UInt64)],
+        objectResources: [(path: Basics.AbsolutePath, dataSymbol: String, byteCount: UInt64)],
         outputPath: Basics.AbsolutePath
     ) {
         let inputs = WriteAuxiliary.EmbeddedResources.computeInputs(

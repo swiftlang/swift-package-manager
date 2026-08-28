@@ -84,25 +84,25 @@ extension LLBuildManifestBuilder {
         clangArguments += target.buildParameters.toolchain.extraFlags.cCompilerFlags.rawFlags
         clangArguments += target.buildParameters.flags.cCompilerFlags.rawFlags
 
-        func addCompileCommand(source: AbsolutePath, output: AbsolutePath) {
+        func addAssembleCommand(source: AbsolutePath, output: AbsolutePath) {
             self.manifest.addShellCmd(
                 name: output.pathString,
-                description: "Compiling embedded resource support for \(target.target.name)",
+                description: "Assembling embedded resource support for \(target.target.name)",
                 inputs: [.file(source)],
                 outputs: [.file(output)],
                 arguments: clangArguments + [
-                    "-x", "c", "-c", source.pathString, "-o", output.pathString,
+                    "-x", "assembler", "-c", source.pathString, "-o", output.pathString,
                 ]
             )
         }
 
         for resource in target.resourcesToEmbedAsObjects {
             if target.buildParameters.triple.objectFormat == .macho && resource.byteCount == 0 {
-                addCompileCommand(source: resource.seedSourcePath, output: resource.objectPath)
+                addAssembleCommand(source: resource.seedSourcePath, output: resource.objectPath)
                 continue
             }
 
-            addCompileCommand(source: resource.seedSourcePath, output: resource.seedObjectPath)
+            addAssembleCommand(source: resource.seedSourcePath, output: resource.seedObjectPath)
 
             var arguments = [objcopy.pathString]
             switch target.buildParameters.triple.objectFormat {
@@ -289,7 +289,7 @@ extension LLBuildManifestBuilder {
             self.manifest.addWriteEmbeddedResourcesCommand(
                 byteArrayResources: target.resourcesToEmbedAsByteArrays,
                 objectResources: target.resourcesToEmbedAsObjects.map {
-                    ($0.path, $0.pointerSymbol, $0.byteCount)
+                    ($0.path, $0.dataSymbol, $0.byteCount)
                 },
                 outputPath: resourcesEmbeddingSource
             )

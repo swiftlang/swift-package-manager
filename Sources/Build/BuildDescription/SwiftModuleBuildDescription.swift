@@ -41,7 +41,6 @@ public final class SwiftModuleBuildDescription {
         let byteCount: UInt64
         let sectionName: String
         let dataSymbol: String
-        let pointerSymbol: String
         let seedSourcePath: AbsolutePath
         let seedObjectPath: AbsolutePath
         let objectPath: AbsolutePath
@@ -441,37 +440,30 @@ public final class SwiftModuleBuildDescription {
             let hash = String(identity.sha256Checksum.prefix(10))
             let sectionName = objectFormat == .macho ? "__spm\(hash)" : "swiftpm_\(hash)"
             let variableName = resource.path.basename.spm_mangledToC99ExtendedIdentifier()
-            let pointerSymbol = "swiftpm_resource_\(target.c99name)_\(variableName)_pointer"
             let dataSymbol = "swiftpm_resource_\(target.c99name)_\(variableName)_data"
             let byteCount = try fileSystem.getFileInfo(resource.path).size
-            let seedSourcePath = embeddedResourcesDirectory.appending("resource_\(hash).c")
+            let seedSourcePath = embeddedResourcesDirectory.appending("resource_\(hash).s")
             let seedObjectPath = embeddedResourcesDirectory.appending("resource_\(hash)_seed.o")
             let objectPath = embeddedResourcesDirectory.appending("resource_\(hash).o")
 
             let seedSource: String
             switch objectFormat {
             case .macho:
-                // Mach-O objcopy cannot add symbols, so clang must define the
-                // data symbol in a section that objcopy can replace in place.
+                // Mach-O objcopy cannot add symbols or grow a section, so
+                // assemble target-native storage that it can replace in place.
                 let storageByteCount = max(byteCount, 1)
                 seedSource =
                     """
-                    __attribute__((used, section("__TEXT,\(sectionName)"), visibility("hidden")))
-                    const unsigned char \(dataSymbol)[\(storageByteCount)] = { 0 };
-
-                    __attribute__((used, visibility("hidden")))
-                    const unsigned char * const \(pointerSymbol) = \(dataSymbol);
+                    .section __TEXT,\(sectionName)
+                    .globl _\(dataSymbol)
+                    .private_extern _\(dataSymbol)
+                    _\(dataSymbol):
+                    .space \(storageByteCount)
                     """
             case .elf:
-                // Replacing an ELF section leaves its symbols undefined in
-                // LLVM objcopy. Add both the section and data symbol instead.
-                seedSource =
-                    """
-                    extern const unsigned char \(dataSymbol)[];
-
-                    __attribute__((used, visibility("hidden")))
-                    const unsigned char * const \(pointerSymbol) = \(dataSymbol);
-                    """
+                // Clang supplies the target-native object header; objcopy adds
+                // the resource section and its exported data symbol.
+                seedSource = ".text"
             default:
                 throw InternalError("unsupported object format for embedded resource")
             }
@@ -486,7 +478,6 @@ public final class SwiftModuleBuildDescription {
                 byteCount: byteCount,
                 sectionName: sectionName,
                 dataSymbol: dataSymbol,
-                pointerSymbol: pointerSymbol,
                 seedSourcePath: seedSourcePath,
                 seedObjectPath: seedObjectPath,
                 objectPath: objectPath
