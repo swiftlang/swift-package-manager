@@ -15,6 +15,7 @@ import Foundation
 import SourceControl
 import Testing
 import _InternalTestSupport
+import enum PackageModel.BuildConfiguration
 import struct PackageModel.PackageIdentity
 
 @_spi(SwiftPMInternal) import Commands
@@ -2429,6 +2430,157 @@ struct WorkspaceFeatureTests {
                 contents.contains("other-lib"),
                 "expected `other-lib` pin (lib-a's inherited dep) to remain after CWD-inside-app update; got contents=\(contents)",
             )
+        }
+    }
+
+    // MARK: - Slice 12: `swift package clean` workspace awareness
+
+    /// `swift package clean` invoked at a workspace root removes the
+    /// workspace-scoped `<workspace-root>/.build/` directory that
+    /// every member shares. Slice 4 routed the build output to the
+    /// workspace root and Slice 8 routed `Package.resolved` there;
+    /// this smoke test verifies `clean` sees the same location.
+    /// Should pass without any Clean.swift changes.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s12_cleanRemovesWorkspaceBuildDirectory(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S01_MinimalTwoMembers") { fixturePath in
+            let configuration = BuildConfiguration.debug
+            let workspaceBuildDir = fixturePath.appending(".build")
+            try requireDirectoryDoesNotExist(at: workspaceBuildDir)
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: configuration,
+                extraArgs: [
+                    "--scratch-path",
+                    workspaceBuildDir.pathString
+                ],
+                buildSystem: buildSystem,
+            )
+            expectDirectoryExists(at: workspaceBuildDir)
+
+            _ = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["clean"],
+                buildSystem: buildSystem,
+            )
+
+            // Get the bin path
+            let binPath = try await getBinPath(
+                fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+            expectDirectoryDoesNotExist(at: binPath)
+        }
+    }
+
+    /// `swift package clean` invoked from inside a workspace member
+    /// emits an explicit "cleaning workspace build directory: <path>"
+    /// info line pointing at the shared workspace-root `.build/`. Users
+    /// working out of a member subdirectory otherwise see no signal of
+    /// what got removed since the workspace scratch location isn't
+    /// visible from there.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s12_cleanFromInsideMemberEmitsExplicitPath(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S01_MinimalTwoMembers") { fixturePath in
+            let memberPath = fixturePath.appending(components: "packages", "lib-a")
+
+            let (_, stderr) = try await executeSwiftPackage(
+                memberPath,
+                configuration: .debug,
+                extraArgs: [
+                    "--verbose",
+                    "clean",
+                ],
+                buildSystem: buildSystem,
+            )
+
+            // The path segment in the diagnostic message goes through
+            // macOS's `/private/var` symlink resolution en route to
+            // stderr, while `fixturePath` here still points at the
+            // unresolved `/var` prefix. Assert on the prefix (which
+            // pins the message shape) and on the workspace-root
+            // basename + `.build` (which pins the path is the
+            // workspace-root one, not a member's).
+            let expectedPrefix = "cleaning workspace build directory:"
+            #expect(
+                stderr.contains(expectedPrefix),
+                "expected `\(expectedPrefix)` in stderr; got stderr=\(stderr)",
+            )
+            #expect(
+                stderr.contains("\(fixturePath.basename)/.build"),
+                "expected workspace-root `.build/` segment in stderr; got stderr=\(stderr)",
+            )
+        }
+    }
+
+    /// `swift package clean --package <identity>` under a workspace
+    /// emits an info line explaining the flag is a no-op (the shared
+    /// `.build/` is cleaned regardless) and still exits 0. Info, not
+    /// warning/error — the request is benign and the CLI does the
+    /// right thing (clean everything) either way.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s12_cleanWithPackageSelectorEmitsInfoLineButSucceeds(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S01_MinimalTwoMembers") { fixturePath in
+            let configuration = BuildConfiguration.debug
+            let workspaceBuildDir = fixturePath.appending(".build")
+            try requireDirectoryDoesNotExist(at: workspaceBuildDir)
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: configuration,
+                extraArgs: [
+                    "--scratch-path",
+                    workspaceBuildDir.pathString,
+                ],
+                buildSystem: buildSystem,
+            )
+            expectDirectoryExists(at: workspaceBuildDir)
+
+            let (_, stderr) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: [
+                    "--verbose",
+                    "clean",
+                    "--package", "lib-a",
+                ],
+                buildSystem: buildSystem,
+            )
+
+            let expectedDiagnostic = Basics.Diagnostic.packageSelectorHasNoEffectForClean()
+            #expect(
+                stderr.contains(expectedDiagnostic.message),
+                "expected `--package has no effect for 'clean'` info line in stderr; got stderr=\(stderr)",
+            )
+            // Get the bin path
+            let binPath = try await getBinPath(
+                fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+            expectDirectoryDoesNotExist(at: binPath)
         }
     }
 
