@@ -181,6 +181,149 @@ struct WorkspaceOverridesJSONParserTests {
         #expect(result[0] == expected)
     }
 
+    /// A source-control override with an `.exact(Version)` requirement
+    /// parses as a `.exact` requirement carrying the exact version.
+    /// Complements the `.branch` coverage above with the requirement
+    /// variant `swift package workspace override add url ... --exact`
+    /// produces.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func parseV1_withSourceControlExactRequirement_parsesAsExact() throws {
+        let json = #"""
+        {"version":1,"overrides":[{"identity":"some-lib","kind":{"sourceControl":{"name":null,"location":"https://fork.example.com/some-lib","requirement":{"exact":{"_0":{"buildMetadataIdentifiers":[],"major":1,"minor":2,"patch":3,"prereleaseIdentifiers":[]}}}}}}]}
+        """#
+        let workspaceRoot = AbsolutePath("/repo")
+        let expected = WorkspaceOverridesJSONParser.Override(
+            identity: .plain("some-lib"),
+            overridingDependency: .sourceControl(
+                identity: .plain("some-lib"),
+                nameForTargetDependencyResolutionOnly: nil,
+                location: .remote(SourceControlURL("https://fork.example.com/some-lib")),
+                requirement: .exact("1.2.3"),
+                productFilter: .everything,
+                traits: nil,
+                registryIdentity: nil,
+            ),
+        )
+
+        let result = try WorkspaceOverridesJSONParser.parse(
+            v1: json,
+            workspaceRoot: workspaceRoot,
+        )
+
+        try #require(result.count == 1)
+        #expect(result[0] == expected)
+    }
+
+    /// A source-control override with a `.range(lowerBound..<upperBound)`
+    /// requirement parses as a `.range` requirement. Locks in the
+    /// wire format that `swift package workspace override add url ...
+    /// --from X --to Y` writes to the overrides file.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func parseV1_withSourceControlRangeRequirement_parsesAsRange() throws {
+        let json = #"""
+        {"version":1,"overrides":[{"identity":"some-lib","kind":{"sourceControl":{"name":null,"location":"https://fork.example.com/some-lib","requirement":{"range":{"lowerBound":{"buildMetadataIdentifiers":[],"major":1,"minor":0,"patch":0,"prereleaseIdentifiers":[]},"upperBound":{"buildMetadataIdentifiers":[],"major":2,"minor":0,"patch":0,"prereleaseIdentifiers":[]}}}}}}]}
+        """#
+        let workspaceRoot = AbsolutePath("/repo")
+        let expected = WorkspaceOverridesJSONParser.Override(
+            identity: .plain("some-lib"),
+            overridingDependency: .sourceControl(
+                identity: .plain("some-lib"),
+                nameForTargetDependencyResolutionOnly: nil,
+                location: .remote(SourceControlURL("https://fork.example.com/some-lib")),
+                requirement: .range("1.0.0"..<"2.0.0"),
+                productFilter: .everything,
+                traits: nil,
+                registryIdentity: nil,
+            ),
+        )
+
+        let result = try WorkspaceOverridesJSONParser.parse(
+            v1: json,
+            workspaceRoot: workspaceRoot,
+        )
+
+        try #require(result.count == 1)
+        #expect(result[0] == expected)
+    }
+
+    /// A source-control override with a `.revision(String)` requirement
+    /// parses as `.revision` carrying the commit SHA verbatim. This is
+    /// the requirement variant `swift package workspace override add
+    /// url ... --revision` produces.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func parseV1_withSourceControlRevisionRequirement_parsesAsRevision() throws {
+        let json = #"""
+        {"version":1,"overrides":[{"identity":"some-lib","kind":{"sourceControl":{"name":null,"location":"https://fork.example.com/some-lib","requirement":{"revision":{"_0":"abcdef0123456789"}}}}}]}
+        """#
+        let workspaceRoot = AbsolutePath("/repo")
+        let expected = WorkspaceOverridesJSONParser.Override(
+            identity: .plain("some-lib"),
+            overridingDependency: .sourceControl(
+                identity: .plain("some-lib"),
+                nameForTargetDependencyResolutionOnly: nil,
+                location: .remote(SourceControlURL("https://fork.example.com/some-lib")),
+                requirement: .revision("abcdef0123456789"),
+                productFilter: .everything,
+                traits: nil,
+                registryIdentity: nil,
+            ),
+        )
+
+        let result = try WorkspaceOverridesJSONParser.parse(
+            v1: json,
+            workspaceRoot: workspaceRoot,
+        )
+
+        try #require(result.count == 1)
+        #expect(result[0] == expected)
+    }
+
+    /// A registry override with a `.range(lowerBound..<upperBound)`
+    /// requirement parses as `.range`. Complements the `.exact`
+    /// coverage above with the requirement variant `swift package
+    /// workspace override add registry ... --from X --to Y` writes to
+    /// the overrides file.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func parseV1_withRegistryRangeRequirement_parsesAsRange() throws {
+        let json = #"""
+        {"version":1,"overrides":[{"identity":"scope.pkg","kind":{"registry":{"id":"scope.pkg","requirement":{"range":{"lowerBound":{"buildMetadataIdentifiers":[],"major":1,"minor":0,"patch":0,"prereleaseIdentifiers":[]},"upperBound":{"buildMetadataIdentifiers":[],"major":2,"minor":0,"patch":0,"prereleaseIdentifiers":[]}}}}}}]}
+        """#
+        let workspaceRoot = AbsolutePath("/repo")
+        let expected = WorkspaceOverridesJSONParser.Override(
+            identity: .plain("scope.pkg"),
+            overridingDependency: .registry(
+                identity: .plain("scope.pkg"),
+                requirement: .range("1.0.0"..<"2.0.0"),
+                productFilter: .everything,
+                traits: nil,
+            ),
+        )
+
+        let result = try WorkspaceOverridesJSONParser.parse(
+            v1: json,
+            workspaceRoot: workspaceRoot,
+        )
+
+        try #require(result.count == 1)
+        #expect(result[0] == expected)
+    }
+
     /// A schema-version bump the parser doesn't recognize is
     /// surfaced explicitly. This lets us extend the schema
     /// additively over time; older tooling reading a newer file

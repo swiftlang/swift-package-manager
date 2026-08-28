@@ -17,6 +17,7 @@ import Testing
 import _InternalTestSupport
 import struct PackageModel.PackageIdentity
 
+@_spi(SwiftPMInternal) import Commands
 @_spi(SwiftPMInternal) import CoreCommands
 @_spi(SwiftPMInternal) import SPMBuildCore
 import struct SPMBuildCore.BuildSystemProvider
@@ -1486,8 +1487,8 @@ struct WorkspaceFeatureTests {
                 fixturePath,
                 configuration: .debug,
                 extraArgs: [
-                    "override", "add",
-                    "some-lib", "--path", "external/local-some-lib",
+                    "override", "add", "path",
+                    "some-lib", "external/local-some-lib",
                 ],
                 buildSystem: buildSystem,
             )
@@ -1513,6 +1514,125 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    /// `swift workspace override add url <identity> <url>
+    /// --exact <version>` writes a source-control override to
+    /// `.swiftpm/configuration/workspace-overrides.json`. Verified
+    /// via a follow-up `override list` so the assertion exercises
+    /// the read side of the same JSON file that `add url` wrote.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Resolve,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s08_c_workspaceOverrideAddUrl_writesSourceControlEntry(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S08_WorkspaceOverrides") { fixturePath in
+            let overridesFile = fixturePath.appending(
+                components: ".swiftpm", "configuration", "workspace-overrides.json",
+            )
+            try localFileSystem.removeFileTree(overridesFile)
+            let redirectURL = "https://github.com/apple/example-some-lib.git"
+
+            _ = try await executeSwiftWorkspace(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: [
+                    "override", "add", "url",
+                    "some-lib", redirectURL,
+                    "--exact", "1.0.0",
+                ],
+                buildSystem: buildSystem,
+            )
+            expectFileExists(at: overridesFile)
+
+            let (stdout, _) = try await executeSwiftWorkspace(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["override", "list"],
+                buildSystem: buildSystem,
+            )
+            #expect(
+                stdout.contains("some-lib"),
+                "expected `some-lib` identity in list output; got stdout=\(stdout)",
+            )
+            #expect(
+                stdout.contains("kind: url"),
+                "expected `kind: url` line for source-control override; got stdout=\(stdout)",
+            )
+            #expect(
+                stdout.contains("location: \(redirectURL)"),
+                "expected `location: \(redirectURL)` line; got stdout=\(stdout)",
+            )
+            #expect(
+                stdout.contains("requirement: exact 1.0.0"),
+                "expected `requirement: exact 1.0.0` line; got stdout=\(stdout)",
+            )
+        }
+    }
+
+    /// `swift workspace override add registry <identity>
+    /// --exact <version>` writes a registry override to
+    /// `.swiftpm/configuration/workspace-overrides.json`. The
+    /// identity plays a dual role — it names the declared dep to
+    /// redirect AND the registry identity to resolve against — so
+    /// the follow-up `override list` prints `<identity>: <identity>`
+    /// (the display target for `.registry` overrides is the registry
+    /// identity, and the parser reconstructs it as the override's own
+    /// identity).
+    @Test(
+        .tags(
+            .Feature.Command.Package.Resolve,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s08_c_workspaceOverrideAddRegistry_writesRegistryEntry(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S08_WorkspaceOverrides") { fixturePath in
+            let overridesFile = fixturePath.appending(
+                components: ".swiftpm", "configuration", "workspace-overrides.json",
+            )
+            try localFileSystem.removeFileTree(overridesFile)
+
+            _ = try await executeSwiftWorkspace(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: [
+                    "override", "add", "registry",
+                    "some-lib",
+                    "--exact", "1.0.0",
+                ],
+                buildSystem: buildSystem,
+            )
+            expectFileExists(at: overridesFile)
+
+            let (stdout, _) = try await executeSwiftWorkspace(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["override", "list"],
+                buildSystem: buildSystem,
+            )
+            #expect(
+                stdout.contains("some-lib"),
+                "expected `some-lib` identity in list output; got stdout=\(stdout)",
+            )
+            #expect(
+                stdout.contains("kind: registry"),
+                "expected `kind: registry` line for registry override; got stdout=\(stdout)",
+            )
+            #expect(
+                stdout.contains("location: some-lib"),
+                "expected `location: some-lib` line (the registry identity mirrors the override identity); got stdout=\(stdout)",
+            )
+            #expect(
+                stdout.contains("requirement: exact 1.0.0"),
+                "expected `requirement: exact 1.0.0` line; got stdout=\(stdout)",
+            )
+        }
+    }
+
     /// After adding an override via the CLI, `list` shows the entry
     /// in the expected `identity: target` format.
     @Test(
@@ -1534,8 +1654,8 @@ struct WorkspaceFeatureTests {
                 fixturePath,
                 configuration: .debug,
                 extraArgs: [
-                    "override", "add",
-                    "some-lib", "--path", "external/local-some-lib",
+                    "override", "add", "path",
+                    "some-lib", "external/local-some-lib",
                 ],
                 buildSystem: buildSystem,
             )
@@ -1547,12 +1667,72 @@ struct WorkspaceFeatureTests {
             )
 
             #expect(
-                stdout.contains("some-lib:"),
-                "expected 'some-lib' identity in list output; got stdout=\(stdout)",
+                stdout.contains("some-lib"),
+                "expected `some-lib` identity in list output; got stdout=\(stdout)",
+            )
+            #expect(
+                stdout.contains("kind: path"),
+                "expected `kind: path` line for filesystem override; got stdout=\(stdout)",
             )
             #expect(
                 stdout.contains("external/local-some-lib"),
                 "expected the redirected path in list output; got stdout=\(stdout)",
+            )
+        }
+    }
+
+    /// `swift workspace override remove <identity>` deletes
+    /// JSON array of per-override records. The array parses cleanly
+    /// with `JSONSerialization` and each element carries `identity`,
+    /// `kind`, and `location` fields so downstream tooling can consume
+    /// the list without regex'ing the human-readable text output.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Resolve,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s08_c_workspaceOverrideList_jsonFormat(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S08_WorkspaceOverrides") { fixturePath in
+            let overridesFile = fixturePath.appending(
+                components: ".swiftpm", "configuration", "workspace-overrides.json",
+            )
+            try localFileSystem.removeFileTree(overridesFile)
+
+            _ = try await executeSwiftWorkspace(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: [
+                    "override", "add", "path",
+                    "some-lib", "external/local-some-lib",
+                ],
+                buildSystem: buildSystem,
+            )
+
+            let (stdout, _) = try await executeSwiftWorkspace(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["override", "list", "--format", "json"],
+                buildSystem: buildSystem,
+            )
+
+            let data = try #require(stdout.data(using: .utf8))
+            let array = try JSONDecoder().decode([ListEntryJSON].self, from: data)
+            try #require(array.count == 1)
+            let entry = array[0]
+            #expect(
+                entry.identity == "some-lib",
+                "expected identity `some-lib`; got \(entry.identity)",
+            )
+            #expect(
+                entry.kind == "path",
+                "expected kind `path`; got \(entry.kind)",
+            )
+            #expect(
+                entry.location.contains("external/local-some-lib"),
+                "expected location to contain `external/local-some-lib`; got \(entry.location)",
             )
         }
     }
@@ -1579,8 +1759,8 @@ struct WorkspaceFeatureTests {
                 fixturePath,
                 configuration: .debug,
                 extraArgs: [
-                    "override", "add",
-                    "some-lib", "--path", "external/local-some-lib",
+                    "override", "add", "path",
+                    "some-lib", "external/local-some-lib",
                 ],
                 buildSystem: buildSystem,
             )
