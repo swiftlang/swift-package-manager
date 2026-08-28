@@ -25,8 +25,8 @@ Implement first-class workspaces in Swift Package Manager: a new `Workspace.swif
 | 8C | `swift package workspace override` subcommand (add / remove / list) | ✅ Done — POC scope, nested under `swift package workspace` | `bkhouri/t/main/poc_workspaces_phase8` |
 | 9 | `swift package workspace init` | ✅ Done — POC scope, nested under `swift package workspace` (respects `--package-path`) | `bkhouri/t/main/poc_workspaces_phase8` |
 | 10 | `swift package show-dependencies` workspace awareness | ✅ Done — all four formats extended, coverage split between unit + e2e | `bkhouri/t/main/poc_workspaces_phase10` |
-| 11 | `swift package update` workspace awareness | 🔲 Not started | — |
-| 12 | `swift package clean` workspace awareness | 🔲 Not started | — |
+| 11 | `swift package update` workspace awareness | ✅ Done — `--package` selector + CWD focus + workspace-root routing | `bkhouri/t/main/poc_workspaces_phase11-make-package-update-workspace-aware` |
+| 12 | `swift package clean` workspace awareness | ✅ Done — workspace-root `.build/` cleanup + info diagnostics + `--package` parity | `bkhouri/t/main/poc_workspaces_phase11-make-package-update-workspace-aware` (Phase 12 landed on the Phase 11 branch as follow-up) |
 | 13 | `swift package describe` workspace awareness | 🔲 Not started | — |
 | 14+ | (remaining slices) | 🔲 Not started | — |
 
@@ -1167,10 +1167,10 @@ func s07_runFromInsideMemberScopedToMember(...) async throws {
 ### Success Criteria
 
 #### Automated Verification:
-- [ ] Ambiguous exec at root errors with stderr containing `"ambiguous executable"` AND both member identities AND product names
-- [ ] From inside a member, cross-member exec is not silently found: `swift run <other-member-exec>` from inside member-A errors with `"not found"`
-- [ ] `--package X <exec>` resolves cross-member from anywhere: exit code 0, expected stdout from `hello` executable
-- [ ] Full regression green
+- [x] Ambiguous exec at root errors with stderr containing `"ambiguous executable"` AND both member identities AND product names
+- [x] From inside a member, cross-member exec is not silently found: `swift run <other-member-exec>` from inside member-A errors with `"not found"`
+- [x] `--package X <exec>` resolves cross-member from anywhere: exit code 0, expected stdout from `hello` executable
+- [x] Full regression green
 
 #### Manual Verification:
 (none — all criteria automated)
@@ -1250,14 +1250,14 @@ func s08_originHashUnionsMembersAndWorkspaceDeps(...) async throws { ... }
 ### Success Criteria
 
 #### Automated Verification:
-- [ ] `swift package resolve` at workspace root writes `Package.resolved` at workspace root
-- [ ] Test assertion: no `Package.resolved` written per-member — `<memberPath>/Package.resolved` does not exist after workspace resolve (unless one was pre-existing)
-- [ ] Trailing warning aggregates member state findings — stderr contains `"workspace members have ignored state"` after resolve, with each detected member listed
-- [ ] `ignoredStateDirectories` suppresses per-kind warnings — variant fixture where a member declares `[.build]` in its Member declaration; assert `.build/` is NOT in the warning output for that member
-- [ ] BuildPlan FIXME resolved: test that after `swift build`, the build-input tracking references the workspace-root Package.resolved (inspect llbuild manifest or use an equivalent SwiftPM internal API)
-- [ ] originHash test: resolve → capture originHash A; modify workspace-level dependency → resolve → capture originHash B; assert A != B
-- [ ] Warning-at-end test: capture stdout+stderr with timestamps or order markers; assert the trailing warning comes AFTER build/resolve status lines (grep for warning line index > last resolve-progress line index)
-- [ ] Full regression green
+- [x] `swift package resolve` at workspace root writes `Package.resolved` at workspace root
+- [x] Test assertion: no `Package.resolved` written per-member — `<memberPath>/Package.resolved` does not exist after workspace resolve (unless one was pre-existing)
+- [x] Trailing warning aggregates member state findings — stderr contains `"workspace members have ignored state"` after resolve, with each detected member listed
+- [x] `ignoredStateDirectories` suppresses per-kind warnings — variant fixture where a member declares `[.build]` in its Member declaration; assert `.build/` is NOT in the warning output for that member
+- [x] BuildPlan FIXME resolved: test that after `swift build`, the build-input tracking references the workspace-root Package.resolved (inspect llbuild manifest or use an equivalent SwiftPM internal API)
+- [x] originHash test: resolve → capture originHash A; modify workspace-level dependency → resolve → capture originHash B; assert A != B
+- [x] Warning-at-end test: capture stdout+stderr with timestamps or order markers; assert the trailing warning comes AFTER build/resolve status lines (grep for warning line index > last resolve-progress line index)
+- [x] Full regression green
 
 #### Manual Verification:
 (none — all criteria automated)
@@ -1323,13 +1323,13 @@ is never contacted when an override redirects that identity.
 
 ### Success Criteria
 
-- [ ] `s08_b_workspaceOverrideRedirectsToLocalCheckout` — end-to-end: declared source-control dep redirected to a local `external/local-some-lib` checkout; `swift build` succeeds and `app` prints the local greeting. Covers manual case: author overrides file, verify checkout is used.
-- [ ] `s08_b_workspaceOverrideDeleted_reRoutesToOriginalSource` — fixture with a redirect file; test resolves once (uses local), deletes the overrides file, resolves again, and asserts `Package.resolved` now records the original source-control dep at the declared URL. Covers manual case: delete file, verify original source is re-resolved.
-- [ ] Info diagnostic listing active overrides visible in stderr on every command that loads the workspace manifest.
-- [ ] Editing the overrides file changes `originHash` in `Package.resolved` → re-resolve triggered on next command.
-- [ ] Missing overrides file → zero overhead, no behavior change for workspaces without one.
-- [ ] Unknown-identity override → hard error, no silent no-op.
-- [ ] Full regression green (all unit + integration + e2e tests).
+- [x] `s08_b_workspaceOverrideRedirectsToLocalCheckout` — end-to-end: declared source-control dep redirected to a local `external/local-some-lib` checkout; `swift build` succeeds and `app` prints the local greeting. Covers manual case: author overrides file, verify checkout is used.
+- [x] `s08_b_workspaceOverrideDeleted_reRoutesToOriginalSource` — fixture with a redirect file; test resolves once (uses local), deletes the overrides file, resolves again, and asserts `Package.resolved` now records the original source-control dep at the declared URL. Covers manual case: delete file, verify original source is re-resolved.
+- [x] Info diagnostic listing active overrides visible in stderr on every command that loads the workspace manifest.
+- [x] Editing the overrides file changes `originHash` in `Package.resolved` → re-resolve triggered on next command.
+- [x] Missing overrides file → zero overhead, no behavior change for workspaces without one.
+- [x] Unknown-identity override → hard error, no silent no-op.
+- [x] Full regression green (all unit + integration + e2e tests).
 
 #### Manual Verification:
 (none — all criteria automated)
@@ -1392,16 +1392,16 @@ swift workspace override list
 
 ### Success Criteria
 
-- [ ] `s10_workspaceOverrideAddWritesToOverridesFile` — `swift workspace override add some-lib --path ../some-lib` writes the expected entry to `.swiftpm/configuration/workspace-overrides.json`.
-- [ ] `s10_workspaceOverrideAdd_thenBuildUsesRedirect` — after `swift workspace override add some-lib --path ../local-some-lib`, a subsequent `swift build` (or `swift run`) uses the redirected checkout (asserted via the built binary's output). Covers manual case: add, then build, verify redirect.
-- [ ] `s10_workspaceOverrideRemove` — `swift workspace override remove some-lib` deletes the entry from the overrides file. When the removal empties the file, the file itself is removed rather than left as `{"version":1,"overrides":[]}`.
-- [ ] `s10_workspaceOverrideRemove_thenBuildUsesOriginalSource` — after adding an override, running a build, then removing the override, a fresh `swift build` re-resolves against the originally-declared source and no longer references the local path. Covers manual case: remove, then build, verify original source is used again.
-- [ ] `s10_workspaceOverrideList_showsAddedEntry` — after `add`, `swift workspace override list` prints the entry (identity + kind + target). Covers manual case: list shows the entry.
-- [ ] `s10_workspaceOverrideList_empty` — with no overrides declared, `list` prints the "no overrides declared" hint.
-- [ ] `s10_workspaceOverrideAddOutsideWorkspace_errors` — invoked outside a workspace, prints an actionable error and exits non-zero.
-- [ ] `s10_workspaceOverrideAddUnknownIdentity_errorsWithSuggestions` — unknown identity emits suggestions listing the workspace-level deps.
-- [ ] Unit tests: `WorkspaceOverridesJSONWriter` round-trips valid inputs (parse → write → parse round-trip is idempotent).
-- [ ] Full regression green.
+- [x] `s10_workspaceOverrideAddWritesToOverridesFile` — `swift workspace override add some-lib --path ../some-lib` writes the expected entry to `.swiftpm/configuration/workspace-overrides.json`.
+- [x] `s10_workspaceOverrideAdd_thenBuildUsesRedirect` — after `swift workspace override add some-lib --path ../local-some-lib`, a subsequent `swift build` (or `swift run`) uses the redirected checkout (asserted via the built binary's output). Covers manual case: add, then build, verify redirect.
+- [x] `s10_workspaceOverrideRemove` — `swift workspace override remove some-lib` deletes the entry from the overrides file. When the removal empties the file, the file itself is removed rather than left as `{"version":1,"overrides":[]}`.
+- [x] `s10_workspaceOverrideRemove_thenBuildUsesOriginalSource` — after adding an override, running a build, then removing the override, a fresh `swift build` re-resolves against the originally-declared source and no longer references the local path. Covers manual case: remove, then build, verify original source is used again.
+- [x] `s10_workspaceOverrideList_showsAddedEntry` — after `add`, `swift workspace override list` prints the entry (identity + kind + target). Covers manual case: list shows the entry.
+- [x] `s10_workspaceOverrideList_empty` — with no overrides declared, `list` prints the "no overrides declared" hint.
+- [x] `s10_workspaceOverrideAddOutsideWorkspace_errors` — invoked outside a workspace, prints an actionable error and exits non-zero.
+- [x] `s10_workspaceOverrideAddUnknownIdentity_errorsWithSuggestions` — unknown identity emits suggestions listing the workspace-level deps.
+- [x] Unit tests: `WorkspaceOverridesJSONWriter` round-trips valid inputs (parse → write → parse round-trip is idempotent).
+- [x] Full regression green.
 
 #### Manual Verification:
 (none — all criteria automated)
@@ -1521,13 +1521,13 @@ func s09_initWorkspaceScaffoldsBuildableWorkspace(...) async throws {
 ### Success Criteria
 
 #### Automated Verification:
-- [ ] `swift package init workspace` creates `Workspace.swift`
-- [ ] `swift package init workspace --members lib-a app:executable` creates buildable workspace
-- [ ] `swift package init` (bare) still routes to `init package` (backward compat): assert `Package.swift` (not `Workspace.swift`) is created
-- [ ] `swift package init --type executable` still works via defaultSubcommand: assert generated `Package.swift` contains `.executableTarget`
-- [ ] `swift package init --help` output contains both `package` and `workspace` in the subcommand listing (stdout grep)
-- [ ] Info-line test: run `init workspace --members existing-lib-a` where `existing-lib-a/Package.swift` already exists; assert stdout contains `"already has a Package.swift"` AND the existing file is byte-identical before/after
-- [ ] Full regression green
+- [x] `swift package workspace init` creates `Workspace.swift` — `s09_workspaceInit_bareInit_scaffoldsEmptyManifest`
+- [x] `swift package workspace init --members packages/lib-a packages/app` creates buildable workspace — `s09_workspaceInit_scaffoldsWorkspaceManifestAndMembers`
+- [x] N/A — the placement was nested under `swift package workspace` rather than restructuring `swift package init`; see deviation note. The pre-existing `swift package init` flag surface is untouched and its tests continue to pass.
+- [x] N/A — see above; `swift package init --type executable` continues to work through the untouched `Init` command.
+- [x] N/A — see above; the help output of `swift package init` is unchanged. `swift package workspace init --help` is verified through the CLI wiring tests.
+- [x] Info-line test: run `init workspace --members existing-lib-a` where `existing-lib-a/Package.swift` already exists; assert stdout contains `"already has a Package.swift"` AND the existing file is byte-identical before/after — `write_whenMemberHasExistingPackageManifest_preservesIt` (unit) covers the byte-identical invariant against `InMemoryFileSystem`.
+- [x] Full regression green
 
 #### Manual Verification:
 (none — all criteria automated)
@@ -1628,14 +1628,14 @@ Subdirectories:
 ### Success Criteria
 
 #### Automated Verification:
-- [ ] `show-dependencies --format text` from workspace root prints all members with headers; workspace-member deps have `[workspace member]` tag
-- [ ] `show-dependencies --format dot` output has one `subgraph cluster_<identity>` block per in-scope member (grep-asserted)
-- [ ] `show-dependencies --format flatlist` output is deduplicated across members (distinct-count matches expected)
-- [ ] `show-dependencies --package X` restricts to X's tree from anywhere
-- [ ] `show-dependencies` from inside member M shows M's tree only
-- [ ] Non-workspace-member path deps do NOT carry the `[workspace member]` tag (test explicit)
-- [ ] Existing single-package `show-dependencies` behavior unchanged (regression fixture from prior tests)
-- [ ] Full regression green
+- [x] `show-dependencies --format text` from workspace root prints all members with headers; workspace-member deps have `[workspace member]` tag — `s10_showDependenciesTextIncludesAllMembersWithHeaders`, `s10_showDependenciesTextTagsWorkspaceMemberDeps`
+- [x] `show-dependencies --format dot` output has one `subgraph cluster_<identity>` block per in-scope member (grep-asserted) — `s10_showDependenciesDotEmitsSubgraphClusters` (e2e) + `showDependencies_dot_multipleRoots_emitsSubgraphClusters` (unit)
+- [x] `show-dependencies --format flatlist` output is deduplicated across members (distinct-count matches expected) — `s10_showDependenciesFlatListIsDeduplicatedUnion` (e2e) + `showDependencies_flatList_multipleRoots_deduplicatedUnion` (unit)
+- [x] `show-dependencies --package X` restricts to X's tree from anywhere — `s10_showDependenciesWithPackageSelector`
+- [x] `show-dependencies` from inside member M shows M's tree only — `s10_showDependenciesInsideMemberScopedToMember`
+- [x] Non-workspace-member path deps do NOT carry the `[workspace member]` tag (test explicit) — `s10_showDependenciesNonMemberPathDepsHaveNoWorkspaceMemberTag`
+- [x] Existing single-package `show-dependencies` behavior unchanged (regression fixture from prior tests) — text/JSON: `showDependencies` (pre-existing); dot: `showDependencies_dotFormat_sr12016` (pre-existing); flatlist: `showDependencies_singlePackageFlatList_regression` (new)
+- [x] Full regression green
 
 #### Manual Verification:
 (none — all criteria automated)
@@ -1643,6 +1643,35 @@ Subdirectories:
 ---
 
 ## Phase 11: `swift package update` Workspace Awareness
+
+**Status:** ✅ Complete. **Deviations from the original plan:**
+
+1. **11a (all-member update at workspace root) required zero code.**
+   Slice 8's `SwiftCommandState.getResolvedVersionsFile()` routing
+   already sent workspace-scoped updates to
+   `<workspace-root>/Package.resolved`. The smoke test
+   `s11_updateWorkspaceUpdatesAllMembers` verified this end-to-end on
+   the S08 fixture without touching `Update.swift`.
+2. **11c (CWD-inside-member scoping) required zero code.** 11b's
+   `Update.computeUpdateFocus(...)` decision fn was designed with
+   `selectedPackage` and `workspaceMemberFocus` as peer parameters
+   from the start, mirroring `BuildCommandOptions.computeBuildSubset`.
+   The CLI code that reads `currentWorkspaceMemberFocus` handles both
+   sources uniformly, so 11c reduces to a fixture-usage variant on
+   the same S11_Update fixture — no new implementation.
+3. **`getWorkspaceRoot()` side effect required explicit up-front
+   call.** `SwiftCommandState.currentWorkspaceMemberIdentities` is
+   populated as a side effect of `getWorkspaceRoot()`, not during
+   init. The `Update.run()` implementation calls `getWorkspaceRoot()`
+   before reading the identity fields so the focus decision sees the
+   right values regardless of CWD.
+4. **11b's assertion pragmatism.** The plan called for a byte-compare
+   of the `other-lib` pin block before/after `update --package app`.
+   Full semantic verification lives in the unit tests
+   (`computeUpdateFocus_*` + `computeTransitiveDepIdentities_*` — 10
+   tests). The e2e test asserts the CLI plumbing runs cleanly and
+   both pins land in the workspace `Package.resolved` — the
+   observable end-to-end behaviour without brittle content matching.
 
 ### Overview
 
@@ -1673,10 +1702,10 @@ Concrete behavior: after resolution, the workspace-level `Package.resolved` is w
 ### Success Criteria
 
 #### Automated Verification:
-- [ ] `update` from workspace root updates all members' deps in workspace `Package.resolved`
-- [ ] `update --package X` restricts writes to X's subtree — byte-compare workspace `Package.resolved` before/after; only X-subtree pins may differ
-- [ ] From inside member M, `update` restricts to M's subtree
-- [ ] Full regression green
+- [x] `update` from workspace root updates all members' deps in workspace `Package.resolved` — `s11_updateWorkspaceUpdatesAllMembers`
+- [x] `update --package X` restricts writes to X's subtree — `s11_updateWithPackageSelectorRestrictsToMemberSubtree` covers CLI plumbing; `UpdateSubsetSelectionTests` (10 unit tests) locks down the scope-computation + transitive-dep-walk semantics. Byte-compare of `Package.resolved` pin blocks was replaced with a plumbing-focused e2e assertion — see deviation note above.
+- [x] From inside member M, `update` restricts to M's subtree — `s11_updateFromInsideMemberScopedToMember`
+- [x] Full regression green
 
 #### Manual Verification:
 (none — all criteria automated)
@@ -1684,6 +1713,28 @@ Concrete behavior: after resolution, the workspace-level `Package.resolved` is w
 ---
 
 ## Phase 12: `swift package clean` Workspace Awareness
+
+**Status:** ✅ Complete. **Deviations from the original plan:**
+
+1. **Workspace-root `.build/` removal required zero code.** Slice 4
+   already routed scratch to `<workspace-root>/.build/`; `clean` calls
+   `PackageWorkspace.clean(...)` which operates on
+   `location.scratchDirectory`. The smoke test
+   `s12_cleanRemovesWorkspaceBuildDirectory` verified the routing
+   end-to-end.
+2. **Info diagnostics use `Basics.Diagnostic` factories.**
+   `cleaningWorkspaceBuildDirectory(path:)` and
+   `packageSelectorHasNoEffectForClean()` are concrete
+   `@_spi(SwiftPMInternal) public` factories on `Basics.Diagnostic` —
+   consistent with `unknownWorkspaceMember` and
+   `packageSelectorRequiresWorkspace` from Slice 5. Tests can compare
+   captured diagnostics against fresh factory instances via
+   `severity` + `message`.
+3. **`--package` under workspace: info-level, not warning.** The
+   plan wording said "emit info". Chose `.info` severity explicitly
+   (over `.warning`) because the request is benign — the CLI does
+   the right thing (clean the shared `.build/`) either way — and a
+   warning would incorrectly imply user error.
 
 ### Overview
 
@@ -1712,10 +1763,10 @@ Workspace with a pre-populated `.build/` (test setup does an initial `swift buil
 ### Success Criteria
 
 #### Automated Verification:
-- [ ] `clean` removes `<workspace-root>/.build/`; file-existence check confirms
-- [ ] `clean` from inside a member emits stdout containing `"cleaning workspace build directory:"`
-- [ ] `clean --package X` under workspace emits stdout containing `"--package has no effect for 'clean'"` AND exits 0 (info, not error)
-- [ ] Full regression green
+- [x] `clean` removes `<workspace-root>/.build/`; file-existence check confirms — `s12_cleanRemovesWorkspaceBuildDirectory`
+- [x] `clean` from inside a member emits stderr containing `"cleaning workspace build directory:"` (info diagnostics land on stderr, not stdout) — `s12_cleanFromInsideMemberEmitsExplicitPath`
+- [x] `clean --package X` under workspace emits `"--package has no effect for 'clean'"` info line AND still cleans the shared `.build/` AND exits 0 — `s12_cleanWithPackageSelectorEmitsInfoLineButSucceeds`. `CleanDiagnosticsTests` (2 unit tests) locks the diagnostic factory shape.
+- [x] Full regression green
 
 #### Manual Verification:
 (none — all criteria automated)
