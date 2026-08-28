@@ -41,20 +41,13 @@ extension LLBuildManifestBuilder {
     func createSwiftCompileCommand(
         _ target: SwiftModuleBuildDescription
     ) throws {
-        try self.addEmbeddedResourceObjectCommands(target)
-
         // Inputs.
         let inputs = try self.computeSwiftCompileCmdInputs(target)
 
         // Outputs.
-        let swiftObjectNodes = target.buildParameters.prepareForIndexing == .off
-            ? try target.swiftObjects.map(Node.file)
-            : []
-        let embeddedResourceObjectNodes = target.buildParameters.prepareForIndexing == .off
-            ? target.resourcesToEmbedAsObjects.map { Node.file($0.objectPath) }
-            : []
+        let objectNodes = target.buildParameters.prepareForIndexing == .off ? try target.objects.map(Node.file) : []
         let moduleNode = Node.file(target.moduleOutputPath)
-        let compileOutputs = swiftObjectNodes + [moduleNode]
+        let cmdOutputs = objectNodes + [moduleNode]
 
         if target.buildParameters.driverParameters.useIntegratedSwiftDriver {
             try self.addSwiftCmdsViaIntegratedDriver(
@@ -63,81 +56,11 @@ extension LLBuildManifestBuilder {
                 moduleNode: moduleNode
             )
         } else {
-            try self.addCmdWithBuiltinSwiftTool(target, inputs: inputs, cmdOutputs: compileOutputs)
+            try self.addCmdWithBuiltinSwiftTool(target, inputs: inputs, cmdOutputs: cmdOutputs)
         }
 
-        self.addTargetCmd(target, cmdOutputs: compileOutputs + embeddedResourceObjectNodes)
+        self.addTargetCmd(target, cmdOutputs: cmdOutputs)
         try self.addModuleWrapCmd(target)
-    }
-
-    private func addEmbeddedResourceObjectCommands(
-        _ target: SwiftModuleBuildDescription
-    ) throws {
-        guard !target.resourcesToEmbedAsObjects.isEmpty else {
-            return
-        }
-
-        let clang = try target.buildParameters.toolchain.getClangCompiler()
-        let objcopy = try target.buildParameters.toolchain.getLLVMObjcopy()
-        var clangArguments = [clang.pathString]
-        clangArguments += try target.buildParameters.tripleArgs(for: target.target)
-        clangArguments += target.buildParameters.toolchain.extraFlags.cCompilerFlags.rawFlags
-        clangArguments += target.buildParameters.flags.cCompilerFlags.rawFlags
-
-        func addAssembleCommand(source: AbsolutePath, output: AbsolutePath) {
-            self.manifest.addShellCmd(
-                name: output.pathString,
-                description: "Assembling embedded resource support for \(target.target.name)",
-                inputs: [.file(source)],
-                outputs: [.file(output)],
-                arguments: clangArguments + [
-                    "-x", "assembler", "-c", source.pathString, "-o", output.pathString,
-                ]
-            )
-        }
-
-        for resource in target.resourcesToEmbedAsObjects {
-            if target.buildParameters.triple.objectFormat == .macho && resource.byteCount == 0 {
-                addAssembleCommand(source: resource.seedSourcePath, output: resource.objectPath)
-                continue
-            }
-
-            addAssembleCommand(source: resource.seedSourcePath, output: resource.seedObjectPath)
-
-            var arguments = [objcopy.pathString]
-            switch target.buildParameters.triple.objectFormat {
-            case .macho:
-                arguments += [
-                    "--update-section",
-                    "__TEXT,\(resource.sectionName)=\(resource.path.pathString)",
-                ]
-            case .elf:
-                arguments += [
-                    "--add-section",
-                    "\(resource.sectionName)=\(resource.path.pathString)",
-                    "--set-section-flags",
-                    "\(resource.sectionName)=alloc,load,readonly,data,contents",
-                    "--add-symbol",
-                    "\(resource.dataSymbol)=\(resource.sectionName):0,global,hidden,object",
-                ]
-            default:
-                throw InternalError(
-                    "unsupported object format for embedded resource \(resource.path)"
-                )
-            }
-            arguments += [
-                resource.seedObjectPath.pathString,
-                resource.objectPath.pathString,
-            ]
-
-            self.manifest.addShellCmd(
-                name: resource.objectPath.pathString,
-                description: "Embedding resource \(resource.path.basename)",
-                inputs: [.file(resource.seedObjectPath), .file(resource.path)],
-                outputs: [.file(resource.objectPath)],
-                arguments: arguments
-            )
-        }
     }
 
     private func addSwiftCmdsViaIntegratedDriver(
@@ -286,13 +209,8 @@ extension LLBuildManifestBuilder {
         }
 
         if let resourcesEmbeddingSource = target.resourcesEmbeddingSource {
-            self.manifest.addWriteEmbeddedResourcesCommand(
-                byteArrayResources: target.resourcesToEmbedAsByteArrays,
-                objectResources: target.resourcesToEmbedAsObjects.map {
-                    ($0.path, $0.dataSymbol, $0.byteCount)
-                },
-                outputPath: resourcesEmbeddingSource
-            )
+            let resourceFilesToEmbed = target.resourceFilesToEmbed
+            self.manifest.addWriteEmbeddedResourcesCommand(resources: resourceFilesToEmbed, outputPath: resourcesEmbeddingSource)
         }
 
         let prepareForIndexing = target.buildParameters.prepareForIndexing

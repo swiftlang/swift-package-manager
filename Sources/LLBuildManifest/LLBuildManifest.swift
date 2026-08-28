@@ -166,104 +166,29 @@ public enum WriteAuxiliary {
     public struct EmbeddedResources: AuxiliaryFileType {
         public static let name = "embedded-resources"
 
-        private static let byteArrayMarker = "embedded-resource-byte-array"
-        private static let objectMarkerPrefix = "embedded-resource-object:"
-
-        public static func computeInputs(
-            byteArrayResources: [Basics.AbsolutePath],
-            objectResources: [(path: Basics.AbsolutePath, dataSymbol: String, byteCount: UInt64)]
-        ) -> [Node] {
-            var inputs: [Node] = [.virtual(Self.name)]
-            for path in byteArrayResources {
-                inputs.append(.virtual(byteArrayMarker))
-                inputs.append(.file(path))
-            }
-            for resource in objectResources {
-                inputs.append(.virtual(
-                    objectMarkerPrefix + resource.dataSymbol + ":" + String(resource.byteCount)
-                ))
-                inputs.append(.file(resource.path))
-            }
-            return inputs
+        public static func computeInputs(resources: [Basics.AbsolutePath]) -> [Node] {
+            return [.virtual(Self.name)] + resources.map { Node.file($0) }
         }
 
+        // FIXME: This will not work well for large files, as we will store the entire contents, plus its byte array
+        // representation in memory.
         public static func getFileContents(inputs: [Node]) throws -> String {
-            enum Representation {
-                case byteArray
-                case object(dataSymbol: String, byteCount: UInt64)
-            }
+            var content =
+                """
+                struct PackageResources {
 
-            var representation: Representation?
-            var declarations = ""
-            var properties = ""
+                """
 
-            for input in inputs {
-                if input.kind == .virtual {
-                    let marker = input.extractedVirtualNodeName
-                    if marker == byteArrayMarker {
-                        representation = .byteArray
-                    } else if marker.hasPrefix(objectMarkerPrefix) {
-                        let value = marker.dropFirst(objectMarkerPrefix.count)
-                        guard
-                            let separator = value.lastIndex(of: ":"),
-                            let byteCount = UInt64(value[value.index(after: separator)...])
-                        else {
-                            throw Error.invalidObjectResourceMarker(marker)
-                        }
-                        representation = .object(
-                            dataSymbol: String(value[..<separator]),
-                            byteCount: byteCount
-                        )
-                    }
-                    continue
-                }
-
-                guard input.kind == .file, let representation else { continue }
+            for input in inputs where input.kind == .file {
                 let resourcePath = try Basics.AbsolutePath(validating: input.name)
                 let variableName = resourcePath.basename.spm_mangledToC99ExtendedIdentifier()
+                let fileContent = try Data(contentsOf: URL(fileURLWithPath: resourcePath.pathString)).map { String($0) }.joined(separator: ",")
 
-                switch representation {
-                case .byteArray:
-                    // FIXME: This stores the entire contents and its decimal
-                    // source representation in memory. Prefer object-file
-                    // embedding for large resources.
-                    let fileContent = try Data(contentsOf: URL(fileURLWithPath: resourcePath.pathString))
-                        .map { String($0) }
-                        .joined(separator: ",")
-                    properties += "static let \(variableName): [UInt8] = [\(fileContent)]\n"
-
-                case .object(let dataSymbol, let byteCount):
-                    let swiftDataName = "_\(dataSymbol)"
-                    declarations +=
-                        """
-                        @_silgen_name("\(dataSymbol)")
-                        nonisolated(unsafe) private var \(swiftDataName): UInt8
-
-                        """
-                    properties +=
-                        """
-                        static var \(variableName): Span<UInt8> {
-                            @_lifetime(immortal)
-                            get {
-                                let start = withUnsafePointer(to: &\(swiftDataName)) { $0 }
-                                let span = unsafe Span(_unsafeStart: start, count: \(byteCount))
-                                return unsafe _overrideLifetime(span, copying: ())
-                            }
-                        }
-                        """
-                    properties += "\n"
-                }
+                content += "static let \(variableName): [UInt8] = [\(fileContent)]\n"
             }
 
-            return
-                """
-                \(declarations)struct PackageResources {
-                \(properties)}
-                """
-        }
-
-        private enum Error: Swift.Error {
-            case invalidObjectResourceMarker(String)
+            content += "}"
+            return content
         }
     }
 }
@@ -389,14 +314,10 @@ public struct LLBuildManifest {
     }
 
     public mutating func addWriteEmbeddedResourcesCommand(
-        byteArrayResources: [Basics.AbsolutePath],
-        objectResources: [(path: Basics.AbsolutePath, dataSymbol: String, byteCount: UInt64)],
+        resources: [Basics.AbsolutePath],
         outputPath: Basics.AbsolutePath
     ) {
-        let inputs = WriteAuxiliary.EmbeddedResources.computeInputs(
-            byteArrayResources: byteArrayResources,
-            objectResources: objectResources
-        )
+        let inputs = WriteAuxiliary.EmbeddedResources.computeInputs(resources: resources)
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
         let name = outputPath.pathString
         addCommand(name: name, tool: tool)

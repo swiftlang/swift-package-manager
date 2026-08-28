@@ -891,6 +891,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Generate a table of any overriding build settings.
         var settings: [String: String] = [:]
 
+        if let objcopy = try? buildParameters.toolchain.getLLVMObjcopy() {
+            settings["LLVM_OBJCOPY"] = objcopy.pathStringWithPosixSlashes
+        }
+
         if setToolchainSetting {
             // If the SwiftPM toolchain corresponds to a toolchain registered with the lower level build system, add it to the toolchain stack.
             // Otherwise, apply overrides for each component of the SwiftPM toolchain.

@@ -300,7 +300,7 @@ struct ResourcesTests{
         .tags(
             .Feature.Command.Build,
         ),
-        arguments: [BuildSystemProvider.Kind.native],
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
     )
     func resourcesEmbeddedInObjectFile(
         buildSystem: BuildSystemProvider.Kind,
@@ -339,7 +339,7 @@ struct ResourcesTests{
         .tags(
             .Feature.Command.Build,
         ),
-        arguments: [BuildSystemProvider.Kind.native],
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
     )
     func objectFileResourcesRequireLifetimes(
         buildSystem: BuildSystemProvider.Kind,
