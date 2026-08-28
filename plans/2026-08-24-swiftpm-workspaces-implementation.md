@@ -27,7 +27,7 @@ Implement first-class workspaces in Swift Package Manager: a new `Workspace.swif
 | 10 | `swift package show-dependencies` workspace awareness | ✅ Done — all four formats extended, coverage split between unit + e2e | `bkhouri/t/main/poc_workspaces_phase10` |
 | 11 | `swift package update` workspace awareness | ✅ Done — `--package` selector + CWD focus + workspace-root routing | `bkhouri/t/main/poc_workspaces_phase11-make-package-update-workspace-aware` |
 | 12 | `swift package clean` workspace awareness | ✅ Done — workspace-root `.build/` cleanup + info diagnostics + `--package` parity | `bkhouri/t/main/poc_workspaces_phase11-make-package-update-workspace-aware` (Phase 12 landed on the Phase 11 branch as follow-up) |
-| 13 | `swift package describe` workspace awareness | 🔲 Not started | — |
+| 13 | `swift package describe` workspace awareness | ✅ Done — per-member iteration for text/json/mermaid + `--package` + CWD focus | `bkhouri/t/main/poc_workspaces_phase13-make-package-describe-workspace-aware` |
 | 14+ | (remaining slices) | 🔲 Not started | — |
 
 ## Current State Analysis
@@ -1775,6 +1775,30 @@ Workspace with a pre-populated `.build/` (test setup does an initial `swift buil
 
 ## Phase 13: `swift package describe` Workspace Awareness
 
+**Status:** ✅ Complete. **Deviations from the original plan:**
+
+1. **`scopedRootPackages` duplicated on `Describe`.** The plan
+   noted the extraction question implicitly by referencing the
+   `show-dependencies` pattern. The implementation follows Slice
+   10's precedent and duplicates the fn (~20 lines) rather than
+   lifting to a shared module. Extracting to
+   `Sources/Commands/Utilities/` is a follow-up when a third caller
+   appears — likely Slice 14 (`swift package dump-package`).
+2. **JSON multi-root shape mirrors Slice 10.** The plan deferred
+   the JSON envelope to implementation time. Chose "array of
+   per-member `DescribedPackage` objects when multi-root; single
+   top-level object when single-root" — same shape/backwards-compat
+   trade-off Slice 10 landed for `show-dependencies --format json`.
+3. **Mermaid format handled by concatenation.** The plan did not
+   mention mermaid. Each member's diagram is printed with a
+   blank-line separator; each rendered graph already names its
+   package internally, so a per-member header would be redundant
+   (and mermaid has no comment grammar to lean on).
+4. **`PackageIdentity` normalization exposed by unit tests.**
+   Package identity strips non-alphanumerics — `packages/lib-a` has
+   identity `liba`, not `lib-a`. Unit tests and e2e headers use
+   `liba` accordingly, with a comment noting the normalization.
+
 ### Overview
 
 Extend `swift package describe` to iterate over in-scope workspace members.
@@ -1802,10 +1826,10 @@ Under workspace: describe all in-scope members. Text format prefixes each member
 ### Success Criteria
 
 #### Automated Verification:
-- [ ] `describe` from workspace root emits all members' descriptions each preceded by `--- <identity> ---` header
-- [ ] `describe` from inside member M shows M's description only (no header, since unambiguous)
-- [ ] `describe --package X` restricts to X's description
-- [ ] Full regression green
+- [x] `describe` from workspace root emits all members' descriptions each preceded by `--- <identity> ---` header — `s13_describeWorkspaceEmitsAllMembers` (asserts `--- app ---` and `--- liba ---` headers)
+- [x] `describe` from inside member M shows M's description only (no header, since unambiguous) — `s13_describeInsideMemberScopedToMember`
+- [x] `describe --package X` restricts to X's description — `s13_describeWithPackageSelector`. `DescribeSubsetSelectionTests` (5 unit tests) locks down the scope-computation semantics for path/CWD/`--package`/precedence/unknown-identity cases. `s13_describeJsonMultipleMembers_emitsArrayOfPerMemberObjects` and `s13_describeMermaidMultipleMembers_concatsPerMember` cover the other two formats.
+- [x] Full regression green
 
 #### Manual Verification:
 (none — all criteria automated)
