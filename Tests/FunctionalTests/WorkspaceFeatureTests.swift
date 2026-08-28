@@ -2298,6 +2298,53 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    // MARK: - Slice 11: `swift package update` workspace awareness
+
+    /// `swift package update` invoked at a workspace root writes
+    /// `Package.resolved` at the workspace root (not per-member) and
+    /// resolves every workspace-level dependency. This is the smoke
+    /// test for Phase 11 — Slice 8 already routed
+    /// `getResolvedVersionsFile()` to the workspace root, so the
+    /// update command should surface the workspace-scoped
+    /// `Package.resolved` out of the box.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Resolve,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s11_updateWorkspaceUpdatesAllMembers(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S08_ResolveAndWarnings") { fixturePath in
+            try Self.initializeExternalRepo(at: fixturePath.appending(components: "external", "some-lib"))
+
+            _ = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["update"],
+                buildSystem: buildSystem,
+            )
+
+            let workspaceResolved = fixturePath.appending("Package.resolved")
+            expectFileExists(at: workspaceResolved)
+            let contents: String = try localFileSystem.readFileContents(workspaceResolved)
+            #expect(
+                contents.contains("some-lib"),
+                "expected `some-lib` pin in workspace Package.resolved; got contents=\(contents)",
+            )
+
+            // No per-member Package.resolved leaks out — the workspace
+            // is the single source of truth after Slice 8's routing.
+            for member in ["app", "lib-a", "lib-b"] {
+                let memberResolved = fixturePath.appending(
+                    try RelativePath(validating: "packages/\(member)/Package.resolved"),
+                )
+                expectFileDoesNotExist(at: memberResolved)
+            }
+        }
+    }
+
     /// `swift package workspace add-member <path>` writes the new
     /// member into `Workspace.swift` — a follow-up `list-members`
     /// reports the added entry alongside the pre-existing ones.
