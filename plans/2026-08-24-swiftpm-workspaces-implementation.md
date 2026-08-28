@@ -22,8 +22,8 @@ Implement first-class workspaces in Swift Package Manager: a new `Workspace.swif
 | 7 | `swift run` collisions | ✅ Done | `bkhouri/t/main/poc_workspaces_phase7` |
 | 8 | `swift package resolve` + trailing warnings + workspace-scope originHash | ✅ Done | `bkhouri/t/main/poc_workspaces_phase8` |
 | 8B | Workspace dependency overrides (`.swiftpm/configuration/workspace-overrides.json`) | ✅ Done — folds overrides file content into origin hash | `bkhouri/t/main/poc_workspaces_phase8_diverge-workspace_deps_override` |
-| 8C | `swift workspace override` subcommand (add / remove / list) | 🔲 Not started | — |
-| 9 | `swift package init workspace` | 🔲 Not started | — |
+| 8C | `swift package workspace override` subcommand (add / remove / list) | ✅ Done — POC scope, nested under `swift package workspace` | `bkhouri/t/main/poc_workspaces_phase8` |
+| 9 | `swift package workspace init` | ✅ Done — POC scope, nested under `swift package workspace` (respects `--package-path`) | `bkhouri/t/main/poc_workspaces_phase8` |
 | 10 | `swift package show-dependencies` workspace awareness | 🔲 Not started | — |
 | 11 | `swift package update` workspace awareness | 🔲 Not started | — |
 | 12 | `swift package clean` workspace awareness | 🔲 Not started | — |
@@ -1353,7 +1353,7 @@ it prints an actionable error pointing users at `swift package init workspace`.
 ### CLI surface
 
 ```
-swift workspace override add <identity> --path <local-path>
+swift workspace override add itidentity> --path <local-path>
 swift workspace override add <identity> --url <scm-url> --from <version>
 swift workspace override add <identity> --url <scm-url> --branch <name>
 swift workspace override add <identity> --url <scm-url> --revision <sha>
@@ -1408,7 +1408,17 @@ swift workspace override list
 
 ---
 
-## Phase 9: `swift package init workspace`
+## Phase 9: `swift package workspace init`
+
+**Status:** ✅ Complete (POC scope). **Deviated from original plan:** the
+scaffolding command was placed under the existing `swift package workspace`
+subcommand tree (as a sibling of `override`) rather than restructuring
+`swift package init` into `init package` / `init workspace` subcommands.
+This avoids introducing a `defaultSubcommand`-based backwards-compatibility
+shim for the existing `swift package init` flag surface. The nested
+placement matches Phase 8C's `swift package workspace override` and lets
+both new workspace-scope commands share the same `Workspace` subcommand
+group. Detail sections below reflect the original plan for reference.
 
 ### Overview
 
