@@ -361,6 +361,8 @@ public struct TargetSourcesBuilder {
             return Resource(rule: .copy, path: path)
         case .embedResourceInCode:
             return Resource(rule: .embedInCode, path: path)
+        case .embedResourceInObject:
+            return Resource(rule: .embedInCodeAsObject, path: path)
         }
     }
 
@@ -592,7 +594,7 @@ public struct TargetSourcesBuilder {
                 } else {
                     observabilityScope.emit(warning: "C source file generation not enabled: \(absPath)")
                 }
-            case .copyResource, .processResource, .embedResourceInCode:
+            case .copyResource, .processResource, .embedResourceInCode, .embedResourceInObject:
                 if let resource = Self.resource(for: absPath, with: rule, defaultLocalization: defaultLocalization, targetName: module.name, targetPath: module.path, observabilityScope: observabilityScope) {
                     files.resources[resource.path] = resource
                 } else {
@@ -688,6 +690,9 @@ public struct FileRuleDescription: Sendable {
 
         /// The embed rule.
         case embedResourceInCode
+
+        /// The object-file embed rule.
+        case embedResourceInObject
 
         /// The copy rule.
         case copyResource
@@ -912,6 +917,8 @@ extension FileRuleDescription.Rule {
             self = .copyResource
         case .embedInCode:
             self = .embedResourceInCode
+        case .embedInCodeAsObject:
+            self = .embedResourceInObject
         }
     }
 }

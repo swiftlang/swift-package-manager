@@ -535,6 +535,32 @@ public final class UserToolchain: Toolchain {
         )
     }
 
+    public func getLLVMObjcopy() throws -> AbsolutePath {
+        if let configured = self.swiftSDK.toolset.knownTools[.objcopy]?.path {
+            return configured
+        }
+        if let envValue = UserToolchain.lookup(
+            variable: "LLVM_OBJCOPY",
+            searchPaths: self.envSearchPaths,
+            environment: environment
+        ) {
+            return envValue
+        }
+        if let tool = try? UserToolchain.getTool(
+            "llvm-objcopy",
+            binDirectories: self.swiftSDK.toolset.rootPaths + [self.swiftCompilerPath.parentDirectory],
+            fileSystem: self.fileSystem
+        ) {
+            return tool
+        }
+        return try UserToolchain.findTool(
+            "llvm-objcopy",
+            envSearchPaths: self.envSearchPaths,
+            useXcrun: false,
+            fileSystem: self.fileSystem
+        )
+    }
+
     public func getSwiftAPIDigester() throws -> AbsolutePath {
         if let envValue = UserToolchain.lookup(
             variable: "SWIFT_API_DIGESTER",

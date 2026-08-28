@@ -285,8 +285,14 @@ struct PackagePIFProjectBuilder {
         }
 
         let resources = module.resources.map { PackagePIFBuilder.Resource($0) } + generatedResources
-        let shouldGenerateBundleAccessor = resources.anySatisfy { $0.rule != .embedInCode }
-        let shouldGenerateEmbedInCodeAccessor = resources.anySatisfy { $0.rule == .embedInCode }
+        let shouldGenerateBundleAccessor = resources.anySatisfy { !$0.rule.isEmbeddedInCode }
+        let shouldGenerateEmbedInCodeAccessor = resources.anySatisfy { $0.rule.isEmbeddedInCode }
+        if resources.contains(where: { $0.rule == .embedInCodeAsObject }) {
+            self.log(
+                .error,
+                "object-file resource embedding is not yet supported by the Swift Build build system; use '--build-system native'"
+            )
+        }
 
         for resource in resources {
             let resourcePath = resource.path
@@ -335,6 +341,8 @@ struct PackagePIFProjectBuilder {
                 case .copy:
                     swiftBuildResourceRule = .copy
                 case .embedInCode:
+                    swiftBuildResourceRule = .embedInCode
+                case .embedInCodeAsObject:
                     swiftBuildResourceRule = .embedInCode
                 }
                 self.project[keyPath: targetForResourcesKeyPath].addResourceFile { id in

@@ -20,6 +20,9 @@ public protocol Toolchain {
     /// Path of the `swiftc` compiler.
     var swiftCompilerPath: AbsolutePath { get }
 
+    /// Returns the path to the toolchain's `llvm-objcopy` executable.
+    func getLLVMObjcopy() throws -> AbsolutePath
+
     /// Path to `lib/swift`
     var swiftResourcesPath: AbsolutePath? { get }
 

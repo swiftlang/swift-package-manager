@@ -34,6 +34,17 @@
 @available(_PackageDescription, introduced: 5.3)
 public struct Resource: Sendable {
 
+    /// The representation used for a resource embedded in executable code.
+    @available(_PackageDescription, introduced: 6.4)
+    public enum EmbeddedInCodeRepresentation: Sendable {
+        /// Generate a Swift source file containing the resource as a byte-array literal.
+        case byteArray
+
+        /// Embed the resource in a native object file and expose it as an
+        /// `UnsafeRawBufferPointer` backed directly by the linked image.
+        case objectFile
+    }
+
     /// Defines the explicit type of localization for resources.
     public enum Localization: String, Sendable {
 
@@ -116,5 +127,29 @@ public struct Resource: Sendable {
     @available(_PackageDescription, introduced: 5.9)
     public static func embedInCode(_ path: String) -> Resource {
         return Resource(rule: "embedInCode", path: path, localization: nil)
+    }
+
+    /// Applies the embed rule to a resource using the requested representation.
+    ///
+    /// The `objectFile` representation avoids generating and compiling a Swift
+    /// byte-array literal. Package Manager instead embeds the resource with the
+    /// toolchain's `llvm-objcopy` and generates an `UnsafeRawBufferPointer`
+    /// accessor into the linked image.
+    ///
+    /// - Parameters:
+    ///   - path: The path for a resource.
+    ///   - representation: The representation generated for the resource.
+    /// - Returns: A `Resource` instance.
+    @available(_PackageDescription, introduced: 6.4)
+    public static func embedInCode(
+        _ path: String,
+        representation: EmbeddedInCodeRepresentation
+    ) -> Resource {
+        switch representation {
+        case .byteArray:
+            return Resource(rule: "embedInCode", path: path, localization: nil)
+        case .objectFile:
+            return Resource(rule: "embedInCodeAsObject", path: path, localization: nil)
+        }
     }
 }

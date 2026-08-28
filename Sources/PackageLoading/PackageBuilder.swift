@@ -1048,7 +1048,7 @@ public final class PackageBuilder {
                 moduleMapType = .none
             }
 
-            if resources.contains(where: { $0.rule == .embedInCode }) {
+            if resources.contains(where: { $0.rule.isEmbeddedInCode }) {
                 throw ModuleError.embedInCodeNotSupported(target: potentialModule.name)
             }
 

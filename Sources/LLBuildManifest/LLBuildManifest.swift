@@ -166,29 +166,99 @@ public enum WriteAuxiliary {
     public struct EmbeddedResources: AuxiliaryFileType {
         public static let name = "embedded-resources"
 
-        public static func computeInputs(resources: [Basics.AbsolutePath]) -> [Node] {
-            return [.virtual(Self.name)] + resources.map { Node.file($0) }
+        private static let byteArrayMarker = "embedded-resource-byte-array"
+        private static let objectMarkerPrefix = "embedded-resource-object:"
+
+        public static func computeInputs(
+            byteArrayResources: [Basics.AbsolutePath],
+            objectResources: [(path: Basics.AbsolutePath, pointerSymbol: String, byteCount: UInt64)]
+        ) -> [Node] {
+            var inputs: [Node] = [.virtual(Self.name)]
+            for path in byteArrayResources {
+                inputs.append(.virtual(byteArrayMarker))
+                inputs.append(.file(path))
+            }
+            for resource in objectResources {
+                inputs.append(.virtual(
+                    objectMarkerPrefix + resource.pointerSymbol + ":" + String(resource.byteCount)
+                ))
+                inputs.append(.file(resource.path))
+            }
+            return inputs
         }
 
-        // FIXME: This will not work well for large files, as we will store the entire contents, plus its byte array
-        // representation in memory.
         public static func getFileContents(inputs: [Node]) throws -> String {
-            var content =
-                """
-                struct PackageResources {
-
-                """
-
-            for input in inputs where input.kind == .file {
-                let resourcePath = try Basics.AbsolutePath(validating: input.name)
-                let variableName = resourcePath.basename.spm_mangledToC99ExtendedIdentifier()
-                let fileContent = try Data(contentsOf: URL(fileURLWithPath: resourcePath.pathString)).map { String($0) }.joined(separator: ",")
-
-                content += "static let \(variableName): [UInt8] = [\(fileContent)]\n"
+            enum Representation {
+                case byteArray
+                case object(pointerSymbol: String, byteCount: UInt64)
             }
 
-            content += "}"
-            return content
+            var representation: Representation?
+            var declarations = ""
+            var properties = ""
+
+            for input in inputs {
+                if input.kind == .virtual {
+                    let marker = input.extractedVirtualNodeName
+                    if marker == byteArrayMarker {
+                        representation = .byteArray
+                    } else if marker.hasPrefix(objectMarkerPrefix) {
+                        let value = marker.dropFirst(objectMarkerPrefix.count)
+                        guard
+                            let separator = value.lastIndex(of: ":"),
+                            let byteCount = UInt64(value[value.index(after: separator)...])
+                        else {
+                            throw Error.invalidObjectResourceMarker(marker)
+                        }
+                        representation = .object(
+                            pointerSymbol: String(value[..<separator]),
+                            byteCount: byteCount
+                        )
+                    }
+                    continue
+                }
+
+                guard input.kind == .file, let representation else { continue }
+                let resourcePath = try Basics.AbsolutePath(validating: input.name)
+                let variableName = resourcePath.basename.spm_mangledToC99ExtendedIdentifier()
+
+                switch representation {
+                case .byteArray:
+                    // FIXME: This stores the entire contents and its decimal
+                    // source representation in memory. Prefer object-file
+                    // embedding for large resources.
+                    let fileContent = try Data(contentsOf: URL(fileURLWithPath: resourcePath.pathString))
+                        .map { String($0) }
+                        .joined(separator: ",")
+                    properties += "static let \(variableName): [UInt8] = [\(fileContent)]\n"
+
+                case .object(let pointerSymbol, let byteCount):
+                    let swiftPointerName = "_\(pointerSymbol)"
+                    declarations +=
+                        """
+                        @_silgen_name("\(pointerSymbol)")
+                        nonisolated(unsafe) private var \(swiftPointerName): UnsafeRawPointer
+
+                        """
+                    properties +=
+                        """
+                        static var \(variableName): UnsafeRawBufferPointer {
+                            UnsafeRawBufferPointer(start: \(swiftPointerName), count: \(byteCount))
+                        }
+                        """
+                    properties += "\n"
+                }
+            }
+
+            return
+                """
+                \(declarations)struct PackageResources {
+                \(properties)}
+                """
+        }
+
+        private enum Error: Swift.Error {
+            case invalidObjectResourceMarker(String)
         }
     }
 }
@@ -314,10 +384,14 @@ public struct LLBuildManifest {
     }
 
     public mutating func addWriteEmbeddedResourcesCommand(
-        resources: [Basics.AbsolutePath],
+        byteArrayResources: [Basics.AbsolutePath],
+        objectResources: [(path: Basics.AbsolutePath, pointerSymbol: String, byteCount: UInt64)],
         outputPath: Basics.AbsolutePath
     ) {
-        let inputs = WriteAuxiliary.EmbeddedResources.computeInputs(resources: resources)
+        let inputs = WriteAuxiliary.EmbeddedResources.computeInputs(
+            byteArrayResources: byteArrayResources,
+            objectResources: objectResources
+        )
         let tool = WriteAuxiliaryFile(inputs: inputs, outputFilePath: outputPath)
         let name = outputPath.pathString
         addCommand(name: name, tool: tool)

@@ -296,6 +296,45 @@ struct ResourcesTests{
     }
 
     @Test(
+        .serialized,
+        .tags(
+            .Feature.Command.Build,
+        ),
+        arguments: [BuildSystemProvider.Kind.native],
+    )
+    func resourcesEmbeddedInObjectFile(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "Resources/EmbedInObjectFile") { fixturePath in
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+            let execPath = try await getBinPath(
+                fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            ).appending(executableName("EmbedInObjectFile"))
+            let result = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
+            #expect(result.contains("hello from an object file"))
+
+            let resourcePath = fixturePath.appending(
+                components: "Sources", "EmbeddedResourceLibrary", "best.txt")
+            let updatedContent = "updated object-file resource with a different size"
+            try localFileSystem.writeFileContents(resourcePath, string: updatedContent)
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+            let updatedResult = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
+            #expect(updatedResult.contains(updatedContent))
+        }
+    }
+
+    @Test(
         .serialized, // crash occurs when executed in parallel. needs investigation
         .tags(
             .Feature.Command.Test,

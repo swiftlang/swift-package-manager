@@ -51,6 +51,10 @@ public struct MockToolchain: PackageModel.Toolchain {
         "/fake/path/to/clang"
     }
 
+    public func getLLVMObjcopy() throws -> AbsolutePath {
+        "/fake/path/to/llvm-objcopy"
+    }
+
     public func _isClangCompilerVendorApple() throws -> Bool? {
         #if os(macOS)
         return true

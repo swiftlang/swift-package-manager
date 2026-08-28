@@ -36,6 +36,17 @@ public typealias SwiftTargetBuildDescription = SwiftModuleBuildDescription
 
 /// Build description for a Swift module.
 public final class SwiftModuleBuildDescription {
+    struct EmbeddedResourceObject {
+        let path: AbsolutePath
+        let byteCount: UInt64
+        let sectionName: String
+        let dataSymbol: String
+        let pointerSymbol: String
+        let seedSourcePath: AbsolutePath
+        let seedObjectPath: AbsolutePath
+        let objectPath: AbsolutePath
+    }
+
     /// The package this target belongs to.
     public let package: ResolvedPackage
 
@@ -85,11 +96,17 @@ public final class SwiftModuleBuildDescription {
     }
 
     private var needsResourceBundle: Bool {
-        return resources.filter { $0.rule != .embedInCode }.isEmpty == false
+        return resources.filter { !$0.rule.isEmbeddedInCode }.isEmpty == false
     }
 
-    var resourceFilesToEmbed: [AbsolutePath] {
-        return resources.filter { $0.rule == .embedInCode }.map { $0.path }
+    var resourcesToEmbedAsByteArrays: [AbsolutePath] {
+        resources.filter { $0.rule == .embedInCode }.map(\.path)
+    }
+
+    var resourcesToEmbedAsObjects: [EmbeddedResourceObject] = []
+
+    private var embeddedResourcesDirectory: AbsolutePath {
+        tempsPath.appending("EmbeddedResources")
     }
 
     /// The path to Swift source file embedding resource contents if needed.
@@ -121,7 +138,7 @@ public final class SwiftModuleBuildDescription {
 
     /// The objects in this target, containing either machine code or bitcode
     /// depending on the build parameters used.
-    public var objects: [AbsolutePath] {
+    var swiftObjects: [AbsolutePath] {
         get throws {
             let relativeSources = self.target.sources.relativePaths
                 + self.derivedSources.relativePaths
@@ -133,6 +150,12 @@ public final class SwiftModuleBuildDescription {
                     validating: "\($0.basename).\(objectFileExtension)",
                     relativeTo: self.tempsPath)
             }
+        }
+    }
+
+    public var objects: [AbsolutePath] {
+        get throws {
+            try swiftObjects + resourcesToEmbedAsObjects.map(\.objectPath)
         }
     }
 
@@ -359,8 +382,12 @@ public final class SwiftModuleBuildDescription {
             }
         }
 
-        if !resourceFilesToEmbed.isEmpty {
+        if resources.contains(where: { $0.rule.isEmbeddedInCode }) {
             resourcesEmbeddingSource = try addResourceEmbeddingSource()
+        }
+
+        if resources.contains(where: { $0.rule == .embedInCodeAsObject }) {
+            try configureEmbeddedResourceObjects()
         }
 
         try self.generateTestObservation()
@@ -397,6 +424,74 @@ public final class SwiftModuleBuildDescription {
         let subpath = try RelativePath(validating: "embedded_resources.swift")
         self.derivedSources.relativePaths.append(subpath)
         return self.derivedSources.root.appending(subpath)
+    }
+
+    private func configureEmbeddedResourceObjects() throws {
+        let objectResources = resources.filter { $0.rule == .embedInCodeAsObject }
+        let objectFormat = buildParameters.triple.objectFormat
+        guard objectFormat == .macho || objectFormat == .elf else {
+            throw StringError(
+                "object-file resource embedding is not supported for target \(buildParameters.triple.tripleString)"
+            )
+        }
+
+        try fileSystem.createDirectory(embeddedResourcesDirectory, recursive: true)
+        resourcesToEmbedAsObjects = try objectResources.map { resource in
+            let identity = "\(target.c99name):\(resource.path.basename)"
+            let hash = String(identity.sha256Checksum.prefix(10))
+            let sectionName = objectFormat == .macho ? "__spm\(hash)" : "swiftpm_\(hash)"
+            let variableName = resource.path.basename.spm_mangledToC99ExtendedIdentifier()
+            let pointerSymbol = "swiftpm_resource_\(target.c99name)_\(variableName)_pointer"
+            let dataSymbol = "swiftpm_resource_\(target.c99name)_\(variableName)_data"
+            let byteCount = try fileSystem.getFileInfo(resource.path).size
+            let seedSourcePath = embeddedResourcesDirectory.appending("resource_\(hash).c")
+            let seedObjectPath = embeddedResourcesDirectory.appending("resource_\(hash)_seed.o")
+            let objectPath = embeddedResourcesDirectory.appending("resource_\(hash).o")
+
+            let seedSource: String
+            switch objectFormat {
+            case .macho:
+                // Mach-O objcopy cannot add symbols, so clang must define the
+                // data symbol in a section that objcopy can replace in place.
+                let storageByteCount = max(byteCount, 1)
+                seedSource =
+                    """
+                    __attribute__((used, section("__TEXT,\(sectionName)"), visibility("hidden")))
+                    const unsigned char \(dataSymbol)[\(storageByteCount)] = { 0 };
+
+                    __attribute__((used, visibility("hidden")))
+                    const unsigned char * const \(pointerSymbol) = \(dataSymbol);
+                    """
+            case .elf:
+                // Replacing an ELF section leaves its symbols undefined in
+                // LLVM objcopy. Add both the section and data symbol instead.
+                seedSource =
+                    """
+                    extern const unsigned char \(dataSymbol)[];
+
+                    __attribute__((used, visibility("hidden")))
+                    const unsigned char * const \(pointerSymbol) = \(dataSymbol);
+                    """
+            default:
+                throw InternalError("unsupported object format for embedded resource")
+            }
+
+            try fileSystem.writeIfChanged(
+                path: seedSourcePath,
+                string: seedSource + "\n"
+            )
+
+            return EmbeddedResourceObject(
+                path: resource.path,
+                byteCount: byteCount,
+                sectionName: sectionName,
+                dataSymbol: dataSymbol,
+                pointerSymbol: pointerSymbol,
+                seedSourcePath: seedSourcePath,
+                seedObjectPath: seedObjectPath,
+                objectPath: objectPath
+            )
+        }
     }
 
     /// Generate the resource bundle accessor, if appropriate.
@@ -876,7 +971,7 @@ public final class SwiftModuleBuildDescription {
 
         // Write out the entries for each source file.
         let sources = self.sources
-        let objects = try self.objects
+        let objects = try self.swiftObjects
         let ltoEnabled = self.buildParameters.linkingParameters.linkTimeOptimizationMode != nil
         let objectKey = ltoEnabled ? "llvm-bc" : "object"
 
