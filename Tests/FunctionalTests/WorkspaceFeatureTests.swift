@@ -2584,6 +2584,175 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    // MARK: - Slice 13: `swift package describe` workspace awareness
+
+    /// `swift package describe` at a workspace root emits a
+    /// description block per in-scope member, each preceded by a
+    /// `--- <identity> ---` header. Fixes the pre-Slice-13 behaviour
+    /// where `Describe.run()` picked `getWorkspaceRoot().packages.first`
+    /// and dropped every other member.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Package.Describe,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s13_describeWorkspaceEmitsAllMembers(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S13_Describe") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["describe"],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stdout.contains("--- app ---"),
+                "expected `app` header; got stdout=\(stdout)",
+            )
+            #expect(
+                stdout.contains("--- lib-a ---"),
+                "expected `liba` header (identity strips the dash from `lib-a`); got stdout=\(stdout)",
+            )
+        }
+    }
+
+    /// `swift package describe` invoked from inside a workspace
+    /// member scopes to that member alone — no header (single-root
+    /// output is unwrapped) and no sibling-member content.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Package.Describe,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s13_describeInsideMemberScopedToMember(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S13_Describe") { fixturePath in
+            let memberPath = fixturePath.appending(components: "packages", "app")
+
+            let (stdout, _) = try await executeSwiftPackage(
+                memberPath,
+                configuration: .debug,
+                extraArgs: ["describe"],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stdout.contains("--- liba ---") == false,
+                "expected NO `liba` header (scoped to app); got stdout=\(stdout)",
+            )
+            #expect(
+                stdout.contains("--- app ---") == false,
+                "expected NO `app` header on single-root output; got stdout=\(stdout)",
+            )
+            #expect(
+                stdout.contains("Name: app"),
+                "expected app's description in stdout; got stdout=\(stdout)",
+            )
+        }
+    }
+
+    /// `swift package describe --package <identity>` restricts output
+    /// to that member from anywhere. Overrides an implicit CWD focus.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Package.Describe,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s13_describeWithPackageSelector(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S13_Describe") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["describe", "--package", "lib-a"],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stdout.contains("--- app ---") == false,
+                "expected NO `app` header (scoped to liba via --package); got stdout=\(stdout)",
+            )
+            #expect(
+                stdout.contains("Name: lib-a"),
+                "expected lib-a's description in stdout; got stdout=\(stdout)",
+            )
+        }
+    }
+
+    /// `swift package describe --type json` at a workspace root emits
+    /// a JSON array of per-member `DescribedPackage` objects. Single-
+    /// package output remains a top-level object — that regression is
+    /// covered by the existing `describe()` / `describeJson()` tests
+    /// in `PackageCommandTests`.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Package.Describe,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s13_describeJsonMultipleMembers_emitsArrayOfPerMemberObjects(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S13_Describe") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["describe", "--type", "json"],
+                buildSystem: buildSystem,
+            )
+
+            let data = try #require(stdout.data(using: .utf8))
+            let parsed = try JSONSerialization.jsonObject(with: data)
+            let array = try #require(parsed as? [[String: Any]])
+            try #require(array.count == 2)
+            let names = Set(array.compactMap { $0["name"] as? String })
+            #expect(
+                names == ["app", "lib-a"],
+                "expected `app` and `lib-a` names in JSON array; got names=\(names)",
+            )
+        }
+    }
+
+    /// `swift package describe --type mermaid` at a workspace root
+    /// emits each member's diagram concatenated with a blank-line
+    /// separator. Mermaid has no per-diagram header convention, so
+    /// consumers use the diagram bodies themselves to identify
+    /// members (each rendered graph names its package).
+    @Test(
+        .tags(
+            Tag.Feature.Command.Package.Describe,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s13_describeMermaidMultipleMembers_concatsPerMember(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S13_Describe") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["describe", "--type", "mermaid"],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stdout.contains("app"),
+                "expected `app` mentioned in concatenated mermaid diagrams; got stdout=\(stdout)",
+            )
+            #expect(
+                stdout.contains("lib-a"),
+                "expected `lib-a` mentioned in concatenated mermaid diagrams; got stdout=\(stdout)",
+            )
+        }
+    }
+
     /// `swift package workspace add-member <path>` writes the new
     /// member into `Workspace.swift` — a follow-up `list-members`
     /// reports the added entry alongside the pre-existing ones.
