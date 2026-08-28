@@ -1811,6 +1811,46 @@ struct PackageCommandTests {
             }
         }
 
+        /// Regression: `show-dependencies --format flatlist` for a
+        /// single-package (non-workspace) project emits each identity
+        /// on its own line without any additional structure. The
+        /// pre-Phase-10 walk was single-root by design; the Phase 10
+        /// dedup-union refactor must preserve identical output for a
+        /// single-root graph. Complements the existing single-root
+        /// text/json coverage in `showDependencies` and the dot
+        /// coverage in `showDependencies_dotFormat_sr12016`.
+        @Test(
+            .tags(
+                .Feature.Command.Package.ShowDependencies,
+            ),
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func showDependencies_singlePackageFlatList_regression(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            let config = BuildConfiguration.debug
+            try await fixture(name: "DependencyResolution/External/Complex", createGitRepo: true) { fixturePath in
+                let packageRoot = fixturePath.appending("app")
+                let (flatOutput, _) = try await execute(
+                    ["show-dependencies", "--format=flatlist"],
+                    packagePath: packageRoot,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                let lines = flatOutput
+                    .split(whereSeparator: { $0.isNewline })
+                    .map(String.init)
+                #expect(
+                    lines.contains("fisheryates"),
+                    "expected fisheryates identity in flatlist output; got lines=\(lines)",
+                )
+                #expect(
+                    lines.filter { $0 == "fisheryates" }.count == 1,
+                    "expected fisheryates to appear exactly once (dedup was a no-op for single-root; must remain so); got lines=\(lines)",
+                )
+            }
+        }
+
         @Test(
             .tags(
                 .Feature.Command.Package.ShowDependencies,
@@ -2091,7 +2131,7 @@ struct PackageCommandTests {
             let output = BufferedOutputByteStream()
             SwiftPackageCommand.ShowDependencies.dumpDependenciesOf(
                 graph: graph,
-                rootPackage: graph.rootPackages[graph.rootPackages.startIndex],
+                rootPackages: Array(graph.rootPackages),
                 mode: .dot,
                 on: output
             )
@@ -2127,6 +2167,244 @@ struct PackageCommandTests {
                     "Expected line is not found: \(expectedLine)"
                 )
             }
+        }
+
+        /// Multi-root graphs (workspace context) should produce a
+        /// deduplicated union of dep identities across every root —
+        /// where a dep is shared between two roots it must appear only
+        /// once in the flatlist output. Pre-workspaces the dumper only
+        /// walked the arbitrary "first" root, so this test drives both
+        /// the multi-root iteration and the dedup.
+        @Test
+        func showDependencies_flatList_multipleRoots_deduplicatedUnion() throws {
+            let fileSystem = InMemoryFileSystem(emptyFiles: [
+                "/RootA/Sources/TargetA/main.swift",
+                "/RootB/Sources/TargetB/main.swift",
+                "/DepX/Sources/DepX/X.swift",
+                "/DepY/Sources/DepY/Y.swift",
+                "/DepZ/Sources/DepZ/Z.swift",
+            ])
+
+            let manifestRootA = Manifest.createRootManifest(
+                displayName: "RootA",
+                path: "/RootA",
+                toolsVersion: .v5_3,
+                dependencies: [
+                    .fileSystem(path: "/DepX"),
+                    .fileSystem(path: "/DepY"),
+                ],
+                products: [try .init(name: "aExe", type: .executable, targets: ["TargetA"])],
+                targets: [try .init(name: "TargetA", dependencies: ["DepX", "DepY"])],
+            )
+            let manifestRootB = Manifest.createRootManifest(
+                displayName: "RootB",
+                path: "/RootB",
+                toolsVersion: .v5_3,
+                dependencies: [
+                    .fileSystem(path: "/DepY"),
+                    .fileSystem(path: "/DepZ"),
+                ],
+                products: [try .init(name: "bExe", type: .executable, targets: ["TargetB"])],
+                targets: [try .init(name: "TargetB", dependencies: ["DepY", "DepZ"])],
+            )
+            let manifestDepX = Manifest.createFileSystemManifest(
+                displayName: "DepX",
+                path: "/DepX",
+                toolsVersion: .v5_3,
+                products: [try .init(name: "DepX", type: .library(.dynamic), targets: ["DepX"])],
+                targets: [try .init(name: "DepX")],
+            )
+            let manifestDepY = Manifest.createFileSystemManifest(
+                displayName: "DepY",
+                path: "/DepY",
+                toolsVersion: .v5_3,
+                products: [try .init(name: "DepY", type: .library(.dynamic), targets: ["DepY"])],
+                targets: [try .init(name: "DepY")],
+            )
+            let manifestDepZ = Manifest.createFileSystemManifest(
+                displayName: "DepZ",
+                path: "/DepZ",
+                toolsVersion: .v5_3,
+                products: [try .init(name: "DepZ", type: .library(.dynamic), targets: ["DepZ"])],
+                targets: [try .init(name: "DepZ")],
+            )
+
+            let observability = ObservabilitySystem.makeForTesting()
+            let graph = try loadModulesGraph(
+                fileSystem: fileSystem,
+                manifests: [manifestRootA, manifestRootB, manifestDepX, manifestDepY, manifestDepZ],
+                observabilityScope: observability.topScope,
+            )
+            expectNoDiagnostics(observability.diagnostics)
+
+            let output = BufferedOutputByteStream()
+            SwiftPackageCommand.ShowDependencies.dumpDependenciesOf(
+                graph: graph,
+                rootPackages: Array(graph.rootPackages),
+                mode: .flatlist,
+                on: output,
+            )
+            let flatList = output.bytes.validDescription ?? ""
+            let lines = flatList.split(whereSeparator: { $0.isNewline }).map(String.init)
+
+            #expect(
+                lines.sorted() == ["depx", "depy", "depz"],
+                "expected deduplicated union of both roots' deps; got lines=\(lines)",
+            )
+        }
+
+        /// Multi-root graphs (workspace context) should render each
+        /// root as its own `subgraph cluster_<identity> { ... }` inside
+        /// the outer `digraph`. The pre-workspaces DotDumper walked
+        /// only the arbitrary "first" root; this test drives both the
+        /// multi-root iteration and the per-member cluster wrapping.
+        @Test
+        func showDependencies_dot_multipleRoots_emitsSubgraphClusters() throws {
+            let fileSystem = InMemoryFileSystem(emptyFiles: [
+                "/RootA/Sources/TargetA/main.swift",
+                "/RootB/Sources/TargetB/main.swift",
+                "/DepX/Sources/DepX/X.swift",
+                "/DepY/Sources/DepY/Y.swift",
+            ])
+
+            let manifestRootA = Manifest.createRootManifest(
+                displayName: "RootA",
+                path: "/RootA",
+                toolsVersion: .v5_3,
+                dependencies: [.fileSystem(path: "/DepX")],
+                products: [try .init(name: "aExe", type: .executable, targets: ["TargetA"])],
+                targets: [try .init(name: "TargetA", dependencies: ["DepX"])],
+            )
+            let manifestRootB = Manifest.createRootManifest(
+                displayName: "RootB",
+                path: "/RootB",
+                toolsVersion: .v5_3,
+                dependencies: [.fileSystem(path: "/DepY")],
+                products: [try .init(name: "bExe", type: .executable, targets: ["TargetB"])],
+                targets: [try .init(name: "TargetB", dependencies: ["DepY"])],
+            )
+            let manifestDepX = Manifest.createFileSystemManifest(
+                displayName: "DepX",
+                path: "/DepX",
+                toolsVersion: .v5_3,
+                products: [try .init(name: "DepX", type: .library(.dynamic), targets: ["DepX"])],
+                targets: [try .init(name: "DepX")],
+            )
+            let manifestDepY = Manifest.createFileSystemManifest(
+                displayName: "DepY",
+                path: "/DepY",
+                toolsVersion: .v5_3,
+                products: [try .init(name: "DepY", type: .library(.dynamic), targets: ["DepY"])],
+                targets: [try .init(name: "DepY")],
+            )
+
+            let observability = ObservabilitySystem.makeForTesting()
+            let graph = try loadModulesGraph(
+                fileSystem: fileSystem,
+                manifests: [manifestRootA, manifestRootB, manifestDepX, manifestDepY],
+                observabilityScope: observability.topScope,
+            )
+            expectNoDiagnostics(observability.diagnostics)
+
+            let output = BufferedOutputByteStream()
+            SwiftPackageCommand.ShowDependencies.dumpDependenciesOf(
+                graph: graph,
+                rootPackages: Array(graph.rootPackages),
+                mode: .dot,
+                on: output,
+            )
+            let dotFormat = output.bytes.validDescription ?? ""
+
+            #expect(
+                dotFormat.contains("digraph DependenciesGraph"),
+                "expected outer digraph wrapper; got dot=\(dotFormat)",
+            )
+            #expect(
+                dotFormat.contains("subgraph cluster_roota"),
+                "expected subgraph cluster for RootA; got dot=\(dotFormat)",
+            )
+            #expect(
+                dotFormat.contains("subgraph cluster_rootb"),
+                "expected subgraph cluster for RootB; got dot=\(dotFormat)",
+            )
+        }
+
+        /// Multi-root graphs (workspace context) should render as a
+        /// JSON array of per-root objects — each object has the same
+        /// shape as the single-root JSON output (identity, path,
+        /// dependencies, etc.). Pre-workspaces the dumper only walked
+        /// the arbitrary "first" root, dropping every other member.
+        /// Single-root output shape stays unchanged (a single top-level
+        /// object) to preserve backward compat with existing tooling.
+        @Test
+        func showDependencies_json_multipleRoots_emitsArrayOfPerRootObjects() throws {
+            let fileSystem = InMemoryFileSystem(emptyFiles: [
+                "/RootA/Sources/TargetA/main.swift",
+                "/RootB/Sources/TargetB/main.swift",
+                "/DepX/Sources/DepX/X.swift",
+                "/DepY/Sources/DepY/Y.swift",
+            ])
+
+            let manifestRootA = Manifest.createRootManifest(
+                displayName: "RootA",
+                path: "/RootA",
+                toolsVersion: .v5_3,
+                dependencies: [.fileSystem(path: "/DepX")],
+                products: [try .init(name: "aExe", type: .executable, targets: ["TargetA"])],
+                targets: [try .init(name: "TargetA", dependencies: ["DepX"])],
+            )
+            let manifestRootB = Manifest.createRootManifest(
+                displayName: "RootB",
+                path: "/RootB",
+                toolsVersion: .v5_3,
+                dependencies: [.fileSystem(path: "/DepY")],
+                products: [try .init(name: "bExe", type: .executable, targets: ["TargetB"])],
+                targets: [try .init(name: "TargetB", dependencies: ["DepY"])],
+            )
+            let manifestDepX = Manifest.createFileSystemManifest(
+                displayName: "DepX",
+                path: "/DepX",
+                toolsVersion: .v5_3,
+                products: [try .init(name: "DepX", type: .library(.dynamic), targets: ["DepX"])],
+                targets: [try .init(name: "DepX")],
+            )
+            let manifestDepY = Manifest.createFileSystemManifest(
+                displayName: "DepY",
+                path: "/DepY",
+                toolsVersion: .v5_3,
+                products: [try .init(name: "DepY", type: .library(.dynamic), targets: ["DepY"])],
+                targets: [try .init(name: "DepY")],
+            )
+
+            let observability = ObservabilitySystem.makeForTesting()
+            let graph = try loadModulesGraph(
+                fileSystem: fileSystem,
+                manifests: [manifestRootA, manifestRootB, manifestDepX, manifestDepY],
+                observabilityScope: observability.topScope,
+            )
+            expectNoDiagnostics(observability.diagnostics)
+
+            let output = BufferedOutputByteStream()
+            SwiftPackageCommand.ShowDependencies.dumpDependenciesOf(
+                graph: graph,
+                rootPackages: Array(graph.rootPackages),
+                mode: .json,
+                on: output,
+            )
+            let jsonString = output.bytes.validDescription ?? ""
+            let jsonData = try #require(jsonString.data(using: .utf8))
+            let parsed = try JSONSerialization.jsonObject(with: jsonData)
+            let array = try #require(parsed as? [[String: Any]])
+
+            #expect(
+                array.count == 2,
+                "expected array of 2 per-root objects; got count=\(array.count) json=\(jsonString)",
+            )
+            let identities = Set(array.compactMap { $0["identity"] as? String })
+            #expect(
+                identities == ["roota", "rootb"],
+                "expected roota and rootb identities; got \(identities)",
+            )
         }
 
         @Test(

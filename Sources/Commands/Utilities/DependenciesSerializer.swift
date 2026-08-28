@@ -19,11 +19,23 @@ import enum TSCBasic.JSON
 import protocol TSCBasic.OutputByteStream
 
 protocol DependenciesDumper {
-    func dump(graph: ModulesGraph, dependenciesOf: ResolvedPackage, on: OutputByteStream)
+    func dump(graph: ModulesGraph, dependenciesOf: [ResolvedPackage], on: OutputByteStream)
 }
 
 final class PlainTextDumper: DependenciesDumper {
-    func dump(graph: ModulesGraph, dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
+    func dump(graph: ModulesGraph, dependenciesOf rootPackages: [ResolvedPackage], on stream: OutputByteStream) {
+        for (index, rootPackage) in rootPackages.enumerated() {
+            if rootPackages.count > 1 {
+                if index > 0 {
+                    stream.send("\n")
+                }
+                stream.send("--- \(rootPackage.identity.description) ---\n")
+            }
+            self.dumpSingleRoot(graph: graph, dependenciesOf: rootPackage, on: stream)
+        }
+    }
+
+    private func dumpSingleRoot(graph: ModulesGraph, dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         func recursiveWalk(packages: [ResolvedPackage], prefix: String = "") {
             var hanger = prefix + "├── "
 
@@ -41,7 +53,9 @@ final class PlainTextDumper: DependenciesDumper {
                     traitsEnabled = ""
                 }
 
-                stream.send("\(hanger)\(package.identity.description)<\(package.manifest.packageLocation)@\(pkgVersion)>\(traitsEnabled)\n")
+                let workspaceMemberTag = graph.isWorkspaceMember(package) ? " [workspace member]" : ""
+
+                stream.send("\(hanger)\(package.identity.description)<\(package.manifest.packageLocation)@\(pkgVersion)>\(traitsEnabled)\(workspaceMemberTag)\n")
 
                 if !package.dependencies.isEmpty {
                     let replacement = (index == packages.count - 1) ?  "    " : "│   "
@@ -63,23 +77,33 @@ final class PlainTextDumper: DependenciesDumper {
 }
 
 final class FlatListDumper: DependenciesDumper {
-    func dump(graph: ModulesGraph, dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
+    func dump(graph: ModulesGraph, dependenciesOf rootPackages: [ResolvedPackage], on stream: OutputByteStream) {
+        var emitted: Set<String> = []
         func recursiveWalk(packages: [ResolvedPackage]) {
             for package in packages {
-                stream.send(package.identity.description).send("\n")
+                let identity = package.identity.description
+                if emitted.insert(identity).inserted {
+                    stream.send(identity).send("\n")
+                }
                 if !package.dependencies.isEmpty {
                     recursiveWalk(packages: graph.directDependencies(for: package))
                 }
             }
         }
-        if !rootpkg.dependencies.isEmpty {
+        for rootpkg in rootPackages where !rootpkg.dependencies.isEmpty {
             recursiveWalk(packages: graph.directDependencies(for: rootpkg))
         }
     }
 }
 
 final class DotDumper: DependenciesDumper {
-    func dump(graph: ModulesGraph, dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
+    func dump(graph: ModulesGraph, dependenciesOf rootPackages: [ResolvedPackage], on stream: OutputByteStream) {
+        let rootsWithDeps = rootPackages.filter { !$0.dependencies.isEmpty }
+        guard !rootsWithDeps.isEmpty else {
+            stream.send("No external dependencies found\n")
+            return
+        }
+
         var nodesAlreadyPrinted: Set<String> = []
         func printNode(_ package: ResolvedPackage) {
             let url = package.manifest.packageLocation
@@ -112,24 +136,41 @@ final class DotDumper: DependenciesDumper {
             }
         }
 
-        if !rootpkg.dependencies.isEmpty {
-            stream.send(
-                """
-                digraph DependenciesGraph {
-                node [shape = box]
+        stream.send(
+            """
+            digraph DependenciesGraph {
+            node [shape = box]
 
-                """
-            )
+            """
+        )
+        let wrapInCluster = rootsWithDeps.count > 1
+        for rootpkg in rootsWithDeps {
+            if wrapInCluster {
+                let clusterID = Self.sanitizeForDotClusterID(rootpkg.identity.description)
+                stream.send(#"subgraph cluster_\#(clusterID) {"#).send("\n")
+                stream.send(#"label = "\#(rootpkg.identity.description)""#).send("\n")
+            }
             recursiveWalk(rootpkg: rootpkg)
-            stream.send("}\n")
-        } else {
-            stream.send("No external dependencies found\n")
+            if wrapInCluster {
+                stream.send("}\n")
+            }
         }
+        stream.send("}\n")
+    }
+
+    /// Sanitizes a package identity into a DOT-compatible cluster
+    /// identifier. DOT IDs must be `[a-zA-Z0-9_]+`; identities with
+    /// hyphens (e.g. `some-lib`) or other punctuation would be a syntax
+    /// error inside `subgraph cluster_<id> { ... }`.
+    static func sanitizeForDotClusterID(_ identity: String) -> String {
+        String(identity.map { char in
+            (char.isASCII && (char.isLetter || char.isNumber || char == "_")) ? char : "_"
+        })
     }
 }
 
 final class JSONDumper: DependenciesDumper {
-    func dump(graph: ModulesGraph, dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
+    func dump(graph: ModulesGraph, dependenciesOf rootPackages: [ResolvedPackage], on stream: OutputByteStream) {
         func convert(_ package: ResolvedPackage) -> JSON {
             return .orderedDictionary([
                 "identity": .string(package.identity.description),
@@ -142,6 +183,15 @@ final class JSONDumper: DependenciesDumper {
             ])
         }
 
-        stream.send("\(convert(rootpkg).toString(prettyPrint: true))\n")
+        // Single-root output preserves the pre-workspaces top-level
+        // object shape so existing tooling that consumes it keeps
+        // working. Multi-root wraps the per-root objects in an array.
+        let payload: JSON
+        if rootPackages.count == 1, let only = rootPackages.first {
+            payload = convert(only)
+        } else {
+            payload = .array(rootPackages.map(convert))
+        }
+        stream.send("\(payload.toString(prettyPrint: true))\n")
     }
 }
