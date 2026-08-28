@@ -1090,7 +1090,9 @@ struct PackageCommandTests {
         ) async throws {
             let config = BuildConfiguration.debug
             try await withKnownIssue(isIntermittent: true) {
-                try await fixture(name: "DependencyResolution/External/Simple/Bar") { fixturePath in
+                try await fixture(name: "DependencyResolution/External/Simple") { testPath in
+                    let fixturePath = testPath.appending("Bar")
+                    initGitRepo(testPath.appending("Foo"), tag: "1.0.0")
                     // Generate the JSON description.
                     let (jsonOutput, _) = try await execute(
                         ["describe", "--type=json"],
@@ -8673,7 +8675,7 @@ struct PackageCommandTests {
         ) async throws {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 let config = BuildConfiguration.debug
-                let (stdout, stderr) = try await execute(
+                let (stdout, _) = try await execute(
                     ["generate-sbom", "--sbom-spec", "cyclonedx"],
                     packagePath: fixturePath,
                     configuration: config,
@@ -8701,7 +8703,7 @@ struct PackageCommandTests {
         ) async throws {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 let config = BuildConfiguration.debug
-                let (stdout, stderr) = try await execute(
+                let (stdout, _) = try await execute(
                     ["generate-sbom", "--sbom-spec", "spdx"],
                     packagePath: fixturePath,
                     configuration: config,
@@ -8732,7 +8734,7 @@ struct PackageCommandTests {
                 let config = BuildConfiguration.debug
                 let customSBOMDir = fixturePath.appending("custom-sboms")
 
-                let (stdout, stderr) = try await execute(
+                let (stdout, _) = try await execute(
                     ["generate-sbom", "--sbom-spec", "cyclonedx", "--sbom-output-dir", customSBOMDir.pathString],
                     packagePath: fixturePath,
                     configuration: config,
@@ -8754,7 +8756,7 @@ struct PackageCommandTests {
         ) async throws {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 let config = BuildConfiguration.debug
-                let (stdout, stderr) = try await execute(
+                let (stdout, _) = try await execute(
                     ["generate-sbom", "--sbom-spec", "cyclonedx", "--product", "Foo"],
                     packagePath: fixturePath,
                     configuration: config,
@@ -8803,7 +8805,7 @@ struct PackageCommandTests {
         ) async throws {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let config = BuildConfiguration.debug
-                let (stdout, stderr) = try await execute(
+                let (stdout, _) = try await execute(
                     ["generate-sbom", "--sbom-spec", "spdx", "--product", "Foo"],
                     packagePath: fixturePath,
                     configuration: config,
@@ -8854,7 +8856,7 @@ struct PackageCommandTests {
                 let config = BuildConfiguration.debug
                 let customSBOMDir = fixturePath.appending("custom-sboms")
 
-                let (stdout, stderr) = try await execute(
+                let (stdout, _) = try await execute(
                     ["generate-sbom", "--sbom-spec", "cyclonedx", "--sbom-spec", "spdx", "--sbom-output-dir", customSBOMDir.pathString],
                     packagePath: fixturePath,
                     configuration: config,
