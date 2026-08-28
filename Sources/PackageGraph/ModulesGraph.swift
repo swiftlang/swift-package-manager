@@ -154,6 +154,18 @@ public struct ModulesGraph {
         return self.rootPackages.contains(id: package.id)
     }
 
+    /// Returns whether `package` is a SwiftPM-workspace member.
+    ///
+    /// In a workspace context all declared members are loaded as root
+    /// packages, so the workspace-member check is currently equivalent
+    /// to being a root package. The helper exists as a semantic
+    /// chokepoint: callers wanting to distinguish workspace members
+    /// from other root-like packages (e.g. multi-root Xcode workspaces)
+    /// can be updated in one place if that invariant ever changes.
+    public func isWorkspaceMember(_ package: ResolvedPackage) -> Bool {
+        return self.isRootPackage(package)
+    }
+
     /// Returns the package  based on the given identity, or nil if the package isn't in the graph.
     public func package(for identity: PackageIdentity) -> ResolvedPackage? {
         packages[identity]
