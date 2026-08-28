@@ -26,6 +26,11 @@ public enum WorkspaceManifestSyntaxError: Error, CustomStringConvertible {
     /// composed member lists (`Workspace(members: computeMembers())`)
     /// must be edited by hand.
     case nonLiteralMemberEntry(String)
+    /// `removeMember` was called with a path that isn't currently
+    /// declared. Mirrors the `swift package workspace override remove`
+    /// behaviour so mistyped paths surface early instead of a silent
+    /// no-op.
+    case memberNotDeclared(String)
 
     public var description: String {
         switch self {
@@ -33,6 +38,8 @@ public enum WorkspaceManifestSyntaxError: Error, CustomStringConvertible {
             return "could not find a `Workspace(...)` call in the source; is this a Workspace.swift file?"
         case .nonLiteralMemberEntry(let text):
             return "`members:` entry is not a plain string literal: \(text)"
+        case .memberNotDeclared(let path):
+            return "'\(path)' is not a declared workspace member"
         }
     }
 }
@@ -136,8 +143,9 @@ public enum WorkspaceManifestSyntax {
         to array: ArrayExprSyntax,
     ) -> ArrayExprSyntax {
         let stringLiteral = StringLiteralExprSyntax(content: value)
-        if let lastIndex = array.elements.indices.last {
-            let lastElement = array.elements[lastIndex]
+        var mutable = Array(array.elements)
+        if let lastIndex = mutable.indices.last {
+            let lastElement = mutable[lastIndex]
             let newLastElement = lastElement.with(\.trailingComma, .commaToken())
             let newElement = ArrayElementSyntax(
                 leadingTrivia: lastElement.leadingTrivia,
@@ -145,10 +153,9 @@ public enum WorkspaceManifestSyntax {
                 trailingComma: .commaToken(),
                 trailingTrivia: lastElement.trailingTrivia,
             )
-            var newElements = array.elements
-            newElements = newElements.with(\.[lastIndex], newLastElement)
-            newElements = newElements.appending(newElement)
-            return array.with(\.elements, newElements)
+            mutable[lastIndex] = newLastElement
+            mutable.append(newElement)
+            return array.with(\.elements, ArrayElementListSyntax(mutable))
         }
         let newElement = ArrayElementSyntax(
             leadingTrivia: .newline + .spaces(8),
@@ -157,6 +164,72 @@ public enum WorkspaceManifestSyntax {
             trailingTrivia: .newline + .spaces(4),
         )
         return array.with(\.elements, ArrayElementListSyntax([newElement]))
+    }
+
+    /// Removes the member string-literal matching `member` from the
+    /// `members:` array of the `Workspace(...)` call in `source`.
+    ///
+    /// - Throws `.cannotFindWorkspaceCall` if the source has no
+    ///   `Workspace(...)` call.
+    /// - Throws `.nonLiteralMemberEntry` if the `members:` argument
+    ///   isn't a plain array literal.
+    /// - Throws `.memberNotDeclared` if `member` doesn't appear in
+    ///   `members:` — mirrors `swift package workspace override
+    ///   remove` so mistakes surface loudly.
+    public static func removeMember(_ member: String, from source: String) throws -> String {
+        let syntax = Parser.parse(source: source)
+        guard let workspaceCall = findWorkspaceCall(in: syntax) else {
+            throw WorkspaceManifestSyntaxError.cannotFindWorkspaceCall
+        }
+        guard let membersArgIndex = workspaceCall.arguments.firstIndex(where: {
+            $0.label?.text == "members"
+        }) else {
+            throw WorkspaceManifestSyntaxError.memberNotDeclared(member)
+        }
+        let membersArg = workspaceCall.arguments[membersArgIndex]
+        guard let array = membersArg.expression.as(ArrayExprSyntax.self) else {
+            throw WorkspaceManifestSyntaxError.nonLiteralMemberEntry(
+                membersArg.expression.trimmedDescription,
+            )
+        }
+        let elements = Array(array.elements)
+        guard let matchIndex = elements.firstIndex(where: { element in
+            guard let literal = element.expression.as(StringLiteralExprSyntax.self),
+                  let value = literal.representedLiteralValue
+            else {
+                return false
+            }
+            return value == member
+        }) else {
+            throw WorkspaceManifestSyntaxError.memberNotDeclared(member)
+        }
+        let newArray = removeElement(at: matchIndex, from: array)
+        let rewriter = ReplaceArgumentExpression(
+            targetLabel: "members",
+            newExpression: ExprSyntax(newArray),
+        )
+        let newTree = rewriter.rewrite(Syntax(syntax))
+        return newTree.description
+    }
+
+    /// Returns a new array literal with the element at `index`
+    /// removed. When the removed element was the last one, the
+    /// resulting array is empty. Trailing-comma handling on the new
+    /// last element is normalized so the emitted source stays
+    /// syntactically valid.
+    private static func removeElement(
+        at index: Int,
+        from array: ArrayExprSyntax,
+    ) -> ArrayExprSyntax {
+        var remaining = Array(array.elements)
+        remaining.remove(at: index)
+        if remaining.isEmpty {
+            return array.with(\.elements, ArrayElementListSyntax([]))
+        }
+        if let lastIndex = remaining.indices.last {
+            remaining[lastIndex] = remaining[lastIndex].with(\.trailingComma, .commaToken())
+        }
+        return array.with(\.elements, ArrayElementListSyntax(remaining))
     }
 
     /// Walks `syntax` looking for the first `Workspace(...)` function
