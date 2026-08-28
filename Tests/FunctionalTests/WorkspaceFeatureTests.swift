@@ -2456,6 +2456,78 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    /// `swift package workspace remove-member <path>` drops the entry
+    /// from `Workspace.swift`; a follow-up `list-members` no longer
+    /// reports it. On-disk directory + `Package.swift` for the removed
+    /// member are left untouched — the manifest edit is the sole
+    /// action.
+    @Test(
+        .tags(
+            .Feature.Command.Package.ShowDependencies,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func workspace_removeMember_dropsEntryFromManifest(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S02_MemberToMemberDep") { fixturePath in
+            _ = try await executeSwiftWorkspace(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["remove-member", "packages/lib-a"],
+                buildSystem: buildSystem,
+            )
+
+            let manifest: String = try localFileSystem.readFileContents(
+                fixturePath.appending("Workspace.swift"),
+            )
+            #expect(
+                manifest.contains("\"packages/lib-a\"") == false,
+                "expected `packages/lib-a` entry to be removed; got manifest=\(manifest)",
+            )
+            // The on-disk lib-a directory is left in place — removing
+            // a member entry from Workspace.swift only edits the
+            // manifest; users decide whether to also delete the tree.
+            expectFileExists(
+                at: fixturePath.appending(try RelativePath(validating: "packages/lib-a/Package.swift")),
+            )
+        }
+    }
+
+    /// `swift package workspace remove-member <path>` on a non-declared
+    /// member fails and leaves `Workspace.swift` byte-identical —
+    /// mirrors `swift package workspace override remove` behaviour so
+    /// mistyped paths surface loudly rather than silently no-op.
+    @Test(
+        .tags(
+            .Feature.Command.Package.ShowDependencies,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func workspace_removeMember_whenAbsent_fails(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S02_MemberToMemberDep") { fixturePath in
+            let manifestPath = fixturePath.appending("Workspace.swift")
+            let beforeContent: String = try localFileSystem.readFileContents(manifestPath)
+
+            await #expect(throws: (any Error).self) {
+                try await executeSwiftWorkspace(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: ["remove-member", "packages/ghost"],
+                    buildSystem: buildSystem,
+                )
+            }
+
+            let afterContent: String = try localFileSystem.readFileContents(manifestPath)
+            #expect(
+                afterContent == beforeContent,
+                "manifest must not be modified when removing a non-declared member",
+            )
+        }
+    }
+
     /// Initializes an external-dependency directory in the S08
     /// fixture as a git repository tagged `1.0.0`. The fixture ships
     /// each `external/*` directory without a `.git/` folder (nothing

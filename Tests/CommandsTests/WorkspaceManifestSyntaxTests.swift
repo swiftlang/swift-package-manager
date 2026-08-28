@@ -222,9 +222,108 @@ struct WorkspaceManifestSyntaxTests {
         }
     }
 
-    // MARK: - AddMember.shouldScaffoldMemberPackage
+    // MARK: - removeMember
 
-    /// When the target member manifest does not exist yet, the
+    /// Removing an existing member drops it from the list; the
+    /// remaining entries are preserved. Verified via `readMembers`
+    /// round-trip so the assertion is decoupled from formatting.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func removeMember_whenPresent_dropsEntry() throws {
+        let source = """
+        // swift-tools-version: 999.0
+        import PackageDescription
+
+        let workspace = Workspace(
+            members: [
+                "packages/lib-a",
+                "packages/app",
+            ],
+        )
+        """
+
+        let edited = try WorkspaceManifestSyntax.removeMember("packages/lib-a", from: source)
+
+        let members = try WorkspaceManifestSyntax.readMembers(from: edited)
+        #expect(members == ["packages/app"])
+    }
+
+    /// Removing the last member leaves an empty `members: []` list.
+    /// The workspace manifest stays syntactically valid so subsequent
+    /// tooling (or a re-run of `add-member`) still works.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func removeMember_whenLastEntry_leavesEmptyList() throws {
+        let source = """
+        // swift-tools-version: 999.0
+        import PackageDescription
+
+        let workspace = Workspace(
+            members: [
+                "packages/lib-a",
+            ],
+        )
+        """
+
+        let edited = try WorkspaceManifestSyntax.removeMember("packages/lib-a", from: source)
+
+        let members = try WorkspaceManifestSyntax.readMembers(from: edited)
+        #expect(members == [])
+    }
+
+    /// Removing a member that isn't present throws — mirrors the
+    /// `swift package workspace override remove <identity>` behaviour
+    /// so mistyped paths surface early rather than silently no-op.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func removeMember_whenAbsent_throws() throws {
+        let source = """
+        // swift-tools-version: 999.0
+        import PackageDescription
+
+        let workspace = Workspace(
+            members: [
+                "packages/lib-a",
+            ],
+        )
+        """
+
+        #expect(throws: (any Error).self) {
+            try WorkspaceManifestSyntax.removeMember("packages/ghost", from: source)
+        }
+    }
+
+    /// Removing from a source without a `Workspace(...)` call throws
+    /// the same `.cannotFindWorkspaceCall` used by the read/add
+    /// entrypoints — callers can dispatch on the error kind uniformly.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func removeMember_whenNoWorkspaceCall_throws() throws {
+        let source = """
+        // swift-tools-version: 999.0
+        import PackageDescription
+
+        let package = Package(name: "foo")
+        """
+
+        #expect(throws: (any Error).self) {
+            try WorkspaceManifestSyntax.removeMember("packages/lib-a", from: source)
+        }
+    }
+
+    // MARK: - AddMember.shouldScaffoldMemberPackage
     /// pre-flight decision returns `true` and emits nothing — the
     /// scaffold path runs.
     @Test(

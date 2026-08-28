@@ -30,9 +30,10 @@ public struct SwiftWorkspaceCommand: AsyncParsableCommand {
         discussion: "SEE ALSO: swift package, swift build, swift run, swift test",
         version: SwiftVersion.current.completeDisplayString,
         subcommands: [
-            AddMember.self,
             Init.self,
+            AddMember.self,
             ListMembers.self,
+            RemoveMember.self,
             Override.self,
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)],
