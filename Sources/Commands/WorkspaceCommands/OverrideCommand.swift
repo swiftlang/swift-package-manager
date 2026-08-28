@@ -20,6 +20,7 @@ import Workspace
 
 import struct TSCUtility.Version
 
+
 extension SwiftWorkspaceCommand {
     /// Manage workspace-level dependency overrides
     /// (`.swiftpm/configuration/workspace-overrides.json`).
@@ -66,7 +67,10 @@ extension SwiftWorkspaceCommand.Override.Add {
         var path: String
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
-            let workspaceRoot = try requireWorkspaceRoot(swiftCommandState)
+            let workspaceRoot = try requireWorkspaceRoot(
+                swiftCommandState,
+                subcommandDisplayName: "swift package workspace override",
+            )
             let override = try Self.buildOverride(
                 identity: self.identity,
                 workspaceRoot: workspaceRoot,
@@ -150,7 +154,10 @@ extension SwiftWorkspaceCommand.Override.Add {
         var to: Version?
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
-            let workspaceRoot = try requireWorkspaceRoot(swiftCommandState)
+            let workspaceRoot = try requireWorkspaceRoot(
+                swiftCommandState,
+                subcommandDisplayName: "swift package workspace override",
+            )
             let override = try Self.buildOverride(
                 identity: self.identity,
                 url: self.url,
@@ -284,7 +291,10 @@ extension SwiftWorkspaceCommand.Override.Add {
         var to: Version?
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
-            let workspaceRoot = try requireWorkspaceRoot(swiftCommandState)
+            let workspaceRoot = try requireWorkspaceRoot(
+                swiftCommandState,
+                subcommandDisplayName: "swift package workspace override",
+            )
             let override = try Self.buildOverride(
                 identity: self.identity,
                 exact: self.exact,
@@ -411,7 +421,10 @@ extension SwiftWorkspaceCommand.Override {
         var identity: String
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
-            let workspaceRoot = try requireWorkspaceRoot(swiftCommandState)
+            let workspaceRoot = try requireWorkspaceRoot(
+                swiftCommandState,
+                subcommandDisplayName: "swift package workspace override",
+            )
             let overridesFile = PackageWorkspace.DefaultLocations.workspaceOverridesFile(
                 forRootPackage: workspaceRoot,
             )
@@ -448,7 +461,10 @@ extension SwiftWorkspaceCommand.Override {
         }
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
-            let workspaceRoot = try requireWorkspaceRoot(swiftCommandState)
+            let workspaceRoot = try requireWorkspaceRoot(
+                swiftCommandState,
+                subcommandDisplayName: "swift package workspace override",
+            )
             let overridesFile = PackageWorkspace.DefaultLocations.workspaceOverridesFile(
                 forRootPackage: workspaceRoot,
             )
@@ -645,6 +661,7 @@ public enum RequirementJSON: Codable, Equatable {
     }
 }
 
+
 /// Maps a `PackageDependency` case to the short kind label the list
 /// command surfaces (`path` / `url` / `registry`). Rendered by both
 /// the text and JSON formats so consumers see the same vocabulary.
@@ -710,25 +727,6 @@ private func overrideRequirementJSON(_ dep: PackageDependency) -> RequirementJSO
             return .range(lowerBound: r.lowerBound.description, upperBound: r.upperBound.description)
         }
     }
-}
-
-/// Discovers the workspace root from the command's current working
-/// directory, throwing a user-actionable error when the command
-/// is invoked outside a workspace. Common to all three
-/// subcommands.
-fileprivate func requireWorkspaceRoot(
-    _ swiftCommandState: SwiftCommandState,
-) throws -> AbsolutePath {
-    let cwd = swiftCommandState.fileSystem.currentWorkingDirectory ?? .root
-    guard let workspaceRoot = PackageWorkspace.discoverWorkspaceRoot(
-        from: cwd,
-        fileSystem: swiftCommandState.fileSystem,
-    ) else {
-        throw ValidationError(
-            "'swift package workspace override' must be invoked inside a SwiftPM workspace (no Workspace.swift found starting from \(cwd.pathString))",
-        )
-    }
-    return workspaceRoot
 }
 
 /// Renders the target of an override for the `list` output. Uses the
