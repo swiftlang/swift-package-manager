@@ -36,6 +36,17 @@ public struct SwiftWorkspaceCommand: AsyncParsableCommand {
             RemoveMember.self,
             DumpWorkspace.self,
             Override.self,
+            // Shared with the top-level `swift package` command tree —
+            // these subcommands are already workspace-aware, so
+            // `swift workspace <sub>` invokes the same struct
+            // as `swift package <sub>` rather than duplicating the
+            // implementation. `Reset` is included for parity: under a
+            // workspace it clears the workspace-root scratch state.
+            SwiftPackageCommand.Clean.self,
+            SwiftPackageCommand.Reset.self,
+            SwiftPackageCommand.Update.self,
+            SwiftPackageCommand.Resolve.self,
+            SwiftPackageCommand.ShowDependencies.self,
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)],
     )
