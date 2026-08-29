@@ -1858,6 +1858,7 @@ Extend `swift package dump-package` for workspace disambiguation. `dump-package`
 - **`s14_dumpWorkspace_emitsWorkspaceManifestAsJson` parameterized across three invocation sites** — workspace root, workspace non-member subdirectory (`packages/`), and member root (`packages/app/`). Locks in that `dump-workspace`'s output is CWD-invariant: the workspace manifest is the same regardless of where inside the tree the command is invoked, and workspace discovery walks up correctly from a non-member CWD.
 - **New diagnostic factory** `Basics.Diagnostic.dumpPackageRequiresPackageSelector(known:)` — the plan sketched the error message inline; it's now a `@_spi(SwiftPMInternal)` factory alongside `unknownWorkspaceMember` / `packageSelectorRequiresWorkspace`.
 - **Selection helper shape** — `DumpPackage.selectedMember(...)` returns a single `ResolvedPackage?` (not `[ResolvedPackage]?` like Slices 10/13's `scopedRootPackages`). The three helpers still share the `--package` > CWD > default precedence but diverge on the "no selection" branch; extracting to a shared helper stays a follow-up.
+- **Workspace-aware `swift package` subcommands re-registered under `swift package workspace`.** `resolve`, `update`, `clean`, and `reset` are now reachable from both parent trees by adding the same command types (`SwiftPackageCommand.Resolve.self`, `.Update.self`, `.Clean.self`, `.Reset.self`) to `SwiftPackageCommand.Workspace.configuration.subcommands`. No code duplication — the underlying commands are already workspace-aware (Phases 8, 11, 12), so both invocation paths reach the same struct. Locked in by the parameterized e2e `workspace_reusesTopLevelPackageSubcommand` (4 cases).
 
 ### Changes Required
 
@@ -1897,6 +1898,7 @@ Added `Encodable` conformance to `WorkspaceManifest` and `Member` (wire shape: `
 @Test func s14_dumpPackageAtSingleMemberWorkspaceRootAutoSelects(...) async throws
 @Test func s14_dumpWorkspace_emitsWorkspaceManifestAsJson(...) async throws  // parameterized across 3 invocation sites: workspace root, workspace non-member (`packages/`), member root (`packages/app/`)
 @Test func s14_dumpWorkspace_outsideWorkspaceFails(...) async throws
+@Test func workspace_reusesTopLevelPackageSubcommand(subcommand: String) async throws  // parameterized over `resolve` / `update` / `clean` / `reset`
 ```
 
 ### Success Criteria
@@ -1908,6 +1910,7 @@ Added `Encodable` conformance to `WorkspaceManifest` and `Member` (wire shape: `
 - [x] Single-member workspace root auto-selects (`s14_dumpPackageAtSingleMemberWorkspaceRootAutoSelects`)
 - [x] `workspace dump-workspace` emits the workspace manifest as JSON with `members[].identity` — verified from three invocation sites (workspace root, workspace non-member subdirectory, and a member root) via the parameterized `s14_dumpWorkspace_emitsWorkspaceManifestAsJson`, locking in that CWD position doesn't change the output
 - [x] `workspace dump-workspace` outside a workspace fails cleanly (`s14_dumpWorkspace_outsideWorkspaceFails`)
+- [x] `swift package workspace {resolve, update, clean, reset}` reach the same underlying command as their `swift package <sub>` counterparts, verified by the parameterized `workspace_reusesTopLevelPackageSubcommand` (4 cases against the S14 fixture)
 - [x] Full regression green
 
 #### Manual Verification:
@@ -2056,6 +2059,27 @@ Order of operations when the CLI starts:
 Conflict detection: if `--multiroot-data-file` AND a walk-up `Workspace.swift` are both discoverable → hard error (Slice 15).
 
 **Slice landing this**: Slice 1 (walk-up); Slice 15 (conflict detection).
+
+### `--path` / `--package` build-lock anchored to the wrong `.build/` (open follow-up)
+
+`swift-build --path <target-dir> --package <name>` acquires the PID
+build lock on the *invoker's* CWD `.build/` rather than the
+target's. Reproducer, from a repo with its own `.build/`:
+
+```
+$ $(swift build --show-bin-path)/swift-build --path ../../swiftlang_test --package swift-package-manager
+Another instance of SwiftPM (PID: 89580) is already running using
+'/Users/bkhouri/Documents/git/public/swiftlang/swift-package-manager-3/.build',
+waiting until that process has finished execution...
+```
+
+The invocation should route the lock to `<target>/.build/` (or the
+enclosing workspace's `.build/`). Not blocking any current slice —
+the workspace state-routing infrastructure landed in Slices 8/12 is
+the right lever to fix it. Follow-up: track the lock-file path
+through the same `computeResolvedVersionsFile` / `getLocalConfigurationDirectory`
+decision helpers so `--path` and `--package` reach the same anchor
+as everything else.
 
 ### libSwiftPM public API surface added by this plan
 
