@@ -209,6 +209,7 @@ struct WorkspaceResolveTests {
             throws: WorkspaceResolveError.unknownMember(
                 identity: PackageIdentity.plain("does-not-exist"),
                 manifestPath: memberManifest.path,
+                known: [PackageIdentity.plain("lib-a"), PackageIdentity.plain("lib-b")],
             ),
         ) {
             try PackageWorkspace.resolveWorkspaceMemberPaths(
@@ -216,6 +217,32 @@ struct WorkspaceResolveTests {
                 using: workspace,
             )
         }
+    }
+
+    /// The `unknownMember` error must surface a user-actionable
+    /// description: the unknown identity, the manifest that
+    /// referenced it, and the identities that ARE declared. Prior to
+    /// the improved message the printed error was the opaque enum
+    /// case string, which forced users to grep the source to figure
+    /// out what went wrong.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func unknownMember_description_includesReferencedIdentityManifestAndKnown() throws {
+        let error = WorkspaceResolveError.unknownMember(
+            identity: PackageIdentity.plain("ghost"),
+            manifestPath: AbsolutePath("/repo/packages/app/Package.swift"),
+            known: [PackageIdentity.plain("lib-a"), PackageIdentity.plain("lib-b")],
+        )
+
+        let description = String(describing: error)
+
+        #expect(description.contains("'ghost'"))
+        #expect(description.contains("/repo/packages/app/Package.swift"))
+        #expect(description.contains("'lib-a'"))
+        #expect(description.contains("'lib-b'"))
     }
 
     @Test(
@@ -424,6 +451,7 @@ struct WorkspaceResolveTests {
             throws: WorkspaceResolveError.unknownInheritedDependency(
                 identity: PackageIdentity.plain("does-not-exist"),
                 manifestPath: member.path,
+                known: [PackageIdentity.plain("swift-nio")],
             ),
         ) {
             try PackageWorkspace.resolveWorkspaceMemberPaths(
@@ -431,6 +459,78 @@ struct WorkspaceResolveTests {
                 using: workspace,
             )
         }
+    }
+
+    /// The `unknownInheritedDependency` error must surface a user-
+    /// actionable description: the unknown identity, the manifest
+    /// that referenced it, and the workspace-level dependency
+    /// identities that ARE declared. Same shape as
+    /// `unknownMember`'s description.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func unknownInheritedDependency_description_includesReferencedIdentityManifestAndKnown() throws {
+        let error = WorkspaceResolveError.unknownInheritedDependency(
+            identity: PackageIdentity.plain("ghost"),
+            manifestPath: AbsolutePath("/repo/packages/app/Package.swift"),
+            known: [PackageIdentity.plain("some-lib"), PackageIdentity.plain("other-lib")],
+        )
+
+        let description = String(describing: error)
+
+        #expect(description.contains("'ghost'"))
+        #expect(description.contains("/repo/packages/app/Package.swift"))
+        #expect(description.contains("'some-lib'"))
+        #expect(description.contains("'other-lib'"))
+    }
+
+    /// When the `known` set is empty (workspace declares no members
+    /// or no workspace-level deps yet), the description must not
+    /// render an awkward empty list (`"…: "`). It emits a clear "no
+    /// X are declared" phrase so the message stays actionable — the
+    /// user sees they have zero declared entries, not a trailing
+    /// colon.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func unknownMember_description_withEmptyKnown_saysNoneDeclared() throws {
+        let error = WorkspaceResolveError.unknownMember(
+            identity: PackageIdentity.plain("ghost"),
+            manifestPath: AbsolutePath("/repo/packages/app/Package.swift"),
+            known: [],
+        )
+
+        let description = String(describing: error)
+
+        #expect(description.contains("'ghost'"))
+        #expect(description.contains("no workspace members are declared in Workspace.swift"))
+        // No trailing colon-then-nothing artifact from an empty list.
+        #expect(description.contains(": \n") == false)
+        #expect(description.hasSuffix(":") == false)
+    }
+
+    /// Parallel of the empty-known case for
+    /// `unknownInheritedDependency`.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func unknownInheritedDependency_description_withEmptyKnown_saysNoneDeclared() throws {
+        let error = WorkspaceResolveError.unknownInheritedDependency(
+            identity: PackageIdentity.plain("ghost"),
+            manifestPath: AbsolutePath("/repo/packages/app/Package.swift"),
+            known: [],
+        )
+
+        let description = String(describing: error)
+
+        #expect(description.contains("'ghost'"))
+        #expect(description.contains("no workspace-level dependencies are declared in Workspace.swift"))
     }
 
     @Test(

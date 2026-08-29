@@ -113,9 +113,9 @@ struct MemberStateFindingsTests {
         let actual: Basics.Diagnostic = .workspaceMembersHaveIgnoredState(findings: findings)
         let expected: Basics.Diagnostic = .warning("""
             workspace members have ignored state:
-              lib-a: .build/, Package.resolved
-              lib-b: .swiftpm/configuration/
-            Only workspace-root state is used.
+                  - lib-a: .build/, Package.resolved
+                  - lib-b: .swiftpm/configuration/
+                Only workspace-root state is used.
             """)
         #expect(actual == expected)
     }

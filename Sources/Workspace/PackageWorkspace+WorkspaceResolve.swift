@@ -21,7 +21,10 @@ public enum WorkspaceResolveError: Error, Equatable {
     /// - Parameters:
     ///   - identity: The identity referenced by the member manifest.
     ///   - manifestPath: The path of the member's `Package.swift`.
-    case unknownMember(identity: PackageIdentity, manifestPath: AbsolutePath)
+    ///   - known: The identities of workspace members that ARE declared,
+    ///     surfaced verbatim in the printed error so the user can
+    ///     correct the reference without grepping.
+    case unknownMember(identity: PackageIdentity, manifestPath: AbsolutePath, known: Set<PackageIdentity>)
 
     /// A `Package.swift` uses `.package(workspaceMember:)` but is being
     /// loaded outside a workspace context. This indicates the manifest
@@ -37,13 +40,60 @@ public enum WorkspaceResolveError: Error, Equatable {
     /// - Parameters:
     ///   - identity: The identity referenced by the member manifest.
     ///   - manifestPath: The path of the member's `Package.swift`.
-    case unknownInheritedDependency(identity: PackageIdentity, manifestPath: AbsolutePath)
+    ///   - known: The identities of workspace-level dependencies that
+    ///     ARE declared, surfaced verbatim in the printed error so the
+    ///     user can correct the reference.
+    case unknownInheritedDependency(identity: PackageIdentity, manifestPath: AbsolutePath, known: Set<PackageIdentity>)
 
     /// A `Package.swift` uses `.package(workspaceInherited:)` but is
     /// being loaded outside a workspace context.
     ///
     /// - Parameter manifestPath: The path of the `Package.swift`.
     case workspaceInheritedUsedOutsideWorkspace(manifestPath: AbsolutePath)
+}
+
+extension WorkspaceResolveError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .unknownMember(let identity, let manifestPath, let known):
+            return """
+                unknown workspace member '\(identity)' referenced by \
+                \(manifestPath.pathString); \
+                \(Self.formatKnown(known, kind: "workspace members"))
+                """
+        case .workspaceMemberUsedOutsideWorkspace(let manifestPath):
+            return """
+                \(manifestPath.pathString) uses \
+                .package(workspaceMember:) but no enclosing Workspace.swift \
+                was found
+                """
+        case .unknownInheritedDependency(let identity, let manifestPath, let known):
+            return """
+                unknown workspace dependency '\(identity)' referenced by \
+                \(manifestPath.pathString); \
+                \(Self.formatKnown(known, kind: "workspace-level dependencies"))
+                """
+        case .workspaceInheritedUsedOutsideWorkspace(let manifestPath):
+            return """
+                \(manifestPath.pathString) uses \
+                .package(workspaceInherited:) but no enclosing \
+                Workspace.swift was found
+                """
+        }
+    }
+
+    /// Renders a set of known identities into a "declared X are:
+    /// 'a', 'b'" fragment. When the set is empty, emits "no X are
+    /// declared in Workspace.swift" so the message stays actionable
+    /// (the user sees they have zero declared entries, not an
+    /// awkward trailing colon).
+    private static func formatKnown(_ known: Set<PackageIdentity>, kind: String) -> String {
+        if known.isEmpty {
+            return "no \(kind) are declared in Workspace.swift"
+        }
+        let sorted = known.map(\.description).sorted()
+        return "declared \(kind) are: \(sorted.map { "'\($0)'" }.joined(separator: ", "))"
+    }
 }
 
 extension PackageWorkspace {
@@ -82,6 +132,7 @@ extension PackageWorkspace {
                     throw WorkspaceResolveError.unknownMember(
                         identity: member.identity,
                         manifestPath: manifest.path,
+                        known: Set(workspace.members.map(\.identity)),
                     )
                 }
                 return .workspaceMember(
@@ -129,6 +180,7 @@ extension PackageWorkspace {
             throw WorkspaceResolveError.unknownInheritedDependency(
                 identity: inherited.identity,
                 manifestPath: manifestPath,
+                known: Set(workspace.dependencies.map(\.identity)),
             )
         }
 

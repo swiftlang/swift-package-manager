@@ -139,13 +139,13 @@ extension Basics.Diagnostic {
                     .sorted { $0.pathComponent < $1.pathComponent }
                     .map(\.pathComponent)
                     .joined(separator: ", ")
-                return "  \(finding.memberIdentity): \(kinds)"
+                return "      - \(finding.memberIdentity): \(kinds)"
             }
             .joined(separator: "\n")
         return .warning("""
             workspace members have ignored state:
             \(lines)
-            Only workspace-root state is used.
+                Only workspace-root state is used.
             """)
     }
 }
