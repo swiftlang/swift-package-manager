@@ -259,7 +259,8 @@ extension PackagePIFProjectBuilder {
                     FileReference(
                         id: id,
                         path: sourcePath.pathString,
-                        pathBase: .groupDir
+                        pathBase: .groupDir,
+                        fileType: literateSwiftFileTypeIdentifier(forPathExtension: sourcePath.pathString.pathExtension)
                     )
                 }
             self.project[keyPath: mainModuleTargetKeyPath].addSourceFile { id in
@@ -282,7 +283,8 @@ extension PackagePIFProjectBuilder {
                     FileReference(
                         id: id,
                         path: path.pathString,
-                        pathBase: .absolute
+                        pathBase: .absolute,
+                        fileType: literateSwiftFileTypeIdentifier(forPathExtension: path.pathString.pathExtension)
                     )
                 }
             self.project[keyPath: mainModuleTargetKeyPath].addSourceFile { id in

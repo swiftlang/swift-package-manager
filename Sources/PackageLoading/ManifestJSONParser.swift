@@ -208,6 +208,7 @@ enum ManifestJSONParser {
             publicHeadersPath: target.publicHeadersPath,
             type: .init(target.type),
             packageAccess: target.packageAccess,
+            literate: target.literate,
             pkgConfig: target.pkgConfig,
             providers: providers,
             pluginCapability: pluginCapability,
