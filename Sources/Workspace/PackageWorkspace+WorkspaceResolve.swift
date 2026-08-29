@@ -69,6 +69,7 @@ extension PackageWorkspace {
     public static func resolveWorkspaceMemberPaths(
         in manifest: Manifest,
         using workspace: WorkspaceManifest,
+        locationMapper: (String) -> String = { $0 },
     ) throws -> Manifest {
         let memberMap: [PackageIdentity: AbsolutePath] = Dictionary(
             uniqueKeysWithValues: workspace.members.map { ($0.identity, $0.path) },
@@ -96,6 +97,7 @@ extension PackageWorkspace {
                     inherited,
                     workspace: workspace,
                     manifestPath: manifest.path,
+                    locationMapper: locationMapper,
                 )
             case .fileSystem, .sourceControl, .registry:
                 return dep
@@ -121,6 +123,7 @@ extension PackageWorkspace {
         _ inherited: PackageDependency.WorkspaceInherited,
         workspace: WorkspaceManifest,
         manifestPath: AbsolutePath,
+        locationMapper: (String) -> String = { $0 },
     ) throws -> PackageDependency {
         guard let match = workspace.dependencies.first(where: { $0.identity == inherited.identity }) else {
             throw WorkspaceResolveError.unknownInheritedDependency(
@@ -142,11 +145,36 @@ extension PackageWorkspace {
             }
         }()
 
+        // Mirror-substitute the workspace-level dep's URL / path /
+        // registry-identity before burning it into the member's
+        // `.workspaceInherited.resolved`. Without this, a URL-keyed
+        // mirror configured in `.swiftpm/configuration/mirrors.json`
+        // (via `swift package config set-mirror`) never applies to
+        // workspace-inherited deps because `WorkspaceManifest.dependencies`
+        // are parsed directly from `Workspace.swift` and never flow
+        // through `DefaultDependencyMapper`. Preserves the outer
+        // `.workspaceInherited` case; only `resolved` is affected.
         let resolved: PackageDependency.WorkspaceInherited.ResolvedInherited
         switch match {
         case .sourceControl(let sc):
+            let originalString: String
+            switch sc.location {
+            case .remote(let url):
+                originalString = url.absoluteString
+            case .local(let path):
+                originalString = path.pathString
+            }
+            let mappedString = locationMapper(originalString)
+            let mappedLocation: PackageDependency.SourceControl.Location
+            if mappedString == originalString {
+                mappedLocation = sc.location
+            } else if let path = try? AbsolutePath(validating: mappedString) {
+                mappedLocation = .local(path)
+            } else {
+                mappedLocation = .remote(SourceControlURL(mappedString))
+            }
             resolved = .sourceControl(
-                location: sc.location,
+                location: mappedLocation,
                 requirement: sc.requirement,
                 nameForTargetDependencyResolutionOnly: sc.nameForTargetDependencyResolutionOnly,
                 registryIdentity: sc.registryIdentity,
@@ -154,8 +182,10 @@ extension PackageWorkspace {
         case .registry(let reg):
             resolved = .registry(requirement: reg.requirement)
         case .fileSystem(let fs):
+            let mappedString = locationMapper(fs.path.pathString)
+            let mappedPath = (try? AbsolutePath(validating: mappedString)) ?? fs.path
             resolved = .fileSystem(
-                path: fs.path,
+                path: mappedPath,
                 nameForTargetDependencyResolutionOnly: fs.nameForTargetDependencyResolutionOnly,
             )
         case .workspaceMember, .workspaceInherited:
@@ -168,9 +198,21 @@ extension PackageWorkspace {
             )
         }
 
+        // Mirror-substitute the outer identity for the registry-resolved
+        // case: mirror keys for registry deps are identity strings.
+        let mappedIdentity: PackageIdentity = {
+            if case .registry = resolved {
+                let mapped = locationMapper(inherited.identity.description)
+                if mapped != inherited.identity.description {
+                    return .plain(mapped)
+                }
+            }
+            return inherited.identity
+        }()
+
         return .workspaceInherited(
             PackageDependency.WorkspaceInherited(
-                identity: inherited.identity,
+                identity: mappedIdentity,
                 productFilter: inherited.productFilter,
                 traits: unionedTraits,
                 resolved: resolved,

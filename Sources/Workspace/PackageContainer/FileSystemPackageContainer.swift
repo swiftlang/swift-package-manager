@@ -122,6 +122,7 @@ public struct FileSystemPackageContainer: PackageContainer {
                 processed = try PackageWorkspace.resolveWorkspaceMemberPaths(
                     in: raw,
                     using: workspaceManifest,
+                    locationMapper: self.identityResolver.mappedLocation(for:),
                 )
             } else {
                 processed = raw

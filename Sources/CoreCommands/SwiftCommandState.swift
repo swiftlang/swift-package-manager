@@ -908,31 +908,39 @@ public final class SwiftCommandState {
     }
 
     func getLocalConfigurationDirectory() throws -> AbsolutePath {
-        // Otherwise, use the default path.
-        // TODO: replace multiroot-data-file with explicit overrides
-        if let multiRootPackageDataFile = options.locations.multirootPackageDataFile {
-            // migrate from legacy location
-            let legacyPath = multiRootPackageDataFile.appending(components: "xcshareddata", "swiftpm", "config")
-            let newPath = PackageWorkspace.DefaultLocations
-                .mirrorsConfigurationFile(
-                    at: multiRootPackageDataFile
-                        .appending(components: "xcshareddata", "swiftpm", "configuration")
-                )
-            return try PackageWorkspace.migrateMirrorsConfiguration(
-                from: legacyPath,
-                to: newPath,
-                observabilityScope: self.observabilityScope
-            )
-        } else {
-            // migrate from legacy location
-            let legacyPath = try self.getPackageRoot().appending(components: ".swiftpm", "config")
-            let newPath = try PackageWorkspace.DefaultLocations.mirrorsConfigurationFile(forRootPackage: self.getPackageRoot())
-            return try PackageWorkspace.migrateMirrorsConfiguration(
-                from: legacyPath,
-                to: newPath,
-                observabilityScope: self.observabilityScope
-            )
+        let newConfigDir = try Self.computeLocalConfigurationDirectory(
+            multiRootPackageDataFile: options.locations.multirootPackageDataFile,
+            workspaceRoot: self.workspaceRoot,
+            packageRoot: self.packageRoot,
+        )
+
+        // Migrate the legacy `.swiftpm/config` file (single-file
+        // mirror configuration) to the new `.swiftpm/configuration/`
+        // directory layout. Applies to the pre-workspace anchors —
+        // SwiftPM workspaces are new and have no legacy state to
+        // migrate from, so the workspace anchor skips migration.
+        let legacyPath: AbsolutePath? = {
+            if let multiroot = options.locations.multirootPackageDataFile {
+                return multiroot.appending(components: "xcshareddata", "swiftpm", "config")
+            }
+            if self.workspaceRoot != nil {
+                return nil
+            }
+            if let packageRoot = self.packageRoot {
+                return packageRoot.appending(components: ".swiftpm", "config")
+            }
+            return nil
+        }()
+
+        guard let legacyPath else {
+            return newConfigDir
         }
+        let newPath = PackageWorkspace.DefaultLocations.mirrorsConfigurationFile(at: newConfigDir)
+        return try PackageWorkspace.migrateMirrorsConfiguration(
+            from: legacyPath,
+            to: newPath,
+            observabilityScope: self.observabilityScope,
+        )
     }
 
     public func getAuthorizationProvider() throws -> AuthorizationProvider? {
@@ -1585,6 +1593,37 @@ extension SwiftCommandState {
             throw SwiftCommandStateError.packageManifestNotFound
         }
         return PackageWorkspace.DefaultLocations.resolvedVersionsFile(forRootPackage: packageRoot)
+    }
+
+    /// Pure decision helper that computes the local configuration
+    /// directory (`.swiftpm/configuration/…`) — the folder that
+    /// houses `mirrors.json`, `registries.json`, and
+    /// `workspace-overrides.json`.
+    ///
+    /// Under a SwiftPM workspace the directory anchors to the
+    /// workspace root so `swift package config set-mirror` writes a
+    /// single file every member reads. Extracted so the ordering can
+    /// be unit-tested without spinning up a full `SwiftCommandState`
+    /// or touching the filesystem.
+    @_spi(SwiftPMTesting)
+    public static func computeLocalConfigurationDirectory(
+        multiRootPackageDataFile: AbsolutePath?,
+        workspaceRoot: AbsolutePath?,
+        packageRoot: AbsolutePath?,
+    ) throws -> AbsolutePath {
+        if let multiRootPackageDataFile {
+            return multiRootPackageDataFile
+                .appending(components: "xcshareddata", "swiftpm", "configuration")
+        }
+        if let workspaceRoot {
+            return PackageWorkspace.DefaultLocations
+                .configurationDirectory(forRootPackage: workspaceRoot)
+        }
+        guard let packageRoot else {
+            throw SwiftCommandStateError.packageManifestNotFound
+        }
+        return PackageWorkspace.DefaultLocations
+            .configurationDirectory(forRootPackage: packageRoot)
     }
 }
 

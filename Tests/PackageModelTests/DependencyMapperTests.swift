@@ -477,6 +477,252 @@ struct DependencyMapperTests {
         }
         #expect(inherited == expected)
     }
+
+    /// A `.workspaceInherited` dependency whose `resolved` field
+    /// points at a remote source-control URL must have that URL
+    /// mirror-substituted by `DefaultDependencyMapper` just like a
+    /// plain `.package(url:)` declared in a `Package.swift` — the
+    /// invariant Sam K stated: "preserve the same behaviour as
+    /// `Package.swift`".
+    ///
+    /// Before the fix, `MappablePackageDependency.locationString`
+    /// for `.workspaceInherited` returned `identity.description`
+    /// (e.g. `"some-lib"`) instead of the resolved URL, so a
+    /// URL-keyed mirror in `mirrors.json` was looked up against the
+    /// identity and never matched. `swift package update` in a
+    /// workspace then fetched the original unreachable URL from
+    /// `Workspace.swift` rather than the mirror target — reproducing
+    /// as `workspace_update_appliesWorkspaceRootMirror` in
+    /// `WorkspaceFeatureTests`.
+    @Test(
+        .tags(
+            .FunctionalArea.WorkspaceManiest,
+        ),
+    )
+    func workspaceInherited_withRemoteSourceControlMirror_appliesMirrorSubstitution() throws {
+        let originalURL = "https://example.invalid/some-lib"
+        let mirrorURL = "https://mirror.example/some-lib"
+        let identityResolver = DefaultIdentityResolver(
+            locationMapper: { location in
+                location == originalURL ? mirrorURL : location
+            },
+        )
+        let mapper = DefaultDependencyMapper(identityResolver: identityResolver)
+
+        let inherited = PackageDependency.WorkspaceInherited(
+            identity: .plain("some-lib"),
+            productFilter: .everything,
+            traits: nil,
+            resolved: .sourceControl(
+                location: .remote(SourceControlURL(originalURL)),
+                requirement: .range("1.0.0"..<"2.0.0"),
+                nameForTargetDependencyResolutionOnly: nil,
+                registryIdentity: nil,
+            ),
+        )
+        let dependency = MappablePackageDependency(
+            parentPackagePath: parentPath,
+            kind: .workspaceInherited(inherited),
+            productFilter: .everything,
+            traits: nil,
+        )
+
+        let mapped = try mapper.mappedDependency(dependency, fileSystem: InMemoryFileSystem())
+
+        guard case .workspaceInherited(let mappedInherited) = mapped else {
+            Issue.record("expected `.workspaceInherited` case preserved after mapping, got \(mapped)")
+            return
+        }
+        guard case .sourceControl(let mappedLocation, _, _, _) = mappedInherited.resolved else {
+            Issue.record("expected `.sourceControl` resolved kind, got \(String(describing: mappedInherited.resolved))")
+            return
+        }
+        guard case .remote(let mappedURL) = mappedLocation else {
+            Issue.record("expected `.remote` location, got \(mappedLocation)")
+            return
+        }
+        #expect(
+            mappedURL.absoluteString == mirrorURL,
+            "expected mirror URL `\(mirrorURL)`, got `\(mappedURL.absoluteString)`",
+        )
+    }
+
+    /// Regression guard for the mirror fix: a `.workspaceInherited`
+    /// dep with a remote source-control resolved location and NO
+    /// mirror configured must pass through untouched — same URL,
+    /// same requirement, `.workspaceInherited` case preserved. The
+    /// fix should route the URL through `mappedLocation(for:)` but
+    /// only substitute when a mirror actually matches; otherwise the
+    /// no-mirror single-package baseline breaks.
+    @Test(
+        .tags(
+            .FunctionalArea.WorkspaceManiest,
+        ),
+    )
+    func workspaceInherited_withNoMirror_passesThroughRemoteSourceControlUnchanged() throws {
+        let url = "https://example.com/some-lib"
+        // Identity resolver with the default identity locationMapper
+        // (identity function) — models "no mirror set".
+        let identityResolver = DefaultIdentityResolver()
+        let mapper = DefaultDependencyMapper(identityResolver: identityResolver)
+
+        let inherited = PackageDependency.WorkspaceInherited(
+            identity: .plain("some-lib"),
+            productFilter: .everything,
+            traits: nil,
+            resolved: .sourceControl(
+                location: .remote(SourceControlURL(url)),
+                requirement: .range("1.0.0"..<"2.0.0"),
+                nameForTargetDependencyResolutionOnly: nil,
+                registryIdentity: nil,
+            ),
+        )
+        let dependency = MappablePackageDependency(
+            parentPackagePath: parentPath,
+            kind: .workspaceInherited(inherited),
+            productFilter: .everything,
+            traits: nil,
+        )
+
+        let mapped = try mapper.mappedDependency(dependency, fileSystem: InMemoryFileSystem())
+
+        guard case .workspaceInherited(let mappedInherited) = mapped else {
+            Issue.record("expected `.workspaceInherited` case preserved, got \(mapped)")
+            return
+        }
+        guard case .sourceControl(let mappedLocation, _, _, _) = mappedInherited.resolved else {
+            Issue.record("expected `.sourceControl` resolved kind, got \(String(describing: mappedInherited.resolved))")
+            return
+        }
+        guard case .remote(let mappedURL) = mappedLocation else {
+            Issue.record("expected `.remote` location, got \(mappedLocation)")
+            return
+        }
+        #expect(
+            mappedURL.absoluteString == url,
+            "expected URL to pass through unchanged; got `\(mappedURL.absoluteString)`",
+        )
+    }
+
+    /// A `.workspaceInherited` dep with a local source-control
+    /// resolved path — declared as `.package(path: "external/lib")`
+    /// at the workspace level — must have that path substituted when
+    /// a mirror targets it. Same "same behaviour as Package.swift"
+    /// invariant: a mirror on a local path in a plain `Package.swift`
+    /// rewrites the URL; the workspace-inherited case must do the
+    /// same for members that inherit it.
+    ///
+    /// Before the fix, `.workspaceInherited.locationString` returned
+    /// the identity, so a path-keyed mirror never matched and the
+    /// dep passed through with the original local path.
+    @Test(
+        .tags(
+            .FunctionalArea.WorkspaceManiest,
+        ),
+    )
+    func workspaceInherited_withLocalSourceControlMirror_appliesMirrorSubstitution() throws {
+        let originalPath = "/repo/external/some-lib"
+        let mirrorURL = "https://mirror.example/some-lib"
+        let identityResolver = DefaultIdentityResolver(
+            locationMapper: { location in
+                location == originalPath ? mirrorURL : location
+            },
+        )
+        let mapper = DefaultDependencyMapper(identityResolver: identityResolver)
+
+        let inherited = PackageDependency.WorkspaceInherited(
+            identity: .plain("some-lib"),
+            productFilter: .everything,
+            traits: nil,
+            resolved: .sourceControl(
+                location: .local(try Basics.AbsolutePath(validating: originalPath)),
+                requirement: .range("1.0.0"..<"2.0.0"),
+                nameForTargetDependencyResolutionOnly: nil,
+                registryIdentity: nil,
+            ),
+        )
+        let dependency = MappablePackageDependency(
+            parentPackagePath: parentPath,
+            kind: .workspaceInherited(inherited),
+            productFilter: .everything,
+            traits: nil,
+        )
+
+        let mapped = try mapper.mappedDependency(dependency, fileSystem: InMemoryFileSystem())
+
+        guard case .workspaceInherited(let mappedInherited) = mapped else {
+            Issue.record("expected `.workspaceInherited` case preserved after mapping, got \(mapped)")
+            return
+        }
+        guard case .sourceControl(let mappedLocation, _, _, _) = mappedInherited.resolved else {
+            Issue.record("expected `.sourceControl` resolved kind, got \(String(describing: mappedInherited.resolved))")
+            return
+        }
+        guard case .remote(let mappedURL) = mappedLocation else {
+            Issue.record("expected `.remote` location after mirror substitution, got \(mappedLocation)")
+            return
+        }
+        #expect(
+            mappedURL.absoluteString == mirrorURL,
+            "expected mirror URL `\(mirrorURL)`, got `\(mappedURL.absoluteString)`",
+        )
+    }
+
+    /// A `.workspaceInherited` dep with a `.registry` resolved kind
+    /// and an identity mirror must have the identity substituted
+    /// while keeping the outer `.workspaceInherited` case — same
+    /// invariant as remote-source-control: mirrors rewrite the
+    /// resolved location, not the workspace-inheritance semantic.
+    ///
+    /// Before the fix, an identity mirror on a `.workspaceInherited`
+    /// dep collapsed the case to plain `.registry` because
+    /// `DefaultDependencyMapper` fell through to the "mapping
+    /// happened" branch that constructs a fresh `.registry` factory.
+    /// Members inheriting through the workspace lost the
+    /// workspace-inherited signal downstream.
+    @Test(
+        .tags(
+            .FunctionalArea.WorkspaceManiest,
+        ),
+    )
+    func workspaceInherited_withRegistryIdentityMirror_appliesMirrorSubstitution() throws {
+        let originalIdentity = "some-lib"
+        let mirroredIdentity = "corp.some-lib"
+        let identityResolver = DefaultIdentityResolver(
+            locationMapper: { location in
+                location == originalIdentity ? mirroredIdentity : location
+            },
+        )
+        let mapper = DefaultDependencyMapper(identityResolver: identityResolver)
+
+        let inherited = PackageDependency.WorkspaceInherited(
+            identity: .plain(originalIdentity),
+            productFilter: .everything,
+            traits: nil,
+            resolved: .registry(requirement: .range("1.0.0"..<"2.0.0")),
+        )
+        let dependency = MappablePackageDependency(
+            parentPackagePath: parentPath,
+            kind: .workspaceInherited(inherited),
+            productFilter: .everything,
+            traits: nil,
+        )
+
+        let mapped = try mapper.mappedDependency(dependency, fileSystem: InMemoryFileSystem())
+
+        guard case .workspaceInherited(let mappedInherited) = mapped else {
+            Issue.record("expected `.workspaceInherited` case preserved after registry mirror, got \(mapped)")
+            return
+        }
+        #expect(
+            mappedInherited.identity == .plain(mirroredIdentity),
+            "expected identity `\(mirroredIdentity)`, got `\(mappedInherited.identity)`",
+        )
+        guard case .registry = mappedInherited.resolved else {
+            Issue.record("expected `.registry` resolved kind preserved, got \(String(describing: mappedInherited.resolved))")
+            return
+        }
+    }
 }
 
 // MARK: - Test FileSystem stub

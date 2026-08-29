@@ -40,6 +40,24 @@ public struct DefaultDependencyMapper: DependencyMapper {
         // location mapping (aka mirrors) if any
         let mappedLocationString = self.identityResolver.mappedLocation(for: dependencyLocationString)
 
+        // `.workspaceInherited` preserves its outer case across mirror
+        // substitution — the mirror mutates the `resolved` field (or,
+        // for the registry-resolved case, the outer identity) rather
+        // than rewriting the dep to `.remoteSourceControl` /
+        // `.registry` / `.localSourceControl`. The `sourceControlRequirement(for:)`
+        // and `registryRequirement(for:)` guards below already reject
+        // cross-case rewrites for this dep kind — see the existing
+        // "workspace-inherited deps must be rewritten before mapping"
+        // errors.
+        if case .workspaceInherited(let inherited) = dependency.kind {
+            guard mappedLocationString != dependencyLocationString else {
+                return .workspaceInherited(inherited)
+            }
+            return .workspaceInherited(
+                Self.applyMirror(to: inherited, mappedLocation: mappedLocationString),
+            )
+        }
+
         if mappedLocationString == dependencyLocationString {
             // no mapping done, return based on the cleaned up location string
             return try .init(dependency, newLocationString: mappedLocationString)
@@ -77,6 +95,71 @@ public struct DefaultDependencyMapper: DependencyMapper {
                 productFilter: dependency.productFilter,
                 traits: dependency.traits,
                 registryIdentity: nil
+            )
+        }
+    }
+
+    /// Applies a mirror-substituted location to a
+    /// `.workspaceInherited` dependency's `resolved` field (source-
+    /// control URL/path or file-system path) or, for the `.registry`
+    /// resolved case, to the outer `identity` field. Preserves the
+    /// `.workspaceInherited` outer case so downstream code still
+    /// recognises it as a workspace-inherited dep.
+    ///
+    /// If the mapped location can't be parsed into the resolved
+    /// kind (e.g. a resolved `.sourceControl` mapped to something
+    /// that's neither a URL nor a valid absolute path), the dep is
+    /// returned unchanged — swallowing the mapping matches the
+    /// "same behaviour as `Package.swift`" invariant: an unparseable
+    /// mirror value is a no-op.
+    private static func applyMirror(
+        to inherited: PackageDependency.WorkspaceInherited,
+        mappedLocation: String,
+    ) -> PackageDependency.WorkspaceInherited {
+        guard let resolved = inherited.resolved else {
+            return inherited
+        }
+        switch resolved {
+        case .sourceControl(_, let requirement, let name, let registryIdentity):
+            let newLocation: PackageDependency.SourceControl.Location
+            if parseScheme(mappedLocation) != nil {
+                newLocation = .remote(SourceControlURL(mappedLocation))
+            } else if let path = try? AbsolutePath(validating: mappedLocation) {
+                newLocation = .local(path)
+            } else {
+                return inherited
+            }
+            return .init(
+                identity: inherited.identity,
+                productFilter: inherited.productFilter,
+                traits: inherited.traits,
+                resolved: .sourceControl(
+                    location: newLocation,
+                    requirement: requirement,
+                    nameForTargetDependencyResolutionOnly: name,
+                    registryIdentity: registryIdentity,
+                ),
+            )
+        case .registry(let requirement):
+            // Registry-identity mirror: substitute the outer identity.
+            return .init(
+                identity: .plain(mappedLocation),
+                productFilter: inherited.productFilter,
+                traits: inherited.traits,
+                resolved: .registry(requirement: requirement),
+            )
+        case .fileSystem(_, let name):
+            guard let path = try? AbsolutePath(validating: mappedLocation) else {
+                return inherited
+            }
+            return .init(
+                identity: inherited.identity,
+                productFilter: inherited.productFilter,
+                traits: inherited.traits,
+                resolved: .fileSystem(
+                    path: path,
+                    nameForTargetDependencyResolutionOnly: name,
+                ),
             )
         }
     }
@@ -268,7 +351,31 @@ extension MappablePackageDependency {
         case .workspaceMember(let member):
             return member.identity.description
         case .workspaceInherited(let inherited):
-            return inherited.identity.description
+            // The mirror lookup key for a workspace-inherited dep is
+            // the resolved location (URL / path / registry identity) —
+            // matching what the concrete `.sourceControl` / `.registry` /
+            // `.fileSystem` case would return. Returning the outer
+            // identity here (as the pre-fix version did) meant URL-keyed
+            // mirrors in `mirrors.json` never matched, so
+            // `swift package update` in a workspace fetched the original
+            // URL declared in `Workspace.swift` instead of the mirror
+            // target.
+            guard let resolved = inherited.resolved else {
+                return inherited.identity.description
+            }
+            switch resolved {
+            case .sourceControl(let location, _, _, _):
+                switch location {
+                case .local(let path):
+                    return path.pathString
+                case .remote(let url):
+                    return url.absoluteString
+                }
+            case .registry:
+                return inherited.identity.description
+            case .fileSystem(let path, _):
+                return path.pathString
+            }
         }
     }
 

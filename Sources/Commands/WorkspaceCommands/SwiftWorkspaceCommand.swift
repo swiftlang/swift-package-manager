@@ -47,7 +47,8 @@ public struct SwiftWorkspaceCommand: AsyncParsableCommand {
             SwiftPackageCommand.Update.self,
             SwiftPackageCommand.Resolve.self,
             SwiftPackageCommand.ShowDependencies.self,
-        ],
+            SwiftPackageCommand.Config.self,
+       ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)],
     )
 

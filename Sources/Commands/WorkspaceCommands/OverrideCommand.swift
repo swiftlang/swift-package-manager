@@ -21,7 +21,6 @@ import Workspace
 import struct TSCUtility.Version
 
 extension SwiftWorkspaceCommand {
-
     /// Manage workspace-level dependency overrides
     /// (`.swiftpm/configuration/workspace-overrides.json`).
     struct Override: ParsableCommand {

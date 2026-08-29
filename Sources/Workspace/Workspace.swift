@@ -1155,6 +1155,7 @@ extension PackageWorkspace {
                             processed = try PackageWorkspace.resolveWorkspaceMemberPaths(
                                 in: manifest,
                                 using: workspaceManifest,
+                                locationMapper: self.mirrors.effective(for:),
                             )
                         } else {
                             try PackageWorkspace.validateNoWorkspaceMemberDependencies(in: manifest)

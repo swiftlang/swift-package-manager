@@ -2979,6 +2979,7 @@ struct WorkspaceFeatureTests {
             "clean",
             "reset",
             "show-dependencies",
+            "config",
         ],
     )
     func workspace_reusesTopLevelPackageSubcommand(
@@ -2992,6 +2993,264 @@ struct WorkspaceFeatureTests {
                 extraArgs: [subcommand],
                 buildSystem: buildSystem,
             )
+        }
+    }
+
+    /// `swift package config set-mirror` under a workspace must
+    /// anchor the mirror to the workspace root's
+    /// `.swiftpm/configuration/mirrors.json` — a single shared file
+    /// every member reads. Before workspace-aware routing landed the
+    /// command threw at a workspace root because there is no
+    /// `Package.swift`, and from inside a member it wrote to
+    /// `<member>/.swiftpm/configuration/mirrors.json` where the
+    /// sibling members (and workspace-root resolution) would never
+    /// see it.
+    ///
+    /// Parameterized across two invocation sites so a stray CWD-
+    /// specific fallback would fail visibly:
+    /// 1. **workspace root** — canonical location.
+    /// 2. **member root** (`packages/app/`) — verifies that a mirror
+    ///    set from inside a member is still routed to the workspace
+    ///    root, not to the member's `.swiftpm/`.
+    @Test(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+        arguments: [
+            ("workspace root", [String]()),
+            ("member root", ["packages", "app"]),
+        ],
+    )
+    func workspace_configSetMirror_writesToWorkspaceRoot(
+        invocationSite: (name: String, cwdComponents: [String]),
+    ) async throws {
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
+        try await fixture(name: "Workspaces/S14_DumpPackage") { fixturePath in
+            let cwd: AbsolutePath
+            if invocationSite.cwdComponents.isEmpty {
+                cwd = fixturePath
+            } else {
+                cwd = fixturePath.appending(components: invocationSite.cwdComponents)
+            }
+
+            _ = try await executeSwiftPackage(
+                cwd,
+                configuration: .debug,
+                extraArgs: [
+                    "config",
+                    "set-mirror",
+                    "--original",
+                    "https://github.com/example/original",
+                    "--mirror",
+                    "https://github.com/example/mirror",
+                ],
+                buildSystem: buildSystem,
+            )
+
+            let workspaceMirrors = fixturePath.appending(
+                components: ".swiftpm", "configuration", "mirrors.json",
+            )
+            expectFileExists(
+                at: workspaceMirrors,
+                "workspace-root mirrors file missing from invocation site \(invocationSite.name)",
+            )
+            // Guard against per-member fallback: a mirror set from
+            // inside a member must NOT be written to that member's
+            // own `.swiftpm/configuration/mirrors.json`.
+            if invocationSite.cwdComponents.isEmpty == false {
+                let memberMirrors = cwd.appending(
+                    components: ".swiftpm", "configuration", "mirrors.json",
+                )
+                expectFileDoesNotExist(
+                    at: memberMirrors,
+                    "mirror leaked into member's `.swiftpm/` for invocation site \(invocationSite.name)",
+                )
+            }
+        }
+    }
+
+    /// Round-trip test — the write and read paths both anchor to the
+    /// workspace root, so a mirror set from anywhere in the workspace
+    /// is visible from anywhere else. Sets from the workspace root
+    /// then reads back from inside a member; expects `get-mirror` to
+    /// print the mirror URL on stdout. Locks in that `get-mirror`
+    /// doesn't fall back to a member-scoped `.swiftpm/`.
+    @Test(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+    )
+    func workspace_configGetMirror_fromMember_readsWorkspaceRootMirror() async throws {
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
+        try await fixture(name: "Workspaces/S14_DumpPackage") { fixturePath in
+            let original = "https://github.com/example/original"
+            let mirror = "https://github.com/example/mirror"
+
+            _ = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: [
+                    "config", "set-mirror",
+                    "--original", original,
+                    "--mirror", mirror,
+                ],
+                buildSystem: buildSystem,
+            )
+
+            let memberPath = fixturePath.appending(components: "packages", "app")
+            let (stdout, _) = try await executeSwiftPackage(
+                memberPath,
+                configuration: .debug,
+                extraArgs: [
+                    "config", "get-mirror",
+                    "--original", original,
+                ],
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stdout.contains(mirror),
+                "expected mirror URL on stdout from `get-mirror` inside a member; got stdout=\(stdout)",
+            )
+        }
+    }
+
+    /// `swift package config unset-mirror` under a workspace also
+    /// operates on the workspace-root mirrors file. Set a mirror
+    /// from the workspace root, unset it, then verify `get-mirror`
+    /// no longer finds it. Closes the config-command family (set /
+    /// get / unset) by proving the write and delete anchors are the
+    /// same — a stale per-member fallback would leave the mirror in
+    /// place under the member's `.swiftpm/` and `get-mirror` would
+    /// still find it.
+    @Test(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+    )
+    func workspace_configUnsetMirror_removesWorkspaceRootMirror() async throws {
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
+        try await fixture(name: "Workspaces/S14_DumpPackage") { fixturePath in
+            let original = "https://github.com/example/original"
+            let mirror = "https://github.com/example/mirror"
+
+            _ = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: [
+                    "config", "set-mirror",
+                    "--original", original,
+                    "--mirror", mirror,
+                ],
+                buildSystem: buildSystem,
+            )
+
+            _ = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: [
+                    "config", "unset-mirror",
+                    "--original", original,
+                ],
+                buildSystem: buildSystem,
+            )
+
+            // `get-mirror` exits non-zero when the mirror is not found.
+            await #expect(throws: (any Error).self) {
+                try await executeSwiftPackage(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: [
+                        "config", "get-mirror",
+                        "--original", original,
+                    ],
+                    buildSystem: buildSystem,
+                )
+            }
+        }
+    }
+
+    /// End-to-end proof that mirror configuration written to the
+    /// workspace-root `.swiftpm/configuration/mirrors.json` is
+    /// actually consulted at dependency-resolution time. The
+    /// workspace declares an external dep on an intentionally
+    /// unreachable URL (`https://example.invalid/some-lib.git`);
+    /// without a mirror, `update` would fail trying to fetch it. The
+    /// test scaffolds a real local git repo at `external/some-lib`
+    /// with a `1.0.0` tag and sets a mirror redirecting the bogus
+    /// URL to that local repo.
+    ///
+    /// What proves the mirror was applied: `update` succeeds AND
+    /// stderr shows `Fetching file:///…external/some-lib` (the
+    /// mirror target). If the mirror was NOT applied, stderr would
+    /// show `Fetching https://example.invalid/some-lib.git` followed
+    /// by a git-clone failure. `Package.resolved` is intentionally
+    /// NOT asserted against the mirror path — SwiftPM's design
+    /// records the *original* URL in the lockfile (mirrors apply at
+    /// fetch time, not at persistence time) so removing the mirror
+    /// later still points at the source-of-truth URL.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Update,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func workspace_update_appliesWorkspaceRootMirror(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S16_MirrorsUpdate") { fixturePath in
+            let mirrorRepoPath = fixturePath.appending(components: "external", "some-lib")
+            let workspacePath = fixturePath.appending(component: "workspace")
+            try requireDirectoryExists(at: mirrorRepoPath)
+            try Self.initializeExternalRepo(at: mirrorRepoPath)
+
+            let bogusURL = "https://example.invalid/some-lib.git"
+            // `file://` URL is the standard git-clone-able form for a
+            // local repository — a bare filesystem path is not always
+            // accepted as a source-control URL by SwiftPM's resolver.
+            let mirrorURL = "file://\(mirrorRepoPath.pathString)"
+
+            _ = try await executeSwiftPackage(
+                workspacePath,
+                configuration: .debug,
+                extraArgs: [
+                    "config", "set-mirror",
+                    "--original", bogusURL,
+                    "--mirror", mirrorURL,
+                ],
+                buildSystem: buildSystem,
+            )
+
+            let (_, stderr) = try await executeSwiftWorkspace(
+                workspacePath,
+                configuration: .debug,
+                extraArgs: [ "update"],
+                buildSystem: buildSystem,
+            )
+
+            // Mirror was consulted: the resolver fetched the local
+            // mirror target rather than the unreachable bogus URL.
+            #expect(
+                stderr.contains(mirrorURL) == true,
+                "expected stderr to show a fetch against the mirror URL `\(mirrorURL)`; got stderr=\(stderr)",
+            )
+            // Mirror was actually followed (not merely read): the
+            // bogus URL was never fetched. If mirror substitution
+            // had failed, stderr would contain
+            // `Fetching https://example.invalid/…` followed by a
+            // git-clone error.
+            #expect(
+                stderr.contains(bogusURL) == false,
+                "bogus URL leaked into stderr — mirror substitution missing. stderr=\(stderr)",
+            )
+
+            // Package.resolved must exist (successful resolution).
+            // Its `location` field intentionally records the
+            // ORIGINAL URL — SwiftPM's design bakes mirrors into
+            // the fetch path only, not the lockfile. Asserting
+            // presence, not URL content.
+            let resolved = workspacePath.appending("Package.resolved")
+            expectFileExists(at: resolved)
         }
     }
 
