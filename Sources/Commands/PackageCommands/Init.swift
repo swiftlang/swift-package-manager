@@ -29,7 +29,7 @@ extension SwiftPackageCommand {
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
-        
+
         @Option(
             name: .customLong("type"),
             help: ArgumentHelp("Package type:", discussion: """

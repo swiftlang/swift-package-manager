@@ -2960,6 +2960,41 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    /// `swift package workspace` exposes the workspace-aware
+    /// commands from the top-level `swift package` tree without
+    /// duplicating the implementation. `resolve`, `update`, `clean`,
+    /// and `reset` are registered in both parent lists — this test
+    /// walks each command and asserts that `swift workspace <sub>`
+    /// succeeds against the S14 fixture, mirroring the behaviour of
+    /// `swift package <sub>`. Locks in the reuse: if a future refactor
+    /// moves the struct or changes its registration, the workspace-scoped
+    /// path fails visibly.
+    @Test(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+        arguments: [
+            "resolve",
+            "update",
+            "clean",
+            "reset",
+            "show-dependencies",
+        ],
+    )
+    func workspace_reusesTopLevelPackageSubcommand(
+        subcommand: String,
+    ) async throws {
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
+        try await fixture(name: "Workspaces/S14_DumpPackage") { fixturePath in
+            _ = try await executeSwiftWorkspace(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: [subcommand],
+                buildSystem: buildSystem,
+            )
+        }
+    }
+
     /// `swift package workspace add-member <path>` writes the new
     /// member into `Workspace.swift` — a follow-up `list-members`
     /// reports the added entry alongside the pre-existing ones.
