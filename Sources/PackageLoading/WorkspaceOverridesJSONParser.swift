@@ -255,14 +255,20 @@ public enum WorkspaceOverridesJSONParser {
     ///   - workspaceManifest: The workspace manifest whose
     ///     `dependencies` are checked first.
     ///   - memberManifests: All workspace-member manifests; an identity
-    ///     matching any member's declared deps also validates.
+    ///     matching any member's declared deps validates.
     /// - Throws: `WorkspaceOverridesApplyError.unknownIdentity` for the
-    ///   first override whose identity is not found at either scope.
+    ///   first override whose identity is not found.
     public static func validate(
         _ overrides: [Override],
-        workspaceManifest: WorkspaceManifest,
         memberManifests: [Manifest],
-    ) throws { }
+    ) throws {
+        let declaredIdentities = Set(
+            memberManifests.flatMap { $0.dependencies.map(\.identity) },
+        )
+        for override in overrides where !declaredIdentities.contains(override.identity) {
+            throw WorkspaceOverridesApplyError.unknownIdentity(override.identity.description)
+        }
+    }
 
     // MARK: - Mutating the override list
 
