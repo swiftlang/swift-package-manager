@@ -28,7 +28,8 @@ Implement first-class workspaces in Swift Package Manager: a new `Workspace.swif
 | 11 | `swift package update` workspace awareness | ✅ Done — `--package` selector + CWD focus + workspace-root routing | `bkhouri/t/main/poc_workspaces_phase11-make-package-update-workspace-aware` |
 | 12 | `swift package clean` workspace awareness | ✅ Done — workspace-root `.build/` cleanup + info diagnostics + `--package` parity | `bkhouri/t/main/poc_workspaces_phase11-make-package-update-workspace-aware` (Phase 12 landed on the Phase 11 branch as follow-up) |
 | 13 | `swift package describe` workspace awareness | ✅ Done — per-member iteration for text/json/mermaid + `--package` + CWD focus | `bkhouri/t/main/poc_workspaces_phase13-make-package-describe-workspace-aware` |
-| 14+ | (remaining slices) | 🔲 Not started | — |
+| 14 | `swift package dump-package` workspace awareness + `swift package workspace dump-workspace` | ✅ Done — `--package` selector + CWD focus + workspace-root ambiguity error; workspace manifest dump added alongside | `bkhouri/t/main/poc_workspaces_phase14-make-package-dump-package-workspace-aware` |
+| 15+ | (remaining slices) | 🔲 Not started | — |
 
 ## Current State Analysis
 
@@ -1641,7 +1642,7 @@ Subdirectories:
 (none — all criteria automated)
 
 ---
-
+q
 ## Phase 11: `swift package update` Workspace Awareness
 
 **Status:** ✅ Complete. **Deviations from the original plan:**
@@ -1838,6 +1839,8 @@ Under workspace: describe all in-scope members. Text format prefixes each member
 
 ## Phase 14: `swift package dump-package` Workspace Awareness
 
+Status: ✅ Complete — landed on `bkhouri/t/main/poc_workspaces_phase14-make-package-dump-package-workspace-aware`.
+
 ### Overview
 
 Extend `swift package dump-package` for workspace disambiguation. `dump-package` returns exactly one manifest as JSON — with N members, we need to know which.
@@ -1846,36 +1849,66 @@ Extend `swift package dump-package` for workspace disambiguation. `dump-package`
 - **From workspace root without `--package`**: hard error (ambiguous).
 - **From inside member M**: dumps M's manifest (CWD is unambiguous — Case A applies).
 - **With `--package X`**: dumps X's manifest, overriding CWD.
+- **Single-member workspace root**: auto-selects the sole member (matches pre-workspaces non-workspace baseline).
+
+### Deviations from the original plan
+
+- **New sibling command `swift package workspace dump-workspace`** added in the same slice. The original plan (line 1857) deferred this as a post-MVP follow-up; it fell out cheaply here because `dump-package`'s workspace-aware plumbing surfaced the natural companion. Prints the parsed `Workspace.swift` (path, tools version, members, workspace-level dependencies) as JSON via a new `Encodable` conformance on `WorkspaceManifest` and its nested `Member`.
+- **Fifth e2e test** `s14_dumpPackageAtSingleMemberWorkspaceRootAutoSelects` added on top of the three the plan listed — locks in that the ambiguity error only fires for 2+ members, and a fresh `S14_DumpPackageSingle` fixture backs it.
+- **`s14_dumpWorkspace_emitsWorkspaceManifestAsJson` parameterized across three invocation sites** — workspace root, workspace non-member subdirectory (`packages/`), and member root (`packages/app/`). Locks in that `dump-workspace`'s output is CWD-invariant: the workspace manifest is the same regardless of where inside the tree the command is invoked, and workspace discovery walks up correctly from a non-member CWD.
+- **New diagnostic factory** `Basics.Diagnostic.dumpPackageRequiresPackageSelector(known:)` — the plan sketched the error message inline; it's now a `@_spi(SwiftPMInternal)` factory alongside `unknownWorkspaceMember` / `packageSelectorRequiresWorkspace`.
+- **Selection helper shape** — `DumpPackage.selectedMember(...)` returns a single `ResolvedPackage?` (not `[ResolvedPackage]?` like Slices 10/13's `scopedRootPackages`). The three helpers still share the `--package` > CWD > default precedence but diverge on the "no selection" branch; extracting to a shared helper stays a follow-up.
 
 ### Changes Required
 
 #### 1. Enforce disambiguation
-**File**: `Sources/Commands/PackageCommands/DumpPackage.swift`
+**File**: `Sources/Commands/PackageCommands/DumpCommands.swift`
 
-Detect workspace context + CWD position. From workspace root without `--package`: hard error `"dump-package requires --package <identity> in a workspace; known members: [...]"`. From inside a member: auto-select that member. With `--package X`: dump X.
+Added `@Option(name: .customLong("package")) var selectedPackage: PackageIdentity?` and static `selectedMember(allRoots:, selectedPackage:, workspaceMemberFocus:, observabilityScope:) -> ResolvedPackage?`. `run()` loads the package graph, dispatches through the decision fn, and encodes only the selected member's `manifest`.
 
-Note: `Workspace.swift` itself is not dumpable via this command. A future `swift package dump-workspace` may cover that (post-MVP; documented in "What We're NOT Doing").
+#### 2. Workspace manifest encoder + dump-workspace command
+**Files**: `Sources/PackageModel/Manifest/WorkspaceManifest.swift`, `Sources/Commands/PackageCommands/WorkspaceCommand.swift`
 
-#### 2. Fixture
-**Directory**: `Fixtures/Workspaces/S14_DumpPackage/`
+Added `Encodable` conformance to `WorkspaceManifest` and `Member` (wire shape: `{path, toolsVersion, members: [{identity, path}], dependencies}`). Registered `DumpWorkspace: AsyncSwiftCommand` under `SwiftPackageCommand.Workspace` — mirrors the read-only ergonomics of `list-members`, but emits JSON.
 
-2-member workspace with distinct declared targets/products in each member.
+#### 3. Fixtures
+**Directories**: `Fixtures/Workspaces/S14_DumpPackage/` (2 members), `Fixtures/Workspaces/S14_DumpPackageSingle/` (1 member).
 
-#### 3. Functional tests
+#### 4. Tests
 
 ```swift
+// Tests/CommandsTests/DumpPackageSelectionTests.swift (6 unit tests)
+@Test func dumpPackage_selectedMember_withSelectedPackage_returnsIdentity(...) async throws
+@Test func dumpPackage_selectedMember_withMemberFocus_returnsIdentity(...) async throws
+@Test func dumpPackage_selectedMember_withBothSelectedAndMemberFocus_selectedWins(...) async throws
+@Test func dumpPackage_selectedMember_withUnknownSelectedPackage_emitsErrorAndReturnsNil(...) async throws
+@Test func dumpPackage_selectedMember_withSingleRoot_returnsIt(...) async throws
+@Test func dumpPackage_selectedMember_withMultipleRootsAndNoSelection_emitsErrorAndReturnsNil(...) async throws
+
+// Tests/WorkspaceTests/WorkspaceManifestTests.swift (3 new encoding tests)
+@Test func workspaceManifest_encoding_emptyManifest_emitsExpectedShape() throws
+@Test func workspaceManifest_encoding_withMembers_emitsIdentityAndPath() throws
+@Test func workspaceManifest_encoding_withDependencies_preservesCount() throws
+
+// Tests/FunctionalTests/WorkspaceFeatureTests.swift (6 e2e tests)
 @Test func s14_dumpPackageAtWorkspaceRootWithoutSelectorErrors(...) async throws
 @Test func s14_dumpPackageWithSelectorOutputsMemberManifest(...) async throws
 @Test func s14_dumpPackageFromInsideMemberAutoSelects(...) async throws
+@Test func s14_dumpPackageAtSingleMemberWorkspaceRootAutoSelects(...) async throws
+@Test func s14_dumpWorkspace_emitsWorkspaceManifestAsJson(...) async throws  // parameterized across 3 invocation sites: workspace root, workspace non-member (`packages/`), member root (`packages/app/`)
+@Test func s14_dumpWorkspace_outsideWorkspaceFails(...) async throws
 ```
 
 ### Success Criteria
 
 #### Automated Verification:
-- [ ] From workspace root without `--package`: stderr contains `"requires --package"` AND lists known member identities; exit code non-zero
-- [ ] `dump-package --package X` under workspace outputs valid JSON containing the `"name"` field matching X's manifest
-- [ ] From inside member M without `--package`: dumps M's manifest (JSON containing M's name)
-- [ ] Full regression green
+- [x] From workspace root without `--package`: stderr contains `"requires --package"` AND lists known member identities; exit code non-zero (`s14_dumpPackageAtWorkspaceRootWithoutSelectorErrors`, `dumpPackage_selectedMember_withMultipleRootsAndNoSelection_emitsErrorAndReturnsNil`)
+- [x] `dump-package --package X` under workspace outputs valid JSON containing the `"name"` field matching X's manifest (`s14_dumpPackageWithSelectorOutputsMemberManifest`)
+- [x] From inside member M without `--package`: dumps M's manifest (JSON containing M's name) (`s14_dumpPackageFromInsideMemberAutoSelects`)
+- [x] Single-member workspace root auto-selects (`s14_dumpPackageAtSingleMemberWorkspaceRootAutoSelects`)
+- [x] `workspace dump-workspace` emits the workspace manifest as JSON with `members[].identity` — verified from three invocation sites (workspace root, workspace non-member subdirectory, and a member root) via the parameterized `s14_dumpWorkspace_emitsWorkspaceManifestAsJson`, locking in that CWD position doesn't change the output
+- [x] `workspace dump-workspace` outside a workspace fails cleanly (`s14_dumpWorkspace_outsideWorkspaceFails`)
+- [x] Full regression green
 
 #### Manual Verification:
 (none — all criteria automated)
