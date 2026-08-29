@@ -2753,6 +2753,213 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    /// `swift package dump-package` invoked at a workspace root with
+    /// more than one member and no `--package` selector is ambiguous:
+    /// `dump-package` emits exactly one manifest per invocation. The
+    /// command must fail with a diagnostic listing the known member
+    /// identities so the user can re-run with `--package <identity>`.
+    @Test(
+        .tags(
+            .Feature.Command.Package.DumpPackage,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s14_dumpPackageAtWorkspaceRootWithoutSelectorErrors(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S14_DumpPackage") { fixturePath in
+            await #expect(throws: (any Error).self) {
+                try await executeSwiftPackage(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: ["dump-package"],
+                    buildSystem: buildSystem,
+                )
+            }
+        }
+    }
+
+    /// `swift package dump-package --package <identity>` at a
+    /// workspace root selects that member's manifest and dumps its
+    /// parsed JSON. Locks in that the CLI selector wins over CWD.
+    @Test(
+        .tags(
+            .Feature.Command.Package.DumpPackage,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s14_dumpPackageWithSelectorOutputsMemberManifest(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S14_DumpPackage") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["dump-package", "--package", "lib-a"],
+                buildSystem: buildSystem,
+            )
+
+            let data = try #require(stdout.data(using: .utf8))
+            let parsed = try JSONSerialization.jsonObject(with: data)
+            let object = try #require(parsed as? [String: Any])
+            let name = try #require(object["name"] as? String)
+            #expect(
+                name == "lib-a",
+                "expected `lib-a` manifest; got name=\(name)",
+            )
+        }
+    }
+
+    /// `swift package dump-package` invoked from inside a workspace
+    /// member auto-selects that member via the Slice 4 CWD focus —
+    /// no `--package` flag needed. Verifies the CWD-focus path.
+    @Test(
+        .tags(
+            .Feature.Command.Package.DumpPackage,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s14_dumpPackageFromInsideMemberAutoSelects(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S14_DumpPackage") { fixturePath in
+            let memberPath = fixturePath.appending(components: "packages", "app")
+
+            let (stdout, _) = try await executeSwiftPackage(
+                memberPath,
+                configuration: .debug,
+                extraArgs: ["dump-package"],
+                buildSystem: buildSystem,
+            )
+
+            let data = try #require(stdout.data(using: .utf8))
+            let parsed = try JSONSerialization.jsonObject(with: data)
+            let object = try #require(parsed as? [String: Any])
+            let name = try #require(object["name"] as? String)
+            #expect(
+                name == "app",
+                "expected `app` manifest (auto-selected from CWD); got name=\(name)",
+            )
+        }
+    }
+
+    /// `swift package dump-package` at a workspace root that has a
+    /// single member auto-selects that member — no `--package` flag
+    /// required. Locks in that the ambiguity-error path only fires
+    /// when the workspace has 2+ members, matching the pre-workspaces
+    /// (non-workspace) invocation shape.
+    @Test(
+        .tags(
+            .Feature.Command.Package.DumpPackage,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s14_dumpPackageAtSingleMemberWorkspaceRootAutoSelects(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S14_DumpPackageSingle") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["dump-package"],
+                buildSystem: buildSystem,
+            )
+
+            let data = try #require(stdout.data(using: .utf8))
+            let parsed = try JSONSerialization.jsonObject(with: data)
+            let object = try #require(parsed as? [String: Any])
+            let name = try #require(object["name"] as? String)
+            #expect(
+                name == "app",
+                "expected the sole member `app` to be auto-selected; got name=\(name)",
+            )
+        }
+    }
+
+    /// `swift package workspace dump-workspace` prints the parsed
+    /// `Workspace.swift` as JSON regardless of where inside the
+    /// workspace tree it's invoked from. The top-level object exposes
+    /// `path`, `toolsVersion`, `members`, and `dependencies`; each
+    /// member entry carries `identity` and `path`.
+    ///
+    /// Parameterized across three invocation sites:
+    /// 1. **workspace root** — canonical location.
+    /// 2. **workspace non-member subdirectory** (`packages/`) — inside
+    ///    the workspace tree but not inside any member. Verifies that
+    ///    workspace discovery walks up correctly from a non-member CWD.
+    /// 3. **member root** (`packages/app/`) — verifies that CWD-inside-
+    ///    a-member (Slice 4 focus) doesn't change what `dump-workspace`
+    ///    prints; the workspace manifest is the same everywhere.
+    @Test(
+        .tags(
+            .Feature.Command.Package.DumpPackage,
+        ),
+        arguments: [
+            ("workspace root", [String]()),
+            ("workspace non-member", ["packages"]),
+            ("member root", ["packages", "app"]),
+        ],
+    )
+    func s14_dumpWorkspace_emitsWorkspaceManifestAsJson(
+        invocationSite: (name: String, cwdComponents: [String]),
+    ) async throws {
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
+        try await fixture(name: "Workspaces/S14_DumpPackage") { fixturePath in
+            let cwd: AbsolutePath
+            if invocationSite.cwdComponents.isEmpty {
+                cwd = fixturePath
+            } else {
+                cwd = fixturePath.appending(components: invocationSite.cwdComponents)
+            }
+
+            let (stdout, _) = try await executeSwiftWorkspace(
+                cwd,
+                configuration: .debug,
+                extraArgs: ["dump-workspace"],
+                buildSystem: buildSystem,
+            )
+
+            let data = try #require(stdout.data(using: .utf8))
+            let parsed = try JSONSerialization.jsonObject(with: data)
+            let object = try #require(parsed as? [String: Any])
+            let members = try #require(object["members"] as? [[String: Any]])
+            try #require(
+                members.count == 2,
+                "expected 2 members from invocation site \(invocationSite.name); got \(members.count)",
+            )
+            let identities = Set(members.compactMap { $0["identity"] as? String })
+            #expect(
+                identities == ["app", "lib-a"],
+                "expected workspace member identities `app` and `lib-a` from invocation site \(invocationSite.name); got identities=\(identities)",
+            )
+        }
+    }
+
+    /// `swift package workspace dump-workspace` invoked outside of
+    /// any workspace (no `Workspace.swift` discoverable up the tree)
+    /// fails with a user-actionable error. Mirrors the other
+    /// `swift package workspace <sub>` commands.
+    @Test(
+        .tags(
+            .Feature.Command.Package.DumpPackage,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s14_dumpWorkspace_outsideWorkspaceFails(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await testWithTemporaryDirectory { tempDir in
+            await #expect(throws: (any Error).self) {
+                try await executeSwiftWorkspace(
+                    tempDir,
+                    configuration: .debug,
+                    extraArgs: ["dump-workspace"],
+                    buildSystem: buildSystem,
+                )
+            }
+        }
+    }
+
     /// `swift package workspace add-member <path>` writes the new
     /// member into `Workspace.swift` — a follow-up `list-members`
     /// reports the added entry alongside the pre-existing ones.

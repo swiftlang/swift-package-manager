@@ -85,3 +85,29 @@ extension WorkspaceManifest {
         case swiftpmConfig
     }
 }
+
+extension WorkspaceManifest: Encodable {
+    private enum CodingKeys: String, CodingKey {
+        case path, toolsVersion, members, dependencies
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.path, forKey: .path)
+        try container.encode(self.toolsVersion.description, forKey: .toolsVersion)
+        try container.encode(self.members, forKey: .members)
+        try container.encode(self.dependencies, forKey: .dependencies)
+    }
+}
+
+extension WorkspaceManifest.Member: Encodable {
+    private enum CodingKeys: String, CodingKey {
+        case identity, path
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.identity, forKey: .identity)
+        try container.encode(self.path, forKey: .path)
+    }
+}

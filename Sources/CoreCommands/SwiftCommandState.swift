@@ -1841,4 +1841,23 @@ extension Basics.Diagnostic {
             """,
         )
     }
+
+    /// Diagnostic emitted when `swift package dump-package` is
+    /// invoked at a workspace root that has more than one member and
+    /// no `--package` selector was supplied. `dump-package` emits a
+    /// single manifest, so a multi-member workspace is ambiguous —
+    /// list the known members and point the user at `--package`.
+    @_spi(SwiftPMInternal)
+    public static func dumpPackageRequiresPackageSelector(
+        known: Set<PackageIdentity>,
+    ) -> Self {
+        let sortedKnown = known.map(\.description).sorted()
+        return .error(
+            """
+            dump-package requires --package <identity> in a workspace \
+            with multiple members; known members: \
+            \(sortedKnown.map { "'\($0)'" }.joined(separator: ", "))
+            """,
+        )
+    }
 }

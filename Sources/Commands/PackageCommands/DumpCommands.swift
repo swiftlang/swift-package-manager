@@ -12,7 +12,7 @@
 
 import ArgumentParser
 import Basics
-import CoreCommands
+@_spi(SwiftPMInternal) import CoreCommands
 import Foundation
 import PackageModel
 import PackageGraph
@@ -163,24 +163,97 @@ struct DumpPackage: AsyncSwiftCommand {
     @OptionGroup(visibility: .hidden)
     var globalOptions: GlobalOptions
 
+    /// Selects a specific workspace member by identity. Overrides
+    /// Case A (CWD-inside-member focus). Required at a multi-member
+    /// workspace root — `dump-package` emits a single manifest so a
+    /// bare multi-member root would be ambiguous. Outside a workspace
+    /// the flag has no effect (only one root package exists). Same
+    /// shape as Slice 10's `show-dependencies --package` and Slice
+    /// 13's `describe --package` selectors.
+    @Option(
+        name: .customLong("package"),
+        help: "Restrict the dump to the named workspace member.",
+    )
+    var selectedPackage: PackageIdentity?
+
     func run(_ swiftCommandState: SwiftCommandState) async throws {
+        // `dump-package` is documented as "Print parsed Package.swift
+        // as JSON" — a manifest-only operation. Load just the root
+        // manifests so tooling can dump a package whose dependencies
+        // aren't reachable and whose target sources haven't been
+        // laid down yet (e.g. a fresh checkout, generated-source
+        // targets, or a mirror-configured package pointing at an
+        // unreachable URL). Going through `loadPackageGraph()` here
+        // would fetch every dependency and validate every target,
+        // breaking that contract.
         let workspace = try swiftCommandState.getActiveWorkspace()
         let root = try await swiftCommandState.getWorkspaceRoot()
-
         let rootManifests = try await workspace.loadRootManifests(
             packages: root.packages,
-            observabilityScope: swiftCommandState.observabilityScope
+            observabilityScope: swiftCommandState.observabilityScope,
         )
-        guard let rootManifest = rootManifests.values.first else {
-            throw StringError("invalid manifests at \(root.packages)")
+        guard let selected = Self.selectedMember(
+            allRoots: Array(rootManifests.values),
+            selectedPackage: self.selectedPackage,
+            workspaceMemberFocus: swiftCommandState.currentWorkspaceMemberFocus,
+            observabilityScope: swiftCommandState.observabilityScope,
+        ) else {
+            throw ExitCode.failure
         }
 
         let encoder = JSONEncoder.makeWithDefaults()
         encoder.userInfo[Manifest.dumpPackageKey] = true
 
-        let jsonData = try encoder.encode(rootManifest)
+        let jsonData = try encoder.encode(selected)
         let jsonString = String(decoding: jsonData, as: UTF8.self)
         print(jsonString)
+    }
+
+    /// Selects the single in-scope root to dump. Priority order
+    /// (highest first):
+    /// 1. Explicit `--package <id>` — hard-select. Missing identity
+    ///    emits `.unknownWorkspaceMember` and returns `nil` so the
+    ///    caller can abort.
+    /// 2. Case A CWD focus — soft-select when the focus matches a
+    ///    root.
+    /// 3. Single root — return it (non-workspace backwards compat).
+    /// 4. Multiple roots with no selector or focus — ambiguous.
+    ///    Emit `.dumpPackageRequiresPackageSelector` and return
+    ///    `nil` so the caller can abort.
+    ///
+    /// Shape mirrors `ShowDependencies.scopedRootPackages` (Slice
+    /// 10) and `Describe.scopedRootPackages` (Slice 13). Extracting
+    /// to a shared helper is a follow-up when the three callers'
+    /// diverging "no selection" behaviors are reconciled.
+    static func selectedMember(
+        allRoots: [Manifest],
+        selectedPackage: PackageIdentity?,
+        workspaceMemberFocus: PackageIdentity?,
+        observabilityScope: ObservabilityScope,
+    ) -> Manifest? {
+        if let selectedPackage {
+            if let match = allRoots.first(where: { $0.packageIdentity == selectedPackage }) {
+                return match
+            }
+            let known = Set(allRoots.map(\.packageIdentity))
+            observabilityScope.emit(
+                .unknownWorkspaceMember(requested: selectedPackage, known: known),
+            )
+            return nil
+        }
+        if let focus = workspaceMemberFocus,
+           let focused = allRoots.first(where: { $0.packageIdentity == focus })
+        {
+            return focused
+        }
+        if allRoots.count == 1, let only = allRoots.first {
+            return only
+        }
+        let known = Set(allRoots.map(\.packageIdentity))
+        observabilityScope.emit(
+            .dumpPackageRequiresPackageSelector(known: known),
+        )
+        return nil
     }
 }
 

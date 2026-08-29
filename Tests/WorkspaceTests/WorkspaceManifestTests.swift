@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import Foundation
 import PackageLoading
 import PackageModel
 import Testing
@@ -994,5 +995,124 @@ struct FindEnclosingMemberIntegrationTests {
                 ) == nil,
             )
         }
+    }
+
+    // MARK: - Encodable
+
+    /// Wire shape mirror for `WorkspaceManifest` JSON. Kept private
+    /// to the test suite — production code encodes the manifest via
+    /// its `Encodable` conformance, and tests decode into this local
+    /// struct rather than reaching into a `[String: Any]` dictionary.
+    private struct WorkspaceManifestJSON: Decodable {
+        let path: String
+        let toolsVersion: String
+        let members: [MemberJSON]
+        let dependencies: [DependencyJSON]
+
+        struct MemberJSON: Decodable {
+            let identity: String
+            let path: String
+        }
+
+        // PackageDependency's encoded shape is nested and varies by
+        // kind; tests here only need to count entries, so we decode
+        // to an opaque object.
+        struct DependencyJSON: Decodable {}
+    }
+
+    /// A workspace manifest with no members and no dependencies
+    /// encodes to the expected top-level shape: path, tools version,
+    /// and empty arrays for members and dependencies. Locks in that
+    /// empty collections still appear (rather than being omitted).
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func workspaceManifest_encoding_emptyManifest_emitsExpectedShape() throws {
+        let manifest = WorkspaceManifest(
+            path: AbsolutePath("/repo/Workspace.swift"),
+            toolsVersion: .vNext,
+            members: [],
+            dependencies: [],
+        )
+
+        let data = try JSONEncoder().encode(manifest)
+        let decoded = try JSONDecoder().decode(WorkspaceManifestJSON.self, from: data)
+
+        #expect(decoded.path == "/repo/Workspace.swift")
+        #expect(decoded.toolsVersion == "999.0.0")
+        #expect(decoded.members.isEmpty)
+        #expect(decoded.dependencies.isEmpty)
+    }
+
+    /// Members encode as an array of `{identity, path}` objects — the
+    /// two fields a workspace-dump consumer needs to route follow-up
+    /// commands (`--package <identity>` selection, member-path
+    /// resolution). Internal fields like `ignoredStateDirectories`
+    /// are intentionally omitted from the wire shape.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func workspaceManifest_encoding_withMembers_emitsIdentityAndPath() throws {
+        let manifest = WorkspaceManifest(
+            path: AbsolutePath("/repo/Workspace.swift"),
+            toolsVersion: .vNext,
+            members: [
+                .init(
+                    identity: .plain("app"),
+                    path: AbsolutePath("/repo/packages/app"),
+                ),
+                .init(
+                    identity: .plain("liba"),
+                    path: AbsolutePath("/repo/packages/lib-a"),
+                ),
+            ],
+            dependencies: [],
+        )
+
+        let data = try JSONEncoder().encode(manifest)
+        let decoded = try JSONDecoder().decode(WorkspaceManifestJSON.self, from: data)
+
+        try #require(decoded.members.count == 2)
+        #expect(decoded.members[0].identity == "app")
+        #expect(decoded.members[0].path == "/repo/packages/app")
+        #expect(decoded.members[1].identity == "liba")
+        #expect(decoded.members[1].path == "/repo/packages/lib-a")
+    }
+
+    /// Dependencies encode via `PackageDependency`'s existing
+    /// `Encodable` conformance. This test verifies that a workspace
+    /// with a file-system dependency round-trips through JSON and
+    /// arrives at the same count on the other side — the exact per-
+    /// entry shape is owned by `PackageDependency` and covered by its
+    /// own tests.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func workspaceManifest_encoding_withDependencies_preservesCount() throws {
+        let manifest = WorkspaceManifest(
+            path: AbsolutePath("/repo/Workspace.swift"),
+            toolsVersion: .vNext,
+            members: [],
+            dependencies: [
+                .fileSystem(
+                    identity: .plain("dep-a"),
+                    nameForTargetDependencyResolutionOnly: nil,
+                    path: AbsolutePath("/repo/vendor/dep-a"),
+                    productFilter: .everything,
+                    traits: [],
+                ),
+            ],
+        )
+
+        let data = try JSONEncoder().encode(manifest)
+        let decoded = try JSONDecoder().decode(WorkspaceManifestJSON.self, from: data)
+
+        #expect(decoded.dependencies.count == 1)
     }
 }
