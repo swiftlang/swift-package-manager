@@ -34,6 +34,7 @@ public struct SwiftWorkspaceCommand: AsyncParsableCommand {
             AddMember.self,
             ListMembers.self,
             RemoveMember.self,
+            DumpWorkspace.self,
             Override.self,
         ],
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)],
