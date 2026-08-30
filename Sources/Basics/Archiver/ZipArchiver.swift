@@ -12,6 +12,21 @@
 
 import Dispatch
 import struct TSCBasic.FileSystemError
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import Subprocess
+#if canImport(System)
+@_implementationOnly import System
+#else
+@_implementationOnly import SystemPackage
+#endif
+#else
+internal import Subprocess
+#if canImport(System)
+internal import System
+#else
+internal import SystemPackage
+#endif
+#endif
 
 /// An `Archiver` that handles ZIP archives using the command-line `zip` and `unzip` tools.
 public struct ZipArchiver: Archiver, Cancellable {
@@ -47,37 +62,28 @@ public struct ZipArchiver: Archiver, Cancellable {
 
     public func extract(
         from archivePath: AbsolutePath,
-        to destinationPath: AbsolutePath,
-        completion: @escaping @Sendable (Result<Void, Error>) -> Void
-    ) {
-        do {
-            guard self.fileSystem.exists(archivePath) else {
-                throw FileSystemError(.noEntry, archivePath.underlying)
-            }
+        to destinationPath: AbsolutePath
+    ) async throws {
+        guard self.fileSystem.exists(archivePath) else {
+            throw FileSystemError(.noEntry, archivePath.underlying)
+        }
 
-            guard self.fileSystem.isDirectory(destinationPath) else {
-                throw FileSystemError(.notDirectory, destinationPath.underlying)
-            }
+        guard self.fileSystem.isDirectory(destinationPath) else {
+            throw FileSystemError(.notDirectory, destinationPath.underlying)
+        }
 
-            let process = AsyncProcess(arguments: [
-                self.unzip, archivePath.pathString, "-d", destinationPath.pathString,
-            ])
-            guard let registrationKey = self.cancellator.register(process) else {
-                throw CancellationError.failedToRegisterProcess(process)
-            }
-
-            DispatchQueue.sharedConcurrent.async {
-                defer { self.cancellator.deregister(registrationKey) }
-                completion(.init(catching: {
-                    try process.launch()
-                    let processResult = try process.waitUntilExit()
-                    guard processResult.exitStatus == .terminated(code: 0) else {
-                        throw try StringError(processResult.utf8stderrOutput())
-                    }
-                }))
-            }
-        } catch {
-            return completion(.failure(error))
+        let result = try await self.cancellator.withCancellable(name: self.unzip) {
+            try await Subprocess.run(
+                Subprocess.Executable.name(self.unzip),
+                arguments: Subprocess.Arguments([
+                    archivePath.pathString, "-d", destinationPath.pathString,
+                ]),
+                output: .string(limit: .max),
+                error: .string(limit: .max)
+            )
+        }
+        guard result.terminationStatus.isSuccess else {
+            throw StringError((result.standardOutput ?? "") + (result.standardError ?? ""))
         }
     }
 
@@ -93,12 +99,9 @@ public struct ZipArchiver: Archiver, Cancellable {
         #if os(FreeBSD)
         // On FreeBSD, the unzip command is available in base but not the zip command.
         // Therefore; we use libarchive(bsdtar) to produce the ZIP archive instead.
-        let process = AsyncProcess(
-                arguments: [
-                    self.tar, "-c", "--format", "zip", "-f", destinationPath.pathString,
-                ] + paths.map(\.pathString),
-          workingDirectory: parent
-        )
+        let executable = Subprocess.Executable.name(self.tar)
+        let args = ["-c", "--format", "zip", "-f", destinationPath.pathString] + paths.map(\.pathString)
+        let workingDirectory: FilePath? = FilePath(parent.pathString)
         #else
         // This is to work around `swift package-registry publish` tool failing on
         // Amazon Linux 2 due to it having an earlier Glibc version (rdar://116370323)
@@ -106,50 +109,41 @@ public struct ZipArchiver: Archiver, Cancellable {
         // Instead of passing `workingDirectory` param to TSC.Process, which will trigger
         // SPM_posix_spawn_file_actions_addchdir_np_supported check, we shell out and
         // do `cd` explicitly before `zip`.
-        let process = AsyncProcess(
-            arguments: [
-                "/bin/sh",
-                "-c",
-                "cd \(parent.underlying.pathString) && \(self.zip) -ry \(destinationPath.pathString) \(paths.map(\.pathString).joined(separator: " "))"
-            ]
-        )
+        let executable = Subprocess.Executable.path(FilePath("/bin/sh"))
+        let inputs = paths.map(\.pathString).joined(separator: " ")
+        let command = "cd \(parent.underlying.pathString) && \(self.zip) -ry \(destinationPath.pathString) \(inputs)"
+        let args = ["-c", command]
+        let workingDirectory: FilePath? = nil
         #endif
 
-        guard let registrationKey = self.cancellator.register(process) else {
-            throw CancellationError.failedToRegisterProcess(process)
+        let result = try await self.cancellator.withCancellable(name: self.zip) {
+            try await Subprocess.run(
+                executable,
+                arguments: Subprocess.Arguments(args),
+                workingDirectory: workingDirectory,
+                output: .string(limit: .max),
+                error: .string(limit: .max)
+            )
         }
-
-        defer { self.cancellator.deregister(registrationKey) }
-
-        try process.launch()
-        let processResult = try await process.waitUntilExit()
-        guard processResult.exitStatus == .terminated(code: 0) else {
-            throw try StringError(processResult.utf8stderrOutput())
+        guard result.terminationStatus.isSuccess else {
+            throw StringError((result.standardOutput ?? "") + (result.standardError ?? ""))
         }
     }
 
-    public func validate(path: AbsolutePath, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
-        do {
-            guard self.fileSystem.exists(path) else {
-                throw FileSystemError(.noEntry, path.underlying)
-            }
-
-            let process = AsyncProcess(arguments: [self.unzip, "-t", path.pathString])
-            guard let registrationKey = self.cancellator.register(process) else {
-                throw CancellationError.failedToRegisterProcess(process)
-            }
-
-            DispatchQueue.sharedConcurrent.async {
-                defer { self.cancellator.deregister(registrationKey) }
-                completion(.init(catching: {
-                    try process.launch()
-                    let processResult = try process.waitUntilExit()
-                    return processResult.exitStatus == .terminated(code: 0)
-                }))
-            }
-        } catch {
-            return completion(.failure(error))
+    public func validate(path: AbsolutePath) async throws -> Bool {
+        guard self.fileSystem.exists(path) else {
+            throw FileSystemError(.noEntry, path.underlying)
         }
+
+        let result = try await self.cancellator.withCancellable(name: self.unzip) {
+            try await Subprocess.run(
+                Subprocess.Executable.name(self.unzip),
+                arguments: Subprocess.Arguments(["-t", path.pathString]),
+                output: .discarded,
+                error: .discarded
+            )
+        }
+        return result.terminationStatus.isSuccess
     }
 
     public func cancel(deadline: DispatchTime) throws {

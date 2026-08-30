@@ -17,8 +17,12 @@ import PackageModel
 import PackageGraph
 import TSCBasic
 import Workspace
-
-import class Basics.AsyncProcess
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 import enum TSCUtility.Diagnostics
 
@@ -40,7 +44,7 @@ extension SwiftPackageCommand {
             // Look for swift-format binary.
             // FIXME: This should be moved to user toolchain.
             let swiftFormatInEnv = Basics.lookupExecutablePath(filename: Environment.current["SWIFT_FORMAT"])
-            guard let swiftFormat = swiftFormatInEnv ?? AsyncProcess.findExecutable("swift-format") else {
+            guard let swiftFormat = swiftFormatInEnv ?? Basics.lookupExecutablePath(filename: "swift-format") else {
                 swiftCommandState.observabilityScope.emit(error: "Could not find swift-format in PATH or SWIFT_FORMAT")
                 throw TSCUtility.Diagnostics.fatalError
             }
@@ -73,11 +77,16 @@ extension SwiftPackageCommand {
             let args = [swiftFormat.pathString] + formatOptions + [packagePath.pathString] + paths
             print("Running:", args.map{ $0.spm_shellEscaped() }.joined(separator: " "))
 
-            let result = try await AsyncProcess.popen(arguments: args)
-            let output = try (result.utf8Output() + result.utf8stderrOutput())
+            let result = try await Subprocess.run(
+                .path(FilePath(args[0])),
+                arguments: Subprocess.Arguments(Array(args.dropFirst())),
+                output: .string(limit: .max),
+                error: .string(limit: .max)
+            )
+            let output = (result.standardOutput ?? "") + (result.standardError ?? "")
 
-            if result.exitStatus != .terminated(code: 0) {
-                print("Non-zero exit", result.exitStatus)
+            if !result.terminationStatus.isSuccess {
+                print("Non-zero exit", result.terminationStatus)
             }
             if !output.isEmpty {
                 print(output)
