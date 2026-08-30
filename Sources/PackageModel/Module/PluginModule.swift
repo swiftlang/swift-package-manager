@@ -46,6 +46,7 @@ public final class PluginModule: Module {
             buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false,
+            template: false, // Plugins cannot themselves be a template
             implicit: false
         )
     }

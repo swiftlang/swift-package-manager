@@ -1,0 +1,27 @@
+
+import SwiftUI
+
+struct {{ enumName }} {
+
+    {% for palette in palettes %}
+    struct {{ palette.name | capitalize }} {
+        {% for color in palette.colors %}
+        static let {{ color.name | lowercase }} = Color(red: {{ color.red }}, green: {{ color.green }}, blue: {{ color.blue }}, opacity: {{ color.alpha }})
+        {% endfor %}
+    }
+    {% endfor %}
+}
+
+{% if publicAccess %}
+public extension {{ enumName }} {
+    {% for palette in palettes %}
+    static var {{ palette.name | lowercase }}: [Color] {
+        return [
+            {% for color in palette.colors %}
+            {{ enumName }}.{{ palette.name | capitalize }}.{{ color.name | lowercase }},
+            {% endfor %}
+        ]
+    }
+    {% endfor %}
+}
+{% endif %}

@@ -268,6 +268,9 @@ public protocol WorkingCheckout {
     /// Note: It is an error to provide a branch name which already exists.
     func checkout(newBranch: String) throws
 
+    /// Checkout out the given branch
+    func checkout(branch: String) throws
+
     /// Returns true if there is an alternative store in the checkout and it is valid.
     func isAlternateObjectStoreValid(expected: AbsolutePath) -> Bool
 

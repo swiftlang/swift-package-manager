@@ -28,12 +28,15 @@ final class PluginDelegate: PluginInvocationDelegate {
     let buildSystem: BuildSystemProvider.Kind
     let plugin: PluginModule
     var lineBufferedOutput: Data
+    let echoOutput: Bool
+    var diagnostics: [Basics.Diagnostic] = []
 
-    init(swiftCommandState: SwiftCommandState, buildSystem: BuildSystemProvider.Kind, plugin: PluginModule) {
+    init(swiftCommandState: SwiftCommandState, buildSystem: BuildSystemProvider.Kind, plugin: PluginModule, echoOutput: Bool = true) {
         self.swiftCommandState = swiftCommandState
         self.buildSystem = buildSystem
         self.plugin = plugin
         self.lineBufferedOutput = Data()
+        self.echoOutput = echoOutput
     }
 
     func pluginCompilationStarted(commandLine: [String], environment: [String: String]) {
@@ -47,15 +50,21 @@ final class PluginDelegate: PluginInvocationDelegate {
 
     func pluginEmittedOutput(_ data: Data) {
         lineBufferedOutput += data
-        while let newlineIdx = lineBufferedOutput.firstIndex(of: UInt8(ascii: "\n")) {
-            let lineData = lineBufferedOutput.prefix(upTo: newlineIdx)
-            print(String(decoding: lineData, as: UTF8.self))
-            lineBufferedOutput = lineBufferedOutput.suffix(from: newlineIdx.advanced(by: 1))
+
+        if echoOutput {
+            while let newlineIdx = lineBufferedOutput.firstIndex(of: UInt8(ascii: "\n")) {
+                let lineData = lineBufferedOutput.prefix(upTo: newlineIdx)
+                print(String(decoding: lineData, as: UTF8.self))
+                lineBufferedOutput = lineBufferedOutput.suffix(from: newlineIdx.advanced(by: 1))
+            }
         }
     }
 
     func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
         swiftCommandState.observabilityScope.emit(diagnostic)
+        if diagnostic.severity == .error {
+            diagnostics.append(diagnostic)
+        }
     }
 
     func pluginEmittedProgress(_ message: String) {
