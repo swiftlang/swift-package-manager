@@ -15,6 +15,8 @@ import ArgumentParser
 import Basics
 import Dispatch
 import class Foundation.ProcessInfo
+import struct Foundation.URL
+import struct Foundation.URLResourceValues
 import PackageFingerprint
 import PackageGraph
 import PackageLoading
@@ -180,12 +182,31 @@ package func createCacheDirFile(
             #.   http://www.brynosaurus.com/cachedir/
             """
         try fileSystem.createDirectory(path.parentDirectory, recursive: true)
+        _ = excludeFromBackups(directory: directory)
         try fileSystem.writeFileContents(path, string: contents)
         return path
     } catch {
         // Don't error out if we fail to create the CACHEDIR.TAG file, as this is not critical to the functioning of the tool.
         return nil
     }
+}
+
+/// Marks a directory as excluded from backups, for example for Time Machine.
+package func excludeFromBackups(directory: AbsolutePath) -> Bool {
+    #if os(macOS)
+    do {
+        var url = directory.asURL
+        var resourceValues = URLResourceValues()
+        resourceValues.isExcludedFromBackup = true
+        try url.setResourceValues(resourceValues)
+        return true
+    } catch {
+        // Don't error out if we fail to create the file, as this is not critical to the functioning of the tool.
+        return false
+    }
+    #else
+    return false
+    #endif
 }
 
 package func createBuildSystemFile(
