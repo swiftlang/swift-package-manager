@@ -33,6 +33,7 @@ add_library(Workspace
   Workspace+Delegation.swift
   Workspace+Dependencies.swift
   Workspace+Editing.swift
+  Workspace+ImplicitDependencies.swift
   Workspace+Manifests.swift
   Workspace+PackageContainer.swift
   Workspace+Prebuilts.swift
