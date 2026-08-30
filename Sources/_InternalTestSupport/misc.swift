@@ -99,7 +99,17 @@ public func testWithTemporaryDirectory<Result>(
         .replacing(".", with: "")
         .replacing(":", with: "_")
     return try await withTemporaryDirectory(prefix: "spm-tests-\(cleanedFunction)") { tmpDirPath in
+        let originalCwd = localFileSystem.currentWorkingDirectory
         defer {
+            // Restore CWD before rm -rf'ing the tmp dir so any chdir
+            // the body performed (e.g. via SwiftCommandState.init ->
+            // chdirIfNeeded when --package-path is passed) doesn't
+            // leave the process rooted in a to-be-deleted path.
+            // Sibling parallel tests would otherwise inherit a dead
+            // CWD and fail at the getcwd() guard.
+            if let originalCwd, localFileSystem.currentWorkingDirectory != originalCwd {
+                try? localFileSystem.changeCurrentWorkingDirectory(to: originalCwd)
+            }
             // Unblock and remove the tmp dir on deinit.
             try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
             try? localFileSystem.removeFileTree(tmpDirPath)
@@ -130,7 +140,18 @@ public func testWithTemporaryDirectory<Result>(
         // Create a temporary directory for the duration of the block.
         return try withTemporaryDirectory(prefix: copyName) { tmpDirPath in
 
+            let originalCwd = localFileSystem.currentWorkingDirectory
             defer {
+                // Restore CWD before rm -rf'ing the fixture dir so any
+                // chdir the body performed (e.g. via
+                // SwiftCommandState.init -> chdirIfNeeded when
+                // --package-path is passed) doesn't leave the process
+                // rooted in a to-be-deleted path. Sibling parallel
+                // tests would otherwise inherit a dead CWD and fail
+                // at the getcwd() guard.
+                if let originalCwd, localFileSystem.currentWorkingDirectory != originalCwd {
+                    try? localFileSystem.changeCurrentWorkingDirectory(to: originalCwd)
+                }
                 // Unblock and remove the tmp dir on deinit.
                 try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
                 try? localFileSystem.removeFileTree(tmpDirPath)
@@ -229,7 +250,18 @@ public enum TestError: Error {
         // Create a temporary directory for the duration of the block.
         return try await withTemporaryDirectory(prefix: copyName) { tmpDirPath in
 
+            let originalCwd = localFileSystem.currentWorkingDirectory
             defer {
+                // Restore CWD before rm -rf'ing the fixture dir so any
+                // chdir the body performed (e.g. via
+                // SwiftCommandState.init -> chdirIfNeeded when
+                // --package-path is passed) doesn't leave the process
+                // rooted in a to-be-deleted path. Sibling parallel
+                // tests would otherwise inherit a dead CWD and fail
+                // at the getcwd() guard.
+                if let originalCwd, localFileSystem.currentWorkingDirectory != originalCwd {
+                    try? localFileSystem.changeCurrentWorkingDirectory(to: originalCwd)
+                }
                 // Unblock and remove the tmp dir on deinit.
                 try? localFileSystem.chmod(.userWritable, path: tmpDirPath, options: [.recursive])
                 try? localFileSystem.removeFileTree(tmpDirPath)
