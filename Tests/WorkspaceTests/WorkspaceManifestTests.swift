@@ -15,7 +15,7 @@ import Foundation
 import PackageLoading
 import PackageModel
 import Testing
-import Workspace
+@_spi(SwiftPMInternal) import Workspace
 import _InternalTestSupport
 
 @Suite(
@@ -1114,5 +1114,357 @@ struct FindEnclosingMemberIntegrationTests {
         let decoded = try JSONDecoder().decode(WorkspaceManifestJSON.self, from: data)
 
         #expect(decoded.dependencies.count == 1)
+    }
+
+    // MARK: - WorkspaceManifestParseError descriptions (Phase 15a)
+
+    /// The `emptyMembers` error prints a user-actionable message
+    /// naming `Workspace.swift`. Prior to Phase 15a the error
+    /// rendered as raw enum reflection.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func emptyMembers_description_isUserActionable() throws {
+        let error = WorkspaceManifestParseError.emptyMembers
+        let description = String(describing: error)
+        #expect(description.contains("Workspace.swift"))
+        #expect(description.contains("no members") || description.contains("empty"))
+        // Regression guard: never surface the raw enum name.
+        #expect(description.contains("emptyMembers") == false)
+    }
+
+    /// The `memberAbsolutePathError` description names the offending
+    /// path AND spells out the constraint (paths must be relative
+    /// to `Workspace.swift`).
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func memberAbsolutePathError_description_namesPathAndConstraint() throws {
+        let error = WorkspaceManifestParseError.memberAbsolutePathError(
+            memberName: "lib-a",
+            path: "/absolute/lib-a",
+        )
+        let description = String(describing: error)
+        #expect(description.contains("/absolute/lib-a"))
+        #expect(description.contains("relative"))
+        #expect(description.contains("memberAbsolutePathError") == false)
+    }
+
+    /// The `duplicateMembernames` description names the colliding
+    /// identity so the user knows which entry to rename.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func duplicateMembernames_description_namesTheDuplicate() throws {
+        let error = WorkspaceManifestParseError.duplicateMembernames(name: "lib-a")
+        let description = String(describing: error)
+        #expect(description.contains("'lib-a'"))
+        #expect(description.contains("duplicate") || description.contains("collide"))
+        #expect(description.contains("duplicateMembernames") == false)
+    }
+
+    /// The `memberPathNotFound` description names the missing path
+    /// AND the member identity so the user can trace it back to the
+    /// declaration in `Workspace.swift`.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func memberPathNotFound_description_namesIdentityAndPath() throws {
+        let error = WorkspaceManifestParseError.memberPathNotFound(
+            memberName: "lib-a",
+            path: "/repo/packages/lib-a",
+        )
+        let description = String(describing: error)
+        #expect(description.contains("'lib-a'"))
+        #expect(description.contains("/repo/packages/lib-a"))
+        #expect(description.contains("memberPathNotFound") == false)
+    }
+
+    /// The `memberMissingPackageManifest` description names the
+    /// identity, the path, AND the missing `Package.swift` so the
+    /// fix is obvious.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func memberMissingPackageManifest_description_namesIdentityPathAndManifest() throws {
+        let error = WorkspaceManifestParseError.memberMissingPackageManifest(
+            memberName: "lib-a",
+            path: "/repo/packages/lib-a",
+        )
+        let description = String(describing: error)
+        #expect(description.contains("'lib-a'"))
+        #expect(description.contains("/repo/packages/lib-a"))
+        #expect(description.contains("Package.swift"))
+        #expect(description.contains("memberMissingPackageManifest") == false)
+    }
+
+    // MARK: - Out-of-tree member warning (Phase 15a, item 3)
+
+    /// A member whose path lies OUTSIDE the workspace's directory
+    /// tree is legal (SwiftPM supports it) but reduces portability —
+    /// checkouts made elsewhere may not find the member. Emit the
+    /// concrete `.memberOutsideWorkspaceTree` diagnostic factory so
+    /// downstream tools can pattern-match on it, and reconstruct
+    /// that factory in the test to check message + severity rather
+    /// than pinning to a string literal.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func checkOutOfTreeMembers_withOutOfTreeMember_emitsWarning() throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let workspaceRoot = AbsolutePath("/repo")
+        let strayPath = AbsolutePath("/elsewhere/stray")
+        let members = [
+            WorkspaceManifest.Member(
+                identity: .plain("lib-a"),
+                path: workspaceRoot.appending(components: "packages", "lib-a"),
+            ),
+            WorkspaceManifest.Member(
+                identity: .plain("stray"),
+                path: strayPath,
+            ),
+        ]
+
+        PackageWorkspace.checkOutOfTreeMembers(
+            members,
+            workspaceRoot: workspaceRoot,
+            observabilityScope: observability.topScope,
+        )
+
+        try #require(observability.diagnostics.count == 1)
+        let actual = try #require(observability.diagnostics.first)
+        let expected = Basics.Diagnostic.memberOutsideWorkspaceTree(
+            memberIdentity: .plain("stray"),
+            memberPath: strayPath,
+            workspaceRoot: workspaceRoot,
+        )
+        #expect(actual.severity == expected.severity)
+        #expect(actual.message == expected.message)
+    }
+
+    /// When every member lives inside the workspace tree, no
+    /// warning fires. Regression guard for the check's early exit.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func checkOutOfTreeMembers_withAllInTree_emitsNothing() throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let workspaceRoot = AbsolutePath("/repo")
+        let members = [
+            WorkspaceManifest.Member(
+                identity: .plain("lib-a"),
+                path: workspaceRoot.appending(components: "packages", "lib-a"),
+            ),
+            WorkspaceManifest.Member(
+                identity: .plain("lib-b"),
+                path: workspaceRoot.appending(components: "packages", "lib-b"),
+            ),
+        ]
+
+        PackageWorkspace.checkOutOfTreeMembers(
+            members,
+            workspaceRoot: workspaceRoot,
+            observabilityScope: observability.topScope,
+        )
+
+        #expect(observability.diagnostics.isEmpty)
+    }
+
+    /// A member whose path equals the workspace root itself is
+    /// technically in-tree (root is ancestor-or-equal). Doesn't
+    /// warn. Locks in the boundary condition.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func checkOutOfTreeMembers_withMemberAtWorkspaceRoot_emitsNothing() throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let workspaceRoot = AbsolutePath("/repo")
+        let members = [
+            WorkspaceManifest.Member(
+                identity: .plain("root-member"),
+                path: workspaceRoot,
+            ),
+        ]
+
+        PackageWorkspace.checkOutOfTreeMembers(
+            members,
+            workspaceRoot: workspaceRoot,
+            observabilityScope: observability.topScope,
+        )
+
+        #expect(observability.diagnostics.isEmpty)
+    }
+
+    // MARK: - Nested workspace detection (Phase 15b)
+
+    /// Item 7: If a `Workspace.swift` sits in an ancestor of the
+    /// discovered workspace root, we've got a nested workspace.
+    /// SwiftPM doesn't support that shape — the semantics of "which
+    /// workspace's `.build/` is the shared one" are undefined. Hard
+    /// error at load time listing BOTH paths so the author can see
+    /// the collision and remove one.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func checkNestedWorkspaceInAncestors_withAncestorWorkspace_throws() throws {
+        let fileSystem = InMemoryFileSystem()
+        let outerRoot = AbsolutePath("/outer")
+        let innerRoot = outerRoot.appending(components: "inner")
+        try fileSystem.createDirectory(innerRoot, recursive: true)
+        try fileSystem.writeFileContents(
+            outerRoot.appending(WorkspaceManifest.filename),
+            string: "",
+        )
+
+        #expect(
+            throws: WorkspaceManifestParseError.nestedWorkspaceInAncestor(
+                inner: innerRoot,
+                outer: outerRoot,
+            ),
+        ) {
+            try PackageWorkspace.checkNestedWorkspaceInAncestors(
+                workspaceRoot: innerRoot,
+                fileSystem: fileSystem,
+            )
+        }
+    }
+
+    /// The passthrough case: no ancestor holds a `Workspace.swift`.
+    /// Regression guard for the walk's terminating condition.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func checkNestedWorkspaceInAncestors_withNoAncestorWorkspace_doesNotThrow() throws {
+        let fileSystem = InMemoryFileSystem()
+        let workspaceRoot = AbsolutePath("/repo")
+        try fileSystem.createDirectory(workspaceRoot, recursive: true)
+
+        try PackageWorkspace.checkNestedWorkspaceInAncestors(
+            workspaceRoot: workspaceRoot,
+            fileSystem: fileSystem,
+        )
+    }
+
+    /// The `nestedWorkspaceInAncestor` error's description names
+    /// BOTH paths so the author can locate each `Workspace.swift`
+    /// without hunting the tree.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func nestedWorkspaceInAncestor_description_namesBothPaths() throws {
+        let error = WorkspaceManifestParseError.nestedWorkspaceInAncestor(
+            inner: AbsolutePath("/outer/inner"),
+            outer: AbsolutePath("/outer"),
+        )
+        let description = String(describing: error)
+        #expect(description.contains("/outer/inner"))
+        #expect(description.contains("/outer"))
+        #expect(description.contains("nested"))
+        #expect(description.contains("nestedWorkspaceInAncestor") == false)
+    }
+
+    /// Item 6: A workspace member's directory contains its OWN
+    /// `Workspace.swift`. Same shared-state ambiguity as item 7 but
+    /// discovered downward from the load site rather than upward.
+    /// Throws with the offending member's identity + path so the
+    /// author knows which member to inspect.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func checkNestedWorkspaceInMembers_withMemberContainingWorkspaceSwift_throws() throws {
+        let fileSystem = InMemoryFileSystem()
+        let workspaceRoot = AbsolutePath("/repo")
+        let libAPath = workspaceRoot.appending(components: "packages", "lib-a")
+        let strayWorkspace = libAPath.appending(WorkspaceManifest.filename)
+        try fileSystem.createDirectory(libAPath, recursive: true)
+        try fileSystem.writeFileContents(strayWorkspace, string: "")
+
+        let members = [
+            WorkspaceManifest.Member(
+                identity: .plain("lib-a"),
+                path: libAPath,
+            ),
+        ]
+
+        #expect(
+            throws: WorkspaceManifestParseError.nestedWorkspaceInMember(
+                memberName: "lib-a",
+                nestedWorkspacePath: strayWorkspace,
+            ),
+        ) {
+            try PackageWorkspace.checkNestedWorkspaceInMembers(
+                members,
+                fileSystem: fileSystem,
+            )
+        }
+    }
+
+    /// Members with no nested `Workspace.swift` pass through. The
+    /// check is silent for well-formed layouts.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func checkNestedWorkspaceInMembers_withCleanMembers_doesNotThrow() throws {
+        let fileSystem = InMemoryFileSystem()
+        let workspaceRoot = AbsolutePath("/repo")
+        let libAPath = workspaceRoot.appending(components: "packages", "lib-a")
+        try fileSystem.createDirectory(libAPath, recursive: true)
+
+        let members = [
+            WorkspaceManifest.Member(
+                identity: .plain("lib-a"),
+                path: libAPath,
+            ),
+        ]
+
+        try PackageWorkspace.checkNestedWorkspaceInMembers(
+            members,
+            fileSystem: fileSystem,
+        )
+    }
+
+    /// The `nestedWorkspaceInMember` description names both the
+    /// offending member and the path of the stray `Workspace.swift`.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func nestedWorkspaceInMember_description_namesMemberAndPath() throws {
+        let error = WorkspaceManifestParseError.nestedWorkspaceInMember(
+            memberName: "lib-a",
+            nestedWorkspacePath: AbsolutePath("/repo/packages/lib-a/Workspace.swift"),
+        )
+        let description = String(describing: error)
+        #expect(description.contains("'lib-a'"))
+        #expect(description.contains("/repo/packages/lib-a/Workspace.swift"))
+        #expect(description.contains("nested"))
+        #expect(description.contains("nestedWorkspaceInMember") == false)
     }
 }

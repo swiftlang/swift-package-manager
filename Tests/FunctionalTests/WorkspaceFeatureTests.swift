@@ -12,6 +12,7 @@
 
 import Basics
 import Foundation
+import PackageLoading
 import SourceControl
 import Testing
 import _InternalTestSupport
@@ -3251,6 +3252,148 @@ struct WorkspaceFeatureTests {
             // presence, not URL content.
             let resolved = workspacePath.appending("Package.resolved")
             expectFileExists(at: resolved)
+        }
+    }
+
+    // MARK: - Slice 15a/15b: `Workspace.swift` load-time validation errors
+
+    /// A `Workspace.swift` with `members: []` must fail at load
+    /// time with the `emptyMembers` error's user-actionable message.
+    /// Proves the `validateWorkspace` orchestrator is wired into
+    /// the real `loadWorkspaceManifest` code path.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Package.General,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s15_errorPath_emptyMembers_failsWithActionableMessage(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S15_ErrorPaths/EmptyMembers") { fixturePath in
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftPackage(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: ["describe"],
+                    buildSystem: buildSystem,
+                ),
+            ) { error in
+                let expected = WorkspaceManifestParseError.emptyMembers
+                #expect(
+                    error.stderr.contains(String(describing: expected)),
+                    "expected the emptyMembers actionable message on stderr; got stderr=\(error.stderr)",
+                )
+            }
+        }
+    }
+
+    /// A member directory that has no `Package.swift` must fail at
+    /// load time with a message naming both the identity and the
+    /// member's path. Proves `validateMembers` fires from the
+    /// orchestrator.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Package.General,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s15_errorPath_memberWithoutPackageSwift_failsWithActionableMessage(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S15_ErrorPaths/MemberWithoutPackageSwift") { fixturePath in
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftPackage(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: ["describe"],
+                    buildSystem: buildSystem,
+                ),
+            ) { error in
+                #expect(
+                    error.stderr.contains("'lib-a'"),
+                    "expected member identity 'lib-a' on stderr; got stderr=\(error.stderr)",
+                )
+                #expect(
+                    error.stderr.contains("Package.swift"),
+                    "expected mention of Package.swift on stderr; got stderr=\(error.stderr)",
+                )
+            }
+        }
+    }
+
+    /// A workspace whose member directory contains its OWN
+    /// `Workspace.swift` must fail with the
+    /// `nestedWorkspaceInMember` message identifying the offending
+    /// member. Proves the downward scan fires from the
+    /// orchestrator.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Package.General,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s15_errorPath_nestedWorkspaceInMember_failsWithActionableMessage(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S15_ErrorPaths/NestedWorkspaceInMember") { fixturePath in
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftPackage(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: ["describe"],
+                    buildSystem: buildSystem,
+                ),
+            ) { error in
+                #expect(
+                    error.stderr.contains("nested workspaces"),
+                    "expected nested-workspaces phrasing on stderr; got stderr=\(error.stderr)",
+                )
+                #expect(
+                    error.stderr.contains("'lib-a'"),
+                    "expected offending member identity 'lib-a' on stderr; got stderr=\(error.stderr)",
+                )
+            }
+        }
+    }
+
+    /// A `Workspace.swift` invoked from a directory whose parent
+    /// tree ALSO contains a `Workspace.swift` must fail with the
+    /// `nestedWorkspaceInAncestor` message. Proves the upward walk
+    /// in `checkNestedWorkspaceInAncestors` fires against the real
+    /// discovery path.
+    @Test(
+        .tags(
+            Tag.Feature.Command.Package.General,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s15_errorPath_nestedWorkspaceInAncestor_failsWithActionableMessage(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S15_ErrorPaths/NestedWorkspaceInAncestor") { fixturePath in
+            let innerPath = fixturePath.appending("inner")
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftPackage(
+                    innerPath,
+                    configuration: .debug,
+                    extraArgs: ["describe"],
+                    buildSystem: buildSystem,
+                ),
+            ) { error in
+                #expect(
+                    error.stderr.contains("nested workspaces"),
+                    "expected nested-workspaces phrasing on stderr; got stderr=\(error.stderr)",
+                )
+                #expect(
+                    error.stderr.contains(innerPath.pathString),
+                    "expected inner workspace path on stderr; got stderr=\(error.stderr)",
+                )
+                #expect(
+                    error.stderr.contains(fixturePath.pathString),
+                    "expected outer workspace path on stderr; got stderr=\(error.stderr)",
+                )
+            }
         }
     }
 

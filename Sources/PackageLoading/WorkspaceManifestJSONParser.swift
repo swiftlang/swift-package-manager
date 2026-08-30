@@ -47,6 +47,66 @@ public enum WorkspaceManifestParseError: Error, Equatable {
     ///   - memberName: The last path component of the declared member (identity).
     ///   - path: The absolute filesystem path of the member's directory.
     case memberMissingPackageManifest(memberName: String, path: String)
+
+    /// A `Workspace.swift` sits in an ancestor of the discovered
+    /// workspace root — SwiftPM doesn't support nested workspaces.
+    /// The semantics of shared `.build/` / `Package.resolved` are
+    /// undefined when two workspaces' trees overlap.
+    /// - Parameters:
+    ///   - inner: The workspace root discovered by walking up from
+    ///     the invocation site.
+    ///   - outer: The ancestor workspace root that also declares a
+    ///     `Workspace.swift`.
+    case nestedWorkspaceInAncestor(inner: AbsolutePath, outer: AbsolutePath)
+
+    /// A workspace member's directory contains its own
+    /// `Workspace.swift`. Same shared-state ambiguity as
+    /// `nestedWorkspaceInAncestor`, but discovered by scanning
+    /// members after the outer workspace loads.
+    /// - Parameters:
+    ///   - memberName: The identity of the offending member.
+    ///   - nestedWorkspacePath: Absolute path of the stray
+    ///     `Workspace.swift` inside the member.
+    case nestedWorkspaceInMember(memberName: String, nestedWorkspacePath: AbsolutePath)
+}
+
+extension WorkspaceManifestParseError: CustomStringConvertible {
+    public var description: String {
+        switch self {
+        case .emptyMembers:
+            return "Workspace.swift declares no members; add at least one entry to the `members:` array"
+        case .memberAbsolutePathError(let memberName, let path):
+            return """
+                member '\(memberName)' declares an absolute path '\(path)'; \
+                member paths must be relative to the directory containing Workspace.swift
+                """
+        case .duplicateMembernames(let name):
+            return """
+                duplicate workspace member identity '\(name)'; two or more member paths \
+                collide on the same last path component
+                """
+        case .memberPathNotFound(let memberName, let path):
+            return """
+                workspace member '\(memberName)' declared in Workspace.swift does not \
+                exist at '\(path)'
+                """
+        case .memberMissingPackageManifest(let memberName, let path):
+            return """
+                workspace member '\(memberName)' at '\(path)' has no Package.swift manifest
+                """
+        case .nestedWorkspaceInAncestor(let inner, let outer):
+            return """
+                nested workspaces are not supported: Workspace.swift at \
+                '\(inner.pathString)' is inside another workspace rooted at \
+                '\(outer.pathString)'
+                """
+        case .nestedWorkspaceInMember(let memberName, let nestedWorkspacePath):
+            return """
+                nested workspaces are not supported: workspace member '\(memberName)' \
+                contains its own Workspace.swift at '\(nestedWorkspacePath.pathString)'
+                """
+        }
+    }
 }
 
 /// Parses the JSON emitted by a `Workspace.swift` manifest evaluation into

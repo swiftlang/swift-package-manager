@@ -145,7 +145,12 @@ extension PackageWorkspace {
             observabilityScope: observabilityScope,
         )
 
-        try Self.validateMembers(manifest.members, fileSystem: fileSystem)
+        try Self.validateWorkspace(
+            manifest,
+            workspaceRoot: workspaceRoot,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope,
+        )
 
         let overridesFile = PackageWorkspace.DefaultLocations.workspaceOverridesFile(
             forRootPackage: workspaceRoot,
@@ -169,6 +174,38 @@ extension PackageWorkspace {
         return (WorkspaceOverridesJSONParser.apply(overrides, to: manifest), overrides)
     }
 
+    /// Orchestrates every load-time check applied to a freshly-
+    /// loaded `WorkspaceManifest` — nested-workspace prohibitions,
+    /// per-member disk-state validation, and the out-of-tree
+    /// portability warning. Throws on the first hard error; the
+    /// out-of-tree warning is best-effort and never throws.
+    ///
+    /// The individual `check…` / `validateMembers` helpers stay
+    /// separately-testable at unit-test level; this fn wires them
+    /// together for `loadWorkspaceManifest` and any future callers
+    /// that need the same load-time posture.
+    package static func validateWorkspace(
+        _ manifest: WorkspaceManifest,
+        workspaceRoot: AbsolutePath,
+        fileSystem: any FileSystem,
+        observabilityScope: ObservabilityScope,
+    ) throws {
+        try Self.checkNestedWorkspaceInAncestors(
+            workspaceRoot: workspaceRoot,
+            fileSystem: fileSystem,
+        )
+        try Self.validateMembers(manifest.members, fileSystem: fileSystem)
+        try Self.checkNestedWorkspaceInMembers(
+            manifest.members,
+            fileSystem: fileSystem,
+        )
+        Self.checkOutOfTreeMembers(
+            manifest.members,
+            workspaceRoot: workspaceRoot,
+            observabilityScope: observabilityScope,
+        )
+    }
+
     private static func validateMembers(
         _ members: [WorkspaceManifest.Member],
         fileSystem: any FileSystem,
@@ -188,5 +225,114 @@ extension PackageWorkspace {
                 )
             }
         }
+    }
+
+    /// Emits an `.warning` diagnostic for each member whose path
+    /// falls OUTSIDE the workspace's directory tree. Out-of-tree
+    /// members are legal — SwiftPM supports them — but they reduce
+    /// the workspace's portability: a checkout made from a
+    /// different working copy may not find the member. Surfacing
+    /// this at load time lets the author confirm the situation is
+    /// intentional or restructure the layout.
+    ///
+    /// Pure with respect to disk state: only compares path values
+    /// against `workspaceRoot`; no filesystem access. Exposed as a
+    /// static so it can be unit-tested without spinning up a full
+    /// manifest evaluation.
+    package static func checkOutOfTreeMembers(
+        _ members: [WorkspaceManifest.Member],
+        workspaceRoot: AbsolutePath,
+        observabilityScope: ObservabilityScope,
+    ) {
+        for member in members where !member.path.isDescendantOfOrEqual(to: workspaceRoot) {
+            observabilityScope.emit(
+                .memberOutsideWorkspaceTree(
+                    memberIdentity: member.identity,
+                    memberPath: member.path,
+                    workspaceRoot: workspaceRoot,
+                ),
+            )
+        }
+    }
+
+    /// Walks up from `workspaceRoot`'s parent to filesystem root
+    /// looking for another `Workspace.swift`. Throws
+    /// `WorkspaceManifestParseError.nestedWorkspaceInAncestor` when
+    /// found — SwiftPM does not support nested workspaces because
+    /// shared-state semantics (which workspace owns `.build/`,
+    /// which `Package.resolved` is authoritative) become undefined
+    /// when two workspace trees overlap.
+    ///
+    /// Called from `loadWorkspaceManifest` after the workspace root
+    /// is discovered. Exposed as `package` so unit tests can drive
+    /// it directly against an `InMemoryFileSystem`.
+    package static func checkNestedWorkspaceInAncestors(
+        workspaceRoot: AbsolutePath,
+        fileSystem: any FileSystem,
+    ) throws {
+        var current = workspaceRoot
+        while current != .root {
+            let parent = current.parentDirectory
+            let candidate = parent.appending(WorkspaceManifest.filename)
+            if fileSystem.exists(candidate) {
+                throw WorkspaceManifestParseError.nestedWorkspaceInAncestor(
+                    inner: workspaceRoot,
+                    outer: parent,
+                )
+            }
+            current = parent
+        }
+    }
+
+    /// Scans each member's directory (depth 1) for a stray
+    /// `Workspace.swift`. Throws
+    /// `WorkspaceManifestParseError.nestedWorkspaceInMember` on the
+    /// first offender — same nested-workspace prohibition as
+    /// `checkNestedWorkspaceInAncestors`, discovered downward from
+    /// the outer workspace rather than upward.
+    ///
+    /// Depth 1 is sufficient for MVP: a `Workspace.swift` at the
+    /// member's own root is the common misuse (someone accidentally
+    /// nested a fresh `swift package workspace init` inside another
+    /// workspace's member). Deeper scans have diminishing returns.
+    package static func checkNestedWorkspaceInMembers(
+        _ members: [WorkspaceManifest.Member],
+        fileSystem: any FileSystem,
+    ) throws {
+        for member in members {
+            let candidate = member.path.appending(WorkspaceManifest.filename)
+            if fileSystem.exists(candidate) {
+                throw WorkspaceManifestParseError.nestedWorkspaceInMember(
+                    memberName: member.identity.description,
+                    nestedWorkspacePath: candidate,
+                )
+            }
+        }
+    }
+}
+
+extension Basics.Diagnostic {
+    /// Warning emitted when a workspace member's declared path
+    /// resolves outside the directory tree containing
+    /// `Workspace.swift`. Out-of-tree members work, but a workspace
+    /// that references paths outside its own directory is less
+    /// portable — the author may want to either accept the trade-
+    /// off or restructure. Uses the concrete diagnostic factory
+    /// pattern (rather than an inline string) so callers can
+    /// reconstruct the message for assertions and downstream tools
+    /// can pattern-match on the factory.
+    @_spi(SwiftPMInternal)
+    public static func memberOutsideWorkspaceTree(
+        memberIdentity: PackageIdentity,
+        memberPath: AbsolutePath,
+        workspaceRoot: AbsolutePath,
+    ) -> Self {
+        .warning(
+            """
+            workspace member '\(memberIdentity)' at '\(memberPath.pathString)' is \
+            outside the workspace directory tree rooted at '\(workspaceRoot.pathString)' \
+            — this may reduce portability
+            """,
+        )
     }
 }
