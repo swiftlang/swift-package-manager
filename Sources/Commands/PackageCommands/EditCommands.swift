@@ -12,7 +12,7 @@
 
 import ArgumentParser
 import Basics
-import CoreCommands
+@_spi(SwiftPMTesting) @_spi(SwiftPMInternal) import CoreCommands
 import SourceControl
 import Workspace
 
@@ -32,24 +32,36 @@ extension SwiftPackageCommand {
         @Option(name: .customLong("branch"), help: "The branch to create.")
         var checkoutBranch: String?
 
-        @Option(help: "Create or use the checkout at this path.")
-        var path: AbsolutePath?
+        @Option(
+            name: [.customLong("checkout-path"), .customLong("path")],
+            help: "Create or use the checkout at this path. `--path` is the deprecated spelling — use `--checkout-path`."
+        )
+        var checkoutPath: AbsolutePath?
 
         @Argument(help: "The identity of the package to edit.")
         var packageIdentity: String
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
+            defer {
+                let deprecatedArgument = "--path"
+                if SwiftCommandState.isArgumentDeprecationWarranted(for: deprecatedArgument, arguments: CommandLine.arguments) {
+                    swiftCommandState.observabilityScope.emit(
+                        .argumentDeprecated(flag: deprecatedArgument, renamed: "--checkout-path")
+                    )
+                }
+            }
             try await swiftCommandState.resolve()
             let workspace = try swiftCommandState.getActiveWorkspace()
 
             // Put the dependency in edit mode.
             await workspace.edit(
                 packageIdentity: packageIdentity,
-                path: path,
+                path: checkoutPath,
                 revision: revision,
                 checkoutBranch: checkoutBranch,
                 observabilityScope: swiftCommandState.observabilityScope
             )
+
         }
     }
 
@@ -79,6 +91,13 @@ extension SwiftPackageCommand {
                 root: try await swiftCommandState.getWorkspaceRoot(),
                 observabilityScope: swiftCommandState.observabilityScope
             )
+
+            let deprecatedArgument = "--path"
+            if SwiftCommandState.isArgumentDeprecationWarranted(for: deprecatedArgument, arguments: CommandLine.arguments) {
+                swiftCommandState.observabilityScope.emit(
+                    .argumentDeprecated(flag: deprecatedArgument, renamed: "--checkout-path")
+                )
+            }
         }
     }
 }

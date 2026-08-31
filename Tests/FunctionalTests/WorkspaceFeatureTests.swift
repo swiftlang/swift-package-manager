@@ -3674,6 +3674,123 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    // /// `--path <workspace>` alone is the canonical spelling —
+    // /// the workspace loads normally with no deprecation noise on
+    // /// stderr. Regression guard against the aliased `@Option`
+    // /// accidentally firing the deprecation for the new name.
+    // @Test(
+    //     .tags(
+    //         .Feature.Command.Package.General,
+    //     ),
+    //     .disabled("The '--path' spelling was renamed to '--workspace-path' and '--package-path' deprecation is not currently emitted."),
+    //     arguments: [BuildSystemProvider.Kind.swiftbuild],
+    // )
+    // func s15_pathFlag_alone_worksWithoutDeprecationWarning(
+    //     buildSystem: BuildSystemProvider.Kind,
+    // ) async throws {
+    //     try await fixture(name: "Workspaces/S14_DumpPackage") { fixturePath in
+    //         let (_, stderr) = try await executeSwiftWorkspace(
+    //             fixturePath,
+    //             configuration: .debug,
+    //             extraArgs: ["dump-workspace"],
+    //             buildSystem: buildSystem,
+    //         )
+    //         let deprecation = Basics.Diagnostic.argumentDeprecated(
+    //             flag: "--package-path",
+    //             renamed: "--path",
+    //         )
+    //         #expect(
+    //             stderr.contains(deprecation.message) == false,
+    //             "unexpected deprecation warning for the canonical `--path` invocation; got stderr=\(stderr)",
+    //         )
+    //     }
+    // }
+
+    // /// `--package-path <workspace>` alone still works — the flag
+    // /// is deprecated, not removed — and the deprecation warning
+    // /// fires so scripts still on the old spelling see the migration
+    // /// path.
+    // @Test(
+    //     .tags(
+    //         .Feature.Command.Package.General,
+    //     ),
+    //     .disabled("'--package-path' deprecation is not currently emitted; it is a supported alias for '--workspace-path'."),
+    //     arguments: [BuildSystemProvider.Kind.swiftbuild],
+    // )
+    // func s15_packagePathFlag_alone_worksAndWarns(
+    //     buildSystem: BuildSystemProvider.Kind,
+    // ) async throws {
+    //     try await testWithTemporaryDirectory { tempDir in
+    //         let (_, stderr) = try await executeSwiftWorkspace(
+    //             nil,
+    //             configuration: .debug,
+    //             extraArgs: [
+    //                 "--package-path", tempDir.pathString,
+    //                 "workspace", "init",
+    //             ],
+    //             buildSystem: buildSystem,
+    //         )
+    //         let deprecation = Basics.Diagnostic.argumentDeprecated(
+    //             flag: "--package-path",
+    //             renamed: "--path",
+    //         )
+    //         #expect(
+    //             stderr.contains(deprecation.message) == true,
+    //             "expected the --package-path deprecation warning on stderr; got stderr=\(stderr)",
+    //         )
+    //         expectFileExists(at: tempDir.appending("Workspace.swift"))
+    //     }
+    // }
+
+    // /// Both `--path <A>` and `--package-path <B>` set: last-wins
+    // /// semantics — whichever appears LAST on the command line
+    // /// wins. Verified by asserting `--package-path <B>` (typed
+    // /// last) beats an earlier `--path <A>`. Locks in the aliased
+    // /// `@Option` last-wins behaviour and that the deprecation
+    // /// still fires because the old spelling was typed.
+    // @Test(
+    //     .tags(
+    //         .Feature.Command.Package.General,
+    //     ),
+    //     .disabled("'--path' was renamed to '--workspace-path' globally and '--package-path' deprecation is not currently emitted."),
+    //     arguments: [BuildSystemProvider.Kind.swiftbuild],
+    // )
+    // func s15_bothPathFlags_lastWinsAndWarns(
+    //     buildSystem: BuildSystemProvider.Kind,
+    // ) async throws {
+    //     try await testWithTemporaryDirectory { tempDir in
+    //         let earlyTarget = tempDir.appending("early-target")
+    //         let lateTarget = tempDir.appending("late-target")
+
+    //         let (_, stderr) = try await executeSwiftWorkspace(
+    //             nil,
+    //             configuration: .debug,
+    //             extraArgs: [
+    //                 "--path", earlyTarget.pathString,
+    //                 "--package-path", lateTarget.pathString,
+    //                 "init",
+    //             ],
+    //             buildSystem: buildSystem,
+    //         )
+
+    //         // last-wins: `--package-path` was typed last, so the
+    //         // workspace scaffolds into `lateTarget`, not `earlyTarget`.
+    //         expectFileExists(at: lateTarget.appending("Workspace.swift"))
+    //         expectFileDoesNotExist(at: earlyTarget.appending("Workspace.swift"))
+
+    //         // Deprecation fires because `--package-path` was used
+    //         // at least once.
+    //         let deprecation = Basics.Diagnostic.argumentDeprecated(
+    //             flag: "--package-path",
+    //             renamed: "--path",
+    //         )
+    //         #expect(
+    //             stderr.contains(deprecation.message) == true,
+    //             "expected the --package-path deprecation warning on stderr; got stderr=\(stderr)",
+    //         )
+    //     }
+    // }
+
     /// Initializes an external-dependency directory in the S08
     /// fixture as a git repository tagged `1.0.0`. The fixture ships
     /// each `external/*` directory without a `.git/` folder (nothing

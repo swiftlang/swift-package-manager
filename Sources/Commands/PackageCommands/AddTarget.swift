@@ -12,7 +12,7 @@
 
 import ArgumentParser
 import Basics
-import CoreCommands
+@_spi(SwiftPMTesting) @_spi(SwiftPMInternal) import CoreCommands
 import Foundation
 import PackageGraph
 import PackageModel
@@ -64,8 +64,11 @@ extension SwiftPackageCommand {
         @Option(help: "The URL for a remote binary target.")
         var url: String?
 
-        @Option(help: "The path to a local binary target.")
-        var path: String?
+        @Option(
+            name: [.customLong("binary-path"), .customLong("path")],
+            help: "The path to a local binary target. `--path` is the deprecated spelling — use `--binary-path`."
+        )
+        var binaryPath: String?
 
         @Option(help: "The checksum for a remote binary target.")
         var checksum: String?
@@ -76,6 +79,14 @@ extension SwiftPackageCommand {
         var testingLibrary: AddPackageTarget.TestHarness = .default
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
+            defer {
+                let deprecatedArgument = "--path"
+                if SwiftCommandState.isArgumentDeprecationWarranted(for: deprecatedArgument, arguments: CommandLine.arguments) {
+                    swiftCommandState.observabilityScope.emit(
+                        .argumentDeprecated(flag: deprecatedArgument, renamed: "--binary-path")
+                    )
+                }
+            }
             let workspace = try swiftCommandState.getActiveWorkspace()
 
             guard let packagePath = try await swiftCommandState.getWorkspaceRoot().packages.first else {
@@ -126,7 +137,7 @@ extension SwiftPackageCommand {
                 name: name,
                 type: type,
                 dependencies: dependencies,
-                path: path,
+                path: binaryPath,
                 url: url,
                 checksum: checksum
             )
@@ -153,6 +164,7 @@ extension SwiftPackageCommand {
                 fileSystem: fileSystem,
                 rootPath: manifestPath.parentDirectory
             )
+
         }
 
         // Check if the package has a single target with that target's sources located

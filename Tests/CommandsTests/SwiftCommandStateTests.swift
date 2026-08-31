@@ -619,6 +619,114 @@ struct SwiftCommandStateTests {
         }
     }
 
+    // MARK: - packagePathDeprecationWarranted (Slice 15c, `--path` / `--package-path`)
+
+    /// Unit coverage for the pure argv-scanning helper that
+    /// decides whether the `--package-path` deprecation warning
+    /// should fire. The scanner returns `true` iff `--package-path`
+    /// (space-separated OR `=`-form) appears in the argument list —
+    /// once, or repeatedly, or intermixed with `--path`. The
+    /// aliased `@Option` on `LocationOptions` gives us last-wins
+    /// semantics for the value itself; this helper only answers
+    /// "was the deprecated spelling ever typed".
+    @Suite(
+        .tags(
+            .FunctionalArea.WorkspaceManiest,
+        ),
+        .disabled("The '--package-path' is not currently deprecated."),
+    )
+    struct PackagePathDeprecationWarrantedTests {
+
+        /// Empty argv is the smoke test — nothing invoked, no
+        /// deprecation possible. Regression guard on the false
+        /// baseline.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func withEmptyArguments_returnsFalse() throws {
+            #expect(
+                SwiftCommandState.packagePathDeprecationWarranted(arguments: []) == false,
+            )
+        }
+
+        /// The canonical `--path <value>` invocation must NOT warn
+        /// — the user is already on the new spelling.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func withOnlyPath_returnsFalse() throws {
+            let args = ["swift-package", "--path", "/repo", "describe"]
+            #expect(
+                SwiftCommandState.packagePathDeprecationWarranted(arguments: args) == false,
+            )
+        }
+
+        /// The deprecated `--package-path <value>` invocation must
+        /// warn.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func withOnlyPackagePath_spaceForm_returnsTrue() throws {
+            let args = ["swift-package", "--package-path", "/repo", "describe"]
+            #expect(
+                SwiftCommandState.packagePathDeprecationWarranted(arguments: args) == true,
+            )
+        }
+
+        /// The equals form `--package-path=/repo` must also warn.
+        /// A subtring `startsWith("--package-path")` check needs to
+        /// distinguish the equals form from any longer flag that
+        /// happens to share the prefix.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func withOnlyPackagePath_equalsForm_returnsTrue() throws {
+            let args = ["swift-package", "--package-path=/repo", "describe"]
+            #expect(
+                SwiftCommandState.packagePathDeprecationWarranted(arguments: args) == true,
+            )
+        }
+
+        /// Mixed usage — `--path` followed by `--package-path` —
+        /// must warn because the deprecated spelling was used at
+        /// least once, regardless of last-wins order.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func withBothFlagsMixed_returnsTrue() throws {
+            let args = ["swift-package", "--path", "/a", "--package-path", "/b", "describe"]
+            #expect(
+                SwiftCommandState.packagePathDeprecationWarranted(arguments: args) == true,
+            )
+        }
+
+        /// A flag that only *shares a prefix* with `--package-path`
+        /// (e.g. a hypothetical `--package-path-override`) must NOT
+        /// trip the check. Guards against a naïve `hasPrefix` catch-
+        /// all.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func withPrefixLookalikeFlag_returnsFalse() throws {
+            let args = ["swift-package", "--package-path-override", "/repo", "describe"]
+            #expect(
+                SwiftCommandState.packagePathDeprecationWarranted(arguments: args) == false,
+            )
+        }
+    }
+
     // MARK: - flushMemberStateFindings (Slice 8c)
 
     /// End-to-end integration coverage for the

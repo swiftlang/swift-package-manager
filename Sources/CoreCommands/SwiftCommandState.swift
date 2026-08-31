@@ -159,6 +159,11 @@ extension SwiftCommand {
                 .deprecatedBuildSystem(buildSystem: globalOptions.build._buildSystem)
             )
         }
+        // if SwiftCommandState.packagePathDeprecationWarranted(arguments: CommandLine.arguments) {
+        //     swiftCommandState.observabilityScope.emit(
+        //         .argumentDeprecated(flag: "--package-path", renamed: "--path")
+        //     )
+        // }
         swiftCommandState.flushMemberStateFindings()
         // wait for all observability items to process
         swiftCommandState.waitForObservabilityEvents(timeout: .now() + 5)
@@ -279,6 +284,11 @@ extension AsyncSwiftCommand {
                 .deprecatedBuildSystem(buildSystem: globalOptions.build._buildSystem)
             )
         }
+        // if SwiftCommandState.packagePathDeprecationWarranted(arguments: CommandLine.arguments) {
+        //     swiftCommandState.observabilityScope.emit(
+        //         .argumentDeprecated(flag: "--package-path", renamed: "--path")
+        //     )
+        // }
 
         swiftCommandState.flushMemberStateFindings()
 
@@ -1661,6 +1671,36 @@ extension SwiftCommandState {
             workspaceRoot: discoveredWorkspaceRoot,
         )
     }
+
+    /// Pure argv-scanning helper: returns `true` iff the deprecated
+    /// `--package-path` spelling appears anywhere in `arguments`
+    /// (space-separated `--package-path <value>` OR the equals form
+    /// `--package-path=<value>`). Consumed by the CLI startup path
+    /// to decide whether to emit the deprecation warning that steers
+    /// users toward `--path`.
+    ///
+    /// The aliased `@Option` on `LocationOptions` gives us last-wins
+    /// value semantics for the two spellings automatically — this
+    /// helper only answers "was the deprecated spelling ever
+    /// typed", which ArgumentParser doesn't surface through the
+    /// parsed value alone.
+    @_spi(SwiftPMTesting)
+    public static func packagePathDeprecationWarranted(
+        arguments: [String],
+    ) -> Bool {
+        return Self.isArgumentDeprecationWarranted(for: "--package-path", arguments: arguments)
+    }
+
+    @_spi(SwiftPMTesting)
+    public static func isArgumentDeprecationWarranted(
+        for deprecatedArgument: String,
+        arguments: [String],
+    ) -> Bool {
+        arguments.contains { arg in
+            arg == "\(deprecatedArgument)" || arg.hasPrefix("\(deprecatedArgument)=")
+        }
+    }
+
 }
 
 /// Errors surfaced by `SwiftCommandState` decision helpers.
@@ -1873,6 +1913,18 @@ extension Basics.Diagnostic {
     package static func deprecatedBuildSystem(buildSystem: BuildSystemProvider.Kind) -> Self {
         .warning(
             "'--build-system \(buildSystem)' has been deprecated and will be removed in a future release; please report an issue at https://github.com/swiftlang/swift-package-manager/issues if you are unable to adopt the default build system."
+        )
+    }
+
+    /// Deprecation warning for a renamed CLI flag. Used at command
+    /// startup when a deprecated spelling is detected in argv (see
+    /// `SwiftCommandState.packagePathDeprecationWarranted(arguments:)`).
+    /// The message steers users toward the new spelling without
+    /// breaking anything — the deprecated flag still functions.
+    @_spi(SwiftPMInternal)
+    public static func argumentDeprecated(flag: String, renamed: String) -> Self {
+        .warning(
+            "'\(flag)' is deprecated; use '\(renamed)' instead."
         )
     }
 
