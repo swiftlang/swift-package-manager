@@ -618,7 +618,7 @@ final class PluginInvocationTests: XCTestCase {
                 XCTAssert(result.commandLine.contains("-j1"), "expected workers flag in \(result.commandLine)")
                 XCTAssert(result.executableFile.components.contains("plugin-cache"), "\(result.executableFile.pathString)")
                 XCTAssert(result.compilerOutput.contains("error: missing return"), "\(result.compilerOutput)")
-                XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
+                XCTAssert(result.diagnosticsFiles.count == 1 && result.diagnosticsFiles[0].suffix == ".dia", "\(result.diagnosticsFiles)")
 
                 // Check the delegate callbacks.
                 XCTAssertEqual(delegate.commandLine, result.commandLine)
@@ -627,7 +627,7 @@ final class PluginInvocationTests: XCTestCase {
                 XCTAssertNil(delegate.cachedResult)
 
                 // Check the serialized diagnostics. We should have an error.
-                let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
+                let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFiles[0])
                 let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
                 XCTAssertEqual(diagnosticsSet.diagnostics.count, 1)
                 let errorDiagnostic = try XCTUnwrap(diagnosticsSet.diagnostics.first)
@@ -671,7 +671,7 @@ final class PluginInvocationTests: XCTestCase {
                 XCTAssert(result.commandLine.contains(result.executableFile.pathString), "\(result.commandLine)")
                 XCTAssert(result.executableFile.components.contains("plugin-cache"), "\(result.executableFile.pathString)")
                 XCTAssert(result.compilerOutput.contains("warning: variable 'unused' was never used"), "\(result.compilerOutput)")
-                XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
+                XCTAssert(result.diagnosticsFiles.count == 1 && result.diagnosticsFiles[0].suffix == ".dia", "\(result.diagnosticsFiles)")
 
                 // Check the delegate callbacks.
                 XCTAssertEqual(delegate.commandLine, result.commandLine)
@@ -681,16 +681,16 @@ final class PluginInvocationTests: XCTestCase {
 
                 if try UserToolchain.default.supportsSerializedDiagnostics() {
                     // Check the serialized diagnostics. We should no longer have an error but now have a warning.
-                    let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
+                    let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFiles[0])
                     let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
                     let hasExpectedDiagnosticsCount = diagnosticsSet.diagnostics.count == 1
                     let warningDiagnosticText = diagnosticsSet.diagnostics.first?.text ?? ""
                     let hasExpectedWarningText = warningDiagnosticText.hasPrefix("variable \'unused\' was never used")
                     if hasExpectedDiagnosticsCount && hasExpectedWarningText {
-                        XCTAssertTrue(hasExpectedDiagnosticsCount, "unexpected diagnostics count in \(diagnosticsSet.diagnostics) from \(result.diagnosticsFile.pathString)")
+                        XCTAssertTrue(hasExpectedDiagnosticsCount, "unexpected diagnostics count in \(diagnosticsSet.diagnostics) from \(result.diagnosticsFiles[0].pathString)")
                         XCTAssertTrue(hasExpectedWarningText, "\(warningDiagnosticText)")
                     } else {
-                        print("bytes of serialized diagnostics file `\(result.diagnosticsFile.pathString)`: \(diaFileContents.contents)")
+                        print("bytes of serialized diagnostics file `\(result.diagnosticsFiles[0].pathString)`: \(diaFileContents.contents)")
                         try XCTSkipIf(true, "skipping because of unknown serialized diagnostics issue")
                     }
                 }
@@ -722,7 +722,7 @@ final class PluginInvocationTests: XCTestCase {
                 XCTAssert(result.commandLine.contains(result.executableFile.pathString), "\(result.commandLine)")
                 XCTAssert(result.executableFile.components.contains("plugin-cache"), "\(result.executableFile.pathString)")
                 XCTAssert(result.compilerOutput.contains("warning: variable 'unused' was never used"), "\(result.compilerOutput)")
-                XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
+                XCTAssert(result.diagnosticsFiles.count == 1 && result.diagnosticsFiles[0].suffix == ".dia", "\(result.diagnosticsFiles)")
 
                 // Check the delegate callbacks. Note that the nil command line and environment indicates that we didn't get the callback saying that compilation will start; this is expected when the cache is reused. This is a behaviour of our test delegate. The command line is available in the cached result.
                 XCTAssertNil(delegate.commandLine)
@@ -732,7 +732,7 @@ final class PluginInvocationTests: XCTestCase {
 
                 if try UserToolchain.default.supportsSerializedDiagnostics() {
                     // Check that the diagnostics still have the same warning as before.
-                    let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
+                    let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFiles[0])
                     let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
                     XCTAssertEqual(diagnosticsSet.diagnostics.count, 1)
                     let warningDiagnostic = try XCTUnwrap(diagnosticsSet.diagnostics.first)
@@ -785,7 +785,7 @@ final class PluginInvocationTests: XCTestCase {
                 XCTAssert(result.commandLine.contains(result.executableFile.pathString), "\(result.commandLine)")
                 XCTAssert(result.executableFile.components.contains("plugin-cache"), "\(result.executableFile.pathString)")
                 XCTAssert(!result.compilerOutput.contains("warning:"), "\(result.compilerOutput)")
-                XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
+                XCTAssert(result.diagnosticsFiles.count == 1 && result.diagnosticsFiles[0].suffix == ".dia", "\(result.diagnosticsFiles)")
 
                 // Check the delegate callbacks.
                 XCTAssertEqual(delegate.commandLine, result.commandLine)
@@ -794,7 +794,7 @@ final class PluginInvocationTests: XCTestCase {
                 XCTAssertNil(delegate.cachedResult)
 
                 // Check that the diagnostics no longer have a warning.
-                let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
+                let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFiles[0])
                 let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
                 XCTAssertEqual(diagnosticsSet.diagnostics.count, 0)
 
@@ -839,7 +839,7 @@ final class PluginInvocationTests: XCTestCase {
                 XCTAssert(result.commandLine.contains(result.executableFile.pathString), "\(result.commandLine)")
                 XCTAssert(result.executableFile.components.contains("plugin-cache"), "\(result.executableFile.pathString)")
                 XCTAssert(result.compilerOutput.contains("error: 'nil' is incompatible with return type"), "\(result.compilerOutput)")
-                XCTAssert(result.diagnosticsFile.suffix == ".dia", "\(result.diagnosticsFile.pathString)")
+                XCTAssert(result.diagnosticsFiles.count == 1 && result.diagnosticsFiles[0].suffix == ".dia", "\(result.diagnosticsFiles)")
 
                 // Check the delegate callbacks.
                 XCTAssertEqual(delegate.commandLine, result.commandLine)
@@ -848,7 +848,7 @@ final class PluginInvocationTests: XCTestCase {
                 XCTAssertNil(delegate.cachedResult)
 
                 // Check the diagnostics. We should have a different error than the original one.
-                let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFile)
+                let diaFileContents = try localFileSystem.readFileContents(result.diagnosticsFiles[0])
                 let diagnosticsSet = try SerializedDiagnostics(bytes: diaFileContents)
                 XCTAssertEqual(diagnosticsSet.diagnostics.count, 1)
                 let errorDiagnostic = try XCTUnwrap(diagnosticsSet.diagnostics.first)
@@ -857,6 +857,90 @@ final class PluginInvocationTests: XCTestCase {
                 // Check that the executable file no longer exists.
                 XCTAssertFalse(localFileSystem.exists(result.executableFile), "\(result.executableFile.pathString)")
             }
+        }
+    }
+
+    func testCompilationDiagnosticsWithMultipleSourceFiles() async throws {
+        try XCTSkipIf(!UserToolchain.default.supportsSerializedDiagnostics())
+
+        try await testWithTemporaryDirectory { tmpPath in
+            let helperSource = tmpPath.appending("A_Helper.swift")
+            let pluginSource = tmpPath.appending("Z_Plugin.swift")
+            try localFileSystem.writeFileContents(helperSource, string: """
+                import PackagePlugin
+                #warning("helper diagnostic")
+                func helper() {}
+                """)
+            try localFileSystem.writeFileContents(pluginSource, string: """
+                import PackagePlugin
+                @main struct TestPlugin: BuildToolPlugin {
+                    func createBuildCommands(
+                        context: PluginContext,
+                        target: Target
+                    ) throws -> [Command] {
+                        return []
+                    }
+                }
+                #warning("plugin diagnostic")
+                """)
+
+            let observability = ObservabilitySystem.makeForTesting()
+            let pluginScriptRunner = DefaultPluginScriptRunner(
+                fileSystem: localFileSystem,
+                cacheDir: tmpPath.appending("plugin-cache"),
+                toolchain: try UserToolchain.default
+            )
+
+            final class Delegate: PluginScriptCompilerDelegate {
+                func willCompilePlugin(commandLine: [String], environment: [String: String]) {}
+                func didCompilePlugin(result: PluginCompilationResult) {}
+                func skippedCompilingPlugin(cachedResult: PluginCompilationResult) {}
+            }
+
+            let result = try await pluginScriptRunner.compilePluginScript(
+                sourceFiles: [helperSource, pluginSource],
+                pluginName: "TestPlugin",
+                toolsVersion: .v5_6,
+                workers: 2,
+                observabilityScope: observability.topScope,
+                callbackQueue: DispatchQueue.sharedConcurrent,
+                delegate: Delegate()
+            )
+
+            XCTAssertTrue(result.succeeded, "plugin compilation failed: \(result.compilerOutput)")
+            XCTAssertFalse(result.commandLine.contains("-whole-module-optimization"), "WMO should not be used for plugins")
+            XCTAssertTrue(result.commandLine.contains("-serialize-diagnostics"), "serialized diagnostics should be enabled")
+            XCTAssertTrue(result.commandLine.contains("-output-file-map"), "an output file map should be used")
+            XCTAssertEqual(result.diagnosticsFiles.count, 2)
+            XCTAssertEqual(Set(result.diagnosticsFiles.map(\.pathString)).count, 2)
+            XCTAssertTrue(localFileSystem.exists(tmpPath.appending(components: "plugin-cache", "TestPlugin-output-file-map.json")))
+            let diagnosticsByFile = try result.diagnosticsFiles.map { path in
+                let diaFileContents = try localFileSystem.readFileContents(path)
+                return try SerializedDiagnostics(bytes: diaFileContents).diagnostics
+            }
+            XCTAssertTrue(diagnosticsByFile.allSatisfy { $0.count == 1 }, "each source should have its own diagnostics file")
+            let diagnostics = diagnosticsByFile.flatMap { $0 }
+            XCTAssertEqual(diagnostics.count, 2)
+            XCTAssertTrue(diagnostics.contains { $0.text.hasPrefix("helper diagnostic") }, "\(diagnostics)")
+            XCTAssertTrue(diagnostics.contains { $0.text.hasPrefix("plugin diagnostic") }, "\(diagnostics)")
+
+            let cachedResult = try await pluginScriptRunner.compilePluginScript(
+                sourceFiles: [helperSource, pluginSource],
+                pluginName: "TestPlugin",
+                toolsVersion: .v5_6,
+                workers: 2,
+                observabilityScope: observability.topScope,
+                callbackQueue: DispatchQueue.sharedConcurrent,
+                delegate: Delegate()
+            )
+            XCTAssertTrue(cachedResult.succeeded)
+            XCTAssertTrue(cachedResult.cached)
+            XCTAssertEqual(cachedResult.diagnosticsFiles, result.diagnosticsFiles)
+            let cachedDiagnostics = try cachedResult.diagnosticsFiles.flatMap { path in
+                let diaFileContents = try localFileSystem.readFileContents(path)
+                return try SerializedDiagnostics(bytes: diaFileContents).diagnostics
+            }
+            XCTAssertEqual(cachedDiagnostics.map(\.text).sorted(), diagnostics.map(\.text).sorted())
         }
     }
 

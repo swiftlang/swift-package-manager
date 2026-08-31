@@ -133,8 +133,8 @@ public struct PluginCompilationResult: Equatable {
     /// Path of the compiled executable.
     public var executableFile: Basics.AbsolutePath
 
-    /// Path of the libClang diagnostics file emitted by the compiler.
-    public var diagnosticsFile: Basics.AbsolutePath
+    /// Paths of the diagnostics files emitted by the compiler, one for each source file.
+    public var diagnosticsFiles: [Basics.AbsolutePath]
     
     /// Any output emitted by the compiler (stdout and stderr combined).
     public var rawCompilerOutput: String
@@ -146,14 +146,14 @@ public struct PluginCompilationResult: Equatable {
         succeeded: Bool,
         commandLine: [String],
         executableFile: Basics.AbsolutePath,
-        diagnosticsFile: Basics.AbsolutePath,
+        diagnosticsFiles: [Basics.AbsolutePath],
         compilerOutput rawCompilerOutput: String,
         cached: Bool
     ) {
         self.succeeded = succeeded
         self.commandLine = commandLine
         self.executableFile = executableFile
-        self.diagnosticsFile = diagnosticsFile
+        self.diagnosticsFiles = diagnosticsFiles
         self.rawCompilerOutput = rawCompilerOutput
         self.cached = cached
     }
@@ -173,7 +173,7 @@ extension PluginCompilationResult: CustomDebugStringConvertible {
                 succeeded: \(succeeded),
                 commandLine: \(commandLine.map{ $0.spm_shellEscaped() }.joined(separator: " ")),
                 executable: \(executableFile.prettyPath())
-                diagnostics: \(diagnosticsFile.prettyPath())
+                diagnostics: \(diagnosticsFiles.map { $0.prettyPath() }.joined(separator: ", "))
                 compilerOutput: \(compilerOutput.spm_shellEscaped())
             )>
             """
