@@ -7,8 +7,8 @@ name: Automerger
 permissions:
   contents: read
 on:
-  schedule:
-    - cron: '0 9 * * MON'
+  # schedule:
+  #   - cron: '0 9 * * MON'
   workflow_dispatch:
 jobs:
   create_merge_pr:
