@@ -3016,6 +3016,7 @@ struct PackageCommandTests {
         ),
     )
     struct AddTargetCommandTests {
+
         @Test(
             .tags(
                 .Feature.TargetType.Executable,
@@ -3124,6 +3125,88 @@ struct PackageCommandTests {
                     expectFileExists(at: path.appending(components: ["Sources", "MyMacro", "MyMacro.swift"]))
                     expectFileExists(at: path.appending(components: ["Sources", "MyMacro", "ProvidedMacros.swift"]))
                 }
+            }
+        }
+
+        /// The deprecated `--path` spelling on `swift package add-target`
+        /// still functions but must emit a warning steering the user
+        /// toward the canonical `--binary-path`. Behavior contract:
+        /// the flag continues to work (backwards compatibility) and
+        /// the deprecation is discoverable at runtime.
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func packageAddTarget_pathFlagDeprecated_emitsWarning(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            let config = BuildConfiguration.debug
+            try await testWithTemporaryDirectory { tmpPath in
+                let fs = localFileSystem
+                let path = tmpPath.appending("Client")
+                try fs.createDirectory(path)
+                try fs.writeFileContents(
+                    path.appending("Package.swift"),
+                    string:
+                        """
+                        // swift-tools-version: 5.9
+                        import PackageDescription
+                        let package = Package(
+                            name: "client"
+                        )
+                        """
+                )
+
+                let (_, stderr) = try await execute(
+                    ["add-target", "MyLib", "--path", "/some/binary/path", "--type", "library"],
+                    packagePath: path,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+
+                #expect(
+                    stderr.contains("'--path' is deprecated; use '--binary-path' instead.") == true,
+                    "expected --path deprecation warning on stderr; got stderr=\(stderr)",
+                )
+            }
+        }
+
+        /// The canonical `--binary-path` spelling on
+        /// `swift package add-target` must NOT emit a deprecation
+        /// warning — users on the new spelling should see quiet stderr.
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func packageAddTarget_binaryPathFlagCanonical_emitsNoDeprecationWarning(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            let config = BuildConfiguration.debug
+            try await testWithTemporaryDirectory { tmpPath in
+                let fs = localFileSystem
+                let path = tmpPath.appending("Client")
+                try fs.createDirectory(path)
+                try fs.writeFileContents(
+                    path.appending("Package.swift"),
+                    string:
+                        """
+                        // swift-tools-version: 5.9
+                        import PackageDescription
+                        let package = Package(
+                            name: "client"
+                        )
+                        """
+                )
+
+                let (_, stderr) = try await execute(
+                    ["add-target", "MyLib", "--binary-path", "/some/binary/path", "--type", "library"],
+                    packagePath: path,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+
+                #expect(
+                    stderr.contains("'--path' is deprecated") == false,
+                    "unexpected --path deprecation warning for the canonical spelling; got stderr=\(stderr)",
+                )
             }
         }
 
@@ -3720,6 +3803,66 @@ struct PackageCommandTests {
             )
             #expect(localFileSystem.isSymlink(bazEditsPath))
             #expect(try localFileSystem.readFileContents(bazTotPackageFile) == content)
+        }
+    }
+
+    /// The deprecated `--path` spelling on `swift package edit`
+    /// still functions but must emit a warning steering the user
+    /// toward the canonical `--checkout-path`. Behavior contract:
+    /// the flag continues to work (backwards compatibility) and
+    /// the deprecation is discoverable at runtime.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Edit,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func packageEdit_pathFlagDeprecated_emitsWarning(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let config = BuildConfiguration.debug
+        try await fixture(name: "Miscellaneous/PackageEdit", createGitRepo: true) { fixturePath in
+            let fooPath = fixturePath.appending("foo")
+            let bazTot = fixturePath.appending("tot")
+            let (_, stderr) = try await execute(
+                ["edit", "baz", "--path", bazTot.pathString],
+                packagePath: fooPath,
+                configuration: config,
+                buildSystem: buildSystem,
+            )
+            #expect(
+                stderr.contains("'--path' is deprecated; use '--checkout-path' instead."),
+                "expected --path deprecation warning on stderr; got stderr=\(stderr)",
+            )
+        }
+    }
+
+    /// The canonical `--checkout-path` spelling on
+    /// `swift package edit` must NOT emit a deprecation warning —
+    /// users on the new spelling should see quiet stderr.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Edit,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func packageEdit_checkoutPathFlagCanonical_emitsNoDeprecationWarning(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let config = BuildConfiguration.debug
+        try await fixture(name: "Miscellaneous/PackageEdit", createGitRepo: true) { fixturePath in
+            let fooPath = fixturePath.appending("foo")
+            let bazTot = fixturePath.appending("tot")
+            let (_, stderr) = try await execute(
+                ["edit", "baz", "--checkout-path", bazTot.pathString],
+                packagePath: fooPath,
+                configuration: config,
+                buildSystem: buildSystem,
+            )
+            #expect(
+                stderr.contains("'--path' is deprecated") == false,
+                "unexpected --path deprecation warning for the canonical spelling; got stderr=\(stderr)",
+            )
         }
     }
 
