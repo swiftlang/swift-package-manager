@@ -28,7 +28,6 @@ import protocol ArgumentParser.AsyncParsableCommand
 import class TSCBasic.BufferedOutputByteStream
 
 @Suite(
-    .serialized,  // to limit the number of swift executable running.
     .tags(
         Tag.TestSize.large,
         Tag.Feature.Command.Test,
@@ -1472,6 +1471,73 @@ struct TestCommandTests {
         }
     }
 
+    struct DeprecationWarningIsEmittedTestData: CustomTestStringConvertible {
+        var testDescription: String { argument }
+        let argument: String
+        let expectedDiagnostic: Basics.Diagnostic
+        let shouldEmitDiagnostic: Bool
+    }
+    @Test(
+        .tags(
+            .Feature.CodeCoverage,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms, [
+            DeprecationWarningIsEmittedTestData(
+                argument: "--disable-code-coverage",
+                expectedDiagnostic: Basics.Diagnostic.deprecatedEnableDisableCoverage,
+                shouldEmitDiagnostic: true,
+            ),
+            DeprecationWarningIsEmittedTestData(
+                argument: "--enable-code-coverage",
+                expectedDiagnostic: Basics.Diagnostic.deprecatedEnableDisableCoverage,
+                shouldEmitDiagnostic: true,
+            ),
+            DeprecationWarningIsEmittedTestData(
+                argument: "--enable-coverage",
+                expectedDiagnostic: Basics.Diagnostic.deprecatedEnableDisableCoverage,
+                shouldEmitDiagnostic: false,
+            ),
+            DeprecationWarningIsEmittedTestData(
+                argument: "--show-code-coverage-path",
+                expectedDiagnostic: Basics.Diagnostic.deprecatedShowCodeCoveragePath,
+                shouldEmitDiagnostic: true,
+            ),
+            DeprecationWarningIsEmittedTestData(
+                argument: "--show-codecov-path",
+                expectedDiagnostic: Basics.Diagnostic.deprecatedShowCodeCoveragePath,
+                shouldEmitDiagnostic: true,
+            ),
+            DeprecationWarningIsEmittedTestData(
+                argument: "--show-coverage-path",
+                expectedDiagnostic: Basics.Diagnostic.deprecatedShowCodeCoveragePath,
+                shouldEmitDiagnostic: false,
+            ),
+        ]
+    )
+    func deprecationWarningIsEmitted(
+        buildSystem: BuildSystemProvider.Kind,
+        testData: DeprecationWarningIsEmittedTestData,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+            let (out, err)  = try await executeSwiftTest(
+                fixturePath,
+                configuration: configuration,
+                extraArgs: [
+                    "--show-coverage-path", // we don't care about the buildgit
+                    testData.argument,
+                ],
+                buildSystem: buildSystem,
+            )
+
+            let diagnosticMessage = "\(testData.expectedDiagnostic.severity): \(testData.expectedDiagnostic.message)"
+            #expect(
+                err.contains(diagnosticMessage) == testData.shouldEmitDiagnostic,
+                "expected diagnostic message >>> \(diagnosticMessage)\n\nstdout: \(out)\n\nstderr: \(err)"
+            )
+        }
+    }
+
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/issues/9431", relationship: .verifies),
         arguments: SupportedBuildSystemOnAllPlatforms,
@@ -2516,7 +2582,7 @@ struct TestCommandTests {
                     ] + getBuildSystemArgs(for: buildSystem),
                     env: ["SWIFTPM_TESTS_LLDB_RUN": "1"],
                     buildSystem: buildSystem,
-                    throwIfCommandFails: false
+                    throwIfCommandFails: false,
                 )
 
                 // Probe lldb at runtime; without Python bindings the lldb
@@ -2540,24 +2606,24 @@ struct TestCommandTests {
         /// command pipeline.
         @Suite
         struct ValidationTests {
-            private func expectValidationError(
+            private func requireValidationError(
                 configuration: BuildConfiguration = .debug,
                 shouldRunInParallel: Bool = false,
                 numberOfWorkers: Int? = nil,
                 shouldListTests: Bool = false,
-                shouldPrintCodeCovPath: Bool = false,
-                containing substrings: [String]
-            ) {
-                let error = #expect(throws: StringError.self) {
+                printCodeCovPathMode: CoveragePrintPathMode? = nil,
+                containing substrings: [String],
+            ) throws {
+                let error = try #require(throws: StringError.self) {
                     try SwiftTestCommand.validateLLDBCompatibility(
                         configuration: configuration,
                         shouldRunInParallel: shouldRunInParallel,
                         numberOfWorkers: numberOfWorkers,
                         shouldListTests: shouldListTests,
-                        shouldPrintCodeCovPath: shouldPrintCodeCovPath
+                        printCodeCovPathMode: printCodeCovPathMode,
                     )
                 }
-                let message = error?.description ?? ""
+                let message = error.description
                 for substring in substrings {
                     #expect(
                         message.contains(substring),
@@ -2567,42 +2633,42 @@ struct TestCommandTests {
             }
 
             @Test
-            func releaseConfigurationIsRejected() {
-                expectValidationError(
+            func releaseConfigurationIsRejected() throws {
+                try requireValidationError(
                     configuration: .release,
                     containing: ["--debugger", "release configuration"]
                 )
             }
 
             @Test
-            func parallelFlagIsRejected() {
-                expectValidationError(
+            func parallelFlagIsRejected()  throws{
+                try requireValidationError(
                     shouldRunInParallel: true,
                     containing: ["--debugger", "--parallel"]
                 )
             }
 
             @Test
-            func numWorkersIsRejected() {
-                expectValidationError(
+            func numWorkersIsRejected() throws {
+                try requireValidationError(
                     numberOfWorkers: 2,
                     containing: ["--debugger", "--num-workers"]
                 )
             }
 
             @Test
-            func listTestsIsRejected() {
-                expectValidationError(
+            func listTestsIsRejected() throws {
+                try requireValidationError(
                     shouldListTests: true,
                     containing: ["--debugger", "--list-tests"]
                 )
             }
 
             @Test
-            func showCodeCovPathIsRejected() {
-                expectValidationError(
-                    shouldPrintCodeCovPath: true,
-                    containing: ["--debugger", "--show-codecov-path"]
+            func showCoveragePathIsRejected() throws {
+                try requireValidationError(
+                    printCodeCovPathMode: .text,
+                    containing: ["--debugger", "--show-coverage-path"]
                 )
             }
 
@@ -2613,20 +2679,20 @@ struct TestCommandTests {
                     shouldRunInParallel: false,
                     numberOfWorkers: nil,
                     shouldListTests: false,
-                    shouldPrintCodeCovPath: false
+                    printCodeCovPathMode: nil,
                 )
             }
 
             @Test
-            func configurationIsCheckedBeforeOtherFlags() {
+            func configurationIsCheckedBeforeOtherFlags() throws {
                 // When multiple incompatible flags are set, the release-configuration
                 // check fires first so callers see a single, deterministic error.
-                expectValidationError(
+                try requireValidationError(
                     configuration: .release,
                     shouldRunInParallel: true,
                     numberOfWorkers: 2,
                     shouldListTests: true,
-                    shouldPrintCodeCovPath: true,
+                    printCodeCovPathMode: .text,
                     containing: ["release configuration"]
                 )
             }

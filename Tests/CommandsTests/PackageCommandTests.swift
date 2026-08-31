@@ -8598,7 +8598,7 @@ struct PackageCommandTests {
         ) async throws {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 let config = BuildConfiguration.debug
-                let (stdout, stderr) = try await execute(
+                let (_, stderr) = try await execute(
                     ["generate-sbom", "--sbom-spec", "cyclonedx"],
                     packagePath: fixturePath,
                     configuration: config,
