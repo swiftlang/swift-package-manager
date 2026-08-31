@@ -981,12 +981,35 @@ extension PackagePIFProjectBuilder {
             BuildConfig(id: id, name: "Release", settings: buildSettings)
         }
 
+        var productFiles: [FileReference] = []
         for module in product.modules {
             self.project[keyPath: customTargetKeyPath].common.addDependency(
                 on: module.pifTargetGUID,
                 platformFilters: [],
                 linkProduct: false
             )
+
+            // Add product files
+            if let results = self.pifBuilder.buildToolPluginResultsByTargetName[module.name] {
+                productFiles.append(contentsOf: results.flatMap({ $0.productFiles }).map({ productFile in
+                    self.binaryGroup.addFileReference { id in
+                        FileReference(id: id, path: productFile.pathString)
+                    }
+                }))
+            }
+        }
+
+        // Copy product files to the buildProductsDir
+        if !productFiles.isEmpty {
+            self.project[keyPath: customTargetKeyPath].common.addCopyFilesBuildPhase { id in
+                var phase = ProjectModel.CopyFilesBuildPhase(common: .init(id: id), destinationSubfolder: .builtProductsDir)
+                for fileRef in productFiles {
+                    phase.common.addBuildFile { id in
+                        BuildFile(id: id, fileRef: fileRef)
+                    }
+                }
+                return phase
+            }
         }
     }
 

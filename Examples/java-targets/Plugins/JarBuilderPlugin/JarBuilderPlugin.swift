@@ -21,7 +21,8 @@ struct JarBuilderPlugin: BuildToolPlugin {
                 ],
                 inputFiles: [classTag],
                 outputFiles: [jarFile]
-            )
+            ),
+            .products(outputFiles: [jarFile]),
         ]
     }
 }

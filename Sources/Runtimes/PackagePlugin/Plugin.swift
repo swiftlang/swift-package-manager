@@ -218,6 +218,10 @@ extension Plugin {
                     )
                     try pluginHostConnection.sendMessage(message)
 
+                case .products(let outputFiles):
+                    let message = PluginToHostMessage.defineProducts(outputFiles: outputFiles)
+                    try pluginHostConnection.sendMessage(message)
+
                 case .prebuildCommand(let displayName, let executable, let arguments, let environment, let outputFilesDirectory):
                     let command = PluginToHostMessage.CommandConfiguration(
                         displayName: displayName,
@@ -295,7 +299,10 @@ extension Plugin {
                         inputFiles: inputs,
                         outputFiles: outputs)
                     try pluginHostConnection.sendMessage(message)
-                    
+
+                case .products:
+                    fatalError("Not supported for Xcode projects")
+
                 case let .prebuildCommand(name, exec, args, env, outdir):
                     let command = PluginToHostMessage.CommandConfiguration(
                         displayName: name,

@@ -348,6 +348,8 @@ enum PluginToHostMessage: Codable {
     /// The plugin defines a build command.
     case defineBuildCommand(configuration: CommandConfiguration, inputFiles: [URL], outputFiles: [URL])
 
+    case defineProducts(outputFiles: [URL])
+
     /// The plugin defines a prebuild command.
     case definePrebuildCommand(configuration: CommandConfiguration, outputFilesDirectory: URL)
     

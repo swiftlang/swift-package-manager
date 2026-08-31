@@ -54,6 +54,11 @@ public enum Command {
         outputFiles: [URL] = []
     )
 
+    /// For custom targets, define the list of files that are the products of the target.
+    /// They get copied into the binPath.
+    @available(_PackageDescription, introduced: 6.5)
+    case products(outputFiles: [URL])
+
     /// Returns a command that runs unconditionally before every build.
     ///
     /// Prebuild commands can have a significant performance impact
