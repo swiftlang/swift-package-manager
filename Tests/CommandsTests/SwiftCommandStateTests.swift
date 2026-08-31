@@ -619,13 +619,13 @@ struct SwiftCommandStateTests {
         }
     }
 
-    // MARK: - packagePathDeprecationWarranted (Slice 15c, `--path` / `--package-path`)
+    // MARK: - packagePathDeprecationWarranted (Slice 15c, `--project-path` / `--package-path`)
 
     /// Unit coverage for the pure argv-scanning helper that
     /// decides whether the `--package-path` deprecation warning
     /// should fire. The scanner returns `true` iff `--package-path`
     /// (space-separated OR `=`-form) appears in the argument list —
-    /// once, or repeatedly, or intermixed with `--path`. The
+    /// once, or repeatedly, or intermixed with `--project-path`. The
     /// aliased `@Option` on `LocationOptions` gives us last-wins
     /// semantics for the value itself; this helper only answers
     /// "was the deprecated spelling ever typed".
@@ -651,7 +651,7 @@ struct SwiftCommandStateTests {
             )
         }
 
-        /// The canonical `--path <value>` invocation must NOT warn
+        /// The canonical `--project-path <value>` invocation must NOT warn
         /// — the user is already on the new spelling.
         @Test(
             .tags(
@@ -659,7 +659,7 @@ struct SwiftCommandStateTests {
             ),
         )
         func withOnlyPath_returnsFalse() throws {
-            let args = ["swift-package", "--path", "/repo", "describe"]
+            let args = ["swift-package", "--project-path", "/repo", "describe"]
             #expect(
                 SwiftCommandState.packagePathDeprecationWarranted(arguments: args) == false,
             )
@@ -695,7 +695,7 @@ struct SwiftCommandStateTests {
             )
         }
 
-        /// Mixed usage — `--path` followed by `--package-path` —
+        /// Mixed usage — `--project-path` followed by `--package-path` —
         /// must warn because the deprecated spelling was used at
         /// least once, regardless of last-wins order.
         @Test(
@@ -704,7 +704,7 @@ struct SwiftCommandStateTests {
             ),
         )
         func withBothFlagsMixed_returnsTrue() throws {
-            let args = ["swift-package", "--path", "/a", "--package-path", "/b", "describe"]
+            let args = ["swift-package", "--project-path", "/a", "--package-path", "/b", "describe"]
             #expect(
                 SwiftCommandState.packagePathDeprecationWarranted(arguments: args) == true,
             )
