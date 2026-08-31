@@ -37,6 +37,29 @@ struct SPDXConverterTests {
         #expect(result.isEmpty)
     }
 
+    @Test("convertToAgent does not use the Unix epoch when the metadata timestamp is missing")
+    func convertToAgentWithMissingTimestamp() async throws {
+        let creator = SBOMTool(
+            id: SBOMIdentifier(value: "tool-1"),
+            name: "SwiftPM",
+            version: "3.0.1",
+            purl: PURL(
+                scheme: "pkg",
+                type: "swift",
+                namespace: "github.com/swiftlang",
+                name: "SwiftPM",
+                version: "3.0.1"
+            )
+        )
+        let metadata = SBOMMetadata(timestamp: nil, creators: [creator])
+
+        let result = await SPDXConverter.convertToAgent(from: metadata)
+        let creationInfo = try #require(result.compactMap { $0 as? SPDXCreationInfo }.first)
+
+        #expect(creationInfo.created != "1970-01-01T00:00:00Z")
+        #expect(ISO8601DateFormatter().date(from: creationInfo.created) != nil)
+    }
+
     @Test("convertToAgent with empty creators")
     func convertToAgentWithEmptyCreators() async throws {
         let metadata = SBOMMetadata(
