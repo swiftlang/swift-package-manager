@@ -1465,7 +1465,7 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    /// `swift workspace override add <identity> --path <path>`
+    /// `swift workspace override add <identity> --project-path <path>`
     /// writes the override to `.swiftpm/configuration/workspace-overrides.json`
     /// and a subsequent `swift build` picks up the redirect — the
     /// built binary prints the LOCAL greeting instead of contacting
@@ -3674,7 +3674,7 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    // /// `--path <workspace>` alone is the canonical spelling —
+    // /// `--project-path <workspace>` alone is the canonical spelling —
     // /// the workspace loads normally with no deprecation noise on
     // /// stderr. Regression guard against the aliased `@Option`
     // /// accidentally firing the deprecation for the new name.
@@ -3682,26 +3682,25 @@ struct WorkspaceFeatureTests {
     //     .tags(
     //         .Feature.Command.Package.General,
     //     ),
-    //     .disabled("The '--path' spelling was renamed to '--workspace-path' and '--package-path' deprecation is not currently emitted."),
     //     arguments: [BuildSystemProvider.Kind.swiftbuild],
     // )
     // func s15_pathFlag_alone_worksWithoutDeprecationWarning(
     //     buildSystem: BuildSystemProvider.Kind,
     // ) async throws {
     //     try await fixture(name: "Workspaces/S14_DumpPackage") { fixturePath in
-    //         let (_, stderr) = try await executeSwiftWorkspace(
+    //         let (_, stderr) = try await executeSwiftPackage(
     //             fixturePath,
     //             configuration: .debug,
-    //             extraArgs: ["dump-workspace"],
+    //             extraArgs: ["workspace", "dump-workspace"],
     //             buildSystem: buildSystem,
     //         )
     //         let deprecation = Basics.Diagnostic.argumentDeprecated(
     //             flag: "--package-path",
-    //             renamed: "--path",
+    //             renamed: "--project-path",
     //         )
     //         #expect(
     //             stderr.contains(deprecation.message) == false,
-    //             "unexpected deprecation warning for the canonical `--path` invocation; got stderr=\(stderr)",
+    //             "unexpected deprecation warning for the canonical `--project-path` invocation; got stderr=\(stderr)",
     //         )
     //     }
     // }
@@ -3714,14 +3713,13 @@ struct WorkspaceFeatureTests {
     //     .tags(
     //         .Feature.Command.Package.General,
     //     ),
-    //     .disabled("'--package-path' deprecation is not currently emitted; it is a supported alias for '--workspace-path'."),
     //     arguments: [BuildSystemProvider.Kind.swiftbuild],
     // )
     // func s15_packagePathFlag_alone_worksAndWarns(
     //     buildSystem: BuildSystemProvider.Kind,
     // ) async throws {
     //     try await testWithTemporaryDirectory { tempDir in
-    //         let (_, stderr) = try await executeSwiftWorkspace(
+    //         let (_, stderr) = try await executeSwiftPackage(
     //             nil,
     //             configuration: .debug,
     //             extraArgs: [
@@ -3732,7 +3730,7 @@ struct WorkspaceFeatureTests {
     //         )
     //         let deprecation = Basics.Diagnostic.argumentDeprecated(
     //             flag: "--package-path",
-    //             renamed: "--path",
+    //             renamed: "--project-path",
     //         )
     //         #expect(
     //             stderr.contains(deprecation.message) == true,
@@ -3742,17 +3740,16 @@ struct WorkspaceFeatureTests {
     //     }
     // }
 
-    // /// Both `--path <A>` and `--package-path <B>` set: last-wins
+    // /// Both `--project-path <A>` and `--package-path <B>` set: last-wins
     // /// semantics — whichever appears LAST on the command line
     // /// wins. Verified by asserting `--package-path <B>` (typed
-    // /// last) beats an earlier `--path <A>`. Locks in the aliased
+    // /// last) beats an earlier `--project-path <A>`. Locks in the aliased
     // /// `@Option` last-wins behaviour and that the deprecation
     // /// still fires because the old spelling was typed.
     // @Test(
     //     .tags(
     //         .Feature.Command.Package.General,
     //     ),
-    //     .disabled("'--path' was renamed to '--workspace-path' globally and '--package-path' deprecation is not currently emitted."),
     //     arguments: [BuildSystemProvider.Kind.swiftbuild],
     // )
     // func s15_bothPathFlags_lastWinsAndWarns(
@@ -3762,13 +3759,13 @@ struct WorkspaceFeatureTests {
     //         let earlyTarget = tempDir.appending("early-target")
     //         let lateTarget = tempDir.appending("late-target")
 
-    //         let (_, stderr) = try await executeSwiftWorkspace(
+    //         let (_, stderr) = try await executeSwiftPackage(
     //             nil,
     //             configuration: .debug,
     //             extraArgs: [
-    //                 "--path", earlyTarget.pathString,
+    //                 "--project-path", earlyTarget.pathString,
     //                 "--package-path", lateTarget.pathString,
-    //                 "init",
+    //                 "workspace", "init",
     //             ],
     //             buildSystem: buildSystem,
     //         )
@@ -3782,7 +3779,7 @@ struct WorkspaceFeatureTests {
     //         // at least once.
     //         let deprecation = Basics.Diagnostic.argumentDeprecated(
     //             flag: "--package-path",
-    //             renamed: "--path",
+    //             renamed: "--project-path",
     //         )
     //         #expect(
     //             stderr.contains(deprecation.message) == true,
@@ -3790,6 +3787,169 @@ struct WorkspaceFeatureTests {
     //         )
     //     }
     // }
+
+
+    // MARK: - Slice 15d: `swift package edit` / `unedit` deferred under a workspace
+
+    /// `swift package edit` under a SwiftPM workspace must fail
+    /// with an actionable message that points the user at
+    /// `swift package workspace override` (the workspace-scoped
+    /// replacement for the "redirect a dep to a local checkout"
+    /// use case). The user must never see the generic
+    /// "will be addressed in a follow-up" placeholder — they need
+    /// a concrete next step.
+    @Test(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s15_edit_underWorkspace_hardErrorsPointingAtWorkspaceOverride(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S14_DumpPackage") { fixturePath in
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftPackage(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: ["edit", "some-lib"],
+                    buildSystem: buildSystem,
+                ),
+            ) { error in
+                #expect(
+                    error.stderr.contains("swift package edit is not supported") == true,
+                    "expected the deferred-feature phrasing on stderr; got stderr=\(error.stderr)",
+                )
+                #expect(
+                    error.stderr.contains("swift package workspace override") == true,
+                    "expected the workspace-override redirect on stderr; got stderr=\(error.stderr)",
+                )
+                #expect(
+                    error.stderr.contains(fixturePath.pathString) == true,
+                    "expected the workspace root on stderr; got stderr=\(error.stderr)",
+                )
+                #expect(
+                    error.stderr.contains("follow-up") == false,
+                    "unexpected placeholder wording on stderr; got stderr=\(error.stderr)",
+                )
+            }
+        }
+    }
+
+    /// Parity coverage for `swift package unedit` under a workspace
+    /// — same rejection, same actionable redirect at
+    /// `swift package workspace override remove`.
+    @Test(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s15_unedit_underWorkspace_hardErrorsPointingAtWorkspaceOverride(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S14_DumpPackage") { fixturePath in
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftPackage(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: ["unedit", "some-lib"],
+                    buildSystem: buildSystem,
+                ),
+            ) { error in
+                #expect(
+                    error.stderr.contains("swift package unedit is not supported") == true,
+                    "expected the deferred-feature phrasing on stderr; got stderr=\(error.stderr)",
+                )
+                #expect(
+                    error.stderr.contains("swift package workspace override") == true,
+                    "expected the workspace-override redirect on stderr; got stderr=\(error.stderr)",
+                )
+                #expect(
+                    error.stderr.contains(fixturePath.pathString) == true,
+                    "expected the workspace root on stderr; got stderr=\(error.stderr)",
+                )
+                #expect(
+                    error.stderr.contains("follow-up") == false,
+                    "unexpected placeholder wording on stderr; got stderr=\(error.stderr)",
+                )
+            }
+        }
+    }
+
+    /// A standalone `Package.swift` (no `Workspace.swift` in any
+    /// ancestor) that uses `.package(workspaceMember:)` must fail
+    /// at load time — the DSL entry is workspace-only and has no
+    /// meaning outside a workspace context. Locks in the
+    /// `workspaceMemberUsedOutsideWorkspace` rejection at the CLI
+    /// boundary. Unit-level coverage of the same rejection lives in
+    /// `WorkspaceResolveTests`.
+    @Test(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s15_workspaceMember_outsideWorkspace_hardErrors(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(
+            name: "Workspaces/S15_ErrorPaths/WorkspaceMemberUsedOutsideWorkspace",
+        ) { fixturePath in
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftPackage(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: ["describe"],
+                    buildSystem: buildSystem,
+                ),
+            ) { error in
+                #expect(
+                    error.stderr.contains(".package(workspaceMember:)"),
+                    "expected `.package(workspaceMember:)` mention on stderr; got stderr=\(error.stderr)",
+                )
+                #expect(
+                    error.stderr.contains("Workspace.swift"),
+                    "expected the Workspace.swift precondition on stderr; got stderr=\(error.stderr)",
+                )
+            }
+        }
+    }
+
+    /// Parity coverage for `.package(workspaceInherited:)` outside
+    /// a workspace: same rejection with the identity-only variant
+    /// of the DSL.
+    @Test(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s15_workspaceInherited_outsideWorkspace_hardErrors(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(
+            name: "Workspaces/S15_ErrorPaths/WorkspaceInheritedUsedOutsideWorkspace",
+        ) { fixturePath in
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftPackage(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: ["describe"],
+                    buildSystem: buildSystem,
+                ),
+            ) { error in
+                #expect(
+                    error.stderr.contains(".package(workspaceInherited:)"),
+                    "expected `.package(workspaceInherited:)` mention on stderr; got stderr=\(error.stderr)",
+                )
+                #expect(
+                    error.stderr.contains("Workspace.swift"),
+                    "expected the Workspace.swift precondition on stderr; got stderr=\(error.stderr)",
+                )
+            }
+        }
+    }
 
     /// Initializes an external-dependency directory in the S08
     /// fixture as a git repository tagged `1.0.0`. The fixture ships

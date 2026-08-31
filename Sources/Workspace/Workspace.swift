@@ -1173,6 +1173,15 @@ extension PackageWorkspace {
                         if let error = error as? TraitError {
                             throw error
                         }
+                        // Propagate WorkspaceResolveError so workspace-only
+                        // DSL usage outside a workspace (or an unknown
+                        // member/inherited-dependency reference) surfaces as
+                        // an actionable failure at the CLI boundary instead
+                        // of being silently swallowed into an empty manifest
+                        // set.
+                        if let error = error as? WorkspaceResolveError {
+                            throw error
+                        }
                         return nil
                     }
                 }
