@@ -3627,6 +3627,53 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    // MARK: - Slice 15c: CLI conflicts + flag surface
+
+    /// `--multiroot-data-file` (Xcode workspace mode) supplied
+    /// alongside a discoverable `Workspace.swift` (SwiftPM
+    /// workspace mode) must hard-error at init. The two mechanisms
+    /// target incompatible layouts; silently preferring one over
+    /// the other would leak `.build/` / `Package.resolved` state
+    /// to the wrong root. The message must name BOTH paths so the
+    /// user can tell where each mode is anchored.
+    @Test(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s15_multirootDataFile_conflictsWithDiscoveredWorkspace(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S14_DumpPackage") { fixturePath in
+            let bogusMultiroot = fixturePath.appending("bogus.xcworkspace")
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftPackage(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: [
+                        "--multiroot-data-file", bogusMultiroot.pathString,
+                        "describe",
+                    ],
+                    buildSystem: buildSystem,
+                ),
+            ) { error in
+                #expect(
+                    error.stderr.contains("cannot be used together") == true,
+                    "expected the conflict phrasing on stderr; got stderr=\(error.stderr)",
+                )
+                #expect(
+                    error.stderr.contains(bogusMultiroot.pathString) == true,
+                    "expected multiroot path on stderr; got stderr=\(error.stderr)",
+                )
+                #expect(
+                    error.stderr.contains(fixturePath.pathString) == true,
+                    "expected workspace root on stderr; got stderr=\(error.stderr)",
+                )
+            }
+        }
+    }
+
     /// Initializes an external-dependency directory in the S08
     /// fixture as a git repository tagged `1.0.0`. The fixture ships
     /// each `external/*` directory without a `.git/` folder (nothing

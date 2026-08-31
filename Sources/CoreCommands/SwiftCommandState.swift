@@ -603,6 +603,18 @@ public final class SwiftCommandState {
             from: workspaceDiscoveryStart,
             fileSystem: fileSystem,
         )
+        // `--multiroot-data-file` vs. `Workspace.swift`: the two
+        // mechanisms target incompatible workspace layouts. Rejecting
+        // the combination up-front prevents `.build/` and
+        // `Package.resolved` state from silently anchoring to the
+        // wrong root.
+        if let conflictDiagnostic = Self.multirootDataFileConflictDiagnostic(
+            multirootDataFile: options.locations.multirootPackageDataFile,
+            discoveredWorkspaceRoot: discoveredWorkspaceRoot,
+        ) {
+            self.observabilityScope.emit(conflictDiagnostic)
+            throw ExitCode.failure
+        }
         // `--multiroot-data-file` targets an Xcode workspace layout;
         // in that mode `Workspace.swift`-scoped state has no meaning,
         // so suppress the discovery here even if a `Workspace.swift`
@@ -1625,6 +1637,30 @@ extension SwiftCommandState {
         return PackageWorkspace.DefaultLocations
             .configurationDirectory(forRootPackage: packageRoot)
     }
+
+    /// Pure decision helper: returns the conflict diagnostic when
+    /// both `--multiroot-data-file` and a discovered SwiftPM
+    /// `Workspace.swift` are present, `nil` otherwise. The two
+    /// mechanisms target incompatible workspace layouts (Xcode
+    /// workspace vs. SwiftPM workspace); the caller is expected to
+    /// emit the returned diagnostic and abort.
+    ///
+    /// Extracted so the truth table (four combinations of the two
+    /// optional inputs) can be unit-tested without spinning up a
+    /// full `SwiftCommandState`.
+    @_spi(SwiftPMTesting)
+    public static func multirootDataFileConflictDiagnostic(
+        multirootDataFile: AbsolutePath?,
+        discoveredWorkspaceRoot: AbsolutePath?,
+    ) -> Basics.Diagnostic? {
+        guard let multirootDataFile, let discoveredWorkspaceRoot else {
+            return nil
+        }
+        return .multirootDataFileConflictsWithWorkspace(
+            multirootDataFile: multirootDataFile,
+            workspaceRoot: discoveredWorkspaceRoot,
+        )
+    }
 }
 
 /// Errors surfaced by `SwiftCommandState` decision helpers.
@@ -1896,6 +1932,26 @@ extension Basics.Diagnostic {
             dump-package requires --package <identity> in a workspace \
             with multiple members; known members: \
             \(sortedKnown.map { "'\($0)'" }.joined(separator: ", "))
+            """,
+        )
+    }
+
+    /// Diagnostic emitted when `--multiroot-data-file` is supplied
+    /// alongside a discoverable `Workspace.swift` — the two
+    /// mechanisms target different workspace layouts (Xcode
+    /// workspace vs. SwiftPM workspace) and can't coexist for a
+    /// single invocation. Points at BOTH paths so the user knows
+    /// where each mode is anchored.
+    @_spi(SwiftPMInternal)
+    public static func multirootDataFileConflictsWithWorkspace(
+        multirootDataFile: AbsolutePath,
+        workspaceRoot: AbsolutePath,
+    ) -> Self {
+        .error(
+            """
+            '--multiroot-data-file \(multirootDataFile.pathString)' cannot be used \
+            together with the SwiftPM workspace at '\(workspaceRoot.pathString)'; \
+            remove the flag or move the invocation outside the Workspace.swift tree
             """,
         )
     }

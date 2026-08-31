@@ -14,6 +14,7 @@
 @testable import Build
 @testable import Commands
 @_spi(SwiftPMTesting) @testable import CoreCommands
+@_spi(SwiftPMInternal) import CoreCommands
 
 import struct SPMBuildCore.BuildSystemProvider
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
@@ -543,6 +544,77 @@ struct SwiftCommandStateTests {
 
             #expect(
                 actual == multiroot.appending(components: "xcshareddata", "swiftpm", "configuration"),
+            )
+        }
+    }
+
+    // MARK: - multirootDataFileConflictDiagnostic (Slice 15c, item 8)
+
+    /// Unit coverage for the pure decision helper that surfaces
+    /// the `--multiroot-data-file` vs. `Workspace.swift` conflict.
+    /// The two mechanisms target incompatible workspace layouts;
+    /// the helper returns a diagnostic when both are present and
+    /// `nil` in the other three combinations so a caller can emit
+    /// + abort only in the true-conflict case.
+    @Suite(
+        .tags(
+            .FunctionalArea.WorkspaceManiest,
+        ),
+    )
+    struct MultirootDataFileConflictDiagnosticTests {
+
+        /// The conflict case: BOTH `--multiroot-data-file` and a
+        /// discovered `Workspace.swift` are set. Returns a diagnostic
+        /// that names both paths so the user can see where each
+        /// mode is anchored and decide which to remove.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func withBothSet_returnsDiagnosticNamingBothPaths() throws {
+            let multiroot = AbsolutePath("/Xcode.xcworkspace")
+            let workspaceRoot = AbsolutePath("/repo")
+
+            let actual = try #require(
+                SwiftCommandState.multirootDataFileConflictDiagnostic(
+                    multirootDataFile: multiroot,
+                    discoveredWorkspaceRoot: workspaceRoot,
+                ),
+            )
+            let expected = Basics.Diagnostic.multirootDataFileConflictsWithWorkspace(
+                multirootDataFile: multiroot,
+                workspaceRoot: workspaceRoot,
+            )
+            #expect(actual.severity == expected.severity)
+            #expect(actual.message == expected.message)
+        }
+
+        /// The three non-conflict branches — only-multiroot,
+        /// only-workspace, and neither — all return `nil` so the
+        /// caller proceeds down its normal code path (Xcode
+        /// workspace, SwiftPM workspace, or single-package
+        /// baseline respectively).
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+            arguments: [
+                (name: "only multiroot", multiroot: AbsolutePath("/Xcode.xcworkspace"), workspaceRoot: AbsolutePath?.none),
+                (name: "only workspace root", multiroot: AbsolutePath?.none, workspaceRoot: AbsolutePath("/repo")),
+                (name: "neither", multiroot: AbsolutePath?.none, workspaceRoot: AbsolutePath?.none),
+            ],
+        )
+        func withoutConflict_returnsNil(
+            testCase: (name: String, multiroot: AbsolutePath?, workspaceRoot: AbsolutePath?),
+        ) throws {
+            let diagnostic = SwiftCommandState.multirootDataFileConflictDiagnostic(
+                multirootDataFile: testCase.multiroot,
+                discoveredWorkspaceRoot: testCase.workspaceRoot,
+            )
+            #expect(
+                diagnostic == nil,
+                "expected nil for the '\(testCase.name)' branch; got \(String(describing: diagnostic))",
             )
         }
     }
