@@ -159,7 +159,7 @@ extension SwiftCommand {
         }
         // if SwiftCommandState.packagePathDeprecationWarranted(arguments: CommandLine.arguments) {
         //     swiftCommandState.observabilityScope.emit(
-        //         .argumentDeprecated(flag: "--package-path", renamed: "--path")
+        //         .argumentDeprecated(flag: "--package-path", renamed: "--project-path")
         //     )
         // }
         swiftCommandState.flushMemberStateFindings()
@@ -283,7 +283,7 @@ extension AsyncSwiftCommand {
         }
         // if SwiftCommandState.packagePathDeprecationWarranted(arguments: CommandLine.arguments) {
         //     swiftCommandState.observabilityScope.emit(
-        //         .argumentDeprecated(flag: "--package-path", renamed: "--path")
+        //         .argumentDeprecated(flag: "--package-path", renamed: "--project-path")
         //     )
         // }
 
@@ -319,8 +319,10 @@ public final class SwiftCommandState {
     /// when no `Workspace.swift` is reachable from the CWD/package
     /// root, or when `--multiroot-data-file` is in use. Consumed by
     /// `getResolvedVersionsFile()` so `Package.resolved` lives at the
-    /// workspace root, shared across all members.
-    private let workspaceRoot: AbsolutePath?
+    /// workspace root, shared across all members. Also exposed to
+    /// command implementations that need to gate behaviour on
+    /// "am I under a workspace right now" (e.g. `swift package edit`).
+    @_spi(SwiftPMInternal) public private(set) var workspaceRoot: AbsolutePath?
 
     /// When a `Workspace.swift` is discovered and CWD is inside one of
     /// its members, this holds the enclosing member's identity. Nil
@@ -1664,7 +1666,7 @@ extension SwiftCommandState {
     /// (space-separated `--package-path <value>` OR the equals form
     /// `--package-path=<value>`). Consumed by the CLI startup path
     /// to decide whether to emit the deprecation warning that steers
-    /// users toward `--path`.
+    /// users toward `--project-path`.
     ///
     /// The aliased `@Option` on `LocationOptions` gives us last-wins
     /// value semantics for the two spellings automatically — this

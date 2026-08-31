@@ -12,6 +12,7 @@
 
 import ArgumentParser
 import Basics
+
 @_spi(SwiftPMTesting) @_spi(SwiftPMInternal) import CoreCommands
 import SourceControl
 import Workspace
@@ -50,6 +51,23 @@ extension SwiftPackageCommand {
                     )
                 }
             }
+
+            // `swift package edit` and `unedit` don't have well-
+            // defined semantics under a SwiftPM workspace — the
+            // workspace owns a shared `.build/` and shared
+            // `Package.resolved`, and per-dependency editable
+            // checkouts collide with `workspaceMember` / workspace-
+            // level dependency declarations. `swift package
+            // workspace override` supersedes the "redirect a
+            // dependency to a local checkout" use case that `edit`
+            // covered in single-package mode.
+            if let workspaceRoot = swiftCommandState.workspaceRoot {
+                swiftCommandState.observabilityScope.emit(
+                    .editUnsupportedUnderWorkspace(workspaceRoot: workspaceRoot),
+                )
+                throw ExitCode.failure
+            }
+
             try await swiftCommandState.resolve()
             let workspace = try swiftCommandState.getActiveWorkspace()
 
@@ -82,6 +100,13 @@ extension SwiftPackageCommand {
         var packageIdentity: String
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
+            if let workspaceRoot = swiftCommandState.workspaceRoot {
+                swiftCommandState.observabilityScope.emit(
+                    .uneditUnsupportedUnderWorkspace(workspaceRoot: workspaceRoot),
+                )
+                throw ExitCode.failure
+            }
+
             try await swiftCommandState.resolve()
             let workspace = try swiftCommandState.getActiveWorkspace()
 
@@ -99,5 +124,41 @@ extension SwiftPackageCommand {
                 )
             }
         }
+    }
+}
+
+extension Basics.Diagnostic {
+    /// Error emitted when `swift package edit` is invoked under a
+    /// SwiftPM workspace. `edit`'s per-dependency editable-checkout
+    /// model collides with the workspace's shared `.build/` and
+    /// `workspaceMember` / workspace-level `dependencies:`
+    /// declarations. Points the user at `swift package workspace
+    /// override`, which supersedes the "redirect a dependency to a
+    /// local checkout" use case for workspaces.
+    @_spi(SwiftPMInternal)
+    public static func editUnsupportedUnderWorkspace(workspaceRoot: AbsolutePath) -> Self {
+        .error(
+            """
+            swift package edit is not supported under a SwiftPM workspace (rooted at \
+            '\(workspaceRoot.pathString)'); use 'swift package workspace override' to \
+            redirect a dependency to a local checkout instead
+            """,
+        )
+    }
+
+    /// Error emitted when `swift package unedit` is invoked under
+    /// a SwiftPM workspace. Same reasoning as
+    /// `editUnsupportedUnderWorkspace` — `unedit` is the inverse
+    /// of `edit`, and both are subsumed by
+    /// `swift package workspace override` under a workspace.
+    @_spi(SwiftPMInternal)
+    public static func uneditUnsupportedUnderWorkspace(workspaceRoot: AbsolutePath) -> Self {
+        .error(
+            """
+            swift package unedit is not supported under a SwiftPM workspace (rooted at \
+            '\(workspaceRoot.pathString)'); use 'swift package workspace override remove' to \
+            drop a dependency redirect instead
+            """,
+        )
     }
 }
