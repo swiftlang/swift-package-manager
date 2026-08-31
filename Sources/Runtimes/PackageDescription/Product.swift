@@ -90,7 +90,7 @@ public class Product {
             /// A statically linked library.
             case `static`
             /// A dynamically linked library.
-            case `dynamic`
+            case dynamic
         }
 
         /// The names of the targets in this product.

@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
+
 // A future improvement to the package manager would be to allow use of
 // a plugin to also provide configuration parameters for that plugin.
 // Any proposal that adds such a facility should also add initializers
@@ -19,8 +21,6 @@
 ///
 /// For example, the way to instantiate and run a plugin.
 public protocol Plugin {
-
-
     /// Instantiates the plugin.
     ///
     /// This happens once per invocation of the plugin.
@@ -69,5 +69,28 @@ extension CommandPlugin {
     /// through which the plugin can ask for specialized information or actions.
     public var packageManager: PackageManager {
         return PackageManager()
+    }
+}
+
+/// The plugin protocol that defines functionality for all plugins that have an external builder capability
+public protocol ExternalBuilderPlugin: Plugin {
+    /// Invoked by the package manager to create the command that will perform the
+    /// external build for the package.
+    func createExternalBuildCommand(
+        context: PluginContext,
+    ) async throws -> ExternalBuildCommand
+}
+
+public struct ExternalBuildCommand {
+    var displayName: String?
+    var executable: URL
+    var arguments: [String]
+    var environment: [String: String]
+
+    public init(displayName: String? = nil, executable: URL, arguments: [String], environment: [String : String] = [:]) {
+        self.displayName = displayName
+        self.executable = executable
+        self.arguments = arguments
+        self.environment = environment
     }
 }

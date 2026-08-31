@@ -401,6 +401,8 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             try self.addLibraryTarget(for: target)
         case .systemModule:
             try self.addSystemTarget(for: target)
+        case .externalLibrary:
+            fatalError("Not supported by the xcode builder")
         case .executable, .snippet, .test:
             // Skip executable module targets and test module targets (they will have been dealt with as part of the
             // products to which they belong).

@@ -23,6 +23,8 @@ import struct Basics.SourceControlURL
 import class PackageModel.Manifest
 import class PackageModel.Module
 import class PackageModel.BinaryModule
+import struct PackageModel.PackageIdentity
+import class PackageModel.PluginModule
 import enum PackageModel.PrebuiltsPlatform
 import class PackageModel.Product
 import class PackageModel.SystemLibraryModule
@@ -95,7 +97,7 @@ extension PackagePIFProjectBuilder {
                         )
                     }
 
-                case .library, .systemModule, .test, .binary, .plugin, .macro:
+                case .library, .systemModule, .externalLibrary, .test, .binary, .plugin, .macro:
                     let dependencyGUID = moduleDependency.pifTargetGUID
                     pluginTarget.common.addDependency(
                         on: dependencyGUID,
@@ -829,6 +831,22 @@ extension PackagePIFProjectBuilder {
                     }
                     log(.debug, indent: 1, "Added use of binary library '\(moduleDependency.path)'")
 
+                case .externalLibrary:
+                    // Add dependency on the external library target
+                    moduleTarget.common.addDependency(
+                        on: moduleDependency.pifTargetGUID,
+                        platformFilters: dependencyPlatformFilters,
+                        linkProduct: shouldLinkProduct
+                    )
+                    log(
+                        .debug,
+                        indent: 1,
+                        "Added \(shouldLinkProduct ? "linked " : "")dependency on target '\(moduleDependency.pifTargetGUID)'"
+                    )
+                    if shouldLinkProduct {
+                        // Add in the build file for the library
+                    }
+
                 case .plugin:
                     let dependencyGUID = moduleDependency.pifTargetGUID
                     moduleTarget.common.addDependency(
@@ -838,7 +856,7 @@ extension PackagePIFProjectBuilder {
                     )
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyGUID)'")
 
-                case .library, .test, .macro, .systemModule:
+                case .library, .test, .macro, .systemModule, .externalLibrary:
                     moduleTarget.common.addDependency(
                         on: moduleDependency.pifTargetGUID,
                         platformFilters: dependencyPlatformFilters,
@@ -891,7 +909,10 @@ extension PackagePIFProjectBuilder {
         var debugSettings = settings
         var releaseSettings = settings
 
-        let allBuildSettings = sourceModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
+        let allBuildSettings = sourceModule.computeAllBuildSettings(
+            observabilityScope: pifBuilder.observabilityScope,
+            packagePath: self.package.path,
+            forRemotePackage: pifBuilder.delegate.isRemote)
 
         // Apply target-specific build settings defined in the manifest.
         allBuildSettings.apply(to: &debugSettings, for: .debug)
@@ -1065,5 +1086,99 @@ extension PackagePIFProjectBuilder {
             toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(systemModule)
+    }
+
+    // MARK: - External Libraries
+
+    mutating func makeExternalLibraryTarget(_ resolvedExternalLibrary: PackageGraph.ResolvedModule) throws {
+        // Like a system module, the external library comes from somewhere else.
+        // But that place is an external package so we can't generate a module for it.
+        // We just want to add the library dependency and make sure the proper settings
+        // are imparted to find it.
+        precondition(resolvedExternalLibrary.type == .externalLibrary)
+
+        let externalLibraryTargetKeyPath = try self.project.addAggregateTarget { _ in
+            ProjectModel.AggregateTarget(
+                id: resolvedExternalLibrary.pifTargetGUID,
+                name: resolvedExternalLibrary.name
+            )
+        }
+        do {
+            let externalLibraryTarget = self.project[keyPath: externalLibraryTargetKeyPath]
+            log(
+                .debug,
+                "Created aggregate target '\(externalLibraryTarget.id)' with name '\(externalLibraryTarget.name)'"
+            )
+        }
+
+        let externalFiles: [FileReference] = resolvedExternalLibrary.pluginDependencies(capability: .externalBuilder).map { plugin in
+            let pluginOutputDir = plugin.pluginOutputPath(forPackage: resolvedExternalLibrary.packageIdentity, pluginWorkingDirectory: pifBuilder.pluginWorkingDirectory)
+
+            return self.binaryGroup.addFileReference { id in
+                // TODO: need to support other naming schemes like Windows
+                return FileReference(id: id, path: "\(pluginOutputDir)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/lib\(resolvedExternalLibrary.name).a")
+            }
+        }
+
+        if !externalFiles.isEmpty {
+            self.project[keyPath: externalLibraryTargetKeyPath].common.addCopyFilesBuildPhase { id in
+                var phase = ProjectModel.CopyFilesBuildPhase(
+                    common: .init(id: id),
+                    destinationSubfolder: .builtProductsDir
+                )
+
+                for file in externalFiles {
+                    phase.common.addBuildFile { id in
+                        BuildFile(id: id, fileRef: file)
+                    }
+                }
+
+                return phase
+            }
+        }
+
+        let allBuildSettings = resolvedExternalLibrary.computeAllBuildSettings(
+            observabilityScope: pifBuilder.observabilityScope,
+            packagePath: self.package.path,
+            forRemotePackage: pifBuilder.delegate.isRemote)
+
+        var impartedSettings = ProjectModel.BuildSettings()
+
+        allBuildSettings.applyImparted(to: &impartedSettings)
+
+        self.project[keyPath: externalLibraryTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(
+                id: id,
+                name: "Debug",
+                settings: .init(),
+                impartedBuildSettings: impartedSettings
+            )
+        }
+
+        self.project[keyPath: externalLibraryTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(
+                id: id,
+                name: "Release",
+                settings: .init(),
+                impartedBuildSettings: impartedSettings
+            )
+        }
+
+        // Add dependency on external builders
+        self.project[keyPath: externalLibraryTargetKeyPath].common.addDependency(
+            on: self.package.pifTargetGUID,
+            platformFilters: [],
+            linkProduct: false
+        )
+    }
+}
+
+extension ResolvedModule {
+    func pluginOutputPath(forPackage: PackageIdentity, pluginWorkingDirectory: AbsolutePath) -> AbsolutePath {
+        pluginWorkingDirectory.appending(components: [
+            "external",
+            packageIdentity.c99name,
+            self.name
+        ])
     }
 }

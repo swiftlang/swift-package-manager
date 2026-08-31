@@ -49,6 +49,7 @@ public struct PackageReference {
             case .registry(let identity):
                 // FIXME: this is a placeholder
                 return identity.description
+
             }
         }
 
@@ -212,7 +213,7 @@ extension PackageReference: CustomStringConvertible {
 
 extension PackageReference.Kind: Encodable {
     private enum CodingKeys: String, CodingKey {
-        case root, fileSystem, localSourceControl, remoteSourceControl, registry
+        case root, fileSystem, localSourceControl, remoteSourceControl, registry, archive
     }
 
     public func encode(to encoder: Encoder) throws {

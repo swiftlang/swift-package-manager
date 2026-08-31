@@ -361,6 +361,44 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             ))
         }
 
+        let externals: [Manifest] = parsedManifest.externals.compactMap { external in
+            guard let dependency = parsedManifest.dependencies.first(where: { $0.nameForModuleDependencyResolutionOnly == external.name }) else {
+                // TODO: should raise a warning that the external isn't being used
+                return nil
+            }
+
+            // Sneak the path to the extracted package into the manifest
+            // TODO: must be a better way to get this through to the build system
+            let packagePath: AbsolutePath
+            switch dependency {
+            case .fileSystem(let fileSystem):
+                packagePath = fileSystem.path
+            default:
+                fatalError("TODO: figure out where the package got extracted to")
+            }
+
+            return Manifest(
+                displayName: external.name,
+                packageIdentity: dependency.identity,
+                path: packagePath,
+                packageKind: dependency.packageRef.kind,
+                packageLocation: packageLocation,
+                defaultLocalization: external.defaultLocalization,
+                platforms: external.platforms,
+                version: packageVersion?.version,
+                revision: packageVersion?.revision,
+                toolsVersion: manifestToolsVersion,
+                pkgConfig: external.pkgConfig,
+                providers: external.providers,
+                cLanguageStandard: external.cLanguageStandard,
+                cxxLanguageStandard: external.cxxLanguageStandard,
+                swiftLanguageVersions: external.swiftLanguageVersions,
+                products: external.products,
+                targets: external.targets,
+                traits: external.traits
+            )
+        }
+
         let manifest = Manifest(
             displayName: parsedManifest.name,
             packageIdentity: packageIdentity,
@@ -378,6 +416,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             cxxLanguageStandard: parsedManifest.cxxLanguageStandard,
             swiftLanguageVersions: parsedManifest.swiftLanguageVersions,
             dependencies: parsedManifest.dependencies,
+            externals: externals,
             products: products,
             targets: targets,
             traits: parsedManifest.traits,
@@ -730,6 +769,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 "-Xlinker", "-rpath", "-Xlinker", runtimePath.parentDirectory.pathString,
             ]
 
+            // Make sure we can find the swiftmodule
+            let parent = runtimePath.parentDirectory
+            if parent.basename == "PackageFrameworks" {
+                cmd += ["-I", parent.parentDirectory.pathString]
+            } else {
+                cmd += ["-I", parent.pathString]
+            }
+
             // Explicitly link `AppleProductTypes` since auto-linking won't work here.
 #if ENABLE_APPLE_PRODUCT_TYPES
             cmd += ["-framework", "AppleProductTypes"]
@@ -963,7 +1010,19 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
         if modulesPath.extension == "framework" {
-            cmd += ["-I", modulesPath.parentDirectory.parentDirectory.pathString]
+            let parent = modulesPath.parentDirectory
+            if parent.basename == "PackageFrameworks" {
+                cmd += [
+                    "-F", parent.pathString,
+                    "-I", parent.parentDirectory.pathString
+                ]
+            } else {
+                // This is a toolchain linked to the Xcode build output
+                cmd += [
+                    "-F", parent.pathString,
+                    "-I", parent.pathString
+                ]
+            }
         } else {
             cmd += ["-I", modulesPath.pathString]
         }

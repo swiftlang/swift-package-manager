@@ -418,6 +418,7 @@ struct PluginCommand: AsyncSwiftCommand {
 
             return switch plugin.capability {
             case .buildTool: false
+            case .externalBuilder: false
             case .command: true
             }
         }

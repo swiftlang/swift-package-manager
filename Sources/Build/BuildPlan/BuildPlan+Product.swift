@@ -293,6 +293,10 @@ extension BuildPlan {
                 // Add system target to system targets array.
                 case .systemModule:
                     systemModules.append(module)
+                case .externalLibrary:
+                    // TODO: proper error handling when trying to use external libraries with native build.
+                    // throw InternalError("external libraries not supported '\(module.name)'")
+                    break
                 // Add binary to binary paths set.
                 case .binary:
                     guard let binaryTarget = module.underlying as? BinaryModule else {

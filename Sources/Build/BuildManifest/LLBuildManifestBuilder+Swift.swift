@@ -287,6 +287,10 @@ extension LLBuildManifestBuilder {
                 // For automatic and static libraries, and plugins, add their targets as static input.
                 case .library(.automatic), .library(.static), .plugin:
                     for module in product.modules {
+                        guard module.type != .externalLibrary else {
+                            // TODO: proper error handling before we get here
+                            continue
+                        }
                         let description = self.plan.description(
                             for: module,
                             context: product.type == .plugin ? .host : target.destination

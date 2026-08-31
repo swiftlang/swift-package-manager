@@ -415,7 +415,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         toolsVersion: package.manifest.toolsVersion,
                         fileSystem: fileSystem
                     ))
-                case is SystemLibraryModule, is BinaryModule:
+                case is SystemLibraryModule, is BinaryModule, is ExternalLibrary:
                     break
                 default:
                     throw InternalError("unhandled \(module.underlying)")
@@ -760,7 +760,7 @@ extension BuildPlan {
         // Apply each build tool plugin used by the target in order,
         // creating a list of results (one for each plugin usage).
         var buildToolPluginResults: [BuildToolPluginInvocationResult] = []
-        for plugin in module.pluginDependencies(satisfying: buildParameters.buildEnvironment) {
+        for plugin in module.pluginDependencies(capability: .buildTool) {
             let pluginModule = plugin.underlying as! PluginModule
 
             // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool

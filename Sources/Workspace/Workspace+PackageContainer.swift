@@ -32,16 +32,28 @@ extension Workspace: PackageContainerProvider {
         switch package.kind {
         // If the container is local, just create and return a local package container.
         case .root, .fileSystem:
-            let container = try FileSystemPackageContainer(
-                package: package,
-                identityResolver: self.identityResolver,
-                dependencyMapper: self.dependencyMapper,
-                manifestLoader: self.manifestLoader,
-                currentToolsVersion: self.currentToolsVersion,
-                fileSystem: self.fileSystem,
-                observabilityScope: observabilityScope
-            )
-            return container
+            if package.identity.type == .external {
+                let container = try ExternalFileSystemPackageContainer(
+                    package: package,
+                    identityResolver: self.identityResolver,
+                    dependencyMapper: self.dependencyMapper,
+                    currentToolsVersion: self.currentToolsVersion,
+                    fileSystem: self.fileSystem,
+                    observabilityScope: observabilityScope
+                )
+                return container
+            } else {
+                let container = try FileSystemPackageContainer(
+                    package: package,
+                    identityResolver: self.identityResolver,
+                    dependencyMapper: self.dependencyMapper,
+                    manifestLoader: self.manifestLoader,
+                    currentToolsVersion: self.currentToolsVersion,
+                    fileSystem: self.fileSystem,
+                    observabilityScope: observabilityScope
+                )
+                return container
+            }
         // Resolve the container using the repository manager.
         case .localSourceControl, .remoteSourceControl:
             let repositorySpecifier = try package.makeRepositorySpecifier()

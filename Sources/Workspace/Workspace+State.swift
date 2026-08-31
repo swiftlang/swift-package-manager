@@ -490,13 +490,15 @@ extension WorkspaceStateStorage {
         }
 
         struct PackageReference: Codable {
-            let identity: String
+            // TODO: This needs a new version
+            let identity: PackageIdentity
             let kind: Kind
             let location: String
             let name: String
 
             init(_ reference: PackageModel.PackageReference) {
-                self.identity = reference.identity.description
+                self.identity = reference.identity
+
                 switch reference.kind {
                 case .root(let path):
                     self.kind = .root
@@ -568,7 +570,6 @@ extension Workspace.ManagedPrebuilt {
 
 extension PackageModel.PackageReference {
     fileprivate init(_ reference: WorkspaceStateStorage.V7.PackageReference) throws {
-        let identity = PackageIdentity.plain(reference.identity)
         let kind: PackageModel.PackageReference.Kind
         switch reference.kind {
         case .root:
@@ -580,11 +581,11 @@ extension PackageModel.PackageReference {
         case .remoteSourceControl:
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
-            kind = .registry(identity)
+            kind = .registry(reference.identity)
         }
 
         self.init(
-            identity: identity,
+            identity: reference.identity,
             kind: kind,
             name: reference.name
         )

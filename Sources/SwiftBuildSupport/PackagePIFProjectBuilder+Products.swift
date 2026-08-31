@@ -21,6 +21,7 @@ import struct Basics.SourceControlURL
 import PackageLoading
 
 import class PackageModel.BinaryModule
+import class PackageModel.ExternalLibrary
 import class PackageModel.Manifest
 import enum PackageModel.PackageCondition
 import enum PackageModel.PrebuiltsPlatform
@@ -512,19 +513,69 @@ extension PackagePIFProjectBuilder {
                         log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependencyGUID)'")
                     }
 
-                case .library, .systemModule, .test:
-                    let shouldLinkProduct = moduleDependency.type != .systemModule
+                case .library, .test:
                     let dependencyGUID = moduleDependency.pifTargetGUID
                     mainModuleTarget.common.addDependency(
                         on: dependencyGUID,
                         platformFilters: packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
-                        linkProduct: shouldLinkProduct
+                        linkProduct: true
                     )
                     log(
                         .debug,
                         indent: 1,
-                        "Added \(shouldLinkProduct ? "linked " : "")dependency on target '\(dependencyGUID)'"
+                        "Added linked dependency on target '\(dependencyGUID)'"
+                    )
+
+                case .systemModule:
+                    let dependencyGUID = moduleDependency.pifTargetGUID
+                    mainModuleTarget.common.addDependency(
+                        on: dependencyGUID,
+                        platformFilters: packageConditions
+                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        linkProduct: false
+                    )
+                    log(
+                        .debug,
+                        indent: 1,
+                        "Added dependency on target '\(dependencyGUID)'"
+                    )
+
+                case .externalLibrary:
+                    let externalFiles: [FileReference] = moduleDependency.pluginDependencies(capability: .externalBuilder).compactMap { plugin in
+                        let pluginOutputDir = plugin.pluginOutputPath(forPackage: moduleDependency.packageIdentity, pluginWorkingDirectory: pifBuilder.pluginWorkingDirectory)
+
+                        return self.binaryGroup.addFileReference { id in
+                            // TODO: need to support other naming schemes like Windows
+                            return FileReference(id: id, path: "\(pluginOutputDir)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)/lib\(moduleDependency.name).a")
+                        }
+                    }
+
+                    if !externalFiles.isEmpty {
+                        let toolsVersion = self.package.manifest.toolsVersion
+                        for file in externalFiles {
+                            mainModuleTarget.addLibrary { id in
+                                BuildFile(
+                                    id: id,
+                                    fileRef: file,
+                                    platformFilters: packageConditions.toPlatformFilter(toolsVersion: toolsVersion),
+                                )
+                            }
+                        }
+                        log(.debug, indent: 1, "Added use of external library '\(moduleDependency.path)'")
+                    }
+
+                    let dependencyGUID = moduleDependency.pifTargetGUID
+                    mainModuleTarget.common.addDependency(
+                        on: dependencyGUID,
+                        platformFilters: packageConditions
+                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        linkProduct: false
+                    )
+                    log(
+                        .debug,
+                        indent: 1,
+                        "Added dependency on target '\(dependencyGUID)'"
                     )
                 }
 
@@ -551,7 +602,11 @@ extension PackagePIFProjectBuilder {
         var releaseSettings: ProjectModel.BuildSettings = settings
 
         // Apply target-specific build settings defined in the manifest.
-        let allBuildSettings = mainModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
+        let allBuildSettings = mainModule.computeAllBuildSettings(
+            observabilityScope: pifBuilder.observabilityScope,
+            packagePath: self.package.path,
+            forRemotePackage: pifBuilder.delegate.isRemote
+        )
 
         // Apply settings using the convenience methods
         allBuildSettings.apply(to: &debugSettings, for: .debug)
@@ -726,7 +781,7 @@ extension PackagePIFProjectBuilder {
             libraryUmbrellaTargetForModules.common.addDependency(
                 on: module.pifTargetGUID,
                 platformFilters: [],
-                linkProduct: true
+                linkProduct: !(module.underlying is ExternalLibrary) // don't link external libs
             )
             log(.debug, indent: 1, "Added linked dependency on target '\(module.pifTargetGUID)'")
         }
@@ -846,6 +901,15 @@ extension PackagePIFProjectBuilder {
                         )
                     }
                     log(.debug, indent: 1, "Added use of binary library '\(binaryTarget.path)'")
+                    return
+                }
+
+                if moduleDependency.type == .externalLibrary {
+                    libraryUmbrellaTarget.common.addDependency(
+                        on: moduleDependency.pifTargetGUID,
+                        platformFilters: packageConditions.toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        linkProduct: false
+                    )
                     return
                 }
 
@@ -1029,6 +1093,33 @@ extension PackagePIFProjectBuilder {
         self.builtModulesAndProducts.append(systemLibrary)
     }
 
+    mutating func makeExternalLibraryProduct(_ product: PackageGraph.ResolvedProduct) throws {
+        let externalLibraryTargetKeyPath = try self.project.addTarget { _ in
+            ProjectModel.Target(
+                id: product.pifTargetGUID,
+                productType: .packageProduct,
+                name: product.targetName(),
+                productName: product.name
+            )
+        }
+        do {
+            let systemLibraryTarget = self.project[keyPath: externalLibraryTargetKeyPath]
+            log(
+                .debug,
+                "Created target '\(systemLibraryTarget.id)' of type '\(systemLibraryTarget.productType)' " +
+                "with name '\(systemLibraryTarget.name)' and product name '\(systemLibraryTarget.productName)'"
+            )
+        }
+
+        for module in product.modules {
+            self.project[keyPath: externalLibraryTargetKeyPath].common.addDependency(
+                on: module.pifTargetGUID,
+                platformFilters: [],
+                linkProduct: false
+            )
+        }
+    }
+
     // MARK: - Plugin Product
 
     mutating func makePluginProduct(_ pluginProduct: PackageGraph.ResolvedProduct) throws {
@@ -1066,6 +1157,8 @@ extension PackagePIFProjectBuilder {
                 switch pluginTarget.capability {
                 case .buildTool:
                     return .buildToolPlugin
+                case .externalBuilder:
+                    return .externalBuilderPlugin
                 case .command:
                     return .commandPlugin
                 }
@@ -1169,7 +1262,7 @@ extension PackagePIFProjectBuilder {
         // of e.g. linker settings specify a linked library external to the package.
         var debugSettings: ProjectModel.BuildSettings = settings
         var releaseSettings: ProjectModel.BuildSettings = settings
-        let allBuildSettings = unitTestModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
+        let allBuildSettings = unitTestModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, packagePath: package.path, forRemotePackage: pifBuilder.delegate.isRemote)
         allBuildSettings.apply(to: &debugSettings, for: .debug)
         allBuildSettings.apply(to: &releaseSettings, for: .release)
 

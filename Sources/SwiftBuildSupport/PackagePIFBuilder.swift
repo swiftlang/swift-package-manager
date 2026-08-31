@@ -173,6 +173,9 @@ public final class PackagePIFBuilder {
     /// Records the results of applying build tool plugins to modules in the package.
     let buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]]
 
+    /// The results from the external builder plugins
+    let externalBuilderResults: [PackagePIFBuilder.ExternalBuilderPluginInvocationResult]
+
     /// Whether to create dynamic libraries for dynamic products.
     ///
     /// This tracks removing this *user default* once clients stop relying on this implementation detail:
@@ -211,6 +214,8 @@ public final class PackagePIFBuilder {
 
     let pkgConfigDirectories: [AbsolutePath]
 
+    let pluginWorkingDirectory: AbsolutePath
+
     /// The warning-control flags the user passed on the command line.
     let warningControlFlags: [String]
 
@@ -237,6 +242,7 @@ public final class PackagePIFBuilder {
         packageManifest: PackageModel.Manifest,
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: [BuildToolPluginInvocationResult]],
+        externalBuilderResults: [ExternalBuilderPluginInvocationResult],
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
@@ -244,6 +250,7 @@ public final class PackagePIFBuilder {
         shouldPreserveSymlinks: Bool,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
+        pluginWorkingDirectory: AbsolutePath,
         warningControlFlags: [String] = [],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -253,11 +260,13 @@ public final class PackagePIFBuilder {
         self.modulesGraph = modulesGraph
         self.delegate = delegate
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName
+        self.externalBuilderResults = externalBuilderResults
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
         self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.pluginWorkingDirectory = pluginWorkingDirectory
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
         self.addLocalRpaths = addLocalRpaths
@@ -271,6 +280,7 @@ public final class PackagePIFBuilder {
         packageManifest: PackageModel.Manifest,
         delegate: PackagePIFBuilder.BuildDelegate,
         buildToolPluginResultsByTargetName: [String: BuildToolPluginInvocationResult],
+        externalBuilderResults: [ExternalBuilderPluginInvocationResult],
         createDylibForDynamicProducts: Bool = false,
         materializeStaticArchiveProductsForRootPackages: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = true,
@@ -278,6 +288,7 @@ public final class PackagePIFBuilder {
         shouldPreserveSymlinks: Bool = false,
         packageDisplayVersion: String?,
         pkgConfigDirectories: [AbsolutePath],
+        pluginWorkingDirectory: AbsolutePath,
         warningControlFlags: [String] = [],
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
@@ -287,12 +298,14 @@ public final class PackagePIFBuilder {
         self.modulesGraph = modulesGraph
         self.delegate = delegate
         self.buildToolPluginResultsByTargetName = buildToolPluginResultsByTargetName.mapValues { [$0] }
+        self.externalBuilderResults = externalBuilderResults
         self.createDylibForDynamicProducts = createDylibForDynamicProducts
         self.materializeStaticArchiveProductsForRootPackages = materializeStaticArchiveProductsForRootPackages
         self.createDynamicVariantsForLibraryProducts = createDynamicVariantsForLibraryProducts
         self.addLocalRpaths = addLocalRpaths
         self.packageDisplayVersion = packageDisplayVersion
         self.pkgConfigDirectories = pkgConfigDirectories
+        self.pluginWorkingDirectory = pluginWorkingDirectory
         self.warningControlFlags = warningControlFlags
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope
@@ -450,6 +463,7 @@ public final class PackagePIFBuilder {
         case packageProduct
         case commandPlugin
         case buildToolPlugin
+        case externalBuilderPlugin
 
         // Modules.
         case module
@@ -511,6 +525,9 @@ public final class PackagePIFBuilder {
         // the structure of the client(s).
         //
 
+        // Add the package level external build commands
+        try projectBuilder.addExternalBuildComands()
+
         self.log(.debug, "Processing \(package.products.count) products:")
 
         // For each of the **products** in the package we create a corresponding `PIFTarget` of the appropriate type.
@@ -569,6 +586,9 @@ public final class PackagePIFBuilder {
 
             case .systemModule:
                 try projectBuilder.makeSystemLibraryModule(module)
+
+            case .externalLibrary:
+                try projectBuilder.makeExternalLibraryTarget(module)
 
             case .test:
                 if module.isTestSupportModule {
@@ -810,6 +830,10 @@ extension PackagePIFBuilder.LinkedPackageBinary {
             self.init(module: module.name, packageIdentity: module.packageIdentity)
 
         case .systemModule, .plugin:
+            return nil
+
+        case .externalLibrary:
+            // TODO: is it the same as a system library?
             return nil
         }
     }

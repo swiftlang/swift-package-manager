@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
+import Foundation
 
 import struct Basics.AbsolutePath
 import struct Basics.InternalError

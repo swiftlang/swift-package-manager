@@ -43,6 +43,7 @@ enum ManifestJSONParser {
         var pkgConfig: String?
         var swiftLanguageVersions: [SwiftLanguageVersion]?
         var dependencies: [PackageDependency] = []
+        var externals: [Result] = []
         var providers: [SystemPackageProviderDescription]?
         var products: [ProductDescription] = []
         var traits: Set<TraitDescription> = []
@@ -104,6 +105,23 @@ enum ManifestJSONParser {
             )
         }
 
+        let externals: [Result] = try input.package.externals.map { external in
+            Result(
+                name: external.name,
+                defaultLocalization: external.defaultLocalization?.tag,
+                platforms: try external.platforms.map { try Self.parsePlatforms($0) } ?? [],
+                targets: try external.targets.map { try Self.parseTarget(target: $0, identityResolver: identityResolver) },
+                pkgConfig: external.pkgConfig,
+                swiftLanguageVersions: try external.swiftLanguageVersions.map { try Self.parseSwiftLanguageVersions($0) },
+                dependencies: [], // TODO: dependencies on other externals
+                providers: external.providers?.map { .init($0) },
+                products: try external.products.map { try .init($0) },
+                traits: Set(external.traits?.map { TraitDescription($0) } ?? []),
+                cxxLanguageStandard: external.cxxLanguageStandard?.rawValue,
+                cLanguageStandard: external.cLanguageStandard?.rawValue,
+            )
+        }
+
         return Result(
             name: input.package.name,
             defaultLocalization: input.package.defaultLocalization?.tag,
@@ -112,11 +130,12 @@ enum ManifestJSONParser {
             pkgConfig: input.package.pkgConfig,
             swiftLanguageVersions: try input.package.swiftLanguageVersions.map { try Self.parseSwiftLanguageVersions($0) },
             dependencies: dependencies,
+            externals: externals,
             providers: input.package.providers?.map { .init($0) },
             products: try input.package.products.map { try .init($0) },
             traits: Set(input.package.traits?.map { TraitDescription($0) } ?? []),
             cxxLanguageStandard: input.package.cxxLanguageStandard?.rawValue,
-            cLanguageStandard: input.package.cLanguageStandard?.rawValue
+            cLanguageStandard: input.package.cLanguageStandard?.rawValue,
         )
     }
 
@@ -213,7 +232,8 @@ enum ManifestJSONParser {
             pluginCapability: pluginCapability,
             settings: try Self.parseBuildSettings(target),
             checksum: target.checksum,
-            pluginUsages: pluginUsages
+            pluginUsages: pluginUsages,
+            condition: target.condition.map({ .init($0) })
         )
     }
 
@@ -271,7 +291,7 @@ extension SystemPackageProviderDescription {
 }
 
 extension PackageDependency.SourceControl.Requirement {
-    init(_ requirement: Serialization.PackageDependency.SourceControlRequirement) {
+    init(_ requirement: Serialization.SourceControlRequirement) {
         switch requirement {
         case .exact(let version):
             self = .exact(.init(version))
@@ -539,7 +559,7 @@ extension TargetDescription.Dependency {
 }
 
 extension PackageConditionDescription {
-    init(_ condition: Serialization.TargetDependency.Condition) {
+    init(_ condition: Serialization.TargetDependencyCondition) {
         self.init(
             platformNames: condition.platforms?.map { $0.name } ?? [],
             traits: condition.traits.map { Set($0) }
@@ -558,6 +578,8 @@ extension TargetDescription.TargetKind {
             self = .test
         case .system:
             self = .system
+        case .externalLibrary:
+            self = .externalLibrary
         case .binary:
             self = .binary
         case .plugin:
@@ -573,6 +595,8 @@ extension TargetDescription.PluginCapability {
         switch capability {
         case .buildTool:
             self = .buildTool
+        case .externalBuilder:
+            self = .externalBuilder
         case .command(let intent, let permissions):
             self = .command(intent: .init(intent), permissions: permissions.map { .init($0) })
         }
@@ -692,6 +716,11 @@ extension TargetBuildSettingDescription.Kind {
                 throw InternalError("invalid (empty) build settings value")
             }
             return .headerSearchPath(value)
+        case "publicHeaderPath":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            return .publicHeaderPath(value)
         case "define":
             guard let value = values.first else {
                 throw InternalError("invalid (empty) build settings value")
@@ -867,12 +896,18 @@ extension PackageDependency.Trait.Condition {
     }
 }
 
+extension PackageIdentity.PackageType {
+    init(_ type: Serialization.PackageType) {
+        self.init(type: type.type)
+    }
+}
 extension MappablePackageDependency {
     fileprivate init(_ seed: Serialization.PackageDependency, parentPackagePath: AbsolutePath) {
         switch seed.kind {
         case .fileSystem(let name, let path):
             self.init(
                 parentPackagePath: parentPackagePath,
+                type: .init(seed.type ?? .swift),
                 kind: .fileSystem(
                     name: name,
                     path: path
@@ -883,6 +918,7 @@ extension MappablePackageDependency {
         case .sourceControl(let name, let location, let requirement):
             self.init(
                 parentPackagePath: parentPackagePath,
+                type: .init(seed.type ?? .swift),
                 kind: .sourceControl(
                     name: name,
                     location: location,
@@ -894,6 +930,7 @@ extension MappablePackageDependency {
         case .registry(let id, let requirement):
             self.init(
                 parentPackagePath: parentPackagePath,
+                type: .init(seed.type ?? .swift),
                 kind: .registry(
                     id: id,
                     requirement: .init(requirement)
