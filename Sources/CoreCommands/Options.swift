@@ -78,8 +78,8 @@ public struct LocationOptions: ParsableArguments {
     public init() {}
 
     @Option(
-        name: .customLong("package-path"),
-        help: "Specify the package path to operate on (default current directory). This changes the working directory before any other operation.",
+        name: [.customLong("workspace-path"), .customLong("package-path")],
+        help: "Specify the workspace/package path to operate on (default current directory). This changes the working directory before any other operation.",
         completion: .directory
     )
     public var packageDirectory: AbsolutePath?

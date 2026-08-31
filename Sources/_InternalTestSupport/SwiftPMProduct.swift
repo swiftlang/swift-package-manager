@@ -151,7 +151,7 @@ extension SwiftPM {
 
         var completeArgs = commandPrefix + [Self.xctestBinaryPath(for: RelativePath(self.executableName)).pathString]
         if let packagePath = packagePath {
-            completeArgs += ["--package-path", packagePath.pathString]
+            completeArgs += ["--workspace-path", packagePath.pathString]
         }
         completeArgs += args
 
