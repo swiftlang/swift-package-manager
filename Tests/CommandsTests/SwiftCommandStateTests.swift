@@ -14,6 +14,7 @@
 @testable import Build
 @testable import Commands
 @_spi(SwiftPMTesting) @testable import CoreCommands
+@_spi(SwiftPMInternal) import CoreCommands
 
 import struct SPMBuildCore.BuildSystemProvider
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
@@ -408,6 +409,213 @@ struct SwiftCommandStateTests {
                 )
             }
 
+        }
+    }
+
+    // MARK: - computeLocalConfigurationDirectory (workspace-aware mirrors)
+
+    /// Unit coverage for the pure decision helper that routes the
+    /// local configuration directory (`.swiftpm/configuration`) —
+    /// which houses `mirrors.json`, `registries.json`, and
+    /// `workspace-overrides.json` — to the correct anchor.
+    ///
+    /// Under a SwiftPM workspace this must anchor to the workspace
+    /// root so `swift package config set-mirror` writes a mirror
+    /// file that every member sees, not to whatever member happens
+    /// to be the current package. Pre-workspace non-workspace usage
+    /// stays anchored to the package root. The multiroot data-file
+    /// path (`--multiroot-data-file`) keeps its own Xcode-workspace
+    /// layout, matching `computeResolvedVersionsFile`.
+    @Suite(
+        .tags(
+            .FunctionalArea.WorkspaceManiest,
+        ),
+    )
+    struct ComputeLocalConfigurationDirectoryTests {
+
+        /// Under a SwiftPM workspace the config directory MUST live at
+        /// the workspace root — a `swift package config set-mirror`
+        /// invocation from anywhere in the workspace writes to a single
+        /// shared `<workspace-root>/.swiftpm/configuration/mirrors.json`
+        /// that every member sees.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func withWorkspaceRoot_returnsWorkspaceRootConfigDir() throws {
+            let workspaceRoot = AbsolutePath("/Workspace")
+            let packageRoot = AbsolutePath("/Workspace/packages/app")
+            let actual = try SwiftCommandState.computeLocalConfigurationDirectory(
+                multiRootPackageDataFile: nil,
+                workspaceRoot: workspaceRoot,
+                packageRoot: packageRoot,
+            )
+            #expect(
+                actual == workspaceRoot.appending(components: ".swiftpm", "configuration"),
+            )
+        }
+
+        /// Baseline: no workspace, no `--multiroot-data-file` → the
+        /// config directory falls back to the package root. Preserves
+        /// pre-workspaces single-package behaviour.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func singlePackage_returnsPackageRootConfigDir() throws {
+            let packageRoot = AbsolutePath("/Pkg")
+            let actual = try SwiftCommandState.computeLocalConfigurationDirectory(
+                multiRootPackageDataFile: nil,
+                workspaceRoot: nil,
+                packageRoot: packageRoot,
+            )
+            #expect(
+                actual == packageRoot.appending(components: ".swiftpm", "configuration"),
+            )
+        }
+
+        /// `--multiroot-data-file` (Xcode workspace) keeps its own
+        /// layout under `xcshareddata/swiftpm/configuration`, matching
+        /// the pre-workspaces `getLocalConfigurationDirectory()`
+        /// branch. Distinct from the SwiftPM-workspace path so an
+        /// Xcode workspace and a SwiftPM workspace never race for the
+        /// same `.swiftpm/configuration/` folder.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func withMultirootDataFile_returnsMultirootConfigDir() throws {
+            let multiroot = AbsolutePath("/Xcode.xcworkspace")
+            let actual = try SwiftCommandState.computeLocalConfigurationDirectory(
+                multiRootPackageDataFile: multiroot,
+                workspaceRoot: nil,
+                packageRoot: nil,
+            )
+            #expect(
+                actual == multiroot.appending(components: "xcshareddata", "swiftpm", "configuration"),
+            )
+        }
+
+        /// Terminal fallback: no multiroot, no workspace, no package
+        /// root either. The function throws
+        /// `SwiftCommandStateError.packageManifestNotFound` so callers
+        /// can distinguish "no manifest" from other filesystem errors.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func withNoInputs_throwsPackageManifestNotFound() throws {
+            #expect(throws: SwiftCommandStateError.packageManifestNotFound) {
+                _ = try SwiftCommandState.computeLocalConfigurationDirectory(
+                    multiRootPackageDataFile: nil,
+                    workspaceRoot: nil,
+                    packageRoot: nil,
+                )
+            }
+        }
+
+        /// Precedence when all three anchors are supplied: multiroot
+        /// wins. Xcode workspaces (multiroot) predate SwiftPM
+        /// workspaces and predate the single-package anchor; when a
+        /// caller passes all three the multiroot-explicit override
+        /// must dominate so an `--multiroot-data-file` invocation
+        /// never accidentally leaks into a sibling SwiftPM workspace's
+        /// config directory. Matches the precedence baked into
+        /// `computeResolvedVersionsFile`.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func withAllThreeAnchors_multirootWins() throws {
+            let multiroot = AbsolutePath("/Xcode.xcworkspace")
+            let workspaceRoot = AbsolutePath("/Workspace")
+            let packageRoot = AbsolutePath("/Workspace/packages/app")
+
+            let actual = try SwiftCommandState.computeLocalConfigurationDirectory(
+                multiRootPackageDataFile: multiroot,
+                workspaceRoot: workspaceRoot,
+                packageRoot: packageRoot,
+            )
+
+            #expect(
+                actual == multiroot.appending(components: "xcshareddata", "swiftpm", "configuration"),
+            )
+        }
+    }
+
+    // MARK: - multirootDataFileConflictDiagnostic (Slice 15c, item 8)
+
+    /// Unit coverage for the pure decision helper that surfaces
+    /// the `--multiroot-data-file` vs. `Workspace.swift` conflict.
+    /// The two mechanisms target incompatible workspace layouts;
+    /// the helper returns a diagnostic when both are present and
+    /// `nil` in the other three combinations so a caller can emit
+    /// + abort only in the true-conflict case.
+    @Suite(
+        .tags(
+            .FunctionalArea.WorkspaceManiest,
+        ),
+    )
+    struct MultirootDataFileConflictDiagnosticTests {
+
+        /// The conflict case: BOTH `--multiroot-data-file` and a
+        /// discovered `Workspace.swift` are set. Returns a diagnostic
+        /// that names both paths so the user can see where each
+        /// mode is anchored and decide which to remove.
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+        )
+        func withBothSet_returnsDiagnosticNamingBothPaths() throws {
+            let multiroot = AbsolutePath("/Xcode.xcworkspace")
+            let workspaceRoot = AbsolutePath("/repo")
+
+            let actual = try #require(
+                SwiftCommandState.multirootDataFileConflictDiagnostic(
+                    multirootDataFile: multiroot,
+                    discoveredWorkspaceRoot: workspaceRoot,
+                ),
+            )
+            let expected = Basics.Diagnostic.multirootDataFileConflictsWithWorkspace(
+                multirootDataFile: multiroot,
+                workspaceRoot: workspaceRoot,
+            )
+            #expect(actual.severity == expected.severity)
+            #expect(actual.message == expected.message)
+        }
+
+        /// The three non-conflict branches — only-multiroot,
+        /// only-workspace, and neither — all return `nil` so the
+        /// caller proceeds down its normal code path (Xcode
+        /// workspace, SwiftPM workspace, or single-package
+        /// baseline respectively).
+        @Test(
+            .tags(
+                .TestSize.small,
+            ),
+            arguments: [
+                (name: "only multiroot", multiroot: AbsolutePath("/Xcode.xcworkspace"), workspaceRoot: AbsolutePath?.none),
+                (name: "only workspace root", multiroot: AbsolutePath?.none, workspaceRoot: AbsolutePath("/repo")),
+                (name: "neither", multiroot: AbsolutePath?.none, workspaceRoot: AbsolutePath?.none),
+            ],
+        )
+        func withoutConflict_returnsNil(
+            testCase: (name: String, multiroot: AbsolutePath?, workspaceRoot: AbsolutePath?),
+        ) throws {
+            let diagnostic = SwiftCommandState.multirootDataFileConflictDiagnostic(
+                multirootDataFile: testCase.multiroot,
+                discoveredWorkspaceRoot: testCase.workspaceRoot,
+            )
+            #expect(
+                diagnostic == nil,
+                "expected nil for the '\(testCase.name)' branch; got \(String(describing: diagnostic))",
+            )
         }
     }
 
