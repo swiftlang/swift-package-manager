@@ -294,6 +294,10 @@ struct CoverageTests {
                 try requireFileExists(at: indexPath)
                 let bytes = try Data(contentsOf: URL(fileURLWithPath: indexPath.pathString))
                 searchTarget = String(decoding: bytes, as: UTF8.self)
+
+            case .lcov:
+                let bytes = try Data(contentsOf: URL(fileURLWithPath: coveragePath.pathString))
+                searchTarget = String(decoding: bytes, as: UTF8.self)
             }
 
             #expect(

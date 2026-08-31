@@ -1139,7 +1139,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         args += additionalBinaryArgs
         args.append(primaryBinary.pathString)
 
-        swiftCommandState.observabilityScope.emit(debug: "Calling \(format.rawValue): \(args.joined(separator: " "))")
+        swiftCommandState.observabilityScope.emit(debug: "Calling \(format.rawValue.uppercased()): \(args.joined(separator: " "))")
         let result = try await AsyncProcess.popen(arguments: args)
 
         if result.exitStatus != .terminated(code: 0) {
