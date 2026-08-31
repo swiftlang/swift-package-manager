@@ -92,6 +92,8 @@ fileprivate extension CoverageFormat {
             return "--output-dir"
         case .json:
             return "--output-dir" // The underlying tool that produces the JSON report, 'llvm-cov export' does not appear to support an output directory argument.
+        case .lcov:
+            return "--output-dir" // 'llvm-cov export' does not appear to support an output directory argument for lcov either.
         }
     }
 }

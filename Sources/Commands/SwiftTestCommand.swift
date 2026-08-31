@@ -1024,10 +1024,11 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             let extraArgs = xcovArguments.getArguments(for: format)
             let testBinaries = testProducts.map(\.coverageBinaryPath)
             switch format {
-                case .json:
+            case .json, .lcov:
                     // Export the codecov data as JSON for all test binaries in a single invocation
                     // so coverage is merged across products.
-                    let path = try await exportCodeCovAsJSON(
+                    let path = try await exportCodeCov(
+                        format: format,
                         to: coverageReportOutput,
                         testBinaries: testBinaries,
                         swiftCommandState: swiftCommandState,
@@ -1093,7 +1094,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     }
 
     /// Exports profdata as a JSON file.
-    private func exportCodeCovAsJSON(
+    private func exportCodeCov(
+        format: CoverageFormat,
         to path: AbsolutePath,
         testBinaries: [AbsolutePath],
         swiftCommandState: SwiftCommandState,
@@ -1102,7 +1104,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         productsBuildParameters: BuildParameters,
     ) async throws -> AbsolutePath {
         guard let primaryBinary = testBinaries.first else {
-            throw CoverageError.noTestBinariesSupplied(format: .json)
+            throw CoverageError.noTestBinariesSupplied(format: format)
         }
         let additionalBinaryArgs = testBinaries.dropFirst().flatMap { ["-object", $0.pathString] }
 
@@ -1113,20 +1115,36 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         } else {
             []
         }
-        let args = [
+        let formatArgs: [String]
+        switch format {
+        case .json:
+            formatArgs = ["--format=text"]
+        case .lcov:
+            formatArgs = ["--format=lcov"]
+        case .html:
+            preconditionFailure("exportCodeCov does not support the .html format; use generateHtmlCoverageReport instead.")
+
+        }
+
+
+
+        var args: [String] = [
             llvmCov.pathString,
             "export",
             "--instr-profile=\(profData.pathString)",
-        ] + extraArguments + archArgs + additionalBinaryArgs + [
-            primaryBinary.pathString,
         ]
+        args += formatArgs
+        args += extraArguments
+        args += archArgs
+        args += additionalBinaryArgs
+        args.append(primaryBinary.pathString)
 
-        swiftCommandState.observabilityScope.emit(debug: "Calling JSON: \(args.joined(separator: " "))")
+        swiftCommandState.observabilityScope.emit(debug: "Calling \(format.rawValue): \(args.joined(separator: " "))")
         let result = try await AsyncProcess.popen(arguments: args)
 
         if result.exitStatus != .terminated(code: 0) {
             let output = try result.utf8Output() + result.utf8stderrOutput()
-            throw CoverageError.llvmCovFailed(format: .json, output: output)
+            throw CoverageError.llvmCovFailed(format: format, output: output)
         }
         try swiftCommandState.fileSystem.writeFileContents(path, bytes: ByteString(result.output.get()))
         return path
@@ -1399,6 +1417,9 @@ extension SwiftTestCommand {
 
             case .json:
                 outputPath = codeCovBaseDir.appending(component: rootManifestName + ".json")
+
+            case .lcov:
+                outputPath = codeCovBaseDir.appending(component: rootManifestName + ".lcov")
         }
         return outputPath
     }
