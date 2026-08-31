@@ -1135,7 +1135,7 @@ extension PackagePIFProjectBuilder {
                             environment: environment.map { Pair($0, $1) }.sorted(by: <),
                             workingDirectory: command.workingDir?.pathString,
                             executionDescription: command.displayName ?? "Performing build tool plugin command",
-                            inputFilePaths: [command.executable] + command.inputPaths.map(\.pathString),
+                            inputFilePaths: command.inputPaths.map(\.pathString),
                             outputFilePaths: command.outputPaths,
                             enableSandboxing: false,
                             preparesForIndexing: true
