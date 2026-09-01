@@ -35,7 +35,7 @@ public final class InMemoryFileSystem: FileSystem {
         }
 
         /// Creates deep copy of the object.
-        func copy() -> Node {
+        func copy() -> sending Node {
             return Node(contents.copy())
         }
     }
@@ -48,7 +48,7 @@ public final class InMemoryFileSystem: FileSystem {
         case symlink(String)
 
         /// Creates deep copy of the object.
-        func copy() -> NodeContents {
+        func copy() -> sending NodeContents {
             switch self {
             case .file(let bytes):
                 return .file(bytes)
@@ -70,7 +70,7 @@ public final class InMemoryFileSystem: FileSystem {
         }
 
         /// Creates deep copy of the object.
-        func copy() -> DirectoryContents {
+        func copy() -> sending DirectoryContents {
             let contents = DirectoryContents()
             for (key, node) in entries {
                 contents.entries[key] = node.copy()
@@ -83,11 +83,8 @@ public final class InMemoryFileSystem: FileSystem {
     /// virtualized working directory.
     ///
     /// FIXME: Using a single lock for this is a performance problem, but in
-    /// reality, the only practical use for InMemoryFileSystem is for unit
-    /// tests.
-    /// `@unchecked` because `Node` is a mutable reference type; holding the mutex is what makes
-    /// access to the graph safe.
-    private struct State: @unchecked Sendable {
+    /// reality, the only practical use for InMemoryFileSystem is for unit tests.
+    private struct State {
         var root: Node
         var currentWorkingDirectory: TSCBasic.AbsolutePath
     }
@@ -111,7 +108,7 @@ public final class InMemoryFileSystem: FileSystem {
         self.init(root: Node(.directory(DirectoryContents())))
     }
 
-    private init(root: Node) {
+    private init(root: sending Node) {
         self.state = Mutex(
             State(root: root, currentWorkingDirectory: try! .init(validating: "/"))
         )
@@ -126,7 +123,7 @@ public final class InMemoryFileSystem: FileSystem {
 
     /// Private function to look up the node corresponding to a path.
     /// Not thread-safe; callers must hold the state lock and pass its root in.
-    private func getNode(
+    private static func getNode(
         _ root: Node,
         _ path: TSCBasic.AbsolutePath,
         followSymlink: Bool = true
@@ -170,7 +167,7 @@ public final class InMemoryFileSystem: FileSystem {
     public func exists(_ path: TSCBasic.AbsolutePath, followSymlink: Bool) -> Bool {
         return self.state.withLock { state in
             do {
-                switch try self.getNode(state.root, path, followSymlink: followSymlink)?.contents {
+                switch try Self.getNode(state.root, path, followSymlink: followSymlink)?.contents {
                 case .file, .directory, .symlink: return true
                 case .none: return false
                 }
@@ -183,7 +180,7 @@ public final class InMemoryFileSystem: FileSystem {
     public func isDirectory(_ path: TSCBasic.AbsolutePath) -> Bool {
         return self.state.withLock { state in
             do {
-                if case .directory? = try self.getNode(state.root, path)?.contents {
+                if case .directory? = try Self.getNode(state.root, path)?.contents {
                     return true
                 }
                 return false
@@ -196,7 +193,7 @@ public final class InMemoryFileSystem: FileSystem {
     public func isFile(_ path: TSCBasic.AbsolutePath) -> Bool {
         return self.state.withLock { state in
             do {
-                if case .file? = try self.getNode(state.root, path)?.contents {
+                if case .file? = try Self.getNode(state.root, path)?.contents {
                     return true
                 }
                 return false
@@ -209,7 +206,7 @@ public final class InMemoryFileSystem: FileSystem {
     public func isSymlink(_ path: TSCBasic.AbsolutePath) -> Bool {
         return self.state.withLock { state in
             do {
-                if case .symlink? = try self.getNode(state.root, path, followSymlink: false)?.contents {
+                if case .symlink? = try Self.getNode(state.root, path, followSymlink: false)?.contents {
                     return true
                 }
                 return false
@@ -229,13 +226,13 @@ public final class InMemoryFileSystem: FileSystem {
 
     public func isExecutableFile(_ path: TSCBasic.AbsolutePath) -> Bool {
         self.state.withLock { state in
-            (try? self.getNode(state.root, path)?.isExecutable) ?? false
+            (try? Self.getNode(state.root, path)?.isExecutable) ?? false
         }
     }
 
     public func updatePermissions(_ path: AbsolutePath, isExecutable: Bool) throws {
         try self.state.withLock { state in
-            guard let node = try self.getNode(state.root, path.underlying, followSymlink: true) else {
+            guard let node = try Self.getNode(state.root, path.underlying, followSymlink: true) else {
                 throw FileSystemError(.noEntry, path)
             }
             node.isExecutable = isExecutable
@@ -249,7 +246,7 @@ public final class InMemoryFileSystem: FileSystem {
     public func changeCurrentWorkingDirectory(to path: TSCBasic.AbsolutePath) throws {
         return try self.state.withLock { state in
             // Verify the path exists and is a directory
-            guard let node = try self.getNode(state.root, path) else {
+            guard let node = try Self.getNode(state.root, path) else {
                 throw FileSystemError(.noEntry, path)
             }
 
@@ -279,7 +276,7 @@ public final class InMemoryFileSystem: FileSystem {
 
     public func getDirectoryContents(_ path: TSCBasic.AbsolutePath) throws -> [String] {
         return try self.state.withLock { state in
-            guard let node = try self.getNode(state.root, path) else {
+            guard let node = try Self.getNode(state.root, path) else {
                 throw FileSystemError(.noEntry, path)
             }
             guard case .directory(let contents) = node.contents else {
@@ -292,22 +289,22 @@ public final class InMemoryFileSystem: FileSystem {
     }
 
     /// Not thread-safe; callers must hold the state lock and pass its root in.
-    private func _createDirectory(_ root: Node, _ path: TSCBasic.AbsolutePath, recursive: Bool) throws {
+    private static func _createDirectory(_ root: Node, _ path: TSCBasic.AbsolutePath, recursive: Bool) throws {
         // Ignore if client passes root.
         guard !path.isRoot else {
             return
         }
         // Get the parent directory node.
         let parentPath = path.parentDirectory
-        guard let parent = try self.getNode(root, parentPath) else {
+        guard let parent = try Self.getNode(root, parentPath) else {
             // If the parent doesn't exist, and we are recursive, then attempt
             // to create the parent and retry.
             if recursive && path != parentPath {
                 // Attempt to create the parent.
-                try self._createDirectory(root, parentPath, recursive: true)
+                try Self._createDirectory(root, parentPath, recursive: true)
 
                 // Re-attempt creation, non-recursively.
-                return try self._createDirectory(root, path, recursive: false)
+                return try Self._createDirectory(root, path, recursive: false)
             } else {
                 // Otherwise, we failed.
                 throw FileSystemError(.noEntry, parentPath)
@@ -338,7 +335,7 @@ public final class InMemoryFileSystem: FileSystem {
 
     public func createDirectory(_ path: TSCBasic.AbsolutePath, recursive: Bool) throws {
         return try self.state.withLock { state in
-            try self._createDirectory(state.root, path, recursive: recursive)
+            try Self._createDirectory(state.root, path, recursive: recursive)
         }
     }
 
@@ -349,7 +346,7 @@ public final class InMemoryFileSystem: FileSystem {
     ) throws {
         return try self.state.withLock { state in
             // Create directory to destination parent.
-            guard let destinationParent = try self.getNode(state.root, path.parentDirectory) else {
+            guard let destinationParent = try Self.getNode(state.root, path.parentDirectory) else {
                 throw FileSystemError(.noEntry, path.parentDirectory)
             }
 
@@ -371,7 +368,7 @@ public final class InMemoryFileSystem: FileSystem {
     public func readFileContents(_ path: TSCBasic.AbsolutePath) throws -> ByteString {
         return try self.state.withLock { state in
             // Get the node.
-            guard let node = try self.getNode(state.root, path) else {
+            guard let node = try Self.getNode(state.root, path) else {
                 throw FileSystemError(.noEntry, path)
             }
 
@@ -395,7 +392,7 @@ public final class InMemoryFileSystem: FileSystem {
             }
 
             // Get the parent node.
-            guard let parent = try self.getNode(state.root, parentPath) else {
+            guard let parent = try Self.getNode(state.root, parentPath) else {
                 throw FileSystemError(.noEntry, parentPath)
             }
 
@@ -429,7 +426,7 @@ public final class InMemoryFileSystem: FileSystem {
         return self.state.withLock { state in
             // Ignore root and get the parent node's content if its a directory.
             guard !path.isRoot,
-                  let parent = try? self.getNode(state.root, path.parentDirectory),
+                  let parent = try? Self.getNode(state.root, path.parentDirectory),
                   case .directory(let contents) = parent.contents else {
                       return
                   }
@@ -444,18 +441,18 @@ public final class InMemoryFileSystem: FileSystem {
 
     /// Private implementation of core copying function.
     /// Not thread-safe; callers must hold the state lock and pass its root in.
-    private func _copy(
+    private static func _copy(
         _ root: Node,
         from sourcePath: TSCBasic.AbsolutePath,
         to destinationPath: TSCBasic.AbsolutePath
     ) throws {
         // Get the source node.
-        guard let source = try self.getNode(root, sourcePath) else {
+        guard let source = try Self.getNode(root, sourcePath) else {
             throw FileSystemError(.noEntry, sourcePath)
         }
 
         // Create directory to destination parent.
-        guard let destinationParent = try self.getNode(root, destinationPath.parentDirectory) else {
+        guard let destinationParent = try Self.getNode(root, destinationPath.parentDirectory) else {
             throw FileSystemError(.noEntry, destinationPath.parentDirectory)
         }
 
@@ -473,14 +470,14 @@ public final class InMemoryFileSystem: FileSystem {
 
     public func copy(from sourcePath: TSCBasic.AbsolutePath, to destinationPath: TSCBasic.AbsolutePath) throws {
         return try self.state.withLock { state in
-            try self._copy(state.root, from: sourcePath, to: destinationPath)
+            try Self._copy(state.root, from: sourcePath, to: destinationPath)
         }
     }
 
     public func move(from sourcePath: TSCBasic.AbsolutePath, to destinationPath: TSCBasic.AbsolutePath) throws {
         return try self.state.withLock { state in
             // Get the source parent node.
-            guard let sourceParent = try self.getNode(state.root, sourcePath.parentDirectory) else {
+            guard let sourceParent = try Self.getNode(state.root, sourcePath.parentDirectory) else {
                 throw FileSystemError(.noEntry, sourcePath.parentDirectory)
             }
 
@@ -489,7 +486,7 @@ public final class InMemoryFileSystem: FileSystem {
                 throw FileSystemError(.notDirectory, sourcePath.parentDirectory)
             }
 
-            try self._copy(state.root, from: sourcePath, to: destinationPath)
+            try Self._copy(state.root, from: sourcePath, to: destinationPath)
 
             contents.entries[sourcePath.basename] = nil
         }
@@ -501,7 +498,7 @@ public final class InMemoryFileSystem: FileSystem {
         _ body: () throws -> T
     ) throws -> T {
         let resolvedPath: TSCBasic.AbsolutePath = try self.state.withLock { state in
-            if case let .symlink(destination) = try self.getNode(state.root, path)?.contents {
+            if case let .symlink(destination) = try Self.getNode(state.root, path)?.contents {
                 return try .init(validating: destination, relativeTo: path.parentDirectory)
             } else {
                 return path
@@ -525,8 +522,3 @@ public final class InMemoryFileSystem: FileSystem {
         try self.withLock(on: path, type: type, body)
     }
 }
-
-// Internal state of `InMemoryFileSystem` lives behind a `Mutex`, so it is unreachable without
-// holding the lock. `@unchecked` is still required because the node graph it guards is made of
-// mutable reference types.
-extension InMemoryFileSystem: @unchecked Sendable {}
