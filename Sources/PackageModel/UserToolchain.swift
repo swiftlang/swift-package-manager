@@ -539,24 +539,9 @@ public final class UserToolchain: Toolchain {
         if let configured = self.swiftSDK.toolset.knownTools[.objcopy]?.path {
             return configured
         }
-        if let envValue = UserToolchain.lookup(
-            variable: "LLVM_OBJCOPY",
-            searchPaths: self.envSearchPaths,
-            environment: environment
-        ) {
-            return envValue
-        }
-        if let tool = try? UserToolchain.getTool(
+        try UserToolchain.getTool(
             "llvm-objcopy",
-            binDirectories: self.swiftSDK.toolset.rootPaths + [self.swiftCompilerPath.parentDirectory],
-            fileSystem: self.fileSystem
-        ) {
-            return tool
-        }
-        return try UserToolchain.findTool(
-            "llvm-objcopy",
-            envSearchPaths: self.envSearchPaths,
-            useXcrun: false,
+            binDirectories: [self.swiftCompilerPath.parentDirectory],
             fileSystem: self.fileSystem
         )
     }
