@@ -311,6 +311,35 @@ struct CoverageTests {
         }
     }
 
+    @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/9198", "Add lcov coverage report format"),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func lcovReportHasValidTraceFileStructure(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "Coverage/Simple") { fixturePath in
+            try await executeSwiftTest(
+                fixturePath,
+                configuration: configuration,
+                extraArgs: ["--enable-coverage", "--coverage-format", "lcov"],
+                buildSystem: buildSystem,
+            )
+            let coveragePathString = try await getCoveragePath(
+                fixturePath,
+                with: BuildData(buildSystem: buildSystem, config: configuration),
+                format: .lcov,
+            )
+            let coveragePath = try AbsolutePath(validating: coveragePathString)
+            try requireFileExists(at: coveragePath)
+            let contents = try String(contentsOf: URL(filePath: coveragePath.pathString), encoding: .utf8)
+            #expect(contents.contains("SF:"), "lcov output should contain a source file marker")
+            #expect(contents.contains("DA:"), "lcov output should contain line hit data")
+            #expect(contents.contains("end_of_record"), "lcov output should terminate each record properly")
+        }
+    }
+
     @Suite
     struct ShowCoveragePathTests {
         let commonTestArgs = [
