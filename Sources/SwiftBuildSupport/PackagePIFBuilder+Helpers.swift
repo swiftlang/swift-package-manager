@@ -256,7 +256,7 @@ extension PackageModel.Module {
         switch self.type {
         case .executable, .snippet:
             true
-        case .library, .test, .macro, .systemModule, .plugin, .binary:
+        case .library, .test, .macro, .systemModule, .plugin, .binary, .custom:
             false
         }
     }
@@ -265,7 +265,7 @@ extension PackageModel.Module {
         switch self.type {
         case .binary:
             true
-        case .library, .executable, .snippet, .test, .plugin, .macro, .systemModule:
+        case .library, .executable, .snippet, .test, .plugin, .macro, .systemModule, .custom:
             false
         }
     }
@@ -275,7 +275,7 @@ extension PackageModel.Module {
         switch self.type {
         case .library, .executable, .snippet, .test, .macro:
             true
-        case .systemModule, .plugin, .binary:
+        case .systemModule, .plugin, .binary, .custom:
             false
         }
     }
@@ -290,6 +290,7 @@ extension PackageModel.ProductType {
         case .library: .library
         case .plugin: .plugin
         case .macro: .macro
+        case .custom: .custom
         }
     }
 }
@@ -891,7 +892,7 @@ extension PackageGraph.ResolvedProduct {
         switch self.type {
         case .executable, .snippet, .test:
             true
-        case .library, .macro, .plugin:
+        case .library, .macro, .plugin, .custom:
             false
         }
     }
@@ -909,7 +910,7 @@ extension PackageGraph.ResolvedProduct {
         switch self.type {
         case .executable, .snippet:
             true
-        case .library, .test, .plugin, .macro:
+        case .library, .test, .plugin, .macro, .custom:
             false
         }
     }
@@ -952,7 +953,7 @@ extension PackageGraph.ResolvedProduct {
         switch self.type {
         case .library, .executable, .snippet, .test, .macro:
             true
-        case .plugin:
+        case .plugin, .custom:
             false
         }
     }

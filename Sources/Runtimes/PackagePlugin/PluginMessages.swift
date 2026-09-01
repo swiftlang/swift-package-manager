@@ -166,7 +166,13 @@ enum HostToPluginMessage: Codable {
                         publicHeadersDirId: URL.Id?,
                         linkedLibraries: [String],
                         linkedFrameworks: [String])
-                    
+
+                    case customTargetInfo(
+                        moduleName: String,
+                        kind: SourceModuleKind,
+                        sourceFiles: [File],
+                    )
+
                     case binaryArtifactInfo(
                         kind: BinaryArtifactKind,
                         origin: BinaryArtifactOrigin,
@@ -183,6 +189,7 @@ enum HostToPluginMessage: Codable {
                         case snippet
                         case test
                         case macro
+                        case custom
                     }
 
                     enum BinaryArtifactKind: Codable {
@@ -340,6 +347,8 @@ enum PluginToHostMessage: Codable {
 
     /// The plugin defines a build command.
     case defineBuildCommand(configuration: CommandConfiguration, inputFiles: [URL], outputFiles: [URL])
+
+    case defineProducts(outputFiles: [URL])
 
     /// The plugin defines a prebuild command.
     case definePrebuildCommand(configuration: CommandConfiguration, outputFilesDirectory: URL)

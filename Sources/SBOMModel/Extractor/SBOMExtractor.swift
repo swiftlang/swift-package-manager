@@ -88,7 +88,7 @@ internal struct SBOMExtractor {
         switch product.type {
         case .executable:
             .application
-        case .library, .snippet, .plugin, .test, .macro:
+        case .library, .snippet, .plugin, .test, .macro, .custom:
             .library
         }
     }

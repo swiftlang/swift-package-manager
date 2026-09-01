@@ -158,6 +158,34 @@ internal struct PluginContextDeserializer {
                 pluginGeneratedResources: pluginGeneratedResources
             )
 
+        case let .customTargetInfo(moduleName, kind, sourceFiles):
+            let sourceFiles = FileList(try sourceFiles.map {
+                let path = try self.url(for: $0.basePathId).appendingPathComponent($0.name)
+                let type: FileType
+                switch $0.type {
+                case .source:
+                    type = .source
+                case .header:
+                    type = .header
+                case .resource:
+                    type = .resource
+                case .unknown:
+                    type = .unknown
+                }
+                return File(url: path, type: type)
+            })
+            target = CustomTarget(
+                id: String(id),
+                name: wireTarget.name,
+                moduleName: moduleName,
+                kind: .init(kind),
+                pluginGeneratedSources: pluginGeneratedSources,
+                pluginGeneratedResources: pluginGeneratedResources,
+                directory: try Path(url: directory),
+                directoryURL: directory,
+                dependencies: dependencies,
+                sourceFiles: sourceFiles)
+
         case let .binaryArtifactInfo(kind, origin, artifactId):
             let artifact = try self.url(for: artifactId)
             let artifactKind: BinaryArtifactTarget.Kind
@@ -383,6 +411,8 @@ fileprivate extension ModuleKind {
             self = .test
         case .macro:
             self = .macro
+        case .custom:
+            self = .custom
         }
     }
 }

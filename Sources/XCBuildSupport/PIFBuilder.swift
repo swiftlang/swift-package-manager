@@ -390,7 +390,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             try self.addMainModuleTarget(for: product)
         case .library:
             self.addLibraryTarget(for: product)
-        case .plugin, .macro:
+        case .plugin, .macro, .custom:
             return
         }
     }
@@ -414,6 +414,8 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         case .macro:
             // Macros are not supported when using XCBuild, similar to package plugins.
             return
+        case .custom:
+            fatalError("TODO:")
         }
     }
 
@@ -1618,6 +1620,8 @@ extension ProductType {
             .plugin
         case .macro:
             .macro
+        case .custom:
+            .custom
         }
     }
 }

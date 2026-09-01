@@ -1026,6 +1026,16 @@ public final class UserToolchain: Toolchain {
             // this is the normal case when using the toolchain
             let librariesPath = applicationPath.parentDirectory.appending(components: "lib", "swift", "pm")
             if fileSystem.exists(librariesPath) {
+                // Check if we're linked over to Xcode
+                let manifestFrameworksPath = librariesPath.appending(components: "ManifestAPI", "PackageDescription.framework")
+                let pluginFrameworksPath = librariesPath.appending(components: "PluginAPI", "PackagePlugin.framework")
+                if fileSystem.exists(manifestFrameworksPath), fileSystem.exists(pluginFrameworksPath) {
+                    return .init(
+                        manifestLibraryPath: manifestFrameworksPath,
+                        pluginLibraryPath: pluginFrameworksPath
+                    )
+                }
+
                 return .init(root: librariesPath)
             }
 
@@ -1039,6 +1049,16 @@ public final class UserToolchain: Toolchain {
                 return .init(
                     manifestLibraryPath: manifestFrameworksPath,
                     pluginLibraryPath: pluginFrameworksPath
+                )
+            }
+
+            // May also appear at the root of the application path
+            let manifestFrameworksPath2 = applicationPath.appending("PackageDescription.framework")
+            let pluginFrameworksPath2 = applicationPath.appending("PackagePlugin.framework")
+            if fileSystem.exists(manifestFrameworksPath2), fileSystem.exists(pluginFrameworksPath2) {
+                return .init(
+                    manifestLibraryPath: manifestFrameworksPath2,
+                    pluginLibraryPath: pluginFrameworksPath2
                 )
             }
 

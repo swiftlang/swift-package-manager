@@ -34,6 +34,9 @@ extension PackagePIFBuilder {
         /// Build commands to incorporate into the dependency graph.
         public let buildCommands: [CustomBuildCommand]
 
+        /// If for a custom target, the list of product files.
+        public let productFiles: [AbsolutePath]
+
         /// Absolute paths of all derived source files that should be compiled as sources of the target.
         /// This includes the outputs of any prebuild commands as well as all the outputs referenced in all the build
         /// commands.
@@ -43,10 +46,12 @@ extension PackagePIFBuilder {
 
         public init(
             prebuildCommandOutputPaths: [AbsolutePath],
-            buildCommands: [CustomBuildCommand]
+            buildCommands: [CustomBuildCommand],
+            productFiles: [AbsolutePath]
         ) {
             self.prebuildCommandOutputPaths = prebuildCommandOutputPaths
             self.buildCommands = buildCommands
+            self.productFiles = productFiles
         }
     }
 
