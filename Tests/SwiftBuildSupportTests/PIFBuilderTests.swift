@@ -114,7 +114,7 @@ fileprivate func withGeneratedPIF(
 }
 
 extension SwiftBuildSupport.PIF.Workspace {
-    fileprivate func project(named name: String) throws -> SwiftBuildSupport.PIF.Project {
+    func project(named name: String) throws -> SwiftBuildSupport.PIF.Project {
         let matchingProjects = projects.filter {
             $0.underlying.name == name
         }
@@ -142,7 +142,7 @@ extension SwiftBuildSupport.PIF.Project {
         }
     }
 
-    fileprivate func target(named name: String) throws -> ProjectModel.BaseTarget {
+    func target(named name: String) throws -> ProjectModel.BaseTarget {
         let matchingTargets = underlying.targets.filter {
             $0.common.name == name
         }
@@ -177,7 +177,7 @@ extension SwiftBuildSupport.PIF.Project {
 }
 
 extension SwiftBuild.ProjectModel.BaseTarget {
-    fileprivate func buildConfig(named name: BuildConfiguration) throws -> SwiftBuild.ProjectModel.BuildConfig {
+    func buildConfig(named name: BuildConfiguration) throws -> SwiftBuild.ProjectModel.BuildConfig {
         let matchingConfigs = common.buildConfigs.filter {
             $0.name == name.pifConfiguration
         }
@@ -647,9 +647,9 @@ struct PIFBuilderTests {
                 let ld_flags = releaseConfig.impartedBuildProperties.settings[.OTHER_LDFLAGS, platform]
                 switch platform {
                     case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
-                         #expect(ld_flags == ["-lc++", "$(inherited)"], "for platform \(platform)")
+                         #expect(ld_flags == ["$(inherited)", "-lc++"], "for platform \(platform)")
                     case .android, .linux, .wasi, .openbsd:
-                        #expect(ld_flags == ["-lstdc++", "$(inherited)"], "for platform \(platform)")
+                        #expect(ld_flags == ["$(inherited)", "-lstdc++"], "for platform \(platform)")
                     case .windows, ._iOSDevice:
                         #expect(ld_flags == nil, "for platform \(platform)")
                 }
@@ -1976,7 +1976,8 @@ struct PIFBuilderTests {
         let fs = InMemoryFileSystem(
             emptyFiles:
                 "/Pkg/Sources/lib/file1.swift",
-                "/Pkg/Sources/lib/file2.c"
+                "/Pkg/Sources/lib/file2.c",
+                "/Pkg/Sources/lib/include/lib.h"
         )
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -1985,7 +1986,7 @@ struct PIFBuilderTests {
                 Manifest.createRootManifest(
                     displayName: "Pkg",
                     path: "/Pkg",
-                    toolsVersion: try #require(ToolsVersion(string: "6.4.0", experimentalFeatures: [.experimentalMultiLang])),
+                    toolsVersion: try #require(ToolsVersion(string: "6.5.0")),
                     targets: [
                         TargetDescription(name: "lib"),
                     ]
@@ -2031,6 +2032,19 @@ struct PIFBuilderTests {
             "/Pkg/Sources/lib/file2.c",
         ]
         #expect(sources == expected)
+
+        let libConfig = try lib.buildConfig(named: .debug)
+        #expect(libConfig.settings[.SWIFT_INSTALL_OBJC_HEADER] == "YES")
+        #expect(libConfig.settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME] == "lib-Swift.h")
+        #expect(libConfig.settings[.DEFINES_MODULE] == "YES")
+
+        let moduleMapContents = try #require(libConfig.settings[.MODULEMAP_FILE_CONTENTS])
+        #expect(moduleMapContents.contains("module lib"))
+        #expect(moduleMapContents.contains("umbrella header"))
+        #expect(!moduleMapContents.contains("lib-Swift.h"))
+
+        let headerSearchPaths = try #require(libConfig.settings[.HEADER_SEARCH_PATHS])
+        #expect(headerSearchPaths.contains("/Pkg/Sources/lib/include"))
      }
 
     @Test func testTargetDependsOnTestTarget() async throws {

@@ -419,12 +419,6 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 propertyName: "resources",
                 value: String(describing: resources)
             ) }
-            if publicHeadersPath != nil { throw Error.disallowedPropertyInTarget(
-                targetName: name,
-                targetType: targetType,
-                propertyName: "publicHeadersPath",
-                value: publicHeadersPath ?? "<nil>"
-            ) }
             if pkgConfig != nil { throw Error.disallowedPropertyInTarget(
                 targetName: name,
                 targetType: targetType,

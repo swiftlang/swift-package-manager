@@ -36,6 +36,7 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
     public static let v6_2 = ToolsVersion(version: "6.2.0")
     public static let v6_3 = ToolsVersion(version: "6.3.0")
     public static let v6_4 = ToolsVersion(version: "6.4.0")
+    public static let v6_5 = ToolsVersion(version: "6.5.0")
     public static let vNext = ToolsVersion(version: "999.0.0")
 
     /// The current tools version in use.
@@ -90,7 +91,6 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
     /// Experimental features
     public enum ExperimentalFeature: String, Sendable, Codable {
         case experimentalCGen
-        case experimentalMultiLang
     }
     public let experimentalFeatures: Set<ExperimentalFeature>?
 
@@ -103,10 +103,6 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
     /// Helpers for experimental
     public var experimentalCGen: Bool {
         self >= .v6_3 && experimentalFeatures?.contains(.experimentalCGen) == true
-    }
-
-    public var experimentalMultiLang: Bool {
-        self >= .v6_4 && experimentalFeatures?.contains(.experimentalMultiLang) == true
     }
 
     /// Create an instance of tools version from a given string.
