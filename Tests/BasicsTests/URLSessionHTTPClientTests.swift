@@ -809,6 +809,15 @@ final class URLSessionHTTPClientTest: XCTestCase {
     }
 
     func testAsyncAuthenticateWithRedirectedRemovesAuthorizationForUnknownHost() async throws {
+        #if !os(macOS)
+        // swift-corelibs-foundation's URLSessionTask does not implement redirect handling: it
+        // calls `URLProtocolClient.urlProtocol(_:wasRedirectedTo:redirectResponse:)` but then hits
+        // "The URLSession swift-corelibs-foundation implementation doesn't currently handle
+        // redirects directly" as a fatal error before the delegate the fix in this PR touches is
+        // ever consulted.
+        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address this.
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
         let netrcContent = "machine async-redirect-tests.com login anonymous password qwerty"
         let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
         let authData = Data("anonymous:qwerty".utf8)
