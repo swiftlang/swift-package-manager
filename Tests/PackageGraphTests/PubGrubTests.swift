@@ -304,6 +304,69 @@ final class PubGrubTests: XCTestCase {
         ])
     }
 
+    /// Reproduces the mismatch that used to make `addIncompatibility` perpetually flag an
+    /// already-decided package for repair: `d` is reached by one edge that explicitly names a real
+    /// trait (`Trait1`, e.g. from `a`'s manifest naming it directly) and, separately, by an edge
+    /// that only ever requests the implicit `default` trait (e.g. from a manifest dependency with
+    /// no `traits:` at all).
+    func testResolverAddIncompatibilityDoesNotRepairDecisionForImplicitDefaultTraitEdge() async throws {
+        let dRef: PackageReference = "d"
+        let namedTraitNode = DependencyResolutionNode.product(
+            "d", package: dRef,
+            enabledTraits: EnabledTraits(["Trait1"], setBy: .package("a"))
+        )
+        // No `enabledTraits:` provided - this is the literal, unresolved `["default"]` value that a
+        // manifest dependency with no `traits:` at all produces.
+        let implicitDefaultNode = DependencyResolutionNode.product("d", package: dRef)
+
+        let state = PubGrubDependencyResolver.State(root: rootNode)
+
+        // `a` explicitly names `Trait1` on `d`, and `d` gets decided on the strength of that edge.
+        state.addIncompatibility(try Incompatibility(Term(namedTraitNode, .exact(v1)), root: rootNode), at: .topLevel)
+        state.decide(namedTraitNode, at: v1)
+        XCTAssertTrue(state.decisionsToRepair.isEmpty)
+
+        // Some other, unrelated edge to `d` (e.g. a transitively-discovered manifest dependency with
+        // no `traits:`) gets processed - repeatedly, as would happen if that edge's owning package
+        // were re-decided across backtracking. Nothing about `d`'s actual trait requirements ever
+        // changes, so this must never flag `d`'s decision for repair.
+        for _ in 0 ..< 25 {
+            state.addIncompatibility(try Incompatibility(Term(implicitDefaultNode, .exact(v1)), root: rootNode), at: .topLevel)
+        }
+
+        XCTAssertTrue(
+            state.decisionsToRepair.isEmpty,
+            "d's already-made decision was incorrectly flagged for repair by an implicit-default edge that never changed anything."
+        )
+    }
+
+    /// Sanity check for the fix above: a *genuinely new* named trait request for an already-decided
+    /// package must still flag it for repair - the fix should stop false positives without silencing
+    /// real ones.
+    func testResolverAddIncompatibilityStillRepairsDecisionForGenuinelyNewTrait() async throws {
+        let dRef: PackageReference = "d"
+        let namedTraitNode = DependencyResolutionNode.product(
+            "d", package: dRef,
+            enabledTraits: EnabledTraits(["Trait1"], setBy: .package("a"))
+        )
+        let secondNamedTraitNode = DependencyResolutionNode.product(
+            "d", package: dRef,
+            enabledTraits: EnabledTraits(["Trait2"], setBy: .package("b"))
+        )
+
+        let state = PubGrubDependencyResolver.State(root: rootNode)
+
+        state.addIncompatibility(try Incompatibility(Term(namedTraitNode, .exact(v1)), root: rootNode), at: .topLevel)
+        state.decide(namedTraitNode, at: v1)
+        XCTAssertTrue(state.decisionsToRepair.isEmpty)
+
+        // `b` explicitly names a *different* real trait on `d` - this genuinely widens what's
+        // enabled and must still trigger a repair.
+        state.addIncompatibility(try Incompatibility(Term(secondNamedTraitNode, .exact(v1)), root: rootNode), at: .topLevel)
+
+        XCTAssertEqual(state.decisionsToRepair, [namedTraitNode])
+    }
+
     func testUpdatePackageIdentifierAfterResolution() async throws {
         let fooURL = SourceControlURL("https://example.com/foo")
         let fooRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: fooURL), url: fooURL)
