@@ -83,6 +83,46 @@ struct TestTraitConfigurationMatrixTests {
     }
 
     @Test
+    func buildDirectorySuffixes() {
+        // The default configuration shares the regular build directory.
+        #expect(TraitConfiguration.default.buildDirectorySuffix == "")
+        #expect(TraitConfiguration.enableAllTraits.buildDirectorySuffix == "+all-traits")
+        #expect(TraitConfiguration.disableAllTraits.buildDirectorySuffix == "+no-traits")
+        // Trait names are sorted so equivalent sets produce the same directory.
+        #expect(
+            TraitConfiguration.enabledTraits(["Foo", "Bar"]).buildDirectorySuffix == "+traits-Bar-Foo"
+        )
+        #expect(
+            TraitConfiguration.enabledTraits(["Bar", "Foo"]).buildDirectorySuffix ==
+            TraitConfiguration.enabledTraits(["Foo", "Bar"]).buildDirectorySuffix
+        )
+    }
+
+    @Test
+    func buildDirectorySuffixForLongTraitListsUsesDigest() {
+        let manyTraits = Set((0..<50).map { "Trait\($0)" })
+        let suffix = TraitConfiguration.enabledTraits(manyTraits).buildDirectorySuffix
+        // Long lists collapse to a fixed-length digest, deterministically.
+        #expect(suffix.hasPrefix("+traits-"))
+        #expect(suffix.count == "+traits-".count + 16)
+        #expect(suffix == TraitConfiguration.enabledTraits(manyTraits).buildDirectorySuffix)
+    }
+
+    @Test
+    func buildDirectorySuffixForNonIdentifierNamesUsesDigest() {
+        // Trait names are validated to be identifiers, but the encoding doesn't
+        // rely on that invariant holding elsewhere: names that could make the
+        // joined spelling ambiguous (e.g. containing the separator) fall back
+        // to the digest form, so distinct configurations can't share a
+        // build directory.
+        let ambiguousOne = TraitConfiguration.enabledTraits(["A-B"]).buildDirectorySuffix
+        let ambiguousTwo = TraitConfiguration.enabledTraits(["A", "B"]).buildDirectorySuffix
+        #expect(ambiguousOne.hasPrefix("+traits-"))
+        #expect(ambiguousOne.count == "+traits-".count + 16)
+        #expect(ambiguousOne != ambiguousTwo)
+    }
+
+    @Test
     func duplicateDeclarationWithinOneTargetIsHarmless() throws {
         let matrix = SwiftTestCommand.testTraitConfigurationMatrix(testTargets: [
             try testTarget("ATests", traitConfigurations: [.default, .default]),

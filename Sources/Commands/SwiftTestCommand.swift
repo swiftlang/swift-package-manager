@@ -553,8 +553,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             let command = try List.parse()
             try await command.run(swiftCommandState)
         } else if self.options.enableTestTraitConfigurations {
-            let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
-            try await runTestsPerTraitConfiguration(swiftCommandState, buildParameters: productsBuildParameters)
+            try await runTestsPerTraitConfiguration(swiftCommandState)
         } else {
             let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
             let (buildSystem, testProducts) = try await buildTestsIfNeeded(swiftCommandState: swiftCommandState)
@@ -579,11 +578,14 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     /// test targets, building with each configuration and running only the test
     /// targets that declared it.
     ///
+    /// Each non-default configuration builds into its own build directory (the
+    /// default configuration shares the regular build directory), so repeated
+    /// matrix runs stay incremental per configuration.
+    ///
     /// Failures don't stop the matrix: the remaining configurations still run, and
     /// the overall command fails if any configuration failed.
     private func runTestsPerTraitConfiguration(
-        _ swiftCommandState: SwiftCommandState,
-        buildParameters: BuildParameters
+        _ swiftCommandState: SwiftCommandState
     ) async throws {
         let workspace = try swiftCommandState.getActiveWorkspace()
         let root = try swiftCommandState.getWorkspaceRoot()
@@ -601,8 +603,25 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         for (configuration, testTargets) in matrix {
             print("Running tests with \(configuration.testMatrixDescription)")
             do {
-                let (buildSystem, testProducts) = try await self.buildTestsIfNeeded(
+                var (productsBuildParameters, toolsBuildParameters) = try swiftCommandState
+                    .buildParametersForTest(options: self.options)
+
+                // Redirect this configuration's artifacts into a sibling build
+                // directory, so that configurations don't invalidate each
+                // other's incremental build state.
+                let suffix = configuration.buildDirectorySuffix
+                if !suffix.isEmpty {
+                    productsBuildParameters.dataPath = productsBuildParameters.dataPath.parentDirectory
+                        .appending(component: productsBuildParameters.dataPath.basename + suffix)
+                    toolsBuildParameters.dataPath = toolsBuildParameters.dataPath.parentDirectory
+                        .appending(component: toolsBuildParameters.dataPath.basename + suffix)
+                }
+
+                let (buildSystem, testProducts) = try await Commands.buildTestsIfNeeded(
                     swiftCommandState: swiftCommandState,
+                    productsBuildParameters: productsBuildParameters,
+                    toolsBuildParameters: toolsBuildParameters,
+                    testProduct: nil,
                     limitToTestProducts: Array(testTargets),
                     traitConfiguration: configuration
                 )
@@ -616,7 +635,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 let statusBefore = swiftCommandState.executionStatus
                 try await self.run(
                     swiftCommandState,
-                    buildParameters: buildParameters,
+                    buildParameters: productsBuildParameters,
                     testProducts: selectedProducts,
                     buildSystem: buildSystem
                 )
@@ -1136,14 +1155,9 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
     /// Builds the "test" target if enabled in options.
     ///
-    /// - Parameter traitConfiguration: The trait configuration to build with, in
-    ///   place of the configuration derived from the command-line options.
-    ///
     /// - Returns: The paths to the build test products.
     private func buildTestsIfNeeded(
-        swiftCommandState: SwiftCommandState,
-        limitToTestProducts: [String]? = nil,
-        traitConfiguration: TraitConfiguration? = nil
+        swiftCommandState: SwiftCommandState
     ) async throws -> (buildSystem: any BuildSystem, testProducts: [BuiltTestProduct]) {
         let (productsBuildParameters, toolsBuildParameters) = try swiftCommandState.buildParametersForTest(options: self.options)
         return try await Commands.buildTestsIfNeeded(
@@ -1151,8 +1165,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             productsBuildParameters: productsBuildParameters,
             toolsBuildParameters: toolsBuildParameters,
             testProduct: self.options.sharedOptions.testProduct,
-            limitToTestProducts: limitToTestProducts,
-            traitConfiguration: traitConfiguration ?? .init(traitOptions: self.globalOptions.traits)
+            traitConfiguration: .init(traitOptions: self.globalOptions.traits)
         )
     }
 
@@ -2206,6 +2219,39 @@ private var EXIT_NO_TESTS_FOUND: CInt {
 }
 
 extension TraitConfiguration {
+    /// The build-directory name suffix that isolates this configuration's build
+    /// artifacts from those of other configurations, so that repeated matrix
+    /// runs stay incremental per configuration.
+    ///
+    /// The default configuration has no suffix so that it shares its build
+    /// directory (and therefore its incremental build state) with regular
+    /// `swift build` and `swift test` invocations.
+    var buildDirectorySuffix: String {
+        switch self {
+        case .default:
+            return ""
+        case .enableAllTraits:
+            return "+all-traits"
+        case .disableAllTraits:
+            return "+no-traits"
+        case .enabledTraits(let traits):
+            let sorted = traits.sorted()
+            let joined = sorted.joined(separator: "-")
+            // Trait names are validated to be identifiers (letters, digits, and
+            // underscores), which makes the "-"-joined spelling unambiguous and
+            // path-safe. Names that violate that invariant, or lists too long
+            // for a filesystem name, fall back to a digest of the names,
+            // following the checksum convention used for manifest cache keys.
+            // The digest input is newline-separated, which no identifier can
+            // contain, so distinct trait lists can't collide.
+            guard sorted.allSatisfy(\.isValidIdentifier), joined.count <= 64 else {
+                let digest = ByteString(encodingAsUTF8: sorted.joined(separator: "\n")).sha256Checksum
+                return "+traits-\(digest.prefix(16))"
+            }
+            return "+traits-\(joined)"
+        }
+    }
+
     /// A human-readable description of this configuration for test run output.
     fileprivate var testMatrixDescription: String {
         switch self {

@@ -139,6 +139,13 @@ struct TestCommandTests {
             // under the configuration it declared.
             #expect(output.contains("Running tests with default traits"), "got output:\n\(output)")
             #expect(output.contains("Running tests with all traits enabled"), "got output:\n\(output)")
+
+            // Each non-default configuration builds into its own sibling build
+            // directory so that repeated runs stay incremental; the default
+            // configuration shares the regular build directory.
+            let scratchPath = fixturePath.appending(components: "TestConfigurations", ".build")
+            #expect(localFileSystem.exists(scratchPath.appending("out")))
+            #expect(localFileSystem.exists(scratchPath.appending("out+all-traits")))
         }
     }
 
