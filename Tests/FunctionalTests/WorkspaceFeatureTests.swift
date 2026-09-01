@@ -4038,6 +4038,90 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    /// Two workspace members that each depend on the other via
+    /// `.package(workspaceMember:)` + `.product()` at the target
+    /// level form a target cycle (LibA -> LibB -> LibA). Graph load
+    /// must reject the workspace with a `cyclic dependency
+    /// declaration` diagnostic. Locks in that `.workspaceMember`
+    /// edges participate in cross-package cycle detection.
+    @Test(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s15_workspaceMemberCycle_hardErrors(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S15_WorkspaceMemberCycle") { fixturePath in
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftPackage(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: ["describe"],
+                    buildSystem: buildSystem,
+                ),
+            ) { error in
+                #expect(
+                    error.stderr.contains("cyclic dependency declaration"),
+                    "expected cyclic dependency diagnostic on stderr; got stderr=\(error.stderr)",
+                )
+                // Both members must appear in the reported cycle
+                // path so the diagnostic is actionable.
+                #expect(
+                    error.stderr.contains("LibA"),
+                    "expected 'LibA' in the cycle path on stderr; got stderr=\(error.stderr)",
+                )
+                #expect(
+                    error.stderr.contains("LibB"),
+                    "expected 'LibB' in the cycle path on stderr; got stderr=\(error.stderr)",
+                )
+            }
+        }
+    }
+
+    /// A workspace member inherits an external workspace-level dep
+    /// via `.package(workspaceInherited:)`, and the external dep
+    /// declares a `.package(path:)` back-reference to that same
+    /// member. The mutual product edges (LibA imports LibX in the
+    /// member; LibX imports LibA in the external) form a target
+    /// cycle at graph load. Locks in that `.workspaceInherited`
+    /// edges participate in cycle detection through the concrete
+    /// kind they resolve to (here, `.fileSystem`).
+    @Test(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s15_workspaceInheritedCycle_hardErrors(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S15_WorkspaceInheritedCycle") { fixturePath in
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftPackage(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: ["describe"],
+                    buildSystem: buildSystem,
+                ),
+            ) { error in
+                #expect(
+                    error.stderr.contains("cyclic dependency declaration"),
+                    "expected cyclic dependency diagnostic on stderr; got stderr=\(error.stderr)",
+                )
+                #expect(
+                    error.stderr.contains("LibA"),
+                    "expected 'LibA' in the cycle path on stderr; got stderr=\(error.stderr)",
+                )
+                #expect(
+                    error.stderr.contains("LibX"),
+                    "expected 'LibX' in the cycle path on stderr; got stderr=\(error.stderr)",
+                )
+            }
+        }
+    }
+
     /// Initializes an external-dependency directory in the S08
     /// fixture as a git repository tagged `1.0.0`. The fixture ships
     /// each `external/*` directory without a `.git/` folder (nothing
