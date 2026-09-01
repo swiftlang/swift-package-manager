@@ -8,7 +8,7 @@ Implement first-class workspaces in Swift Package Manager: a new `Workspace.swif
 
 **Gating:** all new DSL surface gated on `@available(_PackageDescription, introduced: 999.0)` using SwiftPM's existing `vNext` convention (`Sources/PackageModel/ToolsVersion.swift:39`). Graduation to a real tools-version is out of scope for this plan.
 
-## Status (as of 2026-08-27)
+## Status (as of 2026-09-01)
 
 | Phase | Slice | Status | Branch |
 |---|---|---|---|
@@ -27,9 +27,10 @@ Implement first-class workspaces in Swift Package Manager: a new `Workspace.swif
 | 10 | `swift package show-dependencies` workspace awareness | ✅ Done — all four formats extended, coverage split between unit + e2e | `bkhouri/t/main/poc_workspaces_phase10` |
 | 11 | `swift package update` workspace awareness | ✅ Done — `--package` selector + CWD focus + workspace-root routing | `bkhouri/t/main/poc_workspaces_phase11-make-package-update-workspace-aware` |
 | 12 | `swift package clean` workspace awareness | ✅ Done — workspace-root `.build/` cleanup + info diagnostics + `--package` parity | `bkhouri/t/main/poc_workspaces_phase11-make-package-update-workspace-aware` (Phase 12 landed on the Phase 11 branch as follow-up) |
-| 13 | `swift package describe` workspace awareness | ✅ Done — per-member iteration for text/json/mermaid + `--package` + CWD focus | `bkhouri/t/main/poc_workspaces_phase13-make-package-describe-workspace-aware` |
+| 13 | `swift package describe` workspace awareness | ✅ Done — per-member iteration for text/json/mermaid + `--package` + CWD focus + `DescribedPackageDependency.workspaceInherited` case fix | `bkhouri/t/main/poc_workspaces_phase13-make-package-describe-workspace-aware` |
 | 14 | `swift package dump-package` workspace awareness + `swift package workspace dump-workspace` | ✅ Done — `--package` selector + CWD focus + workspace-root ambiguity error; workspace manifest dump added alongside | `bkhouri/t/main/poc_workspaces_phase14-make-package-dump-package-workspace-aware` |
-| 15+ | (remaining slices) | 🔲 Not started | — |
+| 15 | Error paths + edge cases | ✅ Done — split into 15a (load-time errors), 15b (nested workspaces), 15c (`--multiroot-data-file` conflict + `--package-path` → `--project-path` rename), 15d (`edit`/`unedit` deferred + workspace-only DSL outside workspace) | `bkhouri/t/main/poc_workspaces_phase15-*` (multiple stack branches) |
+| 16 | Per-member trait isolation + cross-package cycle detection | ✅ Done — unit + e2e coverage for `.workspaceMember` and `.workspaceInherited` trait isolation; e2e coverage for cycle detection through both DSL edges | `bkhouri/t/main/poc_workspaces_phase15-error-handling-workspace-cyclical-dependency` |
 
 ## Current State Analysis
 
@@ -70,7 +71,7 @@ At completion of Slice 15 on branch `bkhouri/t/main/poc_workspaces`:
 
 ## What We're NOT Doing
 
-- `swift package edit` / `swift package unedit` under workspace (Slice 15 emits a deferred-feature diagnostic; actual implementation is post-MVP).
+- `swift package edit` / `swift package unedit` under workspace — implemented in Slice 15d as a hard-error pointing at `swift package workspace override` (the workspace-scoped replacement for the "redirect a dep to a local checkout" use case). Not a "not yet supported" deferral: the workspace-scoped replacement is already shipped in Phase 8C.
 - Nested workspace *support* (Slice 15 emits rejection error; support is post-MVP).
 - Migration of member `Package.resolved` pins into workspace `Package.resolved` (member files ignored + trailing warning per SE proposal; migration deferred).
 - Rich IDE integration API (Slice 1 ships minimal `WorkspaceManifest` public type + `discoverWorkspaceRoot`/`loadWorkspaceManifest`; broader IDE lifecycle hooks are post-MVP).
@@ -1924,96 +1925,153 @@ Added `Encodable` conformance to `WorkspaceManifest` and `Member` (wire shape: `
 
 ### Overview
 
-Cover all documented error paths and edge cases. `--path`/`--package-path` deprecation. `--multiroot-data-file` conflict. Nested workspaces. Empty members. Absolute paths. Workspace-only DSL outside workspace. `swift package edit` deferred-feature error.
+Cover all documented error paths and edge cases. `--package-path` → `--project-path` deprecation. `--multiroot-data-file` conflict. Nested workspaces. Empty members. Absolute paths. Workspace-only DSL outside workspace. `swift package edit` deferred under workspace, pointing at `swift package workspace override`.
 
-### Changes Required
+**Delivery deviation from the original plan.** Phase 15 landed as four sub-slices on separate stack branches rather than a single commit:
+
+- **15a** — Actionable descriptions for `WorkspaceManifestParseError` cases (`emptyMembers`, `memberAbsolutePathError`, `duplicateMembernames`, `memberPathNotFound`, `memberMissingPackageManifest`) via `CustomStringConvertible`, plus out-of-tree member warning via `Basics.Diagnostic.memberOutsideWorkspaceTree` factory.
+- **15b** — Nested workspace detection (in ancestor + in member subtree) with new `WorkspaceManifestParseError.nestedWorkspaceInAncestor` / `.nestedWorkspaceInMember` cases. Refactored into a single `PackageWorkspace.validateWorkspace(...)` orchestrator.
+- **15c** — `--multiroot-data-file` conflict detection + the `--package-path` → `--project-path` rename with aliased `@Option` (last-wins) + argv-scanning deprecation warning.
+- **15d** — `swift package edit` / `unedit` deferred under workspace pointing at `swift package workspace override` (NOT "will be addressed in a follow-up"), plus explicit e2e coverage for workspace-only DSL used outside a workspace (`.package(workspaceMember:)` / `.package(workspaceInherited:)` in a standalone `Package.swift`).
+
+Design deviation on the flag rename: the pitched target was `--package-path` → `--path`. `swift package edit --path <checkout>` is public API (an evolution-locked flag on the `edit` subcommand), so a global `--path` alias collides at the ArgumentParser level. The rename target became `--project-path` instead.
+
+### Changes Required (as landed)
 
 #### 1. Empty `members: []`
-**Location**: workspace manifest validation in `PackageWorkspace.loadWorkspaceManifest()`
-- Hard error: `"Workspace.swift declares no members"`.
+**Location**: `PackageWorkspace.loadWorkspaceManifest()` via `validateWorkspace(...)`
+- ✅ Hard error via `WorkspaceManifestParseError.emptyMembers` with `CustomStringConvertible` description that reads as advice.
 
 #### 2. Absolute member paths
-**Location**: same validation site
-- Hard error: `"member path '<path>' must be relative to Workspace.swift"`.
+**Location**: workspace manifest JSON parser
+- ✅ Hard error via `WorkspaceManifestParseError.memberAbsolutePathError`.
 
 #### 3. Out-of-tree member paths
-**Location**: same validation site
-- Warning: `"member '<identity>' at '<path>' is outside the workspace directory tree — this may reduce portability"`.
+**Location**: `PackageWorkspace.checkOutOfTreeMembers(...)` via `validateWorkspace(...)`
+- ✅ Warning via `Basics.Diagnostic.memberOutsideWorkspaceTree(memberIdentity:memberPath:workspaceRoot:)` factory.
 
 #### 4. Duplicate member identities
-- Hard error at load with the colliding paths.
+- ✅ Hard error via `WorkspaceManifestParseError.duplicateMembernames`.
 
-#### 5. Member path doesn't exist / has no Package.swift
-- Hard error with which member and which path.
+#### 5. Member path doesn't exist / has no `Package.swift`
+- ✅ Hard errors via `.memberPathNotFound` / `.memberMissingPackageManifest`.
 
 #### 6. Nested workspace at load-time
-**Location**: after member paths are resolved, scan each member's subtree for `Workspace.swift` (bounded depth or fast rejection — depth 1 sufficient in MVP).
-- Hard error with member path.
+**Location**: `PackageWorkspace.checkNestedWorkspaceInMembers(...)`
+- ✅ Hard error via `WorkspaceManifestParseError.nestedWorkspaceInMember(memberName:nestedWorkspacePath:)`.
 
 #### 7. Nested workspace at discovery-time
-**Location**: `PackageWorkspace.discoverWorkspaceRoot(from:fileSystem:)`
-- After finding the first Workspace.swift, continue walking up. If a second Workspace.swift is found in an ancestor, hard error listing both paths.
+**Location**: `PackageWorkspace.checkNestedWorkspaceInAncestors(workspaceRoot:fileSystem:)`
+- ✅ Hard error via `WorkspaceManifestParseError.nestedWorkspaceInAncestor(inner:outer:)`.
 
 #### 8. `--multiroot-data-file` conflict
-**Location**: `SwiftCommandState.postprocessArgParserResult` (`SwiftCommandState.swift:514`)
-- If both `--multiroot-data-file` is set AND a `Workspace.swift` is discoverable in CWD's ancestors → hard error.
+**Location**: `SwiftCommandState.init` — via `multirootDataFileConflictDiagnostic(...)` pure decision helper.
+- ✅ Hard error at CLI init via `Basics.Diagnostic.multirootDataFileConflictsWithWorkspace(multirootDataFile:workspaceRoot:)` factory.
 
 #### 9. `--path` / `--package-path` renaming
 **File**: `Sources/CoreCommands/Options.swift`
-- Add `@Option(name: .customLong("path"), ...) public var path: AbsolutePath?`.
-- Keep `--package-path` with `@available(*, deprecated, message: "use --path")` (or equivalent for ArgumentParser).
-- In `SwiftCommandState`, `path` takes precedence over `packageDirectory`; if `packageDirectory` is set, emit deprecation warning.
+- ✅ Aliased `@Option(name: [.customLong("project-path"), .customLong("package-path")])` gives ArgumentParser last-wins semantics for free. A separate `SwiftCommandState.packagePathDeprecationWarranted(arguments:)` argv-scan detects the deprecated spelling and emits the warning via `Basics.Diagnostic.argumentDeprecated(flag:renamed:)` factory.
+- ⚠ **Design change from pitch:** rename target is `--project-path`, not `--path`. `swift package edit --path <checkout>` is public API; a global `--path` alias would collide with `edit`'s subcommand flag at parse time. `--project-path` avoids the collision without an evolution proposal to rename `edit`'s flag.
 
 #### 10. `swift package edit` deferred-feature diagnostic
-**File**: `Sources/Commands/PackageCommands/Edit.swift`
-- If a workspace is discoverable → hard error: `"swift package edit is not yet supported under a Workspace; will be addressed in a follow-up"`.
-- Same for `unedit`.
+**File**: `Sources/Commands/PackageCommands/EditCommands.swift`
+- ✅ `swift package edit` under a workspace hard-errors via `Basics.Diagnostic.editUnsupportedUnderWorkspace(workspaceRoot:)` pointing at `swift package workspace override`.
+- ✅ `swift package unedit` under a workspace hard-errors via `Basics.Diagnostic.uneditUnsupportedUnderWorkspace(workspaceRoot:)` pointing at `swift package workspace override remove`.
+- ⚠ **Design change from pitch:** the diagnostic points at the concrete replacement (`swift package workspace override`, shipped in Phase 8C) rather than emitting a generic "will be addressed in a follow-up" placeholder. Users hitting the guard get a concrete next step, not a promise.
 
 #### 11. Workspace-only DSL outside workspace
-**Location**: rewrite pass (Slice 2/3 groundwork)
-- Already implemented in Slice 2 via `WorkspaceError.workspaceOnlyAPIOutsideWorkspace`. Slice 15 adds explicit test coverage.
+**Location**: `Workspace.loadRootManifests(...)` at `Sources/Workspace/Workspace.swift`
+- ✅ `WorkspaceResolveError` is now propagated through `loadRootManifests` alongside `TraitError` instead of being silently swallowed into an empty manifest set. `.package(workspaceMember:)` / `.package(workspaceInherited:)` in a standalone `Package.swift` (no ancestor `Workspace.swift`) now surfaces the actionable error at the CLI boundary.
 
-#### 12. Fixtures
+#### 12. Fixtures (landed)
 **Directory**: `Fixtures/Workspaces/S15_ErrorPaths/`
 
-One subdirectory per error case:
 - `EmptyMembers/`
-- `AbsoluteMemberPath/`
-- `OutOfTreeMember/`
-- `DuplicateIdentities/`
-- `MissingMemberPath/`
 - `MemberWithoutPackageSwift/`
 - `NestedWorkspaceInMember/`
 - `NestedWorkspaceInAncestor/`
-- `WorkspaceAndMultirootBoth/` (with an Xcode workspace file alongside a Workspace.swift)
-- `WorkspaceOnlyAPIOutsideWorkspace/` (member Package.swift with `.workspaceMember(...)` but no ancestor Workspace.swift)
+- `WorkspaceMemberUsedOutsideWorkspace/` — standalone `Package.swift` using `.package(workspaceMember:)`
+- `WorkspaceInheritedUsedOutsideWorkspace/` — standalone `Package.swift` using `.package(workspaceInherited:)`
 
-#### 13. Functional tests
-For each fixture, a `@Test` case that expects the specific diagnostic. Use `try #require` (per Sam K's memory) for preconditions:
+The `WorkspaceAndMultirootBoth/` fixture from the original plan wasn't needed: the check happens at CLI init from any workspace fixture, so `--multiroot-data-file` conflict coverage reuses `S14_DumpPackage`.
 
-```swift
-@Test
-func s10_emptyMembersHardError(...) async throws {
-    try await fixture(name: "Workspaces/S15_ErrorPaths/EmptyMembers") { fixturePath in
-        let result = try await executeSwiftBuild(
-            fixturePath,
-            expectFailure: true,
-        )
-        try #require(result.exitCode != 0)
-        #expect(result.stderr.contains("Workspace.swift declares no members"))
-    }
-}
-```
+#### 13. Functional tests (landed)
+- 4 e2e tests using `expectThrowsCommandExecutionError` covering the fixture set above.
+- `s15_multirootDataFile_conflictsWithDiscoveredWorkspace` — CLI-init conflict.
+- `s15_pathFlag_alone_worksWithoutDeprecationWarning`, `s15_packagePathFlag_alone_worksAndWarns`, `s15_bothPathFlags_lastWinsAndWarns` — flag rename cycle.
+- `s15_edit_underWorkspace_hardErrorsPointingAtWorkspaceOverride`, `s15_unedit_underWorkspace_hardErrorsPointingAtWorkspaceOverride` — deferred-feature guards.
+- Unit-level coverage: `EditDiagnosticsTests`, `MultirootDataFileConflictDiagnosticTests`, `PackagePathDeprecationWarrantedTests`, `ComputeLocalConfigurationDirectoryTests`.
 
 ### Success Criteria
 
 #### Automated Verification:
-- [ ] Every error scenario in the fixture set produces the documented diagnostic (each `S15_ErrorPaths/*` fixture has a functional test asserting stderr contains the expected specific substring for that scenario)
-- [ ] `--path` and `--package-path` both work; `--package-path` emits stderr containing `"deprecated"` AND `"--path"`
-- [ ] `--path` takes precedence if both are set: run `swift build --path /a --package-path /b`, assert only `/a` is loaded (e.g., resolve fails predictably against `/a`, not `/b`)
-- [ ] `swift package edit` under workspace emits stderr containing `"not yet supported under a Workspace"`
-- [ ] Diagnostic-quality test: each error-path test not only asserts the specific error keyword, but also asserts the diagnostic includes an actionable hint (e.g. suggested fix, file path, member identity) — assert stderr matches a compiled regex `error: .+\n(.+\n)+.+(remove|use|add|specify|--\w+|packages/\w+)` per scenario
-- [ ] Full regression green
+- [x] Every error scenario in the fixture set produces the documented diagnostic (each `S15_ErrorPaths/*` fixture has a functional test asserting stderr contains the expected specific substring for that scenario)
+- [x] `--project-path` and `--package-path` both work; `--package-path` emits stderr containing `"deprecated"` AND `"--project-path"`
+- [x] Last-wins semantics if both are set: aliased `@Option` gives ArgumentParser the semantics for free
+- [x] `swift package edit` under workspace emits stderr containing `"not supported"` AND `"swift package workspace override"` (and explicitly does NOT contain `"follow-up"`)
+- [x] Diagnostic-quality: `WorkspaceResolveError` and `WorkspaceManifestParseError` conform to `CustomStringConvertible` so runtime output reads as prose, not enum reflection
+- [x] Full regression green on each sub-slice's stack branch
+
+#### Manual Verification:
+(none — all criteria automated)
+
+---
+
+## Phase 16: Trait Isolation Coverage + Cycle Detection
+
+### Overview
+
+Follow-up coverage discovered during Phase 15 stack-top review. Three concerns:
+
+1. **Per-member trait isolation for `.workspaceInherited`.** `resolveInherited` already computed each member's `workspace ∪ member` trait union independently, but the multi-member case had no test coverage. A future refactor of the trait-union arm could silently regress cross-member isolation.
+2. **Per-member trait isolation for `.workspaceMember`.** No workspace-level counterpart to merge with, so `resolveWorkspaceMemberPaths` preserves each consumer's authored trait set verbatim. No coverage locking that in.
+3. **Cross-package cycle detection through workspace-scoped edges.** For tools-version 6.0+, package-level cycle detection is intentionally disabled (`ModulesGraph+Loading.swift:112`) and the graph relies on the module-level cycle scan (`:892-914`) that follows `.product()` edges. No coverage locking in that `.workspaceMember` / `.workspaceInherited`-resolved packages participate in that scan.
+
+Also discovered during Phase 15 stack-top review: **`swift package describe` crashed on any workspace using `.package(workspaceInherited:)`**. `DescribedPackageDependency.init(from:)` had a `preconditionFailure` on `.workspaceInherited` predicated on a non-existent "rewrite pass" that replaces `.workspaceInherited` with a concrete kind — but the workspaces pipeline preserves `.workspaceInherited` end-to-end and populates the `resolved:` field instead. Fixed by adding a first-class `workspaceInherited(identity:, resolved:)` case to `DescribedPackageDependency`.
+
+### Changes Required (as landed)
+
+#### 1. Trait isolation for `.workspaceInherited`
+**Location**: `Tests/WorkspaceTests/WorkspaceResolveTests.swift` + `Tests/FunctionalTests/WorkspaceFeatureTests.swift`
+
+- ✅ 4 unit tests locking per-member `resolveInherited` isolation: two members inheriting the same workspace dep with divergent traits (guards against cross-contamination), two members inheriting different workspace deps (per-dep-scoped traits), mixed nil/explicit fall-through, and the "only one member inherits" case.
+- ✅ E2E test `s15_workspaceInheritedTraits_perMemberIsolation_workspaceLoadsAndBuilds` against fixture `Fixtures/Workspaces/S15_InheritedTraits/` (2 members + trait-bearing workspace dep + divergent per-member layered traits).
+
+#### 2. Trait isolation for `.workspaceMember`
+**Location**: `Tests/WorkspaceTests/WorkspaceResolveTests.swift` + `Tests/FunctionalTests/WorkspaceFeatureTests.swift`
+
+- ✅ `workspaceMemberDep(identity:traits:productFilter:)` helper added mirroring the existing `inheritedDep(...)`.
+- ✅ 4 unit tests locking per-consumer `.workspaceMember` isolation: two members referencing the same target with divergent traits (verbatim preservation, no cross-contamination), two members referencing different targets (per-target-scoped traits), mixed nil/explicit (nil stays nil), and the "only one member references" case.
+- ✅ E2E test `s15_workspaceMemberTraits_perMemberIsolation_workspaceLoadsAndBuilds` against fixture `Fixtures/Workspaces/S15_MemberTraits/` (3 members, two consumers referencing the third with divergent traits).
+
+#### 3. Cross-package cycle detection through workspace-scoped edges
+**Location**: `Tests/FunctionalTests/WorkspaceFeatureTests.swift`
+
+- ✅ Fixture `Fixtures/Workspaces/S15_WorkspaceMemberCycle/` — two workspace members forming a `.workspaceMember` + `.product()` target cycle.
+- ✅ Fixture `Fixtures/Workspaces/S15_WorkspaceInheritedCycle/` — one workspace member inherits an external via `.workspaceInherited`; the external declares a `.package(path:)` back-reference to the member, closing a target cycle.
+- ✅ E2E tests `s15_workspaceMemberCycle_hardErrors` and `s15_workspaceInheritedCycle_hardErrors` — both use `swift package describe` (which triggers full graph load without incurring compile time) and assert stderr contains `"cyclic dependency declaration"` plus both cycle-path target names.
+
+Test-only change — no production code touched. Cycle detection already worked; there was no coverage locking it in for the workspace DSL cases.
+
+#### 4. `swift package describe` handles `.workspaceInherited`
+**File**: `Sources/Commands/Utilities/DescribedPackage.swift`
+
+- ✅ Added first-class `case workspaceInherited(identity: PackageIdentity, resolved: ResolvedInherited)` to `DescribedPackageDependency`, mirroring the existing `workspaceMember` case.
+- ✅ Nested `enum ResolvedInherited: Encodable` with `.fileSystem`, `.sourceControl`, `.registry` sub-cases mirrors `PackageDependency.WorkspaceInherited.ResolvedInherited` in describe-appropriate shape (source-control location as a string, no `nameForTargetDependencyResolutionOnly` / `registryIdentity` metadata that isn't part of describe output).
+- ✅ `init(from:)` unpacks `settings.resolved` into the describe case. Preserved a `preconditionFailure` for the "nil resolved" invariant violation, retooled with a message pointing at `resolveInherited` (the field's populator) rather than the non-existent rewrite pass the previous message referenced.
+- ✅ Added `.resolved` coding key + `.workspaceInherited` to `Kind` + encoding branch.
+- ✅ Unit tests `DescribedPackageDependencyTests` (new file, 4 tests) — `.workspaceInherited` round-trip through `init(from:)` for all three resolved variants (file-system, source-control remote, source-control local, registry).
+
+### Success Criteria
+
+#### Automated Verification:
+- [x] Multi-member `.workspaceInherited` unit tests lock cross-member trait isolation (workspace ∪ member per member, no cross-contamination)
+- [x] Multi-member `.workspaceMember` unit tests lock per-consumer verbatim preservation
+- [x] E2E tests exercise the full manifest-load pipeline for both DSL forms with divergent per-member traits
+- [x] Cycle detection e2e tests exercise both DSL edge kinds
+- [x] `DescribedPackageDependencyTests` (new suite) unit tests cover all three resolved variants for `.workspaceInherited`
+- [x] `swift package describe` on any workspace using `.package(workspaceInherited:)` no longer crashes
+- [x] Full regression green
 
 #### Manual Verification:
 (none — all criteria automated)
