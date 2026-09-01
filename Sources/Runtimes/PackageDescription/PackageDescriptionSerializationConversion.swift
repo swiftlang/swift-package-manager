@@ -401,6 +401,10 @@ extension Serialization.Package {
         self.name = package.name
         self.platforms = package.platforms?.map { .init($0) }
         self.defaultLocalization = package.defaultLocalization.map { .init($0) }
+        self.defaultSwiftSettings = package.defaultSwiftSettings?.map { .init($0) }
+        self.defaultCSettings = package.defaultCSettings?.map { .init($0) }
+        self.defaultCXXSettings = package.defaultCXXSettings?.map { .init($0) }
+        self.defaultLinkerSettings = package.defaultLinkerSettings?.map { .init($0) }
         self.pkgConfig = package.pkgConfig
         self.providers = package.providers?.map { .init($0) }
         self.targets = package.targets.map { .init($0) }
