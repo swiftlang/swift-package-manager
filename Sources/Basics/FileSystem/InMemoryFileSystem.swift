@@ -20,7 +20,10 @@ import struct TSCBasic.FileSystemError
 
 /// Concrete FileSystem implementation which simulates an empty disk.
 public final class InMemoryFileSystem: FileSystem {
-    /// Private internal representation of a file system node.
+    /// Private internal representation of a file system node, and of the tree operations rooted at one.
+    ///
+    /// Not thread-safe. Callers must hold the state lock, and must not let a `Node` outlive the
+    /// `withLock` closure it came from: the compiler does not enforce either rule.
     private class Node {
         /// The actual node data.
         let contents: NodeContents
@@ -183,14 +186,13 @@ public final class InMemoryFileSystem: FileSystem {
 
     /// The mutable state of the filesystem: the root node and everything underneath it, plus the
     /// virtualized working directory.
-    ///
-    /// FIXME: Using a single lock for this is a performance problem, but in
-    /// reality, the only practical use for InMemoryFileSystem is for unit tests.
     private struct State {
-        var root: Node
+        let root: Node
         var currentWorkingDirectory: TSCBasic.AbsolutePath
     }
 
+    /// FIXME: Using a single lock for this is a performance problem, but in
+    /// reality, the only practical use for InMemoryFileSystem is for unit tests.
     private let state: Mutex<State>
 
     /// A map that keeps weak references to all locked files.
