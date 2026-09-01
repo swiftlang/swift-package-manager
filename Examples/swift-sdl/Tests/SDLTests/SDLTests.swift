@@ -2,5 +2,6 @@ import Testing
 import SDL
 
 @Test func example() async throws {
-    print(SDL_GetVersion())
+    // SDL_GetVersion renamed in API notes
+    print(SwiftSDL_GetVersion())
 }

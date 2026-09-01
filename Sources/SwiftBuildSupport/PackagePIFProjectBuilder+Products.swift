@@ -244,6 +244,7 @@ extension PackagePIFProjectBuilder {
             let (moduleMapFileContents, moduleMapPath) = try self.configureSwiftTargetModuleMap(
                 for: mainModule,
                 targetSuffix: nil,
+                generatedFiles: nil,
                 settings: &settings,
                 impartedSettings: &impartedSettings
             )
