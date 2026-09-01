@@ -166,38 +166,11 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
         }
 
         if identity == "-" {
-            let getTaskAllowEntitlementKey: String
-            let applicationIdentifierEntitlementKey: String
-
-            if provisioningSourceData.sdkRoot.contains("macos") || provisioningSourceData.sdkRoot
-                .contains("simulator")
-            {
-                getTaskAllowEntitlementKey = "com.apple.security.get-task-allow"
-                applicationIdentifierEntitlementKey = "com.apple.application-identifier"
-            } else {
-                getTaskAllowEntitlementKey = "get-task-allow"
-                applicationIdentifierEntitlementKey = "application-identifier"
-            }
-
-            let signedEntitlements = provisioningSourceData
-                .entitlementsDestination == "Signature" ? provisioningSourceData.productTypeEntitlements.merging(
-                    [applicationIdentifierEntitlementKey: .plString(provisioningSourceData.bundleIdentifier)],
-                    uniquingKeysWith: { _, new in new }
-                ).merging(provisioningSourceData.projectEntitlements ?? [:], uniquingKeysWith: { _, new in new })
-                : [:]
-
-            let simulatedEntitlements = provisioningSourceData.entitlementsDestination == "__entitlements"
-                ? provisioningSourceData.productTypeEntitlements.merging(
-                    ["application-identifier": .plString(provisioningSourceData.bundleIdentifier)],
-                    uniquingKeysWith: { _, new in new }
-                ).merging(provisioningSourceData.projectEntitlements ?? [:], uniquingKeysWith: { _, new in new })
-                : [:]
-
-            var additionalEntitlements: [String: SWBPropertyListItem] = [:]
-
-            if shouldEnableDebuggingEntitlement {
-                additionalEntitlements[getTaskAllowEntitlementKey] = .plBool(true)
-            }
+            let (signedEntitlements, simulatedEntitlements) = Self.adHocSignedEntitlements(
+                sdkRoot: provisioningSourceData.sdkRoot,
+                entitlementsDestination: provisioningSourceData.entitlementsDestination,
+                shouldEnableDebuggingEntitlement: self.shouldEnableDebuggingEntitlement
+            )
 
             return SWBProvisioningTaskInputs(
                 identityHash: "-",
@@ -206,10 +179,7 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
                 profileUUID: nil,
                 profilePath: nil,
                 designatedRequirements: nil,
-                signedEntitlements: signedEntitlements.merging(
-                    additionalEntitlements,
-                    uniquingKeysWith: { _, new in new }
-                ),
+                signedEntitlements: signedEntitlements,
                 simulatedEntitlements: simulatedEntitlements,
                 appIdentifierPrefix: nil,
                 teamIdentifierPrefix: nil,
@@ -230,6 +200,27 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
                 ]
             )
         }
+    }
+
+    package static func adHocSignedEntitlements(
+        sdkRoot: String,
+        entitlementsDestination: String,
+        shouldEnableDebuggingEntitlement: Bool
+    ) -> (signed: [String: SWBPropertyListItem], simulated: [String: SWBPropertyListItem]) {
+        let getTaskAllowEntitlementKey = if sdkRoot.contains("macos") || sdkRoot.contains("simulator") {
+            "com.apple.security.get-task-allow"
+        } else {
+            "get-task-allow"
+        }
+
+        var entitlements: [String: SWBPropertyListItem] = [:]
+        if shouldEnableDebuggingEntitlement {
+            entitlements[getTaskAllowEntitlementKey] = .plBool(true)
+        }
+
+        let signed = entitlementsDestination == "Signature" ? entitlements : [:]
+        let simulated = entitlementsDestination == "__entitlements" ? entitlements : [:]
+        return (signed, simulated)
     }
 
     public func executeExternalTool(
@@ -663,7 +654,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
             do {
                 try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchain: self.buildParameters.toolchain, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
-                    self.outputStream.send("Building for \(self.buildParameters.configuration == .debug ? "debugging" : "production")...\n")
+                    self.outputStream.send("Building for \(self.buildParameters.configuration.buildFor)...\n")
 
                     // Load the workspace, and set the system information to the default
                     do {

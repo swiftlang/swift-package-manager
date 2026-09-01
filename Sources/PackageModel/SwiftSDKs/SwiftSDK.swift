@@ -921,7 +921,16 @@ extension SwiftSDK {
                 decoder: decoder,
                 observabilityScope: observabilityScope
             )
-        } catch DecodingError.keyNotFound {
+        } catch let error as FileDecodingError {
+            // A missing key means the description predates the schema version it was looked up by, and
+            // so has to be decoded as a legacy one. Any other reason for not being able to decode it
+            // is a genuine failure to report.
+            guard let decodingError = error.underlyingError as? DecodingError,
+                  case .keyNotFound = decodingError
+            else {
+                throw error
+            }
+
             let version = try decoder.decode(path: path, fileSystem: fileSystem, as: VersionInfo.self)
             return try [SwiftSDK(legacy: version, fromFile: path, fileSystem: fileSystem, decoder: decoder)]
         }

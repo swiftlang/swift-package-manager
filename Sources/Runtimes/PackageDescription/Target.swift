@@ -374,12 +374,9 @@ public final class Target {
             precondition(
                 url == nil &&
                 resources == nil &&
-                publicHeadersPath == nil &&
                 pkgConfig == nil &&
                 providers == nil &&
-                pluginCapability == nil &&
-                cSettings == nil &&
-                cxxSettings == nil
+                pluginCapability == nil
             )
         }
     }
@@ -1028,7 +1025,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target.
-    @available(_PackageDescription, introduced: 5.9, obsoleted: 6.4)
+    @available(_PackageDescription, introduced: 5.9, obsoleted: 6.5)
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -1063,7 +1060,7 @@ public final class Target {
 
     /// Creates a test target.
     ///
-    /// Write test targets using the XCTest testing framework.
+    /// Write test targets using the Swift Testing or XCTest testing frameworks.
     /// Test targets generally declare a dependency on the targets they test.
     ///
     /// - Parameters:
@@ -1078,6 +1075,7 @@ public final class Target {
     ///   - sources: An explicit list of source files. If you provide a path to a directory,
     ///       Swift Package Manager searches for valid source files recursively.
     ///   - resources: An explicit list of resources files.
+    ///   - publicHeadersPath: The directory containing public headers of a target that contains C-family sources.
     ///   - packageAccess: Allows access to package symbols from other targets in the package.
     ///   - cSettings: The C settings for this target.
     ///   - cxxSettings: The C++ settings for this target.
@@ -1085,7 +1083,7 @@ public final class Target {
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target.
     ///   - traitConfigurations: The trait configurations under which this test target's tests run.
-    @available(_PackageDescription, introduced: 6.4)
+    @available(_PackageDescription, introduced: 6.5)
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -1093,6 +1091,7 @@ public final class Target {
         exclude: [String] = [],
         sources: [String]? = nil,
         resources: [Resource]? = nil,
+        publicHeadersPath: String? = nil,
         packageAccess: Bool = true,
         cSettings: [CSetting]? = nil,
         cxxSettings: [CXXSetting]? = nil,
@@ -1108,7 +1107,7 @@ public final class Target {
             exclude: exclude,
             sources: sources,
             resources: resources,
-            publicHeadersPath: nil,
+            publicHeadersPath: publicHeadersPath,
             type: .test,
             packageAccess: packageAccess,
             cSettings: cSettings,

@@ -806,10 +806,13 @@ let package = Package(
             name: "_InternalTestSupport",
             dependencies: [
                 "Basics",
+                "Commands",
+                "CoreCommands",
                 "DriverSupport",
                 "PackageFingerprint",
                 "PackageGraph",
                 "PackageLoading",
+                "PackageModel",
                 "PackageRegistry",
                 "PackageSigning",
                 "SourceControl",
@@ -1134,14 +1137,14 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // utils/update_checkout/update-checkout-config.json
         // They are used to build the official swift toolchain.
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", revision: "1.6.1"),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", revision: "1.8.2"),
         .package(url: "https://github.com/apple/swift-crypto.git", revision: "3.12.5"),
         .package(url: "https://github.com/apple/swift-system.git", revision: "1.5.0"),
         .package(url: "https://github.com/apple/swift-collections.git", revision: "1.1.6"),
         .package(url: "https://github.com/apple/swift-certificates.git", revision: "1.10.1"),
         .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", revision: "1.0.9"),
         // Not in toolchain, used for use in previewing documentation
-        .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.1.0"),
+        .package(url: "https://github.com/swiftlang/swift-docc-plugin", from: "1.5.0"),
     ]
     if !swiftDriverDeps.isEmpty {
         package.dependencies += [

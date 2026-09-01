@@ -1058,18 +1058,10 @@ struct BuildCommandTestCases {
         let configuration =  data.config
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let result = try await execute([], packagePath: fixturePath, configuration: configuration, buildSystem: buildSystem, throwIfCommandFails: false)
-            let expectedString: String
-            switch configuration {
-                case .debug:
-                    expectedString = "debugging"
-                case .release:
-                    expectedString = "production"
-
-            }
             switch buildSystem {
                 case .native, .swiftbuild:
                     #expect(
-                        result.stdout.contains("Building for \(expectedString)"),
+                        result.stdout.contains("Building for \(configuration.buildFor)"),
                         "expect log not emitted.  got stdout: '\(result.stdout)'\n\nstderr '\(result.stderr)'",
                     )
                 case .xcode:
@@ -1530,6 +1522,49 @@ struct BuildCommandTestCases {
                 buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
             }
             #endif
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.CodeCoverage,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms, [
+            (
+                argument: "--disable-code-coverage",
+                shouldEmitWarning: true,
+            ),
+            (
+                argument: "--enable-code-coverage",
+                shouldEmitWarning: true,
+            ),
+            (
+                argument: "--enable-coverage",
+                shouldEmitWarning: false,
+            ),
+        ]
+    )
+    func deprecationWarningIsEmitted(
+        buildSystem: BuildSystemProvider.Kind,
+        testData: (argument: String, shouldEmitWarning: Bool),
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+            let (out, err)  = try await executeSwiftBuild(
+                fixturePath,
+                configuration: configuration,
+                extraArgs: [
+                    "--show-bin-path", // we don't care about the buildgit
+                    testData.argument,
+                ],
+                buildSystem: buildSystem,
+            )
+
+            let diagnosticMessage = "\(Basics.Diagnostic.deprecatedEnableDisableCoverage.severity): \(Basics.Diagnostic.deprecatedEnableDisableCoverage.message)"
+            #expect(
+                err.contains(diagnosticMessage) == testData.shouldEmitWarning,
+                "expected diagnostic message >>> \(diagnosticMessage)\n\nstdout: \(out)\n\nstderr: \(err)"
+            )
         }
     }
 
