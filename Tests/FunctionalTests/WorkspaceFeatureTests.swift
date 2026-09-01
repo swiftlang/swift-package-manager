@@ -3996,6 +3996,48 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    /// A workspace declares three members (`app`, `lib-a`, `lib-b`).
+    /// Both `app` and `lib-b` depend on the sibling workspace member
+    /// `lib-a` via `.package(workspaceMember:)` but with DIFFERENT
+    /// per-consumer trait sets — `app` requests `["core", "extras"]`,
+    /// `lib-b` requests `["core", "perf"]`. Locks in that per-member
+    /// trait sets on `.workspaceMember` are preserved verbatim (no
+    /// merge, no cross-contamination) and the whole workspace graph
+    /// loads successfully end-to-end. Unit-level per-call isolation
+    /// is exercised in `WorkspaceResolveTests`.
+    @Test(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s15_workspaceMemberTraits_perMemberIsolation_workspaceLoadsAndBuilds(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S15_MemberTraits") { fixturePath in
+            // `describe` triggers the full manifest-load pipeline
+            // (including `resolveWorkspaceMemberPaths` per member).
+            // If the per-consumer trait sets on `.workspaceMember`
+            // were merged or dropped, manifest load would either
+            // surface a WorkspaceResolveError or fail with an
+            // unexpected exit code.
+            let (_, stderr) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["describe"],
+                buildSystem: buildSystem,
+            )
+            #expect(
+                stderr.contains("error:") == false,
+                "expected no error on stderr for a well-formed multi-member trait-bearing workspaceMember graph; got stderr=\(stderr)",
+            )
+            #expect(
+                stderr.contains("WorkspaceResolveError") == false,
+                "unexpected WorkspaceResolveError on stderr; got stderr=\(stderr)",
+            )
+        }
+    }
+
     /// Initializes an external-dependency directory in the S08
     /// fixture as a git repository tagged `1.0.0`. The fixture ships
     /// each `external/*` directory without a `.git/` folder (nothing

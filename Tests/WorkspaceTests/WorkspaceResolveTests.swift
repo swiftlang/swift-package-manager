@@ -164,6 +164,25 @@ struct WorkspaceResolveTests {
         )
     }
 
+    /// A member-level `.workspaceMember` dependency for use in member
+    /// `Manifest.dependencies`. Mirrors `inheritedDep` but for the
+    /// sibling-member case; the caller supplies the identity of the
+    /// referenced workspace member and (optionally) a per-consumer
+    /// trait set.
+    private static func workspaceMemberDep(
+        identity: String,
+        traits: Set<PackageDependency.Trait>? = nil,
+        productFilter: ProductFilter = .everything,
+    ) -> PackageDependency {
+        .workspaceMember(
+            PackageDependency.WorkspaceMember(
+                identity: PackageIdentity.plain(identity),
+                productFilter: productFilter,
+                traits: traits,
+            )
+        )
+    }
+
     // MARK: - Tests
 
     @Test(
@@ -1124,6 +1143,242 @@ struct WorkspaceResolveTests {
         // traits should not leak into A's result, and vice-versa.
         #expect(inheritedA.traits?.contains(PackageDependency.Trait(name: "b-extras")) == false)
         #expect(inheritedB.traits?.contains(PackageDependency.Trait(name: "a-extras")) == false)
+    }
+
+    // MARK: - .workspaceMember trait isolation
+
+    /// Two members both depend on the same sibling workspace member
+    /// via `.package(workspaceMember:)` but with DIFFERENT per-member
+    /// `traits:` sets. `resolveWorkspaceMemberPaths` preserves the
+    /// authored traits verbatim (there is no workspace-level
+    /// counterpart to union with, as there is for `.workspaceInherited`).
+    /// Each member's resolved dep must carry its OWN trait set —
+    /// no cross-contamination when both point at the same target.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func resolveWorkspaceMemberPaths_multipleMembersReferenceSameWorkspaceMemberWithDifferentTraits_areIsolatedPerMember() throws {
+        let appTraits: Set<PackageDependency.Trait> = [
+            PackageDependency.Trait(name: "extras"),
+        ]
+        let bTraits: Set<PackageDependency.Trait> = [
+            PackageDependency.Trait(name: "perf"),
+        ]
+        let workspace = Self.makeWorkspaceManifest()
+        let appMember = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [
+                Self.workspaceMemberDep(identity: "lib-a", traits: appTraits),
+            ],
+        )
+        let libBMember = Self.makeMemberManifest(
+            name: "lib-b",
+            dependencies: [
+                Self.workspaceMemberDep(identity: "lib-a", traits: bTraits),
+            ],
+        )
+
+        let resolvedApp = try PackageWorkspace.resolveWorkspaceMemberPaths(
+            in: appMember,
+            using: workspace,
+        )
+        let resolvedLibB = try PackageWorkspace.resolveWorkspaceMemberPaths(
+            in: libBMember,
+            using: workspace,
+        )
+
+        try #require(resolvedApp.dependencies.count == 1)
+        try #require(resolvedLibB.dependencies.count == 1)
+        guard case .workspaceMember(let appDep) = resolvedApp.dependencies[0] else {
+            Issue.record("expected app to have .workspaceMember, got: \(resolvedApp.dependencies[0])")
+            return
+        }
+        guard case .workspaceMember(let libBDep) = resolvedLibB.dependencies[0] else {
+            Issue.record("expected lib-b to have .workspaceMember, got: \(resolvedLibB.dependencies[0])")
+            return
+        }
+
+        #expect(appDep.traits == appTraits)
+        #expect(libBDep.traits == bTraits)
+        // Explicit cross-contamination guards: app must not have
+        // lib-b's trait, and vice versa.
+        #expect(appDep.traits?.contains(PackageDependency.Trait(name: "perf")) == false)
+        #expect(libBDep.traits?.contains(PackageDependency.Trait(name: "extras")) == false)
+    }
+
+    /// Two members reference DIFFERENT sibling workspace members
+    /// via `.package(workspaceMember:)`, each with its own per-consumer
+    /// trait set. Verifies traits stay scoped to the correct target
+    /// identity and don't bleed across `.workspaceMember` edges.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func resolveWorkspaceMemberPaths_multipleMembersReferenceDifferentWorkspaceMembersWithTraits_traitsScopedPerDep() throws {
+        let appTraits: Set<PackageDependency.Trait> = [
+            PackageDependency.Trait(name: "app-flavor"),
+        ]
+        let consumerTraits: Set<PackageDependency.Trait> = [
+            PackageDependency.Trait(name: "consumer-flavor"),
+        ]
+        let workspace = Self.makeWorkspaceManifest()
+        let appMember = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [
+                Self.workspaceMemberDep(identity: "lib-a", traits: appTraits),
+            ],
+        )
+        let consumerMember = Self.makeMemberManifest(
+            name: "consumer",
+            dependencies: [
+                Self.workspaceMemberDep(identity: "lib-b", traits: consumerTraits),
+            ],
+        )
+
+        let resolvedApp = try PackageWorkspace.resolveWorkspaceMemberPaths(
+            in: appMember,
+            using: workspace,
+        )
+        let resolvedConsumer = try PackageWorkspace.resolveWorkspaceMemberPaths(
+            in: consumerMember,
+            using: workspace,
+        )
+
+        try #require(resolvedApp.dependencies.count == 1)
+        try #require(resolvedConsumer.dependencies.count == 1)
+        guard case .workspaceMember(let appDep) = resolvedApp.dependencies[0] else {
+            Issue.record("expected app to have .workspaceMember, got: \(resolvedApp.dependencies[0])")
+            return
+        }
+        guard case .workspaceMember(let consumerDep) = resolvedConsumer.dependencies[0] else {
+            Issue.record("expected consumer to have .workspaceMember, got: \(resolvedConsumer.dependencies[0])")
+            return
+        }
+
+        #expect(appDep.identity.description == "lib-a")
+        #expect(appDep.traits == appTraits)
+        #expect(appDep.traits?.contains(PackageDependency.Trait(name: "consumer-flavor")) == false)
+
+        #expect(consumerDep.identity.description == "lib-b")
+        #expect(consumerDep.traits == consumerTraits)
+        #expect(consumerDep.traits?.contains(PackageDependency.Trait(name: "app-flavor")) == false)
+    }
+
+    /// Mixed nil-ness across members referencing the same sibling
+    /// workspace member: one member declares `traits: nil` on its
+    /// `.package(workspaceMember:)`, the other declares an explicit
+    /// trait set. The nil member's resolved dep must remain
+    /// `traits: nil` — the other consumer's trait set must not leak
+    /// into it. Verifies that `.workspaceMember` preserves the
+    /// authored value verbatim (no accidental default injection).
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func resolveWorkspaceMemberPaths_multipleMembersMixedWorkspaceMemberNilTraits_areIsolatedPerMember() throws {
+        let libBTraits: Set<PackageDependency.Trait> = [
+            PackageDependency.Trait(name: "extras"),
+        ]
+        let workspace = Self.makeWorkspaceManifest()
+        let appMember = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [
+                Self.workspaceMemberDep(identity: "lib-a"),
+            ],
+        )
+        let libBMember = Self.makeMemberManifest(
+            name: "lib-b",
+            dependencies: [
+                Self.workspaceMemberDep(identity: "lib-a", traits: libBTraits),
+            ],
+        )
+
+        let resolvedApp = try PackageWorkspace.resolveWorkspaceMemberPaths(
+            in: appMember,
+            using: workspace,
+        )
+        let resolvedLibB = try PackageWorkspace.resolveWorkspaceMemberPaths(
+            in: libBMember,
+            using: workspace,
+        )
+
+        try #require(resolvedApp.dependencies.count == 1)
+        try #require(resolvedLibB.dependencies.count == 1)
+        guard case .workspaceMember(let appDep) = resolvedApp.dependencies[0] else {
+            Issue.record("expected app to have .workspaceMember, got: \(resolvedApp.dependencies[0])")
+            return
+        }
+        guard case .workspaceMember(let libBDep) = resolvedLibB.dependencies[0] else {
+            Issue.record("expected lib-b to have .workspaceMember, got: \(resolvedLibB.dependencies[0])")
+            return
+        }
+
+        #expect(appDep.traits == nil)
+        #expect(libBDep.traits == libBTraits)
+    }
+
+    /// A workspace declares two members; only ONE of them references
+    /// a sibling workspace member via `.package(workspaceMember:)`
+    /// with traits. The other member's dependency list is a
+    /// non-workspace `.fileSystem` dep. Verifies the non-referencing
+    /// member's dep list is preserved untouched — no traits leak from
+    /// the referencing member, no `.workspaceMember` synthesized in
+    /// its place.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func resolveWorkspaceMemberPaths_onlyOneMemberReferencesTraitBearingWorkspaceMember_othersUnaffected() throws {
+        let appTraits: Set<PackageDependency.Trait> = [
+            PackageDependency.Trait(name: "extras"),
+        ]
+        let externalPath = AbsolutePath("/repo/external/some-lib")
+        let workspace = Self.makeWorkspaceManifest()
+        let appMember = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [
+                Self.workspaceMemberDep(identity: "lib-a", traits: appTraits),
+            ],
+        )
+        let libBMember = Self.makeMemberManifest(
+            name: "lib-b",
+            dependencies: [
+                Self.fileSystemDep(identity: "some-lib", path: externalPath),
+            ],
+        )
+
+        let resolvedApp = try PackageWorkspace.resolveWorkspaceMemberPaths(
+            in: appMember,
+            using: workspace,
+        )
+        let resolvedLibB = try PackageWorkspace.resolveWorkspaceMemberPaths(
+            in: libBMember,
+            using: workspace,
+        )
+
+        try #require(resolvedApp.dependencies.count == 1)
+        try #require(resolvedLibB.dependencies.count == 1)
+        guard case .workspaceMember(let appDep) = resolvedApp.dependencies[0] else {
+            Issue.record("expected app to have .workspaceMember, got: \(resolvedApp.dependencies[0])")
+            return
+        }
+        #expect(appDep.traits == appTraits)
+
+        // lib-b's single dependency must remain the .fileSystem dep
+        // unchanged — no smuggled-in .workspaceMember, no injected
+        // traits from `app`.
+        guard case .fileSystem(let libBOnlyDep) = resolvedLibB.dependencies[0] else {
+            Issue.record("expected lib-b to have .fileSystem, got: \(resolvedLibB.dependencies[0])")
+            return
+        }
+        #expect(libBOnlyDep.identity.description == "some-lib")
+        #expect(libBOnlyDep.path == externalPath)
+        #expect(libBOnlyDep.traits == nil)
     }
 
     // MARK: - unused workspace-dep audit
