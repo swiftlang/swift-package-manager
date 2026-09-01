@@ -84,6 +84,53 @@ struct DescribedPackage: Encodable {
         case sourceControl(identity: PackageIdentity, location: String, requirement: PackageDependency.SourceControl.Requirement)
         case registry(identity: PackageIdentity, requirement: PackageDependency.Registry.Requirement)
         case workspaceMember(identity: PackageIdentity, path: AbsolutePath)
+        /// A workspace-inherited dependency: authored in a member's
+        /// `Package.swift` as `.package(workspaceInherited: identity)`
+        /// and bound to a concrete source by the enclosing workspace's
+        /// `dependencies:` list. The describe output preserves the
+        /// inheritance signal (via this case) so tooling can
+        /// distinguish inherited deps from directly-declared ones,
+        /// while `resolved` carries the concrete source the workspace
+        /// bound it to.
+        case workspaceInherited(identity: PackageIdentity, resolved: ResolvedInherited)
+
+        /// The concrete source a workspace-inherited dep resolves to.
+        /// Mirrors `PackageDependency.WorkspaceInherited.ResolvedInherited`
+        /// but in the describe-appropriate shape (source-control
+        /// location as a string, no `nameForTargetDependencyResolutionOnly`
+        /// / `registryIdentity` metadata that isn't part of describe
+        /// output).
+        enum ResolvedInherited: Encodable {
+            case fileSystem(path: AbsolutePath)
+            case sourceControl(location: String, requirement: PackageDependency.SourceControl.Requirement)
+            case registry(requirement: PackageDependency.Registry.Requirement)
+
+            private enum CodingKeys: CodingKey {
+                case kind, path, location, requirement
+            }
+
+            private enum Kind: String, Codable {
+                case fileSystem
+                case sourceControl
+                case registry
+            }
+
+            func encode(to encoder: Encoder) throws {
+                var container = encoder.container(keyedBy: CodingKeys.self)
+                switch self {
+                case .fileSystem(let path):
+                    try container.encode(Kind.fileSystem, forKey: .kind)
+                    try container.encode(path, forKey: .path)
+                case .sourceControl(let location, let requirement):
+                    try container.encode(Kind.sourceControl, forKey: .kind)
+                    try container.encode(location, forKey: .location)
+                    try container.encode(requirement, forKey: .requirement)
+                case .registry(let requirement):
+                    try container.encode(Kind.registry, forKey: .kind)
+                    try container.encode(requirement, forKey: .requirement)
+                }
+            }
+        }
 
         init(from dependency: PackageDependency) {
             switch dependency {
@@ -108,12 +155,33 @@ struct DescribedPackage: Encodable {
                 }
                 self = .workspaceMember(identity: settings.identity, path: path)
             case .workspaceInherited(let settings):
-                // `.workspaceInherited` is rewritten to a concrete kind
-                // before describe runs — reaching this point indicates
-                // the rewrite pass was skipped.
-                preconditionFailure(
-                    ".workspaceInherited reached DescribedPackageDependency — identity: \(settings.identity), productFilter: \(settings.productFilter), traits: \(String(describing: settings.traits)) - rewrite pass should have replaced this."
-                )
+                // `.workspaceInherited` carries a concrete resolved
+                // source populated by `resolveInherited` at workspace-
+                // graph-load time. A nil `resolved` at this point is
+                // an invariant violation — either the manifest never
+                // flowed through `resolveWorkspaceMemberPaths`, or a
+                // downstream code path constructed a `.workspaceInherited`
+                // without going through the workspaces pipeline.
+                guard let resolved = settings.resolved else {
+                    preconditionFailure(
+                        ".workspaceInherited reached DescribedPackageDependency with nil resolved — identity: \(settings.identity), productFilter: \(settings.productFilter), traits: \(String(describing: settings.traits)) - resolveInherited should have populated this."
+                    )
+                }
+                let describedResolved: ResolvedInherited
+                switch resolved {
+                case .fileSystem(let path, _):
+                    describedResolved = .fileSystem(path: path)
+                case .sourceControl(let location, let requirement, _, _):
+                    switch location {
+                    case .local(let path):
+                        describedResolved = .sourceControl(location: path.pathString, requirement: requirement)
+                    case .remote(let url):
+                        describedResolved = .sourceControl(location: url.absoluteString, requirement: requirement)
+                    }
+                case .registry(let requirement):
+                    describedResolved = .registry(requirement: requirement)
+                }
+                self = .workspaceInherited(identity: settings.identity, resolved: describedResolved)
             }
         }
 
@@ -123,6 +191,7 @@ struct DescribedPackage: Encodable {
             case url
             case requirement
             case identity
+            case resolved
         }
 
         private enum Kind: String, Codable {
@@ -130,6 +199,7 @@ struct DescribedPackage: Encodable {
             case sourceControl
             case registry
             case workspaceMember
+            case workspaceInherited
         }
 
         func encode(to encoder: Encoder) throws {
@@ -152,6 +222,10 @@ struct DescribedPackage: Encodable {
                 try container.encode(Kind.workspaceMember, forKey: .type)
                 try container.encode(identity, forKey: .identity)
                 try container.encode(path, forKey: .path)
+            case .workspaceInherited(let identity, let resolved):
+                try container.encode(Kind.workspaceInherited, forKey: .type)
+                try container.encode(identity, forKey: .identity)
+                try container.encode(resolved, forKey: .resolved)
             }
         }
     }

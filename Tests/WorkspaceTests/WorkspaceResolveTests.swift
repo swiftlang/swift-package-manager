@@ -745,6 +745,286 @@ struct WorkspaceResolveTests {
         #expect(inherited.traits == nil)
     }
 
+    /// Two members inherit the SAME workspace dep with DIFFERENT
+    /// per-member `traits:` sets. Each member is resolved
+    /// independently against the shared `WorkspaceManifest`. The
+    /// per-member trait unions must not cross-contaminate: member A
+    /// gets `workspace ∪ A`, member B gets `workspace ∪ B`, and
+    /// neither sees the other's trait.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func resolveWorkspaceMemberPaths_multipleMembersInheritSameDepWithDifferentTraits_areIsolatedPerMember() throws {
+        let workspaceTraits: Set<PackageDependency.Trait> = [
+            PackageDependency.Trait(name: "core"),
+        ]
+        let appTraits: Set<PackageDependency.Trait> = [
+            PackageDependency.Trait(name: "extras"),
+        ]
+        let libATraits: Set<PackageDependency.Trait> = [
+            PackageDependency.Trait(name: "perf"),
+        ]
+        let workspace = Self.makeWorkspaceManifest(dependencies: [
+            Self.sourceControlDep(
+                identity: "swift-nio",
+                url: "https://github.com/apple/swift-nio",
+                version: Version(2, 0, 0),
+                traits: workspaceTraits,
+            ),
+        ])
+        let appMember = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [
+                Self.inheritedDep(identity: "swift-nio", traits: appTraits),
+            ],
+        )
+        let libAMember = Self.makeMemberManifest(
+            name: "lib-a",
+            dependencies: [
+                Self.inheritedDep(identity: "swift-nio", traits: libATraits),
+            ],
+        )
+
+        let resolvedApp = try PackageWorkspace.resolveWorkspaceMemberPaths(
+            in: appMember,
+            using: workspace,
+        )
+        let resolvedLibA = try PackageWorkspace.resolveWorkspaceMemberPaths(
+            in: libAMember,
+            using: workspace,
+        )
+
+        try #require(resolvedApp.dependencies.count == 1)
+        try #require(resolvedLibA.dependencies.count == 1)
+        guard case .workspaceInherited(let appInherited) = resolvedApp.dependencies[0] else {
+            Issue.record("expected app to have .workspaceInherited, got: \(resolvedApp.dependencies[0])")
+            return
+        }
+        guard case .workspaceInherited(let libAInherited) = resolvedLibA.dependencies[0] else {
+            Issue.record("expected lib-a to have .workspaceInherited, got: \(resolvedLibA.dependencies[0])")
+            return
+        }
+
+        #expect(appInherited.traits == workspaceTraits.union(appTraits))
+        #expect(libAInherited.traits == workspaceTraits.union(libATraits))
+        // Explicit cross-contamination guards: app must not have
+        // lib-a's trait, and vice versa.
+        #expect(appInherited.traits?.contains(PackageDependency.Trait(name: "perf")) == false)
+        #expect(libAInherited.traits?.contains(PackageDependency.Trait(name: "extras")) == false)
+    }
+
+    /// Two members each inherit a DIFFERENT workspace-level dep.
+    /// Each workspace dep declares its own trait set. Verifies that
+    /// per-dep trait sets stay scoped to the correct dep: member
+    /// "app"'s inherit of dep-A does not pick up dep-B's traits, and
+    /// vice versa.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func resolveWorkspaceMemberPaths_multipleMembersInheritDifferentWorkspaceDeps_traitsScopedPerDep() throws {
+        let netTraits: Set<PackageDependency.Trait> = [
+            PackageDependency.Trait(name: "net"),
+        ]
+        let logTraits: Set<PackageDependency.Trait> = [
+            PackageDependency.Trait(name: "log"),
+        ]
+        let appLayered: Set<PackageDependency.Trait> = [
+            PackageDependency.Trait(name: "metrics"),
+        ]
+        let libALayered: Set<PackageDependency.Trait> = [
+            PackageDependency.Trait(name: "trace"),
+        ]
+        let workspace = Self.makeWorkspaceManifest(dependencies: [
+            Self.sourceControlDep(
+                identity: "swift-nio",
+                url: "https://github.com/apple/swift-nio",
+                version: Version(2, 0, 0),
+                traits: netTraits,
+            ),
+            Self.registryDep(
+                identity: "log-lib",
+                version: Version(1, 0, 0),
+                traits: logTraits,
+            ),
+        ])
+        let appMember = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [
+                Self.inheritedDep(identity: "swift-nio", traits: appLayered),
+            ],
+        )
+        let libAMember = Self.makeMemberManifest(
+            name: "lib-a",
+            dependencies: [
+                Self.inheritedDep(identity: "log-lib", traits: libALayered),
+            ],
+        )
+
+        let resolvedApp = try PackageWorkspace.resolveWorkspaceMemberPaths(
+            in: appMember,
+            using: workspace,
+        )
+        let resolvedLibA = try PackageWorkspace.resolveWorkspaceMemberPaths(
+            in: libAMember,
+            using: workspace,
+        )
+
+        try #require(resolvedApp.dependencies.count == 1)
+        try #require(resolvedLibA.dependencies.count == 1)
+        guard case .workspaceInherited(let appInherited) = resolvedApp.dependencies[0] else {
+            Issue.record("expected app to have .workspaceInherited, got: \(resolvedApp.dependencies[0])")
+            return
+        }
+        guard case .workspaceInherited(let libAInherited) = resolvedLibA.dependencies[0] else {
+            Issue.record("expected lib-a to have .workspaceInherited, got: \(resolvedLibA.dependencies[0])")
+            return
+        }
+
+        #expect(appInherited.identity.description == "swift-nio")
+        #expect(appInherited.traits == netTraits.union(appLayered))
+        #expect(appInherited.traits?.contains(PackageDependency.Trait(name: "log")) == false)
+        #expect(appInherited.traits?.contains(PackageDependency.Trait(name: "trace")) == false)
+
+        #expect(libAInherited.identity.description == "log-lib")
+        #expect(libAInherited.traits == logTraits.union(libALayered))
+        #expect(libAInherited.traits?.contains(PackageDependency.Trait(name: "net")) == false)
+        #expect(libAInherited.traits?.contains(PackageDependency.Trait(name: "metrics")) == false)
+    }
+
+    /// Mixed nil-ness across members inheriting the same dep: one
+    /// member inherits with nil (fall through to workspace's traits),
+    /// the other layers additional traits on top. Isolation still
+    /// holds — the nil-traits member must not accidentally acquire
+    /// the layered member's traits.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func resolveWorkspaceMemberPaths_multipleMembersMixedInheritedNilTraits_areIsolatedPerMember() throws {
+        let workspaceTraits: Set<PackageDependency.Trait> = [
+            PackageDependency.Trait(name: "core"),
+        ]
+        let libALayered: Set<PackageDependency.Trait> = [
+            PackageDependency.Trait(name: "extras"),
+        ]
+        let workspace = Self.makeWorkspaceManifest(dependencies: [
+            Self.sourceControlDep(
+                identity: "swift-nio",
+                url: "https://github.com/apple/swift-nio",
+                version: Version(2, 0, 0),
+                traits: workspaceTraits,
+            ),
+        ])
+        let appMember = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [
+                Self.inheritedDep(identity: "swift-nio"),
+            ],
+        )
+        let libAMember = Self.makeMemberManifest(
+            name: "lib-a",
+            dependencies: [
+                Self.inheritedDep(identity: "swift-nio", traits: libALayered),
+            ],
+        )
+
+        let resolvedApp = try PackageWorkspace.resolveWorkspaceMemberPaths(
+            in: appMember,
+            using: workspace,
+        )
+        let resolvedLibA = try PackageWorkspace.resolveWorkspaceMemberPaths(
+            in: libAMember,
+            using: workspace,
+        )
+
+        try #require(resolvedApp.dependencies.count == 1)
+        try #require(resolvedLibA.dependencies.count == 1)
+        guard case .workspaceInherited(let appInherited) = resolvedApp.dependencies[0] else {
+            Issue.record("expected app to have .workspaceInherited, got: \(resolvedApp.dependencies[0])")
+            return
+        }
+        guard case .workspaceInherited(let libAInherited) = resolvedLibA.dependencies[0] else {
+            Issue.record("expected lib-a to have .workspaceInherited, got: \(resolvedLibA.dependencies[0])")
+            return
+        }
+
+        #expect(appInherited.traits == workspaceTraits)
+        #expect(appInherited.traits?.contains(PackageDependency.Trait(name: "extras")) == false)
+        #expect(libAInherited.traits == workspaceTraits.union(libALayered))
+    }
+
+    /// A workspace declares a trait-bearing dep. Only ONE member
+    /// inherits it; the other member does not reference it at all.
+    /// The non-inheriting member's dependency list must remain
+    /// untouched — no accidental injection of the workspace dep or
+    /// its traits into the non-inheriting member.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func resolveWorkspaceMemberPaths_onlyOneMemberInheritsTraitBearingDep_othersUnaffected() throws {
+        let workspaceTraits: Set<PackageDependency.Trait> = [
+            PackageDependency.Trait(name: "core"),
+        ]
+        let appTraits: Set<PackageDependency.Trait> = [
+            PackageDependency.Trait(name: "extras"),
+        ]
+        let workspace = Self.makeWorkspaceManifest(dependencies: [
+            Self.sourceControlDep(
+                identity: "swift-nio",
+                url: "https://github.com/apple/swift-nio",
+                version: Version(2, 0, 0),
+                traits: workspaceTraits,
+            ),
+        ])
+        let appMember = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [
+                Self.inheritedDep(identity: "swift-nio", traits: appTraits),
+            ],
+        )
+        // lib-a has NO inherited dep — only a workspace-member dep
+        // to keep things realistic (a member with zero deps also
+        // exercises the loop but is less interesting).
+        let libAMember = Self.makeMemberManifest(
+            name: "lib-a",
+            workspaceMemberIdentities: ["lib-a"],
+        )
+
+        let resolvedApp = try PackageWorkspace.resolveWorkspaceMemberPaths(
+            in: appMember,
+            using: workspace,
+        )
+        let resolvedLibA = try PackageWorkspace.resolveWorkspaceMemberPaths(
+            in: libAMember,
+            using: workspace,
+        )
+
+        try #require(resolvedApp.dependencies.count == 1)
+        try #require(resolvedLibA.dependencies.count == 1)
+        guard case .workspaceInherited(let appInherited) = resolvedApp.dependencies[0] else {
+            Issue.record("expected app to have .workspaceInherited, got: \(resolvedApp.dependencies[0])")
+            return
+        }
+        #expect(appInherited.traits == workspaceTraits.union(appTraits))
+
+        // lib-a's single dependency must remain the workspace-member
+        // dep (unchanged), NOT a smuggled-in .workspaceInherited for
+        // swift-nio and NOT augmented with any workspace traits.
+        guard case .workspaceMember(let libAOnlyDep) = resolvedLibA.dependencies[0] else {
+            Issue.record("expected lib-a to have .workspaceMember, got: \(resolvedLibA.dependencies[0])")
+            return
+        }
+        #expect(libAOnlyDep.identity.description == "lib-a")
+        #expect(libAOnlyDep.traits == nil)
+    }
+
     @Test(
         .tags(
             Tag.TestSize.small,

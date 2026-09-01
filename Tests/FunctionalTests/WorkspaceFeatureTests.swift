@@ -3951,6 +3951,51 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    /// A workspace declares two members (`app`, `lib-a`) and one
+    /// workspace-level dependency `traited-lib` with traits
+    /// `["core"]`. Each member inherits `traited-lib` via
+    /// `.package(workspaceInherited:)` but layers a DIFFERENT
+    /// additional trait — `app` requests `["core", "extras"]`,
+    /// `lib-a` requests `["core", "perf"]`. Locks in that
+    /// per-member trait sets on `.workspaceInherited` are
+    /// resolved independently and the whole workspace graph
+    /// loads + builds successfully end-to-end. Unit-level per-call
+    /// isolation of `resolveInherited` is exercised in
+    /// `WorkspaceResolveTests`.
+    @Test(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func s15_workspaceInheritedTraits_perMemberIsolation_workspaceLoadsAndBuilds(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S15_InheritedTraits") { fixturePath in
+            // `describe` triggers the full manifest-load pipeline
+            // (including `resolveInherited` per member) without
+            // needing a network fetch — `traited-lib` is a local
+            // file-system dep. If per-member trait sets were
+            // cross-contaminated or the merge policy misbehaved,
+            // manifest load would surface a WorkspaceResolveError
+            // on stderr and the command would exit non-zero.
+            let (_, stderr) = try await executeSwiftPackage(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: ["describe"],
+                buildSystem: buildSystem,
+            )
+            #expect(
+                stderr.contains("error:") == false,
+                "expected no error on stderr for a well-formed multi-member trait-inheriting workspace; got stderr=\(stderr)",
+            )
+            #expect(
+                stderr.contains("WorkspaceResolveError") == false,
+                "unexpected WorkspaceResolveError on stderr; got stderr=\(stderr)",
+            )
+        }
+    }
+
     /// Initializes an external-dependency directory in the S08
     /// fixture as a git repository tagged `1.0.0`. The fixture ships
     /// each `external/*` directory without a `.git/` folder (nothing
