@@ -35,7 +35,7 @@ public final class InMemoryFileSystem: FileSystem {
 
         /// Creates deep copy of the object.
         func copy() -> sending Node {
-            return Node(contents.copy())
+            return Node(contents.copy(), isExecutable: isExecutable)
         }
 
         /// Looks up the node corresponding to `path`.
