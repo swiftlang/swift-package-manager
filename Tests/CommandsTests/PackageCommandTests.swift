@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -1310,6 +1310,115 @@ struct PackageCommandTests {
                     #expect(JSONText.components(separatedBy: .newlines).count == 1)
                 }
             }
+    }
+
+    @Test(
+        .requiresSymbolgraphExtract,
+        .tags(
+            .Feature.Command.Package.CommandPlugin
+        ),
+        arguments:
+        SupportedBuildSystemOnAllPlatforms,
+        [
+            (["--traits", "Package10Trait1"], false, "TypeGatedByPackage10Trait1", "TypeGatedByPackage10Trait2"),
+            (["--traits", "Package10Trait2"], false, "TypeGatedByPackage10Trait2", "TypeGatedByPackage10Trait1"),
+            (["--disable-default-traits"], false, "hello", "TypeGatedByPackage10Trait1"),
+            (["--traits", "NonExistentTrait"], true, nil, nil),
+        ]
+    )
+    func dumpSymbolGraph_respectsEnabledTraits(
+        buildSystem: BuildSystemProvider.Kind,
+        testCase: (arguments: [String], errorOut: Bool, expected: String?, unexpected: String?)
+    ) async throws {
+        let config = BuildConfiguration.debug
+        try await fixture(
+            name: "Traits",
+            removeFixturePathOnDeinit: true
+        ) { fixturePath in
+            let packagePath = fixturePath.appending("Package10")
+            let symbolGraphExtractorPath = try UserToolchain.default.getSymbolGraphExtract()
+
+            let symbolGraphOutputDir = fixturePath.appending("symbolgraph")
+            if testCase.errorOut {
+                // Enabling a trait the package doesn't define is an error.
+                await #expect(throws: SwiftPMError.self) {
+                    try await execute(
+                        ["dump-symbol-graph"] + testCase.arguments + ["--output-dir", symbolGraphOutputDir.pathString],
+                        packagePath: packagePath,
+                        env: ["SWIFT_SYMBOLGRAPH_EXTRACT": symbolGraphExtractorPath.pathString],
+                        configuration: config,
+                        buildSystem: BuildSystemProvider.Kind.swiftbuild
+                    )
+                }
+                return
+            }
+            await #expect(throws: Never.self) {
+                try await execute(
+                    ["dump-symbol-graph"] + testCase.arguments + ["--output-dir", symbolGraphOutputDir.pathString],
+                    packagePath: packagePath,
+                    env: ["SWIFT_SYMBOLGRAPH_EXTRACT": symbolGraphExtractorPath.pathString],
+                    configuration: config,
+                    buildSystem: BuildSystemProvider.Kind.swiftbuild
+                )
+            }
+            let symbolGraphPath = symbolGraphOutputDir.appending(component: "Package10Library1.symbols.json")
+            try #require(
+                localFileSystem.exists(symbolGraphPath),
+                "Failed to extract symbol graph"
+            )
+            let symbolGraphData = try Data(contentsOf: URL(fileURLWithPath: symbolGraphPath.pathString))
+            #expect(throws: Never.self) {
+                try JSONSerialization.jsonObject(with: symbolGraphData)
+            }
+            let JSONText = String(decoding: symbolGraphData, as: UTF8.self)
+            let expectedTrait = try #require(testCase.expected)
+            let nonExpectedTrait = try #require(testCase.unexpected)
+            #expect(JSONText.contains(expectedTrait))
+            #expect(!JSONText.contains(nonExpectedTrait))
+        }
+    }
+
+    @Test(
+        .requiresSymbolgraphExtract,
+        .tags(
+            .Feature.Command.Package.CommandPlugin
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms
+    )
+    func commandPluginSymbolGraph_respectsEnabledTraits(
+        buildSystem: BuildSystemProvider.Kind
+    ) async throws {
+        let config = BuildConfiguration.debug
+        try await fixture(
+            name: "Traits",
+            removeFixturePathOnDeinit: true
+        ) { fixturePath in
+            let packagePath = fixturePath.appending("Package10")
+
+            let (stdout, _) = try await execute(
+                ["--traits", "Package10Trait1", "extract"],
+                packagePath: packagePath,
+                configuration: config,
+                buildSystem: buildSystem
+            )
+
+            // The plugin prints the symbol graph directory of the first target.
+            let line = try #require(
+                stdout.split(whereSeparator: \.isNewline).first,
+                "no symbol graph directory in output"
+            )
+            let symbolGraphDirectory = try AbsolutePath(
+                validating: String(line).trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            let symbolGraphPath = symbolGraphDirectory.appending(component: "Package10Library1.symbols.json")
+            let symbolGraphData = try Data(contentsOf: URL(fileURLWithPath: symbolGraphPath.pathString))
+            #expect(throws: Never.self) {
+                try JSONSerialization.jsonObject(with: symbolGraphData)
+            }
+            let JSONText = String(decoding: symbolGraphData, as: UTF8.self)
+            #expect(JSONText.contains("TypeGatedByPackage10Trait1"))
+            #expect(!JSONText.contains("TypeGatedByPackage10Trait2"))
+        }
     }
 
     @Test(
@@ -4027,8 +4136,11 @@ struct PackageCommandTests {
                 let fs = localFileSystem
                 let packageRoot = fixturePath.appending("Foo")
                 let configOverride = fixturePath.appending("configoverride")
-                let configFile = Workspace.DefaultLocations.mirrorsConfigurationFile(
+                let localConfigFile = Workspace.DefaultLocations.mirrorsConfigurationFile(
                     forRootPackage: packageRoot
+                )
+                let sharedConfigFile = Workspace.DefaultLocations.mirrorsConfigurationFile(
+                    at: try fs.swiftPMConfigurationDirectory
                 )
 
                 fs.createEmptyFiles(
@@ -4060,7 +4172,19 @@ struct PackageCommandTests {
                     configuration: config,
                     buildSystem: buildSystem,
                 )
-                #expect(fs.isFile(configFile))
+                #expect(fs.isFile(localConfigFile))
+
+                // Test writing.
+                try await execute(
+                    [
+                        "config", "set-mirror", "--global", "--original", "https://github.com/foo/bar", "--mirror",
+                        "https://globalgithub.com/foo/bar",
+                    ],
+                    packagePath: packageRoot,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                #expect(fs.isFile(sharedConfigFile))
 
                 // Test env override.
                 try await execute(
@@ -4086,6 +4210,13 @@ struct PackageCommandTests {
                 )
                 #expect(stdout.spm_chomp() == "https://mygithub.com/foo/bar")
                 (stdout, _) = try await execute(
+                    ["config", "get-mirror", "--global", "--original", "https://github.com/foo/bar"],
+                    packagePath: packageRoot,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                #expect(stdout.spm_chomp() == "https://globalgithub.com/foo/bar")
+                (stdout, _) = try await execute(
                     [
                         "config", "get-mirror", "--original",
                         "git@github.com:swiftlang/swift-package-manager.git",
@@ -4110,6 +4241,14 @@ struct PackageCommandTests {
                         buildSystem: buildSystem,
                     )
                 }
+                await check(stderr: "not found\n") {
+                    try await execute(
+                        ["config", "get-mirror", "--global", "--original", "git@github.com:swiftlang/swift-package-manager.git"],
+                        packagePath: packageRoot,
+                        configuration: config,
+                        buildSystem: buildSystem,
+                    )
+                }
 
                 // Test deletion.
                 try await execute(
@@ -4128,14 +4267,15 @@ struct PackageCommandTests {
                     buildSystem: buildSystem,
                 )
 
-                await check(stderr: "not found\n") {
-                    try await execute(
-                        ["config", "get-mirror", "--original", "https://github.com/foo/bar"],
-                        packagePath: packageRoot,
-                        configuration: config,
-                        buildSystem: buildSystem,
-                    )
-                }
+                // Still found via global
+                (stdout, _) = try await execute(
+                    ["config", "get-mirror", "--original", "https://github.com/foo/bar"],
+                    packagePath: packageRoot,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                #expect(stdout.spm_chomp() == "https://globalgithub.com/foo/bar")
+
                 await check(stderr: "not found\n") {
                     try await execute(
                         [
@@ -8458,7 +8598,7 @@ struct PackageCommandTests {
         ) async throws {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 let config = BuildConfiguration.debug
-                let (stdout, stderr) = try await execute(
+                let (_, stderr) = try await execute(
                     ["generate-sbom", "--sbom-spec", "cyclonedx"],
                     packagePath: fixturePath,
                     configuration: config,

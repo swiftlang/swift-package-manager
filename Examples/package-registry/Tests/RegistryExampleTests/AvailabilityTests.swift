@@ -17,11 +17,13 @@ import VaporTesting
 
 @Suite("Availability")
 struct AvailabilityTests {
-    @Test func `GET availability returns an empty 200`() async throws {
+    @Test func `GET availability advertises the search capability`() async throws {
         try await withRegistryApp { app in
             try await app.testing().test(.GET, "/availability") { res async in
                 #expect(res.status == .ok)
-                #expect(res.body.readableBytes == 0)
+                #expect(res.headers.contentType == .json)
+                #expect(res.body.string.contains("\"capabilities\""))
+                #expect(res.body.string.contains("\"search\""))
             }
         }
     }

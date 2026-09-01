@@ -7,6 +7,10 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(Commands
+  Coverage/CoverageError.swift
+  Coverage/CoverageFormatOutput.swift
+  Coverage/CoverageOptions.swift
+  Coverage/XcovArgument.swift
   PackageCommands/AddDependency.swift
   PackageCommands/AddProduct.swift
   PackageCommands/AddTarget.swift

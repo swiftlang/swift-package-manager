@@ -36,6 +36,7 @@ public final class SwiftModule: Module {
         buildSettings: BuildSettings.AssignmentTable = .init(),
         implicit: Bool) {
         self.declaredSwiftVersions = []
+        self.clangModuleInfo = nil
 
         super.init(
             name: name,
@@ -55,6 +56,15 @@ public final class SwiftModule: Module {
     /// The list of swift versions declared by the manifest.
     public let declaredSwiftVersions: [SwiftLanguageVersion]
 
+    /// Information about the underlying clang module, if this represents a mixed source target.
+    public let clangModuleInfo: ClangModuleInfo?
+
+    /// Whether this target contains C++ (or Objective-C++) sources.
+    public var containsCXX: Bool { self.sources.containsCXXFiles }
+
+    /// Whether this target mixes Swift and C-family sources.
+    public var isMixedLanguage: Bool { self.clangModuleInfo != nil }
+
     public init(
         name: String,
         potentialBundleName: String? = nil,
@@ -67,6 +77,7 @@ public final class SwiftModule: Module {
         dependencies: [Module.Dependency] = [],
         packageAccess: Bool,
         declaredSwiftVersions: [SwiftLanguageVersion] = [],
+        clangModuleInfo: ClangModuleInfo? = nil,
         buildSettings: BuildSettings.AssignmentTable = .init(),
         buildSettingsDescription: [TargetBuildSettingDescription.Setting] = [],
         pluginUsages: [PluginUsage] = [],
@@ -74,6 +85,7 @@ public final class SwiftModule: Module {
         implicit: Bool
     ) {
         self.declaredSwiftVersions = declaredSwiftVersions
+        self.clangModuleInfo = clangModuleInfo
         super.init(
             name: name,
             potentialBundleName: potentialBundleName,
@@ -125,6 +137,7 @@ public final class SwiftModule: Module {
         }
 
         self.declaredSwiftVersions = []
+        self.clangModuleInfo = nil
         let sources = Sources(paths: [testEntryPointPath], root: testEntryPointPath.parentDirectory)
 
         super.init(

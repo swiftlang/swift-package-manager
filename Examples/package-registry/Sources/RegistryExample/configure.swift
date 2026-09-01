@@ -46,7 +46,7 @@ public func configure(_ app: Application, authEnabled: Bool = true) async throws
         : app
     PublishRoutes(publisher: ReleasePublisher(store: store)).register(publishRouter)
     MetadataRoutes(store: store).register(app)
-
+    SearchRoutes(store: store).register(app)
     UserRoutes(registrar: UserRegistrar(store: userStore)).register(app)
     LoginRoutes().register(authGroup)
 }

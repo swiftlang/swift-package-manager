@@ -15,6 +15,7 @@ import _Concurrency
 import Dispatch
 import Foundation
 import PackageModel
+import Synchronization
 import TSCBasic
 
 /// Manages a collection of bare repositories.
@@ -34,7 +35,7 @@ public class RepositoryManager: Cancellable {
     private let provider: RepositoryProvider
 
     /// The delegate interface.
-    private let delegate: RepositoryManagerDelegateProxy?
+    private let delegate: SerialEventQueue<RepositoryManagerDelegate>?
 
     /// The filesystem to operate on.
     private let fileSystem: FileSystem
@@ -43,8 +44,7 @@ public class RepositoryManager: Cancellable {
     // repository can be de-duped. Each entry is tagged with a unique id so that
     // a completing lookup only removes its own entry and never a newer one for
     // the same repository.
-    private var pendingLookups = [RepositorySpecifier: (id: UUID, task: Task<RepositoryManager.RepositoryHandle, Error>)]()
-    private var pendingLookupsLock = NSLock()
+    private let pendingLookups = Mutex<[RepositorySpecifier: (id: UUID, task: Task<RepositoryManager.RepositoryHandle, Error>)]>([:])
 
     // Limits how many concurrent operations can be performed at once.
     private let asyncOperationQueue: AsyncOperationQueue
@@ -80,7 +80,7 @@ public class RepositoryManager: Cancellable {
         self.cacheLocalPackages = cacheLocalPackages
 
         self.provider = provider
-        self.delegate = RepositoryManagerDelegateProxy(delegate)
+        self.delegate = delegate.map { SerialEventQueue($0) }
 
         // this queue and semaphore is used to limit the amount of concurrent git operations taking place
         let maxConcurrentOperations = max(1, maxConcurrentOperations ?? (3 * Concurrency.maxOperations / 4))
@@ -131,43 +131,42 @@ public class RepositoryManager: Cancellable {
     ) async throws -> RepositoryHandle {
         return try await self.asyncOperationQueue.withOperation {
             let task = await withCheckedContinuation { continuation in
-                self.pendingLookupsLock.lock()
-                defer { self.pendingLookupsLock.unlock() }
+                self.pendingLookups.withLock { pendingLookups in
+                    // Identifies this lookup so that, on completion, it only removes
+                    // its own entry from `pendingLookups`.
+                    let lookupID = UUID()
+                    let inFlight = pendingLookups[repositorySpecifier]?.task
 
-                // Identifies this lookup so that, on completion, it only removes
-                // its own entry from `pendingLookups`.
-                let lookupID = UUID()
-                let inFlight = self.pendingLookups[repositorySpecifier]?.task
+                    // Serialize lookups per repository, but each caller runs its own `performLookup` to honor its own `updateStrategy`.
+                    let lookupTask = Task { () throws -> RepositoryManager.RepositoryHandle in
+                        defer { self.removePendingLookup(for: repositorySpecifier, id: lookupID) }
 
-                // Serialize lookups per repository, but each caller runs its own `performLookup` to honor its own `updateStrategy`.
-                let lookupTask = Task { () throws -> RepositoryManager.RepositoryHandle in
-                    defer { self.removePendingLookup(for: repositorySpecifier, id: lookupID) }
+                        // Let the existing in-flight task finish before queuing up the new one
+                        if let inFlight {
+                            _ = try? await inFlight.value
+                        }
 
-                    // Let the existing in-flight task finish before queuing up the new one
-                    if let inFlight {
-                        _ = try? await inFlight.value
+                        if Task.isCancelled {
+                            throw CancellationError()
+                        }
+
+                        let result = try await self.performLookup(
+                            package: package,
+                            repository: repositorySpecifier,
+                            updateStrategy: updateStrategy,
+                            observabilityScope: observabilityScope
+                        )
+
+                        if Task.isCancelled {
+                            throw CancellationError()
+                        }
+
+                        return result
                     }
 
-                    if Task.isCancelled {
-                        throw CancellationError()
-                    }
-
-                    let result = try await self.performLookup(
-                        package: package,
-                        repository: repositorySpecifier,
-                        updateStrategy: updateStrategy,
-                        observabilityScope: observabilityScope
-                    )
-
-                    if Task.isCancelled {
-                        throw CancellationError()
-                    }
-
-                    return result
+                    pendingLookups[repositorySpecifier] = (id: lookupID, task: lookupTask)
+                    continuation.resume(returning: lookupTask)
                 }
-
-                self.pendingLookups[repositorySpecifier] = (id: lookupID, task: lookupTask)
-                continuation.resume(returning: lookupTask)
             }
 
             return try await task.value
@@ -178,10 +177,10 @@ public class RepositoryManager: Cancellable {
     /// if it is still the lookup identified by `id`. A newer in-flight lookup for
     /// the same repository is left in place.
     private func removePendingLookup(for repositorySpecifier: RepositorySpecifier, id: UUID) {
-        self.pendingLookupsLock.lock()
-        defer { self.pendingLookupsLock.unlock() }
-        if self.pendingLookups[repositorySpecifier]?.id == id {
-            self.pendingLookups[repositorySpecifier] = nil
+        self.pendingLookups.withLock { pendingLookups in
+            if pendingLookups[repositorySpecifier]?.id == id {
+                pendingLookups[repositorySpecifier] = nil
+            }
         }
     }
 
@@ -194,7 +193,6 @@ public class RepositoryManager: Cancellable {
         let relativePath = try repositorySpecifier.storagePath()
         let repositoryPath = self.path.appending(relativePath)
         let handle = RepositoryHandle(manager: self, repository: repositorySpecifier, subpath: relativePath)
-        let delegate = self.delegate
 
         // check if a repository already exists
         // errors when trying to check if a repository already exists are legitimate
@@ -211,15 +209,11 @@ public class RepositoryManager: Cancellable {
             if self.fetchRequired(repository: repository, updateStrategy: updateStrategy) {
                 let start = DispatchTime.now()
 
-                Task {
-                    await delegate?.willUpdate(package: package, repository: handle.repository)
-                }
+                self.delegate?.emit { $0.willUpdate(package: package, repository: handle.repository) }
 
                 try await self.fetchAsync(repository)
                 let duration = start.distance(to: .now())
-                Task {
-                    await delegate?.didUpdate(package: package, repository: handle.repository, duration: duration)
-                }
+                self.delegate?.emit { $0.didUpdate(package: package, repository: handle.repository, duration: duration) }
             }
 
             return handle
@@ -228,10 +222,8 @@ public class RepositoryManager: Cancellable {
         // inform delegate that we are starting to fetch
         // calculate if cached (for delegate call) outside queue as it may change while queue is processing
         let isCached = self.cachePath.map { self.fileSystem.exists($0.appending(handle.subpath)) } ?? false
-        Task {
-            let details = FetchDetails(fromCache: isCached, updatedCache: false)
-            await delegate?.willFetch(package: package, repository: handle.repository, details: details)
-        }
+        let details = FetchDetails(fromCache: isCached, updatedCache: false)
+        self.delegate?.emit { $0.willFetch(package: package, repository: handle.repository, details: details) }
 
         // perform the fetch
         let start = DispatchTime.now()
@@ -248,16 +240,12 @@ public class RepositoryManager: Cancellable {
             )
             // inform delegate fetch is done
             let duration = start.distance(to: .now())
-            Task {
-                await delegate?.didFetch(package: package, repository: handle.repository, result: .success(result), duration: duration)
-            }
+            self.delegate?.emit { $0.didFetch(package: package, repository: handle.repository, result: .success(result), duration: duration) }
             return handle
         } catch {
             // inform delegate fetch is done
             let duration = start.distance(to: .now())
-            Task {
-                await delegate?.didFetch(package: package, repository: handle.repository, result: .failure(error), duration: duration)
-            }
+            self.delegate?.emit { $0.didFetch(package: package, repository: handle.repository, result: .failure(error), duration: duration) }
             throw error
         }
     }
@@ -266,12 +254,12 @@ public class RepositoryManager: Cancellable {
         // ask the provider to cancel
         try self.provider.cancel(deadline: deadline)
 
-        self.pendingLookupsLock.lock()
-        defer { self.pendingLookupsLock.unlock() }
-        for entry in self.pendingLookups.values {
-            entry.task.cancel()
+        self.pendingLookups.withLock { pendingLookups in
+            for entry in pendingLookups.values {
+                entry.task.cancel()
+            }
+            pendingLookups = [:]
         }
-        self.pendingLookups = [:]
     }
 
     /// Fetches the repository into the cache. If no `cachePath` is set or an error occurred fall back to fetching the repository without populating the cache.
@@ -295,9 +283,8 @@ public class RepositoryManager: Cancellable {
         // utility to update progress
         func updateFetchProgress(progress: FetchProgress) -> Void {
             if let total = progress.totalSteps {
-                let delegate = self.delegate
-                Task {
-                    await delegate?.fetching(
+                self.delegate?.emit {
+                    $0.fetching(
                         package: package,
                         repository: handle.repository,
                         objectsFetched: progress.step,
@@ -624,6 +611,10 @@ public enum RepositoryUpdateStrategy: Sendable {
 }
 
 /// Delegate to notify clients about actions being performed by RepositoryManager.
+///
+/// Callbacks are delivered one at a time, in the order they were emitted, on an
+/// unspecified task. Delivery is serialized to preserve that order, so a slow
+/// implementation delays the callbacks queued behind it.
 public protocol RepositoryManagerDelegate: Sendable {
     /// Called when a repository is about to be fetched.
     func willFetch(package: PackageIdentity, repository: RepositorySpecifier, details: RepositoryManager.FetchDetails)
@@ -640,39 +631,6 @@ public protocol RepositoryManagerDelegate: Sendable {
     /// Called when a repository has finished updating from its remote.
     func didUpdate(package: PackageIdentity, repository: RepositorySpecifier, duration: DispatchTimeInterval)
 }
-
-/// Actor to proxy the delegate methods to the actual delegate, ensuring serialized delegate calls.
-fileprivate actor RepositoryManagerDelegateProxy {
-    private let delegate: RepositoryManagerDelegate
-
-    init?(_ delegate: RepositoryManagerDelegate?) {
-        guard let delegate else {
-            return nil
-        }
-        self.delegate = delegate
-    }
-
-    func willFetch(package: PackageIdentity, repository: RepositorySpecifier, details: RepositoryManager.FetchDetails) {
-        delegate.willFetch(package: package, repository: repository, details: details)
-    }
-
-    func fetching(package: PackageIdentity, repository: RepositorySpecifier, objectsFetched: Int, totalObjectsToFetch: Int) {
-        delegate.fetching(package: package, repository: repository, objectsFetched: objectsFetched, totalObjectsToFetch: totalObjectsToFetch)
-    }
-
-    func didFetch(package: PackageIdentity, repository: RepositorySpecifier, result: Result<RepositoryManager.FetchDetails, Error>, duration: DispatchTimeInterval) {
-        delegate.didFetch(package: package, repository: repository, result: result, duration: duration)
-    }
-
-    func willUpdate(package: PackageIdentity, repository: RepositorySpecifier) {
-        delegate.willUpdate(package: package, repository: repository)
-    }
-
-    func didUpdate(package: PackageIdentity, repository: RepositorySpecifier, duration: DispatchTimeInterval) {
-        delegate.didUpdate(package: package, repository: repository, duration: duration)
-    }
-}
-
 
 extension RepositoryManager.RepositoryHandle: CustomStringConvertible {
     public var description: String {
