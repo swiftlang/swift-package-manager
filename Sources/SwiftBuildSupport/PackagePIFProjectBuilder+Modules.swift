@@ -594,10 +594,19 @@ extension PackagePIFProjectBuilder {
 
             settings[.SWIFT_PACKAGE_NAME] = sourceModule.packageName
 
-            // On Windows, disable static linking mode when this module is a dependency of a dynamic library.
-            // This ensures the module is compiled correctly for linking into a dynamic library.
+            // On Windows, disable static linking mode when this module is a dependency of a dynamic library,
+            // or conditionally disable it when this module is a dependency of an automatic libray which can
+            // be promoted to dynamic. This ensures the module is compiled correctly for linking into a
+            // dynamic library.
             if self.modulesInDynamicLibraries.contains(sourceModule.name) {
                 settings[.SWIFT_COMPILE_FOR_STATIC_LINKING, .windows] = "NO"
+            }
+
+            if let promotableProductTargetIds = self.modulesInPromotableAutomaticLibraries[sourceModule.name] {
+                settings[
+                    .SWIFT_DISABLE_COMPILATION_FOR_STATIC_LINKING_WHEN_ANY_TARGET_IS_PROMOTED_TO_DYNAMIC,
+                    .windows
+                ] = promotableProductTargetIds.map(\.value).sorted()
             }
 
             // This entrypoint is only used for the testable variant of executable and macro targets. The primary PIF generation
