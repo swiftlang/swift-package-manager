@@ -163,6 +163,7 @@ public struct CSetting: Sendable {
     }
 
     /// A header path also used by consumers of this target to find it's header files.
+    // TODO: Should this just be a headerSearchPath with the visibility attribute like bridging header?
     @available(_PackageDescription, introduced: 6.5)
     public static func publicHeaderPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> CSetting {
         return CSetting(name: "publicHeaderPath", value: [path], condition: condition)
@@ -610,6 +611,34 @@ public struct SwiftSetting: Sendable {
     ) -> SwiftSetting {
         return SwiftSetting(
           name: "interoperabilityMode", value: [mode.rawValue], condition: condition)
+    }
+
+    /// The visibility of a bridging header's imported declarations.
+    @available(_PackageDescription, introduced: 6.5)
+    public enum BridgingHeaderVisibility: String {
+        /// Declarations imported via the bridging header may appear in the target's public API.
+        case `public`
+        /// Declarations imported via the bridging header may only be used internally.
+        case `internal`
+    }
+
+    /// Configures a bridging header for the target's Swift sources.
+    ///
+    /// A bridging header allows Swift code to import non-modular C/C++/Objective-C code.
+    ///
+    /// - Parameters:
+    ///   - path: The path of the bridging header, relative to the target's sources directory.
+    ///   - visibility: Whether declarations imported via the bridging header may appear in the
+    /// target's public API. Library targets may only use `.internal` visibility.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.5)
+    public static func bridgingHeader(
+      _ path: String,
+      visibility: BridgingHeaderVisibility,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+          name: "bridgingHeader", value: [path, visibility.rawValue], condition: condition)
     }
 
     /// Defines a `-swift-version` to pass  to the

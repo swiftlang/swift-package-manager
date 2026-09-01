@@ -220,9 +220,8 @@ public struct TargetSourcesBuilder {
         try diagnoseInfoPlistConflicts(in: resources)
         diagnoseInvalidResource(in: target.resources)
 
-        // It's an error to contain mixed language source files
-        // Unless experimental flag is turned on
-        if sources.containsMixedLanguage && !toolsVersion.experimentalMultiLang {
+        // Report an error if the tools version does not permit mixed language targets.
+        if sources.containsMixedLanguage && toolsVersion < .v6_5 {
             throw Module.Error.mixedSources(targetPath)
         }
 
@@ -438,7 +437,9 @@ public struct TargetSourcesBuilder {
     /// ones that should be copied as-is.
     public func computeContents() -> [Basics.AbsolutePath] {
         var contents: [Basics.AbsolutePath] = []
-        var queue: [Basics.AbsolutePath] = [targetPath]
+        // Dedup the walk by real (symlink-resolved) directory path to break symlink cycles.
+        var queue: [(Basics.AbsolutePath, Basics.AbsolutePath?)] = [(targetPath, nil)]
+        var visitedDirectories: Set<Basics.AbsolutePath> = []
 
         // Ignore xcodeproj and playground directories.
         var ignoredDirectoryExtensions = ["xcodeproj", "playground", "xcworkspace"]
@@ -448,7 +449,7 @@ public struct TargetSourcesBuilder {
             ignoredDirectoryExtensions.append(Resource.localizationDirectoryExtension)
         }
 
-        while let path = queue.popLast() {
+        while let (path, parentRealPath) = queue.popLast() {
             // Ignore dot files.
             if path.basename.hasPrefix(".") { continue }
 
@@ -470,7 +471,8 @@ public struct TargetSourcesBuilder {
             // Ignore if this is an excluded path.
             if self.excludedPaths.contains(path) { continue }
 
-            if self.fileSystem.isSymlink(path) && !self.fileSystem.exists(path, followSymlink: true) {
+            let pathIsSymlink = self.fileSystem.isSymlink(path)
+            if pathIsSymlink && !self.fileSystem.exists(path, followSymlink: true) {
                 self.observabilityScope.emit(.brokenSymlink(path))
                 continue
             }
@@ -530,9 +532,21 @@ public struct TargetSourcesBuilder {
                 continue
             }
 
+            // Skip directories already descended into so a symlink cycle can't make us re-walk the same files.
+            let realPath: Basics.AbsolutePath
+            if let parentRealPath, !pathIsSymlink {
+                realPath = parentRealPath.appending(component: path.basename)
+            } else {
+                realPath = (try? resolveSymlinks(path)) ?? path
+            }
+            guard visitedDirectories.insert(realPath).inserted else {
+                continue
+            }
+
             // Otherwise, add its content to the queue.
+            let childParentRealPath: Basics.AbsolutePath? = realPath
             let dirContents = self.observabilityScope.trap {
-                try self.fileSystem.getDirectoryContents(path).map({ path.appending(component: $0) })
+                try self.fileSystem.getDirectoryContents(path).map({ (path.appending(component: $0), childParentRealPath) })
             }
             queue += dirContents ?? []
         }

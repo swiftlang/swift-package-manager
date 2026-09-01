@@ -33,13 +33,14 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 - <doc:ContinuousIntegration>
 - <doc:UsingShellCompletion>
 
-### Depedencies
+### Dependencies
 - <doc:AddingDependencies>
 - <doc:UsingSwiftPackageRegistry>
 - <doc:BundlingResources>
 
 ### Targets
 - <doc:CreatingCLanguageTargets>
+- <doc:CreatingMixedLanguageTargets>
 - <doc:ModuleMaps>
 - <doc:ModuleAliasing>
 

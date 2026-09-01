@@ -114,6 +114,7 @@ extension PackagePIFProjectBuilder {
         // Configure the target-wide build settings. The details depend on the kind of product we're building,
         // but are in general the ones that are suitable for end-product artifacts such as executables and test bundles.
         var settings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
+        var impartedSettings = BuildSettings()
         settings[.TARGET_NAME] = product.name
         settings[.BUILD_SERVER_PROTOCOL_TARGET_DISPLAY_NAME] = product.name
         settings[.TARGET_TEMP_DIR_SUFFIX] = "-p"
@@ -235,6 +236,25 @@ extension PackagePIFProjectBuilder {
         settings[.GCC_C_LANGUAGE_STANDARD] = mainModule.cLanguageStandard
         settings[.CLANG_CXX_LANGUAGE_STANDARD] = mainModule.cxxLanguageStandard
         settings[.SWIFT_ENABLE_BARE_SLASH_REGEX] = "NO"
+
+        // A mixed-source main module product (executable/test target) needs its own C sources exposed
+        // for import by its Swift sources. Test targets must also impart settings on the corresponding
+        // test runner.
+        if mainModule.usesSwift && mainModule.isMixedLanguageModule && mainModule.type != .macro {
+            let (moduleMapFileContents, moduleMapPath) = try self.configureSwiftTargetModuleMap(
+                for: mainModule,
+                targetSuffix: nil,
+                settings: &settings,
+                impartedSettings: &impartedSettings
+            )
+            settings[.DEFINES_MODULE] = "YES"
+            if let moduleMapFileContents {
+                settings[.MODULEMAP_FILE_CONTENTS] = moduleMapFileContents
+            }
+            if let moduleMapPath {
+                settings[.MODULEMAP_PATH] = moduleMapPath
+            }
+        }
 
         // Create a group for the source files of the main module
         // For now we use an absolute path for it, but we should really make it
@@ -595,6 +615,8 @@ extension PackagePIFProjectBuilder {
         // Custom source module build settings, if any.
         pifBuilder.delegate.configureSourceModuleBuildSettings(sourceModule: mainModule, settings: &settings)
 
+        self.addCxxStandardLibraryLinkSettings(for: mainModule, to: &settings)
+
         // Until this point the build settings for the target have been the same between debug and release
         // configurations.
         // The custom manifest settings might cause them to diverge.
@@ -612,10 +634,10 @@ extension PackagePIFProjectBuilder {
         allBuildSettings.apply(to: &debugSettings, for: .debug)
         allBuildSettings.apply(to: &releaseSettings, for: .release)
         self.project[keyPath: mainModuleTargetKeyPath].common.addBuildConfig { id in
-            BuildConfig(id: id, name: "Debug", settings: debugSettings)
+            BuildConfig(id: id, name: "Debug", settings: debugSettings, impartedBuildSettings: impartedSettings)
         }
         self.project[keyPath: mainModuleTargetKeyPath].common.addBuildConfig { id in
-            BuildConfig(id: id, name: "Release", settings: releaseSettings)
+            BuildConfig(id: id, name: "Release", settings: releaseSettings, impartedBuildSettings: impartedSettings)
         }
 
         // Collect linked binaries.
@@ -706,6 +728,10 @@ extension PackagePIFProjectBuilder {
                 fatalError("Could not assign dynamic PIF target")
             }
             self.project[keyPath: pifTargetKeyPath].dynamicTargetVariantId = dynamicPifTarget.id
+
+            for module in libraryProduct.modules where module.isSourceModule {
+                self.modulesInPromotableAutomaticLibraries[module.name, default: []].insert(pifTarget.id)
+            }
         }
     }
 
@@ -836,8 +862,13 @@ extension PackagePIFProjectBuilder {
             // For dynamic libraries, track which source modules are DIRECT dependencies so we can set
             // SWIFT_COMPILE_FOR_STATIC_LINKING=NO on Windows for those modules.
             // Collect only DIRECT module dependencies (not recursive)
-            for module in product.modules where module.isSourceModule {
-                self.modulesInDynamicLibraries.insert(module.name)
+            //
+            // Skip the synthesized dynamic variant of an `.automatic` product: its modules are still
+            // linked statically by default, so flagging them here would compile them incorrectly.
+            if targetSuffix != .dynamic {
+                for module in product.modules where module.isSourceModule {
+                    self.modulesInDynamicLibraries.insert(module.name)
+                }
             }
         } else if productType == .staticArchive {
             settings[.TARGET_NAME] = product.targetName()

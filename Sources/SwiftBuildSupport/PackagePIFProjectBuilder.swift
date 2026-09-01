@@ -68,6 +68,11 @@ struct PackagePIFProjectBuilder {
     /// These modules should be compiled without static linking on Windows.
     var modulesInDynamicLibraries: Set<String> = []
 
+    /// Module names that are direct dependencies of automatic libraries which may be
+    /// promoted to dynamic. These modules should be compiled without static linking on Windows
+    /// if the corresponding target builds dynamically.
+    var modulesInPromotableAutomaticLibraries: [String: Set<GUID>] = [:]
+
     /// FIXME: We should eventually clean this up but right now we have to carry over this
     /// bit of information from processing the *products* to processing the *targets*.
     var mainModuleTargetNamesWithResources: Set<String> = []

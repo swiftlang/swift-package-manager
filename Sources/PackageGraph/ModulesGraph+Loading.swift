@@ -228,6 +228,7 @@ extension ModulesGraph {
             platformRegistry: customPlatformsRegistry ?? .default,
             platformVersionProvider: platformVersionProvider,
             fileSystem: fileSystem,
+            packageFileSystems: manifestMap.reduce(into: [:]) { $0[$1.key] = $1.value.fs },
             observabilityScope: observabilityScope,
             productsFilter: productsFilter,
             modulesFilter: modulesFilter
@@ -408,6 +409,8 @@ private func createResolvedPackages(
     platformRegistry: PlatformRegistry,
     platformVersionProvider: PlatformVersionProvider,
     fileSystem: FileSystem,
+    /// The file systems of the packages that provide one of their own, keyed by package identity.
+    packageFileSystems: [PackageIdentity: FileSystem],
     observabilityScope: ObservabilityScope,
     productsFilter: ((Product) -> Bool)?,
     modulesFilter: ((Module) -> Bool)?
@@ -683,10 +686,15 @@ private func createResolvedPackages(
         }
 
         // add registry metadata if available
-        if fileSystem.exists(package.path.appending(component: RegistryReleaseMetadataStorage.fileName)) {
+        //
+        // A package's own file system is the one that has to be consulted here: asking the graph-wide
+        // file system about a path belonging to a package that provides its own would describe some
+        // unrelated file, or none at all.
+        let packageFileSystem = packageFileSystems[package.identity] ?? fileSystem
+        if packageFileSystem.exists(package.path.appending(component: RegistryReleaseMetadataStorage.fileName)) {
             packageBuilder.registryMetadata = try RegistryReleaseMetadataStorage.load(
                 from: package.path.appending(component: RegistryReleaseMetadataStorage.fileName),
-                fileSystem: fileSystem
+                fileSystem: packageFileSystem
             )
         }
     }

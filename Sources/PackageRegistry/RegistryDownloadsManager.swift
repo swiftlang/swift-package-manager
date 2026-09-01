@@ -16,6 +16,7 @@ import Dispatch
 import Foundation
 import PackageLoading
 import PackageModel
+import Synchronization
 import TSCBasic
 
 import struct TSCUtility.Version
@@ -34,8 +35,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
         let version: Version
     }
 
-    private var pendingLookups = [PackageLookup: Task<Basics.AbsolutePath, Error>]()
-    private var pendingLookupsLock = NSLock()
+    private let pendingLookups = Mutex<[PackageLookup: Task<Basics.AbsolutePath, Error>]>([:])
 
     public init(
         fileSystem: FileSystem,
@@ -70,44 +70,43 @@ public class RegistryDownloadsManager: AsyncCancellable {
 
         let lookupId = PackageLookup(package: package, version: version)
         let task = await withCheckedContinuation { continuation in
-            self.pendingLookupsLock.lock()
-            defer { self.pendingLookupsLock.unlock() }
+            self.pendingLookups.withLock { pendingLookups in
+                // Check if we've already resolved/are in the process of resolving for this package.
+                if let inFlight = pendingLookups[lookupId] {
+                    continuation.resume(returning: inFlight)
+                } else {
+                    let lookupTask = Task {
+                        // inform delegate that we are starting to fetch
+                        // calculate if cached (for delegate call) outside queue as it may change while queue is processing
+                        let isCached = self.cachePath.map { self.fileSystem.exists($0.appending(packageRelativePath)) } ?? false
+                        let details = FetchDetails(fromCache: isCached, updatedCache: false)
+                        delegate?.emit { $0.willFetch(package: package, version: version, fetchDetails: details) }
 
-            // Check if we've already resolved/are in the process of resolving for this package.
-            if let inFlight = self.pendingLookups[lookupId] {
-                continuation.resume(returning: inFlight)
-            } else {
-                let lookupTask = Task {
-                    // inform delegate that we are starting to fetch
-                    // calculate if cached (for delegate call) outside queue as it may change while queue is processing
-                    let isCached = self.cachePath.map { self.fileSystem.exists($0.appending(packageRelativePath)) } ?? false
-                    let details = FetchDetails(fromCache: isCached, updatedCache: false)
-                    delegate?.emit { $0.willFetch(package: package, version: version, fetchDetails: details) }
+                        // make sure destination is free.
+                        try? self.fileSystem.removeFileTree(packagePath)
 
-                    // make sure destination is free.
-                    try? self.fileSystem.removeFileTree(packagePath)
-
-                    let start = DispatchTime.now()
-                    do {
-                        let result = try await self.downloadAndPopulateCache(
-                            package: package,
-                            version: version,
-                            packagePath: packagePath,
-                            observabilityScope: observabilityScope
-                        )
-                        // inform delegate that we finished to fetch
-                        let duration = start.distance(to: .now())
-                        delegate?.emit { $0.didFetch(package: package, version: version, result: .success(result), duration: duration) }
-                    } catch {
-                        let duration = start.distance(to: .now())
-                        delegate?.emit { $0.didFetch(package: package, version: version, result: .failure(error), duration: duration) }
-                        throw error
+                        let start = DispatchTime.now()
+                        do {
+                            let result = try await self.downloadAndPopulateCache(
+                                package: package,
+                                version: version,
+                                packagePath: packagePath,
+                                observabilityScope: observabilityScope
+                            )
+                            // inform delegate that we finished to fetch
+                            let duration = start.distance(to: .now())
+                            delegate?.emit { $0.didFetch(package: package, version: version, result: .success(result), duration: duration) }
+                        } catch {
+                            let duration = start.distance(to: .now())
+                            delegate?.emit { $0.didFetch(package: package, version: version, result: .failure(error), duration: duration) }
+                            throw error
+                        }
+                        return packagePath
                     }
-                    return packagePath
-                }
 
-                self.pendingLookups[lookupId] = lookupTask
-                continuation.resume(returning: lookupTask)
+                    pendingLookups[lookupId] = lookupTask
+                    continuation.resume(returning: lookupTask)
+                }
             }
         }
         return try await task.value
@@ -245,7 +244,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
     public func remove(package: PackageIdentity) throws {
         let relativePath = try package.downloadPath()
         let packagesPath = self.path.appending(relativePath)
-        self.pendingLookups.removeValue(forPackage: package)
+        self.pendingLookups.withLock { $0.removeValue(forPackage: package) }
         try self.fileSystem.removeFileTree(packagesPath)
     }
 

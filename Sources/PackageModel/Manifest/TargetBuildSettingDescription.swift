@@ -36,6 +36,12 @@ public enum TargetBuildSettingDescription {
         case nonisolated
     }
 
+    /// The visibility of a bridging header's imported declarations.
+    public enum BridgingHeaderVisibility: String, Codable, Hashable, Sendable {
+        case `public`
+        case `internal`
+    }
+
     /// The kind of the build setting, with associate configuration
     public enum Kind: Codable, Hashable, Sendable {
         case headerSearchPath(String)
@@ -61,12 +67,17 @@ public enum TargetBuildSettingDescription {
 
         case defaultIsolation(DefaultIsolation)
 
+        case bridgingHeader(String, BridgingHeaderVisibility)
+
         public var isUnsafeFlags: Bool {
             switch self {
             case .unsafeFlags(let flags):
                 // If `.unsafeFlags` is used, but doesn't specify any flags, we treat it the same way as not specifying it.
                 return !flags.isEmpty
-            default:
+            case .headerSearchPath, .publicHeaderPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
+                 .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode,
+                 .treatAllWarnings, .treatWarning, .enableWarning, .disableWarning, .defaultIsolation,
+                 .bridgingHeader:
                 return false
             }
         }
