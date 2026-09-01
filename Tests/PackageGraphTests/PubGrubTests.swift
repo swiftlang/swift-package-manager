@@ -340,7 +340,7 @@ final class PubGrubTests: XCTestCase {
         )
     }
 
-    /// Sanity check for the fix above: a *genuinely new* named trait request for an already-decided
+    /// Check for the fix above: a *genuinely new* named trait request for an already-decided
     /// package must still flag it for repair - the fix should stop false positives without silencing
     /// real ones.
     func testResolverAddIncompatibilityStillRepairsDecisionForGenuinelyNewTrait() async throws {
