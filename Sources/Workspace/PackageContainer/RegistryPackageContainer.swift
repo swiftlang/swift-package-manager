@@ -79,7 +79,11 @@ public class RegistryPackageContainer: PackageContainer {
             let result = try await self.getAvailableManifestsFilesystem(version: version)
             // find the manifest path and parse it's tools-version
             let manifestPath = try ManifestLoader.findManifest(packagePath: .root, fileSystem: result.fileSystem, currentToolsVersion: self.currentToolsVersion)
-            return try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: result.fileSystem)
+            return try ToolsVersionParser.parse(
+                manifestPath: manifestPath,
+                fileSystem: result.fileSystem,
+                packageIdentity: self.package.identity
+            )
         }
     }
 
@@ -145,7 +149,11 @@ public class RegistryPackageContainer: PackageContainer {
         }
         // find the preferred manifest path and parse it's tools-version
         let preferredToolsVersionManifestPath = try ManifestLoader.findManifest(packagePath: .root, fileSystem: fileSystem, currentToolsVersion: self.currentToolsVersion)
-        let preferredToolsVersion = try ToolsVersionParser.parse(manifestPath: preferredToolsVersionManifestPath, fileSystem: fileSystem)
+        let preferredToolsVersion = try ToolsVersionParser.parse(
+            manifestPath: preferredToolsVersionManifestPath,
+            fileSystem: fileSystem,
+            packageIdentity: self.package.identity
+        )
         // load the manifest content
         let loadManifest = {
             try await self.manifestLoader.load(

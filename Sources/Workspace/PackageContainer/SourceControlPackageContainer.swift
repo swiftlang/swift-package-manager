@@ -252,7 +252,11 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                 }
                 let fileSystem = try self.repository.openFileView(tag: tag)
                 let manifestPath = try ManifestLoader.findManifest(packagePath: .root, fileSystem: fileSystem, currentToolsVersion: self.currentToolsVersion)
-                return try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
+                return try ToolsVersionParser.parse(
+                    manifestPath: manifestPath,
+                    fileSystem: fileSystem,
+                    packageIdentity: self.package.identity
+                )
             }
         }
     }
