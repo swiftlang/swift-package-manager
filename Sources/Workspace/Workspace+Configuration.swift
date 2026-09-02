@@ -20,9 +20,6 @@ import PackageRegistry
 
 import struct TSCBasic.ByteString
 
-import protocol TSCUtility.SimplePersistanceProtocol
-import class TSCUtility.SimplePersistence
-
 // MARK: - Location
 
 extension Workspace {
