@@ -85,9 +85,8 @@ public struct EnabledTraitsMap {
         var map: [Version: EnabledTraits] = [:]
 
         /// Returns the named traits explicitly recorded for this version, or `nil` if none have
-        /// been recorded for it yet. Unlike the old `at(_:)`, this never substitutes a fallback
-        /// sentinel, so callers can distinguish "nothing recorded" from "recorded as empty".
-        public func namedTraits(at version: Version) -> EnabledTraits? {
+        /// been recorded for it yet.
+        public func traits(at version: Version) -> EnabledTraits? {
             self.map[version]
         }
 
@@ -134,7 +133,8 @@ public struct EnabledTraitsMap {
         ///
         /// Priority:
         /// 1. Explicit named traits, if any, always win outright - an explicit selection by any
-        ///    parent must override other parents' mere requests for defaults.
+        ///    parent must be unioned with other parents' request for defaults (whether implicit or explicit).
+        ///    At this stage, default traits will have been flattened out into a list of explicit traits.
         /// 2. Otherwise, if any parent requested defaults (explicitly, or implicitly by not
         ///    specifying traits), that request wins over a coexisting disabler: disablers and
         ///    default-setters are meant to coexist, with the default-setter's request winning if
@@ -173,7 +173,7 @@ public struct EnabledTraitsMap {
             }
 
             let state = self.storage.get()
-            let named = state.versionedTraits[identity]?.namedTraits(at: version)
+            let named = state.versionedTraits[identity]?.traits(at: version)
             return state.resolvedExplicitTraits(named: named, for: identity) ?? .defaults
         }
         set {
