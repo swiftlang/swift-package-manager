@@ -74,10 +74,11 @@ public struct PubGrubDependencyResolver {
                         let identity = package.package.identity
                         let previousDecisionEnabledTraits = self.enabledTraitsMap[identity]
                         self.enabledTraitsMap[identity] = package.enabledTraits
+                        let currentEnabledTraits = self.enabledTraitsMap[identity]
                         // If a decision has already been made for this package but a change in enabled traits
                         // is detected, flag it so the resolver can repair the shape of the package graph below
                         // it (if applicable due to trait-guarded dependencies).
-                        if !package.enabledTraits.isSubset(of: previousDecisionEnabledTraits)
+                        if !currentEnabledTraits.isSubset(of: previousDecisionEnabledTraits)
                         {
                             self.decisionsToRepair.formUnion(self.solution.decisions(for: identity))
                         }
@@ -546,9 +547,6 @@ public struct PubGrubDependencyResolver {
             // initiate prefetch of known packages that will be used to make the decision on the next step
             self.provider.prefetch(containers: state.solution.undecided.map(\.node.package))
 
-            // If decision making determines that no more decisions are to be
-            // made, it returns nil to signal that version solving is done.
-
             // Ensure that decisions that need repairing are prioritized.
             if let repairNode = state.decisionsToRepair.popFirst(),
                let version = state.solution.decisions[repairNode] {
@@ -566,6 +564,8 @@ public struct PubGrubDependencyResolver {
                     state.addIncompatibility(incompatibility, at: .decisionMaking)
                 }
             } else {
+                // If decision making determines that no more decisions are to be
+                // made, it returns nil to signal that version solving is done.
                 next = try await self.makeDecision(state: state)
             }
         }
