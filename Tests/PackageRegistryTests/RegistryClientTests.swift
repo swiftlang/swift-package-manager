@@ -561,6 +561,71 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
         }
     }
 
+    @Test func packageVersionMetadataCacheUsesFullIdentifiers() async throws {
+        let debug = Version("1.1.1+debug")
+        let release = Version("1.1.1+release")
+        let requests = ThreadSafeArrayStore<URL>()
+        let handler: HTTPClient.Implementation = { request, _ in
+            requests.append(request.url)
+            let requestedVersion: Version
+            switch request.url {
+            case releasesURL.appending(component: debug.description):
+                requestedVersion = debug
+            case releasesURL.appending(component: release.description):
+                requestedVersion = release
+            default:
+                throw StringError("unexpected metadata URL: \(request.url)")
+            }
+
+            let data = """
+            {
+                "id": "mona.LinkedList",
+                "version": "\(requestedVersion)",
+                "resources": [{
+                    "name": "source-archive",
+                    "type": "application/zip",
+                    "checksum": "\(requestedVersion.description)"
+                }],
+                "metadata": {
+                    "author": { "name": "\(requestedVersion.description)" }
+                }
+            }
+            """.data(using: .utf8)!
+            return .init(
+                statusCode: 200,
+                headers: .init([
+                    .init(name: "Content-Length", value: "\(data.count)"),
+                    .init(name: "Content-Type", value: "application/json"),
+                    .init(name: "Content-Version", value: "1"),
+                ]),
+                body: data
+            )
+        }
+
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: HTTPClient(implementation: handler)
+        )
+
+        #expect(try await registryClient.getPackageVersionMetadata(
+            package: identity,
+            version: debug
+        ).author?.name == debug.description)
+        #expect(try await registryClient.getPackageVersionMetadata(
+            package: identity,
+            version: release
+        ).author?.name == release.description)
+        _ = try await registryClient.getPackageVersionMetadata(package: identity, version: debug)
+        _ = try await registryClient.getPackageVersionMetadata(package: identity, version: release)
+
+        #expect(requests.get() == [
+            releasesURL.appending(component: debug.description),
+            releasesURL.appending(component: release.description),
+        ])
+    }
+
     func getPackageVersionMetadata_404() async throws {
         let serverErrorHandler = ServerErrorHandler(
             method: .get,

@@ -352,6 +352,55 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             }
         }
     }
+
+    func testConcurrentBuildMetadataVariantsAreIndependent() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fileSystem = InMemoryFileSystem()
+        let registry = MockRegistry(
+            filesystem: fileSystem,
+            identityResolver: DefaultIdentityResolver(),
+            checksumAlgorithm: MockHashAlgorithm(),
+            fingerprintStorage: MockPackageFingerprintStorage(),
+            signingEntityStorage: MockPackageSigningEntityStorage()
+        )
+        let package = PackageIdentity.plain("test.variants")
+        let debug = Version("1.0.0+debug")
+        let release = Version("1.0.0+release")
+        let source = InMemoryRegistryPackageSource(
+            fileSystem: fileSystem,
+            path: .root.appending(components: "registry", "server", package.description)
+        )
+        try source.writePackageContent()
+        registry.addPackage(identity: package, versions: [debug, release], source: source)
+
+        let downloadsPath = AbsolutePath.root.appending(components: "registry", "downloads")
+        let manager = RegistryDownloadsManager(
+            fileSystem: fileSystem,
+            path: downloadsPath,
+            cachePath: nil,
+            registryClient: registry.registryClient,
+            delegate: nil
+        )
+
+        async let debugPath = manager.lookup(
+            package: package,
+            version: debug,
+            observabilityScope: observability.topScope
+        )
+        async let releasePath = manager.lookup(
+            package: package,
+            version: release,
+            observabilityScope: observability.topScope
+        )
+        let (resolvedDebugPath, resolvedReleasePath) = try await (debugPath, releasePath)
+
+        XCTAssertEqual(resolvedDebugPath, try downloadsPath.appending(package.downloadPath(version: debug)))
+        XCTAssertEqual(resolvedReleasePath, try downloadsPath.appending(package.downloadPath(version: release)))
+        XCTAssertNotEqual(resolvedDebugPath, resolvedReleasePath)
+        XCTAssertTrue(fileSystem.isDirectory(resolvedDebugPath))
+        XCTAssertTrue(fileSystem.isDirectory(resolvedReleasePath))
+        XCTAssertNoDiagnostics(observability.diagnostics)
+    }
 }
 
 private final class MockRegistryDownloadsManagerDelegate: RegistryDownloadsManagerDelegate, @unchecked Sendable {

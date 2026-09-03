@@ -243,10 +243,10 @@ final class SourceControlPackageContainerTests: XCTestCase {
             let container = try await provider.getContainer(for: ref) as! SourceControlPackageContainer
             XCTAssertTrue(container.validToolsVersionsCache.isEmpty)
             let v = try await container.toolsVersionsAppropriateVersionsDescending()
-            XCTAssertEqual(container.validToolsVersionsCache["1.0.0"], false)
-            XCTAssertEqual(container.validToolsVersionsCache["1.0.1"], true)
-            XCTAssertEqual(container.validToolsVersionsCache["1.0.2"], true)
-            XCTAssertEqual(container.validToolsVersionsCache["1.0.3"], true)
+            XCTAssertEqual(container.validToolsVersionsCache[VersionIdentifierKey("1.0.0")], false)
+            XCTAssertEqual(container.validToolsVersionsCache[VersionIdentifierKey("1.0.1")], true)
+            XCTAssertEqual(container.validToolsVersionsCache[VersionIdentifierKey("1.0.2")], true)
+            XCTAssertEqual(container.validToolsVersionsCache[VersionIdentifierKey("1.0.3")], true)
             XCTAssertEqual(v, ["1.0.3", "1.0.2", "1.0.1"])
         }
 
@@ -376,6 +376,78 @@ final class SourceControlPackageContainerTests: XCTestCase {
         let container = try await provider.getContainer(for: ref)
         let v = try await container.toolsVersionsAppropriateVersionsDescending()
         XCTAssertEqual(v, ["1.0.4-alpha", "1.0.2-dev.2", "1.0.2-dev", "1.0.1", "1.0.0", "1.0.0-beta.1", "1.0.0-alpha.1"])
+    }
+
+    func testMetadataDistinctTagsAndCaches() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8578")
+
+        let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
+
+        let repoPath = AbsolutePath.root
+        let filePath = repoPath.appending("Package.swift")
+        let specifier = RepositorySpecifier(path: repoPath)
+        let repo = InMemoryGitRepository(path: repoPath, fs: fs)
+        try repo.createDirectory(repoPath, recursive: true)
+
+        try repo.writeFileContents(filePath, string: "// swift-tools-version:5.4\n")
+        try repo.commit()
+        try repo.tag(name: "1.0.0")
+
+        try repo.writeFileContents(filePath, string: "// swift-tools-version:5.5\n// debug\n")
+        try repo.commit()
+        try repo.tag(name: "1.0.0+debug")
+
+        try repo.writeFileContents(filePath, string: "// swift-tools-version:6.4\n")
+        try repo.commit()
+        try repo.tag(name: "1.0.0+release")
+
+        let inMemoryRepositoryProvider = InMemoryGitRepositoryProvider()
+        inMemoryRepositoryProvider.add(specifier: specifier, repository: repo)
+
+        let repositoryManagerPath = AbsolutePath.root.appending("repoManager")
+        try fs.createDirectory(repositoryManagerPath, recursive: true)
+        let repositoryManager = RepositoryManager(
+            fileSystem: fs,
+            path: repositoryManagerPath,
+            provider: inMemoryRepositoryProvider,
+            delegate: MockRepositoryManagerDelegate()
+        )
+        let provider = try Workspace._init(
+            fileSystem: fs,
+            environment: .mockEnvironment,
+            location: .init(forRootPackage: repoPath, fileSystem: fs),
+            customHostToolchain: .mockHostToolchain(fs),
+            customManifestLoader: MockManifestLoader(manifests: [:]),
+            customRepositoryManager: repositoryManager
+        )
+
+        let reference = PackageReference.localSourceControl(
+            identity: PackageIdentity(path: repoPath),
+            path: repoPath
+        )
+        let container = try await provider.getContainer(for: reference) as! SourceControlPackageContainer
+
+        let versions = try await container.versionsDescending()
+        XCTAssertEqual(versions, ["1.0.0+release", "1.0.0+debug", "1.0.0"])
+        let baseTag = await container.getTag(for: "1.0.0")
+        let debugTag = await container.getTag(for: "1.0.0+debug")
+        let releaseTag = await container.getTag(for: "1.0.0+release")
+        XCTAssertEqual(baseTag, "1.0.0")
+        XCTAssertEqual(debugTag, "1.0.0+debug")
+        XCTAssertEqual(releaseTag, "1.0.0+release")
+
+        let revisions = try ["1.0.0", "1.0.0+debug", "1.0.0+release"].map {
+            try container.getRevision(forTag: $0).identifier
+        }
+        XCTAssertEqual(Set(revisions).count, 3)
+
+        let plainToolsVersion = try await container.toolsVersion(for: "1.0.0")
+        let debugToolsVersion = try await container.toolsVersion(for: "1.0.0+debug")
+        let releaseToolsVersion = try await container.toolsVersion(for: "1.0.0+release")
+        XCTAssertEqual(plainToolsVersion, .v5_4)
+        XCTAssertEqual(debugToolsVersion, .v5_5)
+        XCTAssertEqual(releaseToolsVersion, .v6_4)
     }
 
     func testSimultaneousVersions() async throws {

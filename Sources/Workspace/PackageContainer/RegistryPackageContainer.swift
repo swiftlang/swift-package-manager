@@ -33,10 +33,10 @@ public class RegistryPackageContainer: PackageContainer {
     private let identityLookupCache: Workspace.IdentityLookupCache
 
     private var knownVersionsCache = AsyncThrowingValueMemoizer<[Version]>()
-    private var toolsVersionsCache = ThrowingAsyncKeyValueMemoizer<Version, ToolsVersion>()
-    private var validToolsVersionsCache = AsyncKeyValueMemoizer<Version, Bool>()
-    private var manifestsCache = ThrowingAsyncKeyValueMemoizer<Version, Manifest>()
-    private var availableManifestsCache = ThreadSafeKeyValueStore<Version, (manifests: [String: (toolsVersion: ToolsVersion, content: String?)], fileSystem: FileSystem)>()
+    private var toolsVersionsCache = ThrowingAsyncKeyValueMemoizer<VersionIdentifierKey, ToolsVersion>()
+    private var validToolsVersionsCache = AsyncKeyValueMemoizer<VersionIdentifierKey, Bool>()
+    private var manifestsCache = ThrowingAsyncKeyValueMemoizer<VersionIdentifierKey, Manifest>()
+    private var availableManifestsCache = ThreadSafeKeyValueStore<VersionIdentifierKey, (manifests: [String: (toolsVersion: ToolsVersion, content: String?)], fileSystem: FileSystem)>()
 
     public init(
         package: PackageReference,
@@ -63,7 +63,7 @@ public class RegistryPackageContainer: PackageContainer {
     // MARK: - PackageContainer
 
     public func isToolsVersionCompatible(at version: Version) async -> Bool {
-        await self.validToolsVersionsCache.memoize(version) {
+        await self.validToolsVersionsCache.memoize(VersionIdentifierKey(version)) {
             do {
                 let toolsVersion = try await self.toolsVersion(for: version)
                 try toolsVersion.validateToolsVersion(self.currentToolsVersion, packageIdentity: self.package.identity)
@@ -75,7 +75,7 @@ public class RegistryPackageContainer: PackageContainer {
     }
 
     public func toolsVersion(for version: Version) async throws -> ToolsVersion {
-        try await self.toolsVersionsCache.memoize(version) {
+        try await self.toolsVersionsCache.memoize(VersionIdentifierKey(version)) {
             let result = try await self.getAvailableManifestsFilesystem(version: version)
             // find the manifest path and parse it's tools-version
             let manifestPath = try ManifestLoader.findManifest(packagePath: .root, fileSystem: result.fileSystem, currentToolsVersion: self.currentToolsVersion)
@@ -93,7 +93,7 @@ public class RegistryPackageContainer: PackageContainer {
                 package: self.package.identity,
                 observabilityScope: self.observabilityScope
             )
-            return metadata.versions.sorted(by: >)
+            return metadata.versions.sorted(by: Self.versionDescending)
         }
     }
 
@@ -207,7 +207,8 @@ public class RegistryPackageContainer: PackageContainer {
 
     private func getAvailableManifestsFilesystem(version: Version) async throws -> (manifests: [String: (toolsVersion: ToolsVersion, content: String?)], fileSystem: FileSystem) {
         // try cached first
-        if let availableManifests = self.availableManifestsCache[version] {
+        let key = VersionIdentifierKey(version)
+        if let availableManifests = self.availableManifestsCache[key] {
             return availableManifests
         }
 
@@ -226,7 +227,7 @@ public class RegistryPackageContainer: PackageContainer {
             let content = manifest.value.content ?? "// swift-tools-version:\(manifest.value.toolsVersion)"
             try fileSystem.writeFileContents(AbsolutePath.root.appending(component: manifest.key), string: content)
         }
-        self.availableManifestsCache[version] = (manifests: manifests, fileSystem: fileSystem)
+        self.availableManifestsCache[key] = (manifests: manifests, fileSystem: fileSystem)
         return (manifests: manifests, fileSystem: fileSystem)
     }
 }
@@ -236,5 +237,14 @@ public class RegistryPackageContainer: PackageContainer {
 extension RegistryPackageContainer: CustomStringConvertible {
     public var description: String {
         return "RegistryPackageContainer(\(package.identity))"
+    }
+}
+
+extension RegistryPackageContainer {
+    private static func versionDescending(_ lhs: Version, _ rhs: Version) -> Bool {
+        if lhs == rhs {
+            return lhs.description > rhs.description
+        }
+        return lhs > rhs
     }
 }

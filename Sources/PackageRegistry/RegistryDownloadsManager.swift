@@ -32,7 +32,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
 
     struct PackageLookup: Hashable {
         let package: PackageIdentity
-        let version: Version
+        let version: VersionIdentifierKey
     }
 
     private let pendingLookups = Mutex<[PackageLookup: Task<Basics.AbsolutePath, Error>]>([:])
@@ -68,7 +68,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
             return packagePath
         }
 
-        let lookupId = PackageLookup(package: package, version: version)
+        let lookupId = PackageLookup(package: package, version: VersionIdentifierKey(version))
         let task = await withCheckedContinuation { continuation in
             self.pendingLookups.withLock { pendingLookups in
                 // Check if we've already resolved/are in the process of resolving for this package.

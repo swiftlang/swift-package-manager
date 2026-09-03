@@ -595,7 +595,10 @@ extension Workspace {
         }
 
         for prebuilt in await self.state.prebuilts.prebuilts {
-            if !addedPrebuilts.contains(where: { $0.identity == prebuilt.identity && $0.version == prebuilt.version }) {
+            if !addedPrebuilts.contains(where: {
+                $0.identity == prebuilt.identity &&
+                    VersionIdentifierKey($0.version) == VersionIdentifierKey(prebuilt.version)
+            }) {
                 await self.state.prebuilts.remove(packageIdentity: prebuilt.identity, targetName: prebuilt.libraryName)
             }
         }

@@ -67,6 +67,20 @@ public final class ResolvedPackagesStore {
                 return revision
             }
         }
+
+        public static func == (lhs: Self, rhs: Self) -> Bool {
+            switch (lhs, rhs) {
+            case (.version(let lhsVersion, let lhsRevision), .version(let rhsVersion, let rhsRevision)):
+                VersionIdentifierKey(lhsVersion) == VersionIdentifierKey(rhsVersion) &&
+                    lhsRevision == rhsRevision
+            case (.branch(let lhsName, let lhsRevision), .branch(let rhsName, let rhsRevision)):
+                lhsName == rhsName && lhsRevision == rhsRevision
+            case (.revision(let lhs), .revision(let rhs)):
+                lhs == rhs
+            default:
+                false
+            }
+        }
     }
 
     private let mirrors: DependencyMirrors

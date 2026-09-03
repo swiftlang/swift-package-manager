@@ -94,7 +94,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
             try self.loadFromDisk(reference: reference)
         }
 
-        guard let fingerprints = packageFingerprints[version] else {
+        guard let fingerprints = packageFingerprints[VersionIdentifierKey(version)] else {
             throw PackageFingerprintStorageError.notFound
         }
         return fingerprints
@@ -109,7 +109,8 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
         try self.withLock {
             var packageFingerprints = try self.loadFromDisk(reference: reference)
 
-            if let existing = packageFingerprints[version]?[fingerprint.origin.kind]?[fingerprint.contentType] {
+            let versionKey = VersionIdentifierKey(version)
+            if let existing = packageFingerprints[versionKey]?[fingerprint.origin.kind]?[fingerprint.contentType] {
                 // Error if we try to write a different fingerprint
                 guard fingerprint == existing else {
                     throw PackageFingerprintStorageError.conflict(given: fingerprint, existing: existing)
@@ -118,17 +119,17 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
                 return
             }
 
-            var fingerprintsForVersion = packageFingerprints.removeValue(forKey: version) ?? [:]
+            var fingerprintsForVersion = packageFingerprints.removeValue(forKey: versionKey) ?? [:]
             var fingerprintsForKind = fingerprintsForVersion.removeValue(forKey: fingerprint.origin.kind) ?? [:]
             fingerprintsForKind[fingerprint.contentType] = fingerprint
             fingerprintsForVersion[fingerprint.origin.kind] = fingerprintsForKind
-            packageFingerprints[version] = fingerprintsForVersion
+            packageFingerprints[versionKey] = fingerprintsForVersion
 
             try self.saveToDisk(reference: reference, fingerprints: packageFingerprints)
         }
     }
 
-    private func loadFromDisk(reference: FingerprintReference) throws -> PackageFingerprints {
+    private func loadFromDisk(reference: FingerprintReference) throws -> PackageFingerprintsByVersionIdentifier {
         let path = try self.directoryPath.appending(component: reference.fingerprintsFilename)
 
         guard self.fileSystem.exists(path) else {
@@ -143,7 +144,10 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
         return try StorageModel.decode(data: data, decoder: self.decoder)
     }
 
-    private func saveToDisk(reference: FingerprintReference, fingerprints: PackageFingerprints) throws {
+    private func saveToDisk(
+        reference: FingerprintReference,
+        fingerprints: PackageFingerprintsByVersionIdentifier
+    ) throws {
         if !self.fileSystem.exists(self.directoryPath) {
             try self.fileSystem.createDirectory(self.directoryPath, recursive: true)
         }
@@ -218,7 +222,7 @@ private enum StorageModel {
                 self.versionFingerprints = versionFingerprints
             }
 
-            func packageFingerprints() throws -> PackageFingerprints {
+            func packageFingerprints() throws -> PackageFingerprintsByVersionIdentifier {
                 try Dictionary(
                     throwingUniqueKeysWithValues: self.versionFingerprints.map { version, fingerprintsForVersion in
                         let fingerprintsByKind = try Dictionary(
@@ -253,14 +257,14 @@ private enum StorageModel {
                                 return (kind, fingerprintsByContentType)
                             }
                         )
-                        return (Version(stringLiteral: version), fingerprintsByKind)
+                        return (VersionIdentifierKey(Version(stringLiteral: version)), fingerprintsByKind)
                     }
                 )
             }
         }
     }
 
-    static func decode(data: Data, decoder: JSONDecoder) throws -> PackageFingerprints {
+    static func decode(data: Data, decoder: JSONDecoder) throws -> PackageFingerprintsByVersionIdentifier {
         let schemaVersion = try decoder.decode(SchemaVersion.self, from: data)
         switch schemaVersion.version {
         case .some(2):
@@ -297,9 +301,12 @@ private enum StorageModel {
         }
     }
 
-    static func encode(packageFingerprints: PackageFingerprints, encoder: JSONEncoder) throws -> Data {
+    static func encode(
+        packageFingerprints: PackageFingerprintsByVersionIdentifier,
+        encoder: JSONEncoder
+    ) throws -> Data {
         let container = Container.V2(versionFingerprints: try Dictionary(
-            throwingUniqueKeysWithValues: packageFingerprints.map { version, fingerprintsForVersion in
+            throwingUniqueKeysWithValues: packageFingerprints.map { versionKey, fingerprintsForVersion in
                 let fingerprintsByKind = try Dictionary(
                     throwingUniqueKeysWithValues: fingerprintsForVersion.map { kind, fingerprintsForKind in
                         let fingerprintsByContentType = try Dictionary(
@@ -323,7 +330,7 @@ private enum StorageModel {
                         return (kind.rawValue, fingerprintsByContentType)
                     }
                 )
-                return (version.description, fingerprintsByKind)
+                return (versionKey.version.description, fingerprintsByKind)
             }
         ))
         return try encoder.encode(container)

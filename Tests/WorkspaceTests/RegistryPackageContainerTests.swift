@@ -340,6 +340,75 @@ final class RegistryPackageContainerTests: XCTestCase {
         }
     }
 
+    func testMetadataDistinctVersionsAreOrderedAndCachedSeparately() async throws {
+        let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
+
+        let packageIdentity = PackageIdentity.plain("org.foo")
+        let packagePath = AbsolutePath.root
+        let registryClient = try makeRegistryClient(
+            packageIdentity: packageIdentity,
+            packageVersion: "1.0.0",
+            packagePath: packagePath,
+            fileSystem: fs,
+            releasesRequestHandler: { _, _ in
+                let metadata = RegistryClient.Serialization.PackageMetadata(
+                    releases: [
+                        "1.0.0+debug": .init(url: .none, problem: .none),
+                        "1.0.0": .init(url: .none, problem: .none),
+                        "1.0.0+release": .init(url: .none, problem: .none),
+                    ]
+                )
+                return HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "application/json",
+                    ],
+                    body: try! JSONEncoder.makeWithDefaults().encode(metadata)
+                )
+            },
+            manifestRequestHandler: { request, _ in
+                let toolsVersion: ToolsVersion
+                if request.url.absoluteString.contains("release") {
+                    toolsVersion = .v6_4
+                } else if request.url.absoluteString.contains("debug") {
+                    toolsVersion = .v5_5
+                } else {
+                    toolsVersion = .v5_4
+                }
+                return HTTPClientResponse(
+                    statusCode: 200,
+                    headers: [
+                        "Content-Version": "1",
+                        "Content-Type": "text/x-swift",
+                    ],
+                    body: Data("// swift-tools-version:\(toolsVersion)".utf8)
+                )
+            }
+        )
+        let provider = try Workspace._init(
+            fileSystem: fs,
+            environment: .mockEnvironment,
+            location: .init(forRootPackage: packagePath, fileSystem: fs),
+            customHostToolchain: .mockHostToolchain(fs),
+            customManifestLoader: MockManifestLoader(manifests: [:]),
+            customRegistryClient: registryClient
+        )
+
+        let container = try await provider.getContainer(
+            for: .registry(identity: packageIdentity)
+        )
+        let versions = try await container.versionsDescending()
+        XCTAssertEqual(versions, ["1.0.0+release", "1.0.0+debug", "1.0.0"])
+        let plainToolsVersion = try await container.toolsVersion(for: "1.0.0")
+        let debugToolsVersion = try await container.toolsVersion(for: "1.0.0+debug")
+        let releaseToolsVersion = try await container.toolsVersion(for: "1.0.0+release")
+        XCTAssertEqual(plainToolsVersion, .v5_4)
+        XCTAssertEqual(debugToolsVersion, .v5_5)
+        XCTAssertEqual(releaseToolsVersion, .v6_4)
+    }
+
     func makeRegistryClient(
         packageIdentity: PackageIdentity,
         packageVersion: Version,

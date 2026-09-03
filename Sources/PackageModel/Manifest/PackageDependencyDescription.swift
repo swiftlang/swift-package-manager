@@ -519,6 +519,40 @@ extension PackageDependency.SourceControl.Requirement: CustomStringConvertible {
     }
 }
 
+extension PackageDependency.SourceControl.Requirement {
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.exact(let lhs), .exact(let rhs)):
+            return VersionIdentifierKey(lhs) == VersionIdentifierKey(rhs)
+        case (.range(let lhs), .range(let rhs)):
+            return lhs == rhs
+        case (.revision(let lhs), .revision(let rhs)):
+            return lhs == rhs
+        case (.branch(let lhs), .branch(let rhs)):
+            return lhs == rhs
+        default:
+            return false
+        }
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        switch self {
+        case .exact(let version):
+            hasher.combine(0)
+            hasher.combine(VersionIdentifierKey(version))
+        case .range(let range):
+            hasher.combine(1)
+            hasher.combine(range)
+        case .revision(let revision):
+            hasher.combine(2)
+            hasher.combine(revision)
+        case .branch(let branch):
+            hasher.combine(3)
+            hasher.combine(branch)
+        }
+    }
+}
+
 extension PackageDependency.Registry.Requirement: CustomStringConvertible {
     public var description: String {
         switch self {
@@ -526,6 +560,30 @@ extension PackageDependency.Registry.Requirement: CustomStringConvertible {
             return version.description
         case .range(let range):
             return range.description
+        }
+    }
+}
+
+extension PackageDependency.Registry.Requirement {
+    public static func == (lhs: Self, rhs: Self) -> Bool {
+        switch (lhs, rhs) {
+        case (.exact(let lhs), .exact(let rhs)):
+            return VersionIdentifierKey(lhs) == VersionIdentifierKey(rhs)
+        case (.range(let lhs), .range(let rhs)):
+            return lhs == rhs
+        default:
+            return false
+        }
+    }
+
+    public func hash(into hasher: inout Hasher) {
+        switch self {
+        case .exact(let version):
+            hasher.combine(0)
+            hasher.combine(VersionIdentifierKey(version))
+        case .range(let range):
+            hasher.combine(1)
+            hasher.combine(range)
         }
     }
 }
