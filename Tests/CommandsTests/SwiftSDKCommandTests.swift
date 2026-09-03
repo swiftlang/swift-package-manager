@@ -295,6 +295,21 @@ struct SwiftSDKCommandTests {
                 }
             }
 
+            await expectThrowsCommandExecutionError(
+                try await command.execute(
+                    [
+                       "configure", "--show-configuration",
+                        "--swift-sdks-path", fixturePath.pathString,
+                        "test-artifact",
+                        "aarch64-unknown-linux-gnu11.0",
+                    ]
+                )
+            ) { error in
+                let stderr = error.stderr
+                #expect(stderr.contains("Error: Swift SDK with ID `test-artifact`, host triple "))
+                #expect(stderr.contains(", and target triple aarch64-unknown-linux-gnu11.0 is not currently installed."))
+            }
+
             (stdout, stderr) = try await command.execute(
                 ["remove", "--swift-sdks-path", fixturePath.pathString, "test-artifact"])
 
