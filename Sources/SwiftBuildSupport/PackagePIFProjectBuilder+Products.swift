@@ -590,6 +590,12 @@ extension PackagePIFProjectBuilder {
             PackagePIFBuilder.LinkedPackageBinary(dependency: $0)
         }
 
+        let buildToolPluginInputs = Set(
+            (pifBuilder.buildToolPluginResultsByTargetName[mainModule.name] ?? [])
+                .flatMap(\.buildCommands)
+                .flatMap(\.inputPaths)
+        )
+
         let moduleOrProduct = PackagePIFBuilder.ModuleOrProduct(
             type: moduleOrProductType,
             name: product.name,
@@ -597,6 +603,7 @@ extension PackagePIFProjectBuilder {
             pifTarget: .target(self.project[keyPath: mainModuleTargetKeyPath]),
             indexableFileURLs: indexableFileURLs,
             headerFiles: headerFiles,
+            buildToolPluginInputs: buildToolPluginInputs,
             doccCatalogs: doccCatalogs,
             linkedPackageBinaries: linkedPackageBinaries,
             swiftLanguageVersion: mainModule.packageSwiftLanguageVersion(manifest: packageManifest),
