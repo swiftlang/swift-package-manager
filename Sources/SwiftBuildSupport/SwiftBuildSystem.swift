@@ -1391,7 +1391,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     addLocalRpaths: self.buildParameters.linkingParameters.shouldDisableLocalRpath ? .never : .always,
                     materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
                     createDynamicVariantsForLibraryProducts: true,
-                    hostBuildProductsPath: try await self.buildProductsPath(for: self.hostBuildParameters)
+                    hostBuildProductsPath: try await self.buildProductsPath(for: self.hostBuildParameters),
+                    hostTriple: self.hostBuildParameters.triple
                 ),
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,

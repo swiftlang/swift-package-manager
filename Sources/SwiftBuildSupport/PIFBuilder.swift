@@ -93,7 +93,10 @@ package struct PIFBuilderParameters {
     /// real path.
     let shouldPreserveSymlinks: Bool
 
-    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRpaths: PackagePIFBuilder.AddLocalRpaths, hostBuildProductsPath: AbsolutePath, shouldPreserveSymlinks: Bool) {
+    /// The triple of the host on which the build is running, as reported by the host `BuildParameters`.
+    let hostTriple: Basics.Triple
+
+    package init(isPackageAccessModifierSupported: Bool, enableTestability: Bool, shouldCreateDylibForDynamicProducts: Bool, materializeStaticArchiveProductsForRootPackages: Bool, createDynamicVariantsForLibraryProducts: Bool, toolchainLibDir: AbsolutePath, pkgConfigDirectories: [AbsolutePath], supportedSwiftVersions: [SwiftLanguageVersion], pluginScriptRunner: PluginScriptRunner, disableSandbox: Bool, pluginWorkingDirectory: AbsolutePath, additionalFileRules: [FileRuleDescription], addLocalRpaths: PackagePIFBuilder.AddLocalRpaths, hostBuildProductsPath: AbsolutePath, shouldPreserveSymlinks: Bool, hostTriple: Basics.Triple) {
         self.isPackageAccessModifierSupported = isPackageAccessModifierSupported
         self.enableTestability = enableTestability
         self.shouldCreateDylibForDynamicProducts = shouldCreateDylibForDynamicProducts
@@ -109,6 +112,7 @@ package struct PIFBuilderParameters {
         self.addLocalRpaths = addLocalRpaths
         self.hostBuildProductsPath = hostBuildProductsPath
         self.shouldPreserveSymlinks = shouldPreserveSymlinks
+        self.hostTriple = hostTriple
     }
 }
 
@@ -268,7 +272,7 @@ public final class PIFBuilder {
             graph: graph,
             buildParameters: buildParameters,
             pluginsPerModule: pluginsPerModule,
-            hostTriple: try pluginScriptRunner.hostTriple
+            hostTriple: self.parameters.hostTriple
         )
 
         let sortedPackages = self.graph.packages
@@ -520,7 +524,8 @@ public final class PIFBuilder {
                     packagesAndProjects: packagesAndPIFProjects,
                     observabilityScope: observabilityScope,
                     modulesGraph: graph,
-                    buildParameters: buildParameters
+                    buildParameters: buildParameters,
+                    hostTriple: self.parameters.hostTriple
                 )
             )
 
@@ -609,7 +614,8 @@ public final class PIFBuilder {
         addLocalRpaths: PackagePIFBuilder.AddLocalRpaths,
         materializeStaticArchiveProductsForRootPackages: Bool,
         createDynamicVariantsForLibraryProducts: Bool,
-        hostBuildProductsPath: AbsolutePath
+        hostBuildProductsPath: AbsolutePath,
+        hostTriple: Basics.Triple
     ) async throws -> PIFGenerationResult {
         let parameters = PIFBuilderParameters(
             buildParameters,
@@ -621,7 +627,8 @@ public final class PIFBuilder {
             addLocalRpaths: addLocalRpaths,
             materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
             createDynamicVariantsForLibraryProducts: createDynamicVariantsForLibraryProducts,
-            hostBuildProductsPath: hostBuildProductsPath
+            hostBuildProductsPath: hostBuildProductsPath,
+            hostTriple: hostTriple
         )
         let builder = Self(
             graph: packageGraph,
@@ -871,7 +878,8 @@ fileprivate func buildAggregatePIFProject(
     packagesAndProjects: [(package: ResolvedPackage, project: ProjectModel.Project)],
     observabilityScope: ObservabilityScope,
     modulesGraph: ModulesGraph,
-    buildParameters: BuildParameters
+    buildParameters: BuildParameters,
+    hostTriple: Basics.Triple
 ) throws -> ProjectModel.Project {
     precondition(!packagesAndProjects.isEmpty)
 
@@ -922,7 +930,8 @@ fileprivate func buildAggregatePIFProject(
     addEmptyBuildConfig(to: allExcludingTestsTargetKeyPath, name: "Debug")
     addEmptyBuildConfig(to: allExcludingTestsTargetKeyPath, name: "Release")
 
-    let hostOnlyModuleIDs = computeHostOnlyModuleIDsInRootPackages(in: modulesGraph)
+    let isCrossCompiling = !hostTriple.isRuntimeCompatible(with: buildParameters.triple)
+    let hostOnlyModuleIDs = isCrossCompiling ? computeHostOnlyModuleIDsInRootPackages(in: modulesGraph) : []
 
     for (package, packageProject) in packagesAndProjects where package.manifest.packageKind.isRoot {
         for target in packageProject.targets {
@@ -1032,7 +1041,8 @@ extension PIFBuilderParameters {
         addLocalRpaths: PackagePIFBuilder.AddLocalRpaths,
         materializeStaticArchiveProductsForRootPackages: Bool,
         createDynamicVariantsForLibraryProducts: Bool,
-        hostBuildProductsPath: AbsolutePath
+        hostBuildProductsPath: AbsolutePath,
+        hostTriple: Basics.Triple
     ) {
         self.init(
             isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
@@ -1049,7 +1059,8 @@ extension PIFBuilderParameters {
             additionalFileRules: additionalFileRules,
             addLocalRpaths: addLocalRpaths,
             hostBuildProductsPath: hostBuildProductsPath,
-            shouldPreserveSymlinks: buildParameters.shouldPreserveSymlinks
+            shouldPreserveSymlinks: buildParameters.shouldPreserveSymlinks,
+            hostTriple: hostTriple
         )
     }
 }
