@@ -66,4 +66,51 @@ struct PlatformConditionTests {
             #expect(condition.satisfies(environment), "Expected \(envPlatform.name) to satisfy its own condition")
         }
     }
+
+    @Test
+    func targetAndHostPlatformConditionsUseIndependentEnvironments() {
+        let targetCondition = PackageCondition(platforms: [.iOS])
+        let hostCondition = PackageCondition(hostPlatforms: [.macOS])
+        let targetEnvironment = BuildEnvironment(platform: .iOS)
+        let hostEnvironment = BuildEnvironment(platform: .macOS)
+
+        #expect(targetCondition.satisfies(
+            targetEnvironment: targetEnvironment,
+            hostEnvironment: hostEnvironment
+        ))
+        #expect(hostCondition.satisfies(
+            targetEnvironment: targetEnvironment,
+            hostEnvironment: hostEnvironment
+        ))
+        #expect(!targetCondition.satisfies(
+            targetEnvironment: hostEnvironment,
+            hostEnvironment: targetEnvironment
+        ))
+        #expect(!hostCondition.satisfies(
+            targetEnvironment: hostEnvironment,
+            hostEnvironment: targetEnvironment
+        ))
+    }
+
+    @Test
+    func allSpecifiedConditionAxesMustMatch() {
+        let conditions: [PackageCondition] = [
+            .init(platforms: [.iOS]),
+            .init(hostPlatforms: [.macOS]),
+            .init(configuration: .debug),
+        ]
+
+        #expect(conditions.allSatisfy {
+            $0.satisfies(
+                targetEnvironment: .init(platform: .iOS, configuration: .debug),
+                hostEnvironment: .init(platform: .macOS, configuration: .debug)
+            )
+        })
+        #expect(!conditions.allSatisfy {
+            $0.satisfies(
+                targetEnvironment: .init(platform: .iOS, configuration: .debug),
+                hostEnvironment: .init(platform: .linux, configuration: .debug)
+            )
+        })
+    }
 }

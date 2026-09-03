@@ -192,11 +192,13 @@ import SwiftBuild
             observabilityScope: observability
         )
 
+        let buildParameters = mockBuildParameters(
+            destination: .host,
+            buildSystemKind: .swiftbuild,
+        )
         return try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(
-                destination: .host,
-                buildSystemKind: .swiftbuild,
-            )
+            buildParameters: buildParameters,
+            hostBuildParameters: buildParameters
         ).0
     }
 

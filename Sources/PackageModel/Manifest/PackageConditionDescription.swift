@@ -12,20 +12,43 @@
 
 /// Represents a manifest condition.
 public struct PackageConditionDescription: Codable, Hashable, Sendable {
+    private enum CodingKeys: String, CodingKey {
+        case platformNames
+        case hostPlatformNames
+        case config
+        case traits
+    }
+
     public let platformNames: [String]
+    public let hostPlatformNames: [String]
     public let config: String?
     public let traits: Set<String>?
 
-    public init(platformNames: [String] = [], config: String? = nil, traits: Set<String>? = nil) {
-        assert(!(platformNames.isEmpty && config == nil && traits == nil))
+    public init(
+        platformNames: [String] = [],
+        hostPlatformNames: [String] = [],
+        config: String? = nil,
+        traits: Set<String>? = nil
+    ) {
+        assert(!(platformNames.isEmpty && hostPlatformNames.isEmpty && config == nil && traits == nil))
         self.platformNames = platformNames
+        self.hostPlatformNames = hostPlatformNames
         self.config = config
         self.traits = traits
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.platformNames = try container.decodeIfPresent([String].self, forKey: .platformNames) ?? []
+        self.hostPlatformNames = try container.decodeIfPresent([String].self, forKey: .hostPlatformNames) ?? []
+        self.config = try container.decodeIfPresent(String.self, forKey: .config)
+        self.traits = try container.decodeIfPresent(Set<String>.self, forKey: .traits)
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         try container.encode(platformNames, forKey: .platformNames)
+        try container.encode(hostPlatformNames, forKey: .hostPlatformNames)
         try container.encodeIfPresent(config, forKey: .config)
         try container.encodeIfPresent(traits?.sorted(), forKey: .traits)
     }
@@ -35,17 +58,27 @@ public struct PackageConditionDescription: Codable, Hashable, Sendable {
 /// build configurations.
 public enum PackageCondition: Hashable, Sendable {
     case platforms(PlatformsCondition)
+    case hostPlatforms(PlatformsCondition)
     case configuration(ConfigurationCondition)
     case traits(TraitCondition)
 
     public func satisfies(_ environment: BuildEnvironment) -> Bool {
+        self.satisfies(targetEnvironment: environment, hostEnvironment: environment)
+    }
+
+    public func satisfies(
+        targetEnvironment: BuildEnvironment,
+        hostEnvironment: BuildEnvironment
+    ) -> Bool {
         switch self {
         case .configuration(let configuration):
-            return configuration.satisfies(environment)
+            return configuration.satisfies(targetEnvironment)
         case .platforms(let platforms):
-            return platforms.satisfies(environment)
+            return platforms.satisfies(targetEnvironment)
+        case .hostPlatforms(let platforms):
+            return platforms.satisfies(hostEnvironment)
         case .traits(let traits):
-            return traits.satisfies(environment)
+            return traits.satisfies(targetEnvironment)
         }
     }
 
@@ -65,6 +98,14 @@ public enum PackageCondition: Hashable, Sendable {
         return configurationCondition
     }
 
+    public var hostPlatformsCondition: PlatformsCondition? {
+        guard case let .hostPlatforms(platformsCondition) = self else {
+            return nil
+        }
+
+        return platformsCondition
+    }
+
     public var traitCondition: TraitCondition? {
         guard case let .traits(traitCondition) = self else {
             return nil
@@ -75,6 +116,10 @@ public enum PackageCondition: Hashable, Sendable {
 
     public init(platforms: [Platform]) {
         self = .platforms(.init(platforms: platforms))
+    }
+
+    public init(hostPlatforms: [Platform]) {
+        self = .hostPlatforms(.init(platforms: hostPlatforms))
     }
 
     public init(configuration: BuildConfiguration) {
@@ -135,4 +180,3 @@ public struct TraitCondition: Hashable, Sendable {
         return true
     }
 }
-

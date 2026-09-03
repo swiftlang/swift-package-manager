@@ -107,7 +107,11 @@ extension LLBuildManifestBuilder {
             outputs: [output]
         )
 
-        if self.plan.graph.isInRootPackages(target.target, satisfying: target.buildParameters.buildEnvironment) {
+        if self.plan.graph.isInRootPackages(
+            target.target,
+            satisfying: target.buildParameters.buildEnvironment,
+            hostEnvironment: self.plan.toolsBuildParameters.buildEnvironment
+        ) {
             if !target.isTestTarget {
                 self.addNode(output, toTarget: .main)
             }

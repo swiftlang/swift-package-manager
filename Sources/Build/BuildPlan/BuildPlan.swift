@@ -301,7 +301,10 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
 
                 // Validate the product dependencies of this target.
                 for dependency in module.dependencies {
-                    guard dependency.satisfies(buildParameters.buildEnvironment) else {
+                    guard dependency.satisfies(
+                        targetEnvironment: buildParameters.buildEnvironment,
+                        hostEnvironment: toolsBuildParameters.buildEnvironment
+                    ) else {
                         continue
                     }
 
@@ -325,7 +328,8 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         for: module,
                         destination: destination,
                         configuration: pluginConfiguration,
-                        buildParameters: toolsBuildParameters,
+                        hostBuildParameters: toolsBuildParameters,
+                        targetBuildEnvironment: buildParameters.buildEnvironment,
                         modulesGraph: graph,
                         tools: pluginTools,
                         additionalFileRules: additionalFileRules,
@@ -741,7 +745,8 @@ extension BuildPlan {
         for module: ResolvedModule,
         destination: BuildParameters.Destination,
         configuration: PluginConfiguration,
-        buildParameters: BuildParameters,
+        hostBuildParameters: BuildParameters,
+        targetBuildEnvironment: BuildEnvironment,
         modulesGraph: ModulesGraph,
         tools: [ResolvedModule.ID: [String: PluginTool]],
         additionalFileRules: [FileRuleDescription],
@@ -759,8 +764,12 @@ extension BuildPlan {
 
         // Apply each build tool plugin used by the target in order,
         // creating a list of results (one for each plugin usage).
-        var buildToolPluginResults: [BuildToolPluginInvocationResult] = []
-        for plugin in module.pluginDependencies(satisfying: buildParameters.buildEnvironment) {
+        var allBuildToolPluginResults: [BuildToolPluginInvocationResult] = []
+        var applicableBuildToolPluginResults: [BuildToolPluginInvocationResult] = []
+        for usage in module.buildToolPluginUsages(
+            satisfyingHost: hostBuildParameters.buildEnvironment
+        ) {
+            let plugin = usage.plugin
             let pluginModule = plugin.underlying as! PluginModule
 
             // Determine the tools to which this plugin has access, and create a name-to-path mapping from tool
@@ -801,14 +810,14 @@ extension BuildPlan {
                     target: module,
                     toolsVersion: package.manifest.toolsVersion,
                     additionalFileRules: additionalFileRules,
-                    buildParameters: buildParameters,
-                    buildToolPluginInvocationResults: buildToolPluginResults,
+                    buildParameters: hostBuildParameters,
+                    buildToolPluginInvocationResults: allBuildToolPluginResults,
                     prebuildCommandResults: [],
                     observabilityScope: observability.topScope
                 )
                 pluginDerivedSources = Sources(
                     paths: pluginGeneratedFiles.sources.map(\.self),
-                    root: buildParameters.dataPath
+                    root: hostBuildParameters.dataPath
                 )
                 pluginDerivedResources = pluginGeneratedFiles.resources.values.map(\.self)
             } else {
@@ -824,23 +833,24 @@ extension BuildPlan {
                     pluginGeneratedSources: pluginDerivedSources.paths,
                     pluginGeneratedResources: pluginDerivedResources.map(\.path)
                 ),
-                buildEnvironment: buildParameters.buildEnvironment,
-                workers: buildParameters.workers,
+                buildEnvironment: hostBuildParameters.buildEnvironment,
+                workers: hostBuildParameters.workers,
                 scriptRunner: configuration.scriptRunner,
                 workingDirectory: package.path,
                 outputDirectory: pluginOutputDir,
-                toolSearchDirectories: [buildParameters.toolchain.swiftCompilerPath.parentDirectory],
+                toolSearchDirectories: [hostBuildParameters.toolchain.swiftCompilerPath.parentDirectory],
                 accessibleTools: accessibleTools,
                 writableDirectories: writableDirectories,
                 readOnlyDirectories: readOnlyDirectories,
                 allowNetworkConnections: [],
                 pkgConfigDirectories: pkgConfigDirectories,
-                sdkRootPath: buildParameters.toolchain.sdkRootPath,
+                sdkRootPath: hostBuildParameters.toolchain.sdkRootPath,
                 fileSystem: fileSystem,
                 modulesGraph: modulesGraph,
                 observabilityScope: observabilityScope
             )
 
+            allBuildToolPluginResults.append(result)
 
             if surfaceDiagnostics {
                 let diagnosticsEmitter = observabilityScope.makeDiagnosticsEmitter {
@@ -859,11 +869,12 @@ extension BuildPlan {
                 }
             }
 
-            // Add a BuildToolPluginInvocationResult to the mapping.
-            buildToolPluginResults.append(result)
+            if usage.applies(to: targetBuildEnvironment) {
+                applicableBuildToolPluginResults.append(result)
+            }
         }
 
-        return buildToolPluginResults
+        return applicableBuildToolPluginResults
     }
 
     /// Runs any commands associated with the given list of plugin invocation results,
@@ -1185,7 +1196,10 @@ extension BuildPlan {
             destination: Destination
         ) -> [TraversalNode] {
             module
-                .dependencies(satisfying: description.buildParameters.buildEnvironment)
+                .dependencies(
+                    satisfying: description.buildParameters.buildEnvironment,
+                    hostEnvironment: self.toolsBuildParameters.buildEnvironment
+                )
                 .reduce(into: [TraversalNode]()) { partial, dependency in
                     switch dependency {
                     case .product(let product, _):
@@ -1245,7 +1259,10 @@ extension BuildPlan {
             destination: Destination
         ) -> [TraversalNode] {
             parentModule
-                .dependencies(satisfying: description.buildParameters.buildEnvironment)
+                .dependencies(
+                    satisfying: description.buildParameters.buildEnvironment,
+                    hostEnvironment: self.toolsBuildParameters.buildEnvironment
+                )
                 .reduce(into: [TraversalNode]()) { partial, dependency in
                     switch dependency {
                     case .product(let product, _):

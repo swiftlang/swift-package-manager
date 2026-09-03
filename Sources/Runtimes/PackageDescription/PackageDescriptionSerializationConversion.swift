@@ -206,6 +206,7 @@ extension Serialization.SupportedPlatform {
 extension Serialization.TargetDependency.Condition {
     init(_ condition: TargetDependencyCondition) {
         self.platforms = condition.platforms?.map { .init($0) }
+        self.hostPlatforms = condition.hostPlatforms?.map { .init($0) }
         self.traits = condition.traits?.sorted()
     }
 }
@@ -291,7 +292,10 @@ extension Serialization.PluginNetworkPermissionScope {
 extension Serialization.PluginUsage {
     init(_ usage: PackageDescription.Target.PluginUsage) {
         switch usage {
-        case .plugin(let name, let package): self = .plugin(name: name, package: package)
+        case .plugin(let name, let package):
+            self = .plugin(name: name, package: package, condition: nil)
+        case .pluginWithCondition(let name, let package, let condition):
+            self = .plugin(name: name, package: package, condition: condition.map { .init($0) })
         }
     }
 }

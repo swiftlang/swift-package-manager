@@ -187,7 +187,10 @@ extension ModuleBuildDescription {
 
     package func dependencies(using plan: BuildPlan) -> [Dependency] {
         self.module
-            .dependencies(satisfying: self.buildParameters.buildEnvironment)
+            .dependencies(
+                satisfying: self.buildParameters.buildEnvironment,
+                hostEnvironment: plan.toolsBuildParameters.buildEnvironment
+            )
             .map {
                 switch $0 {
                 case .product(let product, _):
