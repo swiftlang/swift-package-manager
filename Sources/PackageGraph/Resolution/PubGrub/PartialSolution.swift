@@ -14,6 +14,7 @@ import Basics
 import OrderedCollections
 
 import struct TSCUtility.Version
+import struct PackageModel.PackageIdentity
 
 /// The partial solution is a constantly updated solution used throughout the
 /// dependency resolution process, tracking known assignments.
@@ -68,6 +69,11 @@ public struct PartialSolution {
         let decision = Assignment.decision(term, decisionLevel: self.decisionLevel)
         self.assignments.append(decision)
         self.register(decision)
+    }
+
+    /// Returns the decisions made for a given package identity.
+    public func decisions(for packageIdentity: PackageIdentity) -> [DependencyResolutionNode] {
+        self.decisions.keys.filter({ $0.package.identity == packageIdentity })
     }
 
     /// Populates the _positive and _negative properties with the assignment.
