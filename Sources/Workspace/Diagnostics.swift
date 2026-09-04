@@ -186,6 +186,20 @@ struct BinaryArtifactsManagerError: Error, CustomStringConvertible {
         .init(description: "local binary target '\(targetName)' at '\(artifactPath)' does not contain a binary artifact.")
     }
 
+    static func localArtifactIsZipArchive(artifactPath: AbsolutePath, targetName: String) -> Self {
+        let ext = artifactPath.extension.map { ".\($0)" } ?? ""
+        return .init(
+            description: "local binary target '\(targetName)' at '\(artifactPath)' is a ZIP archive, but has extension '\(ext)'; ZIP archives must end in '.zip' (e.g. '\(artifactPath.basename).zip'), while '\(ext)' must be an uncompressed directory."
+        )
+    }
+
+    static func localArtifactNotDirectory(artifactPath: AbsolutePath, targetName: String) -> Self {
+        let ext = artifactPath.extension.map { "ending in '.\($0)' " } ?? ""
+        return .init(
+            description: "local binary target '\(targetName)' at '\(artifactPath)' is a file, but binary artifacts \(ext)must be uncompressed directories."
+        )
+    }
+
     static func artifactContainsEscapingSymlink(
         targetName: String,
         symlinkPath: AbsolutePath,
