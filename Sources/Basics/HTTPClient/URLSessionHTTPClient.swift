@@ -12,7 +12,6 @@
 
 import _Concurrency
 import Foundation
-import struct TSCUtility.Versioning
 #if canImport(FoundationNetworking)
 // FIXME: this brings OpenSSL dependency on Linux and needs to be replaced with `swift-server/async-http-client` package
 import FoundationNetworking
