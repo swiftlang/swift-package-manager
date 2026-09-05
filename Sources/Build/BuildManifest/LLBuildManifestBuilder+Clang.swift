@@ -67,7 +67,7 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        for binaryPath in target.libraryBinaryPaths {
+        for binaryPath in target.libraryBinaryPaths.sorted() {
             let path = target.buildParameters.destinationPath(forBinaryAt: binaryPath)
             if self.fileSystem.isDirectory(binaryPath) {
                 inputs.append(directory: path)

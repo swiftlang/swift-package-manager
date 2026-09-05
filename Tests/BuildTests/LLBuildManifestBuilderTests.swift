@@ -344,4 +344,135 @@ struct LLBuildManifestBuilderTests {
             $0.value.tool.inputs.contains(.file("/MyPkg/my.artifactbundle/x86_64-unknown-windows-msvc/MyBinaryLib.dll"))
         }))
     }
+
+    /// Verifies that the binary frameworks a module depends on are listed in a stable, sorted order in the
+    /// compile command inputs and in the link arguments. llbuild includes the ordered inputs and arguments in its
+    /// command signatures, so any variation between plans would make it rebuild the module unnecessarily.
+    @Test func binaryTargetInputsAndLinkArgumentsAreDeterministic() async throws {
+        let pkg = AbsolutePath("/Pkg")
+        // Declared in an order that differs from the sorted one.
+        let frameworks = ["Zeta", "Gamma", "Alpha", "Epsilon", "Beta", "Delta"]
+        let sortedFrameworks = frameworks.sorted()
+
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            pkg.appending(components: "Sources", "Library", "Library.swift").pathString,
+            pkg.appending(components: "Sources", "CLibrary", "library.c").pathString,
+            pkg.appending(components: "Sources", "CLibrary", "include", "library.h").pathString
+        )
+        for framework in frameworks {
+            let xcframework = pkg.appending(component: "\(framework).xcframework")
+            try fs.createDirectory(
+                xcframework.appending(components: "macos-arm64", "\(framework).framework"),
+                recursive: true
+            )
+            try fs.writeFileContents(xcframework.appending(component: "Info.plist"), string: """
+                <?xml version="1.0" encoding="UTF-8"?>
+                <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+                <plist version="1.0">
+                <dict>
+                    <key>AvailableLibraries</key>
+                    <array>
+                        <dict>
+                            <key>LibraryIdentifier</key>
+                            <string>macos-arm64</string>
+                            <key>LibraryPath</key>
+                            <string>\(framework).framework</string>
+                            <key>SupportedArchitectures</key>
+                            <array>
+                                <string>arm64</string>
+                            </array>
+                            <key>SupportedPlatform</key>
+                            <string>macos</string>
+                        </dict>
+                    </array>
+                    <key>CFBundlePackageType</key>
+                    <string>XFWK</string>
+                    <key>XCFrameworkFormatVersion</key>
+                    <string>1.0</string>
+                </dict>
+                </plist>
+                """)
+        }
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: pkg,
+                    products: [
+                        ProductDescription(name: "Library", type: .library(.dynamic), targets: ["Library"]),
+                        ProductDescription(name: "CLibrary", type: .library(.dynamic), targets: ["CLibrary"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "Library",
+                            dependencies: frameworks.map { .byName(name: $0, condition: nil) }
+                        ),
+                        TargetDescription(
+                            name: "CLibrary",
+                            dependencies: frameworks.map { .byName(name: $0, condition: nil) }
+                        ),
+                    ] + frameworks.map {
+                        try TargetDescription(name: $0, path: "\($0).xcframework", type: .binary)
+                    }
+                ),
+            ],
+            binaryArtifacts: [
+                .plain("pkg"): Dictionary(uniqueKeysWithValues: frameworks.map {
+                    ($0, .init(kind: .xcframework, originURL: nil, path: pkg.appending(component: "\($0).xcframework")))
+                }),
+            ],
+            observabilityScope: observability.topScope
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        func generateManifest() async throws -> LLBuildManifest {
+            let plan = try await mockBuildPlan(
+                triple: .arm64MacOS,
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+            let builder = LLBuildManifestBuilder(plan, fileSystem: fs, observabilityScope: observability.topScope)
+            return try builder.generateManifest(at: "/manifest")
+        }
+        func frameworkInputs(of command: Command) -> [String] {
+            command.tool.inputs.filter { $0.kind == .directory && $0.name.hasSuffix(".framework") }.map(\.name)
+        }
+        func linkedFrameworks(of command: Command) throws -> [String] {
+            let arguments = try #require(command.tool as? ShellTool).arguments
+            return zip(arguments, arguments.dropFirst()).filter { $0.0 == "-framework" }.map(\.1)
+        }
+
+        let manifest = try await generateManifest()
+        #expect(!observability.hasErrorDiagnostics)
+
+        let buildPath = AbsolutePath("/path/to/build/arm64-apple-macosx/debug")
+        let expectedInputs = sortedFrameworks.map { buildPath.appending(component: "\($0).framework").pathString }
+
+        let swiftCompile = try #require(manifest.commands["C.Library-arm64-apple-macosx-debug.module"])
+        #expect(frameworkInputs(of: swiftCompile) == expectedInputs)
+
+        let clangCompiles = manifest.commands.values.filter { $0.tool is ClangTool }
+        #expect(clangCompiles.count == 1)
+        let clangCompile = try #require(clangCompiles.first)
+        #expect(frameworkInputs(of: clangCompile) == expectedInputs)
+
+        let libraryLink = try #require(manifest.commands["C.Library-arm64-apple-macosx-debug.dylib"])
+        #expect(try linkedFrameworks(of: libraryLink) == sortedFrameworks)
+        let clibraryLink = try #require(manifest.commands["C.CLibrary-arm64-apple-macosx-debug.dylib"])
+        #expect(try linkedFrameworks(of: clibraryLink) == sortedFrameworks)
+
+        // Planning the same graph again must produce identical inputs and link arguments for every command.
+        let secondManifest = try await generateManifest()
+        #expect(!observability.hasErrorDiagnostics)
+        #expect(secondManifest.commands.mapValues(\.tool.inputs) == manifest.commands.mapValues(\.tool.inputs))
+        #expect(
+            secondManifest.commands.compactMapValues { ($0.tool as? ShellTool)?.arguments }
+                == manifest.commands.compactMapValues { ($0.tool as? ShellTool)?.arguments }
+        )
+    }
 }

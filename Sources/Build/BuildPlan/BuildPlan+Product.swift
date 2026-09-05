@@ -52,7 +52,7 @@ extension BuildPlan {
         }
 
         // Add flags for binary dependencies.
-        for binaryPath in dependencies.libraryBinaryPaths {
+        for binaryPath in dependencies.libraryBinaryPaths.sorted() {
             if binaryPath.extension == "framework" {
                 buildProduct.additionalFlags += ["-framework", binaryPath.basenameWithoutExt]
             } else if binaryPath.basename.starts(with: "lib") {
