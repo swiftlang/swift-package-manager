@@ -21,6 +21,11 @@ endif()
 
 install(TARGETS CompilerPluginSupport
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/swift/pm/ManifestAPI)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:CompilerPluginSupport>/$<TARGET_FILE_BASE_NAME:CompilerPluginSupport>.pdb
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/swift/pm/ManifestAPI
+    OPTIONAL)
+endif()
 
 set(SwiftPMRuntime_INSTALL_SWIFTMODULEDIR
   ${CMAKE_INSTALL_LIBDIR}/swift/pm/ManifestAPI)

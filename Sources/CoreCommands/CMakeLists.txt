@@ -35,3 +35,8 @@ install(TARGETS CoreCommands
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:CoreCommands>/$<TARGET_FILE_BASE_NAME:CoreCommands>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()

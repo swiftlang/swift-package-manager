@@ -30,3 +30,8 @@ install(TARGETS QueryEngine
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:QueryEngine>/$<TARGET_FILE_BASE_NAME:QueryEngine>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()

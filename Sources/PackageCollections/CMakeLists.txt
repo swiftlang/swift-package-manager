@@ -59,3 +59,8 @@ install(TARGETS PackageCollections
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:PackageCollections>/$<TARGET_FILE_BASE_NAME:PackageCollections>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()

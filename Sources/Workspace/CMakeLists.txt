@@ -65,3 +65,8 @@ install(TARGETS Workspace
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:Workspace>/$<TARGET_FILE_BASE_NAME:Workspace>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()
