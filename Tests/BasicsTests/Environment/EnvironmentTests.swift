@@ -185,13 +185,22 @@ struct EnvironmentTests {
     @Test
     func cachable() {
         let term = EnvironmentKey("TERM")
+        let pwd = EnvironmentKey("PWD")
+        let oldpwd = EnvironmentKey("OLDPWD")
         var environment = Environment()
         environment[.path] = "/usr/bin"
         environment[term] = "xterm-256color"
+        environment[pwd] = "/some/working/dir"
+        environment[oldpwd] = "/some/previous/dir"
 
         let cachableEnvironment = environment.cachable
         #expect(cachableEnvironment[.path] != nil)
         #expect(cachableEnvironment[term] == nil)
+        // Shell-maintained cwd variables must be stripped so that running
+        // SwiftPM from different shells (or after `cd`ing) does not bust the
+        // manifest cache.
+        #expect(cachableEnvironment[pwd] == nil)
+        #expect(cachableEnvironment[oldpwd] == nil)
     }
 
     @Test

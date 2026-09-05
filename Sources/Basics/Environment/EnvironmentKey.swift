@@ -51,6 +51,13 @@ extension EnvironmentKey {
         "VSCODE_IPC_HOOK_CLI",
         "HYPERFINE_RANDOMIZED_ENVIRONMENT_OFFSET",
         "SSH_AUTH_SOCK",
+        // Shell-maintained working directory variables. These reflect the
+        // invoking shell's state and do not affect manifest compilation, but
+        // when included in the cache key they cause spurious manifest cache
+        // misses (and re-resolution) whenever the user `cd`s from a different
+        // directory before running SwiftPM.
+        "PWD",
+        "OLDPWD",
     ]).union(ConfigurableEnvVar.nonCachableEnvVars())
 }
 
