@@ -78,6 +78,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
             case process(localization: Localization?)
             case copy
             case embedInCode
+            case embedInCodeAsObject
         }
 
         public enum Localization: String, Encodable, Sendable {

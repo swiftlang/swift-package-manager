@@ -35,7 +35,7 @@ extension LLBuildManifestBuilder {
                 let destination = try bundlePath.appending(resource.destination)
                 let (_, output) = addCopyCommand(from: resource.path, to: destination)
                 outputs.append(output)
-            case .embedInCode:
+            case .embedInCode, .embedInCodeAsObject:
                 break
             }
         }

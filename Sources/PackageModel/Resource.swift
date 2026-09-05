@@ -47,5 +47,15 @@ public struct Resource: Codable, Equatable {
         case process(localization: String?)
         case copy
         case embedInCode
+        case embedInCodeAsObject
+
+        public var isEmbeddedInCode: Bool {
+            switch self {
+            case .embedInCode, .embedInCodeAsObject:
+                return true
+            case .process, .copy:
+                return false
+            }
+        }
     }
 }
