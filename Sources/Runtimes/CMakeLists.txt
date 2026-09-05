@@ -8,8 +8,14 @@
 
 cmake_minimum_required(VERSION 3.29)
 
-if(POLICY CMP0157 AND CMAKE_Swift_COMPILER_USE_OLD_DRIVER)
+if(CMAKE_Swift_COMPILER_USE_OLD_DRIVER)
+  # Disable the new Swift compilation mode, which requires the new driver.
   cmake_policy(SET CMP0157 OLD)
+endif()
+
+if(POLICY CMP0195) # CMake 4.1
+  # Swift modules in build trees use the Swift module directory structure.
+  cmake_policy(SET CMP0195 NEW)
 endif()
 
 project(SwiftPMRuntime
