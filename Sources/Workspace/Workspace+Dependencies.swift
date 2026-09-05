@@ -72,8 +72,6 @@ extension Workspace {
             self.delegate?.didUpdateDependencies(duration: start.distance(to: .now()))
         }
 
-//        self.enabledTraitsMap = [:]
-
         // Create cache directories.
         self.createCacheDirectories(observabilityScope: observabilityScope)
 
