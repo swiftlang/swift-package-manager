@@ -65,12 +65,13 @@ package final class SQLite: Sendable {
         guard let db = handle else {
             throw StringError("Unable to open database at \(self.location)")
         }
-        self.db = Mutex(db)
         try Self.checkError({ sqlite3_extended_result_codes(db, 1) }, description: "Unable to configure database")
+        let busyTimeoutMilliseconds = self.configuration.busyTimeoutMilliseconds
         try Self.checkError(
-            { sqlite3_busy_timeout(db, self.configuration.busyTimeoutMilliseconds) },
+            { sqlite3_busy_timeout(db, busyTimeoutMilliseconds) },
             description: "Unable to configure database busy timeout"
         )
+        self.db = Mutex(db)
         if let maxPageCount = self.configuration.maxPageCount {
             try self.exec(query: "PRAGMA max_page_count=\(maxPageCount);")
         }
@@ -128,7 +129,7 @@ package final class SQLite: Sendable {
     }
 
     /// Run `body` with the database connection, guaranteeing it is not closed for the duration.
-    private func withDB<T>(_ body: (OpaquePointer) throws -> T) throws -> T {
+    private func withDB<T>(_ body: (OpaquePointer) throws -> sending T) throws -> sending T {
         try self.db.withLock { db in
             guard let handle = db else {
                 throw StringError("database is closed")
@@ -238,7 +239,7 @@ package final class SQLite: Sendable {
     }
 
     /// Represents a prepared statement.
-    package struct PreparedStatement {
+    package struct PreparedStatement: @unchecked Sendable {
         typealias sqlite3_destructor_type = @convention(c) (UnsafeMutableRawPointer?) -> Void
         static let SQLITE_STATIC = unsafeBitCast(0, to: sqlite3_destructor_type.self)
         static let SQLITE_TRANSIENT = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
