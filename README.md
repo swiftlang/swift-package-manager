@@ -23,7 +23,7 @@ The [SourceKit-LSP](https://github.com/swiftlang/sourcekit-lsp) project leverage
 
 ## Getting Started
 
-Please use [this guide](https://www.swift.org/documentation/package-manager/) for learning package manager basics.
+Please use [this guide](https://docs.swift.org/latest/documentation/packagemanagerdocs/gettingstarted/) for learning package manager basics.
 
 ---
 
@@ -31,13 +31,13 @@ Please use [this guide](https://www.swift.org/documentation/package-manager/) fo
 
 For Quick Help use the `swift package --help` command.
 
-For documentation on using Swift Package Manager, creating packages, and more, see the [Package Manager Docs](https://docs.swift.org/swiftpm/documentation/packagemanagerdocs).
+For documentation on using Swift Package Manager, creating packages, and more, see the [Package Manager Docs](https://docs.swift.org/latest/documentation/packagemanagerdocs/).
 
 For documentation on developing the Swift Package Manager itself, see the [contribution guide](CONTRIBUTING.md).
 
-For detailed documentation on the package manifest API, see [PackageDescription API](https://docs.swift.org/swiftpm/documentation/packagedescription).
+For detailed documentation on the package manifest API, see [PackageDescription API](https://docs.swift.org/latest/documentation/packagedescription/).
 
-For release notes with information about changes between versions, see the [release notes](https://docs.swift.org/swiftpm/documentation/packagemanagerdocs/releasenotes).
+For release notes with information about changes between versions, see the [release notes](https://docs.swift.org/latest/documentation/packagemanagerdocs/releasenotes/).
 
 ---
 
