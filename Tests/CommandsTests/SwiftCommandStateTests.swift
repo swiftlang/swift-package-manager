@@ -618,6 +618,57 @@ final class SwiftCommandStateTests: XCTestCase {
         XCTAssertEqual(targetToolchain.librarianPath, targetArPath)
     }
 
+    func testTraitConfigurationOverride() async throws {
+        try fixtureXCTest(name: "Miscellaneous/Simple") { fixturePath in
+            let options = try GlobalOptions.parse(
+                ["--package-path", fixturePath.pathString, "--experimental-skip-acquiring-lock"]
+            )
+            let tool = try SwiftCommandState.makeMockState(options: options)
+
+            // The root input reflects an explicit override, and reverts to the
+            // configuration derived from the command-line options without one.
+            XCTAssertEqual(try tool.getWorkspaceRoot().traitConfiguration, .default)
+            XCTAssertEqual(
+                try tool.getWorkspaceRoot(traitConfiguration: .enabledTraits(["Foo"])).traitConfiguration,
+                .enabledTraits(["Foo"])
+            )
+            XCTAssertEqual(try tool.getWorkspaceRoot().traitConfiguration, .default)
+
+            // An override on the very first workspace access applies to the returned
+            // instance without sticking to the cached workspace.
+            XCTAssertEqual(
+                try tool.getActiveWorkspace(traitConfiguration: .enableAllTraits).traitConfiguration,
+                .enableAllTraits
+            )
+            XCTAssertEqual(try tool.getActiveWorkspace().traitConfiguration, .default)
+            XCTAssertEqual(
+                try tool.getActiveWorkspace(traitConfiguration: .enabledTraits(["Foo"])).traitConfiguration,
+                .enabledTraits(["Foo"])
+            )
+            XCTAssertEqual(try tool.getActiveWorkspace().traitConfiguration, .default)
+        }
+    }
+
+    func testTraitConfigurationFromCommandLineOptions() async throws {
+        try fixtureXCTest(name: "Miscellaneous/Simple") { fixturePath in
+            let options = try GlobalOptions.parse(
+                ["--package-path", fixturePath.pathString, "--traits", "Foo,Bar", "--experimental-skip-acquiring-lock"]
+            )
+            let tool = try SwiftCommandState.makeMockState(options: options)
+
+            // Without an override, the session configuration from `--traits` applies.
+            XCTAssertEqual(
+                try tool.getActiveWorkspace().traitConfiguration,
+                .enabledTraits(["Foo", "Bar"])
+            )
+            // An explicit override still wins over the session configuration.
+            XCTAssertEqual(
+                try tool.getActiveWorkspace(traitConfiguration: .disableAllTraits).traitConfiguration,
+                .disableAllTraits
+            )
+        }
+    }
+
     func testPackagePathWithMissingFolder() async throws {
         try withTemporaryDirectory { fixturePath in
             let packagePath = fixturePath.appending(component: "Foo")
