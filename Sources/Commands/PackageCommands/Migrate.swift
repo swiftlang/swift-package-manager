@@ -286,6 +286,7 @@ extension SwiftPackageCommand {
                     switch error {
                     case .cannotFindPackage,
                          .cannotAddSettingsToPluginTarget,
+                         .cannotFindDependencies,
                          .existingDependency,
                          .malformedManifest:
                         break
