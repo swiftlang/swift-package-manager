@@ -495,6 +495,25 @@ final class PluginInvocationTests: XCTestCase {
         )
     }
 
+    func testCompilationFailureDescriptionDoesNotIncludeDebugResult() {
+        let executableFile = AbsolutePath.root.appending("MyPlugin")
+        let result = PluginCompilationResult(
+            succeeded: false,
+            commandLine: ["swiftc", "plugin.swift"],
+            executableFile: executableFile,
+            diagnosticsFile: AbsolutePath.root.appending("MyPlugin.dia"),
+            compilerOutput: "plugin.swift:1:1: error: invalid plugin",
+            cached: false
+        )
+
+        let error = DefaultPluginScriptRunnerError.compilationFailed(result)
+
+        XCTAssertEqual(error.description, "plugin compilation failed")
+        XCTAssertFalse(error.description.contains("PluginCompilationResult"))
+        XCTAssertFalse(error.description.contains("commandLine"))
+        XCTAssertFalse(error.description.contains(result.compilerOutput))
+    }
+
     func testCompilationDiagnostics() async throws {
         try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
