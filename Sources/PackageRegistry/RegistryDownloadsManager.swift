@@ -69,45 +69,43 @@ public class RegistryDownloadsManager: AsyncCancellable {
         }
 
         let lookupId = PackageLookup(package: package, version: version)
-        let task = await withCheckedContinuation { continuation in
-            self.pendingLookups.withLock { pendingLookups in
-                // Check if we've already resolved/are in the process of resolving for this package.
-                if let inFlight = pendingLookups[lookupId] {
-                    continuation.resume(returning: inFlight)
-                } else {
-                    let lookupTask = Task {
-                        // inform delegate that we are starting to fetch
-                        // calculate if cached (for delegate call) outside queue as it may change while queue is processing
-                        let isCached = self.cachePath.map { self.fileSystem.exists($0.appending(packageRelativePath)) } ?? false
-                        let details = FetchDetails(fromCache: isCached, updatedCache: false)
-                        delegate?.emit { $0.willFetch(package: package, version: version, fetchDetails: details) }
-
-                        // make sure destination is free.
-                        try? self.fileSystem.removeFileTree(packagePath)
-
-                        let start = DispatchTime.now()
-                        do {
-                            let result = try await self.downloadAndPopulateCache(
-                                package: package,
-                                version: version,
-                                packagePath: packagePath,
-                                observabilityScope: observabilityScope
-                            )
-                            // inform delegate that we finished to fetch
-                            let duration = start.distance(to: .now())
-                            delegate?.emit { $0.didFetch(package: package, version: version, result: .success(result), duration: duration) }
-                        } catch {
-                            let duration = start.distance(to: .now())
-                            delegate?.emit { $0.didFetch(package: package, version: version, result: .failure(error), duration: duration) }
-                            throw error
-                        }
-                        return packagePath
-                    }
-
-                    pendingLookups[lookupId] = lookupTask
-                    continuation.resume(returning: lookupTask)
-                }
+        let task = self.pendingLookups.withLock { pendingLookups -> Task<Basics.AbsolutePath, Error> in
+            // Check if we've already resolved/are in the process of resolving for this package.
+            if let inFlight = pendingLookups[lookupId] {
+                return inFlight
             }
+
+            let lookupTask = Task {
+                // inform delegate that we are starting to fetch
+                // calculate if cached (for delegate call) outside queue as it may change while queue is processing
+                let isCached = self.cachePath.map { self.fileSystem.exists($0.appending(packageRelativePath)) } ?? false
+                let details = FetchDetails(fromCache: isCached, updatedCache: false)
+                delegate?.emit { $0.willFetch(package: package, version: version, fetchDetails: details) }
+
+                // make sure destination is free.
+                try? self.fileSystem.removeFileTree(packagePath)
+
+                let start = DispatchTime.now()
+                do {
+                    let result = try await self.downloadAndPopulateCache(
+                        package: package,
+                        version: version,
+                        packagePath: packagePath,
+                        observabilityScope: observabilityScope
+                    )
+                    // inform delegate that we finished to fetch
+                    let duration = start.distance(to: .now())
+                    delegate?.emit { $0.didFetch(package: package, version: version, result: .success(result), duration: duration) }
+                } catch {
+                    let duration = start.distance(to: .now())
+                    delegate?.emit { $0.didFetch(package: package, version: version, result: .failure(error), duration: duration) }
+                    throw error
+                }
+                return packagePath
+            }
+
+            pendingLookups[lookupId] = lookupTask
+            return lookupTask
         }
         return try await task.value
     }
