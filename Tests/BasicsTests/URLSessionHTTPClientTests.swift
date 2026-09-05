@@ -808,6 +808,59 @@ final class URLSessionHTTPClientTest: XCTestCase {
         }
     }
 
+    func testAsyncAuthenticateWithRedirectedRemovesAuthorizationForUnknownHost() async throws {
+        #if !os(macOS)
+        // swift-corelibs-foundation's URLSessionTask does not implement redirect handling: it
+        // calls `URLProtocolClient.urlProtocol(_:wasRedirectedTo:redirectResponse:)` but then hits
+        // "The URLSession swift-corelibs-foundation implementation doesn't currently handle
+        // redirects directly" as a fatal error before the delegate the fix in this PR touches is
+        // ever consulted.
+        // https://github.com/apple/swift-corelibs-foundation/pull/2593 tries to address this.
+        try XCTSkipIf(true, "test is only supported on macOS")
+        #endif
+        let netrcContent = "machine async-redirect-tests.com login anonymous password qwerty"
+        let netrc = try NetrcAuthorizationWrapper(underlying: NetrcParser.parse(netrcContent))
+        let authData = Data("anonymous:qwerty".utf8)
+        let testAuthHeader = "Basic \(authData.base64EncodedString())"
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [MockURLProtocol.self]
+        let urlSession = URLSessionHTTPClient(configuration: configuration)
+        let httpClient = HTTPClient(implementation: urlSession.execute)
+
+        let url = URL("https://async-redirect-tests.com/resource")
+        // The redirect target is a different host that `netrc` has no credentials for, so the
+        // `Authorization` header from the original request must not be forwarded to it.
+        let redirectURL = URL("https://cdn-async-redirect-tests.com/resource")
+
+        var options = HTTPClientRequest.Options()
+        options.authorizationProvider = netrc.httpAuthorizationHeader(for:)
+        let request = HTTPClientRequest(method: .get, url: url, options: options)
+        let redirectedRequest = HTTPClientRequest(method: .get, url: redirectURL, options: options)
+
+        let responseStatus = 200
+        let responseBody = Data(UUID().uuidString.utf8)
+
+        MockURLProtocol.onRequest(request) { request in
+            XCTAssertEqual(request.allHTTPHeaderFields?["Authorization"], testAuthHeader)
+            MockURLProtocol.sendResponse(statusCode: 302, headers: ["Location": redirectURL.absoluteString], for: request)
+            // URLSession carries the original request's headers (including `Authorization`) onto
+            // the redirected request it hands to the delegate, so mirror that here to actually
+            // exercise the delegate's header-stripping logic.
+            var redirectURLRequest = URLRequest(url: redirectURL)
+            redirectURLRequest.allHTTPHeaderFields = request.allHTTPHeaderFields
+            MockURLProtocol.sendRedirect(for: request, to: redirectURLRequest)
+        }
+        MockURLProtocol.onRequest(redirectedRequest) { request in
+            XCTAssertNil(request.allHTTPHeaderFields?["Authorization"])
+            MockURLProtocol.respond(request, statusCode: responseStatus, body: responseBody)
+        }
+
+        let response = try await httpClient.execute(request)
+        XCTAssertEqual(response.statusCode, responseStatus)
+        XCTAssertEqual(response.body, responseBody)
+    }
+
     func testAsyncDownloadAuthenticateWithRedirectedSuccess() async throws {
         #if !os(macOS)
         // URLSession Download tests can only run on macOS
