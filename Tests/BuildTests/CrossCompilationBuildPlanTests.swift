@@ -400,9 +400,17 @@ extension BuildPlanResult {
             .filter { $0.module.name == name }
     }
 
+    func target(named name: String, destination: BuildParameters.Destination) throws -> ModuleBuildDescription? {
+        try allTargets(named: name).filter({ $0.destination == destination }).only
+    }
+
     func allProducts(named name: String) -> some Collection<ProductBuildDescription> {
         self.productMap
             .filter { $0.product.name == name }
+    }
+
+    func product(named name: String, destination: BuildParameters.Destination) throws -> ProductBuildDescription? {
+        allProducts(named: name).filter({ $0.destination == destination }).only
     }
 
     func check(
