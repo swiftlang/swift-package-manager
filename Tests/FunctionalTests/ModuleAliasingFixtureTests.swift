@@ -34,6 +34,45 @@ struct ModuleAliasingFixtureTests {
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
+    func moduleAliasInExecutableTarget(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "ModuleAliasing/Executable") { fixturePath in
+            let pkgPath = fixturePath.appending(component: "App")
+            try await executeSwiftBuild(
+                pkgPath,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+        }
+    }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10417", relationship: .verifies),
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func moduleAliasInNestedConsumingTarget(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "ModuleAliasing/NestedConsumingTarget") { fixturePath in
+            let pkgPath = fixturePath.appending(component: "AppPkg")
+            try await executeSwiftBuild(
+                pkgPath,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+        }
+    }
+
+    @Test(
+        .tags(
+            Tag.Feature.Command.Build,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func moduleDirectDeps1(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
