@@ -30,6 +30,7 @@ import enum SwiftBuild.ProjectModel
 public struct PIFGenerationResult {
     public var pif: String
     public var accompanyingMetadata: [PackagePIFBuilder.ModuleOrProduct]
+    public var inputs: PIFGenerationInputs
 }
 
 fileprivate func memoize<T>(to cache: inout T?, build: () async throws -> T) async rethrows -> T {
@@ -198,7 +199,16 @@ public final class PIFBuilder {
             throw PIFGenerationError.printedPIFManifestGraphviz
         }
 
-        return PIFGenerationResult(pif: pifString, accompanyingMetadata: modulesAndProducts)
+        return PIFGenerationResult(
+            pif: pifString,
+            accompanyingMetadata: modulesAndProducts,
+            inputs: PIFGenerationInputs(
+                graph: self.graph,
+                modulesAndProducts: modulesAndProducts,
+                pluginWorkingDirectory: self.parameters.pluginWorkingDirectory,
+                pkgConfigDirectories: self.parameters.pkgConfigDirectories
+            )
+        )
     }
 
     private var cachedPIF: (PIF.TopLevelObject, [PackagePIFBuilder.ModuleOrProduct])?

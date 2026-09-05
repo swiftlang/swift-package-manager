@@ -20,6 +20,7 @@ add_library(SwiftBuildSupport
   PackagePIFProjectBuilder+Products.swift
   PIF.swift
   PIFBuilder.swift
+  PIFGenerationInputs.swift
   PluginConfiguration.swift
   SwiftBuildSystem.swift
   SwiftBuildSystemMessageHandler.swift)
