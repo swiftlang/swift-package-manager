@@ -8546,6 +8546,37 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testArtifactExtractionUpdatesModificationDates() throws {
+        try testWithTemporaryDirectory { directory in
+            let fs = localFileSystem
+            let artifact = directory.appending(components: "A.xcframework", "info.plist")
+            try fs.writeFileContents(artifact, string: "test")
+
+            let archivedModificationDate = Date(timeIntervalSince1970: 0)
+            try FileManager.default.setAttributes(
+                [.modificationDate: archivedModificationDate],
+                ofItemAtPath: artifact.pathString
+            )
+
+            let binaryArtifactsManager = try Workspace.BinaryArtifactsManager(
+                fileSystem: fs,
+                authorizationProvider: .none,
+                hostToolchain: UserToolchain.default,
+                checksumAlgorithm: MockHashAlgorithm(),
+                cachePath: .none,
+                customHTTPClient: .none,
+                customArchiver: .none,
+                delegate: .none
+            )
+            try binaryArtifactsManager.updateModificationDates(in: directory)
+
+            let modificationDate = try XCTUnwrap(
+                FileManager.default.attributesOfItem(atPath: artifact.pathString)[.modificationDate] as? Date
+            )
+            XCTAssertGreaterThan(modificationDate, archivedModificationDate)
+        }
+    }
+
     func testDownloadedArtifactChecksumChange() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
