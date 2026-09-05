@@ -235,6 +235,36 @@ struct SwiftBuildSystemTests {
         }
     }
 
+    @Test
+    func userSwiftExecOverrideIsAlwaysHonoured() async throws {
+        let base = try UserToolchain.default
+        let overrideCompiler = base.swiftCompilerPath.parentDirectory.appending("swift")
+        var environment = Environment.current
+        environment["SWIFT_EXEC"] = overrideCompiler.pathString
+        let overridden = try UserToolchain(swiftSDK: base.swiftSDK, environment: environment)
+        try #require(overridden.swiftCompilerPath == overrideCompiler)
+        try #require(overrideCompiler != base.swiftCompilerPath)
+
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: mockBuildParameters(
+                destination: .host,
+                toolchain: overridden,
+                buildSystemKind: .swiftbuild,
+            ),
+        ) { swiftBuild, service, session, _, _ in
+            let buildSettings: SWBBuildParameters = try await swiftBuild.makeBuildParameters(
+                service: service,
+                session: session,
+                symbolGraphOptions: nil,
+                shouldDisableSandbox: false,
+            )
+
+            let synthesized = try #require(buildSettings.overrides.synthesized)
+            #expect(synthesized.table["SWIFT_EXEC"] == overrideCompiler.pathStringWithPosixSlashes)
+        }
+    }
+
     @Suite(
         .tags(
             .FunctionalArea.LinkSwiftStaticStdlib,
