@@ -813,7 +813,21 @@ fileprivate func computeHostOnlyModuleIDsInRootPackages(in modulesGraph: Modules
     // Find the transitive closure covered by host-only targets. These are modules which should be excluded from
     // the top level build request unless they specifically need to build for the destination. Again, we only consider
     // root packages.
-    let modulesInRootPackagesReachableFromHostOnlyModuleIDs = transitiveClosure(Array(hostOnlyModulesInRootPackageIDs), successors: { moduleID in
+    func isHostOnlyPropagatingModule(_ module: ResolvedModule) -> Bool {
+        if let plugin = module.underlying as? PluginModule {
+            return plugin.capability == .buildTool
+        }
+        return module.type == .macro
+    }
+
+    let propagatingHostOnlyModuleIDs = hostOnlyModulesInRootPackageIDs.filter {
+        guard let module = rootPackageModulesByID[$0] else {
+            return false
+        }
+        return isHostOnlyPropagatingModule(module)
+    }
+
+    let modulesInRootPackagesReachableFromHostOnlyModuleIDs = transitiveClosure(Array(propagatingHostOnlyModuleIDs), successors: { moduleID in
         guard let module = rootPackageModulesByID[moduleID] else {
             return []
         }
