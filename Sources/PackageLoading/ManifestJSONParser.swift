@@ -206,7 +206,7 @@ enum ManifestJSONParser {
             sources: target.sources,
             resources: try Self.parseResources(target.resources),
             publicHeadersPath: target.publicHeadersPath,
-            type: .init(target.type),
+            type: .init(target.type, libraryType: target.libraryType.map { .init($0) }),
             packageAccess: target.packageAccess,
             pkgConfig: target.pkgConfig,
             providers: providers,
@@ -509,7 +509,7 @@ extension ProductDescription {
 }
 
 extension ProductType.LibraryType {
-    init(_ libraryType: Serialization.Product.ProductType.LibraryType) {
+    init(_ libraryType: Serialization.LibraryType) {
         switch libraryType {
         case .dynamic:
             self = .dynamic
@@ -548,7 +548,9 @@ extension PackageConditionDescription {
 }
 
 extension TargetDescription.TargetKind {
-    init(_ type: Serialization.TargetType) {
+    /// - Parameter libraryType: The linkage declared by a `libraryTarget`, if it declared one.
+    ///   A `libraryTarget` which leaves the choice to the build system becomes `.library(.automatic)`.
+    init(_ type: Serialization.TargetType, libraryType: ProductType.LibraryType?) {
         switch type {
         case .regular:
             self = .regular
@@ -564,6 +566,8 @@ extension TargetDescription.TargetKind {
             self = .plugin
         case .macro:
             self = .macro
+        case .library:
+            self = .library(libraryType ?? .automatic)
         }
     }
 }

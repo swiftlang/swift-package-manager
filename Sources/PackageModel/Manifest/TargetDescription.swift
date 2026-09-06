@@ -16,7 +16,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
     public typealias TargetType = TargetKind
 
     /// The target kind.
-    public enum TargetKind: String, Hashable, Encodable, Sendable {
+    public enum TargetKind: Hashable, Encodable, Sendable {
         case regular
         case executable
         case test
@@ -24,6 +24,34 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         case binary
         case plugin
         case `macro`
+        case library(ProductType.LibraryType)
+
+        public var rawValue: String {
+            switch self {
+            case .regular: "regular"
+            case .executable: "executable"
+            case .test: "test"
+            case .system: "system"
+            case .binary: "binary"
+            case .plugin: "plugin"
+            case .macro: "macro"
+            case .library(.automatic): "library"
+            case .library(let libraryType): "\(libraryType.rawValue)-library"
+            }
+        }
+
+        public var libraryType: ProductType.LibraryType? {
+            if case .library(let libraryType) = self { libraryType } else { nil }
+        }
+
+        public var isLibrary: Bool {
+            if case .library = self { true } else { false }
+        }
+
+        public func encode(to encoder: any Encoder) throws {
+            var container = encoder.singleValueContainer()
+            try container.encode(self.rawValue)
+        }
     }
 
     /// Represents a target's dependency on another entity.
@@ -212,9 +240,9 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         checksum: String? = nil,
         pluginUsages: [PluginUsage]? = nil
     ) throws {
-        let targetType = String(describing: type)
+        let targetType = type.rawValue
         switch type {
-        case .regular, .executable, .test:
+        case .regular, .executable, .test, .library:
             if url != nil { throw Error.disallowedPropertyInTarget(
                 targetName: name,
                 targetType: targetType,

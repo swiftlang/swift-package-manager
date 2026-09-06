@@ -20,15 +20,54 @@ public class Module {
     /// Description of the module type used in `swift package describe` output. Preserved for backwards compatibility.
     public class var typeDescription: String { fatalError("implement in a subclass") }
     /// The module kind.
-    public enum Kind: String, CaseIterable {
+    public enum Kind: Hashable {
+        public enum LibraryType: String, Hashable, Sendable {
+            case object
+            case `static`
+            case dynamic
+            case automatic
+
+            public init(_ libraryType: ProductType.LibraryType) {
+                switch libraryType {
+                case .static: self = .static
+                case .dynamic: self = .dynamic
+                case .automatic: self = .automatic
+                }
+            }
+        }
+
         case executable
-        case library
-        case systemModule = "system-target"
+        case library(libraryType: LibraryType)
+        case libraryAggregate(libraryType: ProductType.LibraryType)
+        case systemModule
         case test
         case binary
         case plugin
         case snippet
         case `macro`
+
+        public var rawValue: String {
+            switch self {
+            case .executable: "executable"
+            case .library(.object): "library"
+            case .library(let libraryType): "\(libraryType.rawValue)-library"
+            case .systemModule: "system-target"
+            case .test: "test"
+            case .binary: "binary"
+            case .plugin: "plugin"
+            case .snippet: "snippet"
+            case .macro: "macro"
+            case .libraryAggregate(let libraryType): "\(libraryType.rawValue)-library-aggregate"
+            }
+        }
+
+        public var isLibrary: Bool {
+            if case .library = self { true } else { false }
+        }
+
+        public var isLibraryAggregate: Bool {
+            if case .libraryAggregate = self { true } else { false }
+        }
     }
 
     /// A reference to a product from a module dependency.
