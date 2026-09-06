@@ -238,6 +238,16 @@ extension Serialization.TargetType {
         case .binary: self = .binary
         case .plugin: self = .plugin
         case .macro: self = .macro
+        case .library: self = .library
+        }
+    }
+}
+
+extension Serialization.LibraryType {
+    init(_ type: PackageDescription.LibraryType) {
+        switch type {
+        case .dynamic: self = .dynamic
+        case .static: self = .static
         }
     }
 }
@@ -308,6 +318,7 @@ extension Serialization.Target {
         self.dependencies = target.dependencies.map { .init($0) }
         self.publicHeadersPath = target.publicHeadersPath
         self.type = .init(target.type)
+        self.libraryType = target.libraryType.map { .init($0) }
         self.pkgConfig = target.pkgConfig
         self.providers = target.providers?.map { .init($0) }
         self.pluginCapability = target.pluginCapability.map { .init($0) }
@@ -333,15 +344,6 @@ extension Serialization.Resource.Localization {
         switch localization {
         case .base: self = .base
         case .default: self = .default
-        }
-    }
-}
-
-extension Serialization.Product.ProductType.LibraryType {
-    init(_ type: PackageDescription.Product.Library.LibraryType) {
-        switch type {
-        case .dynamic: self = .dynamic
-        case .static: self = .static
         }
     }
 }

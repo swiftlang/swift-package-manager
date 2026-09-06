@@ -32,6 +32,7 @@ add_library(PackageModel
   MinimumDeploymentTarget.swift
   Module/BinaryModule.swift
   Module/ClangModule.swift
+  Module/LibraryModule.swift
   Module/PluginModule.swift
   Module/SwiftModule.swift
   Module/SystemLibraryModule.swift

@@ -1550,13 +1550,19 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
 
 extension Module {
     func validateDependency(module: Module) throws {
-        if self.type == .plugin && module.type == .library {
-            throw PackageGraphError.unsupportedPluginDependency(
-                moduleName: self.name,
-                dependencyName: module.name,
-                dependencyType: module.type.rawValue,
-                dependencyPackage: nil
-            )
+        if self.type == .plugin {
+            switch module.type {
+            case .executable, .systemModule, .test, .binary, .plugin, .snippet, .macro:
+                break
+            case .library, .libraryAggregate:
+                // FIXME: Should this apply to plugin, systemModule, binary, and macro as well?
+                throw PackageGraphError.unsupportedPluginDependency(
+                    moduleName: self.name,
+                    dependencyName: module.name,
+                    dependencyType: module.type.rawValue,
+                    dependencyPackage: nil
+                )
+            }
         }
     }
 
