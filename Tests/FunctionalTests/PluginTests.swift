@@ -684,7 +684,7 @@ struct PluginTests {
 
             // Find the regular target in our test package.
             let libraryTarget = try #require(package.modules.map(\.underlying).first{ $0.name == "MyLibrary" } as? SwiftModule)
-            #expect(libraryTarget.type == .library)
+            #expect(libraryTarget.type == .library(libraryType: .object))
 
             // Set up a delegate to handle callbacks from the command plugin.
             let delegateQueue = DispatchQueue(label: "plugin-invocation")
@@ -1011,7 +1011,7 @@ struct PluginTests {
                     .map(\.underlying)
                     .first{ $0.name == "MyLibrary" } as? SwiftModule
             )
-            #expect(libraryTarget.type == .library)
+            #expect(libraryTarget.type == .library(libraryType: .object))
 
             // Set up a delegate to handle callbacks from the command plugin.  In particular we want to know the process identifier.
             let delegateQueue = DispatchQueue(label: "plugin-invocation")
