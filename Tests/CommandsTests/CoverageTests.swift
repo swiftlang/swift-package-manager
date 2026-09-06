@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2025 Apple Inc. and the Swift project authors
+// Copyright (c) 2025-2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -10,14 +10,20 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+import struct Basics.Diagnostic
 import Commands
+import CoreCommands
+import Foundation
+import RegexBuilder
+import Testing
 import _InternalTestSupport
-import var Basics.localFileSystem
+
 import struct Basics.AbsolutePath
+import var Basics.localFileSystem
+import func Basics.resolveSymlinks
 import enum PackageModel.BuildConfiguration
 import struct SPMBuildCore.BuildSystemProvider
-import Testing
+import class TSCBasic.BufferedOutputByteStream
 
 @Suite(
     .serializedIfOnWindows,
@@ -34,7 +40,6 @@ struct CoverageTests {
             .Feature.Command.Test,
             .Feature.CommandLineArguments.BuildTests,
         ),
-        .IssueWindowsPathNoEntry,
         .issue("https://github.com/swiftlang/swift-package-manager/issues/9600", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -49,13 +54,13 @@ struct CoverageTests {
                     extraArgs: ["--build-tests"],
                     buildSystem: buildSystem,
                 )
-                await #expect(throws: (any Error).self ) {
+                await #expect(throws: (any Error).self) {
                     try await executeSwiftTest(
                         path,
                         configuration: config,
                         extraArgs: [
                             "--skip-build",
-                            "--enable-code-coverage",
+                            "--enable-coverage",
                         ],
                         buildSystem: buildSystem,
                         throwIfCommandFails: true,
@@ -65,8 +70,7 @@ struct CoverageTests {
     }
 
     @Test(
-        .issue("https://github.com/swiftlang/swift-package-manager/issues/9588", relationship: .defect),
-        .IssueWindowsPathNoEntry,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9588", relationship: .verifies),
         .tags(
             .Feature.Command.Test,
             .Feature.CommandLineArguments.BuildTests,
@@ -90,11 +94,14 @@ struct CoverageTests {
                 try await executeSwiftBuild(
                     path,
                     configuration: config,
-                    extraArgs: ["--build-tests", "--enable-code-coverage"],
+                    extraArgs: [
+                        "--build-tests",
+                        "--enable-coverage",
+                    ],
                     buildSystem: buildSystem,
                 )
 
-                // AND we test with coverag enabled and skip the build
+                // AND we test with coverage enabled and skip the build
                 try await executeSwiftTest(
                     path,
                     configuration: config,
@@ -105,13 +112,16 @@ struct CoverageTests {
                     buildSystem: buildSystem,
                 )
 
-                // THEN we expect the file to exists
-                expectFileExists(at: codeCovPath)
-
-                // AND the parent directory is non empty
+                // THEN the coverage directory is non empty
+                try requireFileExists(at: codeCovPath)
                 let codeCovFiles = try localFileSystem.getDirectoryContents(codeCovPath.parentDirectory)
                 #expect(codeCovFiles.count > 0)
         }
+    }
+
+    struct GenerateCoverageReportTestData {
+        let fixtureName: String
+        let coverageFormat: CoverageFormat
     }
 
     @Test(
@@ -123,35 +133,698 @@ struct CoverageTests {
         arguments: SupportedBuildSystemOnAllPlatforms, [
             "Coverage/Simple",
             "Miscellaneous/TestDiscovery/Simple",
-        ],
+        ].flatMap { fixturePath in
+            CoverageFormat.allCases.map { format in
+                GenerateCoverageReportTestData(
+                    fixtureName: fixturePath,
+                    coverageFormat: format,
+                )
+            }
+        },
     )
-    func generateCoverageReport(
+    func generateSingleCoverageReport(
         buildSystem: BuildSystemProvider.Kind,
-        fixtureName: String
+        testData: GenerateCoverageReportTestData,
     ) async throws {
         let config = BuildConfiguration.debug
+        let fixtureName = testData.fixtureName
+        let coverageFormat = testData.coverageFormat
         try await fixture(name: fixtureName) { path in
+
+            let commonCoverageArgs = [
+                "--coverage-format",
+                "\(coverageFormat)",
+            ]
+
             let coveragePathString = try await getCoveragePath(
                 path,
                 with: BuildData(buildSystem: buildSystem, config: config),
+                format: coverageFormat,
             )
             let coveragePath = try AbsolutePath(validating: coveragePathString)
-            try #require(!localFileSystem.exists(coveragePath))
+            try #require(localFileSystem.exists(coveragePath) == false)
 
             // WHEN we test with coverage enabled
                 try await executeSwiftTest(
                     path,
                     configuration: config,
                     extraArgs: [
-                        "--enable-code-coverage",
-                    ],
+                        "--enable-coverage",
+                    ] + commonCoverageArgs,
                     buildSystem: buildSystem,
                     throwIfCommandFails: true,
                 )
 
                 // THEN we expect the file to exists
-                #expect(localFileSystem.exists(coveragePath))
+                expectFileExists(at: coveragePath)
         }
     }
 
+    @Test(
+        .tags(
+            .Feature.Command.Test,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func generateMultipleCoverageReports(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "Coverage/Simple") { fixturePath in
+            let commonCoverageArgs = [
+                "--coverage-format",
+                "html",
+                "--coverage-format",
+                "json",
+            ]
+            let coverateLocationJsonString = try await executeSwiftTest(
+                fixturePath,
+                configuration: configuration,
+                extraArgs: commonCoverageArgs + [
+                    "--show-coverage-path",
+                    "json",
+                ],
+                buildSystem: buildSystem
+            ).stdout
+            struct ReportOutput: Codable {
+                let html: AbsolutePath?
+                let json: AbsolutePath?
+            }
+
+            let outputData = try #require(
+                coverateLocationJsonString.data(using: .utf8),
+                "Unable to parse stdout into Data"
+            )
+            let decoder = JSONDecoder()
+            let reportData = try decoder.decode(ReportOutput.self, from: outputData)
+
+            let (_, _) = try await executeSwiftTest(
+                fixturePath,
+                configuration: configuration,
+                extraArgs: commonCoverageArgs + [
+                    "--enable-coverage"
+                ],
+                buildSystem: buildSystem
+            )
+
+            // Ensure all paths in the data exists.
+            let html = try #require(reportData.html)
+            expectFileExists(at: html)
+            let json = try #require(reportData.json)
+            expectFileExists(at: json)
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Test,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms, CoverageFormat.allCases,
+    )
+    func coverageMergesAcrossTestProducts(
+        buildSystem: BuildSystemProvider.Kind,
+        format: CoverageFormat,
+    ) async throws {
+        // TestDebuggingMultiProduct contains two libraries (LibA, LibB) with a separate
+        // test target for each. Before the multi-binary merge fix, coverage from the
+        // second product would silently overwrite the first at the shared output path;
+        // after the fix, llvm-cov is invoked once with all test binaries so both
+        // sources appear in the report regardless of format.
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { fixturePath in
+            let coveragePathString = try await getCoveragePath(
+                fixturePath,
+                with: BuildData(buildSystem: buildSystem, config: configuration),
+                format: format,
+            )
+            let coveragePath = try AbsolutePath(validating: coveragePathString)
+            try #require(localFileSystem.exists(coveragePath) == false)
+
+            try await executeSwiftTest(
+                fixturePath,
+                configuration: configuration,
+                extraArgs: [
+                    "--enable-coverage",
+                    "--coverage-format",
+                    format.rawValue,
+                ],
+                buildSystem: buildSystem,
+                throwIfCommandFails: true,
+            )
+
+            try requireFileExists(at: coveragePath)
+
+            // Reduce the format-specific report to a single searchable string so both
+            // formats can share the same "does it mention both sources?" assertion.
+            let searchTarget: String
+            switch format {
+            case .json:
+                struct LlvmCovExport: Decodable {
+                    struct Datum: Decodable {
+                        struct File: Decodable { let filename: String }
+                        let files: [File]
+                    }
+                    let data: [Datum]
+                }
+                let jsonData = try Data(contentsOf: URL(fileURLWithPath: coveragePath.pathString))
+                let decoded = try JSONDecoder().decode(LlvmCovExport.self, from: jsonData)
+                searchTarget = decoded.data.flatMap(\.files).map(\.filename).joined(separator: "\n")
+            case .html:
+                let indexPath = coveragePath.appending("index.html")
+                try requireFileExists(at: indexPath)
+                let bytes = try Data(contentsOf: URL(fileURLWithPath: indexPath.pathString))
+                searchTarget = String(decoding: bytes, as: UTF8.self)
+            }
+
+            #expect(
+                searchTarget.contains("LibA.swift"),
+                "Merged \(format.rawValue.uppercased()) coverage should include LibA.swift. Report contents: \(searchTarget)",
+            )
+            #expect(
+                searchTarget.contains("LibB.swift"),
+                "Merged \(format.rawValue.uppercased()) coverage should include LibB.swift. Report contents: \(searchTarget)",
+            )
+        }
+    }
+
+    @Suite
+    struct ShowCoveragePathTests {
+        let commonTestArgs = [
+            "--show-coverage-path"
+        ]
+        struct ShowCoveragePathTestData: CustomTestStringConvertible {
+            var testDescription: String { id}
+
+            let formats: [CoverageFormat]
+            let printMode: CoveragePrintPathMode
+            let expected: String
+            let id: String
+        }
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+            [
+                ShowCoveragePathTestData(
+                    formats: [CoverageFormat.html],
+                    printMode: CoveragePrintPathMode.text,
+                    expected: "$(DEFAULT_BUILD_OUTPUT)/codecov/Simple-html",
+                    id: "show path text with one HTML coverage format displays the path",
+                ),
+                ShowCoveragePathTestData(
+                    formats: [CoverageFormat.json],
+                    printMode: CoveragePrintPathMode.text,
+                    expected: "$(DEFAULT_BUILD_OUTPUT)/codecov/Simple.json",
+                    id: "show path text with one JSON coverage format displays the path",
+                ),
+                ShowCoveragePathTestData(
+                    formats: [CoverageFormat.html, .json],
+                    printMode: CoveragePrintPathMode.text,
+                    expected: """
+                        Html: $(DEFAULT_BUILD_OUTPUT)/codecov/Simple-html
+                        Json: $(DEFAULT_BUILD_OUTPUT)/codecov/Simple.json
+                        """,
+                    id: "show path text with HTML and JSON coverage format displays the path",
+                ),
+                ShowCoveragePathTestData(
+                    formats: [CoverageFormat.json, .html],
+                    printMode: CoveragePrintPathMode.text,
+                    expected: """
+                        Html: $(DEFAULT_BUILD_OUTPUT)/codecov/Simple-html
+                        Json: $(DEFAULT_BUILD_OUTPUT)/codecov/Simple.json
+                        """,
+                    id: "show path text with JSON and HTML coverage format displays the path maintains the same order",
+                ),
+                ShowCoveragePathTestData(
+                    formats: [CoverageFormat.json, .html, .json],
+                    printMode: CoveragePrintPathMode.text,
+                    expected: """
+                        Html: $(DEFAULT_BUILD_OUTPUT)/codecov/Simple-html
+                        Json: $(DEFAULT_BUILD_OUTPUT)/codecov/Simple.json
+                        """,
+                    id: "show path text with duplicated coverge format display unique formats while preserving order",
+                ),
+
+                ShowCoveragePathTestData(
+                    formats: [CoverageFormat.html],
+                    printMode: CoveragePrintPathMode.json,
+                    expected: """
+                        {
+                          "html" : "$(DEFAULT_BUILD_OUTPUT)/codecov/Simple-html"
+                        }
+                        """,
+                    id: "show path JSON with one HTML coverage format displays the path",
+                ),
+                ShowCoveragePathTestData(
+                    formats: [CoverageFormat.json],
+                    printMode: CoveragePrintPathMode.json,
+                    expected: """
+                        {
+                          "json" : "$(DEFAULT_BUILD_OUTPUT)/codecov/Simple.json"
+                        }
+                        """,
+                    id: "show path JSON with one JSON coverage format displays the path",
+
+                ),
+                ShowCoveragePathTestData(
+                    formats: [CoverageFormat.html, .json],
+                    printMode: CoveragePrintPathMode.json,
+                    expected: """
+                        {
+                          "html" : "$(DEFAULT_BUILD_OUTPUT)/codecov/Simple-html",
+                          "json" : "$(DEFAULT_BUILD_OUTPUT)/codecov/Simple.json"
+                        }
+                        """,
+                    id: "show path JSON with HTML and JSON coverage format displays the path",
+                ),
+                ShowCoveragePathTestData(
+                    formats: [CoverageFormat.json, .html],
+                    printMode: CoveragePrintPathMode.json,
+                    expected: """
+                        {
+                          "html" : "$(DEFAULT_BUILD_OUTPUT)/codecov/Simple-html",
+                          "json" : "$(DEFAULT_BUILD_OUTPUT)/codecov/Simple.json"
+                        }
+                        """,
+                    id: "show path JSON with JSON and HTML coverage format displays the path maintains the same order",
+                ),
+                ShowCoveragePathTestData(
+                    formats: [CoverageFormat.json, .html, .json],
+                    printMode: CoveragePrintPathMode.json,
+                    expected: """
+                        {
+                          "html" : "$(DEFAULT_BUILD_OUTPUT)/codecov/Simple-html",
+                          "json" : "$(DEFAULT_BUILD_OUTPUT)/codecov/Simple.json"
+                        }
+                        """,
+                    id: "show path JSON with duplicated coverge format display unique formats while preserving order",
+                ),
+
+            ]
+        )
+        func specifiedFormatsFormatInTextModeOnlyDisplaysThePath(
+            buildSystem: BuildSystemProvider.Kind,
+            testData: ShowCoveragePathTestData,
+        ) async throws {
+            let configuration = BuildConfiguration.debug
+            try await fixture(name: "Coverage/Simple") { fixturePath in
+                let defaultBuildOutput = try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: configuration,
+                    extraArgs: ["--show-bin-path"],
+
+                    buildSystem: buildSystem,
+                ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                let updatedExpected = testData.expected.replacing(
+                    "$(DEFAULT_BUILD_OUTPUT)",
+                    with: defaultBuildOutput
+                )
+
+                let (stdout, stderr) = try await executeSwiftTest(
+                    fixturePath,
+                    configuration: configuration,
+                    extraArgs: self.commonTestArgs + [
+                        "--show-coverage-path",
+                        testData.printMode.rawValue,
+                    ] + testData.formats.flatMap({ ["--coverage-format", $0.rawValue] }),
+                    buildSystem: buildSystem,
+                )
+                let actual = stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+
+                #expect(actual == updatedExpected, "stdout: \(stdout)\n\nstderr: \(stderr)")
+            }
+        }
+
+        struct DeprecationWarningIsEmittedTestData: CustomTestStringConvertible {
+            var testDescription: String { id }
+
+            let argsUT: [String]
+            let expectedStderr: [Diagnostic]
+            let id: String
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms, [
+                DeprecationWarningIsEmittedTestData(
+                    argsUT: CoverageFormat.allCases.flatMap({ ["--coverage-format", $0.rawValue] }) + ["--show-coverage-path"],
+                    expectedStderr: [
+                        Basics.Diagnostic.showCoveragePathTextOutputWarning,
+                        // "warning: The contents of this output are subject to change in the future. Use `--show-coverage-path json` if the output is required in a script.",
+                    ],
+                    id: "show path text with multiple coverage formats emits a warning",
+                ),
+                DeprecationWarningIsEmittedTestData(
+                    argsUT: ["--show-code-coverage-path", "--disable-code-coverage"],
+                    expectedStderr: [
+                        Basics.Diagnostic.deprecatedEnableDisableCoverage,
+                        Basics.Diagnostic.deprecatedShowCodeCoveragePath,
+                    ],
+                    id: "Using deprecated --show-code-coverage-path and --disable-code-coverage arguments emits a warning for each argument",
+                ),
+                DeprecationWarningIsEmittedTestData(
+                    argsUT: ["--show-code-coverage-path", "--enable-code-coverage"],
+                    expectedStderr: [
+                        Basics.Diagnostic.deprecatedEnableDisableCoverage,
+                        Basics.Diagnostic.deprecatedShowCodeCoveragePath,
+                    ],
+                    id: "Using deprecated --show-code-coverage-path and --enable-code-coverage arguments emits a warning for each argument",
+                ),
+                DeprecationWarningIsEmittedTestData(
+                    argsUT: ["--show-codecov-path"],
+                    expectedStderr: [
+                        Basics.Diagnostic.deprecatedShowCodeCoveragePath
+                    ],
+                    id: "Using deprecated --show-codecov-path argument emits a warning",
+                ),
+                DeprecationWarningIsEmittedTestData(
+                    argsUT: ["--enable-coverage", "--enable-code-coverage"],
+                    expectedStderr: [
+                        Basics.Diagnostic.deprecatedEnableDisableCoverage,
+                    ],
+                    id: "Combining new --enable-coverage with deprecated --enable-code-coverage emits the deprecation warning",
+                ),
+                DeprecationWarningIsEmittedTestData(
+                    argsUT: ["--disable-code-coverage", "--enable-code-coverage"],
+                    expectedStderr: [
+                        Basics.Diagnostic.deprecatedEnableDisableCoverage,
+                    ],
+                    id: "Combining --disable-code-coverage with deprecated --enable-code-coverage emits the deprecation warning",
+                ),
+            ],
+        )
+        func deprecationWarningIsEmitted(
+            buildSystem: BuildSystemProvider.Kind,
+            tcData: DeprecationWarningIsEmittedTestData,
+        ) async throws {
+            let config = BuildConfiguration.debug
+            try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+                let (_, stderr) = try await executeSwiftTest(
+                    fixturePath,
+                    configuration: config,
+                    extraArgs: [
+                        "--show-coverage-path", // we don't want to build or execute the tests.
+                    ] + tcData.argsUT,
+                    buildSystem: buildSystem,
+                )
+
+                for diag in tcData.expectedStderr {
+                    #expect(
+                        stderr.contains("\(diag.severity): \(diag.message)") == true,
+                        "expected '\(diag)' in stderr: \(stderr)"
+                    )
+                }
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms, [
+                (
+                    separator: "=",
+                    expectedStderr: [
+                        "\(XcovArgumentError.emptyOutputDirectoryValue)",
+                        "using default path:",
+                    ],
+                ),
+                (
+                    separator: "",
+                    expectedStderr: [
+                        "\(XcovArgumentError.missingOutputDirectoryValue)",
+                        "using default path:",
+                    ],
+                ),
+                (
+                    separator: " ",
+                    expectedStderr: [
+                        "Unable to determine output directory for",
+                        "using default path:",
+                    ],
+                ),
+            ],
+        )
+        func errorDoesNotOccurIfXcovOutputDirectoryOverrideIsInconplete(
+            buildSystem: BuildSystemProvider.Kind,
+            tcData: (separator: String, expectedStderr: [String]),
+        ) async throws {
+            let config = BuildConfiguration.debug
+            try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+                let (_, stderr) = try await executeSwiftTest(
+                    fixturePath,
+                    configuration: config,
+                    extraArgs: [
+                        "--coverage-format", "html",
+                        "--show-coverage-path", // we don't want to build or execute the tests.
+                    ],
+                    Xcov: [
+                        "--output-dir\(tcData.separator)",
+                    ],
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: false,
+                )
+
+                for diag in tcData.expectedStderr {
+                    #expect(
+                        stderr.contains(diag) == true,
+                        "expected '\(diag)' in stderr: '\(stderr)'"
+                    )
+                }
+            }
+        }
+    }
+
+    @Suite
+    struct XcovArgumentsTests {
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms, [
+                (
+                    XcovArgs: [
+                        "html=--show-region-summary",
+                        "--num-threads=4",
+                        "json=--use-color",
+                        "--summary-only",
+                        "html=--project-title=MyTitle",
+                    ],
+                    expectedHtmlReportCmd: "--show-region-summary --num-threads=4 --summary-only --project-title=MyTitle",
+                    expectedJsonReportCmd: "--num-threads=4 --use-color --summary-only",
+                ),
+                (
+                    XcovArgs: [
+                        "html=--project-title=\"My Title\"",
+                    ],
+                    expectedHtmlReportCmd: "--project-title=\"My Title\"",
+                    expectedJsonReportCmd: "",
+                ),
+                (
+                    XcovArgs: [
+                        "html=--project-title",
+                        "html=\"My Title\""
+                    ],
+                    expectedHtmlReportCmd: "--project-title \"My Title\"",
+                    expectedJsonReportCmd: "",
+                ),
+            ],
+        )
+        func xcovArgumentsArePassed(
+            buildSystem: BuildSystemProvider.Kind,
+            xcovData: (XcovArgs: [String], expectedHtmlReportCmd: String, expectedJsonReportCmd: String),
+        ) async throws {
+            let config = BuildConfiguration.debug
+            try await fixture(name: "Miscellaneous/TestDiscovery/Simple") { fixturePath in
+                let (_, stderr) = try await executeSwiftTest(
+                    fixturePath,
+                    configuration: config,
+                    extraArgs: [
+                        "--enable-coverage",
+                        "--very-verbose",
+                        "--coverage-format",
+                        "html",
+                        "--coverage-format",
+                        "json",
+                    ],
+                    Xcov: xcovData.XcovArgs,
+                    buildSystem: buildSystem,
+                )
+
+                let htmlCommandRegex = try Regex("debug: Calling HTML: .*llvm-cov show.*\(xcovData.expectedHtmlReportCmd).*")
+                let jsonCommandRegex = try Regex("debug: Calling JSON: .*llvm-cov export.*\(xcovData.expectedJsonReportCmd).*")
+                #expect(
+                    stderr.contains(htmlCommandRegex) == true,
+                    "Did not find HTML command",
+                )
+                #expect(
+                    stderr.contains(jsonCommandRegex) == true,
+                    "Did not find JSON command",
+                )
+            }
+        }
+
+        @Test(
+            .tags(
+                .Feature.Command.Test,
+            ),
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func htmlCoverageReportRespectsXcovOutputDirOverride(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            let configuration = BuildConfiguration.debug
+            try await fixture(name: "Coverage/Simple") { fixturePath in
+                let customHtmlDir = fixturePath.appending("custom-html-output")
+                try requireDirectoryDoesNotExist(at: customHtmlDir)
+
+                try await executeSwiftTest(
+                    fixturePath,
+                    configuration: configuration,
+                    extraArgs: [
+                        "--enable-coverage",
+                        "--coverage-format",
+                        "html",
+                    ],
+                    Xcov: [
+                        "html=--output-dir=\(customHtmlDir.pathString)",
+                    ],
+                    buildSystem: buildSystem,
+                    throwIfCommandFails: true,
+                )
+
+                expectFileExists(at: customHtmlDir.appending("index.html"))
+            }
+        }
+
+        @Test(
+            .tags(
+                .Feature.Command.Test,
+            ),
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func showCoveragePathReflectsXcovHtmlOutputDirOverride(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            let configuration = BuildConfiguration.debug
+            try await fixture(name: "Coverage/Simple") { fixturePath in
+                let customHtmlDir = fixturePath.appending("custom-html-output")
+
+                let (stdout, stderr) = try await executeSwiftTest(
+                    fixturePath,
+                    configuration: configuration,
+                    extraArgs: [
+                        "--show-coverage-path",
+                        "--coverage-format",
+                        "html",
+                    ],
+                    Xcov: [
+                        "html=--output-dir=\(customHtmlDir.pathString)",
+                    ],
+                    buildSystem: buildSystem,
+                )
+
+                let trimmedStdout = stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                #expect(
+                    trimmedStdout == customHtmlDir.pathString,
+                    "stdout: '\(stdout)'\n\nstderr: '\(stderr)'",
+                )
+            }
+        }
+
+        @Test(
+            .tags(
+                .Feature.Command.Test,
+            ),
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func showCoveragePathIgnoresXcovJsonOutputDirForJsonFormat(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            let configuration = BuildConfiguration.debug
+            try await fixture(name: "Coverage/Simple") { fixturePath in
+                let bogusOutputDir = fixturePath.appending("this-should-be-ignored")
+
+                let defaultBuildOutput = try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: configuration,
+                    extraArgs: [
+                        "--show-bin-path",
+                    ],
+                    buildSystem: buildSystem,
+                ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                let expectedJsonPath = "\(defaultBuildOutput)/codecov/Simple.json"
+
+                let (stdout, stderr) = try await executeSwiftTest(
+                    fixturePath,
+                    configuration: configuration,
+                    extraArgs: [
+                        "--show-coverage-path",
+                        "--coverage-format",
+                        "json",
+                    ],
+                    Xcov: [
+                        "json=--output-dir=\(bogusOutputDir.pathString)",
+                    ],
+                    buildSystem: buildSystem,
+                )
+
+                let actual = stdout.trimmingCharacters(in: .whitespacesAndNewlines)
+                #expect(
+                    actual == expectedJsonPath,
+                    "stdout: \(stdout)\n\nstderr: \(stderr)",
+                )
+                #expect(
+                    actual.contains(bogusOutputDir.pathString) == false,
+                    "JSON path should not be overridable via -Xcov json=--output-dir. stdout: \(stdout)",
+                )
+            }
+        }
+
+        struct XcovFailureTestData: CustomTestStringConvertible {
+            var testDescription: String { id }
+            let format: CoverageFormat
+            let xcovArg: String
+            let expectedErrorSubstring: String
+            let id: String
+        }
+
+        @Test(
+            .tags(
+                .Feature.Command.Test,
+            ),
+            .IssueWindowsPathNoEntry,
+            arguments: SupportedBuildSystemOnAllPlatforms, [
+                XcovFailureTestData(
+                    format: .html,
+                    xcovArg: "html=--this-is-not-a-real-llvm-cov-flag",
+                    expectedErrorSubstring: "Unable to generate HTML coverage report",
+                    id: "HTML: bogus -Xcov html= arg surfaces llvm-cov show failure",
+                ),
+                XcovFailureTestData(
+                    format: .json,
+                    xcovArg: "json=--this-is-not-a-real-llvm-cov-flag",
+                    expectedErrorSubstring: "Unable to generate JSON coverage report",
+                    id: "JSON: bogus -Xcov json= arg surfaces llvm-cov export failure",
+                ),
+            ],
+        )
+        func bogusXcovArgumentSurfacesLlvmCovFailure(
+            buildSystem: BuildSystemProvider.Kind,
+            testData: XcovFailureTestData,
+        ) async throws {
+            let configuration = BuildConfiguration.debug
+            try await fixture(name: "Coverage/Simple") { fixturePath in
+                let (_, stderr) = try await executeSwiftTest(
+                    fixturePath,
+                    configuration: configuration,
+                    extraArgs: [
+                        "--enable-coverage",
+                        "--coverage-format",
+                        testData.format.rawValue,
+                    ],
+                    Xcov: [
+                        testData.xcovArg,
+                    ],
+                    buildSystem: buildSystem,
+                )
+
+                #expect(
+                    stderr.contains(testData.expectedErrorSubstring),
+                    "Expected '\(testData.expectedErrorSubstring)' in stderr for \(testData.id).\nstderr: \(stderr)",
+                )
+            }
+        }
+    }
 }

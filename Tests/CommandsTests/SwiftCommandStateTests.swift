@@ -24,6 +24,7 @@ import _InternalTestSupport
 import XCTest
 
 import ArgumentParser
+import Foundation
 import class TSCBasic.BufferedOutputByteStream
 import protocol TSCBasic.OutputByteStream
 import enum TSCBasic.SystemError
@@ -93,6 +94,24 @@ struct SwiftCommandStateTestSuites {
             contents == "\(buildData.buildSystem)",
             "Actual is not as expected",
         )
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+        .enabled(if: ProcessInfo.hostOperatingSystem == .macOS),
+    )
+    func excludeFromBackupMarksDirectoryAsExcluded() async throws {
+        try await withTemporaryDirectory { tmpDir in
+            let scratchDirectory = tmpDir.appending(".build")
+            try localFileSystem.createDirectory(scratchDirectory, recursive: true)
+
+            #expect(excludeFromBackups(directory: scratchDirectory))
+
+            let resourceValues = try scratchDirectory.asURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
+            #expect(resourceValues.isExcludedFromBackup == true)
+        }
     }
 }
 
@@ -618,39 +637,4 @@ final class SwiftCommandStateTests: XCTestCase {
         }
     }
 
-}
-
-extension SwiftCommandState {
-    static func makeMockState(
-        outputStream: OutputByteStream = stderrStream,
-        options: GlobalOptions,
-        createPackagePath: Bool = false,
-        fileSystem: any FileSystem = localFileSystem,
-        environment: Environment = .current
-    ) throws -> SwiftCommandState {
-        return try SwiftCommandState(
-            outputStream: outputStream,
-            options: options,
-            toolWorkspaceConfiguration: .init(shouldInstallSignalHandlers: false),
-            workspaceDelegateProvider: {
-                CommandWorkspaceDelegate(
-                    observabilityScope: $0,
-                    outputHandler: $1,
-                    progressHandler: $2,
-                    inputHandler: $3
-                )
-            },
-            workspaceLoaderProvider: {
-                XcodeWorkspaceLoader(
-                    fileSystem: $0,
-                    observabilityScope: $1
-                )
-            },
-            createPackagePath: createPackagePath,
-            hostTriple: .arm64Linux,
-            targetInfo: UserToolchain.mockTargetInfo,
-            fileSystem: fileSystem,
-            environment: environment
-        )
-    }
 }

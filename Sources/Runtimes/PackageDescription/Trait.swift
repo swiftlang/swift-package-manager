@@ -55,7 +55,7 @@
 /// #endif // Trait1
 /// ```
 @available(_PackageDescription, introduced: 6.1)
-public struct Trait: Hashable, ExpressibleByStringLiteral {
+public struct Trait: Hashable, Sendable, ExpressibleByStringLiteral {
     /// Declares the default traits for this package.
     public static func `default`(enabledTraits: Set<String>) -> Self {
         .init(

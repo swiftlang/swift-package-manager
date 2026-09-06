@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2015-2024 Apple Inc. and the Swift project authors
+// Copyright (c) 2015-2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import RegexBuilder
 import ArgumentParser
 
 @_spi(SwiftPMInternal)
@@ -186,11 +187,6 @@ struct TestCommandOptions: ParsableArguments {
           help: "List test methods in specifier format.")
     var _deprecated_shouldListTests: Bool = false
 
-    /// If the path of the exported code coverage JSON should be printed.
-    @Flag(name: [.customLong("show-codecov-path"), .customLong("show-code-coverage-path"), .customLong("show-coverage-path")],
-          help: "Print the path of the exported code coverage JSON file.")
-    var shouldPrintCodeCovPath: Bool = false
-
     var xctestFilterSpecifier: XCTestCaseSpecifier {
         if !filter.isEmpty {
             return .regex(filter).normalizedForXCTest()
@@ -230,11 +226,10 @@ struct TestCommandOptions: ParsableArguments {
     @Flag(name: .customLong("testable-imports"), inversion: .prefixedEnableDisable, help: "Determines whether test modules use @testable imports.")
     var enableTestableImports: Bool = true
 
-    /// Whether to enable code coverage.
-    @Flag(name: .customLong("code-coverage"),
-          inversion: .prefixedEnableDisable,
-          help: "Determines whether testing measures code coverage.")
-    var enableCodeCoverage: Bool = false
+    @OptionGroup(
+        title: "Coverage Options",
+    )
+    var coverageOptions: CoverageOptions
 
     /// Launch tests inside an LLDB debugging session.
     @Flag(name: .customLong("debugger"),
@@ -296,7 +291,6 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
     @OptionGroup()
     var options: TestCommandOptions
-
 
     package struct TestProductResult {
         var productName: String
@@ -377,7 +371,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 let testSuites = try await TestingSupport.getTestSuites(
                     in: testProducts,
                     swiftCommandState: swiftCommandState,
-                    enableCodeCoverage: options.enableCodeCoverage,
+                    enableCodeCoverage: options.coverageOptions.isEnabled,
                     shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
                     experimentalTestOutput: options.enableExperimentalTestOutput,
                     sanitizers: globalOptions.build.sanitizers,
@@ -489,7 +483,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             let testSuites = try await TestingSupport.getTestSuites(
                 in: testProducts,
                 swiftCommandState: swiftCommandState,
-                enableCodeCoverage: options.enableCodeCoverage,
+                enableCodeCoverage: options.coverageOptions.isEnabled,
                 shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
                 experimentalTestOutput: options.enableExperimentalTestOutput,
                 sanitizers: globalOptions.build.sanitizers,
@@ -525,6 +519,16 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     // MARK: - Common implementation
 
     public func run(_ swiftCommandState: SwiftCommandState) async throws {
+        let uniqueCoverageFormats = Array(Set(self.options.coverageOptions.formats)).sorted( by: <)
+
+        if self.options.coverageOptions._isEnabledDeprecated != nil {
+            swiftCommandState.observabilityScope.emit(.deprecatedEnableDisableCoverage)
+        }
+
+        if self.options.coverageOptions._printPathModeDeprecated {
+            swiftCommandState.observabilityScope.emit(.deprecatedShowCodeCoveragePath)
+        }
+
         do {
             // Validate commands arguments.
             try self.validateArguments(swiftCommandState: swiftCommandState)
@@ -533,8 +537,12 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             throw ExitCode.failure
         }
 
-        if self.options.shouldPrintCodeCovPath {
-            try await printCodeCovPath(swiftCommandState)
+        if let printMode = self.options.coverageOptions.printPathMode {
+            try await printCodeCovPath(
+                swiftCommandState,
+                formats: uniqueCoverageFormats,
+                printMode: printMode,
+            )
         } else if self.options._deprecated_shouldListTests {
             // Backward compatibility 6/2022 for deprecation of a flag into a subcommand.
             let command = try List.parse()
@@ -545,7 +553,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
             // Clean out the code coverage directory that may contain stale
             // profraw files from a previous run of the code coverage tool.
-            if self.options.enableCodeCoverage {
+            if self.options.coverageOptions.isEnabled {
                 try swiftCommandState.fileSystem.removeFileTree(try await buildSystem.codeCovPath(for: productsBuildParameters))
             }
 
@@ -553,8 +561,14 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
             // Process code coverage if requested. Don't process if the test run failed.
             // See https://github.com/swiftlang/swift-package-manager/pull/6894 for more info.
-            if self.options.enableCodeCoverage, swiftCommandState.executionStatus != .failure {
-                try await processCodeCoverage(testProducts, swiftCommandState: swiftCommandState, buildSystem: buildSystem)
+            if self.options.coverageOptions.isEnabled, swiftCommandState.executionStatus != .failure {
+                try await processCodeCoverage(
+                    testProducts,
+                    swiftCommandState: swiftCommandState,
+                    buildSystem: buildSystem,
+                    formats: uniqueCoverageFormats,
+                    xcovArguments: self.options.coverageOptions.xcovArguments,
+                )
             }
         }
     }
@@ -586,7 +600,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             let xctestSuites = try await TestingSupport.getTestSuites(
                 in: testProducts,
                 swiftCommandState: swiftCommandState,
-                enableCodeCoverage: options.enableCodeCoverage,
+                enableCodeCoverage: options.coverageOptions.isEnabled,
                 shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
                 experimentalTestOutput: options.enableExperimentalTestOutput,
                 sanitizers: globalOptions.build.sanitizers,
@@ -970,8 +984,11 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     private func processCodeCoverage(
         _ testProducts: [BuiltTestProduct],
         swiftCommandState: SwiftCommandState,
-        buildSystem: any BuildSystem
+        buildSystem: any BuildSystem,
+        formats: [CoverageFormat],
+        xcovArguments: XcovArgumentCollection,
     ) async throws {
+        swiftCommandState.observabilityScope.emit(info: "Processing code coverage data...")
         let workspace = try swiftCommandState.getActiveWorkspace()
         let root = try swiftCommandState.getWorkspaceRoot()
         let rootManifests = try await workspace.loadRootManifests(
@@ -982,24 +999,76 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             throw StringError("invalid manifests at \(root.packages)")
         }
 
-        // Merge all the profraw files to produce a single profdata file.
-        try await mergeCodeCovRawDataFiles(swiftCommandState: swiftCommandState, buildSystem: buildSystem)
-
+        // Compute code coverage prerequisites once so they aren't repeated per format.
         let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
-        for product in testProducts {
-            // Export the codecov data as JSON.
-            let jsonPath = try await buildSystem.codeCovPath(for: productsBuildParameters).appending(component: rootManifest.displayName + ".json")
-            try await exportCodeCovAsJSON(
-                to: jsonPath,
-                testBinary: product.coverageBinaryPath,
-                swiftCommandState: swiftCommandState,
-                buildSystem: buildSystem
-            )
+        let codeCovBaseDir = try await buildSystem.codeCovPath(for: productsBuildParameters)
+
+        // Merge all the profraw files to produce a single profdata file.
+        let profData = try await mergeCodeCovRawDataFiles(swiftCommandState: swiftCommandState, buildSystem: buildSystem)
+        var coverageReportData = [CoverageFormat: AbsolutePath]()
+        defer {
+            swiftCommandState.outputStream.send("Code coverage report:\n")
+            for (format, path) in coverageReportData {
+                swiftCommandState.outputStream.send("  - \(format.rawValue.uppercased()): \(path.pathString)\n")
+            }
+            swiftCommandState.outputStream.flush()
         }
+
+        for format in formats {
+            let coverageReportOutput = try self.getCoveragePath(
+                swiftCommandState,
+                format: format,
+                codeCovBaseDir: codeCovBaseDir,
+                rootManifestName: rootManifest.displayName,
+            )
+            let extraArgs = xcovArguments.getArguments(for: format)
+            let testBinaries = testProducts.map(\.coverageBinaryPath)
+            switch format {
+                case .json:
+                    // Export the codecov data as JSON for all test binaries in a single invocation
+                    // so coverage is merged across products.
+                    let path = try await exportCodeCovAsJSON(
+                        to: coverageReportOutput,
+                        testBinaries: testBinaries,
+                        swiftCommandState: swiftCommandState,
+                        extraArguments: extraArgs,
+                        fromFile: profData,
+                        productsBuildParameters: productsBuildParameters,
+                    )
+                    coverageReportData[format] = path
+                case .html:
+                    let toolchain = try swiftCommandState.getHostToolchain()
+                    let llvmCov = try toolchain.getLLVMCov()
+
+                    // Get all production source files from test targets
+                    let buildSystem = try await swiftCommandState.createBuildSystem()
+                    let packageGraph = try await buildSystem.getPackageGraph()
+
+                    let sourceFiles = try await coverageReportSourceFiles(
+                        testProducts: testProducts,
+                        packageGraph: packageGraph,
+                    )
+                    let coveragaHtmlReportPath = try await generateHtmlCoverageReport(
+                        llvmCovPath: llvmCov,
+                        fromFile: profData,
+                        desiredOutputPath: coverageReportOutput,
+                        testBinaries: testBinaries,
+                        sourceFiles: sourceFiles,
+                        withTitle: rootManifest.displayName,
+                        extraArguments: xcovArguments.getArguments(for: .html),
+                        observabilityScope: swiftCommandState.observabilityScope,
+                    )
+                    coverageReportData[format] = coveragaHtmlReportPath.appending("index.html")
+            }
+        }
+
     }
 
     /// Merges all the profraw profiles in the `codecoverage` directory into the `default.profdata` file.
-    private func mergeCodeCovRawDataFiles(swiftCommandState: SwiftCommandState, buildSystem: any BuildSystem) async throws {
+    private func mergeCodeCovRawDataFiles(
+        swiftCommandState: SwiftCommandState,
+        buildSystem: any BuildSystem,
+    ) async throws -> AbsolutePath {
         // Get the llvm-prof tool.
         let llvmProf = try swiftCommandState.getTargetToolchain().getLLVMProf()
 
@@ -1016,20 +1085,29 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 args.append(filePath.pathString)
             }
         }
-        args += ["-o", try await buildSystem.codeCovDataFile(for: productsBuildParameters).pathString]
+
+        let codeCovDataFile = try await buildSystem.codeCovDataFile(for: productsBuildParameters)
+        args += ["-o", codeCovDataFile.pathString]
         try await AsyncProcess.checkNonZeroExit(arguments: args)
+        return codeCovDataFile
     }
 
     /// Exports profdata as a JSON file.
     private func exportCodeCovAsJSON(
         to path: AbsolutePath,
-        testBinary: AbsolutePath,
+        testBinaries: [AbsolutePath],
         swiftCommandState: SwiftCommandState,
-        buildSystem: any BuildSystem
-    ) async throws {
+        extraArguments: [String],
+        fromFile profData: AbsolutePath,
+        productsBuildParameters: BuildParameters,
+    ) async throws -> AbsolutePath {
+        guard let primaryBinary = testBinaries.first else {
+            throw CoverageError.noTestBinariesSupplied(format: .json)
+        }
+        let additionalBinaryArgs = testBinaries.dropFirst().flatMap { ["-object", $0.pathString] }
+
         // Export using the llvm-cov tool.
         let llvmCov = try swiftCommandState.getTargetToolchain().getLLVMCov()
-        let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
         let archArgs: [String] = if let arch = productsBuildParameters.triple.llvmCovArchArgument {
             ["--arch", "\(arch)"]
         } else {
@@ -1038,17 +1116,94 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         let args = [
             llvmCov.pathString,
             "export",
-            "-instr-profile=\(try await buildSystem.codeCovDataFile(for: productsBuildParameters))",
-        ] + archArgs + [
-            testBinary.pathString,
+            "--instr-profile=\(profData.pathString)",
+        ] + extraArguments + archArgs + additionalBinaryArgs + [
+            primaryBinary.pathString,
         ]
+
+        swiftCommandState.observabilityScope.emit(debug: "Calling JSON: \(args.joined(separator: " "))")
         let result = try await AsyncProcess.popen(arguments: args)
 
         if result.exitStatus != .terminated(code: 0) {
             let output = try result.utf8Output() + result.utf8stderrOutput()
-            throw StringError("Unable to export code coverage:\n \(output)")
+            throw CoverageError.llvmCovFailed(format: .json, output: output)
         }
         try swiftCommandState.fileSystem.writeFileContents(path, bytes: ByteString(result.output.get()))
+        return path
+    }
+
+    /// Generates a code coverage HTML report.
+    package func generateHtmlCoverageReport(
+        llvmCovPath: AbsolutePath,
+        fromFile profData: AbsolutePath,
+        desiredOutputPath outputPath: AbsolutePath,
+        testBinaries: [AbsolutePath],
+        sourceFiles: [AbsolutePath],
+        withTitle title: String,
+        extraArguments: [String],
+        observabilityScope: ObservabilityScope,
+    ) async throws -> AbsolutePath {
+        guard let primaryBinary = testBinaries.first else {
+            throw CoverageError.noTestBinariesSupplied(format: .html)
+        }
+        let additionalBinaryArgs = testBinaries.dropFirst().flatMap { ["-object", $0.pathString] }
+
+        // Generate the HTML report.
+        if localFileSystem.exists(outputPath) {
+            try localFileSystem.removeFileTree(outputPath)
+        } else {
+            try localFileSystem.createDirectory(outputPath, recursive: true)
+        }
+
+
+        var args = [
+            llvmCovPath.pathString,
+            "show",
+            "--project-title=\(title) Coverage Report",
+            "--instr-profile=\(profData.pathString)",
+            "--output-dir=\(outputPath.pathString)",
+        ] + extraArguments + additionalBinaryArgs + [
+            // ensure we overide the format to HTML as that's what the user specified via
+            // the `swift test`` command line argument
+            "--format=html",
+            primaryBinary.pathString,
+        ]
+
+        // Add all the production source files of the test targets
+        args.append(contentsOf: sourceFiles.sorted().map { $0.pathString })
+
+        observabilityScope.emit(debug: "Calling HTML: \(args.joined(separator: " "))")
+        let result = try await AsyncProcess.popen(arguments: args)
+
+        if result.exitStatus != .terminated(code: 0) {
+            let output = try result.utf8Output() + result.utf8stderrOutput()
+            throw CoverageError.llvmCovFailed(format: .html, output: output)
+        }
+
+        // the output put can be updated via the command arg file
+        return outputPath
+    }
+
+    /// Source files to include in the coverage report.
+    ///
+    /// Restricts llvm-cov's report to code the tests can meaningfully cover: `.executable`,
+    /// `.library`, and `.macro` modules from the root packages. `.test`, `.plugin`, `.snippet`,
+    /// `.binary`, and `.systemModule` targets are intentionally excluded — either untouched by
+    /// tests or without instrumentable sources. Package dependencies are also excluded so the
+    /// report stays scoped to the user's own code.
+    private func coverageReportSourceFiles(
+        testProducts: [BuiltTestProduct],
+        packageGraph: ModulesGraph,
+    ) async throws -> [AbsolutePath] {
+        let coverableKinds = Module.Kind.allCases.filter { $0.isCoverable }
+
+        var sourceFiles = Set<AbsolutePath>()
+        for package in packageGraph.rootPackages {
+            for module in package.modules where coverableKinds.contains(module.type) {
+                sourceFiles.formUnion(module.sources.paths)
+            }
+        }
+        return Array(sourceFiles)
     }
 
     /// Builds the "test" target if enabled in options.
@@ -1078,7 +1233,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
                 shouldRunInParallel: options.shouldRunInParallel,
                 numberOfWorkers: options.numberOfWorkers,
                 shouldListTests: options._deprecated_shouldListTests,
-                shouldPrintCodeCovPath: options.shouldPrintCodeCovPath
+                printCodeCovPathMode: options.coverageOptions.printPathMode,
             )
         }
 
@@ -1116,7 +1271,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         shouldRunInParallel: Bool,
         numberOfWorkers: Int?,
         shouldListTests: Bool,
-        shouldPrintCodeCovPath: Bool
+        printCodeCovPathMode: CoveragePrintPathMode?
     ) throws {
         if configuration == .release {
             throw StringError("--debugger cannot be used with release configuration (debugging requires debug symbols)")
@@ -1134,16 +1289,42 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             throw StringError("--debugger cannot be used with --list-tests (use 'swift test list' for listing tests)")
         }
 
-        if shouldPrintCodeCovPath {
-            throw StringError("--debugger cannot be used with --show-codecov-path (debugging session cannot show paths)")
+        guard printCodeCovPathMode == nil else {
+            throw StringError("--debugger cannot be used with --show-coverage-path (debugging session cannot show paths)")
         }
     }
 
     public init() {}
 }
 
+fileprivate extension Module.Kind {
+
+    var isCoverable: Bool {
+        switch self {
+            case .executable, .library, .macro, .plugin:
+                return true
+            case .test, .snippet, .binary, .systemModule:
+                return false
+        }
+    }
+}
+
 extension SwiftTestCommand {
-    func printCodeCovPath(_ swiftCommandState: SwiftCommandState) async throws {
+    func printCodeCovPath(
+        _ swiftCommandState: SwiftCommandState,
+        formats: [CoverageFormat],
+        printMode: CoveragePrintPathMode,
+    ) async throws {
+        let data = try await self.getCodeCovOutputPaths(swiftCommandState, formats: formats, printMode: printMode)
+        print(data)
+    }
+
+    func getCodeCovOutputPaths(
+        _ swiftCommandState: SwiftCommandState,
+        formats: [CoverageFormat],
+        printMode: CoveragePrintPathMode,
+    ) async throws -> String {
+        // Load prerequisites once so we don't repeat expensive work per format.
         let workspace = try swiftCommandState.getActiveWorkspace()
         let root = try swiftCommandState.getWorkspaceRoot()
         let rootManifests = try await workspace.loadRootManifests(
@@ -1155,7 +1336,71 @@ extension SwiftTestCommand {
         }
         let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(enableCodeCoverage: true)
         let buildSystem = try await swiftCommandState.createBuildSystem()
-        print(try await buildSystem.codeCovPath(for: productsBuildParameters).appending(component: rootManifest.displayName + ".json"))
+        let codeCovBaseDir = try await buildSystem.codeCovPath(for: productsBuildParameters)
+
+        var coverageData = [CoverageFormat : AbsolutePath]()
+        for format in formats {
+            coverageData[format] = try self.getCoveragePath(
+                swiftCommandState,
+                format: format,
+                codeCovBaseDir: codeCovBaseDir,
+                rootManifestName: rootManifest.displayName,
+            )
+        }
+
+        let data: Data
+        switch printMode {
+            case .json:
+                let coverageOutput = CoverageFormatOutput(data: coverageData)
+                let encoder = JSONEncoder.makeWithDefaults()
+                encoder.keyEncodingStrategy = .convertToSnakeCase
+                data = try encoder.encode(coverageOutput)
+            case .text:
+                // When there's only one format, don't show the key prefix
+                if formats.count == 1, let singlePath: Dictionary<CoverageFormat, AbsolutePath>.Values.Element = coverageData.values.first {
+                    data = Data("\(singlePath.pathString)".utf8)
+                } else {
+                    swiftCommandState.observabilityScope.emit(.showCoveragePathTextOutputWarning)
+                    let coverageOutput = CoverageFormatOutput(data: coverageData)
+                    var encoder = PlainTextEncoder()
+                    encoder.formattingOptions = [.prettyPrinted]
+                    data = try encoder.encode(coverageOutput)
+                }
+        }
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    func getCoveragePath(
+        _ swiftCommandState: SwiftCommandState,
+        format: CoverageFormat,
+        codeCovBaseDir: AbsolutePath,
+        rootManifestName: String,
+    ) throws -> AbsolutePath {
+        let outputPath: AbsolutePath
+        switch format {
+            case .html:
+                let defaultPath = codeCovBaseDir.appending(component: "\(rootManifestName)-html")
+                let workspacePath = self.globalOptions.locations.packageDirectory ?? swiftCommandState.fileSystem.currentWorkingDirectory ?? AbsolutePath.root
+                do {
+                    let outputDirectory = try self.options.coverageOptions.xcovArguments.outputDirectory(
+                        for: .html,
+                        relativeTo: workspacePath,
+                    )
+                    if let outputDirectory = outputDirectory {
+                        outputPath = outputDirectory
+                    } else {
+                        swiftCommandState.observabilityScope.emit(warning: "Unable to determine output directory for \(format), using default path: \(defaultPath)")
+                        outputPath = defaultPath
+                    }
+                } catch {
+                    swiftCommandState.observabilityScope.emit(warning: "Encounter an issue (\(error)) determining the output directory for \(format), using default path: \(defaultPath).")
+                    outputPath = defaultPath
+                }
+
+            case .json:
+                outputPath = codeCovBaseDir.appending(component: rootManifestName + ".json")
+        }
+        return outputPath
     }
 }
 
@@ -1971,7 +2216,7 @@ extension SwiftCommandState {
         options: TestCommandOptions
     ) throws -> (productsBuildParameters: BuildParameters, toolsBuildParameters: BuildParameters) {
         try self.buildParametersForTest(
-            enableCodeCoverage: options.enableCodeCoverage,
+            enableCodeCoverage: options.coverageOptions.isEnabled,
             enableTestability: options.enableTestableImports,
             shouldSkipBuilding: options.sharedOptions.shouldSkipBuilding,
             experimentalTestOutput: options.enableExperimentalTestOutput
@@ -2061,9 +2306,15 @@ extension TestCommandOptions {
     }
 }
 
-private extension Basics.Diagnostic {
+package extension Basics.Diagnostic {
     static var noMatchingTests: Self {
         .warning("No matching test cases were run")
+    }
+
+    static var showCoveragePathTextOutputWarning: Self {
+        .warning(
+            "The contents of this output are subject to change in the future. Use `--show-coverage-path json` if the output is required in a script."
+        )
     }
 }
 

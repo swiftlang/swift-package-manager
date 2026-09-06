@@ -273,6 +273,60 @@ final class SourceControlPackageContainerTests: XCTestCase {
         }
     }
 
+    /// A dependency whose manifest has no Swift tools version specification is reported against the package, rather than against the name of its manifest file.
+    func testUnsupportedToolsVersionNamesThePackage() async throws {
+        try XCTSkipOnWindows(because: """
+        https://github.com/swiftlang/swift-package-manager/issues/8578
+        """)
+
+        let fs = InMemoryFileSystem()
+        try fs.createMockToolchain()
+
+        let repoPath = AbsolutePath.root
+        let filePath = repoPath.appending("Package.swift")
+
+        let specifier = RepositorySpecifier(path: repoPath)
+        let repo = InMemoryGitRepository(path: repoPath, fs: fs)
+
+        try repo.createDirectory(repoPath, recursive: true)
+
+        try repo.writeFileContents(filePath, bytes: "import PackageDescription\n")
+        try repo.commit()
+        try repo.tag(name: "1.0.0")
+
+        let inMemRepoProvider = InMemoryGitRepositoryProvider()
+        inMemRepoProvider.add(specifier: specifier, repository: repo)
+
+        let p = AbsolutePath.root.appending("repoManager")
+        try fs.createDirectory(p, recursive: true)
+        let repositoryManager = RepositoryManager(
+            fileSystem: fs,
+            path: p,
+            provider: inMemRepoProvider,
+            delegate: MockRepositoryManagerDelegate()
+        )
+
+        let provider = try Workspace._init(
+            fileSystem: fs,
+            environment: .mockEnvironment,
+            location: .init(forRootPackage: repoPath, fileSystem: fs),
+            customToolsVersion: ToolsVersion(version: "4.0.0"),
+            customHostToolchain: .mockHostToolchain(fs),
+            customManifestLoader: MockManifestLoader(manifests: [:]),
+            customRepositoryManager: repositoryManager
+        )
+
+        let ref = PackageReference.localSourceControl(identity: .plain("dolor"), path: repoPath)
+        let container = try await provider.getContainer(for: ref) as! SourceControlPackageContainer
+        await XCTAssertAsyncThrowsError(try await container.toolsVersion(for: "1.0.0")) { error in
+            guard let error = error as? UnsupportedToolsVersion else {
+                XCTFail("'UnsupportedToolsVersion' should've been thrown, but '\(error)' is thrown")
+                return
+            }
+            XCTAssertEqual(error.packageIdentity, .plain("dolor"))
+        }
+    }
+
     func testPreReleaseVersions() async throws {
         try XCTSkipOnWindows(because: """
         https://github.com/swiftlang/swift-package-manager/issues/8578

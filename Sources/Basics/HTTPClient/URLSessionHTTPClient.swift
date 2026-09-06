@@ -12,7 +12,6 @@
 
 import _Concurrency
 import Foundation
-import struct TSCUtility.Versioning
 #if canImport(FoundationNetworking)
 // FIXME: this brings OpenSSL dependency on Linux and needs to be replaced with `swift-server/async-http-client` package
 import FoundationNetworking
@@ -209,15 +208,15 @@ private final class DataTaskManager: NSObject, URLSessionDataDelegate {
             return
         }
 
-        var request = request
-        // Set `Authorization` header for the redirected request
-        if let redirectURL = request.url, let authorization = task.authorizationProvider?(redirectURL),
-           request.value(forHTTPHeaderField: "Authorization") == nil
-        {
-            request.addValue(authorization, forHTTPHeaderField: "Authorization")
+        // Add new authorization header for a redirect if there is one, otherwise remove
+        var redirectRequest = request
+        if let redirectURL = request.url, let authorization = task.authorizationProvider?(redirectURL) {
+            redirectRequest.setValue(authorization, forHTTPHeaderField: "Authorization")
+        } else {
+            redirectRequest.setValue(nil, forHTTPHeaderField: "Authorization")
         }
 
-        completionHandler(request)
+        completionHandler(redirectRequest)
     }
 
     struct DataTask: Sendable {

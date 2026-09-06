@@ -33,7 +33,8 @@ extension PIFBuilderParameters {
         shouldCreateDylibForDynamicProducts: Bool = false,
         createDynamicVariantsForLibraryProducts: Bool = false,
         pluginScriptRunner: PluginScriptRunner? = nil,
-        hostBuildProductsPath: Basics.AbsolutePath? = nil
+        hostBuildProductsPath: Basics.AbsolutePath? = nil,
+        hostTriple: Basics.Triple? = nil
     ) throws -> Self {
         try self.init(
             isPackageAccessModifierSupported: true,
@@ -54,7 +55,8 @@ extension PIFBuilderParameters {
             additionalFileRules: [],
             addLocalRpaths: addLocalRpaths,
             hostBuildProductsPath: hostBuildProductsPath ?? temporaryDirectory.appending(component: "host-build-products"),
-            shouldPreserveSymlinks: false
+            shouldPreserveSymlinks: false,
+            hostTriple: try hostTriple ?? UserToolchain.default.targetTriple
         )
     }
 }
@@ -114,7 +116,7 @@ fileprivate func withGeneratedPIF(
 }
 
 extension SwiftBuildSupport.PIF.Workspace {
-    fileprivate func project(named name: String) throws -> SwiftBuildSupport.PIF.Project {
+    func project(named name: String) throws -> SwiftBuildSupport.PIF.Project {
         let matchingProjects = projects.filter {
             $0.underlying.name == name
         }
@@ -142,7 +144,7 @@ extension SwiftBuildSupport.PIF.Project {
         }
     }
 
-    fileprivate func target(named name: String) throws -> ProjectModel.BaseTarget {
+    func target(named name: String) throws -> ProjectModel.BaseTarget {
         let matchingTargets = underlying.targets.filter {
             $0.common.name == name
         }
@@ -177,7 +179,7 @@ extension SwiftBuildSupport.PIF.Project {
 }
 
 extension SwiftBuild.ProjectModel.BaseTarget {
-    fileprivate func buildConfig(named name: BuildConfiguration) throws -> SwiftBuild.ProjectModel.BuildConfig {
+    func buildConfig(named name: BuildConfiguration) throws -> SwiftBuild.ProjectModel.BuildConfig {
         let matchingConfigs = common.buildConfigs.filter {
             $0.name == name.pifConfiguration
         }
@@ -647,9 +649,9 @@ struct PIFBuilderTests {
                 let ld_flags = releaseConfig.impartedBuildProperties.settings[.OTHER_LDFLAGS, platform]
                 switch platform {
                     case .macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .xrOS, .driverKit, .freebsd:
-                         #expect(ld_flags == ["-lc++", "$(inherited)"], "for platform \(platform)")
+                         #expect(ld_flags == ["$(inherited)", "-lc++"], "for platform \(platform)")
                     case .android, .linux, .wasi, .openbsd:
-                        #expect(ld_flags == ["-lstdc++", "$(inherited)"], "for platform \(platform)")
+                        #expect(ld_flags == ["$(inherited)", "-lstdc++"], "for platform \(platform)")
                     case .windows, ._iOSDevice:
                         #expect(ld_flags == nil, "for platform \(platform)")
                 }
@@ -1906,6 +1908,96 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test func swiftCompileForStaticLinkingInPromotableAutomaticLibraries() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/ModuleA/ModuleA.swift",
+            "/Root/Sources/ModuleB/ModuleB.swift",
+            "/Root/Sources/ModuleC/ModuleC.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_0,
+                    products: [
+                        ProductDescription(name: "AutomaticLib", type: .library(.automatic), targets: ["ModuleA", "ModuleB"]),
+                        ProductDescription(name: "StaticLib", type: .library(.static), targets: ["ModuleC"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "ModuleA"),
+                        TargetDescription(name: "ModuleB"),
+                        TargetDescription(name: "ModuleC"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always,
+                createDynamicVariantsForLibraryProducts: true
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+
+        let project = try pif.workspace.project(named: "Root")
+
+        let automaticLibTarget = try project.target(named: "AutomaticLib-product")
+        guard case .target(let automaticLibStandardTarget) = automaticLibTarget else {
+            Issue.record("Expected 'AutomaticLib-product' to be a standard target")
+            return
+        }
+        #expect(automaticLibStandardTarget.dynamicTargetVariantId != nil)
+
+        for moduleName in ["ModuleA", "ModuleB"] {
+            let moduleTarget = try project.target(named: moduleName)
+            let config = try moduleTarget.buildConfig(named: .release)
+
+            #expect(
+                config.settings[
+                    .SWIFT_DISABLE_COMPILATION_FOR_STATIC_LINKING_WHEN_ANY_TARGET_IS_PROMOTED_TO_DYNAMIC,
+                    .windows
+                ] == [automaticLibTarget.id.value]
+            )
+            #expect(
+                config.settings[.SWIFT_COMPILE_FOR_STATIC_LINKING, .windows] == nil,
+                "Module \(moduleName) should not disable static linking mode unconditionally"
+            )
+
+            for platform in SwiftBuild.ProjectModel.BuildSettings.Platform.allCases where platform != .windows {
+                #expect(
+                    config.settings[
+                        .SWIFT_DISABLE_COMPILATION_FOR_STATIC_LINKING_WHEN_ANY_TARGET_IS_PROMOTED_TO_DYNAMIC,
+                        platform
+                    ] == nil
+                )
+            }
+        }
+
+        let moduleCConfig = try project.target(named: "ModuleC").buildConfig(named: .release)
+        for platform in ProjectModel.BuildSettings.Platform.allCases {
+            #expect(
+                moduleCConfig.settings[
+                    .SWIFT_DISABLE_COMPILATION_FOR_STATIC_LINKING_WHEN_ANY_TARGET_IS_PROMOTED_TO_DYNAMIC,
+                    platform
+                ] == nil
+            )
+        }
+    }
+
     @Test func macroPackageSupportedPlatforms() async throws {
         try await withGeneratedPIF(fromFixture: "Macros/MinimalMacroPackage") { pif, observabilitySystem, fixturePath in
             #expect(observabilitySystem.diagnostics.filter { $0.severity == .error }.isEmpty)
@@ -1976,7 +2068,8 @@ struct PIFBuilderTests {
         let fs = InMemoryFileSystem(
             emptyFiles:
                 "/Pkg/Sources/lib/file1.swift",
-                "/Pkg/Sources/lib/file2.c"
+                "/Pkg/Sources/lib/file2.c",
+                "/Pkg/Sources/lib/include/lib.h"
         )
         let observability = ObservabilitySystem.makeForTesting()
         let graph = try loadModulesGraph(
@@ -1985,7 +2078,7 @@ struct PIFBuilderTests {
                 Manifest.createRootManifest(
                     displayName: "Pkg",
                     path: "/Pkg",
-                    toolsVersion: try #require(ToolsVersion(string: "6.4.0", experimentalFeatures: [.experimentalMultiLang])),
+                    toolsVersion: try #require(ToolsVersion(string: "6.5.0")),
                     targets: [
                         TargetDescription(name: "lib"),
                     ]
@@ -2031,6 +2124,19 @@ struct PIFBuilderTests {
             "/Pkg/Sources/lib/file2.c",
         ]
         #expect(sources == expected)
+
+        let libConfig = try lib.buildConfig(named: .debug)
+        #expect(libConfig.settings[.SWIFT_INSTALL_OBJC_HEADER] == "YES")
+        #expect(libConfig.settings[.SWIFT_OBJC_INTERFACE_HEADER_NAME] == "lib-Swift.h")
+        #expect(libConfig.settings[.DEFINES_MODULE] == "YES")
+
+        let moduleMapContents = try #require(libConfig.settings[.MODULEMAP_FILE_CONTENTS])
+        #expect(moduleMapContents.contains("module lib"))
+        #expect(moduleMapContents.contains("umbrella header"))
+        #expect(!moduleMapContents.contains("lib-Swift.h"))
+
+        let headerSearchPaths = try #require(libConfig.settings[.HEADER_SEARCH_PATHS])
+        #expect(headerSearchPaths.contains("/Pkg/Sources/lib/include"))
      }
 
     @Test func testTargetDependsOnTestTarget() async throws {
@@ -2288,7 +2394,7 @@ struct PIFBuilderTests {
             observabilityScope: observability.topScope
         )
         let (pif, _) = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild, triple: .wasi)
         )
 
         let errors = observability.diagnostics.filter { $0.severity == .error }
@@ -2354,7 +2460,7 @@ struct PIFBuilderTests {
             observabilityScope: observability.topScope
         )
         let (pif, _) = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild, triple: .wasi)
         )
 
         let errors = observability.diagnostics.filter { $0.severity == .error }
@@ -2425,7 +2531,7 @@ struct PIFBuilderTests {
             observabilityScope: observability.topScope
         )
         let (pif, _) = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild, triple: .wasi)
         )
 
         let errors = observability.diagnostics.filter { $0.severity == .error }
@@ -2496,7 +2602,7 @@ struct PIFBuilderTests {
             observabilityScope: observability.topScope
         )
         let (pif, _) = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild, triple: .wasi)
         )
 
         let errors = observability.diagnostics.filter { $0.severity == .error }
@@ -2568,7 +2674,7 @@ struct PIFBuilderTests {
             observabilityScope: observability.topScope
         )
         let (pif, _) = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild, triple: .wasi)
         )
 
         let errors = observability.diagnostics.filter { $0.severity == .error }
@@ -2640,7 +2746,7 @@ struct PIFBuilderTests {
             observabilityScope: observability.topScope
         )
         let (pif, _) = try await pifBuilder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild, triple: .wasi)
         )
 
         let errors = observability.diagnostics.filter { $0.severity == .error }

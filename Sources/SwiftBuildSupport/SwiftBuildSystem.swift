@@ -654,7 +654,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
             do {
                 try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchain: self.buildParameters.toolchain, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
-                    self.outputStream.send("Building for \(self.buildParameters.configuration == .debug ? "debugging" : "production")...\n")
+                    self.outputStream.send("Building for \(self.buildParameters.configuration.buildFor)...\n")
 
                     // Load the workspace, and set the system information to the default
                     do {
@@ -892,18 +892,18 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         var settings: [String: String] = [:]
 
         if setToolchainSetting {
-            // If the SwiftPM toolchain corresponds to a toolchain registered with the lower level build system, add it to the toolchain stack.
-            // Otherwise, apply overrides for each component of the SwiftPM toolchain.
-            let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString)
-            if toolchainID == nil {
-                // FIXME: This list of overrides is incomplete.
-                // An error with determining the override should not be fatal here.
-                settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathStringWithPosixSlashes
-                // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
-                // native build system.
-                settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathStringWithPosixSlashes
-            }
+            // Set the effective compilers unconditionally so a local toolchain / SWIFT_EXEC override is honoured.
+            //
+            // FIXME: This list of overrides is incomplete.
+            // An error with determining the override should not be fatal here.
+            settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathStringWithPosixSlashes
+            // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
+            // native build system.
+            settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathStringWithPosixSlashes
 
+            // If the SwiftPM toolchain also corresponds to a toolchain registered with the lower level build system,
+            // add it to the toolchain stack so component lookup stays aligned with the pinned compiler.
+            let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString)
             let overrideToolchains = [buildParameters.toolchain.metalToolchainId, toolchainID?.rawValue].compactMap { $0 }
             if !overrideToolchains.isEmpty {
                 settings["TOOLCHAINS"] = (overrideToolchains + ["$(inherited)"]).joined(separator: " ")
@@ -1390,8 +1390,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     additionalFileRules: additionalFileRules,
                     addLocalRpaths: self.buildParameters.linkingParameters.shouldDisableLocalRpath ? .never : .always,
                     materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
-                    createDynamicVariantsForLibraryProducts: false,
-                    hostBuildProductsPath: try await self.buildProductsPath(for: self.hostBuildParameters)
+                    createDynamicVariantsForLibraryProducts: true,
+                    hostBuildProductsPath: try await self.buildProductsPath(for: self.hostBuildParameters),
+                    hostTriple: self.hostBuildParameters.triple
                 ),
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,

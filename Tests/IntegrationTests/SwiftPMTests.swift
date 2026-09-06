@@ -299,7 +299,7 @@ private struct SwiftPMTests {
             try await executeSwiftTest(
                 packagePath,
                 configuration: config,
-                extraArgs: ["--enable-code-coverage", "--disable-xctest"],
+                extraArgs: ["--enable-coverage", "--disable-xctest"],
                 buildSystem: buildSystem,
                 throwIfCommandFails: true,
             )

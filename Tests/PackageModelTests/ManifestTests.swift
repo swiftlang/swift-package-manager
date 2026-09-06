@@ -1073,6 +1073,35 @@ class ManifestTests: XCTestCase {
         }
     }
 
+    func testDependenciesRequired_EqualEnabledTraitsWithDifferentDisablersDoNotCrashCache() throws {
+        let manifest = Manifest.createFileSystemManifest(
+            displayName: "Foo",
+            path: "/Foo",
+            toolsVersion: .v5_9,
+            dependencies: [
+                .localSourceControl(path: "/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+            ],
+            targets: [
+                try TargetDescription(
+                    name: "FooTarget",
+                    dependencies: [
+                        .product(name: "Bar", package: "Bar", condition: .init(traits: ["Trait1"])),
+                    ]
+                ),
+            ],
+            traits: ["Trait1"]
+        )
+
+        let disabledByPackage = EnabledTraits([], setBy: .package("Parent1"))
+        let disabledByTraitConfiguration = EnabledTraits([], setBy: .traitConfiguration)
+        XCTAssertEqual(disabledByPackage, disabledByTraitConfiguration)
+
+        let first = try manifest.dependenciesRequired(for: .everything, disabledByPackage)
+        let second = try manifest.dependenciesRequired(for: .everything, disabledByTraitConfiguration)
+
+        XCTAssertEqual(first.map(\.identity), second.map(\.identity))
+    }
+
     func testIsPackageDependencyUsed_AllUsesGuarded_ReturnsFalse() throws {
         let manifest = Manifest.createRootManifest(
             displayName: "MyPackage",

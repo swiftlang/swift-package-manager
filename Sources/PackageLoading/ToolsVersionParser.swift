@@ -24,7 +24,17 @@ public struct ToolsVersionParser {
     // designed to be used as a static utility
     private init() {}
 
-    public static func parse(manifestPath: AbsolutePath, fileSystem: FileSystem) throws -> ToolsVersion {
+    /// Parses the Swift tools version specification of the manifest at the given path.
+    ///
+    /// - Parameter packageIdentity: The identity of the package the manifest belongs to, used to
+    ///   report a manifest that carries no specification at all. Omitting it derives one from the
+    ///   manifest's parent directory, which is empty for a file view rooted at `/`, as a repository's
+    ///   and a registry release's are.
+    public static func parse(
+        manifestPath: AbsolutePath,
+        fileSystem: FileSystem,
+        packageIdentity: PackageIdentity? = nil
+    ) throws -> ToolsVersion {
         // FIXME: We should diagnose errors not specific to the tools version specification outside of this function.
         // In order to that, maybe we can restructure the parsing to something like this:
         //     parse(_ manifestContent: String) throws -> Manifest {
@@ -58,7 +68,11 @@ public struct ToolsVersionParser {
         do {
           return try self.parse(utf8String: manifestContentsDecodedWithUTF8)
         } catch Error.malformedToolsVersionSpecification(.commentMarker(.isMissing)) {
-          throw UnsupportedToolsVersion(packageIdentity: .init(path: manifestPath), currentToolsVersion: .current, packageToolsVersion: .v3)
+          throw UnsupportedToolsVersion(
+            packageIdentity: packageIdentity ?? .init(path: manifestPath.parentDirectory),
+            currentToolsVersion: .current,
+            packageToolsVersion: .v3
+          )
         }
     }
 
@@ -358,7 +372,7 @@ public struct ToolsVersionParser {
         /// - Note: For a misspelt Swift tools version specification `"// swift-too1s-version:5.3"`, the first `"1"` is considered as the first character of the version specifier, and so `"1s-version:5.3"` is taken as the version specifier.
         let versionSpecifier = specificationSnippetFromLabelToLineTerminator[startIndexOfVersionSpecifier..<indexOfVersionSpecifierTerminator]
 
-        /// Look for experimental features. They are comma separated values contained in parenthases right after the ";", e.g. "// swift-tools-version: 6.4;(experimentalCGen,experimentalMultiLang)"
+        /// Look for experimental features. They are comma separated values contained in parenthases right after the ";", e.g. "// swift-tools-version: 6.3;(experimentalCGen)"
         var experimentalFeatures: Set<ToolsVersion.ExperimentalFeature> = []
         if indexOfVersionSpecifierTerminator < specificationWithIgnoredTrailingContents.endIndex, specificationWithIgnoredTrailingContents[indexOfVersionSpecifierTerminator...].hasPrefix(";(") {
             let startOfExperimentalFeatures = specificationWithIgnoredTrailingContents.index(indexOfVersionSpecifierTerminator, offsetBy: 2)

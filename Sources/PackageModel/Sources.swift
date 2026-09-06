@@ -59,4 +59,31 @@ public struct Sources: Codable {
             return !SupportedLanguageExtension.swiftExtensions.contains(ext)
         })
     }
+
+    /// Returns true if the sources contain any Swift files.
+    ///
+    /// Note: the extension sets used here (`SupportedLanguageExtension`) are kept in sync
+    /// with `FileRuleDescription.swift`/`.clang`/`.asm` in `PackageLoading`.
+    public var hasSwiftSources: Bool {
+        paths.contains { path in
+            guard let ext = path.extension else { return false }
+            return SupportedLanguageExtension.swiftExtensions.contains(ext)
+        }
+    }
+
+    /// Returns true if the sources contain any C-family (C/C++/Objective-C) or assembly files.
+    public var hasClangSources: Bool {
+        let supportedClangFileExtensions = SupportedLanguageExtension.cExtensions
+            .union(SupportedLanguageExtension.cppExtensions)
+            .union(SupportedLanguageExtension.assemblyExtensions)
+        return paths.contains { path in
+            guard let ext = path.extension else { return false }
+            return supportedClangFileExtensions.contains(ext)
+        }
+    }
+
+    /// Returns true if the sources mix Swift and C-family sources.
+    public var containsMixedLanguage: Bool {
+        self.hasSwiftSources && self.hasClangSources
+    }
 }

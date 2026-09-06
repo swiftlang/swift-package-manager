@@ -28,6 +28,7 @@ import SPMBuildCore
 import struct SPMBuildCore.BuildParameters
 import TSCTestSupport
 import Workspace
+import enum Commands.CoverageFormat
 import Testing
 import func XCTest.XCTFail
 import struct XCTest.XCTSkip
@@ -594,6 +595,7 @@ public func executeSwiftTest(
     Xcc: [String] = [],
     Xld: [String] = [],
     Xswiftc: [String] = [],
+    Xcov: [String] = [],
     env: Environment? = nil,
     buildSystem: BuildSystemProvider.Kind,
     throwIfCommandFails: Bool = false,
@@ -604,6 +606,7 @@ public func executeSwiftTest(
         Xcc: Xcc,
         Xld: Xld,
         Xswiftc: Xswiftc,
+        Xcov: Xcov,
         buildSystem: buildSystem
     )
     return try await SwiftPM.Test.execute(args, packagePath: packagePath, env: env, throwIfCommandFails: throwIfCommandFails)
@@ -615,6 +618,7 @@ private func swiftArgs(
     Xcc: [String],
     Xld: [String],
     Xswiftc: [String],
+    Xcov: [String] = [],
     buildSystem: BuildSystemProvider.Kind?
 ) -> [String] {
     var args = configuration.buildArgs
@@ -622,6 +626,7 @@ private func swiftArgs(
     args += Xld.flatMap { ["-Xlinker", $0] }
     args += Xswiftc.flatMap { ["-Xswiftc", $0] }
     args += getBuildSystemArgs(for: buildSystem)
+    args += Xcov.flatMap { ["-Xcov", $0] }
     args += extraArgs
     return args
 }
@@ -771,13 +776,19 @@ public func executableName(_ name: String) -> String {
 package func getCoveragePath(
     _ path: AbsolutePath,
     with buildData: BuildData,
+    format: CoverageFormat? = nil,
 ) async throws -> String {
+    let additionalArgs: [String] = if let format {
+        ["--coverage-format", format.rawValue]
+    } else {
+        []
+    }
     return try await executeSwiftTest(
             path,
             configuration: buildData.config,
             extraArgs: [
                 "--show-coverage-path",
-            ],
+            ] + additionalArgs,
             buildSystem: buildData.buildSystem,
             throwIfCommandFails: true,
         ).stdout.trimmingCharacters(in: .whitespacesAndNewlines)

@@ -480,7 +480,7 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         guard !logLevel.isQuiet else { return }
         self.queue.sync {
             self.progressAnimation.clear()
-            self.outputStream.send("Building for \(configuration == .debug ? "debugging" : "production")...\n")
+            self.outputStream.send("Building for \(configuration.buildFor)...\n")
             self.outputStream.flush()
         }
     }
