@@ -258,7 +258,7 @@ extension PackageModel.Module {
         switch self.type {
         case .executable, .snippet:
             true
-        case .library, .test, .macro, .systemModule, .plugin, .binary, .prebuilt:
+        case .library, .test, .macro, .systemModule, .plugin, .binary, .libraryAggregate, .prebuilt:
             false
         }
     }
@@ -267,7 +267,7 @@ extension PackageModel.Module {
         switch self.type {
         case .binary:
             true
-        case .library, .executable, .snippet, .test, .plugin, .macro, .systemModule, .prebuilt:
+        case .library, .executable, .snippet, .test, .plugin, .macro, .systemModule, .libraryAggregate, .prebuilt:
             false
         }
     }
@@ -277,7 +277,7 @@ extension PackageModel.Module {
         switch self.type {
         case .library, .executable, .snippet, .test, .macro:
             true
-        case .systemModule, .plugin, .binary, .prebuilt:
+        case .systemModule, .plugin, .binary, .libraryAggregate, .prebuilt:
             false
         }
     }
@@ -289,7 +289,7 @@ extension PackageModel.ProductType {
         case .executable: .executable
         case .snippet: .snippet
         case .test: .test
-        case .library: .library
+        case .library: .library(libraryType: .object)
         case .plugin: .plugin
         case .macro: .macro
         }
@@ -1032,7 +1032,7 @@ extension PackageGraph.ResolvedModule {
                 settings[.SWIFT_LIBRARIES_ONLY] = "NO"
                 settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] = "YES"
             }
-        } else if [.library, .test].contains(self.type) {
+        } else if self.type.isLibrary || self.type == .test {
             // Always pass -parse-as-library for libraries and tests
             settings[.SWIFT_LIBRARIES_ONLY] = "YES"
             settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] = "NO"
@@ -1091,19 +1091,41 @@ private enum PIFPlatformReachability: Equatable {
 
 extension Collection<PackageGraph.ResolvedModule> {
     /// Recursively applies a block to each of the linkage dependencies of the given module, in topological sort order.
+    /// Each module or product dependency is visited only once.
     func recursivelyTraverseTransitiveLinkageDependencies(
         includeDependenciesOfMacros: Set<ResolvedModule.ID>,
         toolsVersion: ToolsVersion,
         with block: (ResolvedModule.Dependency, Set<ProjectModel.PlatformFilter>) -> Void
     ) {
-        // Do not traverse into *macro* or *plugin* dependencies unless explicitly requested.
-        // Macros run at compile time and their dependencies should not be linked into the client, unless a client includes their testable variant.
-        // Plugins run at build time and their dependencies should not be linked into the client.
+        self.flatMap(\.dependencies).recursivelyTraverseTransitiveLinkageDependencies(
+            includeDependenciesOfMacros: includeDependenciesOfMacros,
+            toolsVersion: toolsVersion,
+            with: block
+        )
+    }
+}
+
+extension Collection<PackageGraph.ResolvedModule.Dependency> {
+    /// Recursively applies a block to each of the linkage dependencies of the given dependencies, in topological sort order.
+    /// Each module or product dependency is visited only once.
+    func recursivelyTraverseTransitiveLinkageDependencies(
+        includeDependenciesOfMacros: Set<ResolvedModule.ID>,
+        toolsVersion: ToolsVersion,
+        with block: (ResolvedModule.Dependency, Set<ProjectModel.PlatformFilter>) -> Void
+    ) {
+        // Do not traverse into *macro*, *plugin*, or explicitly linked *library* dependencies unless explicitly requested.
         func stopsTraversal(_ moduleDependency: ResolvedModule) -> Bool {
             switch moduleDependency.type {
             case .macro:
+                // Macros run at compile time and their dependencies should not be linked into the client,
+                // unless a client includes their testable variant.
                 !includeDependenciesOfMacros.contains(moduleDependency.id)
             case .plugin:
+                // Plugins run at build time and their dependencies should not be linked into the client.
+                true
+            case .library(libraryType: .static), .library(libraryType: .dynamic), .libraryAggregate:
+                // A library with explicit linkage incorporates its dependencies, which should not be
+                // linked independently.
                 true
             default:
                 false
@@ -1145,7 +1167,7 @@ extension Collection<PackageGraph.ResolvedModule> {
             }
         }
 
-        for dependency in self.flatMap(\.dependencies) {
+        for dependency in self {
             visitDependency(dependency)
         }
 
@@ -1179,7 +1201,7 @@ extension Collection<PackageGraph.ResolvedModule> {
             worklist.append((dependency, widened))
         }
 
-        for dependency in self.flatMap(\.dependencies) {
+        for dependency in self {
             widenReachability(of: dependency, reachedVia: .unconditionallyReachable)
         }
         while let (dependency, reachedVia) = worklist.popLast() {

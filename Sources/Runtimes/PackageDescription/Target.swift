@@ -12,6 +12,11 @@
 
 @_implementationOnly import Foundation
 
+public enum LibraryType: String {
+    case `static`
+    case `dynamic`
+}
+
 /// The basic building block of a Swift package.
 ///
 /// Each target contains a set of source files that Swift Package Manager compiles into a module
@@ -39,6 +44,8 @@ public final class Target {
         case plugin
         /// A target that provides a Swift macro.
         case `macro`
+        /// A target that builds a library.
+        case library
     }
 
     /// The different types of a target's dependency on another entity.
@@ -133,6 +140,10 @@ public final class Target {
 
     /// The type of the target.
     public let type: TargetType
+
+    /// The type of library this target represents.
+    @available(_PackageDescription, introduced: 999.0)
+    public let libraryType: LibraryType?
 
     /// If true, access to package declarations from other targets in the package is allowed.
     public let packageAccess: Bool
@@ -250,7 +261,8 @@ public final class Target {
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
         checksum: String? = nil,
-        plugins: [PluginUsage]? = nil
+        plugins: [PluginUsage]? = nil,
+        libraryType: LibraryType? = nil
     ) {
         self.name = name
         self.dependencies = dependencies
@@ -261,6 +273,7 @@ public final class Target {
         self.resources = resources
         self.exclude = exclude
         self.type = type
+        self.libraryType = libraryType
         self.packageAccess = packageAccess
         self.pkgConfig = pkgConfig
         self.providers = providers
@@ -274,6 +287,15 @@ public final class Target {
 
         switch type {
         case .regular, .executable, .test:
+            precondition(
+                url == nil &&
+                pkgConfig == nil &&
+                providers == nil &&
+                pluginCapability == nil &&
+                checksum == nil &&
+                libraryType == nil
+            )
+        case .library:
             precondition(
                 url == nil &&
                 pkgConfig == nil &&
@@ -295,7 +317,8 @@ public final class Target {
                 swiftSettings == nil &&
                 linkerSettings == nil &&
                 checksum == nil &&
-                plugins == nil
+                plugins == nil &&
+                libraryType == nil
             )
         case .binary:
             precondition(
@@ -311,7 +334,8 @@ public final class Target {
                 cxxSettings == nil &&
                 swiftSettings == nil &&
                 linkerSettings == nil &&
-                plugins == nil
+                plugins == nil &&
+                libraryType == nil
             )
         case .plugin:
             precondition(
@@ -325,7 +349,8 @@ public final class Target {
                 cxxSettings == nil &&
                 swiftSettings == nil &&
                 linkerSettings == nil &&
-                plugins == nil
+                plugins == nil &&
+                libraryType == nil
             )
         case .macro:
             precondition(
@@ -333,7 +358,8 @@ public final class Target {
                 resources == nil &&
                 pkgConfig == nil &&
                 providers == nil &&
-                pluginCapability == nil
+                pluginCapability == nil &&
+                libraryType == nil
             )
         }
     }
@@ -767,6 +793,66 @@ public final class Target {
             swiftSettings: swiftSettings,
             linkerSettings: linkerSettings,
             plugins: plugins
+        )
+    }
+
+    /// Creates a library target.
+    ///
+    /// TODO: Improve docs
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - type: The type of library.
+    ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
+    ///   - path: The custom path for the target. By default, Swift Package Manager requires a target's sources to reside at predefined search paths;
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that Swift Package Manager shouldn't consider to be source or resource files.
+    ///       A path is relative to the target's directory.
+    ///       This parameter has precedence over the ``sources`` parameter.
+    ///   - sources: An explicit list of source files. If you provide a path to a directory,
+    ///       Swift Package Manager searches for valid source files recursively.
+    ///   - resources: An explicit list of resources files.
+    ///   - publicHeadersPath: The directory that contains public headers of a C-family library target.
+    ///   - packageAccess: Allows package symbols from other targets in the package.
+    ///   - cSettings: The C settings for this target.
+    ///   - cxxSettings: The C++ settings for this target.
+    ///   - swiftSettings: The Swift settings for this target.
+    ///   - linkerSettings: The linker settings for this target.
+    ///   - plugins: The plug-ins used by this target.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func libraryTarget(
+        name: String,
+        type: LibraryType? = nil,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        resources: [Resource]? = nil,
+        publicHeadersPath: String? = nil,
+        packageAccess: Bool = true,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            resources: resources,
+            publicHeadersPath: publicHeadersPath,
+            type: .library,
+            packageAccess: packageAccess,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins,
+            libraryType: type
         )
     }
 

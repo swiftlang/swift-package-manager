@@ -330,6 +330,8 @@ extension BuildPlan {
                     continue
                 case .prebuilt:
                     continue
+                case .libraryAggregate:
+                    throw InternalError("unexpected aggregate library target '\(module.name)'")
                 }
 
             case .product(let product, let description):

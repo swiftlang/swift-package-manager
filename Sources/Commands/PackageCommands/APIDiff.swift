@@ -357,7 +357,7 @@ struct APIDiff: AsyncSwiftCommand {
                     }
                     continue
                 }
-                guard target.type == .library else {
+                guard target.type.isLibrary else {
                     if diagnoseMissingNames {
                         observabilityScope.emit(error: "'\(targetName)' is not a library target")
                     }

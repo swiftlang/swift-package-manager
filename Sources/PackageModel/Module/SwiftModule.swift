@@ -40,7 +40,7 @@ public final class SwiftModule: Module {
 
         super.init(
             name: name,
-            type: .library,
+            type: .library(libraryType: .object),
             path: .root,
             sources: testDiscoverySrc,
             dependencies: dependencies,

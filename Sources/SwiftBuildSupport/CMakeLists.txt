@@ -17,6 +17,7 @@ add_library(SwiftBuildSupport
   PackagePIFBuilder+Helpers.swift
   PackagePIFBuilder+Plugins.swift
   PackagePIFProjectBuilder.swift
+  PackagePIFProjectBuilder+LibraryModules.swift
   PackagePIFProjectBuilder+Modules.swift
   PackagePIFProjectBuilder+Products.swift
   PIF.swift

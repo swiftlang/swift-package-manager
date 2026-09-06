@@ -365,7 +365,11 @@ fileprivate extension SourceCodeFragment {
         var params: [SourceCodeFragment] = []
 
         params.append(SourceCodeFragment(key: "name", string: target.name))
-        
+
+        if let libraryType = target.type.libraryType, libraryType != .automatic {
+            params.append(SourceCodeFragment(key: "type", enum: libraryType.rawValue))
+        }
+
         if let pluginCapability = target.pluginCapability {
             let node = SourceCodeFragment(from: pluginCapability)
             params.append(SourceCodeFragment(key: "capability", subnode: node))
@@ -453,6 +457,8 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "plugin", subnodes: params, multiline: true)
         case .macro:
             self.init(enum: "macro", subnodes: params, multiline: true)
+        case .library:
+            self.init(enum: "libraryTarget", subnodes: params, multiline: true)
         }
     }
 
