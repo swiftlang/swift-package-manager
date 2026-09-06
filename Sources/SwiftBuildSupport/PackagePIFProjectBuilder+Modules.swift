@@ -15,13 +15,13 @@ import struct TSCBasic.OrderedSet
 import TSCUtility
 
 import struct Basics.AbsolutePath
+import struct Basics.InternalError
 import struct Basics.RelativePath
 import class Basics.ObservabilitySystem
 import func Basics.resolveSymlinks
 import struct Basics.SourceControlURL
 
 import class PackageModel.Manifest
-import class PackageModel.Module
 import class PackageModel.BinaryModule
 import enum PackageModel.PrebuiltsPlatform
 import class PackageModel.Product
@@ -95,7 +95,7 @@ extension PackagePIFProjectBuilder {
                         )
                     }
 
-                case .library, .systemModule, .test, .binary, .plugin, .macro:
+                case .library, .systemModule, .test, .binary, .plugin, .macro, .libraryAggregate:
                     let dependencyGUID = moduleDependency.pifTargetGUID
                     pluginTarget.common.addDependency(
                         on: dependencyGUID,
@@ -174,11 +174,27 @@ extension PackagePIFProjectBuilder {
 
     // MARK: - Library Modules
 
-    // Build a *static library* that can be linked together into other products.
     mutating func makeLibraryModule(_ libraryModule: PackageGraph.ResolvedModule) throws {
-        precondition(libraryModule.type == .library)
+        guard case .library(libraryType: let libraryType) = libraryModule.type else {
+            throw InternalError("expected a source library module, but got '\(libraryModule.type)'")
+        }
 
-        let (staticLibrary, resourceBundleName) = try buildSourceModule(libraryModule, type: .staticLibrary)
+        switch libraryType {
+        case .static:
+            let (staticArchive, _) = try buildSourceModule(libraryModule, type: .staticArchive)
+            self.builtModulesAndProducts.append(staticArchive)
+            return
+
+        case .dynamic:
+            let (dynamicLibrary, _) = try buildSourceModule(libraryModule, type: .dynamicLibrary)
+            self.builtModulesAndProducts.append(dynamicLibrary)
+            return
+
+        case .object, .automatic:
+            break
+        }
+
+        let (staticLibrary, resourceBundleName) = try buildSourceModule(libraryModule, type: .object)
         self.builtModulesAndProducts.append(staticLibrary)
 
         if self.shouldOfferDynamicTarget(libraryModule.name) {
@@ -207,7 +223,7 @@ extension PackagePIFProjectBuilder {
     // Build a test module that is depended upon by other test modules as a static library.
     mutating func makeTestSupportModule(_ testModule: PackageGraph.ResolvedModule) throws {
         precondition(testModule.type == .test)
-        let (staticLibrary, _) = try buildSourceModule(testModule, type: .staticLibrary)
+        let (staticLibrary, _) = try buildSourceModule(testModule, type: .object)
         self.builtModulesAndProducts.append(staticLibrary)
     }
 
@@ -239,7 +255,8 @@ extension PackagePIFProjectBuilder {
 
     enum SourceModuleType: String {
         case dynamicLibrary
-        case staticLibrary
+        case staticArchive
+        case object
         case executable
         case macro
     }
@@ -383,7 +400,11 @@ extension PackagePIFProjectBuilder {
                 productType = .framework
             }
 
-        case .staticLibrary:
+        case .staticArchive:
+            productType = .staticArchive
+
+        case .object:
+            // FIXME: .commonStaticArchive is poorly named, on many platforms it's a relocatable object or object library
             productType = .commonStaticArchive
 
         case .executable:
@@ -593,6 +614,11 @@ extension PackagePIFProjectBuilder {
             settings[.STRIP_INSTALLED_PRODUCT] = "NO"
 
             settings[.SWIFT_PACKAGE_NAME] = sourceModule.packageName
+
+            if desiredModuleType == .staticArchive {
+                settings[.EXECUTABLE_PREFIX] = "lib"
+                settings[.EXECUTABLE_PREFIX, ProjectModel.BuildSettings.Platform.windows] = ""
+            }
 
             // On Windows, disable static linking mode when this module is a dependency of a dynamic library,
             // or conditionally disable it when this module is a dependency of an automatic libray which can
@@ -861,7 +887,10 @@ extension PackagePIFProjectBuilder {
         sourceModule.addParseAsLibrarySettings(to: &settings, toolsVersion: package.manifest.toolsVersion, fileSystem: pifBuilder.fileSystem)
 
         // Handle the target's dependencies (but only link against them if needed).
-        let shouldLinkProduct = (desiredModuleType == .dynamicLibrary) || (desiredModuleType == .macro)
+        let shouldLinkProduct = switch desiredModuleType {
+        case .dynamicLibrary, .staticArchive, .macro: true
+        case .object, .executable: false
+        }
         var moduleTarget = self.project[keyPath: sourceModuleTargetKeyPath]
         let moduleMainProducts = self.package.products.filter(\.isMainModuleProduct)
         sourceModule.recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: []) { dependency in
@@ -935,7 +964,7 @@ extension PackagePIFProjectBuilder {
                     )
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyGUID)'")
 
-                case .library, .test, .macro, .systemModule:
+                case .library, .test, .macro, .systemModule, .libraryAggregate:
                     moduleTarget.common.addDependency(
                         on: moduleDependency.pifTargetGUID,
                         platformFilters: dependencyPlatformFilters,
