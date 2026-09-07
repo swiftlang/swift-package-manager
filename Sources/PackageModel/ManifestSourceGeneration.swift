@@ -441,6 +441,10 @@ fileprivate extension SourceCodeFragment {
         if let checksum = target.checksum {
             params.append(SourceCodeFragment(key: "checksum", string: checksum))
         }
+
+        if target.visibility != .package {
+            params.append(SourceCodeFragment(key: "visibility", enum: target.visibility.rawValue))
+        }
         
         switch target.type {
         case .regular:
@@ -467,8 +471,15 @@ fileprivate extension SourceCodeFragment {
         var params: [SourceCodeFragment] = []
 
         switch dependency {
-        case .target(name: let name, condition: let condition):
+        case .target(name: let name, package: let packageName, moduleAliases: let aliases, condition: let condition):
             params.append(SourceCodeFragment(key: "name", string: name))
+            if let packageName {
+                params.append(SourceCodeFragment(key: "package", string: packageName))
+            }
+            if let aliases {
+                let vals = aliases.map { SourceCodeFragment(key: $0.key.quotedForPackageManifest, string: $0.value) }
+                params.append(SourceCodeFragment(key: "moduleAliases", subnodes: vals))
+            }
             if let condition {
                 params.append(SourceCodeFragment(key: "condition", subnode: SourceCodeFragment(from: condition)))
             }

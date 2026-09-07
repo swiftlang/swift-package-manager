@@ -24,7 +24,8 @@ public final class LibraryModule: Module {
         buildSettings: BuildSettings.AssignmentTable = .init(),
         buildSettingsDescription: [TargetBuildSettingDescription.Setting] = [],
         pluginUsages: [PluginUsage] = [],
-        usesUnsafeFlags: Bool = false
+        usesUnsafeFlags: Bool = false,
+        visibility: TargetDescription.TargetVisibility = .package
     ) {
         super.init(
             name: name,
@@ -37,7 +38,8 @@ public final class LibraryModule: Module {
             buildSettingsDescription: buildSettingsDescription,
             pluginUsages: pluginUsages,
             usesUnsafeFlags: usesUnsafeFlags,
-            implicit: false
+            implicit: false,
+            visibility: visibility
         )
     }
 

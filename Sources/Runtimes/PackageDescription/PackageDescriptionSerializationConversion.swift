@@ -213,8 +213,13 @@ extension Serialization.TargetDependency.Condition {
 extension Serialization.TargetDependency {
     init(_ dependency: PackageDescription.Target.Dependency) {
         switch dependency {
-        case .targetItem(let name, let condition):
-            self = .target(name: name, condition: condition.map { .init($0) })
+        case .targetItem(let name, let package, let moduleAliases, let condition):
+            self = .target(
+                name: name,
+                package: package,
+                moduleAliases: moduleAliases,
+                condition: condition.map { .init($0) }
+            )
         case .productItem(let name, let package, let moduleAliases, let condition):
             self = .product(
                 name: name,
@@ -248,6 +253,15 @@ extension Serialization.LibraryType {
         switch type {
         case .dynamic: self = .dynamic
         case .static: self = .static
+        }
+    }
+}
+
+extension Serialization.TargetVisibility {
+    init(_ visibility: PackageDescription.TargetVisibility) {
+        switch visibility {
+        case .public: self = .public
+        case .package: self = .package
         }
     }
 }
@@ -319,6 +333,7 @@ extension Serialization.Target {
         self.publicHeadersPath = target.publicHeadersPath
         self.type = .init(target.type)
         self.libraryType = target.libraryType.map { .init($0) }
+        self.visibility = .init(target.visibility)
         self.pkgConfig = target.pkgConfig
         self.providers = target.providers?.map { .init($0) }
         self.pluginCapability = target.pluginCapability.map { .init($0) }
