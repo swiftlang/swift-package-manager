@@ -22,7 +22,7 @@ public typealias ResolvedTarget = ResolvedModule
 public struct ResolvedModule {
     /// Represents dependency of a resolved module.
     public enum Dependency {
-        /// Direct dependency of the module. This module is in the same package and should be statically linked.
+        /// The module depends on this module.
         case module(_ module: ResolvedModule, conditions: [PackageCondition])
 
         /// The module depends on this product.

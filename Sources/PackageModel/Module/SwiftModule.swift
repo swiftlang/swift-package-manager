@@ -82,7 +82,8 @@ public final class SwiftModule: Module {
         buildSettingsDescription: [TargetBuildSettingDescription.Setting] = [],
         pluginUsages: [PluginUsage] = [],
         usesUnsafeFlags: Bool,
-        implicit: Bool
+        implicit: Bool,
+        visibility: TargetDescription.TargetVisibility = .package
     ) {
         self.declaredSwiftVersions = declaredSwiftVersions
         self.clangModuleInfo = clangModuleInfo
@@ -101,7 +102,8 @@ public final class SwiftModule: Module {
             buildSettingsDescription: buildSettingsDescription,
             pluginUsages: pluginUsages,
             usesUnsafeFlags: usesUnsafeFlags,
-            implicit: implicit
+            implicit: implicit,
+            visibility: visibility
         )
     }
 

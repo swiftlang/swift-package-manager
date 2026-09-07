@@ -54,15 +54,23 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         }
     }
 
+    /// Controls which packages are allowed to depend on a target.
+    public enum TargetVisibility: String, Hashable, Codable, Sendable {
+        /// Only a target in the same package may depend on this target.
+        case `package`
+        /// A target in the same package or in a dependent package may depend on this target.
+        case `public`
+    }
+
     /// Represents a target's dependency on another entity.
     public enum Dependency: Hashable, Sendable {
-        case target(name: String, condition: PackageConditionDescription?)
+        case target(name: String, package: String?, moduleAliases: [String: String]? = nil, condition: PackageConditionDescription?)
         case product(name: String, package: String?, moduleAliases: [String: String]? = nil, condition: PackageConditionDescription?)
         case byName(name: String, condition: PackageConditionDescription?)
 
         public var condition: PackageConditionDescription? {
             switch self {
-            case .target(_, let condition):
+            case .target(_, _, _, let condition):
                 return condition
             case .product(_, _, _, let condition):
                 return condition
@@ -73,7 +81,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
 
         public var name: String {
             switch self {
-            case .target(let name, _):
+            case .target(let name, _, _, _):
                 return name
             case .product(let name, _, _, _):
                 return name
@@ -84,7 +92,8 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
 
         public var package: String? {
             switch self {
-            case .product(_, let name?, _, _),
+            case .target(_, let name?, _, _),
+                 .product(_, let name?, _, _),
                   .byName(let name, _): // Note: byName can either refer to a product or target dependency
                 return name
             default:
@@ -92,8 +101,22 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
             }
         }
 
+        /// The module aliases declared for this dependency, if any.
+        public var moduleAliases: [String: String]? {
+            switch self {
+            case .target(_, _, let moduleAliases, _), .product(_, _, let moduleAliases, _):
+                return moduleAliases
+            case .byName:
+                return nil
+            }
+        }
+
         public static func target(name: String) -> Dependency {
-            return .target(name: name, condition: nil)
+            return .target(name: name, package: nil, moduleAliases: nil, condition: nil)
+        }
+
+        public static func target(name: String, condition: PackageConditionDescription?) -> Dependency {
+            return .target(name: name, package: nil, moduleAliases: nil, condition: condition)
         }
 
         public static func product(name: String, package: String? = nil, moduleAliases: [String: String]? = nil) -> Dependency {
@@ -162,6 +185,9 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
 
     /// The type of target.
     public let type: TargetKind
+
+    /// Which packages are allowed to depend on this target.
+    public let visibility: TargetVisibility
 
     /// The pkg-config name of a system library target.
     public let pkgConfig: String?
@@ -238,7 +264,8 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         pluginCapability: PluginCapability? = nil,
         settings: [TargetBuildSettingDescription.Setting] = [],
         checksum: String? = nil,
-        pluginUsages: [PluginUsage]? = nil
+        pluginUsages: [PluginUsage]? = nil,
+        visibility: TargetVisibility = .package
     ) throws {
         let targetType = type.rawValue
         switch type {
@@ -476,6 +503,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         self.exclude = exclude
         self.resources = resources
         self.type = type
+        self.visibility = visibility
         self.packageAccess = packageAccess
         self.pkgConfig = pkgConfig
         self.providers = providers
@@ -494,10 +522,12 @@ extension TargetDescription.Dependency: Codable {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
-        case let .target(a1, a2):
+        case let .target(a1, a2, a3, a4):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .target)
             try unkeyedContainer.encode(a1)
             try unkeyedContainer.encode(a2)
+            try unkeyedContainer.encode(a3)
+            try unkeyedContainer.encode(a4)
         case let .product(a1, a2, a3, a4):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .product)
             try unkeyedContainer.encode(a1)
@@ -520,8 +550,10 @@ extension TargetDescription.Dependency: Codable {
         case .target:
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
             let a1 = try unkeyedValues.decode(String.self)
-            let a2 = try unkeyedValues.decodeIfPresent(PackageConditionDescription.self)
-            self = .target(name: a1, condition: a2)
+            let a2 = try unkeyedValues.decodeIfPresent(String.self)
+            let a3 = try unkeyedValues.decodeIfPresent([String: String].self)
+            let a4 = try unkeyedValues.decodeIfPresent(PackageConditionDescription.self)
+            self = .target(name: a1, package: a2, moduleAliases: a3, condition: a4)
         case .product:
             var unkeyedValues = try values.nestedUnkeyedContainer(forKey: key)
             let a1 = try unkeyedValues.decode(String.self)
