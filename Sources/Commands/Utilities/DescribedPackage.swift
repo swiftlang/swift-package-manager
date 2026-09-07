@@ -231,6 +231,7 @@ struct DescribedPackage: Encodable {
     struct DescribedTarget: Encodable {
         let name: String
         let type: String
+        let visibility: String
         let c99name: String?
         let moduleType: String?
         let pluginCapability: DescribedPluginCapability?
@@ -238,12 +239,14 @@ struct DescribedPackage: Encodable {
         let sources: [String]
         let resources: [PackageModel.Resource]?
         let targetDependencies: [String]?
+        let externalTargetDependencies: [String]?
         let productDependencies: [String]?
         let productMemberships: [String]?
         
         init(from target: Module, in package: Package, productMemberships: [String]?) {
             self.name = target.name
             self.type = target.type.rawValue
+            self.visibility = target.visibility.rawValue
             self.c99name = target.c99name
             self.moduleType = Swift.type(of: target).typeDescription
             self.pluginCapability = (target as? PluginModule).map{ DescribedPluginCapability(from: $0.capability, in: package) }
@@ -252,6 +255,8 @@ struct DescribedPackage: Encodable {
             self.resources = target.resources.isEmpty ? nil : target.resources
             let targetDependencies = target.dependencies.compactMap{ $0.module }
             self.targetDependencies = targetDependencies.isEmpty ? nil : targetDependencies.map{ $0.name }
+            let externalTargetDependencies = target.dependencies.compactMap{ $0.externalModule }
+            self.externalTargetDependencies = externalTargetDependencies.isEmpty ? nil : externalTargetDependencies.map{ $0.name }
             let productDependencies = target.dependencies.compactMap{ $0.product }
             self.productDependencies = productDependencies.isEmpty ? nil : productDependencies.map{ $0.name }
             self.productMemberships = productMemberships
