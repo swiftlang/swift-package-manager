@@ -682,7 +682,8 @@ public final class PackageBuilder {
                 name: target.name,
                 path: path,
                 type: target.type,
-                packageAccess: target.packageAccess
+                packageAccess: target.packageAccess,
+                visibility: target.visibility
             )
         }
 
@@ -742,11 +743,14 @@ public final class PackageBuilder {
                     return nil
                 }
                 switch dep {
-                case .target(let name, _):
+                case .target(let name, package: nil, _, _):
                     // Since we already checked above that all referenced targets
                     // has to present, we always expect this target to be present in
                     // potentialModules dictionary.
                     return potentialModuleMap[name]!
+                case .target:
+                    // A dependency on a target in another package is resolved later.
+                    return nil
                 case .product:
                     return nil
                 case .byName(let name, _):
@@ -803,11 +807,18 @@ public final class PackageBuilder {
                         return nil
                     }
                     switch dependency {
-                    case .target(let name, let condition):
+                    case .target(let name, package: nil, _, let condition):
                         // We don't create an object for targets which have no sources.
                         if emptyModules.contains(name) { return nil }
                         guard let target = targets[name] else { return nil }
                         return .module(target, conditions: buildConditions(from: condition))
+
+                    case .target(let name, package: let package?, let moduleAliases, let condition):
+                        try validateModuleAliases(moduleAliases)
+                        return .externalModule(
+                            .init(name: name, package: package, moduleAliases: moduleAliases),
+                            conditions: buildConditions(from: condition)
+                        )
 
                     case .product(let name, let package, let moduleAliases, let condition):
                         try validateModuleAliases(moduleAliases)
@@ -925,7 +936,8 @@ public final class PackageBuilder {
                 name: potentialModule.name,
                 path: path, isImplicit: false,
                 pkgConfig: manifestTarget.pkgConfig,
-                providers: manifestTarget.providers
+                providers: manifestTarget.providers,
+                visibility: potentialModule.visibility
             )
         } else if potentialModule.type == .binary {
             guard let path = potentialModule.path else {
@@ -939,7 +951,8 @@ public final class PackageBuilder {
                 name: potentialModule.name,
                 kind: artifact.kind,
                 path: path,
-                origin: artifactOrigin
+                origin: artifactOrigin,
+                visibility: potentialModule.visibility
             )
         }
 
@@ -1011,7 +1024,8 @@ public final class PackageBuilder {
                     toolsSwiftVersion: self.toolsSwiftVersion()
                 ),
                 buildSettingsDescription: manifestTarget.settings,
-                usesUnsafeFlags: self.manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags
+                usesUnsafeFlags: self.manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
+                visibility: potentialModule.visibility
             )
         }
 
@@ -1077,7 +1091,8 @@ public final class PackageBuilder {
                 apiVersion: self.manifest.toolsVersion,
                 pluginCapability: PluginCapability(from: declaredCapability),
                 dependencies: dependencies,
-                packageAccess: potentialModule.packageAccess
+                packageAccess: potentialModule.packageAccess,
+                visibility: potentialModule.visibility
             )
         }
 
@@ -1151,7 +1166,8 @@ public final class PackageBuilder {
                 buildSettingsDescription: manifestTarget.settings,
                 // unsafe flags check disabled in 6.2
                 usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
-                implicit: false
+                implicit: false,
+                visibility: potentialModule.visibility
             )
         } else {
             // It's not a Swift target, so it's a Clang target (those are the only two types of source target currently
@@ -1198,7 +1214,8 @@ public final class PackageBuilder {
                 buildSettingsDescription: manifestTarget.settings,
                 // unsafe flags check disabled in 6.2
                 usesUnsafeFlags: manifest.toolsVersion >= .v6_2 ? false : manifestTarget.usesUnsafeFlags,
-                implicit: false
+                implicit: false,
+                visibility: potentialModule.visibility
             )
         }
     }
@@ -2002,6 +2019,9 @@ private struct PotentialModule: Hashable {
 
     /// If true, access to package declarations from other modules is allowed.
     let packageAccess: Bool
+
+    /// Which packages are allowed to depend on this module.
+    let visibility: TargetDescription.TargetVisibility
 }
 
 extension Manifest {
@@ -2010,9 +2030,9 @@ extension Manifest {
         let names = targetsRequired(for: productFilter).flatMap { target in
             [target.name] + target.dependencies.compactMap {
                 switch $0 {
-                case .target(let name, _):
+                case .target(let name, package: nil, _, _):
                     name
-                case .byName, .product:
+                case .target, .byName, .product:
                     nil
                 }
             }
@@ -2044,6 +2064,8 @@ extension Module.Dependency {
             "target-\(name)"
         case .product:
             "product-\(name)"
+        case .externalModule(let module, _):
+            "target-\(module.package)-\(name)"
         }
     }
 }
