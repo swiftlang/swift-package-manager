@@ -40,7 +40,7 @@ public extension Target {
         )
     }
 
-    @available(_PackageDescription, introduced: 6.5)
+    @available(_PackageDescription, introduced: 6.5, obsoleted: 999.0)
     static func macro(
         name: String,
         dependencies: [Dependency] = [],
@@ -69,6 +69,40 @@ public extension Target {
             swiftSettings: swiftSettings,
             linkerSettings: linkerSettings,
             plugins: plugins
+        )
+    }
+
+    @available(_PackageDescription, introduced: 999.0)
+    static func macro(
+        name: String,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        publicHeadersPath: String? = nil,
+        packageAccess: Bool = true,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil,
+        visibility: TargetVisibility = .package
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            publicHeadersPath: publicHeadersPath,
+            type: .macro,
+            packageAccess: packageAccess,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins,
+            visibility: visibility
         )
     }
 }

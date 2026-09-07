@@ -78,6 +78,33 @@ enum PackageGraphError: Swift.Error {
     /// A product was found in multiple packages.
     case duplicateProduct(product: String, packages: [Package])
 
+    /// A dependency on a target referenced an unknown package.
+    case externalModuleDependencyPackageNotFound(
+        moduleName: String,
+        dependentModuleName: String,
+        packageName: String
+    )
+
+    /// A target has a dependency on an unknown target.
+    case externalModuleDependencyNotFound(
+        moduleName: String,
+        dependentModuleName: String,
+        packageName: String
+    )
+
+    /// A dependency on a target referenced a non-public target in another package.
+    case externalModuleDependencyNotPublic(
+        moduleName: String,
+        dependentModuleName: String,
+        packageName: String
+    )
+
+    /// FIXME: Support module aliases on cross package target deps.
+    case moduleAliasesUnsupportedForExternalModuleDependency(
+        moduleName: String,
+        dependentModuleName: String
+    )
+
     /// Duplicate aliases for a target found in a product.
     case multipleModuleAliases(
         module: String,
@@ -383,6 +410,14 @@ extension PackageGraphError: CustomStringConvertible {
               trailingMsg = " from package '\(dependencyPackage)'"
             }
             return "plugin '\(targetName)' cannot depend on '\(dependencyName)' of type '\(dependencyType)'\(trailingMsg); this dependency is unsupported"
+        case .externalModuleDependencyPackageNotFound(let moduleName, let dependentModuleName, let packageName):
+            return "target '\(moduleName)' required by target '\(dependentModuleName)' not found; could not find package '\(packageName)'"
+        case .externalModuleDependencyNotFound(let moduleName, let dependentModuleName, let packageName):
+            return "target '\(moduleName)' required by target '\(dependentModuleName)' not found in package '\(packageName)'"
+        case .externalModuleDependencyNotPublic(let moduleName, let dependentModuleName, let packageName):
+            return "target '\(moduleName)' in package '\(packageName)' can't be a dependency of target '\(dependentModuleName)'; only targets declared with 'visibility: .public' may be depended on from another package"
+        case .moduleAliasesUnsupportedForExternalModuleDependency(let moduleName, let dependentModuleName):
+            return "FIXME: unimplemented"
         }
     }
 }

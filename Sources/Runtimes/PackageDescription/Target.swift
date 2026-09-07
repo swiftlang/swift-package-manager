@@ -17,6 +17,15 @@ public enum LibraryType: String {
     case `dynamic`
 }
 
+/// Controls which packages are allowed to depend on a target.
+@available(_PackageDescription, introduced: 999.0)
+public enum TargetVisibility: String {
+    /// A target in the same package or in a dependent package may depend on this target.
+    case `public`
+    /// Only a target in the same package may depend on this target.
+    case `package`
+}
+
 /// The basic building block of a Swift package.
 ///
 /// Each target contains a set of source files that Swift Package Manager compiles into a module
@@ -54,8 +63,10 @@ public final class Target {
         ///
         ///  - Parameters:
         ///    - name: The name of the target.
+        ///    - package: The name of the package containing the target, or `nil` if it is in the same package.
+        ///    - moduleAliases: The module aliases for the target.
         ///    - condition: A condition that limits the application of the target dependency. For example, only apply a dependency for a specific platform.
-        case targetItem(name: String, condition: TargetDependencyCondition?)
+        case targetItem(name: String, package: String?, moduleAliases: [String: String]?, condition: TargetDependencyCondition?)
         /// A dependency on a product.
         ///
         /// - Parameters:
@@ -144,6 +155,10 @@ public final class Target {
     /// The type of library this target represents.
     @available(_PackageDescription, introduced: 999.0)
     public let libraryType: LibraryType?
+
+    /// Which packages are allowed to depend on this target.
+    @available(_PackageDescription, introduced: 999.0)
+    public let visibility: TargetVisibility
 
     /// If true, access to package declarations from other targets in the package is allowed.
     public let packageAccess: Bool
@@ -262,7 +277,8 @@ public final class Target {
         linkerSettings: [LinkerSetting]? = nil,
         checksum: String? = nil,
         plugins: [PluginUsage]? = nil,
-        libraryType: LibraryType? = nil
+        libraryType: LibraryType? = nil,
+        visibility: TargetVisibility = .package
     ) {
         self.name = name
         self.dependencies = dependencies
@@ -274,6 +290,7 @@ public final class Target {
         self.exclude = exclude
         self.type = type
         self.libraryType = libraryType
+        self.visibility = visibility
         self.packageAccess = packageAccess
         self.pkgConfig = pkgConfig
         self.providers = providers
@@ -590,7 +607,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target
-    @available(_PackageDescription, introduced: 5.9)
+    @available(_PackageDescription, introduced: 5.9, obsoleted: 999.0)
     public static func target(
         name: String,
         dependencies: [Dependency] = [],
@@ -621,6 +638,68 @@ public final class Target {
             swiftSettings: swiftSettings,
             linkerSettings: linkerSettings,
             plugins: plugins
+        )
+    }
+
+    /// Creates a regular target.
+    ///
+    /// A target can contain either Swift or C-family source files, but not both. It contains code that is built as
+    /// a regular module for inclusion in a library or executable product, but that cannot itself be used as
+    /// the main target of an executable product.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
+    ///   - path: The custom path for the target. By default, Swift Package Manager requires a target's sources to reside at predefined search paths;
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that Swift Package Manager shouldn't consider to be source or resource files.
+    ///       A path is relative to the target's directory.
+    ///       This parameter has precedence over the ``sources`` parameter.
+    ///   - sources: An explicit list of source files. If you provide a path to a directory,
+    ///       Swift Package Manager searches for valid source files recursively.
+    ///   - resources: An explicit list of resources files.
+    ///   - publicHeadersPath: The directory that contains public headers of a C-family library target.
+    ///   - packageAccess: Allows package symbols from other targets in the package.
+    ///   - cSettings: The C settings for this target.
+    ///   - cxxSettings: The C++ settings for this target.
+    ///   - swiftSettings: The Swift settings for this target.
+    ///   - linkerSettings: The linker settings for this target.
+    ///   - plugins: The plug-ins used by this target
+    ///   - visibility: Which packages are allowed to depend on this target.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func target(
+        name: String,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        resources: [Resource]? = nil,
+        publicHeadersPath: String? = nil,
+        packageAccess: Bool = true,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil,
+        visibility: TargetVisibility = .package
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            resources: resources,
+            publicHeadersPath: publicHeadersPath,
+            type: .regular,
+            packageAccess: packageAccess,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins,
+            visibility: visibility
         )
     }
 
@@ -762,7 +841,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target
-    @available(_PackageDescription, introduced: 5.9)
+    @available(_PackageDescription, introduced: 5.9, obsoleted: 999.0)
     public static func executableTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -796,6 +875,69 @@ public final class Target {
         )
     }
 
+    /// Creates an executable target.
+    ///
+    /// An executable target can contain either Swift or C-family source files, but not both. It contains code that
+    /// is built as an executable module for use as the main target of an executable product. The target
+    /// is expected to either have a source file named `main.swift`, `main.m`, `main.c`, or `main.cpp`, or a source
+    /// file that contains the `@main` keyword.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
+    ///   - path: The custom path for the target. By default, Swift Package Manager requires a target's sources to reside at predefined search paths;
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that Swift Package Manager shouldn't consider to be source or resource files.
+    ///       A path is relative to the target's directory.
+    ///       This parameter has precedence over the ``sources`` parameter.
+    ///   - sources: An explicit list of source files. If you provide a path to a directory,
+    ///       Swift Package Manager searches for valid source files recursively.
+    ///   - resources: An explicit list of resources files.
+    ///   - publicHeadersPath: The directory that contains public headers of a C-family library target.
+    ///   - packageAccess: Allows package symbols from other targets in the package.
+    ///   - cSettings: The C settings for this target.
+    ///   - cxxSettings: The C++ settings for this target.
+    ///   - swiftSettings: The Swift settings for this target.
+    ///   - linkerSettings: The linker settings for this target.
+    ///   - plugins: The plug-ins used by this target
+    ///   - visibility: Which packages are allowed to depend on this target.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func executableTarget(
+        name: String,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        resources: [Resource]? = nil,
+        publicHeadersPath: String? = nil,
+        packageAccess: Bool = true,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil,
+        visibility: TargetVisibility = .package
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            resources: resources,
+            publicHeadersPath: publicHeadersPath,
+            type: .executable,
+            packageAccess: packageAccess,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins,
+            visibility: visibility
+        )
+    }
+
     /// Creates a library target.
     ///
     /// TODO: Improve docs
@@ -820,6 +962,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target.
+    ///   - visibility: Which packages are allowed to depend on this target.
     @available(_PackageDescription, introduced: 999.0)
     public static func libraryTarget(
         name: String,
@@ -835,7 +978,8 @@ public final class Target {
         cxxSettings: [CXXSetting]? = nil,
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
-        plugins: [PluginUsage]? = nil
+        plugins: [PluginUsage]? = nil,
+        visibility: TargetVisibility = .package
     ) -> Target {
         return Target(
             name: name,
@@ -852,7 +996,8 @@ public final class Target {
             swiftSettings: swiftSettings,
             linkerSettings: linkerSettings,
             plugins: plugins,
-            libraryType: type
+            libraryType: type,
+            visibility: visibility
         )
     }
 
@@ -1125,7 +1270,7 @@ public final class Target {
     ///   - swiftSettings: The Swift settings for this target.
     ///   - linkerSettings: The linker settings for this target.
     ///   - plugins: The plug-ins used by this target.
-    @available(_PackageDescription, introduced: 6.5)
+    @available(_PackageDescription, introduced: 6.5, obsoleted: 999.0)
     public static func testTarget(
         name: String,
         dependencies: [Dependency] = [],
@@ -1159,6 +1304,67 @@ public final class Target {
         )
     }
 
+    /// Creates a test target.
+    ///
+    /// Write test targets using the Swift Testing or XCTest testing frameworks.
+    /// Test targets generally declare a dependency on the targets they test.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - dependencies: The dependencies of the target. A dependency can be another target in the package or a product from a package dependency.
+    ///   - path: The custom path for the target. By default, Swift Package Manager requires a target's sources to reside at predefined search paths;
+    ///       for example, `[PackageRoot]/Sources/[TargetName]`.
+    ///       Don't escape the package root; for example, values like `../Foo` or `/Foo` are invalid.
+    ///   - exclude: A list of paths to files or directories that Swift Package Manager shouldn't consider to be source or resource files.
+    ///       A path is relative to the target's directory.
+    ///       This parameter has precedence over the ``sources`` parameter.
+    ///   - sources: An explicit list of source files. If you provide a path to a directory,
+    ///       Swift Package Manager searches for valid source files recursively.
+    ///   - resources: An explicit list of resources files.
+    ///   - publicHeadersPath: The directory containing public headers of a target that contains C-family sources.
+    ///   - packageAccess: Allows access to package symbols from other targets in the package.
+    ///   - cSettings: The C settings for this target.
+    ///   - cxxSettings: The C++ settings for this target.
+    ///   - swiftSettings: The Swift settings for this target.
+    ///   - linkerSettings: The linker settings for this target.
+    ///   - plugins: The plug-ins used by this target.
+    ///   - visibility: Which packages are allowed to depend on this target.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func testTarget(
+        name: String,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        resources: [Resource]? = nil,
+        publicHeadersPath: String? = nil,
+        packageAccess: Bool = true,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil,
+        visibility: TargetVisibility = .package
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            resources: resources,
+            publicHeadersPath: publicHeadersPath,
+            type: .test,
+            packageAccess: packageAccess,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins,
+            visibility: visibility
+        )
+    }
+
     /// Creates a system library target.
     ///
     /// Use system library targets to adapt a library installed on the system to
@@ -1175,6 +1381,7 @@ public final class Target {
     ///     that is, values like `../Foo` or `/Foo` are invalid.
     ///   - pkgConfig: The name of the `pkg-config` file for this system library.
     ///   - providers: The providers for this system library.
+    @available(_PackageDescription, obsoleted: 999.0)
     public static func systemLibrary(
         name: String,
         path: String? = nil,
@@ -1194,6 +1401,45 @@ public final class Target {
             providers: providers)
     }
 
+    /// Creates a system library target.
+    ///
+    /// Use system library targets to adapt a library installed on the system to
+    /// work with Swift packages. Such libraries are generally installed by
+    /// system package managers (such as Homebrew and apt-get) and exposed to
+    /// Swift packages by providing a `modulemap` file along with other metadata
+    /// such as the library's `pkgConfig` name.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - path: The custom path for the target. By default, a targets sources
+    ///     are expected to be located in the predefined search paths, such as
+    ///     `[PackageRoot]/Sources/[TargetName]`. Do not escape the package root;
+    ///     that is, values like `../Foo` or `/Foo` are invalid.
+    ///   - pkgConfig: The name of the `pkg-config` file for this system library.
+    ///   - providers: The providers for this system library.
+    ///   - visibility: Which packages are allowed to depend on this target.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func systemLibrary(
+        name: String,
+        path: String? = nil,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProvider]? = nil,
+        visibility: TargetVisibility = .package
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: [],
+            path: path,
+            exclude: [],
+            sources: nil,
+            publicHeadersPath: nil,
+            type: .system,
+            packageAccess: false,
+            pkgConfig: pkgConfig,
+            providers: providers,
+            visibility: visibility)
+    }
+
     /// Creates a binary target that references a remote artifact.
     ///
     /// Binary targets are only available on Apple platforms.
@@ -1204,7 +1450,7 @@ public final class Target {
     ///     file that contains a binary artifact in its root directory.
     ///   - checksum: The checksum of the archive file that contains the binary
     ///     artifact.
-    @available(_PackageDescription, introduced: 5.3)
+    @available(_PackageDescription, introduced: 5.3, obsoleted: 999.0)
     public static func binaryTarget(
         name: String,
         url: String,
@@ -1223,6 +1469,38 @@ public final class Target {
             checksum: checksum)
     }
 
+    /// Creates a binary target that references a remote artifact.
+    ///
+    /// Binary targets are only available on Apple platforms.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - url: The URL to the binary artifact. This URL must point to an archive
+    ///     file that contains a binary artifact in its root directory.
+    ///   - checksum: The checksum of the archive file that contains the binary
+    ///     artifact.
+    ///   - visibility: Which packages are allowed to depend on this target.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func binaryTarget(
+        name: String,
+        url: String,
+        checksum: String,
+        visibility: TargetVisibility = .package
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: [],
+            path: nil,
+            url: url,
+            exclude: [],
+            sources: nil,
+            publicHeadersPath: nil,
+            type: .binary,
+            packageAccess: false,
+            checksum: checksum,
+            visibility: visibility)
+    }
+
     /// Creates a binary target that references an artifact on disk.
     ///
     /// Binary targets are only available on Apple platforms.
@@ -1232,7 +1510,7 @@ public final class Target {
     ///   - path: The path to the binary artifact. This path can point directly to
     ///     a binary artifact or to an archive file that contains the binary
     ///     artifact at its root.
-    @available(_PackageDescription, introduced: 5.3)
+    @available(_PackageDescription, introduced: 5.3, obsoleted: 999.0)
     public static func binaryTarget(
         name: String,
         path: String
@@ -1246,6 +1524,34 @@ public final class Target {
             publicHeadersPath: nil,
             type: .binary,
             packageAccess: false)
+    }
+
+    /// Creates a binary target that references an artifact on disk.
+    ///
+    /// Binary targets are only available on Apple platforms.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - path: The path to the binary artifact. This path can point directly to
+    ///     a binary artifact or to an archive file that contains the binary
+    ///     artifact at its root.
+    ///   - visibility: Which packages are allowed to depend on this target.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func binaryTarget(
+        name: String,
+        path: String,
+        visibility: TargetVisibility = .package
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: [],
+            path: path,
+            exclude: [],
+            sources: nil,
+            publicHeadersPath: nil,
+            type: .binary,
+            packageAccess: false,
+            visibility: visibility)
     }
     
     /// Defines a new package plugin target.
@@ -1354,7 +1660,7 @@ public final class Target {
     ///   - sources: The source files in the plug-in target.
     ///   - packageAccess: Allows access to package symbols from other targets in the package.
     /// - Returns: A `Target` instance.
-    @available(_PackageDescription, introduced: 5.9)
+    @available(_PackageDescription, introduced: 5.9, obsoleted: 999.0)
     public static func plugin(
         name: String,
         capability: PluginCapability,
@@ -1375,6 +1681,50 @@ public final class Target {
             packageAccess: packageAccess,
             pluginCapability: capability)
     }
+
+    /// Defines a new package plug-in target.
+    ///
+    /// A plug-in target provides custom build commands to SwiftPM (and to
+    /// any IDEs based on libSwiftPM).
+    ///
+    /// The capability determines what kind of build commands it can add. Besides
+    /// determining at what point in the build those commands run, the capability
+    /// determines the context that is available to the plug-in and the kinds of
+    /// commands it can create.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the plug-in target.
+    ///   - capability: The type of capability the plug-in target provides.
+    ///   - dependencies: The plug-in target's dependencies.
+    ///   - path: The path of the plug-in target relative to the package root.
+    ///   - exclude: The paths to source and resource files that you want to exclude from the plug-in target.
+    ///   - sources: The source files in the plug-in target.
+    ///   - packageAccess: Allows access to package symbols from other targets in the package.
+    ///   - visibility: Which packages are allowed to depend on this target.
+    /// - Returns: A `Target` instance.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func plugin(
+        name: String,
+        capability: PluginCapability,
+        dependencies: [Dependency] = [],
+        path: String? = nil,
+        exclude: [String] = [],
+        sources: [String]? = nil,
+        packageAccess: Bool = true,
+        visibility: TargetVisibility = .package
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: path,
+            exclude: exclude,
+            sources: sources,
+            publicHeadersPath: nil,
+            type: .plugin,
+            packageAccess: packageAccess,
+            pluginCapability: capability,
+            visibility: visibility)
+    }
 }
 
 extension Target.Dependency {
@@ -1389,7 +1739,7 @@ extension Target.Dependency {
     /// - Returns: A `Target.Dependency` instance.
     @available(_PackageDescription, obsoleted: 5.3)
     public static func target(name: String) -> Target.Dependency {
-        return .targetItem(name: name, condition: nil)
+        return .targetItem(name: name, package: nil, moduleAliases: nil, condition: nil)
     }
 
     /// Creates a dependency on a product from a package dependency.
@@ -1437,7 +1787,27 @@ extension Target.Dependency {
     /// - Returns: A `Target.Dependency` instance.
 @available(_PackageDescription, introduced: 5.3)
     public static func target(name: String, condition: TargetDependencyCondition? = nil) -> Target.Dependency {
-        return .targetItem(name: name, condition: condition)
+        return .targetItem(name: name, package: nil, moduleAliases: nil, condition: condition)
+    }
+
+    /// Creates a dependency on a target with `visibility: .public` from a package dependency.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the target.
+    ///   - package: The name of the package containing the target.
+    ///   - moduleAliases: The module aliases for the target.
+    ///   - condition: A condition that limits the application of the target
+    ///     dependency. For example, only apply a dependency for a specific
+    ///     platform.
+    /// - Returns: A `Target.Dependency` instance.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func target(
+        name: String,
+        package: String,
+        moduleAliases: [String: String]? = nil,
+        condition: TargetDependencyCondition? = nil
+    ) -> Target.Dependency {
+        return .targetItem(name: name, package: package, moduleAliases: moduleAliases, condition: condition)
     }
 
     /// Creates a target dependency on a product from a package dependency.
