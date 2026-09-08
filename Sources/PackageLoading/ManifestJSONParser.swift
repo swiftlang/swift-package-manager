@@ -227,7 +227,7 @@ enum ManifestJSONParser {
             providers: providers,
             pluginCapability: pluginCapability,
             settings: try Self.parseBuildSettings(target),
-            explicitSettings: explictSettings,
+            explicitSettings: explicitSettings,
             checksum: target.checksum,
             pluginUsages: pluginUsages
         )
