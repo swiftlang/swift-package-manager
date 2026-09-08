@@ -31,6 +31,30 @@ extension URL {
             }
         }
     }
+
+    /// Whether this URL and `other` address the same web origin: identical scheme, host, and
+    /// effective port, per RFC 6454.
+    ///
+    /// Hostless URLs have no origin and never match, including against themselves.
+    package func hasSameOrigin(as other: URL) -> Bool {
+        guard let host = self.host?.lowercased(), let otherHost = other.host?.lowercased() else {
+            return false
+        }
+        return host == otherHost
+            && self.scheme?.lowercased() == other.scheme?.lowercased()
+            && self.effectivePort == other.effectivePort
+    }
+
+    private var effectivePort: Int? {
+        if let port = self.port {
+            return port
+        }
+        switch self.scheme?.lowercased() {
+        case "https": return 443
+        case "http": return 80
+        default: return nil
+        }
+    }
 }
 
 fileprivate enum FileURLError: Error {

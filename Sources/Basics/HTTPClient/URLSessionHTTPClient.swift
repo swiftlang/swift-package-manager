@@ -208,15 +208,9 @@ private final class DataTaskManager: NSObject, URLSessionDataDelegate {
             return
         }
 
-        // Add new authorization header for a redirect if there is one, otherwise remove
-        var redirectRequest = request
-        if let redirectURL = request.url, let authorization = task.authorizationProvider?(redirectURL) {
-            redirectRequest.setValue(authorization, forHTTPHeaderField: "Authorization")
-        } else {
-            redirectRequest.setValue(nil, forHTTPHeaderField: "Authorization")
-        }
-
-        completionHandler(redirectRequest)
+        completionHandler(
+            request.redirecting(from: response, authorizationProvider: task.authorizationProvider)
+        )
     }
 
     struct DataTask: Sendable {
@@ -356,15 +350,9 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
             return
         }
 
-        // Add new authorization header for a redirect if there is one, otherwise remove
-        var redirectRequest = request
-        if let redirectURL = request.url, let authorization = task.authorizationProvider?(redirectURL) {
-            redirectRequest.setValue(authorization, forHTTPHeaderField: "Authorization")
-        } else {
-            redirectRequest.setValue(nil, forHTTPHeaderField: "Authorization")
-        }
-
-        completionHandler(redirectRequest)
+        completionHandler(
+            request.redirecting(from: response, authorizationProvider: task.authorizationProvider)
+        )
     }
 
     struct DownloadTask: Sendable {
@@ -398,6 +386,25 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
 }
 
 extension URLRequest {
+    /// URLSession replays the original request's headers onto the redirect it proposes, so a hop
+    /// that changes origin has to have its credentials stripped explicitly.
+    func redirecting(
+        from response: HTTPURLResponse,
+        authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
+    ) -> URLRequest {
+        var redirected = self
+
+        guard let destination = self.url, let source = response.url, source.hasSameOrigin(as: destination) else {
+            redirected.setValue(nil, forHTTPHeaderField: "Authorization")
+            redirected.setValue(nil, forHTTPHeaderField: "Proxy-Authorization")
+            redirected.setValue(nil, forHTTPHeaderField: "Cookie")
+            return redirected
+        }
+
+        redirected.setValue(authorizationProvider?(destination), forHTTPHeaderField: "Authorization")
+        return redirected
+    }
+
     init(_ request: LegacyHTTPClient.Request) {
         self.init(url: request.url)
         self.httpMethod = request.method.string

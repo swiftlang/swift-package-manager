@@ -91,9 +91,7 @@ public final class RegistryClient: AsyncCancellable {
                     return .none
                 }
 
-                // authentication(for:) throws only for hostless URLs, which environment
-                // variable providers may still return credentials for. In that case, fall
-                // through to type inference below.
+                // `configuration.authentication(for:)` throws for hostless URLs.
                 let authType = (try? configuration.authentication(for: url))?.type
 
                 switch authType {

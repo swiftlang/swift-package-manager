@@ -58,7 +58,9 @@ extension PackageRegistryCommand {
                 throw ValidationError.unknownRegistry
             }
 
-            let authorizationProvider = try swiftCommandState.getRegistryAuthorizationProvider()
+            let authorizationProvider = try swiftCommandState.getRegistryAuthorizationProvider(
+                additionalRegistryURLs: [self.registry].compactMap { $0 }
+            )
             let registryClient = RegistryClient(
                 configuration: configuration,
                 fingerprintStorage: .none,

@@ -365,15 +365,17 @@ extension Workspace.Configuration {
 
         public func makeRegistryAuthorizationProvider(
             fileSystem: FileSystem,
-            observabilityScope: ObservabilityScope
+            observabilityScope: ObservabilityScope,
+            registryURLs: () throws -> [URL]
         ) throws -> AuthorizationProvider? {
             let env = Environment.current
             if let token = ConfigurableEnvVar.SWIFTPM_REGISTRY_TOKEN.value(from: env), !token.isEmpty {
-                return EnvironmentAuthorizationProvider(kind: .registry)
+                // registryURLs can be read from disk and so we call the closure only when needed.
+                return try EnvironmentAuthorizationProvider(kind: .registry(origins: registryURLs()))
             }
             if let login = ConfigurableEnvVar.SWIFTPM_REGISTRY_LOGIN.value(from: env), !login.isEmpty,
                let password = ConfigurableEnvVar.SWIFTPM_REGISTRY_PASSWORD.value(from: env), !password.isEmpty {
-                return EnvironmentAuthorizationProvider(kind: .registry)
+                return try EnvironmentAuthorizationProvider(kind: .registry(origins: registryURLs()))
             } else if let login = ConfigurableEnvVar.SWIFTPM_REGISTRY_LOGIN.value(from: env), !login.isEmpty {
                 observabilityScope.emit(
                     warning: "SWIFTPM_REGISTRY_LOGIN is set but SWIFTPM_REGISTRY_PASSWORD is not; both are required for login/password authentication"

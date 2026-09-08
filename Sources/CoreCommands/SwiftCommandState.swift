@@ -823,7 +823,9 @@ public final class SwiftCommandState {
         )
     }
 
-    public func getRegistryAuthorizationProvider() throws -> AuthorizationProvider? {
+    public func getRegistryAuthorizationProvider(
+        additionalRegistryURLs: [URL] = []
+    ) throws -> AuthorizationProvider? {
         var authorization = Workspace.Configuration.Authorization.default
         if let configuredPath = options.security.netrcFilePath {
             authorization.netrc = .custom(configuredPath)
@@ -838,8 +840,21 @@ public final class SwiftCommandState {
 
         return try authorization.makeRegistryAuthorizationProvider(
             fileSystem: self.fileSystem,
-            observabilityScope: self.observabilityScope
+            observabilityScope: self.observabilityScope,
+            registryURLs: { try self.configuredRegistryURLs() + additionalRegistryURLs }
         )
+    }
+
+    private func configuredRegistryURLs() throws -> [URL] {
+        let registries = try Workspace.Configuration.Registries(
+            fileSystem: self.fileSystem,
+            localRegistriesFile: Workspace.DefaultLocations
+                .registriesConfigurationFile(at: self.getLocalConfigurationDirectory()),
+            sharedRegistriesFile: Workspace.DefaultLocations
+                .registriesConfigurationFile(at: self.sharedConfigurationDirectory)
+        ).configuration
+
+        return registries.registryURLs + [self.options.resolver.defaultRegistryURL].compactMap { $0 }
     }
 
     /// Resolve the dependencies.

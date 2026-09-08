@@ -16,6 +16,9 @@ import _InternalTestSupport
 import Workspace
 import Testing
 
+// `Environment.makeCustom` mutates the process environment, which the netrc cases in this suite
+// also read through `Environment.current`.
+@Suite(.serialized)
 fileprivate struct AuthorizationProviderTests {
     @Test
     func netrcAuthorizationProviders() throws {
@@ -100,7 +103,7 @@ fileprivate struct AuthorizationProviderTests {
             )
 
             let configuration = Workspace.Configuration.Authorization(netrc: .custom(customPath), keychain: .disabled)
-            let netrcProvider = try configuration.makeRegistryAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? NetrcAuthorizationProvider
+            let netrcProvider = try configuration.makeRegistryAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope, registryURLs: { [] }) as? NetrcAuthorizationProvider
 
             let expectedNetrcProvider = try resolveSymlinks(customPath)
             #expect(netrcProvider != nil)
@@ -113,7 +116,7 @@ fileprivate struct AuthorizationProviderTests {
             // delete it
             try fileSystem.removeFileTree(customPath)
             #expect(throws: StringError("did not find netrc file at \(customPath)")) {
-                try configuration.makeRegistryAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope)
+                try configuration.makeRegistryAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope, registryURLs: { [] })
             }
         }
 
@@ -130,7 +133,7 @@ fileprivate struct AuthorizationProviderTests {
             )
 
             let configuration = Workspace.Configuration.Authorization(netrc: .user, keychain: .disabled)
-            let netrcProvider = try configuration.makeRegistryAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope) as? NetrcAuthorizationProvider
+            let netrcProvider = try configuration.makeRegistryAuthorizationProvider(fileSystem: fileSystem, observabilityScope: observability.topScope, registryURLs: { [] }) as? NetrcAuthorizationProvider
 
             let expectedNetrcProvider = try resolveSymlinks(userPath)
             #expect(netrcProvider != nil)
@@ -147,6 +150,7 @@ fileprivate struct AuthorizationProviderTests {
                     try configuration.makeRegistryAuthorizationProvider(
                         fileSystem: fileSystem,
                         observabilityScope: observability.topScope,
+                        registryURLs: { [] },
                     ) as? NetrcAuthorizationProvider
                 // Even if user .netrc file doesn't exist, the provider will be non-nil but contain no data.
                 let expectedAuthorizationProvider = try resolveSymlinks(userPath)
@@ -155,6 +159,26 @@ fileprivate struct AuthorizationProviderTests {
                 #expect(authorizationProvider.path == expectedAuthorizationProvider)
                 #expect(authorizationProvider.machines.isEmpty)
             }
+        }
+    }
+
+    @Test
+    func registryEnvironmentCredentialsAreBoundToTheConfiguredRegistries() throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        var environment = Environment()
+        environment[.SWIFTPM_REGISTRY_TOKEN] = "registry-token"
+
+        try Environment.makeCustom(environment) {
+            let configuration = Workspace.Configuration.Authorization(netrc: .disabled, keychain: .disabled)
+            let provider = try #require(try configuration.makeRegistryAuthorizationProvider(
+                fileSystem: InMemoryFileSystem(),
+                observabilityScope: observability.topScope,
+                registryURLs: { [URL("https://registry.example.com")] }
+            ))
+
+            let authentication = provider.authentication(for: URL("https://registry.example.com/scope/name/1.0.0.zip"))
+            #expect(authentication?.password == "registry-token")
+            #expect(provider.authentication(for: URL("https://cdn.example.com/archive.zip")) == nil)
         }
     }
 }

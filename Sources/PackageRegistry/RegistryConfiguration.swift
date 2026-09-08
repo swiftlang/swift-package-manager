@@ -80,6 +80,14 @@ public struct RegistryConfiguration: Hashable {
         self.defaultRegistry != nil || !self.scopedRegistries.isEmpty
     }
 
+    /// Every configured registry, default first, in a stable order and without duplicates.
+    public var registryURLs: [URL] {
+        var seen = Set<URL>()
+        return ([self.defaultRegistry] + self.scopedRegistries.sorted { $0.key < $1.key }.map(\.value))
+            .compactMap { $0?.url }
+            .filter { seen.insert($0).inserted }
+    }
+
     public func authentication(for registryURL: URL) throws -> Authentication? {
         let key = try Self.authenticationStorageKey(for: registryURL)
         return self.registryAuthentication[key]
