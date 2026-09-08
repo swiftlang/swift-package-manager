@@ -25,7 +25,6 @@ import enum TSCBasic.FileMode
 import struct TSCBasic.FileSystemError
 import class Basics.AsyncProcess
 import struct Basics.AsyncProcessResult
-import struct TSCBasic.RegEx
 
 import protocol TSCUtility.DiagnosticLocationProviding
 import enum TSCUtility.Git
@@ -229,12 +228,13 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
         progress: FetchProgress.Handler? = nil
     ) throws -> String {
         if let progress {
-            var stdoutBytes: [UInt8] = [], stderrBytes: [UInt8] = []
+            let stdoutBytes = ThreadSafeArrayStore<UInt8>()
+            let stderrBytes = ThreadSafeArrayStore<UInt8>()
             do {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
                 // handler. We count on it being line-buffered.
-                let outputHandler = AsyncProcess.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
-                    stderrBytes += $0
+                let outputHandler = AsyncProcess.OutputRedirection.stream(stdout: { stdoutBytes.append(contentsOf: $0) }, stderr: {
+                    stderrBytes.append(contentsOf: $0)
                     gitFetchStatusFilter($0, progress: progress)
                 })
                 return try self.git.run(
@@ -247,8 +247,8 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
                     arguments: error.result.arguments,
                     environment: error.result.environment,
                     exitStatus: error.result.exitStatus,
-                    output: .success(stdoutBytes),
-                    stderrOutput: .success(stderrBytes)
+                    output: .success(stdoutBytes.get()),
+                    stderrOutput: .success(stderrBytes.get())
                 )
                 throw GitCloneError(repository: repository, message: failureMessage, result: result)
             }
@@ -462,7 +462,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
 /// A basic Git repository in the local file system (almost always a clone of a remote).  This class is thread safe.
 public final class GitRepository: Repository, WorkingCheckout {
     /// A hash object.
-    public struct Hash: Hashable {
+    public struct Hash: Hashable, Sendable {
         // FIXME: We should optimize this representation.
         let bytes: ByteString
 
@@ -494,7 +494,7 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     /// A commit object.
-    public struct Commit: Equatable {
+    public struct Commit: Equatable, Sendable {
         /// The object hash.
         public let hash: Hash
 
@@ -503,14 +503,14 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     /// A tree object.
-    public struct Tree {
-        public enum Location: Hashable {
+    public struct Tree: Sendable {
+        public enum Location: Hashable, Sendable {
             case hash(Hash)
             case tag(String)
         }
 
-        public struct Entry {
-            public enum EntryType {
+        public struct Entry: Sendable {
+            public enum EntryType: Sendable {
                 case blob
                 case commit
                 case executableBlob
@@ -567,14 +567,14 @@ public final class GitRepository: Repository, WorkingCheckout {
     private let isWorkingRepo: Bool
 
     /// Dictionary for memoizing results of git calls that are not expected to change.
-    private var cachedHashes = ThreadSafeKeyValueStore<String, Hash>()
-    private var cachedBlobs = ThreadSafeKeyValueStore<Hash, ByteString>()
-    private var cachedTrees = ThreadSafeKeyValueStore<String, Tree>()
-    private var cachedTags = ThreadSafeBox<[String]?>()
-    private var cachedBranches = ThreadSafeBox<[String]?>()
-    private var cachedIsBareRepo = ThreadSafeBox<Bool?>()
-    private var cachedHasSubmodules = ThreadSafeBox<Bool?>()
-    private var cachedHasLFS = ThreadSafeBox<Bool?>()
+    private let cachedHashes = ThreadSafeKeyValueStore<String, Hash>()
+    private let cachedBlobs = ThreadSafeKeyValueStore<Hash, ByteString>()
+    private let cachedTrees = ThreadSafeKeyValueStore<String, Tree>()
+    private let cachedTags = ThreadSafeBox<[String]?>()
+    private let cachedBranches = ThreadSafeBox<[String]?>()
+    private let cachedIsBareRepo = ThreadSafeBox<Bool?>()
+    private let cachedHasSubmodules = ThreadSafeBox<Bool?>()
+    private let cachedHasLFS = ThreadSafeBox<Bool?>()
 
     public convenience init(path: AbsolutePath, isWorkingRepo: Bool = true, cancellator: Cancellator? = .none) {
         // used in one-off operations on git repo, as such the terminator is not ver important
@@ -609,12 +609,13 @@ public final class GitRepository: Repository, WorkingCheckout {
         progress: FetchProgress.Handler? = nil
     ) throws -> String {
         if let progress {
-            var stdoutBytes: [UInt8] = [], stderrBytes: [UInt8] = []
+            let stdoutBytes = ThreadSafeArrayStore<UInt8>()
+            let stderrBytes = ThreadSafeArrayStore<UInt8>()
             do {
                 // Capture stdout and stderr from the Git subprocess invocation, but also pass along stderr to the
                 // handler. We count on it being line-buffered.
-                let outputHandler = AsyncProcess.OutputRedirection.stream(stdout: { stdoutBytes += $0 }, stderr: {
-                    stderrBytes += $0
+                let outputHandler = AsyncProcess.OutputRedirection.stream(stdout: { stdoutBytes.append(contentsOf: $0) }, stderr: {
+                    stderrBytes.append(contentsOf: $0)
                     gitFetchStatusFilter($0, progress: progress)
                 })
                 return try self.git.run(
@@ -627,8 +628,8 @@ public final class GitRepository: Repository, WorkingCheckout {
                     arguments: error.result.arguments,
                     environment: error.result.environment,
                     exitStatus: error.result.exitStatus,
-                    output: .success(stdoutBytes),
-                    stderrOutput: .success(stderrBytes))
+                    output: .success(stdoutBytes.get()),
+                    stderrOutput: .success(stderrBytes.get()))
                 throw GitRepositoryError(path: self.path, message: failureMessage, result: result)
             }
         } else {
@@ -1671,11 +1672,15 @@ public enum GitProgressParser: FetchProgress {
         (?:, \h+ (?<i18>[0-9]+.?[0-9]+ \h [A-Z]iB) \h+ \| \h+ (?<i19>[0-9]+.?[0-9]+ \h [A-Z]iB\/s))?
     )
     """#
-    static let regex = try? RegEx(pattern: pattern)
+    static let regex: Regex<AnyRegexOutput>? = try? Regex(pattern)
 
     init?(from string: String) {
-        guard let matches = GitProgressParser.regex?.matchGroups(in: string).first,
-              matches.count == 20 else { return nil }
+        guard let regex = Self.regex,
+              let match = try? regex.firstMatch(in: string),
+              match.output.count == 21 else { return nil }
+        let matches: [String] = (1..<21).map { i in
+            match.output[i].substring.map(String.init) ?? ""
+        }
 
         if matches[0] == "Enumerating objects" {
             guard let currentObjects = Int(matches[1]) else { return nil }

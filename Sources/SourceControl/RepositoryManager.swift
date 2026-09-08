@@ -19,7 +19,7 @@ import Synchronization
 import TSCBasic
 
 /// Manages a collection of bare repositories.
-public class RepositoryManager: Cancellable {
+public final class RepositoryManager: Cancellable {
     public typealias Delegate = RepositoryManagerDelegate
 
     /// The path under which repositories are stored.
@@ -49,7 +49,7 @@ public class RepositoryManager: Cancellable {
     // Limits how many concurrent operations can be performed at once.
     private let asyncOperationQueue: AsyncOperationQueue
 
-    private var emitNoConnectivityWarning = ThreadSafeBox<[String: Bool]>([:])
+    private let emitNoConnectivityWarning = ThreadSafeBox<[String: Bool]>([:])
 
     /// Create a new empty manager.
     ///

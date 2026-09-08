@@ -15,7 +15,6 @@ import PackageModel
 import Foundation
 
 import class Basics.AsyncProcess
-import struct TSCBasic.RegEx
 
 import enum TSCUtility.Platform
 
@@ -327,14 +326,14 @@ public func removeDefaultFlags(cFlags: [String], libs: [String]) throws -> ([Str
 ///
 /// See https://github.com/swiftlang/swift-package-manager/issues/6439 for details.
 public func patchSDKPaths(in flags: [String], to sdkRootPath: AbsolutePath) throws -> [String] {
-    let sdkRegex = try! RegEx(pattern: #"^.*\.sdk(\/.*|$)"#)
+    let sdkRegex = #/^.*\.sdk(\/.*|$)/#
 
     return try ["-I", "-L"].reduce(flags) { (flags, flag) in
         try patch(flag: flag, in: flags) { value in
-            guard let groups = sdkRegex.matchGroups(in: value).first else {
+            guard let match = try? sdkRegex.firstMatch(in: value) else {
                 return value
             }
-            return sdkRootPath.pathString + groups[0]
+            return sdkRootPath.pathString + String(match.output.1)
         }
     }
 }

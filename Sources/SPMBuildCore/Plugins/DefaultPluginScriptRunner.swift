@@ -15,7 +15,7 @@ import Basics
 
 import Foundation
 import PackageGraph
-import PackageModel
+@preconcurrency import PackageModel
 
 import struct TSCBasic.ByteString
 import struct Basics.AsyncProcessResult
@@ -439,7 +439,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             return sdkRootPath
         })
     }
-    
+
     /// Private function that invokes a compiled plugin executable and communicates with it until it finishes.
     fileprivate func invoke(
         compiledExec: Basics.AbsolutePath,
@@ -456,18 +456,19 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         throw DefaultPluginScriptRunnerError.pluginUnavailable(reason: "subprocess invocations are unavailable on this platform")
 #else
         // Construct the command line. Currently we just invoke the executable built from the plugin without any parameters.
-        var command = [compiledExec.pathString]
-
         // Optionally wrap the command in a sandbox, which places some limits on what it can do. In particular, it blocks network access and restricts the paths to which the plugin can make file system changes. It does allow writing to temporary directories.
+        let command: [String]
         if self.enableSandbox {
             command = try Sandbox.apply(
-                command: command,
+                command: [compiledExec.pathString],
                 fileSystem: self.fileSystem,
                 strictness: .writableTemporaryDirectory,
                 writableDirectories: writableDirectories + [self.cacheDir],
                 readOnlyDirectories: readOnlyDirectories,
                 allowNetworkConnections: allowNetworkConnections
             )
+        } else {
+            command = [compiledExec.pathString]
         }
 
         // Create and configure a Process. We set the working directory to the cache directory, so that relative paths end up there.
@@ -528,12 +529,13 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         // Set up a pipe for receiving free-form text output from the plugin on its stderr.
         let stderrPipe = Pipe()
         let stderrLock = NSLock()
-        var stderrData = Data()
+        nonisolated(unsafe) var stderrData = Data()
+        nonisolated(unsafe) let unsafeDelegate = delegate
         let stderrHandler = { (data: Data) in
             // Pass on any available data to the delegate.
             if data.isEmpty { return }
             stderrData.append(contentsOf: data)
-            callbackQueue.async { delegate.handleOutput(data: data) }
+            callbackQueue.async { unsafeDelegate.handleOutput(data: data) }
         }
         stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in
             // Read and pass on any available free-form text output from the plugin.
@@ -690,18 +692,18 @@ public enum DefaultPluginScriptRunnerError: Error, CustomStringConvertible {
 }
 
 fileprivate extension FileHandle {
-    
+
     func writePluginMessage(_ message: Data) throws {
         // Write the header (a 64-bit length field in little endian byte order).
         var length = UInt64(littleEndian: UInt64(message.count))
         let header = Swift.withUnsafeBytes(of: &length) { Data($0) }
         assert(header.count == 8)
         try self.write(contentsOf: header)
-        
+
         // Write the payload.
         try self.write(contentsOf: message)
     }
-    
+
     func readPluginMessage() throws -> Data? {
         // Read the header (a 64-bit length field in little endian byte order).
         guard let header = try self.read(upToCount: 8) else { return nil }
