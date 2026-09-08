@@ -1481,7 +1481,7 @@ state; commit column records the hash landed by `tdd-commit`.
 
 | #  | Behaviour                                                                                               | Status      | Commit |
 |----|---------------------------------------------------------------------------------------------------------|-------------|--------|
-| 1  | `apply(to:)` preserves original dep's `traits` when substituting a workspace-level dep                  | 🔴 Pending  | —      |
+| 1  | `apply(to:)` preserves original dep's `traits` when substituting a workspace-level dep                  | 🟡 In Progress  | —      |
 | 2  | `apply(toMember:)` with empty overrides is a no-op — member dep list unchanged                          | 🔴 Pending  | —      |
 | 3  | `apply(toMember:)` with single matching `.fileSystem` dep rewrites it, preserving original traits       | 🔴 Pending  | —      |
 | 4  | `apply(toMember:)` with matching `.sourceControl` dep rewrites it, preserving original traits           | 🔴 Pending  | —      |
@@ -1494,7 +1494,7 @@ state; commit column records the hash landed by `tdd-commit`.
 | 11 | Pipeline wiring: member-manifest load pass invokes `apply(toMember:)` and `validate` fires after load   | 🔴 Pending  | —      |
 | 12 | E2E: new `S08_MemberDepOverride` fixture — member with direct `.package(url:)` dep resolves via override; UI help text on `Add`/`Path`/`Url`/`Registry` updated | 🔴 Pending  | —      |
 
-**Active Cycle:** #1
+**Active Cycle:** #1 (⏸ Paused — stack-drift audit in progress; see Baseline section)
 
 ### Confirmed Edge Cases
 
@@ -1532,6 +1532,7 @@ state; commit column records the hash landed by `tdd-commit`.
 
 - **2026-09-08**: `swift test --disable-sandbox --filter "WorkspaceOverridesJSONParserTests"` → 21/21 green (scoped to the primary test file for cycles 1-10). Full-suite baseline deferred to CI; scoped baseline sufficient for TDD gating.
 - **Test command note:** do NOT pass `--scratch-path` to `swift test` on this machine (dylib load collision with prior build artifacts).
+- **⏸ 2026-09-08 pause:** Cycle 1 test written to `Tests/WorkspaceTests/WorkspaceOverridesJSONParserTests.swift`, ready to run. Build blocked by stack drift — the target branch (`poc_workspaces_phase8_diverge-workspace_deps_override_add_subcommand`, where the `WorkspaceOverridesJSONParser` file lives) does not include the `mixedSourceModuleInfo` fix landed in commit `5d9ba66d8` on main. `swift package update` does not resolve it (source-tree case-missing-from-enum, not a dep issue). Sam K stack-walking from `poc_workspaces_phase0` upward via `swift build --build-tests --scratch-path .build-2` to identify which branch(es) fail to build; will rebase or fix-forward as needed. **Resume signal:** Sam K confirms the phase-8-diverge branch (or its successor) builds clean, then re-runs the Cycle 1 test to observe the expected assertion failure.
 
 ### Cycle Log
 
