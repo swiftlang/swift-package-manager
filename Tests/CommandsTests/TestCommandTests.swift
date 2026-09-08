@@ -130,7 +130,7 @@ struct TestCommandTests {
             )
         }
     }
-    
+
     @Test(
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -1422,6 +1422,188 @@ struct TestCommandTests {
         } when: {
             [.windows].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
         }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.large,
+
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10502", relationship: .verifies),
+        arguments: [
+            0,      // none
+            1,      // one
+            2,      // two
+            100,    // many
+        ]
+    )
+    func incrementalRebuiltExecutesTests(
+        maximunNumberNewStoredProperty: Int,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
+        func getShapeFileContent(extraStoredProperties: [String]) -> String {
+            return """
+                public struct Shape: Sendable, Hashable {
+                    public let a: String
+                    public let b: [String]
+                    public let c: String
+                \(extraStoredProperties.joined(separator: "\n"))
+                    public init(a: String, b: [String], c: String) {
+                        self.a = a; self.b = b; self.c = c
+                    }
+                }
+
+                public enum Registry {
+                    public static let all: [Shape] = [
+                        Shape(a: "one", b: ["x", "y"], c: "1"),
+                        Shape(a: "two", b: ["z"], c: "2"),
+                    ]
+                    public static func find(_ a: String) -> Shape? { all.first { $0.a == a } }
+                }
+                """
+        }
+        try await withTemporaryDirectory { tmpDir in
+            let packageManifest = tmpDir.appending("Package.swift")
+            let domainSource = tmpDir.appending(components: "Sources", "Domain", "Shape.swift")
+            let dataSource = tmpDir.appending(components: "Sources", "Data", "Use.swift")
+            let testSource = tmpDir.appending(components: "Tests", "DomainTests", "ReproTests.swift")
+
+            // Given we have a package
+            try localFileSystem.createDirectory(domainSource.parentDirectory, recursive: true)
+            try localFileSystem.createDirectory(dataSource.parentDirectory, recursive: true)
+            try localFileSystem.createDirectory(testSource.parentDirectory, recursive: true)
+
+            try localFileSystem.writeFileContents(
+                packageManifest,
+                string: """
+                    // swift-tools-version: 6.2
+                    import PackageDescription
+
+                    let package = Package(
+                        name: "Repro",
+                        platforms: [.macOS(.v26)],
+                        targets: [
+                            .target(name: "Domain"),
+                            .target(name: "Data", dependencies: ["Domain"]),
+                            .testTarget(name: "DomainTests", dependencies: ["Data"]),
+                        ]
+                    )
+                    """,
+            )
+
+            try localFileSystem.writeFileContents(
+                dataSource,
+                string: """
+                import Domain
+                public enum Use {
+                    public static func lookup(_ a: String) -> Shape? { Registry.find(a) }
+                }
+                """,
+            )
+
+            try localFileSystem.writeFileContents(
+                testSource,
+                string: """
+                    import Testing
+                    @testable import Data
+                    import Domain
+
+                    @Suite("Repro")
+                    struct ReproTests {
+                        @Test("finds shapes", arguments: ["one", "two"])
+                        func finds(name: String) {
+                            let found = Use.lookup(name) != nil
+                            #expect(found)
+                        }
+                        @Test("iterates the registry")
+                        func iterate() {
+                            for shape in Registry.all { #expect(!shape.a.isEmpty) }
+                        }
+                    }
+                    """,
+            )
+
+            try localFileSystem.writeFileContents(
+                domainSource,
+                string: getShapeFileContent(extraStoredProperties: []),
+            )
+
+
+            // WHEN executing the tests
+            let (firstStdout, firstStderr) = try await executeSwiftTest(
+                tmpDir,
+                configuration: configuration,
+                buildSystem: buildSystem,
+                throwIfCommandFails: true,
+            )
+
+            // THEN we expect the tets to pass
+            #expect(
+                firstStdout.contains(allTestsPassRegex),
+            )
+
+            // AND when we modify the source
+            let outputStrings: [String]
+            switch maximunNumberNewStoredProperty  {
+                case Int.min ... -1:
+                    Issue.record("Test configuration error.  Test argument must be greater or equal to 0")
+                    outputStrings = []
+                case 0 :
+                    outputStrings = []
+                case _:
+                    outputStrings = (1...maximunNumberNewStoredProperty).map {
+                        "    public let pad\($0): String = \"pad\($0)\""
+                    }
+            }
+
+            let newFileContent = getShapeFileContent(extraStoredProperties: outputStrings)
+            try localFileSystem.writeFileContents(
+                domainSource,
+                string: newFileContent,
+            )
+
+            // THEN we expect an incremental build
+             let (incrementalStdout, incrementalStderr) = try await executeSwiftTest(
+                tmpDir,
+                configuration: configuration,
+                buildSystem: buildSystem,
+                throwIfCommandFails: true,
+            )
+
+            // AND tets to pass
+            #expect(
+                incrementalStdout.contains(allTestsPassRegex),
+            )
+       }
+
+        // try await fixture(name: "IncrememtalRebuild/GH10502") { fixturePath in
+        //     try await executeSwiftTest(
+        //         fixturePath,
+        //         configuration: .debug,
+        //         buildSystem: .swiftbuild,
+        //         throwIfCommandFails: true,
+        //     )
+
+        //     let outputStrings = (1...maximunNumberNewStoredProperty).map {
+        //         "    public let pad\($0): String = \"pad\($0)"
+        //     }
+
+        //     let newFileContent = getShapeFileContent(outputStrings)
+
+        //     print("[----- START New file content ------]")
+        //     print(newFileContent)
+        //     print("[----- END New file content ------]")
+        //     try localFileSystem.writeFileContents(fixturePath.appending(components: "Sources", "Domain", "Shape.swift"), string: newFileContent)
+
+        //     try await executeSwiftTest(
+        //         fixturePath,
+        //         configuration: .debug,
+        //         buildSystem: .swiftbuild,
+        //         throwIfCommandFails: true,
+        //     )
+
+        // }
     }
 
     @Test(
