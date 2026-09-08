@@ -23,6 +23,7 @@ Implement first-class workspaces in Swift Package Manager: a new `Workspace.swif
 | 8 | `swift package resolve` + trailing warnings + workspace-scope originHash | ✅ Done | `bkhouri/t/main/poc_workspaces_phase8` |
 | 8B | Workspace dependency overrides (`.swiftpm/configuration/workspace-overrides.json`) | ✅ Done — folds overrides file content into origin hash | `bkhouri/t/main/poc_workspaces_phase8_diverge-workspace_deps_override` |
 | 8C | `swift package workspace override` subcommand (add / remove / list) | ✅ Done — POC scope, nested under `swift package workspace` | `bkhouri/t/main/poc_workspaces_phase8` |
+| 8D | `workspace override` extended scope — member-level dep support | 🟡 In progress — TDD cycles 1-12 (see Phase 8D section) | `bkhouri/t/main/poc_workspaces_phase8_diverge-workspace_deps_override_add_subcommand` |
 | 9 | `swift package workspace init` | ✅ Done — POC scope, nested under `swift package workspace` (respects `--package-path`) | `bkhouri/t/main/poc_workspaces_phase8` |
 | 10 | `swift package show-dependencies` workspace awareness | ✅ Done — all four formats extended, coverage split between unit + e2e | `bkhouri/t/main/poc_workspaces_phase10` |
 | 11 | `swift package update` workspace awareness | ✅ Done — `--package` selector + CWD focus + workspace-root routing | `bkhouri/t/main/poc_workspaces_phase11-make-package-update-workspace-aware` |
@@ -1407,6 +1408,134 @@ swift workspace override list
 
 #### Manual Verification:
 (none — all criteria automated)
+
+---
+
+## Phase 8D: `workspace override` — Member-Level Dependency Support
+
+### Overview
+
+Extend `swift package workspace override` so the workspace-overrides file
+(`.swiftpm/configuration/workspace-overrides.json`) can redirect
+dependencies declared directly in a member's `Package.swift`
+(`.package(url:)` / `.package(path:)` / `.package(id:)`), in addition to
+the already-supported workspace-level `dependencies:` in `Workspace.swift`.
+
+**Scope decisions (approved before kickoff):**
+
+- Workspace-level + direct member-declared deps. Excludes transitive deps
+  (resolver-level override machinery — separate future work). Excludes
+  `.workspaceMember` / `.workspaceInherited` cases (workspace-scoped
+  kinds; overriding the underlying workspace-level dep via the existing
+  path already covers `.workspaceInherited`).
+- Unknown identity → hard error via
+  `WorkspaceOverridesApplyError.unknownIdentity` at a unified `validate`
+  step (thrown when the override doesn't match ANY dep at either level).
+- Argument help text becomes generic — drops "workspace-level" from
+  `Override.Add.{Path,Url,Registry}` `@Argument(help:)` strings and the
+  `Add` command's `abstract:`. Registry subcommand keeps its dual-role
+  note (identity + registry-resolution key), just drops "workspace-level".
+- Traits preservation: replacement carries the ORIGINAL dep's `traits`,
+  not the override entry's `traits: nil`. Applies to BOTH `apply(to:)`
+  and `apply(toMember:)` — the workspace-level apply is a small
+  behavior change to already-shipped code, applied for consistency.
+
+### Approach — API split (`WorkspaceOverridesJSONParser`)
+
+1. `apply(_ overrides:, to workspaceManifest:) -> WorkspaceManifest`
+   — drop `throws`, preserve original traits on substituted entries.
+2. `apply(_ overrides:, toMember memberManifest:) -> Manifest` — new
+   companion. Same match-and-rewrite pattern; preserves original
+   traits; leaves `.workspaceMember` / `.workspaceInherited` cases
+   untouched even when the identity matches.
+3. `validate(_ overrides:, workspaceManifest:, memberManifests:)
+   throws` — new unified identity check. Throws `unknownIdentity` for
+   each override whose identity isn't declared at either level.
+
+### Pipeline wiring
+
+- `Sources/Workspace/PackageWorkspace+Discovery.swift:127` — drop the
+  `try` (apply no longer throws).
+- Member-manifest load pass — invoke `apply(_:toMember:)` for each
+  member manifest. Natural site: `resolveWorkspaceMemberPaths` in
+  `PackageWorkspace+WorkspaceResolve.swift` (already walks member
+  deps), or a sibling pass called from `loadRootManifests` in
+  `Workspace.swift`.
+- After all manifests loaded — invoke
+  `validate(_:workspaceManifest:memberManifests:)` and surface any
+  `unknownIdentity`.
+
+### UI changes (`Sources/Commands/PackageCommands/WorkspaceCommand.swift`)
+
+- Line 59 `Add` command `abstract:` → drop "workspace-level".
+- Line 79 `Path.identity` `@Argument(help:)` → "The identity of the
+  dependency to override."
+- Line 145 `Url.identity` `@Argument(help:)` → same.
+- Line 288 `Registry.identity` `@Argument(help:)` → same (retain
+  dual-role note).
+
+### Test Plan — TDD cycles
+
+Managed under the `/feature` TDD skill. Status column tracks cycle
+state; commit column records the hash landed by `tdd-commit`.
+
+| #  | Behaviour                                                                                               | Status      | Commit |
+|----|---------------------------------------------------------------------------------------------------------|-------------|--------|
+| 1  | `apply(to:)` preserves original dep's `traits` when substituting a workspace-level dep                  | 🔴 Pending  | —      |
+| 2  | `apply(toMember:)` with empty overrides is a no-op — member dep list unchanged                          | 🔴 Pending  | —      |
+| 3  | `apply(toMember:)` with single matching `.fileSystem` dep rewrites it, preserving original traits       | 🔴 Pending  | —      |
+| 4  | `apply(toMember:)` with matching `.sourceControl` dep rewrites it, preserving original traits           | 🔴 Pending  | —      |
+| 5  | `apply(toMember:)` with matching `.registry` dep rewrites it, preserving original traits                | 🔴 Pending  | —      |
+| 6  | `apply(toMember:)` with multiple deps rewrites only the matching one; unmatched deps pass through       | 🔴 Pending  | —      |
+| 7  | `apply(toMember:)` skips `.workspaceInherited` dep even when its identity matches an override           | 🔴 Pending  | —      |
+| 8  | Drop `throws` from `apply(to:)`; existing `apply_withUnknownIdentity_throws` test moves to `validate`   | 🔴 Pending  | —      |
+| 9  | `validate` with identity matching only a workspace dep does not throw                                   | 🔴 Pending  | —      |
+| 10 | `validate` with identity matching only a member dep does not throw; absent-from-both throws unknownIdentity | 🔴 Pending  | —      |
+| 11 | Pipeline wiring: member-manifest load pass invokes `apply(toMember:)` and `validate` fires after load   | 🔴 Pending  | —      |
+| 12 | E2E: new `S08_MemberDepOverride` fixture — member with direct `.package(url:)` dep resolves via override; UI help text on `Add`/`Path`/`Url`/`Registry` updated | 🔴 Pending  | —      |
+
+**Active Cycle:** #1
+
+### Confirmed Edge Cases
+
+- Override identity matches workspace dep only: valid; only workspace apply substitutes.
+- Override identity matches member dep only: valid; only that member's apply substitutes.
+- Override identity absent from both workspace and all members: `validate` throws `unknownIdentity`.
+- Member dep with non-nil `traits`: replacement carries the original's traits, not `traits: nil`.
+- `.workspaceInherited` dep sharing an identity with an override: `apply(toMember:)` skips it — inheritance-level overriding handled at the workspace level.
+- Member with zero deps: `apply(toMember:)` returns manifest unchanged.
+- Empty overrides list: both `apply` functions are fast-path no-ops; `validate` is a no-op.
+
+### Files to modify
+
+- `Sources/PackageLoading/WorkspaceOverridesJSONParser.swift` — API split.
+- `Sources/Workspace/PackageWorkspace+Discovery.swift` — drop `try`.
+- `Sources/Workspace/PackageWorkspace+WorkspaceResolve.swift` or `Sources/Workspace/Workspace.swift` — member-side apply hook.
+- `Sources/Commands/PackageCommands/WorkspaceCommand.swift` — help text.
+- `Tests/WorkspaceTests/WorkspaceOverridesJSONParserTests.swift` — tests (unit, cycles 1-10).
+- `Tests/WorkspaceTests/WorkspaceResolveTests.swift` or `Tests/WorkspaceTests/WorkspaceManifestTests.swift` — pipeline wiring test (cycle 11).
+- `Tests/FunctionalTests/WorkspaceFeatureTests.swift` — new e2e test (cycle 12).
+- `Fixtures/Workspaces/S08_MemberDepOverride/` — new fixture (cycle 12).
+
+### Success Criteria
+
+#### Automated Verification:
+- [ ] All 12 cycles complete with green tests at each commit
+- [ ] Existing `apply_withUnknownIdentity_throws` test migrated to `validate_withUnknownIdentity_throws`; no orphaned tests referencing the old API
+- [ ] E2E test with a member `.package(url:)` dep redirected via `workspace override add path` succeeds without attempting network fetch
+- [ ] Full regression green (all workspace + non-workspace suites)
+
+#### Manual Verification:
+(none — all criteria automated)
+
+### Baseline
+
+- **2026-09-08**: `swift test --disable-sandbox --filter "WorkspaceOverridesJSONParserTests"` → 21/21 green (scoped to the primary test file for cycles 1-10). Full-suite baseline deferred to CI; scoped baseline sufficient for TDD gating.
+- **Test command note:** do NOT pass `--scratch-path` to `swift test` on this machine (dylib load collision with prior build artifacts).
+
+### Cycle Log
+
+(none yet)
 
 ---
 
