@@ -465,7 +465,7 @@ public struct CXXSetting: Sendable {
     /// - Since: First available in PackageDescription 6.5.
     ///
     /// This setting is a placeholder that will be substituted with any value set by `defaultCXXSettings`.
-    @available(_PackageDescription, introduced: 6.2)
+    @available(_PackageDescription, introduced: 6.5)
     public static var defaults: CXXSetting {
         return CXXSetting(
             name: "defaults",
