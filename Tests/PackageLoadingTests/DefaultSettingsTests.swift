@@ -73,7 +73,7 @@ struct DefaultLoadingTests {
         let (manifest, validationDiagnostics) = try await PackageDescriptionLoadingTests
             .loadAndValidateManifest(
                 content,
-                toolsVersion: .v6_2,
+                toolsVersion: .v6_5,
                 packageKind: .fileSystem(.root),
                 manifestLoader: ManifestLoader(
                     toolchain: try! UserToolchain.default
