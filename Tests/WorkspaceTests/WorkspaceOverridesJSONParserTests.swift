@@ -15,6 +15,7 @@ import PackageLoading
 import PackageModel
 import Testing
 import _InternalTestSupport
+import struct TSCUtility.Version
 
 @Suite(
     .tags(
@@ -479,6 +480,46 @@ struct WorkspaceOverridesJSONParserTests {
         }
     }
 
+    /// When `apply` substitutes a workspace-level dep it must carry the
+    /// original dep's `traits` forward onto the replacement. The overriding
+    /// dep is a local checkout (traits: nil); without preservation the
+    /// traits would be silently dropped, changing resolver behaviour.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func apply_withMatchingIdentityAndOriginalTraits_preservesOriginalTraitsOnSubstitutedDep() throws {
+        let originalDep = Self.sourceControlDep(
+            identity: "some-lib",
+            url: "https://example.com/some-lib",
+            version: Version(2, 0, 0),
+            traits: [PackageDependency.Trait(name: "some-trait")],
+        )
+        let unchangedDep = Self.fileSystemDep(
+            identity: "other-lib",
+            relativePath: "external/other-lib",
+        )
+        let manifest = Self.makeManifest(
+            dependencies: [originalDep, unchangedDep],
+        )
+        let overridingDep = Self.fileSystemDep(
+            identity: "some-lib",
+            relativePath: "external/local-some-lib",
+        )
+        let override = WorkspaceOverridesJSONParser.Override(
+            identity: .plain("some-lib"),
+            overridingDependency: overridingDep,
+        )
+
+        let actual = try WorkspaceOverridesJSONParser.apply([override], to: manifest)
+
+        try #require(actual.dependencies.count == 2)
+        let substituted = try #require(actual.dependencies.first)
+        #expect(substituted.traits == [PackageDependency.Trait(name: "some-trait")])
+        #expect(actual.dependencies[1] == unchangedDep)
+    }
+
     // MARK: - loadIfPresent
 
     /// When the overrides file is absent from disk, `loadIfPresent`
@@ -656,6 +697,23 @@ struct WorkspaceOverridesJSONParserTests {
             path: AbsolutePath("/repo").appending(try! RelativePath(validating: relativePath)),
             productFilter: .everything,
             traits: nil,
+        )
+    }
+
+    private static func sourceControlDep(
+        identity: String,
+        url: String,
+        version: Version,
+        traits: Set<PackageDependency.Trait>? = nil,
+    ) -> PackageDependency {
+        .sourceControl(
+            identity: .plain(identity),
+            nameForTargetDependencyResolutionOnly: nil,
+            location: .remote(SourceControlURL(url)),
+            requirement: .range(version ..< Version(version.major + 1, 0, 0)),
+            productFilter: .everything,
+            traits: traits,
+            registryIdentity: nil,
         )
     }
 
