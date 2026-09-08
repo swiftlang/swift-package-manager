@@ -854,7 +854,7 @@ public struct LinkerSetting: Sendable {
     /// - Since: First available in PackageDescription 6.5.
     ///
     /// This setting is a placeholder that will be substituted with any value set by `defaultLinkerSettings`.
-    @available(_PackageDescription, introduced: 6.2)
+    @available(_PackageDescription, introduced: 6.5)
     public static var defaults: LinkerSetting {
         return LinkerSetting(
             name: "defaults",
