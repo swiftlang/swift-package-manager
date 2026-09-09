@@ -197,6 +197,16 @@ public enum WorkspaceOverridesJSONParser {
         return manifest
     }
 
+    /// Applies parsed overrides to a workspace member's `Manifest`.
+    /// Companion to `apply(_:to:)` for `WorkspaceManifest`; detailed
+    /// contract semantics are filled in by later cycles.
+    public static func apply(
+        _ overrides: [Override],
+        to memberManifest: Manifest,
+    ) -> Manifest {
+        return memberManifest
+    }
+
     // MARK: - Mutating the override list
 
     /// Adds an override to a list, replacing any existing entry with
