@@ -17,6 +17,23 @@ import Testing
 import _InternalTestSupport
 import struct TSCUtility.Version
 
+private extension PackageDependency {
+    var fileSystemSettings: FileSystem? {
+        if case .fileSystem(let s) = self { return s }
+        return nil
+    }
+
+    var sourceControlSettings: SourceControl? {
+        if case .sourceControl(let s) = self { return s }
+        return nil
+    }
+
+    var registrySettings: Registry? {
+        if case .registry(let s) = self { return s }
+        return nil
+    }
+}
+
 @Suite(
     .tags(
         .FunctionalArea.WorkspaceManiest,
@@ -400,7 +417,7 @@ struct WorkspaceOverridesJSONParserTests {
             Tag.TestSize.small,
         ),
     )
-    func apply_toMember_withEmptyOverrides_returnsMemberDependenciesUnchanged() {
+    func apply_toMember_withEmptyOverrides_returnsMemberDependenciesUnchanged() async throws {
         let member = Self.makeMemberManifest(
             name: "app",
             dependencies: [Self.fileSystemDep(identity: "lib-a", relativePath: "external/lib-a")],
@@ -446,10 +463,10 @@ struct WorkspaceOverridesJSONParserTests {
 
         #expect(actual.dependencies.count == 1)
         let rewritten = try #require(actual.dependencies.first)
-        guard case .fileSystem(let settings) = rewritten else {
-            Issue.record("expected .fileSystem dep, got \(rewritten)")
-            return
-        }
+        let settings = try #require(
+            rewritten.fileSystemSettings,
+            "expected .fileSystem dep, got \(rewritten)",
+        )
         #expect(settings.path == AbsolutePath("/repo/external/local-some-lib"))
         #expect(rewritten.traits == [someTrait])
     }
@@ -492,10 +509,10 @@ struct WorkspaceOverridesJSONParserTests {
 
         #expect(actual.dependencies.count == 1)
         let rewritten = try #require(actual.dependencies.first)
-        guard case .sourceControl(let settings) = rewritten else {
-            Issue.record("expected .sourceControl dep, got \(rewritten)")
-            return
-        }
+        let settings = try #require(
+            rewritten.sourceControlSettings,
+            "expected .sourceControl dep, got \(rewritten)",
+        )
         #expect(settings.location == .remote(SourceControlURL("https://fork.example.com/some-lib")))
         #expect(settings.requirement == .range(Version(2, 0, 0) ..< Version(3, 0, 0)))
         #expect(rewritten.traits == [someTrait])
@@ -535,10 +552,10 @@ struct WorkspaceOverridesJSONParserTests {
 
         #expect(actual.dependencies.count == 1)
         let rewritten = try #require(actual.dependencies.first)
-        guard case .fileSystem(let settings) = rewritten else {
-            Issue.record("expected .fileSystem dep, got \(rewritten)")
-            return
-        }
+        let settings = try #require(
+            rewritten.fileSystemSettings,
+            "expected .fileSystem dep, got \(rewritten)",
+        )
         #expect(settings.path == AbsolutePath("/repo/external/local-some-lib"))
         #expect(rewritten.traits == [someTrait])
     }
@@ -578,10 +595,10 @@ struct WorkspaceOverridesJSONParserTests {
 
         #expect(actual.dependencies.count == 1)
         let rewritten = try #require(actual.dependencies.first)
-        guard case .registry(let settings) = rewritten else {
-            Issue.record("expected .registry dep, got \(rewritten)")
-            return
-        }
+        let settings = try #require(
+            rewritten.registrySettings,
+            "expected .registry dep, got \(rewritten)",
+        )
         #expect(settings.requirement == .range(Version(2, 0, 0) ..< Version(3, 0, 0)))
         #expect(rewritten.traits == [someTrait])
     }
@@ -620,12 +637,160 @@ struct WorkspaceOverridesJSONParserTests {
 
         #expect(actual.dependencies.count == 1)
         let rewritten = try #require(actual.dependencies.first)
-        guard case .fileSystem(let settings) = rewritten else {
-            Issue.record("expected .fileSystem dep, got \(rewritten)")
-            return
-        }
+        let settings = try #require(
+            rewritten.fileSystemSettings,
+            "expected .fileSystem dep, got \(rewritten)",
+        )
         #expect(settings.path == AbsolutePath("/repo/external/local-scope-lib"))
         #expect(rewritten.traits == [someTrait])
+    }
+
+    /// Verifies that apply rewrites the matching dep at each position
+    /// (head, middle, tail) and leaves all other deps — including their
+    /// traits — byte-identical to the originals.
+    struct PositionalCase: CustomTestStringConvertible {
+        let label: String
+        let matchIndex: Int
+        var testDescription: String { label }
+    }
+
+    @Test(
+        "apply rewrites the matching dep at each position and leaves other deps and their traits untouched",
+        .tags(
+            Tag.TestSize.small,
+        ),
+        arguments: [
+            PositionalCase(label: "head",   matchIndex: 0),
+            PositionalCase(label: "middle", matchIndex: 1),
+            PositionalCase(label: "tail",   matchIndex: 2),
+        ],
+    )
+    func apply_toMember_withMultipleDeps_rewritesMatchingDepAtPositionAndLeavesOthers(
+        _ testCase: PositionalCase,
+    ) throws {
+        let originalTrait = PackageDependency.Trait(name: "original-trait")
+        let bystanderTrait = PackageDependency.Trait(name: "bystander-trait")
+
+        let identities = ["head-lib", "middle-lib", "tail-lib"]
+        func traitsFor(index: Int) -> Set<PackageDependency.Trait> {
+            index == testCase.matchIndex ? [originalTrait] : [bystanderTrait]
+        }
+
+        let originalHead = Self.fileSystemDep(
+            identity: identities[0],
+            relativePath: "external/\(identities[0])",
+            traits: traitsFor(index: 0),
+        )
+        let originalMiddle = Self.fileSystemDep(
+            identity: identities[1],
+            relativePath: "external/\(identities[1])",
+            traits: traitsFor(index: 1),
+        )
+        let originalTail = Self.sourceControlDep(
+            identity: identities[2],
+            url: "https://example.com/\(identities[2])",
+            minimumVersion: Version(1, 0, 0),
+            traits: traitsFor(index: 2),
+        )
+        let originals = [originalHead, originalMiddle, originalTail]
+        let member = Self.makeMemberManifest(
+            name: "app",
+            dependencies: originals,
+        )
+        let targetIdentity = identities[testCase.matchIndex]
+        let overridingDep = Self.fileSystemDep(
+            identity: targetIdentity,
+            relativePath: "external/local-\(targetIdentity)",
+        )
+        let override = WorkspaceOverridesJSONParser.Override(
+            identity: .plain(targetIdentity),
+            overridingDependency: overridingDep,
+        )
+
+        let actual = WorkspaceOverridesJSONParser.apply([override], to: member)
+
+        #expect(actual.dependencies.count == 3)
+        let rewritten = actual.dependencies[testCase.matchIndex]
+        let settings = try #require(
+            rewritten.fileSystemSettings,
+            "expected .fileSystem dep at index \(testCase.matchIndex), got \(rewritten)",
+        )
+        #expect(settings.path == AbsolutePath("/repo/external/local-\(targetIdentity)"))
+        #expect(actual.dependencies[testCase.matchIndex].traits == [originalTrait])
+        for otherIndex in [0, 1, 2] where otherIndex != testCase.matchIndex {
+            #expect(actual.dependencies[otherIndex] == originals[otherIndex])
+        }
+    }
+
+    /// Exercises simultaneous multi-match: two overrides target head and
+    /// tail while middle is left alone. The middle dep carries non-nil
+    /// `bystanderTrait` to prove traits on non-matching entries pass through
+    /// untouched. Confirms the `.map`-based rewrite scales past a single hit.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func apply_toMember_withMultipleDepsAndMultipleMatches_rewritesAllMatchesAndLeavesOthers() async throws {
+        let originalTrait = PackageDependency.Trait(name: "original-trait")
+        let bystanderTrait = PackageDependency.Trait(name: "bystander-trait")
+        let originalHead = Self.fileSystemDep(
+            identity: "head-lib",
+            relativePath: "external/head-lib",
+            traits: [originalTrait],
+        )
+        let originalMiddle = Self.fileSystemDep(
+            identity: "middle-lib",
+            relativePath: "external/middle-lib",
+            traits: [bystanderTrait],
+        )
+        let originalTail = Self.sourceControlDep(
+            identity: "tail-lib",
+            url: "https://example.com/tail-lib",
+            minimumVersion: Version(1, 0, 0),
+            traits: [originalTrait],
+        )
+        let member = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [originalHead, originalMiddle, originalTail],
+        )
+        let headOverridingDep = Self.fileSystemDep(
+            identity: "head-lib",
+            relativePath: "external/local-head-lib",
+        )
+        let tailOverridingDep = Self.fileSystemDep(
+            identity: "tail-lib",
+            relativePath: "external/local-tail-lib",
+        )
+        let overrides = [
+            WorkspaceOverridesJSONParser.Override(
+                identity: .plain("head-lib"),
+                overridingDependency: headOverridingDep,
+            ),
+            WorkspaceOverridesJSONParser.Override(
+                identity: .plain("tail-lib"),
+                overridingDependency: tailOverridingDep,
+            ),
+        ]
+
+        let actual = WorkspaceOverridesJSONParser.apply(overrides, to: member)
+
+        #expect(actual.dependencies.count == 3)
+        let rewrittenHead = actual.dependencies[0]
+        let headSettings = try #require(
+            rewrittenHead.fileSystemSettings,
+            "expected .fileSystem dep at index 0, got \(rewrittenHead)",
+        )
+        #expect(headSettings.path == AbsolutePath("/repo/external/local-head-lib"))
+        #expect(actual.dependencies[0].traits == [originalTrait])
+        #expect(actual.dependencies[1] == originalMiddle)
+        let rewrittenTail = actual.dependencies[2]
+        let tailSettings = try #require(
+            rewrittenTail.fileSystemSettings,
+            "expected .fileSystem dep at index 2, got \(rewrittenTail)",
+        )
+        #expect(tailSettings.path == AbsolutePath("/repo/external/local-tail-lib"))
+        #expect(actual.dependencies[2].traits == [originalTrait])
     }
 
     /// A single override matching a workspace-level dep replaces
