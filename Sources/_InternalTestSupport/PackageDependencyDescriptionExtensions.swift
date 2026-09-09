@@ -17,6 +17,26 @@ import PackageModel
 import struct TSCUtility.Version
 
 package extension PackageDependency {
+    var fileSystemSettings: FileSystem? {
+        if case .fileSystem(let s) = self { return s }
+        return nil
+    }
+
+    var sourceControlSettings: SourceControl? {
+        if case .sourceControl(let s) = self { return s }
+        return nil
+    }
+
+    var registrySettings: Registry? {
+        if case .registry(let s) = self { return s }
+        return nil
+    }
+
+    var workspaceInheritedSettings: WorkspaceInherited? {
+        if case .workspaceInherited(let s) = self { return s }
+        return nil
+    }
+
     static func fileSystem(
         identity: PackageIdentity? = nil,
         deprecatedName: String? = nil,
