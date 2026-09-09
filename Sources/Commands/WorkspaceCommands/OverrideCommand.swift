@@ -39,7 +39,7 @@ extension SwiftWorkspaceCommand.Override {
 
         static let configuration = CommandConfiguration(
             commandName: "add",
-            abstract: "Add or replace a workspace-level dependency override.",
+            abstract: "Add or replace a dependency override.",
             subcommands: [Path.self, Url.self, Registry.self],
             helpNames: [.short, .long, .customLong("help", withSingleDash: true)],
         )
@@ -52,14 +52,14 @@ extension SwiftWorkspaceCommand.Override.Add {
     struct Path: SwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "path",
-            abstract: "Redirect a workspace-level dependency to a local filesystem path.",
+            abstract: "Redirect a dependency to a local filesystem path.",
             helpNames: [.short, .long, .customLong("help", withSingleDash: true)],
         )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(help: "The identity of the workspace-level dependency to override.")
+        @Argument(help: "The identity of the dependency to override.")
         var identity: String
 
         @Argument(help: "Local filesystem path (relative paths resolve against the workspace root).")
@@ -118,14 +118,14 @@ extension SwiftWorkspaceCommand.Override.Add {
     struct Url: SwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "url",
-            abstract: "Redirect a workspace-level dependency to a source-control URL.",
+            abstract: "Redirect a dependency to a source-control URL.",
             helpNames: [.short, .long, .customLong("help", withSingleDash: true)],
         )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(help: "The identity of the workspace-level dependency to override.")
+        @Argument(help: "The identity of the dependency to override.")
         var identity: String
 
         @Argument(help: "The source-control URL of the redirect target.")
@@ -261,14 +261,14 @@ extension SwiftWorkspaceCommand.Override.Add {
     struct Registry: SwiftCommand {
         static let configuration = CommandConfiguration(
             commandName: "registry",
-            abstract: "Redirect a workspace-level dependency to be resolved via the package registry.",
+            abstract: "Redirect a dependency to be resolved via the package registry.",
             helpNames: [.short, .long, .customLong("help", withSingleDash: true)],
         )
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
-        @Argument(help: "The identity of the workspace-level dependency to override; also serves as the registry identity to resolve against.")
+        @Argument(help: "The identity of the dependency to override; also serves as the registry identity to resolve against.")
         var identity: String
 
         @Option(help: "The exact package version to depend on.")
