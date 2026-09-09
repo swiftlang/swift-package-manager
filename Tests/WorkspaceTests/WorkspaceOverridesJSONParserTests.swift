@@ -411,6 +411,49 @@ struct WorkspaceOverridesJSONParserTests {
         #expect(actual.dependencies == member.dependencies)
     }
 
+    /// When a member manifest declares a `.fileSystem` dep whose identity
+    /// matches an override, `apply(_:to:)` (member overload) substitutes
+    /// the override's concrete kind but preserves the original member
+    /// dep's `traits`. Trait preservation is the invariant established in
+    /// Cycle 1 for the workspace-level overload; this test proves the
+    /// member overload upholds the same contract.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func apply_toMember_withSingleMatchingFileSystemDep_rewritesDepAndPreservesOriginalTraits() throws {
+        let someTrait = PackageDependency.Trait(name: "some-trait")
+        let originalDep = Self.fileSystemDep(
+            identity: "some-lib",
+            relativePath: "external/some-lib",
+            traits: [someTrait],
+        )
+        let member = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [originalDep],
+        )
+        let overridingDep = Self.fileSystemDep(
+            identity: "some-lib",
+            relativePath: "external/local-some-lib",
+        )
+        let override = WorkspaceOverridesJSONParser.Override(
+            identity: .plain("some-lib"),
+            overridingDependency: overridingDep,
+        )
+
+        let actual = WorkspaceOverridesJSONParser.apply([override], to: member)
+
+        #expect(actual.dependencies.count == 1)
+        let rewritten = try #require(actual.dependencies.first)
+        guard case .fileSystem(let settings) = rewritten else {
+            Issue.record("expected .fileSystem dep, got \(rewritten)")
+            return
+        }
+        #expect(settings.path == AbsolutePath("/repo/external/local-some-lib"))
+        #expect(rewritten.traits == [someTrait])
+    }
+
     /// A single override matching a workspace-level dep replaces
     /// that dep in place. Only the dependencies list is under test
     /// here — other manifest fields (members, toolsVersion, path)
@@ -738,13 +781,14 @@ struct WorkspaceOverridesJSONParserTests {
     private static func fileSystemDep(
         identity: String,
         relativePath: String,
+        traits: Set<PackageDependency.Trait>? = nil,
     ) -> PackageDependency {
         .fileSystem(
             identity: .plain(identity),
             nameForTargetDependencyResolutionOnly: nil,
             path: AbsolutePath("/repo").appending(try! RelativePath(validating: relativePath)),
             productFilter: .everything,
-            traits: nil,
+            traits: traits,
         )
     }
 

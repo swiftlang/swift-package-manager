@@ -191,10 +191,9 @@ public enum WorkspaceOverridesJSONParser {
     ) throws -> WorkspaceManifest {
         guard !overrides.isEmpty else { return manifest }
 
-        var overridesByIdentity: [PackageIdentity: PackageDependency] = [:]
-        for override in overrides {
-            overridesByIdentity[override.identity] = override.overridingDependency
-        }
+        let overridesByIdentity = Dictionary(
+            uniqueKeysWithValues: overrides.map { ($0.identity, $0.overridingDependency) },
+        )
 
         let declaredIdentities = Set(manifest.dependencies.map(\.identity))
         for override in overrides where !declaredIdentities.contains(override.identity) {
@@ -213,14 +212,41 @@ public enum WorkspaceOverridesJSONParser {
         )
     }
 
-    /// Applies parsed overrides to a workspace member's `Manifest`.
-    /// Companion to `apply(_:to:)` for `WorkspaceManifest`; detailed
-    /// contract semantics are filled in by later cycles.
+    /// Applies parsed overrides to a workspace member's `Manifest`,
+    /// replacing entries in `memberManifest.dependencies` whose
+    /// identity matches an override. Dep order is preserved.
+    ///
+    /// Only `dependencies` is modified — all other fields of
+    /// `memberManifest` pass through untouched.
+    ///
+    /// Trait-preservation invariant: the substituted dep's `traits`
+    /// come from the *original* dep, not the override. This keeps
+    /// member-declared trait activations intact across redirects.
+    ///
+    /// Unknown identities are silently ignored (no validation here).
+    /// Identity validation across both workspace- and member-level
+    /// deps moves to `validate(_:workspaceManifest:memberManifests:)`
+    /// in a later cycle.
+    ///
+    /// - Parameters:
+    ///   - overrides: The resolved overrides from `parse(v1:workspaceRoot:)`.
+    ///   - memberManifest: The member manifest to override.
+    /// - Returns: A new `Manifest` with matching deps replaced.
     public static func apply(
         _ overrides: [Override],
         to memberManifest: Manifest,
     ) -> Manifest {
-        return memberManifest
+        guard !overrides.isEmpty else { return memberManifest }
+
+        let overridesByIdentity = Dictionary(
+            uniqueKeysWithValues: overrides.map { ($0.identity, $0.overridingDependency) },
+        )
+
+        let rewrittenDependencies = memberManifest.dependencies.map { dep -> PackageDependency in
+            guard let overriding = overridesByIdentity[dep.identity] else { return dep }
+            return Self.substituting(overriding, preservingTraitsFrom: dep)
+        }
+        return memberManifest.withDependencies(rewrittenDependencies)
     }
 
     // MARK: - Mutating the override list
