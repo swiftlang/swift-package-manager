@@ -737,7 +737,7 @@ extension Collection where Element == EnabledTrait {
     }
 
     public func joined(separator: String = "") -> String {
-        names.joined(separator: separator)
+        names.sorted().joined(separator: separator)
     }
 }
 
