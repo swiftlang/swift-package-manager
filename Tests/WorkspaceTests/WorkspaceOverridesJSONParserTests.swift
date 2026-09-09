@@ -543,6 +543,91 @@ struct WorkspaceOverridesJSONParserTests {
         #expect(rewritten.traits == [someTrait])
     }
 
+    /// When a member manifest declares a `.registry` dep whose identity
+    /// matches an override that is ALSO `.registry` (a requirement
+    /// bump), `apply(_:to:)` substitutes the override's requirement but
+    /// preserves the original member dep's `traits`. Pins the
+    /// `.registry` branch of the trait-preservation contract for the
+    /// member overload.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func apply_toMember_withSingleMatchingRegistryDep_rewritesDepAndPreservesOriginalTraits() throws {
+        let someTrait = PackageDependency.Trait(name: "some-trait")
+        let originalDep = Self.registryDep(
+            identity: "scope.lib",
+            versionRange: Version(1, 0, 0) ..< Version(2, 0, 0),
+            traits: [someTrait],
+        )
+        let member = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [originalDep],
+        )
+        let overridingDep = Self.registryDep(
+            identity: "scope.lib",
+            versionRange: Version(2, 0, 0) ..< Version(3, 0, 0),
+        )
+        let override = WorkspaceOverridesJSONParser.Override(
+            identity: .plain("scope.lib"),
+            overridingDependency: overridingDep,
+        )
+
+        let actual = WorkspaceOverridesJSONParser.apply([override], to: member)
+
+        #expect(actual.dependencies.count == 1)
+        let rewritten = try #require(actual.dependencies.first)
+        guard case .registry(let settings) = rewritten else {
+            Issue.record("expected .registry dep, got \(rewritten)")
+            return
+        }
+        #expect(settings.requirement == .range(Version(2, 0, 0) ..< Version(3, 0, 0)))
+        #expect(rewritten.traits == [someTrait])
+    }
+
+    /// A member's `.registry` dep can be redirected to a local
+    /// `.fileSystem` path via an override (the "registry package
+    /// swapped to a local dev checkout" scenario). `apply(_:to:)`
+    /// substitutes the kind end-to-end while preserving the original
+    /// member dep's `traits`.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func apply_toMember_withSingleMatchingRegistryDep_rewritesDepToFileSystemAndPreservesOriginalTraits() throws {
+        let someTrait = PackageDependency.Trait(name: "some-trait")
+        let originalDep = Self.registryDep(
+            identity: "scope.lib",
+            versionRange: Version(1, 0, 0) ..< Version(2, 0, 0),
+            traits: [someTrait],
+        )
+        let member = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [originalDep],
+        )
+        let overridingDep = Self.fileSystemDep(
+            identity: "scope.lib",
+            relativePath: "external/local-scope-lib",
+        )
+        let override = WorkspaceOverridesJSONParser.Override(
+            identity: .plain("scope.lib"),
+            overridingDependency: overridingDep,
+        )
+
+        let actual = WorkspaceOverridesJSONParser.apply([override], to: member)
+
+        #expect(actual.dependencies.count == 1)
+        let rewritten = try #require(actual.dependencies.first)
+        guard case .fileSystem(let settings) = rewritten else {
+            Issue.record("expected .fileSystem dep, got \(rewritten)")
+            return
+        }
+        #expect(settings.path == AbsolutePath("/repo/external/local-scope-lib"))
+        #expect(rewritten.traits == [someTrait])
+    }
+
     /// A single override matching a workspace-level dep replaces
     /// that dep in place. Only the dependencies list is under test
     /// here — other manifest fields (members, toolsVersion, path)
@@ -895,6 +980,19 @@ struct WorkspaceOverridesJSONParserTests {
             productFilter: .everything,
             traits: traits,
             registryIdentity: nil,
+        )
+    }
+
+    private static func registryDep(
+        identity: String,
+        versionRange: Range<Version>,
+        traits: Set<PackageDependency.Trait>? = nil,
+    ) -> PackageDependency {
+        .registry(
+            identity: .plain(identity),
+            requirement: .range(versionRange),
+            productFilter: .everything,
+            traits: traits,
         )
     }
 
