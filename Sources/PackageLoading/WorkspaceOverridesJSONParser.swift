@@ -244,6 +244,48 @@ public enum WorkspaceOverridesJSONParser {
         return overrides.filter { $0.identity != identity }
     }
 
+    // MARK: - Dependency substitution
+
+    /// Builds a new `PackageDependency` by combining the kind and all
+    /// settings fields (`identity`, `location`, `requirement`,
+    /// `productFilter`, etc.) from `overriding` with the `traits` from
+    /// `original`. All fields other than `traits` are taken from
+    /// `overriding`; only `traits` is preserved from `original`.
+    private static func substituting(
+        _ overriding: PackageDependency,
+        preservingTraitsFrom original: PackageDependency,
+    ) -> PackageDependency {
+        switch overriding {
+        case .fileSystem(let settings):
+            return .fileSystem(
+                identity: settings.identity,
+                nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
+                path: settings.path,
+                productFilter: settings.productFilter,
+                traits: original.traits,
+            )
+        case .sourceControl(let settings):
+            return .sourceControl(
+                identity: settings.identity,
+                nameForTargetDependencyResolutionOnly: settings.nameForTargetDependencyResolutionOnly,
+                location: settings.location,
+                requirement: settings.requirement,
+                productFilter: settings.productFilter,
+                traits: original.traits,
+                registryIdentity: settings.registryIdentity,
+            )
+        case .registry(let settings):
+            return .registry(
+                identity: settings.identity,
+                requirement: settings.requirement,
+                productFilter: settings.productFilter,
+                traits: original.traits,
+            )
+        case .workspaceMember, .workspaceInherited:
+            return overriding
+        }
+    }
+
     // MARK: - Resolution
 
     private static func resolveOverride(
