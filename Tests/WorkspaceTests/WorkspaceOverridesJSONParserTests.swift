@@ -659,6 +659,14 @@ struct WorkspaceOverridesJSONParserTests {
         var testDescription: String { label }
     }
 
+    struct ValidateCase: CustomTestStringConvertible {
+        let label: String
+        let overrideIdentity: String
+        let workspaceDepIdentity: String
+        let memberDepIdentity: String
+        var testDescription: String { label }
+    }
+
     @Test(
         "apply rewrites the matching dep at each position and leaves other deps and their traits untouched",
         .tags(
@@ -1034,30 +1042,56 @@ struct WorkspaceOverridesJSONParserTests {
 
     // MARK: - validate
 
-    /// When an override's identity matches a dep declared at the workspace
-    /// level (in `workspaceManifest.dependencies`), `validate` accepts it
-    /// without throwing. The identity does not need to also appear in any
-    /// member manifest — workspace-level presence is sufficient.
+    /// `validate` accepts an override whose identity is declared in
+    /// either the workspace manifest or in any member manifest.
+    /// Presence at either scope is sufficient — the function need not
+    /// find the identity in BOTH.
     @Test(
+        "validate does not throw when override identity is known to either workspace or member scope",
         .tags(
             Tag.TestSize.small,
         ),
+        arguments: [
+            ValidateCase(
+                label: "workspace scope only",
+                overrideIdentity: "some-lib",
+                workspaceDepIdentity: "some-lib",
+                memberDepIdentity: "other-lib",
+            ),
+            ValidateCase(
+                label: "member scope only",
+                overrideIdentity: "member-lib",
+                workspaceDepIdentity: "workspace-lib",
+                memberDepIdentity: "member-lib",
+            ),
+        ],
     )
-    func validate_withIdentityMatchingWorkspaceDepOnly_doesNotThrow() throws {
+    func validate_withIdentityKnownToEitherScope_doesNotThrow(
+        _ testCase: ValidateCase,
+    ) throws {
         let workspaceManifest = Self.makeManifest(
             dependencies: [
-                Self.fileSystemDep(identity: "some-lib", relativePath: "external/some-lib"),
+                Self.fileSystemDep(
+                    identity: testCase.workspaceDepIdentity,
+                    relativePath: "external/\(testCase.workspaceDepIdentity)",
+                ),
             ],
         )
         let memberManifest = Self.makeMemberManifest(
             name: "app",
             dependencies: [
-                Self.fileSystemDep(identity: "other-lib", relativePath: "external/other-lib"),
+                Self.fileSystemDep(
+                    identity: testCase.memberDepIdentity,
+                    relativePath: "external/\(testCase.memberDepIdentity)",
+                ),
             ],
         )
         let override = WorkspaceOverridesJSONParser.Override(
-            identity: .plain("some-lib"),
-            overridingDependency: Self.fileSystemDep(identity: "some-lib", relativePath: "external/local"),
+            identity: .plain(testCase.overrideIdentity),
+            overridingDependency: Self.fileSystemDep(
+                identity: testCase.overrideIdentity,
+                relativePath: "external/local-\(testCase.overrideIdentity)",
+            ),
         )
 
         try WorkspaceOverridesJSONParser.validate(
@@ -1065,6 +1099,46 @@ struct WorkspaceOverridesJSONParserTests {
             workspaceManifest: workspaceManifest,
             memberManifests: [memberManifest],
         )
+    }
+
+    /// When an override's identity is not found in `workspaceManifest.dependencies`
+    /// OR in any `memberManifest.dependencies`, `validate` throws
+    /// `WorkspaceOverridesApplyError.unknownIdentity` carrying the identity
+    /// string. This is the hard error that prevents silent mis-configuration —
+    /// the override file references something that doesn't exist in the
+    /// dependency graph at any scope.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func validate_withIdentityAbsentFromBothScopes_throwsUnknownIdentity() throws {
+        let workspaceManifest = Self.makeManifest(
+            dependencies: [
+                Self.fileSystemDep(identity: "workspace-lib", relativePath: "external/workspace-lib"),
+            ],
+        )
+        let memberManifest = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [
+                Self.fileSystemDep(identity: "member-lib", relativePath: "external/member-lib"),
+            ],
+        )
+        let override = WorkspaceOverridesJSONParser.Override(
+            identity: .plain("ghost-lib"),
+            overridingDependency: Self.fileSystemDep(
+                identity: "ghost-lib",
+                relativePath: "external/ghost",
+            ),
+        )
+
+        #expect(throws: WorkspaceOverridesApplyError.unknownIdentity("ghost-lib")) {
+            try WorkspaceOverridesJSONParser.validate(
+                [override],
+                workspaceManifest: workspaceManifest,
+                memberManifests: [memberManifest],
+            )
+        }
     }
 
     // MARK: - loadIfPresent

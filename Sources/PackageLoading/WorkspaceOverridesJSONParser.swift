@@ -48,7 +48,7 @@ public enum WorkspaceOverridesApplyError: Error, Equatable {
     /// replace existing deps; adding new deps via the overrides file
     /// is not supported.
     ///
-    /// Note: not thrown by `apply(_:to:)`. Reserved for the
+    /// Note: not thrown by `apply(_:to:)`. Thrown exclusively by the
     /// `validate(_:workspaceManifest:memberManifests:)` companion,
     /// which surfaces unknown identities after all manifests are
     /// loaded.
@@ -273,7 +273,15 @@ public enum WorkspaceOverridesJSONParser {
         _ overrides: [Override],
         workspaceManifest: WorkspaceManifest,
         memberManifests: [Manifest],
-    ) throws { }
+    ) throws {
+        let declaredIdentities = Set(
+            workspaceManifest.dependencies.map(\.identity)
+                + memberManifests.flatMap { $0.dependencies.map(\.identity) },
+        )
+        for override in overrides where !declaredIdentities.contains(override.identity) {
+            throw WorkspaceOverridesApplyError.unknownIdentity(override.identity.description)
+        }
+    }
 
     // MARK: - Mutating the override list
 
