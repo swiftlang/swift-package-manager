@@ -392,6 +392,25 @@ struct WorkspaceOverridesJSONParserTests {
         #expect(actual.dependencies == dependencies)
     }
 
+    /// An empty overrides list passed to `apply(_:toMember:)` is a
+    /// no-op: the returned `Manifest`'s dependencies are identical to
+    /// the input member's. Establishes the identity-element contract.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func apply_toMember_withEmptyOverrides_returnsMemberDependenciesUnchanged() {
+        let member = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [Self.fileSystemDep(identity: "lib-a", relativePath: "external/lib-a")],
+        )
+
+        let actual = WorkspaceOverridesJSONParser.apply([], to: member)
+
+        #expect(actual.dependencies == member.dependencies)
+    }
+
     /// A single override matching a workspace-level dep replaces
     /// that dep in place. Only the dependencies list is under test
     /// here — other manifest fields (members, toolsVersion, path)
@@ -685,6 +704,34 @@ struct WorkspaceOverridesJSONParserTests {
             toolsVersion: .current,
             members: [],
             dependencies: dependencies,
+        )
+    }
+
+    private static func makeMemberManifest(
+        name: String,
+        dependencies: [PackageDependency],
+    ) -> Manifest {
+        let manifestPath = AbsolutePath("/repo/packages/\(name)/Package.swift")
+        return Manifest(
+            displayName: name,
+            packageIdentity: PackageIdentity.plain(name),
+            path: manifestPath,
+            packageKind: .root(manifestPath.parentDirectory),
+            packageLocation: manifestPath.parentDirectory.pathString,
+            defaultLocalization: nil,
+            platforms: [],
+            version: nil,
+            revision: nil,
+            toolsVersion: .vNext,
+            pkgConfig: nil,
+            providers: nil,
+            cLanguageStandard: nil,
+            cxxLanguageStandard: nil,
+            swiftLanguageVersions: nil,
+            dependencies: dependencies,
+            products: [],
+            targets: [],
+            traits: [],
         )
     }
 
