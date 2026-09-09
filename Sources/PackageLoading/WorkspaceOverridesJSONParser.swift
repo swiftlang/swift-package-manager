@@ -44,9 +44,14 @@ public enum WorkspaceOverridesParseError: Error, Equatable {
 /// produce different diagnostics.
 public enum WorkspaceOverridesApplyError: Error, Equatable {
     /// An override entry references an identity that doesn't match
-    /// any dependency in the workspace's declared `dependencies:`
-    /// list. Overrides only replace existing workspace-level deps;
-    /// adding new deps via the overrides file is not supported.
+    /// any dependency at the workspace or member level. Overrides only
+    /// replace existing deps; adding new deps via the overrides file
+    /// is not supported.
+    ///
+    /// Note: not thrown by `apply(_:to:)`. Reserved for the
+    /// `validate(_:workspaceManifest:memberManifests:)` companion,
+    /// which surfaces unknown identities after all manifests are
+    /// loaded.
     /// - Parameter identity: The identity that failed to match, as
     ///   declared in the overrides file (echoed back so users can
     ///   locate it).
@@ -176,39 +181,30 @@ public enum WorkspaceOverridesJSONParser {
     /// Only `dependencies` is modified — `members`, `toolsVersion`,
     /// and `path` pass through untouched.
     ///
+    /// Unknown identities are silently ignored (no validation here).
+    /// Identity validation across both workspace- and member-level
+    /// deps moves to a companion `validate` function in a later cycle.
+    ///
     /// - Parameters:
     ///   - overrides: The resolved overrides from `parse(v1:workspaceRoot:)`.
     ///   - manifest: The workspace manifest to override.
     /// - Returns: A new `WorkspaceManifest` with matching deps
     ///   replaced.
-    /// - Throws: `WorkspaceOverridesApplyError.unknownIdentity` when
-    ///   an override references an identity absent from
-    ///   `manifest.dependencies`. Adding new deps via overrides is
-    ///   not supported; unknown identities are almost always typos.
     public static func apply(
         _ overrides: [Override],
         to manifest: WorkspaceManifest,
-    ) throws -> WorkspaceManifest {
+    ) -> WorkspaceManifest {
         guard !overrides.isEmpty else { return manifest }
 
-        let overridesByIdentity = Dictionary(
-            uniqueKeysWithValues: overrides.map { ($0.identity, $0.overridingDependency) },
+        let rewrittenDependencies = Self.rewritingDependencies(
+            manifest.dependencies,
+            overrides: overrides,
         )
-
-        let declaredIdentities = Set(manifest.dependencies.map(\.identity))
-        for override in overrides where !declaredIdentities.contains(override.identity) {
-            throw WorkspaceOverridesApplyError.unknownIdentity(override.identity.description)
-        }
-
-        let newDependencies = manifest.dependencies.map { dep -> PackageDependency in
-            guard let overriding = overridesByIdentity[dep.identity] else { return dep }
-            return Self.substituting(overriding, preservingTraitsFrom: dep)
-        }
         return WorkspaceManifest(
             path: manifest.path,
             toolsVersion: manifest.toolsVersion,
             members: manifest.members,
-            dependencies: newDependencies,
+            dependencies: rewrittenDependencies,
         )
     }
 
@@ -238,19 +234,14 @@ public enum WorkspaceOverridesJSONParser {
     ) -> Manifest {
         guard !overrides.isEmpty else { return memberManifest }
 
-        let overridesByIdentity = Dictionary(
-            uniqueKeysWithValues: overrides.map { ($0.identity, $0.overridingDependency) },
+        let rewrittenDependencies = Self.rewritingDependencies(
+            memberManifest.dependencies,
+            overrides: overrides,
+            skipping: { dep in
+                if case .workspaceInherited = dep { return true }
+                return false
+            },
         )
-
-        let rewrittenDependencies = memberManifest.dependencies.map { dep -> PackageDependency in
-            guard let overriding = overridesByIdentity[dep.identity] else { return dep }
-            // `.workspaceInherited` deps are placeholders for workspace-level
-            // dependencies; the substitution for those identities happens in
-            // the `apply(_:to:)` workspace-manifest overload. Rewriting them
-            // here would double-override the same identity.
-            if case .workspaceInherited = dep { return dep }
-            return Self.substituting(overriding, preservingTraitsFrom: dep)
-        }
         return memberManifest.withDependencies(rewrittenDependencies)
     }
 
@@ -302,6 +293,29 @@ public enum WorkspaceOverridesJSONParser {
     }
 
     // MARK: - Dependency substitution
+
+    /// Applies `overrides` to `deps`, returning a new array where any dep
+    /// whose identity matches an override — and does NOT satisfy
+    /// `shouldSkip` — is substituted via `substituting(_:preservingTraitsFrom:)`.
+    /// All other deps pass through unchanged.
+    ///
+    /// Callers own the empty-`overrides` fast-path — this helper always
+    /// builds the identity lookup, so short-circuit before calling if
+    /// `overrides.isEmpty`.
+    private static func rewritingDependencies(
+        _ deps: [PackageDependency],
+        overrides: [Override],
+        skipping shouldSkip: (PackageDependency) -> Bool = { _ in false },
+    ) -> [PackageDependency] {
+        let overridesByIdentity = Dictionary(
+            uniqueKeysWithValues: overrides.map { ($0.identity, $0.overridingDependency) },
+        )
+        return deps.map { dep in
+            guard let overriding = overridesByIdentity[dep.identity] else { return dep }
+            guard !shouldSkip(dep) else { return dep }
+            return Self.substituting(overriding, preservingTraitsFrom: dep)
+        }
+    }
 
     /// Builds a new `PackageDependency` by combining the kind and all
     /// settings fields (`identity`, `location`, `requirement`,

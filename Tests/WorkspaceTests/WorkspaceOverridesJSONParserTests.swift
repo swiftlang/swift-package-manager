@@ -403,13 +403,13 @@ struct WorkspaceOverridesJSONParserTests {
             Tag.TestSize.small,
         ),
     )
-    func apply_withEmptyOverrides_returnsDependenciesUnchanged() throws {
+    func apply_withEmptyOverrides_returnsDependenciesUnchanged() {
         let dependencies = [
             Self.fileSystemDep(identity: "some-lib", relativePath: "external/some-lib"),
         ]
         let manifest = Self.makeManifest(dependencies: dependencies)
 
-        let actual = try WorkspaceOverridesJSONParser.apply([], to: manifest)
+        let actual = WorkspaceOverridesJSONParser.apply([], to: manifest)
 
         #expect(actual.dependencies == dependencies)
     }
@@ -908,7 +908,7 @@ struct WorkspaceOverridesJSONParserTests {
             Tag.TestSize.small,
         ),
     )
-    func apply_withSingleMatch_replacesDep() throws {
+    func apply_withSingleMatch_replacesDep() {
         let unchanged = Self.fileSystemDep(identity: "other-lib", relativePath: "external/other-lib")
         let manifest = Self.makeManifest(
             dependencies: [
@@ -922,7 +922,7 @@ struct WorkspaceOverridesJSONParserTests {
             overridingDependency: replacement,
         )
 
-        let actual = try WorkspaceOverridesJSONParser.apply([override], to: manifest)
+        let actual = WorkspaceOverridesJSONParser.apply([override], to: manifest)
 
         #expect(actual.dependencies == [replacement, unchanged])
     }
@@ -936,7 +936,7 @@ struct WorkspaceOverridesJSONParserTests {
             Tag.TestSize.small,
         ),
     )
-    func apply_withMultipleMatches_replacesAll() throws {
+    func apply_withMultipleMatches_replacesAll() {
         let manifest = Self.makeManifest(
             dependencies: [
                 Self.fileSystemDep(identity: "some-lib", relativePath: "external/some-lib"),
@@ -956,22 +956,26 @@ struct WorkspaceOverridesJSONParserTests {
             ),
         ]
 
-        let actual = try WorkspaceOverridesJSONParser.apply(overrides, to: manifest)
+        let actual = WorkspaceOverridesJSONParser.apply(overrides, to: manifest)
 
         #expect(actual.dependencies == [someReplacement, otherReplacement])
     }
 
     /// An override whose identity doesn't match any workspace-level
-    /// dep is rejected. This is the guard-rail against typos: a
-    /// silent no-op would let a broken override sit in the repo
-    /// undetected. The error names the offending identity so users
-    /// can find it in the JSON file.
+    /// dep is silently ignored — `apply(_:to:)` is a pure rewrite and
+    /// never throws. Intentional design: the responsibility for
+    /// rejecting unknown identities is delegated to
+    /// `validate(_:workspaceManifest:memberManifests:)`, which throws
+    /// `WorkspaceOverridesApplyError.unknownIdentity` after all
+    /// manifests are loaded. This test pins the no-throw contract so
+    /// a future refactor that accidentally re-introduces a throw here
+    /// will surface immediately.
     @Test(
         .tags(
             Tag.TestSize.small,
         ),
     )
-    func apply_withUnknownIdentity_throws() throws {
+    func apply_withUnknownIdentity_returnsManifestUnchanged() {
         let manifest = Self.makeManifest(
             dependencies: [
                 Self.fileSystemDep(identity: "some-lib", relativePath: "external/some-lib"),
@@ -982,9 +986,9 @@ struct WorkspaceOverridesJSONParserTests {
             overridingDependency: Self.fileSystemDep(identity: "ghost-lib", relativePath: "external/ghost"),
         )
 
-        #expect(throws: WorkspaceOverridesApplyError.unknownIdentity("ghost-lib")) {
-            _ = try WorkspaceOverridesJSONParser.apply([override], to: manifest)
-        }
+        let actual = WorkspaceOverridesJSONParser.apply([override], to: manifest)
+
+        #expect(actual.dependencies == manifest.dependencies)
     }
 
     /// When `apply` substitutes a workspace-level dep it must carry the
@@ -1020,7 +1024,7 @@ struct WorkspaceOverridesJSONParserTests {
             overridingDependency: overridingDep,
         )
 
-        let actual = try WorkspaceOverridesJSONParser.apply([override], to: manifest)
+        let actual = WorkspaceOverridesJSONParser.apply([override], to: manifest)
 
         #expect(actual.dependencies.count == 2)
         let substituted = try #require(actual.dependencies.first)
