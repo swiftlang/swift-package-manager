@@ -1151,8 +1151,25 @@ struct ModuleAliasTracker2 {
             return closestCandidates.count == 1 ? closestCandidates.first : nil
         }
 
+        // When a single canonical module's alias chain diverges into multiple terminal aliases
+        // (e.g. two independent, unrelated paths through the graph each alias it differently),
+        // every candidate that traces back to it shares the same originatingPackage. Prefer
+        // whichever has been further chained/overridden downstream over a dead-end root
+        // declaration for that same module — a root declaration that nobody built upon further
+        // never had a chance to be superseded, so it shouldn't outrank one that did.
+        func preferContinuedOverRoot(_ candidates: Set<ProposedAlias.Candidate>) -> Set<ProposedAlias.Candidate> {
+            let grouped = Dictionary(grouping: candidates, by: \.originatingPackage)
+            return Set(grouped.values.flatMap { group -> [ProposedAlias.Candidate] in
+                guard group.count > 1 else { return group }
+                let nonRoot = group.filter { !$0.isRootDeclaration }
+                return nonRoot.isEmpty ? group : nonRoot
+            })
+        }
+
         for (moduleInfo, proposedAliases) in proposedAliases {
-            for proposal in proposedAliases {
+            for rawProposal in proposedAliases {
+                var proposal = rawProposal
+                proposal.candidates = preferContinuedOverRoot(proposal.candidates)
                 let winner: String?
                 // If the module in question is the one being aliased, always add.
                 if let selfRename = proposal.candidates.first(where: { $0.isSelfRename }) {
@@ -1199,219 +1216,6 @@ struct ModuleAliasTracker2 {
             }
         }
     }
-
-    /// Propagates every module alias across the package graph and applies the terminal aliases.
-    /*
-    private mutating func applyAliases(_ observabilityScope: ObservabilityScope) {
-        // Track the proposed aliases to track in a given module.
-        var proposedAliases: [ModuleInfo: IdentifiableSet<ProposedAlias>] = [:]
-
-        for moduleAlias in self.moduleAliases {
-            let chains = moduleAlias.applyChainedAliases(observabilityScope)
-
-            for chain in chains {
-                guard let root = chain.chain.first else { continue }
-                let terminal = chain.terminalAlias
-                let isRootDeclaration = root.declaringModule == terminal.declaringModule
-
-                // Diagnostics
-                if chain.chain.count > 1  {
-                    for link in chain.chain {
-                        observabilityScope.emit(info: "Module alias '\(link.name)' defined in package '\(link.declaringPackage)' for target '\(link.declaringModule.name)' in package/product '\(link.product.name)' is overridden by alias '\(terminal.name)'; if this override is not intended, remove '\(terminal.name)' from 'moduleAliases' in its manifest")
-                    }
-                }
-
-                // Track down what intra-package modules the aliased module will affect
-                if let aliasedModuleInfo = self.packageModules[root.originatingPackage]?[root.overridenName] {
-                    let affectedModules = dependentIntraPackageModules(aliasedModuleInfo)
-                    for moduleInfo in affectedModules {
-                        propose(
-                            terminal,
-                            overridenName: root.overridenName,
-                            for: moduleInfo,
-                            vendingProducts: moduleAlias.vendingProducts,
-                            originatingPackage: moduleAlias.package,
-                            isRootDeclaration: isRootDeclaration,
-                            isSelfRename: moduleInfo == aliasedModuleInfo
-                        )
-                    }
-                }
-
-                if chain.chain.count > 1,
-                   let rootModuleInfo = self.packageModules[root.declaringPackage]?[root.declaringModule.name] {
-                    let vendingProducts = self.vendingProducts(for: rootModuleInfo)
-                    let hasCompetingModule = vendingProducts.contains { productId in
-                        guard let product = self.productModules[productId],
-                              let canonicalDistance = product.reachableModulesByName[root.overridenName]?
-                                  .first(where: { $0.packageId == root.originatingPackage })?.distance else { return false }
-                        return (product.reachableModulesByName[root.overridenName] ?? []).contains(where: {
-                            $0.packageId != root.originatingPackage && $0.distance <= canonicalDistance
-                        })
-                    }
-                    if hasCompetingModule {
-                        propose(
-                            terminal,
-                            overridenName: root.name,
-                            for: rootModuleInfo,
-                            vendingProducts: moduleAlias.vendingProducts,
-                            originatingPackage: moduleAlias.package,
-                            isRootDeclaration: isRootDeclaration
-                        )
-                    }
-                }
-
-                // Propose module alias for relevant modules; iterate through intermediate links in the alias chain
-                // to determine the intermediary modules that require knowledge of the terminal alias name.
-                for link in chain.chain {
-                    let module = link.declaringModule
-                    guard let productModules = productModules[link.product.identity] else { continue }
-                    guard productModules.directlyVendsModule(root.overridenName) else { continue }
-                    guard let moduleInfo = productModules.intraPackageModules[module.name]?.moduleInfo else { continue }
-
-                    propose(
-                        terminal,
-                        overridenName: root.overridenName,
-                        for: moduleInfo,
-                        vendingProducts: moduleAlias.vendingProducts,
-                        originatingPackage: moduleAlias.package,
-                        isRootDeclaration: isRootDeclaration
-                    )
-                }
-
-                let affectedProducts = moduleAlias.vendingProducts.compactMap({ self.productModules[$0]?.crossPackageDependentProducts }).flatMap({$0})
-
-                for affectedProduct in affectedProducts {
-                    guard let product = self.productModules[affectedProduct] else { continue }
-                    for reachable in product.intraPackageModules where product.directlyVendsModule(reachable.moduleInfo) {
-                        propose(
-                            terminal,
-                            overridenName: root.overridenName,
-                            for: reachable.moduleInfo,
-                            vendingProducts: moduleAlias.vendingProducts,
-                            originatingPackage: moduleAlias.package,
-                            isRootDeclaration: isRootDeclaration
-                        )
-                    }
-                }
-            }
-        }
-
-        func hasSurvivor(_ proposedAlias: ProposedAlias, for module: ModuleInfo) -> Bool {
-            let products = self.vendingProducts(for: module).compactMap { self.productModules[$0] }
-            for product in products {
-                for other in product.reachableModules(named: proposedAlias.canonicalModuleName) {
-                    let id = ModuleAlias.ModuleAliasID(moduleName: proposedAlias.canonicalModuleName, packageIdentity: other.packageId)
-                    if self.moduleAliases[id] == nil {
-                        return true
-                    }
-                }
-            }
-            return false
-        }
-
-        func closestCandidate(_ proposedAlias: ProposedAlias, for moduleInfo: ModuleInfo) -> ProposedAlias.Candidate? {
-            let vendingProducts = self.vendingProducts(for: moduleInfo)
-            let candidatePackages = Set(proposedAlias.candidates.map(\.originatingPackage))
-
-            // Distance is already precomputed by computeAllReachableModules(), and grouped by
-            // literal name in reachableModulesByName — a direct lookup covers both the
-            // same-package and cross-package cases, no BFS or full-set scan needed.
-            var bestDistance: [PackageIdentity: Int] = [:]
-            for productId in vendingProducts {
-                guard let product = self.productModules[productId] else { continue }
-                for candidatePackage in candidatePackages {
-                    guard let match = product.reachableModulesByName[proposedAlias.canonicalModuleName]?
-                        .first(where: { $0.packageId == candidatePackage }) else { continue }
-                    if let existing = bestDistance[candidatePackage], existing <= match.distance { continue }
-                    bestDistance[candidatePackage] = match.distance
-                }
-            }
-
-            // A genuine tie (multiple candidates equally close) has no real winner — return
-            // nil rather than picking one arbitrarily.
-            let minDistance = bestDistance.values.min()
-            let closestCandidates = proposedAlias.candidates.filter { bestDistance[$0.originatingPackage] == minDistance }
-            return closestCandidates.count == 1 ? closestCandidates.first : nil
-        }
-
-        // When a single canonical module's alias chain diverges into multiple terminal aliases
-        // (e.g. two independent, unrelated paths through the graph each alias it differently),
-        // every candidate that traces back to it shares the same originatingPackage. Prefer
-        // whichever has been further chained/overridden downstream over a dead-end root
-        // declaration for that same module — a root declaration that nobody built upon further
-        // never had a chance to be superseded, so it shouldn't outrank one that did.
-        func preferContinuedOverRoot(_ candidates: Set<ProposedAlias.Candidate>) -> Set<ProposedAlias.Candidate> {
-            let grouped = Dictionary(grouping: candidates, by: \.originatingPackage)
-            return Set(grouped.values.flatMap { group -> [ProposedAlias.Candidate] in
-                guard group.count > 1 else { return group }
-                let nonRoot = group.filter { !$0.isRootDeclaration }
-                return nonRoot.isEmpty ? group : nonRoot
-            })
-        }
-
-        for (moduleInfo, proposals) in proposedAliases {
-            for rawProposedAlias in proposals {
-                var proposedAlias = rawProposedAlias
-                proposedAlias.candidates = preferContinuedOverRoot(proposedAlias.candidates)
-                let winner: String?
-
-                // A module renaming itself always wins outright — its own identity change isn't
-                // gated on unrelated same-named modules also being reachable through it.
-                if let selfRename = proposedAlias.candidates.first(where: { $0.isSelfRename }) {
-                    winner = selfRename.terminalAlias
-                } else if hasSurvivor(proposedAlias, for: moduleInfo) {
-                    winner = nil
-                } else if proposedAlias.candidates.count == 1, let alias = proposedAlias.candidates.first {
-                    winner = alias.terminalAlias
-                } else if let samePackage = proposedAlias.candidates.first(where: { $0.originatingPackage == moduleInfo.packageId }) {
-                    winner = samePackage.terminalAlias
-                } else {
-                    let allSelfDeclared = proposedAlias.candidates.filter { $0.declaringModule == moduleInfo.module }
-                    if allSelfDeclared.count > 1 {
-                        // Self-authored ambiguity: this module declared multiple conflicting
-                        // renames for the same literal name — it can't tell which one it meant either.
-                        winner = nil
-                    } else if let onlySelfDeclared = allSelfDeclared.first {
-                        // Exactly one self-declaration. If it's a root declaration, this module
-                        // already resolved its own literal name unambiguously by writing the
-                        // alias — it isn't a genuine consumer of the broadcast, so fall through
-                        // to distance instead of trusting it directly.
-                        winner = onlySelfDeclared.isRootDeclaration
-                            ? closestCandidate(proposedAlias, for: moduleInfo)?.terminalAlias
-                            : onlySelfDeclared.terminalAlias
-                    } else {
-                        winner = closestCandidate(proposedAlias, for: moduleInfo)?.terminalAlias
-                    }
-                }
-                if let winner {
-                    let module = moduleInfo.module
-                    module.addModuleAlias(for: proposedAlias.canonicalModuleName, as: winner)
-                    // Check against non swift files in the module's sources and warn accordingly.
-                    if module.sources.containsNonSwiftFiles, let aliases = module.moduleAliases {
-                        let aliasesMsg = aliases.map({ "'\($0.key)' as '\($0.value)'" }).joined(separator: ", ")
-
-                        for product in proposedAlias.vendingProducts {
-                            guard let product = self.productModules[product] else { continue }
-                            observabilityScope.emit(warning: "target '\(module.name)' for product '\(product.productName)' from package '\(moduleInfo.packageId)' has module aliases: [\(aliasesMsg)] but may contain non-Swift sources; there might be a conflict among non-Swift symbols")
-                        }
-                    }
-                }
-            }
-        }
-
-        // Apply all aliases
-        for moduleAlias in self.moduleAliases {
-            moduleAlias.applyAlias()
-        }
-
-        // Diagnose unapplied aliases.
-        for moduleAlias in self.moduleAliases where moduleAlias.terminalAliases.isEmpty {
-            if let diagnosedAlias = moduleAlias.aliases.first(where: { $0.overridenName == moduleAlias.module.name }) {
-                observabilityScope.emit(warning: "module alias for target '\(moduleAlias.module.name)', declared in package '\(diagnosedAlias.declaringPackage)', does not match any recursive target dependency of product '\(diagnosedAlias.product.name)' from package '\(moduleAlias.package.description)'")
-            }
-        }
-    }
-     */
 }
 
 public class ModuleAlias: Identifiable {
@@ -1552,17 +1356,22 @@ public class ModuleAlias: Identifiable {
         guard self.aliases.insert(alias).inserted else { return }
         // Also insert in reverse-lookup
         self.reverseLookupAliases[alias.reverseId, default: []].append(alias.id)
-        // Two different new names for the same overridden name/originating package is always
-        // a conflict, regardless of which package(s) declared them — matches the legacy
-        // tracker's behavior of erroring out on divergence rather than resolving it later.
-        // (Two packages independently picking the *same* new name isn't a conflict.)
-        if let aliasIds = self.reverseLookupAliases[alias.reverseId], Set(aliasIds.map(\.name)).count > 1 {
-            throw PackageGraphError.multipleModuleAliases(
-                module: alias.overridenName,
-                product: productRef.name,
-                package: self.package.description,
-                aliases: aliasIds.map { $0.name }
-            )
+        // Multiple different names for the same overridden name/originating package is only
+        // a genuine conflict when the SAME declaring package is responsible for more than one
+        // of them — that's a single entity being self-contradictory. When the conflicting names
+        // come from different, unrelated declaring packages (e.g. two independent paths through
+        // the graph that each alias the same canonical module differently), it's a legitimate
+        // diverged chain, resolved later by propose()'s tie-breaking — not an error here.
+        if let aliasIds = self.reverseLookupAliases[alias.reverseId], aliasIds.count > 1 {
+            let declaringPackages = aliasIds.map(\.declaringPackage)
+            if Set(declaringPackages).count < declaringPackages.count {
+                throw PackageGraphError.multipleModuleAliases(
+                    module: alias.overridenName,
+                    product: productRef.name,
+                    package: self.package.description,
+                    aliases: aliasIds.map { $0.name }
+                )
+            }
         }
     }
 }
