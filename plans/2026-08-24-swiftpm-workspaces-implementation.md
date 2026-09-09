@@ -1437,7 +1437,7 @@ the already-supported workspace-level `dependencies:` in `Workspace.swift`.
   note (identity + registry-resolution key), just drops "workspace-level".
 - Traits preservation: replacement carries the ORIGINAL dep's `traits`,
   not the override entry's `traits: nil`. Applies to BOTH `apply(to:)`
-  and `apply(toMember:)` — the workspace-level apply is a small
+  and `apply(to:)` — the workspace-level apply is a small
   behavior change to already-shipped code, applied for consistency.
 
 ### Approach — API split (`WorkspaceOverridesJSONParser`)
@@ -1456,7 +1456,7 @@ the already-supported workspace-level `dependencies:` in `Workspace.swift`.
 
 - `Sources/Workspace/PackageWorkspace+Discovery.swift:127` — drop the
   `try` (apply no longer throws).
-- Member-manifest load pass — invoke `apply(_:toMember:)` for each
+- Member-manifest load pass — invoke `apply(_:to:)` for each
   member manifest. Natural site: `resolveWorkspaceMemberPaths` in
   `PackageWorkspace+WorkspaceResolve.swift` (already walks member
   deps), or a sibling pass called from `loadRootManifests` in
@@ -1481,20 +1481,20 @@ state; commit column records the hash landed by `tdd-commit`.
 
 | #  | Behaviour                                                                                               | Status      | Commit |
 |----|---------------------------------------------------------------------------------------------------------|-------------|--------|
-| 1  | `apply(to:)` preserves original dep's `traits` when substituting a workspace-level dep                  | 🟡 In Progress  | —      |
-| 2  | `apply(toMember:)` with empty overrides is a no-op — member dep list unchanged                          | 🔴 Pending  | —      |
-| 3  | `apply(toMember:)` with single matching `.fileSystem` dep rewrites it, preserving original traits       | 🔴 Pending  | —      |
-| 4  | `apply(toMember:)` with matching `.sourceControl` dep rewrites it, preserving original traits           | 🔴 Pending  | —      |
-| 5  | `apply(toMember:)` with matching `.registry` dep rewrites it, preserving original traits                | 🔴 Pending  | —      |
-| 6  | `apply(toMember:)` with multiple deps rewrites only the matching one; unmatched deps pass through       | 🔴 Pending  | —      |
-| 7  | `apply(toMember:)` skips `.workspaceInherited` dep even when its identity matches an override           | 🔴 Pending  | —      |
-| 8  | Drop `throws` from `apply(to:)`; existing `apply_withUnknownIdentity_throws` test moves to `validate`   | 🔴 Pending  | —      |
+| 1  | `apply(to:)` preserves original dep's `traits` when substituting a workspace-level dep                  | ✅ Done  | `06f49550f` |
+| 2  | `apply(to:)` (member Manifest overload) with empty overrides is a no-op — member dep list unchanged     | ✅ Done  | `25505de49` |
+| 3  | `apply(to:)` (member) with single matching `.fileSystem` dep rewrites it, preserving original traits    | ✅ Done  | `aee5808ad` |
+| 4  | `apply(to:)` with matching `.sourceControl` dep rewrites it, preserving original traits           | ✅ Done  | `4b33acdde` |
+| 5  | `apply(to:)` with matching `.registry` dep rewrites it, preserving original traits                | ✅ Done  | `cdcfbf02d` |
+| 6  | `apply(to:)` with multiple deps rewrites only the matching one; unmatched deps pass through       | ✅ Done  | `0b9d2230a` |
+| 7  | `apply(to:)` skips `.workspaceInherited` dep even when its identity matches an override           | ✅ Done  | `ec110a77d` |
+| 8  | Drop `throws` from `apply(to:)`; existing `apply_withUnknownIdentity_throws` test moves to `validate`   | 🟡 In Progress  | —      |
 | 9  | `validate` with identity matching only a workspace dep does not throw                                   | 🔴 Pending  | —      |
 | 10 | `validate` with identity matching only a member dep does not throw; absent-from-both throws unknownIdentity | 🔴 Pending  | —      |
-| 11 | Pipeline wiring: member-manifest load pass invokes `apply(toMember:)` and `validate` fires after load   | 🔴 Pending  | —      |
+| 11 | Pipeline wiring: member-manifest load pass invokes `apply(to:)` and `validate` fires after load   | 🔴 Pending  | —      |
 | 12 | E2E: new `S08_MemberDepOverride` fixture — member with direct `.package(url:)` dep resolves via override; UI help text on `Add`/`Path`/`Url`/`Registry` updated | 🔴 Pending  | —      |
 
-**Active Cycle:** #1 (⏸ Paused — stack-drift audit in progress; see Baseline section)
+**Active Cycle:** #8
 
 ### Confirmed Edge Cases
 
@@ -1502,8 +1502,8 @@ state; commit column records the hash landed by `tdd-commit`.
 - Override identity matches member dep only: valid; only that member's apply substitutes.
 - Override identity absent from both workspace and all members: `validate` throws `unknownIdentity`.
 - Member dep with non-nil `traits`: replacement carries the original's traits, not `traits: nil`.
-- `.workspaceInherited` dep sharing an identity with an override: `apply(toMember:)` skips it — inheritance-level overriding handled at the workspace level.
-- Member with zero deps: `apply(toMember:)` returns manifest unchanged.
+- `.workspaceInherited` dep sharing an identity with an override: `apply(to:)` skips it — inheritance-level overriding handled at the workspace level.
+- Member with zero deps: `apply(to:)` returns manifest unchanged.
 - Empty overrides list: both `apply` functions are fast-path no-ops; `validate` is a no-op.
 
 ### Files to modify
@@ -1536,7 +1536,13 @@ state; commit column records the hash landed by `tdd-commit`.
 
 ### Cycle Log
 
-(none yet)
+- **Cycle 1** — `06f49550f` — `apply(to:)` preserves original dep's `traits`. Landed the failing test, the `substituting(_:preservingTraitsFrom:)` helper, test refactors (`someTrait` constant, `minimumVersion` rename, dropped redundant count assertion), and prod refactor (dedicated `// MARK:` + doc-comment clarifying which fields come from the override vs. the original).
+- **Cycle 2** — `25505de49` — Introduced the `apply(_:to memberManifest:)` overload as a stub (returns the member manifest unchanged). API is now overloaded by parameter type (`Manifest` vs `WorkspaceManifest`) per Sam K's requirement. Added `makeMemberManifest(name:dependencies:)` test helper and the empty-overrides no-op test. Refactor phase skipped by user opt-out.
+- **Cycle 3** — `aee5808ad` — Upgraded the member `apply(_:to:)` overload from stub to real match-and-rewrite. Reuses `Self.substituting(_:preservingTraitsFrom:)` (no new helper). Returns a rewritten `Manifest` via `Manifest.withDependencies(_:)`. `fileSystemDep` test helper gained a `traits:` parameter (defaulted). Prod refactor: real contract doc-comment for the member overload; renamed `newDependencies` → `rewrittenDependencies`; switched both overloads' dict build from `var`+`for` to `Dictionary(uniqueKeysWithValues:)`. Test refactor phase skipped by user opt-out. Notable: `Dictionary(uniqueKeysWithValues:)` traps on duplicate keys — safe for `addOverride` path (dedupes) but JSON-parse path is trusted, not enforced. Follow-up: consider `Dictionary(_:uniquingKeysWith:)` if duplicate-identity policy is ever formalised.
+- **Cycle 4** — `4b33acdde` — Test-only confirmation cycle covering `.sourceControl` originals. Added two tests: same-kind (`.sourceControl` → `.sourceControl` URL/requirement redirect) and cross-kind (`.sourceControl` → `.fileSystem` local-checkout redirect). Both pass without any prod change because Cycle 3's implementation is kind-agnostic. Test refactor: renamed cross-kind test to align with the `_rewritesDep...AndPreservesOriginalTraits` template; stripped plan-internal "Cycle 1" jargon from the Cycle 3 test's doc-comment. TR-2 (`try #require` closure form to replace `guard case / Issue.record / return`) was proposed and approved but blocked by tool-approval on apply; skipped for this cycle (revisited in Cycle 6 with an Optional-extension approach).
+- **Cycle 5** — `cdcfbf02d` — Test-only confirmation cycle covering `.registry` originals; closes the fileSystem/sourceControl/registry kind matrix for member-manifest overrides. Added two tests: same-kind (`.registry` → `.registry` requirement bump) and cross-kind (`.registry` → `.fileSystem` local dev checkout). Added `registryDep(identity:versionRange:traits:)` test helper. Both refactor phases skipped by user opt-out.
+- **Cycle 6** — `0b9d2230a` — Multi-dep coverage for the member `apply(_:to:)` overload. Added a parameterized head/middle/tail positional test and a separate multi-match test proving simultaneous overrides fire and bystander deps pass through untouched (with `bystanderTrait` traits preserved). Major test refactor: added private `PackageDependency` extension with `.fileSystemSettings` / `.sourceControlSettings` / `.registrySettings` typed Optional accessors, then migrated all nine member-apply tests from `guard case / Issue.record / return` → `try #require(dep.xyzSettings)` (aligns with the `#require`-over-`#expect` memory rule). Also renamed Cycle 6's local `matchTrait`/`unmatchedTrait` → `originalTrait`/`bystanderTrait`, and collapsed the three positional tests into one `@Test(arguments:)` with a private `PositionalCase` struct. Net: 30/30 tests green after refactor.
+- **Cycle 7** — `ec110a77d` — First real prod-code change since Cycle 3. Added `.workspaceInherited` guard in `apply(_:to memberManifest:)`: inherited deps whose identity matches an override are left in place (workspace-manifest layer handles the substitution; guarding here avoids double-override). Two new tests: single-inherited + mixed (concrete + inherited in same manifest). Added `.workspaceInheritedSettings` Optional accessor + `workspaceInheritedDep` factory + `expectWorkspaceInherited(_:identity:traits:sourceLocation:)` assertion helper (surfaced during test-refactor phase; both Cycle 7 tests use it). Test refactor: renamed `originalTrait` → `inheritedTrait` in the single-inherited test and reformatted long `#require` calls in the mixed test to multi-line. Prod refactor phase skipped. Stale-build gotcha noted: initial re-run after prod change still failed because the build cache retained the pre-guard binary; `swift package clean` resolved.
 
 ---
 
