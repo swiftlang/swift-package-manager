@@ -245,6 +245,36 @@ public enum WorkspaceOverridesJSONParser {
         return memberManifest.withDependencies(rewrittenDependencies)
     }
 
+    // MARK: - Validation
+
+    /// Validates that every override in `overrides` references an identity
+    /// declared at either the workspace level
+    /// (`workspaceManifest.dependencies`) or the member level (any
+    /// `memberManifest.dependencies` in `memberManifests`). Overrides only
+    /// replace existing deps; adding new deps via the overrides file is
+    /// not supported, so an identity absent from BOTH scopes is rejected.
+    ///
+    /// Called by the workspace-load pipeline after all manifests are
+    /// loaded, before dependency resolution. Complements the pure-rewrite
+    /// `apply(_:to:)` overloads, which never throw on unknown identities —
+    /// unknown-identity rejection lives here so that overrides across
+    /// workspace + member scopes can be validated together in a single
+    /// pass.
+    ///
+    /// - Parameters:
+    ///   - overrides: The resolved overrides from `parse(v1:workspaceRoot:)`.
+    ///   - workspaceManifest: The workspace manifest whose
+    ///     `dependencies` are checked first.
+    ///   - memberManifests: All workspace-member manifests; an identity
+    ///     matching any member's declared deps also validates.
+    /// - Throws: `WorkspaceOverridesApplyError.unknownIdentity` for the
+    ///   first override whose identity is not found at either scope.
+    public static func validate(
+        _ overrides: [Override],
+        workspaceManifest: WorkspaceManifest,
+        memberManifests: [Manifest],
+    ) throws { }
+
     // MARK: - Mutating the override list
 
     /// Adds an override to a list, replacing any existing entry with

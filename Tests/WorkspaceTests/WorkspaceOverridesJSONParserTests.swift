@@ -1032,6 +1032,41 @@ struct WorkspaceOverridesJSONParserTests {
         #expect(actual.dependencies[1] == unchangedDep)
     }
 
+    // MARK: - validate
+
+    /// When an override's identity matches a dep declared at the workspace
+    /// level (in `workspaceManifest.dependencies`), `validate` accepts it
+    /// without throwing. The identity does not need to also appear in any
+    /// member manifest — workspace-level presence is sufficient.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func validate_withIdentityMatchingWorkspaceDepOnly_doesNotThrow() throws {
+        let workspaceManifest = Self.makeManifest(
+            dependencies: [
+                Self.fileSystemDep(identity: "some-lib", relativePath: "external/some-lib"),
+            ],
+        )
+        let memberManifest = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [
+                Self.fileSystemDep(identity: "other-lib", relativePath: "external/other-lib"),
+            ],
+        )
+        let override = WorkspaceOverridesJSONParser.Override(
+            identity: .plain("some-lib"),
+            overridingDependency: Self.fileSystemDep(identity: "some-lib", relativePath: "external/local"),
+        )
+
+        try WorkspaceOverridesJSONParser.validate(
+            [override],
+            workspaceManifest: workspaceManifest,
+            memberManifests: [memberManifest],
+        )
+    }
+
     // MARK: - loadIfPresent
 
     /// When the overrides file is absent from disk, `loadIfPresent`
