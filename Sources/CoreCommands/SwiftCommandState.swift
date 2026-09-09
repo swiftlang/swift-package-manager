@@ -360,6 +360,7 @@ public final class SwiftCommandState {
     public func getWorkspaceRoot() async throws -> PackageGraphRootInput {
         let packages: [AbsolutePath]
         var workspaceManifest: WorkspaceManifest?
+        var workspaceOverrides: [WorkspaceOverridesJSONParser.Override]?
 
         if let workspace = options.locations.multirootPackageDataFile {
             packages = try self.workspaceLoaderProvider(self.fileSystem, self.observabilityScope)
@@ -369,7 +370,7 @@ public final class SwiftCommandState {
             fileSystem: self.fileSystem,
         ) {
             let manifestLoader = try ManifestLoader(toolchain: self.getHostToolchain())
-            let manifest = try await PackageWorkspace.loadWorkspaceManifest(
+            let (manifest, overrides) = try await PackageWorkspace.loadWorkspaceManifestAndOverrides(
                 at: workspaceRoot,
                 manifestLoader: manifestLoader,
                 fileSystem: self.fileSystem,
@@ -377,6 +378,7 @@ public final class SwiftCommandState {
             )
             packages = manifest.members.map(\.path)
             workspaceManifest = manifest
+            workspaceOverrides = overrides
             self.currentWorkspaceMemberIdentities = Set(manifest.members.map(\.identity))
             self.currentWorkspaceMemberFocus = PackageWorkspace.findEnclosingMember(
                 cwd: self.fileSystem.currentWorkingDirectory ?? .root,
@@ -412,6 +414,7 @@ public final class SwiftCommandState {
             packages: packages,
             traitConfiguration: self.traitConfiguration,
             workspaceManifest: workspaceManifest,
+            overrides: workspaceOverrides,
         )
     }
 

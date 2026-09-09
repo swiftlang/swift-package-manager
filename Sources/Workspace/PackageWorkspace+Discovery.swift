@@ -77,6 +77,9 @@ extension PackageWorkspace {
     /// applies filesystem-level invariants that the JSON parser cannot check:
     /// each declared member's path must exist and contain a `Package.swift`.
     ///
+    /// - Note: New callers that need the parsed overrides alongside
+    ///   the manifest should call `loadWorkspaceManifestAndOverrides`
+    ///   directly.
     /// - Parameters:
     ///   - workspaceRoot: The directory containing `Workspace.swift`.
     ///   - manifestLoader: The manifest loader used to evaluate the manifest.
@@ -89,6 +92,45 @@ extension PackageWorkspace {
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope,
     ) async throws -> WorkspaceManifest {
+        let (manifest, _) = try await Self.loadWorkspaceManifestAndOverrides(
+            at: workspaceRoot,
+            manifestLoader: manifestLoader,
+            fileSystem: fileSystem,
+            observabilityScope: observabilityScope,
+        )
+        return manifest
+    }
+
+    /// Loads the `Workspace.swift` manifest at `workspaceRoot` and, alongside
+    /// it, the parsed contents of any workspace-overrides file. The overrides
+    /// are surfaced separately so they can be plumbed into
+    /// `PackageGraphRootInput.overrides` and applied per-member during
+    /// `loadRootManifests`.
+    ///
+    /// The workspace manifest itself already has its workspace-level
+    /// dependencies rewritten by any matching overrides (preserving the
+    /// pre-existing Phase 8B behaviour); the returned override list drives
+    /// the member-level rewrite and the cross-scope identity validation
+    /// added in Cycle 11.
+    ///
+    /// - Parameters:
+    ///   - workspaceRoot: The directory containing `Workspace.swift`.
+    ///   - manifestLoader: The manifest loader used to evaluate the manifest.
+    ///   - fileSystem: The filesystem used for member existence checks and
+    ///     for reading the overrides file.
+    ///   - observabilityScope: Scope for diagnostics.
+    /// - Returns: A tuple containing the fully-resolved `WorkspaceManifest`
+    ///   (with workspace-level overrides applied) and the parsed override
+    ///   list (empty when no overrides file is present).
+    public static func loadWorkspaceManifestAndOverrides(
+        at workspaceRoot: AbsolutePath,
+        manifestLoader: ManifestLoader,
+        fileSystem: any FileSystem,
+        observabilityScope: ObservabilityScope,
+    ) async throws -> (
+        manifest: WorkspaceManifest,
+        overrides: [WorkspaceOverridesJSONParser.Override]
+    ) {
         let manifestPath = workspaceRoot.appending(WorkspaceManifest.filename)
 
         let toolsVersion = try ToolsVersionParser.parse(
@@ -114,7 +156,7 @@ extension PackageWorkspace {
             fileSystem: fileSystem,
         )
         guard !overrides.isEmpty else {
-            return manifest
+            return (manifest, overrides)
         }
         observabilityScope.emit(
             info: "applying \(overrides.count) workspace dependency override(s) from \(overridesFile.pathString):",
@@ -124,7 +166,7 @@ extension PackageWorkspace {
                 info: "  - \(override.identity): \(override.overridingDependency.locationString)",
             )
         }
-        return WorkspaceOverridesJSONParser.apply(overrides, to: manifest)
+        return (WorkspaceOverridesJSONParser.apply(overrides, to: manifest), overrides)
     }
 
     private static func validateMembers(

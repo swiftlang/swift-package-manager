@@ -17,28 +17,6 @@ import Testing
 import _InternalTestSupport
 import struct TSCUtility.Version
 
-private extension PackageDependency {
-    var fileSystemSettings: FileSystem? {
-        if case .fileSystem(let s) = self { return s }
-        return nil
-    }
-
-    var sourceControlSettings: SourceControl? {
-        if case .sourceControl(let s) = self { return s }
-        return nil
-    }
-
-    var registrySettings: Registry? {
-        if case .registry(let s) = self { return s }
-        return nil
-    }
-
-    var workspaceInheritedSettings: WorkspaceInherited? {
-        if case .workspaceInherited(let s) = self { return s }
-        return nil
-    }
-}
-
 @Suite(
     .tags(
         .FunctionalArea.WorkspaceManiest,
@@ -431,6 +409,30 @@ struct WorkspaceOverridesJSONParserTests {
         let actual = WorkspaceOverridesJSONParser.apply([], to: member)
 
         #expect(actual.dependencies == member.dependencies)
+    }
+
+    /// A member manifest with an empty dependency list is unchanged by
+    /// `apply(_:to:)` even when the overrides list is non-empty. The
+    /// match loop is a no-op when there are no deps to rewrite —
+    /// confirming no insertion or crash on the zero-deps path.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func apply_toMember_withZeroDeps_andNonEmptyOverrides_returnsMemberUnchanged() {
+        let member = Self.makeMemberManifest(name: "app", dependencies: [])
+        let override = WorkspaceOverridesJSONParser.Override(
+            identity: .plain("some-lib"),
+            overridingDependency: Self.fileSystemDep(
+                identity: "some-lib",
+                relativePath: "external/some-lib",
+            ),
+        )
+
+        let actual = WorkspaceOverridesJSONParser.apply([override], to: member)
+
+        #expect(actual.dependencies.isEmpty)
     }
 
     /// When a member manifest declares a `.fileSystem` dep whose identity
