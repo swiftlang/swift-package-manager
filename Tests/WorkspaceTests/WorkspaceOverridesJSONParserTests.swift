@@ -414,9 +414,9 @@ struct WorkspaceOverridesJSONParserTests {
     /// When a member manifest declares a `.fileSystem` dep whose identity
     /// matches an override, `apply(_:to:)` (member overload) substitutes
     /// the override's concrete kind but preserves the original member
-    /// dep's `traits`. Trait preservation is the invariant established in
-    /// Cycle 1 for the workspace-level overload; this test proves the
-    /// member overload upholds the same contract.
+    /// dep's `traits`. Trait preservation is the same invariant upheld by
+    /// the workspace-level `apply(_:to:)` overload; this test proves the
+    /// member overload upholds it too.
     @Test(
         .tags(
             Tag.TestSize.small,
@@ -427,6 +427,95 @@ struct WorkspaceOverridesJSONParserTests {
         let originalDep = Self.fileSystemDep(
             identity: "some-lib",
             relativePath: "external/some-lib",
+            traits: [someTrait],
+        )
+        let member = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [originalDep],
+        )
+        let overridingDep = Self.fileSystemDep(
+            identity: "some-lib",
+            relativePath: "external/local-some-lib",
+        )
+        let override = WorkspaceOverridesJSONParser.Override(
+            identity: .plain("some-lib"),
+            overridingDependency: overridingDep,
+        )
+
+        let actual = WorkspaceOverridesJSONParser.apply([override], to: member)
+
+        #expect(actual.dependencies.count == 1)
+        let rewritten = try #require(actual.dependencies.first)
+        guard case .fileSystem(let settings) = rewritten else {
+            Issue.record("expected .fileSystem dep, got \(rewritten)")
+            return
+        }
+        #expect(settings.path == AbsolutePath("/repo/external/local-some-lib"))
+        #expect(rewritten.traits == [someTrait])
+    }
+
+    /// When a member manifest declares a `.sourceControl` dep whose
+    /// identity matches an override that is ALSO `.sourceControl` (a
+    /// URL + requirement redirect), `apply(_:to:)` substitutes the
+    /// override's location and requirement but preserves the original
+    /// member dep's `traits`. Pins the `.sourceControl` branch of the
+    /// trait-preservation contract for the member overload.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func apply_toMember_withSingleMatchingSourceControlDep_rewritesDepAndPreservesOriginalTraits() throws {
+        let someTrait = PackageDependency.Trait(name: "some-trait")
+        let originalDep = Self.sourceControlDep(
+            identity: "some-lib",
+            url: "https://original.example.com/some-lib",
+            minimumVersion: Version(1, 0, 0),
+            traits: [someTrait],
+        )
+        let member = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [originalDep],
+        )
+        let overridingDep = Self.sourceControlDep(
+            identity: "some-lib",
+            url: "https://fork.example.com/some-lib",
+            minimumVersion: Version(2, 0, 0),
+            traits: nil,
+        )
+        let override = WorkspaceOverridesJSONParser.Override(
+            identity: .plain("some-lib"),
+            overridingDependency: overridingDep,
+        )
+
+        let actual = WorkspaceOverridesJSONParser.apply([override], to: member)
+
+        #expect(actual.dependencies.count == 1)
+        let rewritten = try #require(actual.dependencies.first)
+        guard case .sourceControl(let settings) = rewritten else {
+            Issue.record("expected .sourceControl dep, got \(rewritten)")
+            return
+        }
+        #expect(settings.location == .remote(SourceControlURL("https://fork.example.com/some-lib")))
+        #expect(settings.requirement == .range(Version(2, 0, 0) ..< Version(3, 0, 0)))
+        #expect(rewritten.traits == [someTrait])
+    }
+
+    /// A member's `.sourceControl` dep can be redirected to a local
+    /// `.fileSystem` path via an override (the "URL dep swapped to a
+    /// local checkout" scenario). `apply(_:to:)` substitutes the kind
+    /// end-to-end while preserving the original member dep's `traits`.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func apply_toMember_withSingleMatchingSourceControlDep_rewritesDepToFileSystemAndPreservesOriginalTraits() throws {
+        let someTrait = PackageDependency.Trait(name: "some-trait")
+        let originalDep = Self.sourceControlDep(
+            identity: "some-lib",
+            url: "https://original.example.com/some-lib",
+            minimumVersion: Version(1, 0, 0),
             traits: [someTrait],
         )
         let member = Self.makeMemberManifest(
