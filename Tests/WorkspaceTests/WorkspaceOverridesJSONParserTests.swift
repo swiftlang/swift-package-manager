@@ -32,6 +32,11 @@ private extension PackageDependency {
         if case .registry(let s) = self { return s }
         return nil
     }
+
+    var workspaceInheritedSettings: WorkspaceInherited? {
+        if case .workspaceInherited(let s) = self { return s }
+        return nil
+    }
 }
 
 @Suite(
@@ -793,6 +798,107 @@ struct WorkspaceOverridesJSONParserTests {
         #expect(actual.dependencies[2].traits == [originalTrait])
     }
 
+    /// A `.workspaceInherited` dep declared in a member manifest is the
+    /// mechanism by which the workspace injects a shared dep into the
+    /// member. Even if its identity matches an override, `apply(_:to:)`
+    /// (member overload) must leave the inherited dep in place — the
+    /// inheritance-level override happens at the workspace-manifest layer,
+    /// not the member layer. Substituting here would double-override.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func apply_toMember_withMatchingWorkspaceInheritedDep_leavesDepUnchanged() throws {
+        let inheritedTrait = PackageDependency.Trait(name: "inherited-trait")
+        let inheritedDep = Self.workspaceInheritedDep(
+            identity: "shared-lib",
+            traits: [inheritedTrait],
+        )
+        let member = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [inheritedDep],
+        )
+        let overridingDep = Self.fileSystemDep(
+            identity: "shared-lib",
+            relativePath: "external/local-shared-lib",
+        )
+        let override = WorkspaceOverridesJSONParser.Override(
+            identity: .plain("shared-lib"),
+            overridingDependency: overridingDep,
+        )
+
+        let actual = WorkspaceOverridesJSONParser.apply([override], to: member)
+
+        #expect(actual.dependencies.count == 1)
+        let dep = try #require(actual.dependencies.first)
+        try expectWorkspaceInherited(
+            dep,
+            identity: .plain("shared-lib"),
+            traits: [inheritedTrait],
+        )
+    }
+
+    /// Mixed member manifest: a `.fileSystem` dep and a `.workspaceInherited`
+    /// dep, with overrides targeting both identities. `apply(_:to:)` must
+    /// rewrite the concrete `.fileSystem` dep AND leave the
+    /// `.workspaceInherited` dep untouched — proving the skip is per-dep,
+    /// not per-manifest.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func apply_toMember_withMatchingConcreteAndWorkspaceInheritedDeps_rewritesOnlyConcrete() throws {
+        let concreteTrait = PackageDependency.Trait(name: "concrete-trait")
+        let inheritedTrait = PackageDependency.Trait(name: "inherited-trait")
+        let concreteDep = Self.fileSystemDep(
+            identity: "concrete-lib",
+            relativePath: "external/concrete-lib",
+            traits: [concreteTrait],
+        )
+        let inheritedDep = Self.workspaceInheritedDep(
+            identity: "shared-lib",
+            traits: [inheritedTrait],
+        )
+        let member = Self.makeMemberManifest(
+            name: "app",
+            dependencies: [concreteDep, inheritedDep],
+        )
+        let concreteOverride = WorkspaceOverridesJSONParser.Override(
+            identity: .plain("concrete-lib"),
+            overridingDependency: Self.fileSystemDep(
+                identity: "concrete-lib",
+                relativePath: "external/local-concrete-lib",
+            ),
+        )
+        let inheritedOverride = WorkspaceOverridesJSONParser.Override(
+            identity: .plain("shared-lib"),
+            overridingDependency: Self.fileSystemDep(
+                identity: "shared-lib",
+                relativePath: "external/local-shared-lib",
+            ),
+        )
+
+        let actual = WorkspaceOverridesJSONParser.apply(
+            [concreteOverride, inheritedOverride],
+            to: member,
+        )
+
+        #expect(actual.dependencies.count == 2)
+        let rewrittenConcrete = try #require(
+            actual.dependencies[0].fileSystemSettings,
+            "expected .fileSystem at index 0, got \(actual.dependencies[0])",
+        )
+        #expect(rewrittenConcrete.path == AbsolutePath("/repo/external/local-concrete-lib"))
+        #expect(actual.dependencies[0].traits == [concreteTrait])
+        try expectWorkspaceInherited(
+            actual.dependencies[1],
+            identity: .plain("shared-lib"),
+            traits: [inheritedTrait],
+        )
+    }
+
     /// A single override matching a workspace-level dep replaces
     /// that dep in place. Only the dependencies list is under test
     /// here — other manifest fields (members, toolsVersion, path)
@@ -1078,6 +1184,21 @@ struct WorkspaceOverridesJSONParserTests {
 
     // MARK: - test helpers
 
+    private func expectWorkspaceInherited(
+        _ dep: PackageDependency,
+        identity: PackageIdentity,
+        traits: Set<PackageDependency.Trait>?,
+        sourceLocation: SourceLocation = #_sourceLocation,
+    ) throws {
+        let settings = try #require(
+            dep.workspaceInheritedSettings,
+            "expected .workspaceInherited dep, got \(dep)",
+            sourceLocation: sourceLocation,
+        )
+        #expect(settings.identity == identity, sourceLocation: sourceLocation)
+        #expect(dep.traits == traits, sourceLocation: sourceLocation)
+    }
+
     private static func makeManifest(
         dependencies: [PackageDependency],
     ) -> WorkspaceManifest {
@@ -1158,6 +1279,19 @@ struct WorkspaceOverridesJSONParserTests {
             requirement: .range(versionRange),
             productFilter: .everything,
             traits: traits,
+        )
+    }
+
+    private static func workspaceInheritedDep(
+        identity: String,
+        traits: Set<PackageDependency.Trait>? = nil,
+    ) -> PackageDependency {
+        .workspaceInherited(
+            PackageDependency.WorkspaceInherited(
+                identity: .plain(identity),
+                productFilter: .everything,
+                traits: traits,
+            )
         )
     }
 

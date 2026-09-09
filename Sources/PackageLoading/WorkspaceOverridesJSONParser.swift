@@ -244,6 +244,11 @@ public enum WorkspaceOverridesJSONParser {
 
         let rewrittenDependencies = memberManifest.dependencies.map { dep -> PackageDependency in
             guard let overriding = overridesByIdentity[dep.identity] else { return dep }
+            // `.workspaceInherited` deps are placeholders for workspace-level
+            // dependencies; the substitution for those identities happens in
+            // the `apply(_:to:)` workspace-manifest overload. Rewriting them
+            // here would double-override the same identity.
+            if case .workspaceInherited = dep { return dep }
             return Self.substituting(overriding, preservingTraitsFrom: dep)
         }
         return memberManifest.withDependencies(rewrittenDependencies)
