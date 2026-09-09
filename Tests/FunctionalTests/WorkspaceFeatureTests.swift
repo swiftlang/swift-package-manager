@@ -1785,6 +1785,58 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    // MARK: - Slice 12a: help-text contract
+
+    /// Each `swift package workspace override add` help page must not
+    /// mention "workspace-level" — overrides now apply to both
+    /// workspace-declared and member-declared direct dependencies, so
+    /// the old qualifier is misleading. Parameterized over four help
+    /// invocations: the `add` group itself plus its three leaf
+    /// subcommands (`path`, `url`, `registry`), because ArgumentParser
+    /// surfaces each command's `abstract:` and `@Argument(help:)`
+    /// independently on their own `--help` page.
+    @Test(
+        "swift package workspace override add help text does not mention 'workspace-level'",
+        .tags(
+            .Feature.Command.Package.Resolve,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+        [
+            WorkspaceOverrideHelpCase(
+                label: "add --help",
+                extraArgs: ["workspace", "override", "add", "--help"],
+            ),
+            WorkspaceOverrideHelpCase(
+                label: "add path --help",
+                extraArgs: ["workspace", "override", "add", "path", "--help"],
+            ),
+            WorkspaceOverrideHelpCase(
+                label: "add url --help",
+                extraArgs: ["workspace", "override", "add", "url", "--help"],
+            ),
+            WorkspaceOverrideHelpCase(
+                label: "add registry --help",
+                extraArgs: ["workspace", "override", "add", "registry", "--help"],
+            ),
+        ],
+    )
+    func workspace_override_add_helpText_doesNotMentionWorkspaceLevel(
+        buildSystem: BuildSystemProvider.Kind,
+        testCase: WorkspaceOverrideHelpCase,
+    ) async throws {
+        try await fixture(name: "Workspaces/S08_WorkspaceOverrides") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                extraArgs: testCase.extraArgs,
+                buildSystem: buildSystem,
+            )
+            #expect(
+                stdout.contains("workspace-level") == false,
+                "'\(testCase.label)' should not mention 'workspace-level' — overrides now cover member deps too; got stdout=\(stdout)",
+            )
+        }
+    }
+
     /// Initializes an external-dependency directory in the S08
     /// fixture as a git repository tagged `1.0.0`. The fixture ships
     /// each `external/*` directory without a `.git/` folder (nothing
@@ -1817,6 +1869,17 @@ struct WorkspaceFeatureTests {
 struct SwiftTestInvocation: Sendable, CustomTestStringConvertible {
     let subcommand: [String]
     let label: String
+
+    var testDescription: String { label }
+}
+
+/// A single `swift package workspace override add` help-page invocation
+/// for parameterizing the no-`workspace-level` contract test. The
+/// `label` names the case in assertion failure text; `extraArgs` is
+/// forwarded directly to `executeSwiftPackage`.
+struct WorkspaceOverrideHelpCase: Sendable, CustomTestStringConvertible {
+    let label: String
+    let extraArgs: [String]
 
     var testDescription: String { label }
 }
