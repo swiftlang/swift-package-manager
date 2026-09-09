@@ -78,8 +78,7 @@ extension PackageWorkspace {
 
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try await self.loadRootManifests(
-            packages: root.packages,
-            workspaceManifest: root.workspaceManifest,
+            from: root,
             observabilityScope: observabilityScope,
         )
         let rootManifestsMinimumToolsVersion = rootManifests.values.map(\.toolsVersion).min() ?? ToolsVersion.current
@@ -540,8 +539,7 @@ extension PackageWorkspace {
         }
 
         let rootManifests = try await self.loadRootManifests(
-            packages: root.packages,
-            workspaceManifest: root.workspaceManifest,
+            from: root,
             observabilityScope: observabilityScope,
         )
         let graphRoot = try PackageGraphRoot(
@@ -724,8 +722,7 @@ extension PackageWorkspace {
 
         // Load the root manifests and currently checked out manifests.
         let rootManifests = try await self.loadRootManifests(
-            packages: root.packages,
-            workspaceManifest: root.workspaceManifest,
+            from: root,
             observabilityScope: observabilityScope,
         )
         let rootManifestsMinimumToolsVersion = rootManifests.values.map(\.toolsVersion).min() ?? ToolsVersion.current

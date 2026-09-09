@@ -1118,6 +1118,7 @@ extension PackageWorkspace {
     package func loadRootManifests(
         packages: [AbsolutePath],
         workspaceManifest: WorkspaceManifest?,
+        overrides: [WorkspaceOverridesJSONParser.Override]? = nil,
         observabilityScope: ObservabilityScope,
     ) async throws -> [AbsolutePath: Manifest] {
         try await withThrowingTaskGroup(of: Optional<(AbsolutePath, Manifest)>.self) { group in
@@ -1143,7 +1144,13 @@ extension PackageWorkspace {
                             try PackageWorkspace.validateNoWorkspaceMemberDependencies(in: manifest)
                             processed = manifest
                         }
-                        return (package, processed)
+                        let overridden: Manifest
+                        if let overrides, !overrides.isEmpty {
+                            overridden = WorkspaceOverridesJSONParser.apply(overrides, to: processed)
+                        } else {
+                            overridden = processed
+                        }
+                        return (package, overridden)
                     } catch {
                         // Propagate the TraitError if it exists.
                         if let error = error as? TraitError {
@@ -1176,6 +1183,20 @@ extension PackageWorkspace {
 
             return rootManifests
         }
+    }
+
+    /// Convenience overload that unpacks a `PackageGraphRootInput` and
+    /// delegates to `loadRootManifests(packages:workspaceManifest:overrides:observabilityScope:)`.
+    package func loadRootManifests(
+        from root: PackageGraphRootInput,
+        observabilityScope: ObservabilityScope,
+    ) async throws -> [AbsolutePath: Manifest] {
+        try await self.loadRootManifests(
+            packages: root.packages,
+            workspaceManifest: root.workspaceManifest,
+            overrides: root.overrides,
+            observabilityScope: observabilityScope,
+        )
     }
 
     /// Loads and returns manifests at the given paths.

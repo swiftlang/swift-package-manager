@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
+import PackageLoading
 import PackageModel
 
 import enum TSCUtility.Git
@@ -32,17 +33,28 @@ public struct PackageGraphRootInput {
     /// `Workspace.swift`.
     public let workspaceManifest: WorkspaceManifest?
 
+    /// The parsed workspace dependency overrides sourced from
+    /// `.swiftpm/configuration/workspace-overrides.json` (if any). Flows
+    /// alongside `workspaceManifest` so the workspace-load pipeline can
+    /// apply per-member rewrites and run cross-scope identity validation
+    /// after all manifests are loaded. `nil` when overrides do not apply
+    /// (single-package loads, `--multiroot-data-file`, or a workspace
+    /// with no overrides file).
+    public let overrides: [WorkspaceOverridesJSONParser.Override]?
+
     /// Create a package graph root.
     public init(
         packages: [AbsolutePath],
         dependencies: [PackageDependency] = [],
         traitConfiguration: TraitConfiguration = .default,
         workspaceManifest: WorkspaceManifest? = nil,
+        overrides: [WorkspaceOverridesJSONParser.Override]? = nil,
     ) {
         self.packages = packages
         self.dependencies = dependencies
         self.traitConfiguration = traitConfiguration
         self.workspaceManifest = workspaceManifest
+        self.overrides = overrides
     }
 }
 
