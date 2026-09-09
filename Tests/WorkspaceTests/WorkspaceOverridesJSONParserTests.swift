@@ -490,11 +490,12 @@ struct WorkspaceOverridesJSONParserTests {
         ),
     )
     func apply_withMatchingIdentityAndOriginalTraits_preservesOriginalTraitsOnSubstitutedDep() throws {
+        let someTrait = PackageDependency.Trait(name: "some-trait")
         let originalDep = Self.sourceControlDep(
             identity: "some-lib",
             url: "https://example.com/some-lib",
-            version: Version(2, 0, 0),
-            traits: [PackageDependency.Trait(name: "some-trait")],
+            minimumVersion: Version(2, 0, 0),
+            traits: [someTrait],
         )
         let unchangedDep = Self.fileSystemDep(
             identity: "other-lib",
@@ -514,9 +515,9 @@ struct WorkspaceOverridesJSONParserTests {
 
         let actual = try WorkspaceOverridesJSONParser.apply([override], to: manifest)
 
-        try #require(actual.dependencies.count == 2)
+        #expect(actual.dependencies.count == 2)
         let substituted = try #require(actual.dependencies.first)
-        #expect(substituted.traits == [PackageDependency.Trait(name: "some-trait")])
+        #expect(substituted.traits == [someTrait])
         #expect(actual.dependencies[1] == unchangedDep)
     }
 
@@ -703,14 +704,14 @@ struct WorkspaceOverridesJSONParserTests {
     private static func sourceControlDep(
         identity: String,
         url: String,
-        version: Version,
+        minimumVersion: Version,
         traits: Set<PackageDependency.Trait>? = nil,
     ) -> PackageDependency {
         .sourceControl(
             identity: .plain(identity),
             nameForTargetDependencyResolutionOnly: nil,
             location: .remote(SourceControlURL(url)),
-            requirement: .range(version ..< Version(version.major + 1, 0, 0)),
+            requirement: .range(minimumVersion ..< Version(minimumVersion.major + 1, 0, 0)),
             productFilter: .everything,
             traits: traits,
             registryIdentity: nil,
