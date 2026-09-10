@@ -174,6 +174,12 @@ public class PackageWorkspace {
     /// loaded through non-root paths (e.g. `FileSystemPackageContainer`).
     public package(set) var workspaceManifest: WorkspaceManifest?
 
+    /// The parsed workspace overrides, if any. Populated at workspace-load
+    /// time from `.swiftpm/configuration/workspace-overrides.json` and used
+    /// by `FileSystemPackageContainer` to apply member-level overrides
+    /// during dependency resolution.
+    package private(set) var overrides: [WorkspaceOverridesJSONParser.Override]?
+
     // MARK: State
 
     /// The active package resolver. This is set during a dependency resolution operation.
@@ -1130,6 +1136,7 @@ extension PackageWorkspace {
         observabilityScope: ObservabilityScope,
     ) async throws -> [AbsolutePath: Manifest] {
         self.workspaceManifest = workspaceManifest
+        self.overrides = overrides
         return try await withThrowingTaskGroup(of: Optional<(AbsolutePath, Manifest)>.self) { group in
             var rootManifests = [AbsolutePath: Manifest]()
             for package in Set(packages) {

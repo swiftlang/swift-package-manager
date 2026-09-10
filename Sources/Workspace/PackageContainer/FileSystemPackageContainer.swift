@@ -40,6 +40,14 @@ public struct FileSystemPackageContainer: PackageContainer {
     /// are rewritten before they reach downstream consumers.
     private let workspaceManifest: WorkspaceManifest?
 
+    /// The parsed workspace overrides, when this container is resolving
+    /// a workspace member. Populated by `PackageWorkspace` at
+    /// container-construction time; when non-nil and non-empty, the
+    /// container applies `WorkspaceOverridesJSONParser.apply(_:to:)` on
+    /// manifests it loads so that member-declared dependencies matching
+    /// an override are rewritten before they reach the resolver.
+    private let overrides: [WorkspaceOverridesJSONParser.Override]?
+
     /// File system that should be used to load this package.
     private let fileSystem: FileSystem
 
@@ -58,6 +66,7 @@ public struct FileSystemPackageContainer: PackageContainer {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         workspaceManifest: WorkspaceManifest? = nil,
+        overrides: [WorkspaceOverridesJSONParser.Override]? = nil,
     ) throws {
         switch package.kind {
         case .root, .fileSystem:
@@ -71,6 +80,7 @@ public struct FileSystemPackageContainer: PackageContainer {
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
         self.workspaceManifest = workspaceManifest
+        self.overrides = overrides
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(
             description: "FileSystemPackageContainer",
@@ -107,11 +117,28 @@ public struct FileSystemPackageContainer: PackageContainer {
             // idempotent for concrete dep kinds, so it's safe to run
             // even for containers whose manifests happen to have no
             // workspace-scoped deps.
-            guard let workspaceManifest else { return raw }
-            return try PackageWorkspace.resolveWorkspaceMemberPaths(
-                in: raw,
-                using: workspaceManifest,
-            )
+            let processed: Manifest
+            if let workspaceManifest {
+                processed = try PackageWorkspace.resolveWorkspaceMemberPaths(
+                    in: raw,
+                    using: workspaceManifest,
+                )
+            } else {
+                processed = raw
+            }
+
+            // Apply member-level overrides when this container is
+            // resolving a workspace member and overrides are present.
+            // This ensures that member-declared dependencies matching
+            // an override are rewritten before the resolver attempts
+            // to fetch them.
+            let overridden: Manifest
+            if let overrides, !overrides.isEmpty {
+                overridden = WorkspaceOverridesJSONParser.apply(overrides, to: processed)
+            } else {
+                overridden = processed
+            }
+            return overridden
         }
     }
 

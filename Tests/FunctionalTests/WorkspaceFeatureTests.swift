@@ -1785,6 +1785,69 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    // MARK: - Slice 12b: member-declared dep override — E2E
+
+    /// `swift package workspace override add path` on a dep declared in a
+    /// *member* `Package.swift` (not in `Workspace.swift`) redirects it to
+    /// a local filesystem path, so `swift build` succeeds without contacting
+    /// the nonexistent source-control URL. This exercises the extended override
+    /// scope introduced in Phase 8D: the override pipeline must scan each
+    /// member's direct dependencies, not only workspace-level ones.
+    @Test(
+        .tags(
+            .Feature.Command.Package.Resolve,
+        ),
+    )
+    func s08_d_memberDepOverride_buildSucceedsWithoutFetch() async throws {
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
+        try await fixture(name: "Workspaces/S08_MemberDepOverride") { testPath in
+            let fixturePath = testPath.appending("workspace")
+            let newOverridePath = testPath.appending(components: "external","some-dep")
+            // Arrange: add the override pointing to the local checkout.
+            // Path is relative to the workspace root (per the override
+            // JSON parser's resolveOverride semantics) and points UP out
+            // of the workspace directory into the sibling external tree.
+            _ = try await executeSwiftWorkspace(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: [
+                    "override",
+                    "add",
+                    "path",
+                    "some-dep",
+                    newOverridePath.pathString,
+                ],
+                buildSystem: buildSystem,
+            )
+
+            // Act: verify the overrides file was written, then build
+            let overridesFile = fixturePath.appending(
+                components: ".swiftpm", "configuration", "workspace-overrides.json",
+            )
+            try requireFileExists(at: overridesFile)
+
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+
+            // Assert: the binary prints the local greeting (not the nonexistent URL's)
+            let binPath = try await getBinPath(
+                fixturePath,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+            let output = try await AsyncProcess.checkNonZeroExit(
+                args: binPath.appending("app").pathString,
+            ).withSwiftLineEnding
+            #expect(
+                output == "hello from local some-dep\n",
+                "expected local some-dep greeting after member-dep override; got: \(output)",
+            )
+        }
+    }
+
     // MARK: - Slice 12a: help-text contract
 
     /// Each `swift package workspace override add` help page must not
@@ -1796,7 +1859,6 @@ struct WorkspaceFeatureTests {
     /// surfaces each command's `abstract:` and `@Argument(help:)`
     /// independently on their own `--help` page.
     @Test(
-        "swift package workspace override add help text does not mention 'workspace-level'",
         .tags(
             .Feature.Command.Package.Resolve,
         ),
@@ -1804,19 +1866,19 @@ struct WorkspaceFeatureTests {
         [
             WorkspaceOverrideHelpCase(
                 label: "add --help",
-                extraArgs: ["workspace", "override", "add", "--help"],
+                extraArgs: ["override", "add", "--help"],
             ),
             WorkspaceOverrideHelpCase(
                 label: "add path --help",
-                extraArgs: ["workspace", "override", "add", "path", "--help"],
+                extraArgs: ["override", "add", "path", "--help"],
             ),
             WorkspaceOverrideHelpCase(
                 label: "add url --help",
-                extraArgs: ["workspace", "override", "add", "url", "--help"],
+                extraArgs: ["override", "add", "url", "--help"],
             ),
             WorkspaceOverrideHelpCase(
                 label: "add registry --help",
-                extraArgs: ["workspace", "override", "add", "registry", "--help"],
+                extraArgs: ["override", "add", "registry", "--help"],
             ),
         ],
     )
@@ -1825,7 +1887,7 @@ struct WorkspaceFeatureTests {
         testCase: WorkspaceOverrideHelpCase,
     ) async throws {
         try await fixture(name: "Workspaces/S08_WorkspaceOverrides") { fixturePath in
-            let (stdout, _) = try await executeSwiftPackage(
+            let (stdout, _) = try await executeSwiftWorkspace(
                 fixturePath,
                 extraArgs: testCase.extraArgs,
                 buildSystem: buildSystem,

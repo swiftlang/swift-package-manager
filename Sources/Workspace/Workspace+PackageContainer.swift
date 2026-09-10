@@ -41,6 +41,7 @@ extension PackageWorkspace: PackageContainerProvider {
                 fileSystem: self.fileSystem,
                 observabilityScope: observabilityScope,
                 workspaceManifest: self.workspaceManifest,
+                overrides: self.overrides,
             )
             return container
         // Resolve the container using the repository manager.
