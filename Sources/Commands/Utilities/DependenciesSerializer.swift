@@ -79,13 +79,32 @@ final class FlatListDumper: DependenciesDumper {
 }
 
 final class DotDumper: DependenciesDumper {
+    /// Escapes a string for use inside a double-quoted DOT identifier or label.
+    ///
+    /// Graphviz uses the backslash as an escape introducer, so a literal backslash has to be
+    /// doubled and a double quote has to be escaped. Package locations are file system paths for
+    /// root, file system and local source control packages, which on Windows contain backslashes:
+    /// without this, a location such as `C:\Users\New` has `\N` substituted with the node name in
+    /// the label, and a location ending in a path separator escapes the closing quote and makes the
+    /// whole graph unparsable.
+    static func escapedForDOT(_ string: String) -> String {
+        // The backslash has to be escaped first, otherwise the backslashes introduced when escaping
+        // the double quotes would be escaped a second time.
+        string.replacing("\\", with: "\\\\")
+            .replacing("\"", with: "\\\"")
+    }
+
     func dump(graph: ModulesGraph, dependenciesOf rootpkg: ResolvedPackage, on stream: OutputByteStream) {
         var nodesAlreadyPrinted: Set<String> = []
         func printNode(_ package: ResolvedPackage) {
             let url = package.manifest.packageLocation
             if nodesAlreadyPrinted.contains(url) { return }
             let pkgVersion = package.manifest.version?.description ?? "unspecified"
-            stream.send(#""\#(url)" [label="\#(package.identity.description)\n\#(url)\n\#(pkgVersion)"]"#).send("\n")
+            let escapedURL = Self.escapedForDOT(url)
+            let escapedIdentity = Self.escapedForDOT(package.identity.description)
+            let escapedVersion = Self.escapedForDOT(pkgVersion)
+            stream.send(#""\#(escapedURL)" [label="\#(escapedIdentity)\n\#(escapedURL)\n\#(escapedVersion)"]"#)
+                .send("\n")
             nodesAlreadyPrinted.insert(url)
         }
 
@@ -103,7 +122,8 @@ final class DotDumper: DependenciesDumper {
                 if dependenciesAlreadyPrinted.contains(urlPair) { continue }
 
                 printNode(dependency)
-                stream.send(#""\#(rootURL)" -> "\#(dependencyURL)""#).send("\n")
+                stream.send(#""\#(Self.escapedForDOT(rootURL))" -> "\#(Self.escapedForDOT(dependencyURL))""#)
+                    .send("\n")
                 dependenciesAlreadyPrinted.insert(urlPair)
 
                 if !dependency.dependencies.isEmpty {
