@@ -166,7 +166,7 @@ extension PackageWorkspace {
                 info: "  - \(override.identity): \(override.overridingDependency.locationString)",
             )
         }
-        return (WorkspaceOverridesJSONParser.apply(overrides, to: manifest), overrides)
+        return (manifest, overrides)
     }
 
     private static func validateMembers(

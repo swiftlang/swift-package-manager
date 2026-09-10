@@ -32,6 +32,22 @@ public struct FileSystemPackageContainer: PackageContainer {
     private let manifestLoader: ManifestLoaderProtocol
     private let currentToolsVersion: ToolsVersion
 
+    /// The enclosing `Workspace.swift` manifest, when this container is
+    /// resolving a workspace member. Populated by `PackageWorkspace` at
+    /// container-construction time; when non-nil, the container applies
+    /// `PackageWorkspace.resolveWorkspaceMemberPaths` on manifests it
+    /// loads so that `.workspaceMember` / `.workspaceInherited` deps
+    /// are rewritten before they reach downstream consumers.
+    private let workspaceManifest: WorkspaceManifest?
+
+    /// The parsed workspace overrides, when this container is resolving
+    /// a workspace member. Populated by `PackageWorkspace` at
+    /// container-construction time; when non-nil and non-empty, the
+    /// container applies `WorkspaceOverridesJSONParser.apply(_:to:)` on
+    /// manifests it loads so that member-declared dependencies matching
+    /// an override are rewritten before they reach the resolver.
+    private let overrides: [WorkspaceOverridesJSONParser.Override]?
+
     /// File system that should be used to load this package.
     private let fileSystem: FileSystem
 
@@ -48,7 +64,9 @@ public struct FileSystemPackageContainer: PackageContainer {
         manifestLoader: ManifestLoaderProtocol,
         currentToolsVersion: ToolsVersion,
         fileSystem: FileSystem,
-        observabilityScope: ObservabilityScope
+        observabilityScope: ObservabilityScope,
+        workspaceManifest: WorkspaceManifest? = nil,
+        overrides: [WorkspaceOverridesJSONParser.Override]? = nil,
     ) throws {
         switch package.kind {
         case .root, .fileSystem:
@@ -61,6 +79,8 @@ public struct FileSystemPackageContainer: PackageContainer {
         self.dependencyMapper = dependencyMapper
         self.manifestLoader = manifestLoader
         self.currentToolsVersion = currentToolsVersion
+        self.workspaceManifest = workspaceManifest
+        self.overrides = overrides
         self.fileSystem = fileSystem
         self.observabilityScope = observabilityScope.makeChildScope(
             description: "FileSystemPackageContainer",
@@ -78,7 +98,7 @@ public struct FileSystemPackageContainer: PackageContainer {
             }
 
             // Load the manifest.
-            return try await manifestLoader.load(
+            let raw = try await manifestLoader.load(
                 packagePath: packagePath,
                 packageIdentity: self.package.identity,
                 packageKind: self.package.kind,
@@ -91,6 +111,34 @@ public struct FileSystemPackageContainer: PackageContainer {
                 observabilityScope: self.observabilityScope,
                 delegateQueue: .sharedConcurrent
             )
+
+            // Apply workspace-scoped dependency rewriting when this
+            // container is resolving a workspace member. The pass is
+            // idempotent for concrete dep kinds, so it's safe to run
+            // even for containers whose manifests happen to have no
+            // workspace-scoped deps.
+            let processed: Manifest
+            if let workspaceManifest {
+                processed = try PackageWorkspace.resolveWorkspaceMemberPaths(
+                    in: raw,
+                    using: workspaceManifest,
+                )
+            } else {
+                processed = raw
+            }
+
+            // Apply member-level overrides when this container is
+            // resolving a workspace member and overrides are present.
+            // This ensures that member-declared dependencies matching
+            // an override are rewritten before the resolver attempts
+            // to fetch them.
+            let overridden: Manifest
+            if let overrides, !overrides.isEmpty {
+                overridden = WorkspaceOverridesJSONParser.apply(overrides, to: processed)
+            } else {
+                overridden = processed
+            }
+            return overridden
         }
     }
 
