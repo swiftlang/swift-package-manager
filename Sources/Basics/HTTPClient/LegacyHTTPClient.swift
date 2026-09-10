@@ -22,7 +22,7 @@ import Synchronization
 
 // MARK: - LegacyHTTPClient
 
-public final class LegacyHTTPClient: Cancellable {
+public final class LegacyHTTPClient: Cancellable, @unchecked Sendable {
     public typealias Configuration = LegacyHTTPClientConfiguration
     public typealias Request = LegacyHTTPClientRequest
     public typealias Response = HTTPClientResponse

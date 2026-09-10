@@ -244,7 +244,7 @@ extension Manifest {
         }
 
         // Compute all transitively enabled traits.
-        let allEnabledTraits = try calculateAllEnabledTraits(explicitlyEnabledTraits: enabledTraits)
+        let allEnabledTraits = calculateAllEnabledTraits(explicitlyEnabledTraits: enabledTraits)
 
         return allEnabledTraits.contains(trait.name)
     }
