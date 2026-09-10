@@ -1301,9 +1301,9 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    // MARK: - Slice 10: `swift package workspace override` subcommand
+    // MARK: - Slice 10: `swift workspace override` subcommand
 
-    /// `swift package workspace override list` invoked in a workspace
+    /// `swift workspace override list` invoked in a workspace
     /// with no overrides file emits the "no overrides declared" hint
     /// and exits successfully. Verifies the empty-state UX before any
     /// mutation happens.
@@ -1322,10 +1322,10 @@ struct WorkspaceFeatureTests {
             )
             try localFileSystem.removeFileTree(overridesFile)
 
-            let (stdout, _) = try await executeSwiftPackage(
+            let (stdout, _) = try await executeSwiftWorkspace(
                 fixturePath,
                 configuration: .debug,
-                extraArgs: ["workspace", "override", "list"],
+                extraArgs: ["override", "list"],
                 buildSystem: buildSystem,
             )
 
@@ -1336,7 +1336,7 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    /// `swift package workspace override add <identity> --path <path>`
+    /// `swift workspace override add <identity> --path <path>`
     /// writes the override to `.swiftpm/configuration/workspace-overrides.json`
     /// and a subsequent `swift build` picks up the redirect — the
     /// built binary prints the LOCAL greeting instead of contacting
@@ -1356,11 +1356,11 @@ struct WorkspaceFeatureTests {
             )
             try localFileSystem.removeFileTree(overridesFile)
 
-            _ = try await executeSwiftPackage(
+            _ = try await executeSwiftWorkspace(
                 fixturePath,
                 configuration: .debug,
                 extraArgs: [
-                    "workspace", "override", "add",
+                    "override", "add",
                     "some-lib", "--path", "external/local-some-lib",
                 ],
                 buildSystem: buildSystem,
@@ -1404,19 +1404,19 @@ struct WorkspaceFeatureTests {
             )
             try localFileSystem.removeFileTree(overridesFile)
 
-            _ = try await executeSwiftPackage(
+            _ = try await executeSwiftWorkspace(
                 fixturePath,
                 configuration: .debug,
                 extraArgs: [
-                    "workspace", "override", "add",
+                    "override", "add",
                     "some-lib", "--path", "external/local-some-lib",
                 ],
                 buildSystem: buildSystem,
             )
-            let (stdout, _) = try await executeSwiftPackage(
+            let (stdout, _) = try await executeSwiftWorkspace(
                 fixturePath,
                 configuration: .debug,
-                extraArgs: ["workspace", "override", "list"],
+                extraArgs: ["override", "list"],
                 buildSystem: buildSystem,
             )
 
@@ -1431,7 +1431,7 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    /// `swift package workspace override remove <identity>` deletes
+    /// `swift workspace override remove <identity>` deletes
     /// the entry; when it was the only entry, the file itself is
     /// removed. A subsequent `list` reverts to the empty-state hint.
     @Test(
@@ -1449,27 +1449,27 @@ struct WorkspaceFeatureTests {
             )
             try localFileSystem.removeFileTree(overridesFile)
 
-            _ = try await executeSwiftPackage(
+            _ = try await executeSwiftWorkspace(
                 fixturePath,
                 configuration: .debug,
                 extraArgs: [
-                    "workspace", "override", "add",
+                    "override", "add",
                     "some-lib", "--path", "external/local-some-lib",
                 ],
                 buildSystem: buildSystem,
             )
-            _ = try await executeSwiftPackage(
+            _ = try await executeSwiftWorkspace(
                 fixturePath,
                 configuration: .debug,
-                extraArgs: ["workspace", "override", "remove", "some-lib"],
+                extraArgs: ["override", "remove", "some-lib"],
                 buildSystem: buildSystem,
             )
             expectFileDoesNotExist(at: overridesFile)
 
-            let (stdout, _) = try await executeSwiftPackage(
+            let (stdout, _) = try await executeSwiftWorkspace(
                 fixturePath,
                 configuration: .debug,
-                extraArgs: ["workspace", "override", "list"],
+                extraArgs: ["override", "list"],
                 buildSystem: buildSystem,
             )
             #expect(
