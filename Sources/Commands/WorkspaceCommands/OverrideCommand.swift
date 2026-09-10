@@ -17,21 +17,7 @@ import PackageLoading
 import PackageModel
 import Workspace
 
-extension SwiftPackageCommand {
-    /// Grouping for workspace-scope operations. This is a proof-of-
-    /// concept subtree; long-term the SwiftPM Workspaces plan may
-    /// promote it to a top-level `swift workspace` command.
-    struct Workspace: ParsableCommand {
-        static let configuration = CommandConfiguration(
-            commandName: "workspace",
-            abstract: "Perform workspace-scope operations on the enclosing SwiftPM workspace.",
-            subcommands: [Override.self],
-            helpNames: [.short, .long, .customLong("help", withSingleDash: true)],
-        )
-    }
-}
-
-extension SwiftPackageCommand.Workspace {
+extension SwiftWorkspaceCommand {
     /// Manage workspace-level dependency overrides
     /// (`.swiftpm/configuration/workspace-overrides.json`).
     struct Override: ParsableCommand {
@@ -44,7 +30,7 @@ extension SwiftPackageCommand.Workspace {
     }
 }
 
-extension SwiftPackageCommand.Workspace.Override {
+extension SwiftWorkspaceCommand.Override {
     /// Add or replace a workspace-level dependency override.
     struct Add: SwiftCommand {
         static let configuration = CommandConfiguration(
@@ -167,7 +153,7 @@ extension SwiftPackageCommand.Workspace.Override {
             fileSystem: swiftCommandState.fileSystem,
         ) else {
             throw ValidationError(
-                "'swift package workspace override' must be invoked inside a SwiftPM workspace (no Workspace.swift found starting from \(cwd.pathString))",
+                "'swift workspace override' must be invoked inside a SwiftPM workspace (no Workspace.swift found starting from \(cwd.pathString))",
             )
         }
         return workspaceRoot

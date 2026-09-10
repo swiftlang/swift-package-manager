@@ -734,6 +734,12 @@ let package = Package(
             ],
         ),
         .executableTarget(
+            /** Interact with the enclosing SwiftPM workspace */
+            name: "swift-workspace",
+            dependencies: ["Basics", "Commands"],
+            exclude: ["CMakeLists.txt"],
+        ),
+        .executableTarget(
             /** Utility to produce the artifacts for prebuilts */
             name: "swift-build-prebuilts",
             dependencies: [

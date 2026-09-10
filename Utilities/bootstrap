@@ -495,7 +495,7 @@ def install_swiftpm(prefix, args, bin_dir):
     if os.path.exists(os.path.join(bin_dir, "swiftpm-testing-helper")):
         install_binary(args, "swiftpm-testing-helper", aux_tool_dest, bin_dir)
 
-    for tool in ["swift-build", "swift-test", "swift-run", "swift-package-collection", "swift-package-registry", "swift-sdk", "swift-experimental-sdk"]:
+    for tool in ["swift-build", "swift-test", "swift-run", "swift-package-collection", "swift-package-registry", "swift-sdk", "swift-experimental-sdk", "swift-workspace"]:
         src = "swift-package"
         dest = os.path.join(cli_tool_dest, tool)
         logging.info("Creating tool symlink from %s to %s", src, dest)

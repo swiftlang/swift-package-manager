@@ -67,7 +67,9 @@ add_library(Commands
   Utilities/RefactoringSupport.swift
   Utilities/SymbolGraphExtract.swift
   Utilities/TestingSupport.swift
-  Utilities/XCTEvents.swift)
+  Utilities/XCTEvents.swift
+  WorkspaceCommands/OverrideCommand.swift
+  WorkspaceCommands/SwiftWorkspaceCommand.swift)
 target_link_libraries(Commands PUBLIC
   SwiftCollections::OrderedCollections
   SwiftSyntax::SwiftRefactor
