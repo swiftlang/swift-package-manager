@@ -622,6 +622,28 @@ public func executeSwiftPackageRegistry(
 }
 
 @discardableResult
+public func executeSwiftWorkspace(
+    _ packagePath: AbsolutePath?,
+    configuration: BuildConfiguration = .debug,
+    extraArgs: [String] = [],
+    Xcc: [String] = [],
+    Xld: [String] = [],
+    Xswiftc: [String] = [],
+    env: Environment? = nil,
+    buildSystem: BuildSystemProvider.Kind,
+) async throws -> (stdout: String, stderr: String) {
+    let args = swiftArgs(
+        configuration: configuration,
+        extraArgs: extraArgs,
+        Xcc: Xcc,
+        Xld: Xld,
+        Xswiftc: Xswiftc,
+        buildSystem: buildSystem,
+    )
+    return try await SwiftPM.Workspace.execute(args, packagePath: packagePath, env: env)
+}
+
+@discardableResult
 public func executeSwiftTest(
     _ packagePath: AbsolutePath?,
     configuration: BuildConfiguration = .debug,
