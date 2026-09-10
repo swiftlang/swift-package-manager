@@ -1387,7 +1387,7 @@ swift workspace override list
 
 - **`Sources/PackageLoading/WorkspaceOverridesJSONWriter.swift`** (new): companion to `WorkspaceOverridesJSONParser`. Serializes `[Override]` back to JSON with stable key order (matches parser's schema exactly, so round-trips are byte-identical when the same set of overrides is re-serialized). Reused by `add` and `remove`.
 
-- **Identity validation** — before writing, `add` loads the current `WorkspaceManifest` and verifies `<identity>` appears in `dependencies:`. This is the same guard `WorkspaceOverridesJSONParser.apply` enforces at load time; catching it at write time gives a much better error message.
+- **Identity validation** — before writing, `add` loads the current `WorkspaceManifest` and verifies `<identity>` appears in `dependencies:`. This is the same identity check that `WorkspaceOverridesJSONParser.validate` enforces after all manifests are loaded; catching it at write time gives a much better error message.
 
 - **Diagnostic ergonomics**:
   - `swift workspace override list` in a workspace with no overrides prints a hint: `(no overrides declared — add one with 'swift workspace override add <identity> --path <path>')`.
@@ -1455,15 +1455,26 @@ the already-supported workspace-level `dependencies:` in `Workspace.swift`.
 ### Pipeline wiring
 
 - `Sources/Workspace/PackageWorkspace+Discovery.swift:127` — drop the
-  `try` (apply no longer throws).
-- Member-manifest load pass — invoke `apply(_:to:)` for each
-  member manifest. Natural site: `resolveWorkspaceMemberPaths` in
-  `PackageWorkspace+WorkspaceResolve.swift` (already walks member
-  deps), or a sibling pass called from `loadRootManifests` in
-  `Workspace.swift`.
+  `try` (apply no longer throws). Also produce the parsed
+  `[WorkspaceOverridesJSONParser.Override]?` array here (parse once,
+  apply to workspace manifest, keep the array for threading downstream).
+- **Threading via `PackageGraphRootInput`** — extend
+  `Sources/PackageGraph/PackageGraphRoot.swift:33` to carry an
+  `overrides: [WorkspaceOverridesJSONParser.Override]?` field alongside
+  the existing `workspaceManifest?` field. `PackageWorkspace+Discovery.swift`
+  populates both fields when constructing the struct.
+  `Sources/CoreCommands/SwiftCommandState.swift` around line 411-414
+  constructs `PackageGraphRootInput`; update that call site to forward
+  the new field.
+- Member-manifest load pass — `Workspace.loadRootManifests` in
+  `Sources/Workspace/Workspace.swift` reads `overrides` from
+  `PackageGraphRootInput` and calls `apply(_:to memberManifest:)` per
+  member after each member `Manifest` is materialised (insertion point:
+  around line 1150).
 - After all manifests loaded — invoke
   `validate(_:workspaceManifest:memberManifests:)` and surface any
-  `unknownIdentity`.
+  `unknownIdentity` (insertion point: around line 1190 in
+  `Workspace.swift`, after all member manifests are loaded).
 
 ### UI changes (`Sources/Commands/PackageCommands/WorkspaceCommand.swift`)
 
@@ -1488,13 +1499,32 @@ state; commit column records the hash landed by `tdd-commit`.
 | 5  | `apply(to:)` with matching `.registry` dep rewrites it, preserving original traits                | ✅ Done  | `cdcfbf02d` |
 | 6  | `apply(to:)` with multiple deps rewrites only the matching one; unmatched deps pass through       | ✅ Done  | `0b9d2230a` |
 | 7  | `apply(to:)` skips `.workspaceInherited` dep even when its identity matches an override           | ✅ Done  | `ec110a77d` |
-| 8  | Drop `throws` from `apply(to:)`; existing `apply_withUnknownIdentity_throws` test moves to `validate`   | 🟡 In Progress  | —      |
-| 9  | `validate` with identity matching only a workspace dep does not throw                                   | 🔴 Pending  | —      |
-| 10 | `validate` with identity matching only a member dep does not throw; absent-from-both throws unknownIdentity | 🔴 Pending  | —      |
-| 11 | Pipeline wiring: member-manifest load pass invokes `apply(to:)` and `validate` fires after load   | 🔴 Pending  | —      |
-| 12 | E2E: new `S08_MemberDepOverride` fixture — member with direct `.package(url:)` dep resolves via override; UI help text on `Add`/`Path`/`Url`/`Registry` updated | 🔴 Pending  | —      |
+| 8  | Drop `throws` from `apply(to:)`; existing `apply_withUnknownIdentity_throws` test moves to `validate`   | ✅ Done  | `dd9f8aa6d` |
+| 9  | `validate` with identity matching only a workspace dep does not throw                                   | ✅ Done  | `1a234774a` |
+| 10 | `validate` with identity matching only a member dep does not throw; absent-from-both throws unknownIdentity | ✅ Done  | `965ce8702` |
+| 11 | Pipeline wiring: extend `PackageGraphRootInput` with `overrides` field; `Workspace.loadRootManifests` invokes `apply(_:to memberManifest:)` per member and `validate` after all manifests loaded | ✅ Done  | `180662ac6` |
+| 12 | E2E: new `S08_MemberDepOverride` fixture — member with direct `.package(url:)` dep resolves via override; UI help text on `Add`/`Path`/`Url`/`Registry` updated | ✅ Done  | `c5c43d856` + `15d446e50` |
 
-**Active Cycle:** #8
+**Active Cycle:** — (all cycles complete)
+
+#### Cycle 11 — sub-tests to write (in order)
+
+1. `apply_toMember_withZeroDeps_andNonEmptyOverrides_returnsMemberUnchanged`
+   (REC-2; unit-level in `WorkspaceOverridesJSONParserTests.swift`) — pins the
+   zero-deps edge case. Expected to pass on current code (no prod change
+   required); written as a setup pass at the start of Cycle 11 before the
+   pipeline tests.
+
+2. Pipeline test — a workspace-load exercised through
+   `WorkspaceOverridesPipelineTests.swift` proving that when an override
+   targets a member's direct dep identity, the member manifest returned by
+   `Workspace.loadRootManifests` has that dep rewritten. Exact test name and
+   fixture shape TBD by Cycle 11's tdd-requirements agent.
+
+3. Pipeline test — proves that `validate` fires and throws `unknownIdentity`
+   when an override references an identity absent from both the workspace
+   manifest and all member manifests during the workspace load. Exact test name
+   and fixture shape TBD by Cycle 11's tdd-requirements agent.
 
 ### Confirmed Edge Cases
 
@@ -1509,13 +1539,15 @@ state; commit column records the hash landed by `tdd-commit`.
 ### Files to modify
 
 - `Sources/PackageLoading/WorkspaceOverridesJSONParser.swift` — API split.
-- `Sources/Workspace/PackageWorkspace+Discovery.swift` — drop `try`.
-- `Sources/Workspace/PackageWorkspace+WorkspaceResolve.swift` or `Sources/Workspace/Workspace.swift` — member-side apply hook.
-- `Sources/Commands/PackageCommands/WorkspaceCommand.swift` — help text.
-- `Tests/WorkspaceTests/WorkspaceOverridesJSONParserTests.swift` — tests (unit, cycles 1-10).
-- `Tests/WorkspaceTests/WorkspaceResolveTests.swift` or `Tests/WorkspaceTests/WorkspaceManifestTests.swift` — pipeline wiring test (cycle 11).
-- `Tests/FunctionalTests/WorkspaceFeatureTests.swift` — new e2e test (cycle 12).
-- `Fixtures/Workspaces/S08_MemberDepOverride/` — new fixture (cycle 12).
+- `Sources/PackageGraph/PackageGraphRoot.swift` — add `overrides: [WorkspaceOverridesJSONParser.Override]?` field to `PackageGraphRootInput` (Cycle 11).
+- `Sources/Workspace/PackageWorkspace+Discovery.swift` — drop `try`; produce both `workspaceManifest` and `overrides` fields when constructing `PackageGraphRootInput` (Cycle 11).
+- `Sources/CoreCommands/SwiftCommandState.swift` — update `PackageGraphRootInput(...)` construction (~line 411-414) to forward the new `overrides` field (Cycle 11).
+- `Sources/Workspace/Workspace.swift` — insert `apply(_:to memberManifest:)` per-member (~line 1150) and `validate` call after all manifests loaded (~line 1190) in `loadRootManifests` (Cycle 11).
+- `Sources/Commands/PackageCommands/WorkspaceCommand.swift` — help text (Cycle 12).
+- `Tests/WorkspaceTests/WorkspaceOverridesJSONParserTests.swift` — unit tests (Cycles 1-10; add REC-2 zero-deps test in Cycle 11).
+- `Tests/WorkspaceTests/WorkspaceOverridesPipelineTests.swift` (NEW) — pipeline-level tests (Cycle 11).
+- `Tests/FunctionalTests/WorkspaceFeatureTests.swift` — new e2e test (Cycle 12).
+- `Fixtures/Workspaces/S08_MemberDepOverride/` — new fixture (Cycle 12).
 
 ### Success Criteria
 
@@ -1543,6 +1575,43 @@ state; commit column records the hash landed by `tdd-commit`.
 - **Cycle 5** — `cdcfbf02d` — Test-only confirmation cycle covering `.registry` originals; closes the fileSystem/sourceControl/registry kind matrix for member-manifest overrides. Added two tests: same-kind (`.registry` → `.registry` requirement bump) and cross-kind (`.registry` → `.fileSystem` local dev checkout). Added `registryDep(identity:versionRange:traits:)` test helper. Both refactor phases skipped by user opt-out.
 - **Cycle 6** — `0b9d2230a` — Multi-dep coverage for the member `apply(_:to:)` overload. Added a parameterized head/middle/tail positional test and a separate multi-match test proving simultaneous overrides fire and bystander deps pass through untouched (with `bystanderTrait` traits preserved). Major test refactor: added private `PackageDependency` extension with `.fileSystemSettings` / `.sourceControlSettings` / `.registrySettings` typed Optional accessors, then migrated all nine member-apply tests from `guard case / Issue.record / return` → `try #require(dep.xyzSettings)` (aligns with the `#require`-over-`#expect` memory rule). Also renamed Cycle 6's local `matchTrait`/`unmatchedTrait` → `originalTrait`/`bystanderTrait`, and collapsed the three positional tests into one `@Test(arguments:)` with a private `PositionalCase` struct. Net: 30/30 tests green after refactor.
 - **Cycle 7** — `ec110a77d` — First real prod-code change since Cycle 3. Added `.workspaceInherited` guard in `apply(_:to memberManifest:)`: inherited deps whose identity matches an override are left in place (workspace-manifest layer handles the substitution; guarding here avoids double-override). Two new tests: single-inherited + mixed (concrete + inherited in same manifest). Added `.workspaceInheritedSettings` Optional accessor + `workspaceInheritedDep` factory + `expectWorkspaceInherited(_:identity:traits:sourceLocation:)` assertion helper (surfaced during test-refactor phase; both Cycle 7 tests use it). Test refactor: renamed `originalTrait` → `inheritedTrait` in the single-inherited test and reformatted long `#require` calls in the mixed test to multi-line. Prod refactor phase skipped. Stale-build gotcha noted: initial re-run after prod change still failed because the build cache retained the pre-guard binary; `swift package clean` resolved.
+- **Cycle 8** — `dd9f8aa6d` — API-shape change + convergence refactor. Dropped `throws` from `apply(_:to workspaceManifest:)` and removed the pre-check loop that threw `WorkspaceOverridesApplyError.unknownIdentity`. Workspace-level unknown-identity overrides are now silent no-ops (same as member level). Updated caller at `PackageWorkspace+Discovery.swift:127` (dropped `try`). Renamed test `apply_withUnknownIdentity_throws` → `apply_withUnknownIdentity_returnsManifestUnchanged`; sharpened doc-comment to explicitly name `validate(_:workspaceManifest:memberManifests:)` as the future home of the throwing responsibility. Prod refactor (PR-1): both `apply(_:to:)` overloads now delegate to a new `rewritingDependencies(_:overrides:skipping:)` private helper — the two overloads finally converged now that the workspace one lost its throws/pre-check. Member passes a `.workspaceInherited` skip closure; workspace passes no skip. Prod refactor (PR-3): `WorkspaceOverridesApplyError.unknownIdentity` doc-comment updated with a preservation note (case is reserved for the upcoming `validate` companion) and broadened scope to "workspace or member level".
+- **Cycle 9** — `1a234774a` — Empty-stub cycle introducing `WorkspaceOverridesJSONParser.validate(_:workspaceManifest:memberManifests:)`. Full contract doc-comment (accepts identity matching either workspace or member level; throws `WorkspaceOverridesApplyError.unknownIdentity` for absent-from-both) but empty body — trivially satisfies the "does not throw" assertion for the workspace-level-matching test. Cycle 10 drives the actual identity-lookup logic via a throwing test. Refactor phases skipped by user opt-out (nothing meaningful to refactor).
+- **Cycle 10** — `965ce8702` — `validate` body implemented: builds union set of workspace + all member deps' identities, throws `.unknownIdentity` for the first override absent from that union. Positive test (member-only match) + negative test (absent-from-both throws) added. Test refactor (TR-1): collapsed the two positive `validate_*` tests (Cycle 9's workspace-only + Cycle 10's member-only) into one `@Test(arguments:)` `validate_withIdentityKnownToEitherScope_doesNotThrow` with a new `ValidateCase` struct (mirrors `PositionalCase` from Cycle 6). Negative test kept separate. Prod refactor (PR-1): body rewritten as a single `let` + functional expression (concatenate + `Set.init`) instead of `var` + `formUnion` loop. Prod refactor (PR-2): `.unknownIdentity` doc-comment updated from "Reserved for" → "Thrown exclusively by" (case is now actively thrown).
+- **Cycle 11** — `180662ac6` — Pipeline wiring end-to-end. Extended `PackageGraphRootInput` with `overrides: [WorkspaceOverridesJSONParser.Override]?` field. `Workspace.loadRootManifests(packages:workspaceManifest:overrides:observabilityScope:)` now applies each override to each member manifest post-`resolveWorkspaceMemberPaths` and calls `validate` after all manifests are collected. Extracted `loadRootManifests(from:observabilityScope:)` helper on `PackageWorkspace` — collapses the three `PackageGraphRootInput` unpacking sites in `Workspace+Dependencies.swift` (lines 82, 519, 702). New `loadWorkspaceManifestAndOverrides(...)` public overload returns both manifest + overrides; legacy `loadWorkspaceManifest(...)` delegates and discards overrides for backward compat with `WorkspaceManifestTests`. `SwiftCommandState.getWorkspaceRoot()` forwards the parsed overrides into `PackageGraphRootInput`. Also folded in the REC-2 unit test (`apply_toMember_withZeroDeps_andNonEmptyOverrides_returnsMemberUnchanged`) and three pipeline tests in NEW file `Tests/WorkspaceTests/WorkspaceOverridesPipelineTests.swift`. Test refactor consolidated `PackageDependency` case-unwrap Optional accessors from Cycle 6's private extension into `_InternalTestSupport/PackageDependencyDescriptionExtensions.swift` at `package` scope for cross-target reuse. Pipeline tests use `Manifest.createRootManifest` factory instead of full 22-line initializer. Prod refactor added a `- Note:` on `loadWorkspaceManifest`'s doc-comment directing new callers to the tuple overload. Notable: initial code-writer completion left `rootInput.overrides` unforwarded inside `loadPackageGraph(rootInput:)`; a follow-up added the internal wiring in `Workspace+Dependencies.swift` and a third pipeline test proving end-to-end via `loadPackageGraph`.
+- **Cycle 12a** — `c5c43d856` — UI help text on `swift package workspace override add` and its `path`/`url`/`registry` subcommands dropped "workspace-level" from 7 user-facing strings (3 `abstract:` + 4 `@Argument(help:)`). Parameterized help-text assertion `workspace_override_add_helpText_doesNotMentionWorkspaceLevel` in `WorkspaceFeatureTests` with 4 argument rows (one per subcommand's `--help`). Refactor phases skipped — trivial doc-string change.
+- **Cycle 12b** — `15d446e50` — Final E2E cycle. New fixture `Fixtures/Workspaces/S08_MemberDepOverride/` (workspace with one member `packages/app` declaring `.package(url: "https://github.com/nonexistent/some-dep")` + local checkout at `external/some-dep`). E2E test `s08_d_memberDepOverride_buildSucceedsWithoutFetch` proves `swift package workspace override add path some-dep ../external/some-dep` + `swift build` succeeds and prints the local greeting without contacting the URL. **Uncovered a pipeline gap**: Cycle 11's wiring hit `Workspace.loadRootManifests` but MISSED the SECOND manifest-loading path via `FileSystemPackageContainer.loadManifest` used during dep resolution. Fixed by threading overrides into `FileSystemPackageContainer`: `PackageWorkspace` gained a stored `overrides` field, container gained an `overrides` field with `apply(_:to:)` call after `resolveWorkspaceMemberPaths`, and `Workspace+PackageContainer.getContainer()` forwards `self.overrides` when constructing the container. **Identity gotcha discovered**: for a `.sourceControl → .fileSystem` override, the resulting package's identity is derived from the fixture directory's last-path-component, so the local checkout directory must match the URL's identity segment (`external/some-dep`, not `external/some-dep-local`) for the app's `.product(package: "some-dep")` reference to match.
+
+## Review Notes
+
+### 2026-09-09 — REC-1/REC-2/REC-4 from tdd-review folded into Cycle 11
+
+**REC-1 (threading strategy, Option B chosen):** The pipeline wiring section
+and the Files-to-modify list have been updated to reflect the approved
+`PackageGraphRootInput` approach. `Sources/PackageGraph/PackageGraphRoot.swift`
+gains an `overrides: [WorkspaceOverridesJSONParser.Override]?` field.
+`PackageWorkspace+Discovery.swift` parses once and populates both the workspace
+manifest and the new field. `SwiftCommandState.swift` forwards the field.
+`Workspace.loadRootManifests` in `Workspace.swift` calls `apply(_:to
+memberManifest:)` per-member (~line 1150) and `validate` after all manifests
+are loaded (~line 1190). The previously vague "natural site" wording
+(`PackageWorkspace+WorkspaceResolve.swift` as an alternative) has been
+removed; `Workspace.swift` is the definitive insertion point.
+
+**REC-2 (zero-deps test bundled into Cycle 11):** A zero-deps test
+(`apply_toMember_withZeroDeps_andNonEmptyOverrides_returnsMemberUnchanged`) is
+added as sub-test 1 of Cycle 11 (unit-level, existing file). It is not a new
+plan row — it is written in the same cycle, ahead of the pipeline tests.
+
+**REC-3 (doc-only fix):** Already applied by the orchestrator before this
+review pass. No change needed here.
+
+**REC-4 (Cycle 11 test file):** Pipeline tests live in the new file
+`Tests/WorkspaceTests/WorkspaceOverridesPipelineTests.swift`, not in
+`WorkspaceResolveTests.swift` or `WorkspaceManifestTests.swift`. Files-to-modify
+list updated accordingly. The two pipeline test shapes (member-dep rewrite,
+validate-throws-absent) are enumerated under "Cycle 11 sub-tests to write"
+with exact names deferred to the Cycle 11 tdd-requirements agent.
 
 ---
 
