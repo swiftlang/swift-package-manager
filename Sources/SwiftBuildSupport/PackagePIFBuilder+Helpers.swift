@@ -320,6 +320,14 @@ extension Sequence<PackageModel.PackageCondition> {
         return Set(pifPlatforms.flatMap { $0.toPlatformFilter() })
     }
 
+    func toBuildConfigurationFilter() -> Set<ProjectModel.BuildConfigurationFilter> {
+        Set(self.compactMap { packageCondition in
+            packageCondition.configurationCondition.map {
+                ProjectModel.BuildConfigurationFilter(buildConfiguration: $0.configuration.swiftbuildName)
+            }
+        })
+    }
+
     var splitIntoConcreteConditions: (
         [PackageModel.Platform?],
         [PackageModel.BuildConfiguration],

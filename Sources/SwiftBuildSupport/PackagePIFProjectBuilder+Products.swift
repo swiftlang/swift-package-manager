@@ -475,6 +475,7 @@ extension PackagePIFProjectBuilder {
                         on: dependencyId,
                         platformFilters: packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        buildConfigurationFilters: packageConditions.toBuildConfigurationFilter(),
                         linkProduct: false
                     )
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyId)'")
@@ -485,6 +486,7 @@ extension PackagePIFProjectBuilder {
                         on: dependencyId,
                         platformFilters: packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        buildConfigurationFilters: packageConditions.toBuildConfigurationFilter(),
                         linkProduct: false
                     )
                     log(.debug, indent: 1, "Added dependency on product '\(dependencyId)'")
@@ -494,6 +496,7 @@ extension PackagePIFProjectBuilder {
                             on: moduleDependency.pifTargetGUID(suffix: .testable),
                             platformFilters: packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                            buildConfigurationFilters: packageConditions.toBuildConfigurationFilter(),
                             linkProduct: true
                         )
                         log(
@@ -513,6 +516,7 @@ extension PackagePIFProjectBuilder {
                             on: productDependencyGUID,
                             platformFilters: packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                            buildConfigurationFilters: packageConditions.toBuildConfigurationFilter(),
                             linkProduct: false
                         )
                         log(.debug, indent: 1, "Added dependency on product '\(productDependencyGUID)'")
@@ -526,6 +530,7 @@ extension PackagePIFProjectBuilder {
                             on: moduleDependencyGUID,
                             platformFilters: packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                            buildConfigurationFilters: packageConditions.toBuildConfigurationFilter(),
                             // Only link the testable version of executables which use Swift, as we do not currently support renaming entrypoints written in other languages.
                             linkProduct: moduleDependency.usesSwift
                         )
@@ -539,6 +544,7 @@ extension PackagePIFProjectBuilder {
                         on: dependencyGUID,
                         platformFilters: packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        buildConfigurationFilters: packageConditions.toBuildConfigurationFilter(),
                         linkProduct: shouldLinkProduct
                     )
                     log(
@@ -628,6 +634,7 @@ extension PackagePIFProjectBuilder {
             target.common.addDependency(
                 on: product.pifTargetGUID,
                 platformFilters: packageConditions.toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                buildConfigurationFilters: packageConditions.toBuildConfigurationFilter(),
                 linkProduct: shouldLinkProduct
             )
             log(
@@ -886,6 +893,7 @@ extension PackagePIFProjectBuilder {
                         on: dependencyId,
                         platformFilters: packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        buildConfigurationFilters: packageConditions.toBuildConfigurationFilter(),
                         linkProduct: false
                     )
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyId)'")
@@ -905,6 +913,7 @@ extension PackagePIFProjectBuilder {
                             on: product.pifTargetGUID,
                             platformFilters: packageConditions
                                 .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                            buildConfigurationFilters: packageConditions.toBuildConfigurationFilter(),
                             linkProduct: false
                         )
                         log(.debug, indent: 1, "Added dependency on product '\(product.pifTargetGUID)'")
@@ -921,6 +930,7 @@ extension PackagePIFProjectBuilder {
                 libraryUmbrellaTarget.common.addDependency(
                     on: moduleDependency.pifTargetGUID,
                     platformFilters: packageConditions.toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                    buildConfigurationFilters: packageConditions.toBuildConfigurationFilter(),
                     linkProduct: true
                 )
                 log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependency.pifTargetGUID)'")
@@ -940,6 +950,7 @@ extension PackagePIFProjectBuilder {
                         on: productDependency.pifTargetGUID,
                         platformFilters: packageConditions
                             .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        buildConfigurationFilters: packageConditions.toBuildConfigurationFilter(),
                         linkProduct: shouldLinkProduct
                     )
                     log(
