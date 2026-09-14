@@ -12,6 +12,7 @@ let package = Package(
         ),
     ],
     dependencies: [
+        .package(url: "https://github.com/apple/swift-argument-parser", from: "1.6.1"),
         .package(url: "https://github.com/swiftlang/swift-subprocess", from: "0.5.0"),
         .package(url: "https://github.com/swiftlang/swift-syntax", from: "603.0.1"),
     ],
@@ -34,6 +35,7 @@ let package = Package(
         .executableTarget(
             name: "CMakeBuilder",
             dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "Subprocess", package: "swift-subprocess"),
             ]
         ),

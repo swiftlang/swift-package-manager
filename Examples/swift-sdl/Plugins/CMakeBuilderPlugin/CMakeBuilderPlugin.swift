@@ -12,7 +12,16 @@ struct CMakeBuilderPlugin: BuildToolPlugin {
             .buildCommand(
                 displayName: "CMake Build",
                 executable: builder.url,
-                arguments: [target.directoryURL.path]
+                arguments: [
+                    "--output-dir", "$(BUILD_DIR)",
+                    "--products-dir", "$(PRODUCTS_DIR)",
+                    "--arches", "$(ARCHES)",
+                    "--vendor", "$(VENDOR)",
+                    "--os", "$(OS)",
+                    "--suffix", "$(SUFFIX)",
+                    "--sdk", "$(SDK)",
+                    target.directoryURL.path,
+                ]
             ),
         ]
     }

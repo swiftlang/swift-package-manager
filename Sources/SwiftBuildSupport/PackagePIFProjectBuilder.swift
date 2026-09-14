@@ -548,24 +548,41 @@ struct PackagePIFProjectBuilder {
             outputDir = nil
         }
 
-        var environment = command.environment
-        environment["SWIFT_CONFIGURATION"] = "$(CONFIGURATION)"
-        environment["SWIFT_PLATFORM"] = "$(EFFECTIVE_PLATFORM_NAME)"
-        environment["SWIFT_ARCHS"] = "$(ARCHS)"
-        environment["SWIFT_VENDOR"] = "$(LLVM_TARGET_TRIPLE_VENDOR)"
-        environment["SWIFT_OS"] = "$(LLVM_TARGET_TRIPLE_OS_VERSION)"
-        environment["SWIFT_SUFFIX"] = "$(LLVM_TARGET_TRIPLE_SUFFIX)"
-        environment["SWIFT_SDK"] = "$(SYSROOT)"
-        environment["SWIFT_BUILD_DIR"] = outputDir ?? "$(TARGET_TEMP_DIR)"
-        environment["SWIFT_PRODUCTS_DIR"] = "$(BUILT_PRODUCTS_DIR)"
+        var variables: [String: String] = [:]
+        variables["CONFIGURATION"] = "$(CONFIGURATION)"
+        variables["ARCHS"] = "$(ARCHS)"
+        variables["VENDOR"] = "$(LLVM_TARGET_TRIPLE_VENDOR)"
+        variables["OS"] = "$(LLVM_TARGET_TRIPLE_OS_VERSION)"
+        variables["SUFFIX"] = "$(LLVM_TARGET_TRIPLE_SUFFIX)"
+        variables["SDK"] = "$(SYSROOT)"
+        variables["BUILD_DIR"] = outputDir ?? "$(TARGET_TEMP_DIR)"
+        variables["PRODUCTS_DIR"] = "$(BUILT_PRODUCTS_DIR)"
+
+        /// Replaces every occurrence of `$(variableName)` in `input` with the value of that name in
+        /// `variables`, or with an empty string if the name isn't present in the dictionary.
+        func resolveVariables(_ input: String) -> String {
+            // A variable reference is '$(' followed by a name, terminated by the first ')'.
+            let variableReference = #/\$\(([^)]*)\)/#
+
+            return input.replacing(variableReference) { match in
+                variables[String(match.output.1)] ?? ""
+            }
+        }
+
+        let workingDir: String?
+        if let dir = command.workingDir {
+            workingDir = resolveVariables(dir.pathString)
+        } else {
+            workingDir = nil
+        }
 
         return ProjectModel.CustomTask(
-            commandLine: commandLine,
-            environment: environment.map { Pair($0, $1) }.sorted(by: <),
-            workingDirectory: command.workingDir?.pathString,
+            commandLine: commandLine.map { resolveVariables($0) },
+            environment: command.environment.map { Pair($0, resolveVariables($1)) }.sorted(by: <),
+            workingDirectory: workingDir,
             executionDescription: command.displayName ?? "Performing build tool plugin command",
-            inputFilePaths: [command.executable] + command.inputPaths.map(\.pathString),
-            outputFilePaths: command.outputPaths,
+            inputFilePaths: ([command.executable] + command.inputPaths.map(\.pathString)).map { resolveVariables($0) },
+            outputFilePaths: command.outputPaths.map { resolveVariables($0) },
             enableSandboxing: false,
             preparesForIndexing: true
         )

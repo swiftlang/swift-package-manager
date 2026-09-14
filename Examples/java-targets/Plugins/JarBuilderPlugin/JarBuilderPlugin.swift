@@ -7,9 +7,9 @@ struct JarBuilderPlugin: BuildToolPlugin {
         let builder = try context.tool(named: "JarBuilder")
 
         // TODO pull out of target and deps sources
-        let classTag = URL(fileURLWithPath: "/Users/dschaefer2/swift/work/customTargets/swift-package-manager/Examples/java-targets/.build/plugins/outputs/java-targets/JavaTarget/destination/JavaBuilderPlugin/.javaclassdir")
+        let classTag = URL(string: "file:/$(PRODUCTS_DIR)/JavaTarget.classes/.javaclassdir")!
 
-        let jarFile = context.pluginWorkDirectoryURL.appending(path: target.name + ".jar")
+        let jarFile = URL(string: "file:/$(PRODUCTS_DIR)/\(target.name).jar")!
 
         return [
             .buildCommand(

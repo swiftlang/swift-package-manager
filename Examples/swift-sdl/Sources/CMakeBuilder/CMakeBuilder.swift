@@ -1,23 +1,43 @@
+import ArgumentParser
 import Foundation
 import Subprocess
 
 @main
-struct CMakeBuilder {
-    static func main() async throws {
-        guard let outputDir = ProcessInfo.processInfo.environment["SWIFT_BUILD_DIR"] else {
-            throw CMakeError.noBuildDir
-        }
+struct CMakeBuilder: AsyncParsableCommand {
+    static let configuration = CommandConfiguration(
+        abstract: "Configures and builds the SDL CMake project."
+    )
 
-        guard let productsDir = ProcessInfo.processInfo.environment["SWIFT_PRODUCTS_DIR"] else {
-            throw CMakeError.noProductsDir
-        }
+    @Option(help: "The directory the CMake build is configured and run in.")
+    var outputDir: String
 
+    @Option(help: "The build products dir to copy the result into")
+    var productsDir: String
+
+    @Option(help: "The CPU architectures to build for")
+    var arches: String
+
+    @Option(help: "The vendor field of the triple")
+    var vendor: String
+
+    @Option(help: "The os field of the triple")
+    var os: String
+
+    @Option(help: "the suffix field of the triple")
+    var suffix: String
+
+    @Option(help: "The SDK root directory")
+    var sdk: String
+
+    @Argument(help: "The directory containing the project's CMakeLists.txt.")
+    var sourceDir: String
+
+    func run() async throws {
         if !FileManager.default.fileExists(atPath: outputDir) {
             try FileManager.default.createDirectory(atPath: outputDir, withIntermediateDirectories: true)
         }
 
         if !FileManager.default.fileExists(atPath: outputDir + "/build.ninja") {
-            let sourceDir = CommandLine.arguments[1]
             try await configure(sourceDir: sourceDir, outputDir: outputDir)
         }
 
@@ -34,7 +54,7 @@ struct CMakeBuilder {
     }
 
     // Do the build of the static library (skipping tests and utilities)
-    static func build(outputDir: String) async throws {
+    func build(outputDir: String) async throws {
         _ = try await Subprocess.run(
             .name("cmake"),
             arguments: [
@@ -47,7 +67,7 @@ struct CMakeBuilder {
     }
 
     // Run the configure step of the CMake build
-    static func configure(sourceDir: String, outputDir: String) async throws {
+    func configure(sourceDir: String, outputDir: String) async throws {
         let toolchainFile = outputDir + "/cmake.toolchain"
         try generateToolchain(toolchainFile: toolchainFile)
 
@@ -71,17 +91,12 @@ struct CMakeBuilder {
     }
     
     // Generate the toolchain for the build
-    static func generateToolchain(toolchainFile: String) throws {
+    func generateToolchain(toolchainFile: String) throws {
         let contents: String
 
         // TODO multiple archs
-        let arch = try getEnv("SWIFT_ARCHS")
-        let vendor = try getEnv("SWIFT_VENDOR")
-        let os = try getEnv("SWIFT_OS")
-        let suffix = try getEnv("SWIFT_SUFFIX")
+        let arch = arches
         let triple = "\(arch)-\(vendor)-\(os)\(suffix)"
-
-        let sdk = try getEnv("SWIFT_SDK")
 
         if vendor == "apple", os.hasPrefix("macos") {
             let version = os[os.index(os.startIndex, offsetBy: 5)...]
@@ -129,7 +144,6 @@ enum CMakeError: Error {
     case configureError(TerminationStatus)
     case badTriple(String)
     case missingEnvVar(String)
-    case noBuildDir
     case noProductsDir
     case boom
 }

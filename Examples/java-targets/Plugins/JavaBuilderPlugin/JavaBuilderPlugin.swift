@@ -1,4 +1,5 @@
 import PackagePlugin
+import Foundation
 
 @main
 struct JavaBuilderPlugin: BuildToolPlugin {
@@ -11,7 +12,7 @@ struct JavaBuilderPlugin: BuildToolPlugin {
 
         let sources = sourceTarget.sourceFiles(withSuffix: ".java").map { $0.url }
 
-        let outputTag = context.pluginWorkDirectoryURL.appending(path: ".javaclassdir")
+        let outputTag = URL(string: "file:/$(PRODUCTS_DIR)/\(target.name).classes/.javaclassdir")!
 
         return [
             .buildCommand(
