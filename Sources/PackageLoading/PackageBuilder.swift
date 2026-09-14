@@ -1142,13 +1142,13 @@ public final class PackageBuilder {
             case .defaults:
                 if setting.condition != nil {
                     throw ModuleError.invalidManifestConfig(
-                        self.identity.description, "default settings cannot use conditions"
+                        self.identity.description, "target settings may not conditionally reference package defaults"
                     )
                 }
 
                 guard let defaults = manifest.defaultSettings?.filter({ $0.tool == setting.tool }) else {
                     throw ModuleError.invalidManifestConfig(
-                        self.identity.description, "defaults cannot be referenced without being defined"
+                        self.identity.description, "target references default settings, but none are defined for the package"
                     )
                 }
 
