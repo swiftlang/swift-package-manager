@@ -268,9 +268,16 @@ private func checkAllDependenciesAreUsed(
             }
         })
 
-        // List all packages whose targets are directly depended on by this package's modules.
-        let externalModuleDependencyPackages = Set(package.underlying.modules.flatMap { module in
-            module.dependencies.compactMap { $0.externalModule?.package.lowercased() }
+        // List all packages whose modules are directly depended on by this package's modules.
+        let moduleDependencyPackages = Set(package.modules.flatMap { module in
+            module.dependencies.compactMap { moduleDependency -> PackageIdentity? in
+                guard case .module(let dependencyModule, _) = moduleDependency,
+                      dependencyModule.packageIdentity != package.identity
+                else {
+                    return nil
+                }
+                return dependencyModule.packageIdentity
+            }
         })
 
         for dependencyId in package.dependencies {
@@ -312,7 +319,7 @@ private func checkAllDependenciesAreUsed(
                 metadata: package.underlying.diagnosticsMetadata
             )
 
-            if externalModuleDependencyPackages.contains(dependency.identity.description.lowercased()) {
+            if moduleDependencyPackages.contains(dependency.identity) {
                 continue
             }
 
@@ -758,6 +765,14 @@ private func createResolvedPackages(
             uniquingKeysWith: { lhs, _ in lhs }
         )
 
+        func findPublicModule(named name: String, inPackageNamed packageName: String) -> ResolvedModuleBuilder? {
+            let candidatePackages: [ResolvedPackageBuilder] = dependencyPackageMap[packageName.lowercased()].map { [$0] } ?? []
+            let matches = candidatePackages.compactMap { candidate in
+                candidate.modules.first { $0.module.name == name && $0.module.visibility == .public }
+            }
+            return matches.spm_only
+        }
+
         // Establish dependencies in each module.
         for moduleBuilder in packageBuilder.modules {
             // Directly add all the system module dependencies.
@@ -819,6 +834,25 @@ private func createResolvedPackages(
                 let product = lookupByProductIDs ? productDependencyMap[productRef.identity] :
                     productDependencyMap[productRef.name]
                 guard let product else {
+                    // If the package doesn't declare a product with this name, fall back to a
+                    // target of the same name with public visibility. This allows a package to
+                    // migrate from products to public targets without breaking clients.
+                    if let package = productRef.package, let fallbackModuleBuilder = findPublicModule(
+                        named: productRef.name,
+                        inPackageNamed: package
+                    ) {
+                        if let moduleAliases = productRef.moduleAliases, !moduleAliases.isEmpty {
+                            packageObservabilityScope.emit(
+                                PackageGraphError.moduleAliasesUnsupportedForExternalModuleDependency(moduleName: productRef.name, dependentModuleName: moduleBuilder.module.name)
+                            )
+                            continue
+                        }
+
+                        try moduleBuilder.module.validateDependency(module: fallbackModuleBuilder.module)
+                        moduleBuilder.dependencies.append(.module(fallbackModuleBuilder, conditions: conditions))
+                        continue
+                    }
+
                     // Only emit a diagnostic if there are no other diagnostics.
                     // This avoids flooding the diagnostics with product not
                     // found errors when there are more important errors to
