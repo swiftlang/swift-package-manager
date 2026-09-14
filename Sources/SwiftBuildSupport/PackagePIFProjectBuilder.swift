@@ -516,22 +516,58 @@ struct PackagePIFProjectBuilder {
         _ command: PackagePIFBuilder.CustomBuildCommand,
         to targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>
     ) {
+        self.project[keyPath: targetKeyPath].customTasks.append(
+            makeBuildToolCommand(command)
+        )
+    }
+
+    /// Adds a single plugin-created build command to a PIF aggregate target.
+    mutating func addBuildToolCommand(
+        _ command: PackagePIFBuilder.CustomBuildCommand,
+        to targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.AggregateTarget>
+    ) {
+        self.project[keyPath: targetKeyPath].customTasks.append(
+            makeBuildToolCommand(command)
+        )
+    }
+
+    private func makeBuildToolCommand(
+        _ command: PackagePIFBuilder.CustomBuildCommand,
+    ) -> ProjectModel.CustomTask {
         var commandLine = [command.executable] + command.arguments
+        var outputDir: String?
         if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
-            commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
+            // TODO: need to find a way to write into the build products dir safely
+//            commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
+            if let dir = sandbox.writableDirectories.first?.pathString {
+                outputDir = "\(dir)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)"
+            } else {
+                outputDir = nil
+            }
+        } else {
+            outputDir = nil
         }
 
-        self.project[keyPath: targetKeyPath].customTasks.append(
-            ProjectModel.CustomTask(
-                commandLine: commandLine,
-                environment: command.environment.map { Pair($0, $1) }.sorted(by: <),
-                workingDirectory: command.workingDir?.pathString,
-                executionDescription: command.displayName ?? "Performing build tool plugin command",
-                inputFilePaths: [command.executable] + command.inputPaths.map(\.pathString),
-                outputFilePaths: command.outputPaths,
-                enableSandboxing: false,
-                preparesForIndexing: true
-            )
+        var environment = command.environment
+        environment["SWIFT_CONFIGURATION"] = "$(CONFIGURATION)"
+        environment["SWIFT_PLATFORM"] = "$(EFFECTIVE_PLATFORM_NAME)"
+        environment["SWIFT_ARCHS"] = "$(ARCHS)"
+        environment["SWIFT_VENDOR"] = "$(LLVM_TARGET_TRIPLE_VENDOR)"
+        environment["SWIFT_OS"] = "$(LLVM_TARGET_TRIPLE_OS_VERSION)"
+        environment["SWIFT_SUFFIX"] = "$(LLVM_TARGET_TRIPLE_SUFFIX)"
+        environment["SWIFT_SDK"] = "$(SYSROOT)"
+        environment["SWIFT_BUILD_DIR"] = outputDir ?? "$(TARGET_TEMP_DIR)"
+        environment["SWIFT_PRODUCTS_DIR"] = "$(BUILT_PRODUCTS_DIR)"
+
+        return ProjectModel.CustomTask(
+            commandLine: commandLine,
+            environment: environment.map { Pair($0, $1) }.sorted(by: <),
+            workingDirectory: command.workingDir?.pathString,
+            executionDescription: command.displayName ?? "Performing build tool plugin command",
+            inputFilePaths: [command.executable] + command.inputPaths.map(\.pathString),
+            outputFilePaths: command.outputPaths,
+            enableSandboxing: false,
+            preparesForIndexing: true
         )
     }
 

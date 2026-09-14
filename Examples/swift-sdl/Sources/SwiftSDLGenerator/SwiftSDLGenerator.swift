@@ -4,7 +4,7 @@ import Foundation
 struct SwiftSDLGenerator {
     static func main() throws {
         let moduleMap = """
-        module SDL [system] {
+        module SwiftSDL3 [system] {
             header "SDL.h"
             export *
         }
@@ -24,13 +24,13 @@ struct SwiftSDLGenerator {
 
         // TODO: Generate an API header to help with the Swift bindings
         let apiNotes = """
-        Name: SDL
+        Name: SwiftSDL3
         Functions:
         - Name: SDL_GetVersion
           SwiftName: SwiftSDL_GetVersion()
         """
 
-        let apiNotesFile = moduleMapFile.deletingLastPathComponent().appending(path: "SDL.apinotes")
+        let apiNotesFile = moduleMapFile.deletingLastPathComponent().appending(path: "SwiftSDL3.apinotes")
         try apiNotes.write(to: apiNotesFile, atomically: true, encoding: .utf8)
 
         // TODO: Generate Swift bindings to make the Swift interface more ergonomic.

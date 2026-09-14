@@ -222,6 +222,8 @@ extension LLBuildManifestBuilder {
             if module.underlying is BinaryModule { return }
             // Ignore Plugin Modules.
             if module.underlying is PluginModule { return }
+            // Ignore External Targets.
+            if module.underlying is ExternalTarget { return }
 
             if target.target.platformConstraint == .all && module.platformConstraint == .host {
                 // Skip module that is host only.

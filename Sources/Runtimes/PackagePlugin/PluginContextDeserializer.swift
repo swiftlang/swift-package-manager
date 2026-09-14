@@ -450,6 +450,8 @@ fileprivate extension ModuleKind {
             self = .macro
         case .custom:
             self = .custom
+        case .external:
+            self = .external
         }
     }
 }

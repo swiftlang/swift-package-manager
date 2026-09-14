@@ -193,7 +193,7 @@ public struct ManifestValidator {
                     continue
                 }
             } else if target.isRemote {
-                guard let url = target.url else {
+                guard case let .remoteArchive(url, _) = target.location else {
                     diagnostics.append(.invalidBinaryLocation(targetName: target.name))
                     continue
                 }

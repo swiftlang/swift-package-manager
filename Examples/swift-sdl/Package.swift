@@ -16,13 +16,34 @@ let package = Package(
         .package(url: "https://github.com/swiftlang/swift-syntax", from: "603.0.1"),
     ],
     targets: [
-        .externalLibrary(
-            name: "SDL3",
-            location: .path("../SDL"),
+        .externalTarget(
+            name: "SDL",
+            location: .local(path: "../SDL"),
             cSettings: [
-                .publicHeaderPath("include"),
+                .headerSearchPath("include"),
+            ],
+            plugins: [
+                "CMakeBuilderPlugin"
+            ]
+        ),
+        .plugin(
+            name: "CMakeBuilderPlugin",
+            capability: .buildTool,
+            dependencies: ["CMakeBuilder"]
+        ),
+        .executableTarget(
+            name: "CMakeBuilder",
+            dependencies: [
+                .product(name: "Subprocess", package: "swift-subprocess"),
+            ]
+        ),
+        .target(
+            name: "SwiftSDL3",
+            dependencies: [
+                "SDL",
             ],
             linkerSettings: [
+                .linkedLibrary("SDL3"),
                 .linkedFramework("CoreMedia", .when(platforms: [.macOS])),
                 .linkedFramework("CoreVideo", .when(platforms: [.macOS])),
                 .linkedFramework("Cocoa", .when(platforms: [.macOS])),
@@ -41,26 +62,6 @@ let package = Package(
                 .linkedFramework("Security", .when(platforms: [.macOS])),
                 .linkedFramework("CoreHaptics", .when(platforms: [.macOS])),
             ],
-            plugins: [
-                "CMakeBuilderPlugin"
-            ]
-        ),
-        .plugin(
-            name: "CMakeBuilderPlugin",
-            capability: .buildTool,
-            dependencies: ["CMakeBuilder"]
-        ),
-        .executableTarget(
-            name: "CMakeBuilder",
-            dependencies: [
-                .product(name: "Subprocess", package: "swift-subprocess"),
-            ]
-        ),
-        .target(
-            name: "SDL",
-            dependencies: [
-                "SDL3",
-            ],
             plugins: ["SwiftSDLGenPlugin"]
         ),
         .plugin(
@@ -78,7 +79,7 @@ let package = Package(
         ),
         .testTarget(
             name: "SDLTests",
-            dependencies: ["SDL"]
+            dependencies: ["SwiftSDL3"]
         ),
     ],
 )

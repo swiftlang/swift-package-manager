@@ -4,17 +4,26 @@ import Subprocess
 @main
 struct CMakeBuilder {
     static func main() async throws {
-        let outputDir = try CommandLine.arguments[1] + "/" + getEnv("SWIFT_CONFIGURATION") + getEnv("SWIFT_PLATFORM")
+        guard let outputDir = ProcessInfo.processInfo.environment["SWIFT_BUILD_DIR"] else {
+            throw CMakeError.noBuildDir
+        }
+
+        guard let productsDir = ProcessInfo.processInfo.environment["SWIFT_PRODUCTS_DIR"] else {
+            throw CMakeError.noProductsDir
+        }
 
         if !FileManager.default.fileExists(atPath: outputDir) {
             try FileManager.default.createDirectory(atPath: outputDir, withIntermediateDirectories: true)
         }
 
         if !FileManager.default.fileExists(atPath: outputDir + "/build.ninja") {
-            try await configure(outputDir: outputDir)
+            let sourceDir = CommandLine.arguments[1]
+            try await configure(sourceDir: sourceDir, outputDir: outputDir)
         }
 
         try await build(outputDir: outputDir)
+
+        try FileManager.default.copyItem(atPath: outputDir + "/libSDL3.a", toPath: productsDir + "/libSDL3.a")
     }
 
     static func getEnv(_ name: String) throws -> String {
@@ -38,7 +47,7 @@ struct CMakeBuilder {
     }
 
     // Run the configure step of the CMake build
-    static func configure(outputDir: String) async throws {
+    static func configure(sourceDir: String, outputDir: String) async throws {
         let toolchainFile = outputDir + "/cmake.toolchain"
         try generateToolchain(toolchainFile: toolchainFile)
 
@@ -46,6 +55,7 @@ struct CMakeBuilder {
             .name("cmake"),
             arguments: [
                 "-G", "Ninja",
+                "-S", sourceDir,
                 "-B", outputDir,
                 "--toolchain", toolchainFile,
                 "-DSDL_STATIC=ON",
@@ -119,5 +129,7 @@ enum CMakeError: Error {
     case configureError(TerminationStatus)
     case badTriple(String)
     case missingEnvVar(String)
+    case noBuildDir
+    case noProductsDir
     case boom
 }

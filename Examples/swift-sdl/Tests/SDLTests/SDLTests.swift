@@ -1,5 +1,5 @@
 import Testing
-import SDL
+import SwiftSDL3
 
 @Test func example() async throws {
     // SDL_GetVersion renamed in API notes

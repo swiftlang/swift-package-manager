@@ -142,6 +142,12 @@ internal struct PluginContextSerializer {
                 kind: try .init(target.type),
                 sourceFiles: targetFiles)
 
+        case let target as ExternalTarget:
+            targetInfo = .customTargetInfo(
+                moduleName: target.c99name,
+                kind: try .init(target.type),
+                sourceFiles: targetFiles)
+
         case let target as SystemLibraryModule:
             var cFlags: [String] = []
             var ldFlags: [String] = []
@@ -365,6 +371,8 @@ fileprivate extension WireInput.Target.TargetInfo.SourceModuleKind {
             self = .macro
         case .custom:
             self = .custom
+        case .external:
+            self = .external
         case .binary, .plugin, .systemModule:
             throw StringError("unexpected target kind \(kind) for source module")
         }

@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Foundation
 import struct Basics.AbsolutePath
 import struct Basics.StringError
 import TSCBasic
@@ -33,6 +34,43 @@ public final class CustomTarget: Module {
             path: path,
             sources: sources,
             resources: resources,
+            dependencies: dependencies,
+            packageAccess: true,
+            buildSettings: buildSettings,
+            buildSettingsDescription: buildSettingsDescription,
+            pluginUsages: [],
+            usesUnsafeFlags: false,
+            implicit: false
+        )
+    }
+}
+
+public final class ExternalTarget: Module {
+    public override class var typeDescription: String { "customTarget" }
+
+    public enum Location {
+        case localPath(AbsolutePath)
+        case remoteArchive(url: URL, checksum: String)
+    }
+
+    public init(
+        name: String,
+        location: Location,
+        dependencies: [Module.Dependency],
+        buildSettings: BuildSettings.AssignmentTable,
+        buildSettingsDescription: [TargetBuildSettingDescription.Setting],
+
+    ) {
+        guard case let .localPath(path) = location else {
+            fatalError("TODO")
+        }
+
+        super.init(
+            name: name,
+            type: .external,
+            path: path,
+            sources: .init(paths: [], root: path),
+            resources: [],
             dependencies: dependencies,
             packageAccess: true,
             buildSettings: buildSettings,

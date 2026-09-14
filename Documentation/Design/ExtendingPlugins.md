@@ -57,13 +57,17 @@ Add a new `Module` type for non-source targets, i.e. Not Swift or Clang modules.
 
 Add a module type for external targets
 - Manages download of archive or checkout of source
-- Can we get this at build request time so we only download archives we need
-
-Add module type for external libraries
-- Hooks up the library with the same name from a external target dependency
+    - Can we get this at build request time so we only download archives we need
+- Plugins run the build and copy the products for the target to the build products directory for the target
+- Exposes build settings to allow dependent targets to use the build products
+    - User provided public header path
+    - Automatically adds build products directory to public library path (assuming it's different from other targets)
 
 Add module type for external executable.
 - Adds the executable to the model.
+
+Since the library path is added to the imparted settings of the external module, we don't need an external library module type
+- And we want to get the produced libraries into modules as quickly (directly) as possible
 
 ## Implementation Questions
 Things that need to be resolved:
