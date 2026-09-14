@@ -1,0 +1,3 @@
+import EmbeddedResourceLibrary
+
+print(embeddedResourceText())
