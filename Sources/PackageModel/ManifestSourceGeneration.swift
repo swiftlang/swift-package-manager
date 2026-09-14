@@ -727,7 +727,6 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
-<<<<<<< HEAD
         case .bridgingHeader(let path, let visibility):
             params.append(SourceCodeFragment(string: path))
             params.append(SourceCodeFragment(key: "visibility", enum: visibility.rawValue))
@@ -735,12 +734,7 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
-        case .inherited:
-||||||| parent of a96ca6a89 (Apply some review feedback)
-        case .inherited:
-=======
         case .defaults:
->>>>>>> a96ca6a89 (Apply some review feedback)
             self.init(enum: setting.kind.name, subnodes: [])
         }
     }
