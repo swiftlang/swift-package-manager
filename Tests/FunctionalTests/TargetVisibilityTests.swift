@@ -49,4 +49,16 @@ struct TargetVisibilityTests {
             }
         }
     }
+
+    @Test
+    func productDependencyFallsBackToPublicTargetInAnotherPackage() async throws {
+        try await fixture(name: "Miscellaneous/PublicTargets") { fixturePath in
+            let (stdout, _) = try await executeSwiftBuild(
+                fixturePath.appending("ProductFallbackRoot"),
+                configuration: .debug,
+                buildSystem: .swiftbuild,
+            )
+            #expect(stdout.contains("Build complete!"), "stdout:\n\(stdout)")
+        }
+    }
 }

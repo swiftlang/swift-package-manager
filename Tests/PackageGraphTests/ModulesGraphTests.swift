@@ -1875,6 +1875,144 @@ struct ModulesGraphTests {
     }
 
     @Test
+    func productDependencyFallsBackToPublicTarget() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Foo/Sources/FooLib/src.swift",
+            "/Foo/Sources/FooHelper/src.swift",
+            "/Bar/Sources/Bar/src.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    targets: [
+                        TargetDescription(name: "FooLib", dependencies: ["FooHelper"], visibility: .public),
+                        TargetDescription(name: "FooHelper"),
+                    ]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "Bar",
+                    path: "/Bar",
+                    dependencies: [
+                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar", dependencies: [.product(name: "FooLib", package: "Foo")]),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        expectNoDiagnostics(observability.diagnostics)
+        try PackageGraphTester(graph) { result in
+            result.check(packages: "Bar", "Foo")
+            result.check(modules: "Bar", "FooLib", "FooHelper")
+            try result.checkTarget("Bar") { result in
+                result.check(dependencies: "FooLib")
+                try result.checkDependency("FooLib") { result in
+                    try result.checkTarget { result in result.check(dependencies: "FooHelper") }
+                }
+            }
+        }
+    }
+
+    @Test
+    func productDependencyPrefersProductOverPublicTargetOfTheSameName() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Foo/Sources/FooLib/src.swift",
+            "/Foo/Sources/FooHelper/src.swift",
+            "/Bar/Sources/Bar/src.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    products: [
+                        ProductDescription(name: "FooLib", type: .library(.automatic), targets: ["FooHelper"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "FooLib", visibility: .public),
+                        TargetDescription(name: "FooHelper"),
+                    ]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "Bar",
+                    path: "/Bar",
+                    dependencies: [
+                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar", dependencies: [.product(name: "FooLib", package: "Foo")]),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        expectNoDiagnostics(observability.diagnostics)
+        try PackageGraphTester(graph) { result in
+            try result.checkTarget("Bar") { result in
+                result.check(dependencies: "FooLib")
+                try result.checkDependency("FooLib") { result in
+                    result.checkProduct { result in result.check(modules: "FooHelper") }
+                }
+            }
+        }
+    }
+
+    @Test
+    func productDependencyDoesNotFallBackToPackageVisibleTarget() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Foo/Sources/FooLib/src.swift",
+            "/Bar/Sources/Bar/src.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        _ = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    targets: [
+                        TargetDescription(name: "FooLib"),
+                    ]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "Bar",
+                    path: "/Bar",
+                    dependencies: [
+                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar", dependencies: [.product(name: "FooLib", package: "Foo")]),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        try expectDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: .contains("product 'FooLib' required by package 'bar' target 'Bar' not found in package 'Foo'"),
+                severity: .error
+            )
+        }
+    }
+
+    @Test
     func executableTargetDependency() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
