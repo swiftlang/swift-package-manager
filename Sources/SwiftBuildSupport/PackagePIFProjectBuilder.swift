@@ -19,6 +19,7 @@ import class Basics.ObservabilitySystem
 import struct Basics.SourceControlURL
 
 import class PackageModel.ClangModule
+import class PackageModel.BinaryModule
 import class PackageModel.Manifest
 import struct PackageModel.Platform
 import class PackageModel.Product
@@ -578,6 +579,177 @@ struct PackagePIFProjectBuilder {
                 fileTypes: ["rkassets"] // visionOS
             ),
         ]
+
+    mutating func addLinkedDependencies(
+        onModulesComprising modules: some Collection<PackageGraph.ResolvedModule>,
+        to targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
+        embedResources: Bool
+    ) {
+        var target = self.project[keyPath: targetKeyPath]
+
+        for module in modules {
+            // Binary targets are special in that they are just linked, not built.
+            if let binaryTarget = module.underlying as? BinaryModule {
+                let binaryFileRef = self.binaryGroup.addFileReference { id in
+                    FileReference(id: id, path: binaryTarget.artifactPath.pathString)
+                }
+                target.addLibrary { id in
+                    BuildFile(id: id, fileRef: binaryFileRef, codeSignOnCopy: true, removeHeadersOnCopy: true)
+                }
+                log(.debug, indent: 1, "Added use of binary library '\(binaryTarget.artifactPath)'")
+                continue
+            }
+            // We add these as linked dependencies; because the product type is `.packageProduct`,
+            // SwiftBuild won't actually link them, but will instead impart linkage to any clients that
+            // link against the package product.
+            target.common.addDependency(
+                on: module.pifTargetGUID,
+                platformFilters: [],
+                linkProduct: true
+            )
+            log(.debug, indent: 1, "Added linked dependency on target '\(module.pifTargetGUID)'")
+        }
+
+        for module in modules where module.underlying.isSourceModule && module.resources.hasContent {
+            // FIXME: Find a way to determine whether a module has generated resources
+            // here so that we can embed resources into dynamic targets.
+            target.common.addDependency(
+                on: pifTargetIdForResourceBundle(module.name),
+                platformFilters: []
+            )
+
+            let packageName = self.package.name
+            let fileRef = self.project.mainGroup.addFileReference { id in
+                FileReference(id: id, path: "$(CONFIGURATION_BUILD_DIR)/\(packageName)_\(module.name).bundle")
+            }
+            if embedResources {
+                target.addResourceFile { id in
+                    BuildFile(id: id, fileRef: fileRef)
+                }
+                log(.debug, indent: 1, "Added use of resource bundle '\(fileRef.path)'")
+            } else {
+                log(
+                    .debug,
+                    indent: 1,
+                    "Ignored resource bundle '\(fileRef.path)' because resource embedding is disabled"
+                )
+            }
+        }
+
+        self.project[keyPath: targetKeyPath] = target
+    }
+
+    mutating func addTransitiveLinkageDependencies(
+        ofModulesComprising modules: some Collection<PackageGraph.ResolvedModule>,
+        additionalDependencies: [PackageGraph.ResolvedModule.Dependency] = [],
+        to targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
+        settings: inout ProjectModel.BuildSettings
+    ) {
+        var target = self.project[keyPath: targetKeyPath]
+        let mainModuleProducts = package.products.filter(\.isMainModuleProduct)
+        let comprisingModuleNames = Set(modules.map(\.name))
+        let toolsVersion = package.manifest.toolsVersion
+
+        let rootDependencies = modules.flatMap(\.dependencies) + additionalDependencies
+        rootDependencies.recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: []) { dependency in
+            switch dependency {
+            case .module(let moduleDependency, let packageConditions):
+                // This assertion is temporarily disabled since we may see targets from
+                // _other_ packages, but this should be resolved; see rdar://95467710.
+                /* assert(moduleDependency.packageName == self.package.name) */
+
+                if moduleDependency.type == .systemModule {
+                    log(.debug, indent: 1, "Noted use of system module '\(moduleDependency.name)'")
+                    return
+                }
+
+                if let binaryTarget = moduleDependency.underlying as? BinaryModule {
+                    let binaryFileRef = self.binaryGroup.addFileReference { id in
+                        FileReference(id: id, path: binaryTarget.artifactPath.pathString)
+                    }
+                    target.addLibrary { id in
+                        BuildFile(
+                            id: id,
+                            fileRef: binaryFileRef,
+                            platformFilters: packageConditions.toPlatformFilter(toolsVersion: toolsVersion),
+                            codeSignOnCopy: true,
+                            removeHeadersOnCopy: true
+                        )
+                    }
+                    log(.debug, indent: 1, "Added use of binary library '\(binaryTarget.path)'")
+                    return
+                }
+
+                if moduleDependency.type == .plugin {
+                    let dependencyId = moduleDependency.pifTargetGUID
+                    target.common.addDependency(
+                        on: dependencyId,
+                        platformFilters: packageConditions.toPlatformFilter(toolsVersion: toolsVersion),
+                        linkProduct: false
+                    )
+                    log(.debug, indent: 1, "Added use of plugin target '\(dependencyId)'")
+                    return
+                }
+
+                // If this dependency is already one of the comprising modules then don't re-add it.
+                if comprisingModuleNames.contains(moduleDependency.name) { return }
+
+                // For executable targets, add a build time dependency on the product.
+                // FIXME: Maybe we should we do this at the libSwiftPM level.
+                if moduleDependency.isExecutable {
+                    if let product = moduleDependency
+                        .productRepresentingDependencyOfBuildPlugin(in: mainModuleProducts)
+                    {
+                        target.common.addDependency(
+                            on: product.pifTargetGUID,
+                            platformFilters: packageConditions.toPlatformFilter(toolsVersion: toolsVersion),
+                            linkProduct: false
+                        )
+                        log(.debug, indent: 1, "Added dependency on product '\(product.pifTargetGUID)'")
+                        return
+                    } else {
+                        log(
+                            .debug,
+                            indent: 1,
+                            "Could not find a build plugin product to depend on for target '\(moduleDependency.pifTargetGUID)'"
+                        )
+                    }
+                }
+
+                target.common.addDependency(
+                    on: moduleDependency.pifTargetGUID,
+                    platformFilters: packageConditions.toPlatformFilter(toolsVersion: toolsVersion),
+                    linkProduct: true
+                )
+                log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependency.pifTargetGUID)'")
+
+            case .product(let productDependency, let packageConditions):
+                // Do not add a dependency for binary-only executable products since they are not part of the build.
+                if productDependency.isBinaryOnlyExecutableProduct {
+                    return
+                }
+
+                if !pifBuilder.delegate.shouldSuppressProductDependency(
+                    product: productDependency.underlying,
+                    buildSettings: &settings
+                ) {
+                    let shouldLinkProduct = productDependency.isLinkable
+                    target.common.addDependency(
+                        on: productDependency.pifTargetGUID,
+                        platformFilters: packageConditions.toPlatformFilter(toolsVersion: toolsVersion),
+                        linkProduct: shouldLinkProduct
+                    )
+                    log(
+                        .debug,
+                        indent: 1,
+                        "Added \(shouldLinkProduct ? "linked" : "") dependency on product '\(productDependency.pifTargetGUID)'"
+                    )
+                }
+            }
+        }
+
+        self.project[keyPath: targetKeyPath] = target
+    }
 
     // MARK: - General Helpers
 

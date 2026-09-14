@@ -137,7 +137,7 @@ extension BuildPlan {
         let topLevelDependencies: [PackageModel.Module] = if product.type == .test {
             product.modules.flatMap(\.underlying.dependencies).compactMap {
                 switch $0 {
-                case .product:
+                case .product, .externalModule:
                     nil
                 case .module(let target, _):
                     target
@@ -328,6 +328,8 @@ extension BuildPlan {
                     }
                 case .plugin:
                     continue
+                case .libraryAggregate:
+                    throw InternalError("unexpected aggregate library target '\(module.name)'")
                 }
 
             case .product(let product, let description):

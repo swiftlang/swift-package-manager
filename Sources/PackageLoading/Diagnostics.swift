@@ -69,6 +69,10 @@ extension Basics.Diagnostic {
         .error("library product '\(product)' should not contain executable targets (it has \(executableTargets.map{ "'\($0)'" }.joined(separator: ", ")))")
     }
 
+    static func productWithLibraryTargets(product: String, libraryTargets: [String]) -> Self {
+        .error("product '\(product)' includes library targets \(libraryTargets.map{ "'\($0)'" }.joined(separator: ", ")); products may not include library targets")
+    }
+
     static func nonPluginProductWithPluginTargets(product: String, type: ProductType, pluginTargets: [String]) -> Self {
         .error("\(type.description) product '\(product)' should not contain plugin targets (it has \(pluginTargets.map{ "'\($0)'" }.joined(separator: ", ")))")
     }

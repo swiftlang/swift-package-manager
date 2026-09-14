@@ -206,14 +206,15 @@ enum ManifestJSONParser {
             sources: target.sources,
             resources: try Self.parseResources(target.resources),
             publicHeadersPath: target.publicHeadersPath,
-            type: .init(target.type),
+            type: .init(target.type, libraryType: target.libraryType.map { .init($0) }),
             packageAccess: target.packageAccess,
             pkgConfig: target.pkgConfig,
             providers: providers,
             pluginCapability: pluginCapability,
             settings: try Self.parseBuildSettings(target),
             checksum: target.checksum,
-            pluginUsages: pluginUsages
+            pluginUsages: pluginUsages,
+            visibility: .init(target.visibility)
         )
     }
 
@@ -508,8 +509,19 @@ extension ProductDescription {
     }
 }
 
+extension TargetDescription.TargetVisibility {
+    init(_ visibility: Serialization.TargetVisibility) {
+        switch visibility {
+        case .public:
+            self = .public
+        case .package:
+            self = .package
+        }
+    }
+}
+
 extension ProductType.LibraryType {
-    init(_ libraryType: Serialization.Product.ProductType.LibraryType) {
+    init(_ libraryType: Serialization.LibraryType) {
         switch libraryType {
         case .dynamic:
             self = .dynamic
@@ -524,8 +536,12 @@ extension ProductType.LibraryType {
 extension TargetDescription.Dependency {
     init(_ dependency: Serialization.TargetDependency, identityResolver: IdentityResolver) throws {
         switch dependency {
-        case .target(let name, let condition):
-            self = .target(name: name, condition: condition.map { .init($0) })
+        case .target(let name, let package, let moduleAliases, let condition):
+            var package: String? = package
+            if let packageName = package {
+                package = try identityResolver.mappedIdentity(for: .plain(packageName)).description
+            }
+            self = .target(name: name, package: package, moduleAliases: moduleAliases, condition: condition.map { .init($0) })
         case .product(let name, let package, let moduleAliases, let condition):
             var package: String? = package
             if let packageName = package {
@@ -548,7 +564,9 @@ extension PackageConditionDescription {
 }
 
 extension TargetDescription.TargetKind {
-    init(_ type: Serialization.TargetType) {
+    /// - Parameter libraryType: The linkage declared by a `libraryTarget`, if it declared one.
+    ///   A `libraryTarget` which leaves the choice to the build system becomes `.library(.automatic)`.
+    init(_ type: Serialization.TargetType, libraryType: ProductType.LibraryType?) {
         switch type {
         case .regular:
             self = .regular
@@ -564,6 +582,8 @@ extension TargetDescription.TargetKind {
             self = .plugin
         case .macro:
             self = .macro
+        case .library:
+            self = .library(libraryType ?? .automatic)
         }
     }
 }

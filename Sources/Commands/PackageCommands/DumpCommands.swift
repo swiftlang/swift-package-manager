@@ -117,7 +117,7 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
             // Run the tool once for every library and executable target in the root package.
             let modulesGraph = try await buildSystem.getPackageGraph()
             for description in buildPlan.buildModules {
-                guard description.module.type == .library,
+                guard description.module.type.isLibrary,
                     modulesGraph.rootPackages[description.package.id] != nil
                 else {
                     continue

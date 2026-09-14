@@ -31,7 +31,8 @@ public final class PluginModule: Module {
         apiVersion: ToolsVersion,
         pluginCapability: PluginCapability,
         dependencies: [Module.Dependency] = [],
-        packageAccess: Bool
+        packageAccess: Bool,
+        visibility: TargetDescription.TargetVisibility = .package
     ) {
         self.capability = pluginCapability
         self.apiVersion = apiVersion
@@ -46,7 +47,8 @@ public final class PluginModule: Module {
             buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false,
-            implicit: false
+            implicit: false,
+            visibility: visibility
         )
     }
 }
