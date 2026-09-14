@@ -571,6 +571,42 @@ struct SwiftBuildSystemTests {
         }
     }
 
+    @Test
+    func moduleCachePathCLIOverride() async throws {
+        try await withTemporaryDirectory { tempDir in
+            let moduleCachePath = tempDir.appending("shared-module-cache").pathString
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    toolchain: try UserToolchain.default,
+                    flags: .init(swiftCompilerFlags: [
+                        BuildFlag(value: "-module-cache-path", source: .commandLineOptions),
+                        BuildFlag(value: moduleCachePath, source: .commandLineOptions),
+                        BuildFlag(value: "-DFoo", source: .commandLineOptions),
+                    ]),
+                    buildSystemKind: .swiftbuild
+                ),
+            ) { swiftBuild, service, session, observabilityScope, buildParameters in
+                let buildRequest = try await swiftBuild.makeBuildRequest(
+                    service: service,
+                    session: session,
+                    configuredTargets: [],
+                    derivedDataPath: tempDir,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
+                )
+
+                let overrides = buildRequest.parameters.overrides.synthesized?.table
+                #expect(overrides?["MODULE_CACHE_DIR"] == moduleCachePath)
+                let otherSwiftFlags = try #require(overrides?["OTHER_SWIFT_FLAGS"])
+                #expect(!otherSwiftFlags.contains("-module-cache-path"))
+                #expect(otherSwiftFlags.contains("-DFoo"))
+            }
+        }
+    }
+
     @Suite
     struct DebuggingSettingsTests {
 

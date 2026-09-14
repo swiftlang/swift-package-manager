@@ -1198,6 +1198,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // swiftCompilerFlags += buildParameters.toolchain.extraFlags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
         // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
         // swiftCompilerFlags += buildParameters.flags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
+
+        // Filter out module cache path flags and override the build setting independently.
+        if let moduleCachePath = Self.extractLastModuleCachePath(from: &swiftCompilerFlags) {
+            settings["MODULE_CACHE_DIR"] = moduleCachePath
+        }
+
         let compilerAndLinkerFlags = [
             "OTHER_CFLAGS": buildParameters.toolchain.extraFlags.cCompilerFlags + buildParameters.flags.cCompilerFlags,
             "OTHER_CPLUSPLUSFLAGS": buildParameters.toolchain.extraFlags.cxxCompilerFlags + buildParameters.flags.cxxCompilerFlags,
@@ -1262,6 +1268,30 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         settings["OTHER_LDFLAGS"] = (settings["OTHER_LDFLAGS"] ?? "$(inherited)") + " $(OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_$(LINKER_DRIVER))"
 
         return settings
+    }
+
+    private static func extractLastModuleCachePath(from flags: inout [BuildFlag]) -> String? {
+        var remaining: [BuildFlag] = []
+        remaining.reserveCapacity(flags.count)
+        var moduleCachePath: String? = nil
+
+        var index = flags.startIndex
+        while index < flags.endIndex {
+            let flag = flags[index]
+            let nextIndex = flags.index(after: index)
+            if flag.source == .commandLineOptions, flag.value == "-module-cache-path", nextIndex < flags.endIndex {
+                moduleCachePath = flags[nextIndex].value
+                index = flags.index(after: nextIndex)
+                continue
+            }
+            remaining.append(flag)
+            index = nextIndex
+        }
+
+        if moduleCachePath != nil {
+            flags = remaining
+        }
+        return moduleCachePath
     }
 
     private static func constructDebuggingSettingsOverrides(from parameters: BuildParameters.Debugging, for configuration: BuildConfiguration) -> [String: String] {
