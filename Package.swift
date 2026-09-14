@@ -132,6 +132,32 @@ if shouldUseSwiftBuildFramework {
         .product(name: "LanguageServerProtocolTransport", package: "swift-tools-protocols", condition: .when(platforms: [.macOS, .linux, .windows, .android, .openbsd, .custom("freebsd")])),
     ]
 }
+
+// When set, swift-crypto, swift-system, and swift-toolchain-sqlite are not added to the package
+// dependency graph at all. This is intended for use on macOS builds, where these dependencies are
+// expected to be provided by the OS SDK instead of by the packages themselves.
+let useSystemSDKDeps = (ProcessInfo.processInfo.environment["SWIFTPM_USE_SYSTEM_SDK_DEPS"] != nil)
+
+let swiftCryptoDeps: [Target.Dependency]
+let swiftSystemDeps: [Target.Dependency]
+let swiftToolchainSQLiteDeps: [Target.Dependency]
+
+if useSystemSDKDeps {
+    swiftCryptoDeps = []
+    swiftSystemDeps = []
+    swiftToolchainSQLiteDeps = []
+} else {
+    swiftCryptoDeps = [
+        .product(name: "Crypto", package: "swift-crypto"),
+    ]
+    swiftSystemDeps = [
+        .product(name: "SystemPackage", package: "swift-system"),
+    ]
+    swiftToolchainSQLiteDeps = [
+        .product(name: "SwiftToolchainCSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.windows, .android])),
+    ]
+}
+
 let package = Package(
     name: "SwiftPM",
     platforms: [
@@ -228,9 +254,7 @@ let package = Package(
 
         .target(
             name: "_AsyncFileSystem",
-            dependencies: [
-                .product(name: "SystemPackage", package: "swift-system"),
-            ],
+            dependencies: swiftSystemDeps,
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
                 .enableExperimentalFeature("StrictConcurrency"),
@@ -244,11 +268,9 @@ let package = Package(
             dependencies: [
                 "_AsyncFileSystem",
                 .target(name: "SPMSQLite3", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .macCatalyst, .linux, .openbsd, .custom("freebsd")])),
-                .product(name: "SwiftToolchainCSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.windows, .android])),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
-                .product(name: "SystemPackage", package: "swift-system"),
-            ] + swiftToolsCoreSupportAutoDeps,
+            ] + swiftToolchainSQLiteDeps + swiftSystemDeps + swiftToolsCoreSupportAutoDeps,
             exclude: ["CMakeLists.txt", "Vendor/README.md"],
             swiftSettings: swift6CompatibleExperimentalFeatures + [
                 .enableExperimentalFeature("StrictConcurrency"),
@@ -398,11 +420,10 @@ let package = Package(
         .target(
             name: "PackageCollectionsSigning",
             dependencies: [
-                .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "X509", package: "swift-certificates"),
                 "Basics",
                 "PackageCollectionsModel",
-            ],
+            ] + swiftCryptoDeps,
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures
         ),
@@ -420,11 +441,10 @@ let package = Package(
         .target(
             name: "PackageSigning",
             dependencies: [
-                .product(name: "Crypto", package: "swift-crypto"),
                 .product(name: "X509", package: "swift-certificates"),
                 "Basics",
                 "PackageModel",
-            ],
+            ] + swiftCryptoDeps,
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures
         ),
@@ -570,7 +590,6 @@ let package = Package(
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
-                .product(name: "SystemPackage", package: "swift-system"),
                 "Basics",
                 "BinarySymbols",
                 "Build",
@@ -583,7 +602,7 @@ let package = Package(
                 "SwiftBuildSupport",
                 "SwiftFixIt",
                 "SwiftPMBuildServer",
-            ] + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftRefactor"]),
+            ] + swiftSystemDeps + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftRefactor"]),
             exclude: ["CMakeLists.txt", "README.md"],
             swiftSettings: swift6CompatibleExperimentalFeatures
         ),
@@ -645,8 +664,7 @@ let package = Package(
             dependencies: [
                 "_AsyncFileSystem",
                 "Basics",
-                .product(name: "Crypto", package: "swift-crypto"),
-            ],
+            ] + swiftCryptoDeps,
             exclude: ["CMakeLists.txt"],
             swiftSettings: [
                 .enableExperimentalFeature("StrictConcurrency=complete"),
@@ -1138,12 +1156,16 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         // They are used to build the official swift toolchain.
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
         .package(url: "https://github.com/apple/swift-argument-parser.git", revision: "1.8.2"),
-        .package(url: "https://github.com/apple/swift-crypto.git", revision: "3.12.5"),
-        .package(url: "https://github.com/apple/swift-system.git", revision: "1.5.0"),
         .package(url: "https://github.com/apple/swift-collections.git", revision: "1.1.6"),
         .package(url: "https://github.com/apple/swift-certificates.git", revision: "1.10.1"),
-        .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", revision: "1.0.9"),
     ]
+    if !useSystemSDKDeps {
+        package.dependencies += [
+            .package(url: "https://github.com/apple/swift-crypto.git", revision: "3.12.5"),
+            .package(url: "https://github.com/apple/swift-system.git", revision: "1.5.0"),
+            .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", revision: "1.0.9"),
+        ]
+    }
     if !swiftDriverDeps.isEmpty {
         package.dependencies += [
             .package(url: "https://github.com/swiftlang/swift-tools-support-core.git", branch: relatedDependenciesBranch),
@@ -1153,20 +1175,23 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
 } else {
     package.dependencies += [
         .package(path: "../swift-argument-parser"),
-        .package(path: "../swift-crypto"),
         .package(path: "../swift-syntax"),
-        .package(path: "../swift-system"),
         .package(path: "../swift-collections"),
         .package(path: "../swift-certificates"),
-        .package(path: "../swift-toolchain-sqlite"),
     ]
+    if !useSystemSDKDeps {
+        package.dependencies += [
+            .package(path: "../swift-crypto"),
+            .package(path: "../swift-system"),
+            .package(path: "../swift-toolchain-sqlite"),
+        ]
+    }
     if !swiftDriverDeps.isEmpty {
         package.dependencies += [
             .package(path: "../swift-tools-support-core"),
             .package(path: "../swift-driver"),
         ]
     }
-
 }
 
 /// If ENABLE_APPLE_PRODUCT_TYPES is set in the environment, then also define ENABLE_APPLE_PRODUCT_TYPES in each of the regular targets and test targets.
