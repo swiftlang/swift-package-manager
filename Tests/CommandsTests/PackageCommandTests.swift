@@ -5124,10 +5124,14 @@ struct PackageCommandTests {
                         buildSystem: buildSystem,
                     )
                 ) { error in
+                    let output = error.consoleOutput
                     #expect(
-                        error.consoleOutput.contains("intentionalCompilerError"),
-                        "Plugin compiler diagnostic was not shown: \(error.consoleOutput)"
+                        output.contains("intentionalCompilerError"),
+                        "Plugin compiler diagnostic was not shown: \(output)"
                     )
+                    #expect(!output.contains("<PluginCompilationResult("))
+                    #expect(!output.contains("commandLine:"))
+                    #expect(!output.contains("compilerOutput:"))
                 }
             }
         }
