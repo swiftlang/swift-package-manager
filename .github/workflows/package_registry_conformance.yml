@@ -1,0 +1,99 @@
+name: Package Registry OpenAPI Conformance
+
+permissions:
+  contents: read
+
+on:
+  workflow_dispatch:
+  pull_request:
+    types: [opened, reopened, synchronize]
+    paths:
+      - 'Examples/package-registry/**'
+      - 'Documentation/PackageRegistry/registry.openapi.yaml'
+      - '.github/workflows/package_registry_conformance.yml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  openapi-conformance:
+    name: OpenAPI Conformance
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    container:
+      image: swiftlang/swift:nightly-main-noble
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - name: Install curl and zip
+        run: apt-get -q update && apt-get -yq install --no-install-recommends curl zip
+      - name: Build the registry server
+        working-directory: Examples/package-registry
+        shell: bash
+        run: |
+          ./scripts/generate-cert.sh
+          swift build --product PackageRegistryServer
+          bin_path="$(swift build --product PackageRegistryServer --show-bin-path)"
+          echo "REGISTRY_SERVER=$bin_path/PackageRegistryServer" >>"$GITHUB_ENV"
+      - name: Start the registry server
+        working-directory: Examples/package-registry
+        shell: bash
+        run: |
+          command -v curl
+          "$REGISTRY_SERVER" >.build/registry-server.log 2>&1 &
+          echo "REGISTRY_SERVER_PID=$!" >>"$GITHUB_ENV"
+          for _ in $(seq 1 120); do
+            if curl -sS --fail --connect-timeout 2 --max-time 5 \
+                 --cacert certs/cert.pem https://127.0.0.1:8000/availability >/dev/null; then
+              echo "registry server is up"
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+      # If there are no packages in the example registry, Schemathesis cannot fetch packages,
+      # So the GET /{scope}/{name} endpoints would be left untested
+      - name: Seed the registry with a package
+        working-directory: Examples/package-registry
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl() { command curl -sS --fail --cacert certs/cert.pem "$@"; }
+          curl -X POST https://127.0.0.1:8000/users \
+            -H 'Content-Type: application/json' \
+            -d '{"email":"ci@example.com","password":"hunter2"}'
+          (cd Fixtures && zip -qr ../.build/LinkedList-1.2.3.zip HelloWorld)
+          cat >.build/metadata.json <<'JSON'
+          {
+            "author": { "name": "Mona" },
+            "description": "A linked list.",
+            "licenseURL": "https://example.com/mona/LinkedList/LICENSE",
+            "readmeURL": "https://example.com/mona/LinkedList/README.md",
+            "repositoryURLs": ["https://example.com/mona/LinkedList"]
+          }
+          JSON
+          curl -X PUT https://127.0.0.1:8000/mona/LinkedList/1.2.3 \
+            -u 'ci@example.com:hunter2' \
+            -H 'Accept: application/vnd.swift.registry.v1+json' \
+            -F 'source-archive=@.build/LinkedList-1.2.3.zip;type=application/zip' \
+            -F 'metadata=@.build/metadata.json;type=application/json'
+      - name: Check responses against the OpenAPI spec
+        uses: schemathesis/action@v3.0.0
+        with:
+          schema: Documentation/PackageRegistry/registry.openapi.yaml
+          base-url: https://127.0.0.1:8000
+          args: >-
+            --tls-verify=Examples/package-registry/certs/cert.pem
+            -H "Accept: application/vnd.swift.registry.v1+json"
+            -H "Authorization: Basic Y2lAZXhhbXBsZS5jb206aHVudGVyMg=="
+      - name: Registry server log
+        if: always()
+        working-directory: Examples/package-registry
+        run: cat .build/registry-server.log || true
+      - name: Stop the registry server
+        if: always()
+        shell: bash
+        run: kill "${REGISTRY_SERVER_PID:-}" 2>/dev/null || true
