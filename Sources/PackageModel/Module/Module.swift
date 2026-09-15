@@ -29,6 +29,8 @@ public class Module {
         case plugin
         case snippet
         case `macro`
+        case custom
+        case external
     }
 
     /// A reference to a product from a module dependency.

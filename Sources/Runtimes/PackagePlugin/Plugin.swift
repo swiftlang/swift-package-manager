@@ -295,7 +295,7 @@ extension Plugin {
                         inputFiles: inputs,
                         outputFiles: outputs)
                     try pluginHostConnection.sendMessage(message)
-                    
+
                 case let .prebuildCommand(name, exec, args, env, outdir):
                     let command = PluginToHostMessage.CommandConfiguration(
                         displayName: name,

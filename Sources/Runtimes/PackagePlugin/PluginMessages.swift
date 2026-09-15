@@ -178,6 +178,12 @@ enum HostToPluginMessage: Codable {
                         linkedLibraries: [String],
                         linkedFrameworks: [String])
                     
+                    case customTargetInfo(
+                        moduleName: String,
+                        kind: SourceModuleKind,
+                        sourceFiles: [File],
+                    )
+
                     case binaryArtifactInfo(
                         kind: BinaryArtifactKind,
                         origin: BinaryArtifactOrigin,
@@ -194,6 +200,8 @@ enum HostToPluginMessage: Codable {
                         case snippet
                         case test
                         case macro
+                        case custom
+                        case external
                     }
 
                     enum BinaryArtifactKind: Codable {

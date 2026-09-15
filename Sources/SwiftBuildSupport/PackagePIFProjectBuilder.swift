@@ -516,22 +516,66 @@ struct PackagePIFProjectBuilder {
         _ command: PackagePIFBuilder.CustomBuildCommand,
         to targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>
     ) {
+        self.project[keyPath: targetKeyPath].customTasks.append(
+            makeBuildToolCommand(command)
+        )
+    }
+
+    /// Adds a single plugin-created build command to a PIF aggregate target.
+    mutating func addBuildToolCommand(
+        _ command: PackagePIFBuilder.CustomBuildCommand,
+        to targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.AggregateTarget>
+    ) {
+        self.project[keyPath: targetKeyPath].customTasks.append(
+            makeBuildToolCommand(command)
+        )
+    }
+
+    private func makeBuildToolCommand(
+        _ command: PackagePIFBuilder.CustomBuildCommand,
+    ) -> ProjectModel.CustomTask {
+        var variables: [String: String] = [:]
+        variables["COPY_CMD"] = "/bin/cp" // TODO: need a solution for Windows
+        variables["CONFIGURATION"] = "$(CONFIGURATION)"
+        variables["TRIPLE"] = "$(TARGET_TRIPLES)"
+        variables["SDK"] = "$(SYSROOT)"
+        variables["BUILD_SUBDIR"] = "$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)"
+        variables["PRODUCTS_DIR"] = "$(BUILT_PRODUCTS_DIR)"
+
         var commandLine = [command.executable] + command.arguments
-        if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
+        if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled, command.executable != "/$(COPY_CMD)" {
             commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
         }
 
-        self.project[keyPath: targetKeyPath].customTasks.append(
-            ProjectModel.CustomTask(
-                commandLine: commandLine,
-                environment: command.environment.map { Pair($0, $1) }.sorted(by: <),
-                workingDirectory: command.workingDir?.pathString,
-                executionDescription: command.displayName ?? "Performing build tool plugin command",
-                inputFilePaths: [command.executable] + command.inputPaths.map(\.pathString),
-                outputFilePaths: command.outputPaths,
-                enableSandboxing: false,
-                preparesForIndexing: true
-            )
+        /// Replaces every occurrence of `$(variableName)` in `input` with the value of that name in
+        /// `variables`, or with an empty string if the name isn't present in the dictionary.
+        func resolveVariables(_ input: String) -> String {
+            // A variable reference is '$(' followed by a name, terminated by the first ')'.
+            let variableReference = #/\$\(([^)]*)\)/#
+
+            return input.replacing(variableReference) { match in
+                variables[String(match.output.1)] ?? ""
+            }
+        }
+
+        let workingDir: String?
+        if let dir = command.workingDir {
+            workingDir = resolveVariables(dir.pathString)
+        } else {
+            workingDir = nil
+        }
+
+        // TODO: support always build for CMakeBuilder
+
+        return ProjectModel.CustomTask(
+            commandLine: commandLine.map { resolveVariables($0) },
+            environment: command.environment.map { Pair($0, resolveVariables($1)) }.sorted(by: <),
+            workingDirectory: workingDir,
+            executionDescription: command.displayName ?? "Performing build tool plugin command",
+            inputFilePaths: command.inputPaths.map(\.pathString).map { resolveVariables($0) },
+            outputFilePaths: command.outputPaths.map { resolveVariables($0) },
+            enableSandboxing: false,
+            preparesForIndexing: true
         )
     }
 

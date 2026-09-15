@@ -32,6 +32,7 @@ import struct PackageGraph.ResolvedPackage
 
 import struct PackageLoading.GeneratedFiles
 
+import struct SwiftBuild.Pair
 import enum SwiftBuild.ProjectModel
 
 /// Extension to create PIF **modules** for a given package.
@@ -102,6 +103,12 @@ extension PackagePIFProjectBuilder {
                         platformFilters: dependencyPlatformFilters
                     )
                     log(.debug, indent: 1, "Added dependency on target '\(dependencyGUID)'")
+
+                case .custom:
+                    fatalError("TODO")
+
+                case .external:
+                    fatalError("TODO")
                 }
 
             case .product(let productDependency, let packageConditions):
@@ -261,6 +268,7 @@ extension PackagePIFProjectBuilder {
     func configureSwiftTargetModuleMap(
         for sourceModule: PackageGraph.ResolvedModule,
         targetSuffix: TargetSuffix?,
+        generatedFiles: GeneratedFiles?,
         settings: inout BuildSettings,
         impartedSettings: inout BuildSettings
     ) throws -> (contents: String?, path: String?) {
@@ -276,15 +284,25 @@ extension PackagePIFProjectBuilder {
         ).pathString
 
         var cUmbrellaDeclaration: String? = nil
-        switch sourceModule.moduleMapType {
-        case .umbrellaHeader(let path):
-            log(.debug, "\(package.name).\(sourceModule.name) generated umbrella header")
-            cUmbrellaDeclaration = "umbrella header \"\(path.escapedPathString)\""
-        case .umbrellaDirectory(let path):
-            log(.debug, "\(package.name).\(sourceModule.name) generated umbrella directory")
-            cUmbrellaDeclaration = "umbrella \"\(path.escapedPathString)\""
-        case .custom(let customModuleMapPath):
-            let customModuleMapPathString = customModuleMapPath.pathString
+        if let generatedFiles, let pluginGeneratedModuleMapPath = generatedFiles.moduleMaps.first {
+            // Like custom, except it was generated (FIXME: shouldn't it be the same as .custom?)
+            if generatedFiles.moduleMaps.count > 1 {
+                // Warn about ignored generated module maps if more than one
+                // TODO: Should this be an error, can we handle more than one?
+                let ignoredFiles = generatedFiles.moduleMaps.dropFirst()
+                pifBuilder.observabilityScope.emit(
+                    severity: .warning,
+                    message: "Plugins generated multiple module maps. Selected \(pluginGeneratedModuleMapPath) and ignored \(ignoredFiles.map(\.pathString).joined(separator: " "))"
+                )
+            }
+            if case let .custom(customModuleMapPath) = sourceModule.moduleMapType {
+                // TODO: which one should win?
+                pifBuilder.observabilityScope.emit(
+                    severity: .warning,
+                    message: "Plugins generated module maps overrides source provided one. Selected \(pluginGeneratedModuleMapPath) and ignored \(customModuleMapPath)"
+                )
+            }
+            let customModuleMapPathString = pluginGeneratedModuleMapPath.pathString
             settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
                 $0.append(contentsOf: [
                     "-import-underlying-module",
@@ -292,9 +310,37 @@ extension PackagePIFProjectBuilder {
                 ])
             }
             self.impartModuleMap(at: customModuleMapPathString, to: &impartedSettings)
+            // Override objc header dir to be our module map dir
+            settings[.SWIFT_OBJC_INTERFACE_HEADER_DIR] = pluginGeneratedModuleMapPath.parentDirectory.pathString
+            // TODO: should these next two steps be optional
+            // If the target has a public C interface, set the top-level module map contents and allow
+            // Swift Build to inject the submodule for the generated header.
+            settings[.SWIFT_INSTALL_OBJC_HEADER] = "YES"
+            // Opt into Swift Build extending these provided module map contents (the underlying C
+            // module) with the generated `.Swift` submodule, forming a single mixed-language module.
+            settings[.SWIFT_EXTEND_MODULEMAP_FILE_CONTENTS] = "YES"
             return (nil, customModuleMapPathString)
-        case nil, .some(.none):
-            break
+        } else {
+            switch sourceModule.moduleMapType {
+            case .umbrellaHeader(let path):
+                log(.debug, "\(package.name).\(sourceModule.name) generated umbrella header")
+                cUmbrellaDeclaration = "umbrella header \"\(path.escapedPathString)\""
+            case .umbrellaDirectory(let path):
+                log(.debug, "\(package.name).\(sourceModule.name) generated umbrella directory")
+                cUmbrellaDeclaration = "umbrella \"\(path.escapedPathString)\""
+            case .custom(let customModuleMapPath):
+                let customModuleMapPathString = customModuleMapPath.pathString
+                settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
+                    $0.append(contentsOf: [
+                        "-import-underlying-module",
+                        "-Xcc", "-fmodule-map-file=\(customModuleMapPathString)",
+                    ])
+                }
+                self.impartModuleMap(at: customModuleMapPathString, to: &impartedSettings)
+                return (nil, customModuleMapPathString)
+            case nil, .some(.none):
+                break
+            }
         }
 
         let moduleMapFileContents: String
@@ -509,6 +555,7 @@ extension PackagePIFProjectBuilder {
             (moduleMapFileContents, moduleMapPath) = try self.configureSwiftTargetModuleMap(
                 for: sourceModule,
                 targetSuffix: targetSuffix,
+                generatedFiles: generatedFiles,
                 settings: &settings,
                 impartedSettings: &impartedSettings
             )
@@ -935,7 +982,7 @@ extension PackagePIFProjectBuilder {
                     )
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyGUID)'")
 
-                case .library, .test, .macro, .systemModule:
+                case .library, .test, .macro, .systemModule, .custom, .external:
                     moduleTarget.common.addDependency(
                         on: moduleDependency.pifTargetGUID,
                         platformFilters: dependencyPlatformFilters,
@@ -1185,5 +1232,63 @@ extension PackagePIFProjectBuilder {
             toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(systemModule)
+    }
+
+    // MARK: - Custom Targets
+
+    /// Creates an aggregate target and adds in the build tool commands
+    mutating func makeCustomTarget(_ customTarget: PackageGraph.ResolvedModule) throws {
+        precondition(customTarget.type == .custom || customTarget.type == .external)
+
+        let customTargetKeyPath = try self.project.addAggregateTarget { _ in
+            ProjectModel.AggregateTarget(
+                id: customTarget.pifTargetGUID,
+                name: customTarget.name
+            )
+        }
+        do {
+            let customLibraryTarget = self.project[keyPath: customTargetKeyPath]
+            log(
+                .debug,
+                "Created aggregate target '\(customLibraryTarget.id)' with name '\(customLibraryTarget.name)'"
+            )
+        }
+
+        let allBuildSettings = customTarget.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
+
+        let buildSettings = self.package.underlying.packageBaseBuildSettings
+        var debugSettings = buildSettings
+        var releaseSettings = buildSettings
+        var impartedSettings = BuildSettings()
+
+        allBuildSettings.apply(to: &debugSettings, for: .debug)
+        allBuildSettings.apply(to: &releaseSettings, for: .release)
+        allBuildSettings.applyImparted(to: &impartedSettings)
+
+        self.project[keyPath: customTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Debug", settings: debugSettings, impartedBuildSettings: impartedSettings)
+        }
+        self.project[keyPath: customTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Release", settings: debugSettings, impartedBuildSettings: impartedSettings)
+        }
+
+        for dependency in customTarget.dependencies {
+            switch dependency {
+            case .module(let module, conditions: _):
+                self.project[keyPath: customTargetKeyPath].common.addDependency(
+                    on: module.pifTargetGUID, platformFilters: .init()
+                )
+            case .product:
+                fatalError("TODO")
+            }
+        }
+
+        if let pluginResults = pifBuilder.buildToolPluginResultsByTargetName[customTarget.name] {
+            for pluginResult in pluginResults {
+                for command in pluginResult.buildCommands {
+                    addBuildToolCommand(command, to: customTargetKeyPath)
+                }
+            }
+        }
     }
 }
