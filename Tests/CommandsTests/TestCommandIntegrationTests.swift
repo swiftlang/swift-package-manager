@@ -39,6 +39,7 @@ struct IntegrationTestData: CustomTestStringConvertible {
     let expectedXcovArgumentCount: Int
     let expectedJsonArgs: [String]
     let expectedHtmlArgs: [String]
+    let expectedLcovArgs: [String] = []
 }
 
 @Suite
@@ -193,23 +194,26 @@ struct SwiftTestIntegrationTests {
                     commandLineArgs: [
                         "-Xcov", "json=./build/coverage.json",
                         "-Xcov", "html=./build/coverage-report",
-                        "-Xcov", "clover=./build/coverage.clover",  // Unsupported
+                        "-Xcov", "lcov=./build/coverage.lcov",
                         "-Xcov", "exclude-paths=/tmp/*",        // Generic flag (no leading dashes)
                         "-Xcov", "xml=./build/cobertura.xml",   // Unsupported
                     ],
                     expectedXcovArgumentCount: 5,
                     expectedJsonArgs: [
                         "./build/coverage.json",
-                        "clover=./build/coverage.clover",
                         "exclude-paths=/tmp/*",
                         "xml=./build/cobertura.xml"
                     ],
                     expectedHtmlArgs: [
                         "./build/coverage-report",
-                        "clover=./build/coverage.clover",
                         "exclude-paths=/tmp/*",
                         "xml=./build/cobertura.xml"
                     ],
+                    expectedLcovArgs: [
+                            "./build/coverage.lcov",
+                            "exclude-paths=/tmp/*",
+                            "xml=./build/cobertura.xml"
+                        ],
                 ),
             ],
         )
@@ -236,6 +240,13 @@ struct SwiftTestIntegrationTests {
             #expect(
                 htmlArgs == testData.expectedHtmlArgs,
                 "HTML args mismatch for: \(testData.description). Expected: \(testData.expectedHtmlArgs), Got: \(htmlArgs)",
+            )
+
+            // AND: lcov arguments should match expectations
+            let lcovArgs = xcovArgs.getArguments(for: .lcov)
+            #expect(
+                lcovArgs == testData.expectedLcovArgs,
+                "lcov args mismatch for: \(testData.description). Expected: \(testData.expectedLcovArgs), Got: \(lcovArgs)",
             )
         }
     }

@@ -541,7 +541,7 @@ struct XcovArgumentCollectionTests {
         let args = [
             try #require(XcovArgument(argument: "json=./coverage/coverage.json")),
             try #require(XcovArgument(argument: "html=./coverage/html-report")),
-            try #require(XcovArgument(argument: "clover=./coverage/clover.info")),  // Unsupported
+            try #require(XcovArgument(argument: "lcov=./coverage/lcov.info")),
             try #require(XcovArgument(argument: "./coverage/summary.txt")),     // No format
             try #require(XcovArgument(argument: "xml=./coverage/cobertura.xml")), // Unsupported
             try #require(XcovArgument(argument: "html=--coverage-watermark=80,20")),
@@ -555,7 +555,6 @@ struct XcovArgumentCollectionTests {
         let jsonResult = collection.getArguments(for: .json)
         #expect(jsonResult == [
             "./coverage/coverage.json",      // json format
-            "clover=./coverage/clover.info",    // unsupported
             "./coverage/summary.txt",       // no format
             "xml=./coverage/cobertura.xml", // unsupported
         ])
@@ -564,12 +563,20 @@ struct XcovArgumentCollectionTests {
         let htmlResult = collection.getArguments(for: .html)
         #expect(htmlResult == [
             "./coverage/html-report",       // html format
-            "clover=./coverage/clover.info",    // unsupported
             "./coverage/summary.txt",       // no format
             "xml=./coverage/cobertura.xml", // unsupported
             "--coverage-watermark=80,20",
             "--title=\"my title\"",
         ])
+
+        // When: Getting lcov format arguments
+        let lcovResult = collection.getArguments(for: .lcov)
+        #expect(lcovResult == [
+            "./coverage/lcov.info",         // lcov format
+            "./coverage/summary.txt",       // no format
+            "xml=./coverage/cobertura.xml", // unsupported
+        ])
+
     }
 
     @Suite("outputDirectory(for:relativeTo:)")
