@@ -16,3 +16,8 @@ target_compile_options(swift-package-collection PRIVATE
 
 install(TARGETS swift-package-collection
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:swift-package-collection>/$<TARGET_FILE_BASE_NAME:swift-package-collection>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()

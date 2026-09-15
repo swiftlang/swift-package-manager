@@ -16,3 +16,8 @@ target_compile_options(swift-experimental-sdk PRIVATE
 
 install(TARGETS swift-experimental-sdk
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:swift-experimental-sdk>/$<TARGET_FILE_BASE_NAME:swift-experimental-sdk>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()

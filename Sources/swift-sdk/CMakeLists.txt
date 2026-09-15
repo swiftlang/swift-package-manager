@@ -16,3 +16,8 @@ target_compile_options(swift-sdk PRIVATE
 
 install(TARGETS swift-sdk
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:swift-sdk>/$<TARGET_FILE_BASE_NAME:swift-sdk>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()

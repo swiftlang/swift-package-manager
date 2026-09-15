@@ -21,4 +21,9 @@ install(TARGETS DriverSupport
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:DriverSupport>/$<TARGET_FILE_BASE_NAME:DriverSupport>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS DriverSupport)
