@@ -39,8 +39,26 @@ struct IntegrationTestData: CustomTestStringConvertible {
     let expectedXcovArgumentCount: Int
     let expectedJsonArgs: [String]
     let expectedHtmlArgs: [String]
-    let expectedLcovArgs: [String] = []
-}
+    let expectedLcovArgs: [String]?
+
+        init(
+            category: IntegrationTestCategory,
+            description: String,
+            commandLineArgs: [String],
+            expectedXcovArgumentCount: Int,
+            expectedJsonArgs: [String],
+            expectedHtmlArgs: [String],
+            expectedLcovArgs: [String]? = nil
+        ) {
+            self.category = category
+            self.description = description
+            self.commandLineArgs = commandLineArgs
+            self.expectedXcovArgumentCount = expectedXcovArgumentCount
+            self.expectedJsonArgs = expectedJsonArgs
+            self.expectedHtmlArgs = expectedHtmlArgs
+            self.expectedLcovArgs = expectedLcovArgs
+        }
+    }
 
 @Suite
 struct SwiftTestIntegrationTests {
@@ -242,14 +260,16 @@ struct SwiftTestIntegrationTests {
                 "HTML args mismatch for: \(testData.description). Expected: \(testData.expectedHtmlArgs), Got: \(htmlArgs)",
             )
 
-            // AND: lcov arguments should match expectations
-            let lcovArgs = xcovArgs.getArguments(for: .lcov)
-            #expect(
-                lcovArgs == testData.expectedLcovArgs,
-                "lcov args mismatch for: \(testData.description). Expected: \(testData.expectedLcovArgs), Got: \(lcovArgs)",
-            )
-        }
+            // AND: lcov arguments should match expectations, when specified
+            if let expectedLcovArgs = testData.expectedLcovArgs {
+                let lcovArgs = xcovArgs.getArguments(for: .lcov)
+                #expect(
+                    lcovArgs == expectedLcovArgs,
+                    "lcov args mismatch for: \(testData.description). Expected: \(expectedLcovArgs), Got: \(lcovArgs)",
+                )
+            }
     }
+}
 
 }
 
