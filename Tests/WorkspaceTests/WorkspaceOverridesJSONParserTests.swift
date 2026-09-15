@@ -185,7 +185,7 @@ struct WorkspaceOverridesJSONParserTests {
     /// A source-control override with an `.exact(Version)` requirement
     /// parses as a `.exact` requirement carrying the exact version.
     /// Complements the `.branch` coverage above with the requirement
-    /// variant `swift package workspace override add url ... --exact`
+    /// variant `swift workspace override add url ... --exact`
     /// produces.
     @Test(
         .tags(
@@ -221,7 +221,7 @@ struct WorkspaceOverridesJSONParserTests {
 
     /// A source-control override with a `.range(lowerBound..<upperBound)`
     /// requirement parses as a `.range` requirement. Locks in the
-    /// wire format that `swift package workspace override add url ...
+    /// wire format that `swift workspace override add url ...
     /// --from X --to Y` writes to the overrides file.
     @Test(
         .tags(
@@ -257,7 +257,7 @@ struct WorkspaceOverridesJSONParserTests {
 
     /// A source-control override with a `.revision(String)` requirement
     /// parses as `.revision` carrying the commit SHA verbatim. This is
-    /// the requirement variant `swift package workspace override add
+    /// the requirement variant `swift workspace override add
     /// url ... --revision` produces.
     @Test(
         .tags(

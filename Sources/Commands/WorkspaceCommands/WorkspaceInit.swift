@@ -78,7 +78,7 @@ extension SwiftWorkspaceCommand {
     }
 }
 
-/// Errors raised while parsing arguments to `swift package workspace init`.
+/// Errors raised while parsing arguments to `swift workspace init`.
 enum WorkspaceInitParseError: Error, CustomStringConvertible {
     /// The `:type` suffix of a `--members` token did not match any
     /// known `InitPackage.PackageType` raw value.
