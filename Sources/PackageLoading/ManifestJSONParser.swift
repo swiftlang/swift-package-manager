@@ -196,6 +196,7 @@ enum ManifestJSONParser {
         try target.exclude.forEach{ _ = try RelativePath(validating: $0) }
 
         let pluginUsages = target.pluginUsages?.map { TargetDescription.PluginUsage.init($0) }
+        let traitConfigurations = target.traitConfigurations?.map { TraitConfiguration($0) }
 
         return try TargetDescription(
             name: target.name,
@@ -213,7 +214,8 @@ enum ManifestJSONParser {
             pluginCapability: pluginCapability,
             settings: try Self.parseBuildSettings(target),
             checksum: target.checksum,
-            pluginUsages: pluginUsages
+            pluginUsages: pluginUsages,
+            traitConfigurations: traitConfigurations
         )
     }
 
@@ -625,6 +627,23 @@ extension TargetDescription.PluginUsage {
         switch usage {
         case .plugin(let name, let package):
             self = .plugin(name: name, package: package)
+        }
+    }
+}
+
+extension TraitConfiguration {
+    init(_ configuration: Serialization.TraitConfiguration) {
+        switch configuration {
+        case .default:
+            self = .default
+        case .enableAllTraits:
+            self = .enableAllTraits
+        case .disableAllTraits:
+            self = .disableAllTraits
+        case .enabledTraits(let traits):
+            // Reuse the canonical initializer so that an explicitly empty set
+            // normalizes to `.disableAllTraits`.
+            self.init(enabledTraits: Set(traits))
         }
     }
 }

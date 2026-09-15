@@ -317,6 +317,22 @@ extension Serialization.Target {
         self.linkerSettings = target.linkerSettings?.map { .init($0) }
         self.checksum = target.checksum
         self.pluginUsages = target.plugins?.map { .init($0) }
+        self.traitConfigurations = target.traitConfigurations?.map { .init($0) }
+    }
+}
+
+extension Serialization.TraitConfiguration {
+    init(_ configuration: PackageDescription.Target.TraitConfiguration) {
+        switch configuration.storage {
+        case .default:
+            self = .default
+        case .enableAllTraits:
+            self = .enableAllTraits
+        case .disableAllTraits:
+            self = .disableAllTraits
+        case .enabledTraits(let traits):
+            self = .enabledTraits(traits.sorted())
+        }
     }
 }
 

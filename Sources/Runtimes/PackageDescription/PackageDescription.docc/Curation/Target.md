@@ -50,6 +50,8 @@ Including testing libraries as a dependency to an executable target, as either a
 
 ### Creating a Test Target
 
+- ``testTarget(name:dependencies:path:exclude:sources:resources:packageAccess:cSettings:cxxSettings:swiftSettings:linkerSettings:plugins:traitConfigurations:)``
+- ``TraitConfiguration``
 - ``testTarget(name:dependencies:path:exclude:sources:resources:packageAccess:cSettings:cxxSettings:swiftSettings:linkerSettings:plugins:)``
 - ``testTarget(name:dependencies:path:exclude:sources:resources:cSettings:cxxSettings:swiftSettings:linkerSettings:plugins:)``
 - ``testTarget(name:dependencies:path:exclude:sources:resources:cSettings:cxxSettings:swiftSettings:linkerSettings:)``
@@ -86,6 +88,7 @@ Including testing libraries as a dependency to an executable target, as either a
 - ``LinkerSetting``
 - ``PluginUsage``
 - ``packageAccess``
+- ``traitConfigurations``
 
 ### Describing the Target Type
 
