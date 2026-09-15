@@ -1248,7 +1248,18 @@ private func WTERMSIG(_ status: Int32) -> Int32 {
 
 /// Open the given pipe.
 private func open(pipe buffer: inout [Int32]) throws {
+    #if os(macOS)
+    var rv: Int32
+    if #available(macOS 27, *) {
+      rv = pipe2(&buffer, O_CLOEXEC)
+    } else {
+      rv = pipe(&buffer)
+    }
+    #elseif os(Windows)
     let rv = pipe(&buffer)
+    #else
+    let rv = pipe2(&buffer, O_CLOEXEC)
+    #endif
     guard rv == 0 else {
         throw SystemError.pipe(rv)
     }
