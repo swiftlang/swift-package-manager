@@ -54,8 +54,7 @@ struct JarBuilder {
         let baseComponents = directoryURL.standardizedFileURL.pathComponents
         var classFiles: [String] = ["-C", directoryURL.path]
 
-        let classDir = directoryURL.deletingLastPathComponent()
-        if let enumerator = FileManager.default.enumerator(at: classDir, includingPropertiesForKeys: [.isRegularFileKey]) {
+        if let enumerator = FileManager.default.enumerator(at: directoryURL, includingPropertiesForKeys: [.isRegularFileKey]) {
             for case let fileURL as URL in enumerator {
                 guard fileURL.pathExtension == "class" else { continue }
 

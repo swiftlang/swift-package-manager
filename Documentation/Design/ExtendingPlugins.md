@@ -86,8 +86,8 @@ Things that need to be resolved:
     - Some of the commands it adds only work on certain platforms, e.g. building the jar files in SDL are only for Android
     - Can we add "when" clauses to the commands?
 - How do we implement cross-platform copy and touch commands?
-    - SwiftBuild already has similar functionality, can we hook it up to CustomTask? or provide alternative \*Tasks?
-    - How do we make sure the copy command is safe, i.e. isn't overwriting another target's product files.
+    - We could introduce variables for the commands and detect them.
+    - We don't want to open the sandbox to the product directory so the copy task needs to be managed carefully
 ## Examples
 To help confirm we have the desired capability and ergonomics, we'll produce examples in the Examples directory.
 - Simple Java compile, produce jar from classes

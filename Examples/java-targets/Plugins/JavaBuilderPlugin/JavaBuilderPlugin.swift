@@ -12,7 +12,10 @@ struct JavaBuilderPlugin: BuildToolPlugin {
 
         let sources = sourceTarget.sourceFiles(withSuffix: ".java").map { $0.url }
 
-        let outputTag = URL(string: "file:/$(PRODUCTS_DIR)/\(target.name).classes/.javaclassdir")!
+        let outputDir = context.pluginWorkDirectoryURL.appending(component: "\(target.name).classes")
+        let outputTag = outputDir.appending(component: ".javaclassdir")
+        let productDir = URL(string: "file:/$(PRODUCTS_DIR)")!
+        let productTag = productDir.appending(path: "\(target.name).classes/.javaclassdir")
 
         return [
             .buildCommand(
@@ -23,7 +26,18 @@ struct JavaBuilderPlugin: BuildToolPlugin {
                 ] + sources.map { $0.path },
                 inputFiles: sources,
                 outputFiles: [outputTag]
-            )
+            ),
+            .buildCommand(
+                displayName: "Copy Classes",
+                executable: URL(string: "file:/$(COPY_CMD)")!,
+                arguments: [
+                    "-R",
+                    outputDir.path,
+                    productDir.path
+                ],
+                inputFiles: [outputTag],
+                outputFiles: [productTag]
+            ),
         ]
     }
 }

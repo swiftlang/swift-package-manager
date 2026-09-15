@@ -9,7 +9,8 @@ struct JarBuilderPlugin: BuildToolPlugin {
         // TODO pull out of target and deps sources
         let classTag = URL(string: "file:/$(PRODUCTS_DIR)/JavaTarget.classes/.javaclassdir")!
 
-        let jarFile = URL(string: "file:/$(PRODUCTS_DIR)/\(target.name).jar")!
+        let jarFile = context.pluginWorkDirectoryURL.appending(component: "\(target.name).jar")
+        let productFile = URL(string: "file:/$(PRODUCTS_DIR)/\(target.name).jar")!
 
         return [
             .buildCommand(
@@ -21,6 +22,16 @@ struct JarBuilderPlugin: BuildToolPlugin {
                 ],
                 inputFiles: [classTag],
                 outputFiles: [jarFile]
+            ),
+            .buildCommand(
+                displayName: "Copy Jar",
+                executable: URL(string: "file:/$(COPY_CMD)")!,
+                arguments: [
+                    jarFile.path,
+                    productFile.path
+                ],
+                inputFiles: [jarFile],
+                outputFiles: [productFile]
             ),
         ]
     }

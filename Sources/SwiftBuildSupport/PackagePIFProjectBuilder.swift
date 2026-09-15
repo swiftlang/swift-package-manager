@@ -534,29 +534,21 @@ struct PackagePIFProjectBuilder {
     private func makeBuildToolCommand(
         _ command: PackagePIFBuilder.CustomBuildCommand,
     ) -> ProjectModel.CustomTask {
-        var commandLine = [command.executable] + command.arguments
-        var outputDir: String?
-        if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
-            // TODO: need to find a way to write into the build products dir safely
-//            commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
-            if let dir = sandbox.writableDirectories.first?.pathString {
-                outputDir = "\(dir)/$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)"
-            } else {
-                outputDir = nil
-            }
-        } else {
-            outputDir = nil
-        }
-
         var variables: [String: String] = [:]
+        variables["COPY_CMD"] = "$(CP)"
         variables["CONFIGURATION"] = "$(CONFIGURATION)"
         variables["ARCHS"] = "$(ARCHS)"
         variables["VENDOR"] = "$(LLVM_TARGET_TRIPLE_VENDOR)"
         variables["OS"] = "$(LLVM_TARGET_TRIPLE_OS_VERSION)"
         variables["SUFFIX"] = "$(LLVM_TARGET_TRIPLE_SUFFIX)"
         variables["SDK"] = "$(SYSROOT)"
-        variables["BUILD_DIR"] = outputDir ?? "$(TARGET_TEMP_DIR)"
+        variables["BUILD_SUBDIR"] = "$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)"
         variables["PRODUCTS_DIR"] = "$(BUILT_PRODUCTS_DIR)"
+
+        var commandLine = [command.executable] + command.arguments
+        if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled, command.executable != "/$(COPY_CMD)" {
+            commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
+        }
 
         /// Replaces every occurrence of `$(variableName)` in `input` with the value of that name in
         /// `variables`, or with an empty string if the name isn't present in the dictionary.
@@ -576,12 +568,14 @@ struct PackagePIFProjectBuilder {
             workingDir = nil
         }
 
+        // TODO: support always build for CMakeBuilder
+
         return ProjectModel.CustomTask(
             commandLine: commandLine.map { resolveVariables($0) },
             environment: command.environment.map { Pair($0, resolveVariables($1)) }.sorted(by: <),
             workingDirectory: workingDir,
             executionDescription: command.displayName ?? "Performing build tool plugin command",
-            inputFilePaths: ([command.executable] + command.inputPaths.map(\.pathString)).map { resolveVariables($0) },
+            inputFilePaths: command.inputPaths.map(\.pathString).map { resolveVariables($0) },
             outputFilePaths: command.outputPaths.map { resolveVariables($0) },
             enableSandboxing: false,
             preparesForIndexing: true

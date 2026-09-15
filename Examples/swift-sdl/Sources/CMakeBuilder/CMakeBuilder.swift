@@ -42,8 +42,6 @@ struct CMakeBuilder: AsyncParsableCommand {
         }
 
         try await build(outputDir: outputDir)
-
-        try FileManager.default.copyItem(atPath: outputDir + "/libSDL3.a", toPath: productsDir + "/libSDL3.a")
     }
 
     static func getEnv(_ name: String) throws -> String {
