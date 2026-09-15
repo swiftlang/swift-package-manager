@@ -3894,7 +3894,7 @@ struct PackageBuilderTests {
 
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
-            defaultSwiftSettings: [
+            defaultSettings: [
                 .init(tool: .swift, kind: .defaultIsolation(.MainActor))
             ],
             toolsVersion: .v6_2,
