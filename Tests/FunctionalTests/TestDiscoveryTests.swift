@@ -178,7 +178,7 @@ struct TestDiscoveryTests {
                 #expect(stdout.contains(random), "stderr: \(stderr)")
             }
         } when: {
-            [.windows, .linux].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
+            [.windows, .linux, .freebsd].contains(ProcessInfo.hostOperatingSystem) && buildSystem == .swiftbuild
         }
     }
 

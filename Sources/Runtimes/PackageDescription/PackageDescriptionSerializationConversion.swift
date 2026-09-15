@@ -427,6 +427,7 @@ extension Serialization.SystemPackageProvider {
         case .aptItem(let values): self = .apt(values)
         case .yumItem(let values): self = .yum(values)
         case .nugetItem(let values): self = .nuget(values)
+        case .pkgItem(let values): self = .pkg(values)
         }
     }
 }
