@@ -47,7 +47,7 @@ extension SwiftWorkspaceCommand {
                 swiftCommandState,
                 subcommandDisplayName: "swift package workspace add-member",
             )
-            let manifestPath = workspaceRoot.appending("Workspace.swift")
+            let manifestPath = workspaceRoot.appending(WorkspaceManifest.filename)
             let fileSystem = swiftCommandState.fileSystem
             let source: String = try fileSystem.readFileContents(manifestPath)
             let editedSource = try WorkspaceManifestSyntax.addMember(self.path, to: source)

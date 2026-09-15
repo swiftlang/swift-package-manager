@@ -13,6 +13,7 @@
 import ArgumentParser
 import Basics
 import CoreCommands
+import struct PackageModel.WorkspaceManifest
 import Workspace
 
 extension SwiftWorkspaceCommand {
@@ -37,7 +38,7 @@ extension SwiftWorkspaceCommand {
                 swiftCommandState,
                 subcommandDisplayName: "swift package workspace list-members",
             )
-            let manifestPath = workspaceRoot.appending("Workspace.swift")
+            let manifestPath = workspaceRoot.appending(WorkspaceManifest.filename)
             let source: String = try swiftCommandState.fileSystem.readFileContents(manifestPath)
             let members = try WorkspaceManifestSyntax.readMembers(from: source)
             for member in members {

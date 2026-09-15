@@ -3432,6 +3432,176 @@ struct WorkspaceFeatureTests {
         }
     }
 
+    /// `swift workspace add-dependency url <url> --from <version>`
+    /// appends the workspace-level source-control dependency to
+    /// `Workspace.swift`. Members inherit it via
+    /// `.package(workspaceInherited: <identity>)`; this test only
+    /// verifies the manifest edit (the resolver side is exercised
+    /// by the Phase 3 `.workspaceInherited` tests).
+    @Test(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func workspace_addDependency_url_appendsToWorkspaceManifest(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S02_MemberToMemberDep") { fixturePath in
+            _ = try await executeSwiftWorkspace(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: [
+                    "add-dependency",
+                    "url",
+                    "https://github.com/apple/swift-nio",
+                    "--from", "2.0.0",
+                ],
+                buildSystem: buildSystem,
+            )
+
+            let manifest: String = try localFileSystem.readFileContents(
+                fixturePath.appending("Workspace.swift"),
+            )
+            #expect(
+                manifest.contains("swift-nio"),
+                "expected new workspace dependency in Workspace.swift; got manifest=\(manifest)",
+            )
+            #expect(
+                manifest.contains("from: \"2.0.0\""),
+                "expected `from: \"2.0.0\"` requirement in Workspace.swift; got manifest=\(manifest)",
+            )
+        }
+    }
+
+    /// `swift workspace add-dependency path <path>` appends the
+    /// workspace-level filesystem dependency to `Workspace.swift`.
+    @Test(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func workspace_addDependency_path_appendsToWorkspaceManifest(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S02_MemberToMemberDep") { fixturePath in
+            _ = try await executeSwiftWorkspace(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: [
+                    "add-dependency",
+                    "path",
+                    "../shared-lib",
+                ],
+                buildSystem: buildSystem,
+            )
+
+            let manifest: String = try localFileSystem.readFileContents(
+                fixturePath.appending("Workspace.swift"),
+            )
+            #expect(
+                manifest.contains("path: \"../shared-lib\""),
+                "expected `.package(path: \"../shared-lib\")` in Workspace.swift; got manifest=\(manifest)",
+            )
+        }
+    }
+
+    /// `swift workspace add-dependency registry <identity> --from <version>`
+    /// appends the workspace-level registry dependency to
+    /// `Workspace.swift`.
+    @Test(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func workspace_addDependency_registry_appendsToWorkspaceManifest(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Workspaces/S02_MemberToMemberDep") { fixturePath in
+            _ = try await executeSwiftWorkspace(
+                fixturePath,
+                configuration: .debug,
+                extraArgs: [
+                    "add-dependency",
+                    "registry",
+                    "apple.swift-nio",
+                    "--from", "2.0.0",
+                ],
+                buildSystem: buildSystem,
+            )
+
+            let manifest: String = try localFileSystem.readFileContents(
+                fixturePath.appending("Workspace.swift"),
+            )
+            #expect(
+                manifest.contains("id: \"apple.swift-nio\""),
+                "expected `.package(id: \"apple.swift-nio\", ...)` in Workspace.swift; got manifest=\(manifest)",
+            )
+            #expect(
+                manifest.contains("from: \"2.0.0\""),
+                "expected `from: \"2.0.0\"` requirement in Workspace.swift; got manifest=\(manifest)",
+            )
+        }
+    }
+
+    /// `swift workspace add-dependency <sub>` must refuse to run when
+    /// there is no enclosing `Workspace.swift` — each subcommand
+    /// (`path`, `url`, `registry`) surfaces the shared
+    /// `requireWorkspaceRoot` diagnostic naming its own display path
+    /// so the user knows exactly which invocation was rejected.
+    /// Exercised from a single-package fixture (no `Workspace.swift`).
+    @Test(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+        arguments: [
+            WorkspaceAddDependencyNoWorkspaceCase(
+                label: "add-dependency path",
+                extraArgs: ["add-dependency", "path", "../shared-lib"],
+            ),
+            WorkspaceAddDependencyNoWorkspaceCase(
+                label: "add-dependency url",
+                extraArgs: [
+                    "add-dependency",
+                    "url",
+                    "https://github.com/apple/swift-nio",
+                    "--from", "2.0.0",
+                ],
+            ),
+            WorkspaceAddDependencyNoWorkspaceCase(
+                label: "add-dependency registry",
+                extraArgs: [
+                    "add-dependency",
+                    "registry",
+                    "apple.swift-nio",
+                    "--from", "2.0.0",
+                ],
+            ),
+        ],
+    )
+    func workspace_addDependency_outsideWorkspace_errorsWithRequiresWorkspaceDiagnostic(
+        testCase: WorkspaceAddDependencyNoWorkspaceCase,
+    ) async throws {
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
+        try await fixture(name: "Miscellaneous/Simple") { fixturePath in
+            await expectThrowsCommandExecutionError(
+                try await executeSwiftWorkspace(
+                    fixturePath,
+                    configuration: .debug,
+                    extraArgs: testCase.extraArgs,
+                    buildSystem: buildSystem,
+                ),
+            ) { error in
+                #expect(
+                    error.stderr.contains("no Workspace.swift found"),
+                    "expected no-Workspace.swift diagnostic for `\(testCase.label)`; got stderr=\(error.stderr)",
+                )
+            }
+        }
+    }
+
     /// `swift package workspace add-member <path> --scaffold <type>`
     /// writes the new member into `Workspace.swift` AND scaffolds a
     /// `Package.swift` for the new member using the given package
@@ -4154,6 +4324,17 @@ struct WorkspaceFeatureTests {
 struct SwiftTestInvocation: Sendable, CustomTestStringConvertible {
     let subcommand: [String]
     let label: String
+
+    var testDescription: String { label }
+}
+
+/// A single `swift workspace add-dependency <sub>` invocation for
+/// parameterizing the no-`Workspace.swift` error contract test. The
+/// `label` names the case in assertion failure text; `extraArgs` is
+/// forwarded directly to `executeSwiftWorkspace`.
+struct WorkspaceAddDependencyNoWorkspaceCase: Sendable, CustomTestStringConvertible {
+    let label: String
+    let extraArgs: [String]
 
     var testDescription: String { label }
 }

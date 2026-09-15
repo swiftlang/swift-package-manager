@@ -12,7 +12,7 @@
 import ArgumentParser
 import Basics
 import CoreCommands
-
+import struct PackageModel.WorkspaceManifest
 
 extension SwiftWorkspaceCommand {
 
@@ -40,7 +40,7 @@ extension SwiftWorkspaceCommand {
                 swiftCommandState,
                 subcommandDisplayName: "swift package workspace remove-member",
             )
-            let manifestPath = workspaceRoot.appending("Workspace.swift")
+            let manifestPath = workspaceRoot.appending(WorkspaceManifest.filename)
             let fileSystem = swiftCommandState.fileSystem
             let source: String = try fileSystem.readFileContents(manifestPath)
             let editedSource = try WorkspaceManifestSyntax.removeMember(self.path, from: source)

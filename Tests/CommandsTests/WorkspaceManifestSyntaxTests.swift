@@ -381,4 +381,203 @@ struct WorkspaceManifestSyntaxTests {
         #expect(actual.severity == expected.severity)
         #expect(actual.message == expected.message)
     }
+
+    // MARK: - readDependencies
+
+    /// A workspace manifest with an explicit empty `dependencies: []`
+    /// yields an empty list. Regression guard against the read helper
+    /// misinterpreting an empty literal as "no `dependencies:`
+    /// argument".
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func readDependencies_emptyArray_returnsEmpty() throws {
+        let source = """
+        // swift-tools-version: 999.0
+        import PackageDescription
+
+        let workspace = Workspace(
+            members: [],
+            dependencies: [],
+        )
+        """
+
+        let dependencies = try WorkspaceManifestSyntax.readDependencies(from: source)
+
+        #expect(dependencies == [])
+    }
+
+    /// A workspace manifest that omits the `dependencies:` argument
+    /// entirely also yields an empty list — `dependencies:` is optional
+    /// on `Workspace(...)`.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func readDependencies_missingArg_returnsEmpty() throws {
+        let source = """
+        // swift-tools-version: 999.0
+        import PackageDescription
+
+        let workspace = Workspace(
+            members: [],
+        )
+        """
+
+        let dependencies = try WorkspaceManifestSyntax.readDependencies(from: source)
+
+        #expect(dependencies == [])
+    }
+
+    /// A single `.package(url:from:)` entry round-trips through the
+    /// read helper as its source-level `trimmedDescription`. Callers
+    /// use this to detect "already present" for idempotency without
+    /// re-parsing the requirement.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func readDependencies_urlDependency_returnsIt() throws {
+        let source = """
+        // swift-tools-version: 999.0
+        import PackageDescription
+
+        let workspace = Workspace(
+            members: [],
+            dependencies: [
+                .package(url: "https://github.com/apple/swift-nio", from: "2.0.0"),
+            ],
+        )
+        """
+
+        let dependencies = try WorkspaceManifestSyntax.readDependencies(from: source)
+
+        #expect(dependencies.count == 1)
+        let entry = try #require(dependencies.first)
+        #expect(entry.contains("swift-nio"))
+        #expect(entry.contains("2.0.0"))
+    }
+
+    // MARK: - addDependency
+
+    /// Adding a dependency to a workspace whose `Workspace(...)` call
+    /// has no `dependencies:` argument at all inserts one and populates
+    /// it with the new entry. `readDependencies` sees the added entry
+    /// after the edit — the assertion is decoupled from formatting.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func addDependency_toManifestWithNoDependenciesArg_addsDependenciesArg() throws {
+        let source = """
+        // swift-tools-version: 999.0
+        import PackageDescription
+
+        let workspace = Workspace(
+            members: [
+                "packages/app",
+            ],
+        )
+        """
+
+        let edited = try WorkspaceManifestSyntax.addDependency(
+            #".package(url: "https://github.com/apple/swift-nio", from: "2.0.0")"#,
+            to: source,
+        )
+
+        let dependencies = try WorkspaceManifestSyntax.readDependencies(from: edited)
+        #expect(dependencies.count == 1)
+        let entry = try #require(dependencies.first)
+        #expect(entry.contains("swift-nio"))
+        #expect(entry.contains("2.0.0"))
+    }
+
+    /// Adding a dependency to a workspace whose `dependencies:` is
+    /// present-but-empty appends the entry as the sole element.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func addDependency_toEmptyDependenciesArray_appendsSingleEntry() throws {
+        let source = """
+        // swift-tools-version: 999.0
+        import PackageDescription
+
+        let workspace = Workspace(
+            members: [],
+            dependencies: [],
+        )
+        """
+
+        let edited = try WorkspaceManifestSyntax.addDependency(
+            #".package(url: "https://github.com/apple/swift-log", from: "1.0.0")"#,
+            to: source,
+        )
+
+        let dependencies = try WorkspaceManifestSyntax.readDependencies(from: edited)
+        #expect(dependencies.count == 1)
+        let entry = try #require(dependencies.first)
+        #expect(entry.contains("swift-log"))
+    }
+
+    /// Adding a dependency to a workspace that already has one leaves
+    /// the existing entry alone and appends the new one alongside.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func addDependency_toNonEmptyDependenciesArray_appendsAlongsideExisting() throws {
+        let source = """
+        // swift-tools-version: 999.0
+        import PackageDescription
+
+        let workspace = Workspace(
+            members: [],
+            dependencies: [
+                .package(url: "https://github.com/apple/swift-nio", from: "2.0.0"),
+            ],
+        )
+        """
+
+        let edited = try WorkspaceManifestSyntax.addDependency(
+            #".package(url: "https://github.com/apple/swift-log", from: "1.0.0")"#,
+            to: source,
+        )
+
+        let dependencies = try WorkspaceManifestSyntax.readDependencies(from: edited)
+        #expect(dependencies.count == 2)
+        #expect(dependencies.contains(where: { $0.contains("swift-nio") }))
+        #expect(dependencies.contains(where: { $0.contains("swift-log") }))
+    }
+
+    /// Adding a dependency to a source that has no `Workspace(...)`
+    /// call at all throws — matches the readMembers/addMember/
+    /// removeMember error surface so callers can dispatch uniformly.
+    @Test(
+        .tags(
+            Tag.TestSize.small,
+        ),
+    )
+    func addDependency_whenNoWorkspaceCall_throws() throws {
+        let source = """
+        // swift-tools-version: 999.0
+        import PackageDescription
+
+        let package = Package(name: "foo")
+        """
+
+        #expect(throws: (any Error).self) {
+            try WorkspaceManifestSyntax.addDependency(
+                #".package(url: "https://github.com/apple/swift-nio", from: "2.0.0")"#,
+                to: source,
+            )
+        }
+    }
 }

@@ -104,7 +104,7 @@ public struct InitWorkspace {
                 throw InitWorkspaceError.absoluteMemberPath(member.path)
             }
         }
-        let manifestPath = self.destinationPath.appending("Workspace.swift")
+        let manifestPath = self.destinationPath.appending(WorkspaceManifest.filename)
         if self.fileSystem.exists(manifestPath) {
             throw InitWorkspaceError.workspaceManifestAlreadyExists(manifestPath)
         }
