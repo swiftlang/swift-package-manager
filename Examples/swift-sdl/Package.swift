@@ -10,6 +10,11 @@ let package = Package(
             name: "SDL",
             targets: ["SDL"]
         ),
+        .library(
+            name: "AndroidExample",
+            type: .dynamic,
+            targets: ["AndroidExample"]
+        )
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.6.1"),
@@ -78,6 +83,12 @@ let package = Package(
                 .product(name: "SwiftSyntax", package: "swift-syntax"),
                 .product(name: "SwiftParser", package: "swift-syntax"),
             ],
+        ),
+        .target(
+            name: "AndroidExample",
+            dependencies: [
+                "SwiftSDL3",
+            ]
         ),
         .testTarget(
             name: "SDLTests",

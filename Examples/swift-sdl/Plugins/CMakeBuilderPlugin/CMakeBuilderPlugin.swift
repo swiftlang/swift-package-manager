@@ -20,11 +20,8 @@ struct CMakeBuilderPlugin: BuildToolPlugin {
                 arguments: [
                     "--output-dir", buildDir.path,
                     "--products-dir", "$(PRODUCTS_DIR)",
-                    "--arches", "$(ARCHES)",
-                    "--vendor", "$(VENDOR)",
-                    "--os", "$(OS)",
-                    "--suffix", "$(SUFFIX)",
                     "--sdk", "$(SDK)",
+                    "--triple", "$(TRIPLE)",
                     target.directoryURL.path,
                 ],
                 outputFiles: [libSDL3]

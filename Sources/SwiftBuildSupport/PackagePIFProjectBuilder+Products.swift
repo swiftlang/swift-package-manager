@@ -768,8 +768,8 @@ extension PackagePIFProjectBuilder {
                     BuildFile(id: id, fileRef: binaryFileRef, codeSignOnCopy: true, removeHeadersOnCopy: true)
                 }
                 log(.debug, indent: 1, "Added use of binary library '\(binaryTarget.artifactPath)'")
-            } else if module.type == .external {
-                // Do not link external libraries. That is handled in their imparted settings.
+            } else if module.type == .external || module.type == .custom {
+                // Do not link external libraries or custom targets. That is handled in their imparted settings.
                 libraryUmbrellaTargetForModules.common.addDependency(
                     on: module.pifTargetGUID,
                     platformFilters: [],
@@ -889,7 +889,7 @@ extension PackagePIFProjectBuilder {
                 // _other_ packages, but this should be resolved; see rdar://95467710.
                 /* assert(moduleDependency.packageName == self.package.name) */
 
-                if moduleDependency.type == .systemModule {
+                if moduleDependency.type == .systemModule || moduleDependency.type == .external {
                     log(.debug, indent: 1, "Noted use of system module '\(moduleDependency.name)'")
                     return
                 }

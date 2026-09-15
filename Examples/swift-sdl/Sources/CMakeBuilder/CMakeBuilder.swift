@@ -14,20 +14,11 @@ struct CMakeBuilder: AsyncParsableCommand {
     @Option(help: "The build products dir to copy the result into")
     var productsDir: String
 
-    @Option(help: "The CPU architectures to build for")
-    var arches: String
-
-    @Option(help: "The vendor field of the triple")
-    var vendor: String
-
-    @Option(help: "The os field of the triple")
-    var os: String
-
-    @Option(help: "the suffix field of the triple")
-    var suffix: String
-
     @Option(help: "The SDK root directory")
     var sdk: String
+
+    @Option(help: "The triple to build")
+    var triple: String
 
     @Argument(help: "The directory containing the project's CMakeLists.txt.")
     var sourceDir: String
@@ -38,17 +29,12 @@ struct CMakeBuilder: AsyncParsableCommand {
         }
 
         if !FileManager.default.fileExists(atPath: outputDir + "/build.ninja") {
+            print("Configuring...")
             try await configure(sourceDir: sourceDir, outputDir: outputDir)
         }
 
+        print("Building...")
         try await build(outputDir: outputDir)
-    }
-
-    static func getEnv(_ name: String) throws -> String {
-        guard let value = ProcessInfo.processInfo.environment[name] else {
-            throw CMakeError.missingEnvVar(name)
-        }
-        return value
     }
 
     // Do the build of the static library (skipping tests and utilities)
@@ -62,6 +48,19 @@ struct CMakeBuilder: AsyncParsableCommand {
             output: .currentStandardOutput,
             error: .currentStandardError
         )
+
+        let tripleComps = triple.split(separator: "-")
+        if tripleComps.count > 3, tripleComps[3].hasPrefix("android") {
+            _ = try await Subprocess.run(
+                .name("cmake"),
+                arguments: [
+                    "--build", outputDir,
+                    "--target", "SDL3-jar"
+                ],
+                output: .currentStandardOutput,
+                error: .currentStandardError
+            )
+        }
     }
 
     // Run the configure step of the CMake build
@@ -69,16 +68,25 @@ struct CMakeBuilder: AsyncParsableCommand {
         let toolchainFile = outputDir + "/cmake.toolchain"
         try generateToolchain(toolchainFile: toolchainFile)
 
+        var arguments = [
+            "-G", "Ninja",
+            "-S", sourceDir,
+            "-B", outputDir,
+            "--toolchain", toolchainFile,
+            "-DSDL_STATIC=ON",
+            "-Wno-author",
+        ]
+
+        let tripleComps = triple.split(separator: "-")
+        if tripleComps.count > 3, tripleComps[3].hasPrefix("android"), let androidHome = ProcessInfo.processInfo.environment["ANDROID_HOME"] {
+            arguments += [
+                "-DSDL_ANDROID_HOME=\(androidHome)"
+            ]
+        }
+
         let result = try await Subprocess.run(
             .name("cmake"),
-            arguments: [
-                "-G", "Ninja",
-                "-S", sourceDir,
-                "-B", outputDir,
-                "--toolchain", toolchainFile,
-                "-DSDL_STATIC=ON",
-                "-DSDL_SHARED=OFF",
-            ],
+            arguments: .init(arguments),
             output: .currentStandardOutput,
             error: .currentStandardError
         )
@@ -92,11 +100,12 @@ struct CMakeBuilder: AsyncParsableCommand {
     func generateToolchain(toolchainFile: String) throws {
         let contents: String
 
-        // TODO multiple archs
-        let arch = arches
-        let triple = "\(arch)-\(vendor)-\(os)\(suffix)"
+        let components = triple.split(separator: "-")
+        let arch = components[0]
+        let vendor = components[1]
+        let os = components[2]
 
-        if vendor == "apple", os.hasPrefix("macos") {
+        if vendor == "apple", components[2].hasPrefix("macos") {
             let version = os[os.index(os.startIndex, offsetBy: 5)...]
             
             contents = """
@@ -110,26 +119,54 @@ struct CMakeBuilder: AsyncParsableCommand {
             set(CMAKE_C_COMPILER   clang)
             set(CMAKE_CXX_COMPILER clang++)
             """
-        } else if vendor == "linux" {
-            contents = """
-            set(CMAKE_SYSTEM_NAME Linux)
-            set(CMAKE_SYSTEM_PROCESSOR \(arch))
+        } else if os == "linux" {
+            if components.count > 3, components[3].hasPrefix("android") {
+                let os = components[3]
+                let version = os[os.index(os.startIndex, offsetBy: 7)...]
 
-            set(CMAKE_C_COMPILER clang)
-            set(CMAKE_C_COMPILER_TARGET \(triple))
-            set(CMAKE_CXX_COMPILER clang++)
-            set(CMAKE_CXX_COMPILER_TARGET \(triple))
+                guard let ndkHome = ProcessInfo.processInfo.environment["ANDROID_NDK_HOME"] else {
+                    fatalError("ANDROID_NDK_HOME is not set")
+                }
 
-            # Where to find the target's headers/libs
-            #set(CMAKE_SYSROOT /path/to/sysroot)
-            #set(CMAKE_FIND_ROOT_PATH /path/to/sysroot)
+                let abi: String
+                switch arch {
+                case "aarch64":
+                    abi = "arm64-v8a"
+                default:
+                    fatalError("Unknown arch for Android")
+                }
 
-            # Search behavior for find_* commands
-            #set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
-            #set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
-            #set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
-            #set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
-            """
+                contents = """
+                set(ANDROID_ABI      "\(abi)"             CACHE STRING "Target ABI")
+                set(ANDROID_PLATFORM "android-\(version)" CACHE STRING "Minimum API level")
+                set(ANDROID_STL      "c++_static"         CACHE STRING "NDK C++ runtime")
+                set(ANDROID_ARM_NEON ON                   CACHE BOOL   "Enable NEON")
+
+                set(CMAKE_ANDROID_API_MIN \(version))
+
+                include("\(ndkHome)/build/cmake/android.toolchain.cmake")
+                """
+            } else {
+                contents = """
+                set(CMAKE_SYSTEM_NAME Linux)
+                set(CMAKE_SYSTEM_PROCESSOR \(arch))
+
+                set(CMAKE_C_COMPILER clang)
+                set(CMAKE_C_COMPILER_TARGET \(triple))
+                set(CMAKE_CXX_COMPILER clang++)
+                set(CMAKE_CXX_COMPILER_TARGET \(triple))
+
+                # Where to find the target's headers/libs
+                #set(CMAKE_SYSROOT /path/to/sysroot)
+                #set(CMAKE_FIND_ROOT_PATH /path/to/sysroot)
+
+                # Search behavior for find_* commands
+                #set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+                #set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+                #set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+                #set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+                """
+            }
         } else {
             throw CMakeError.badTriple(triple)
         }

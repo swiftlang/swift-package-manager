@@ -535,12 +535,9 @@ struct PackagePIFProjectBuilder {
         _ command: PackagePIFBuilder.CustomBuildCommand,
     ) -> ProjectModel.CustomTask {
         var variables: [String: String] = [:]
-        variables["COPY_CMD"] = "$(CP)"
+        variables["COPY_CMD"] = "/bin/cp" // TODO: need a solution for Windows
         variables["CONFIGURATION"] = "$(CONFIGURATION)"
-        variables["ARCHS"] = "$(ARCHS)"
-        variables["VENDOR"] = "$(LLVM_TARGET_TRIPLE_VENDOR)"
-        variables["OS"] = "$(LLVM_TARGET_TRIPLE_OS_VERSION)"
-        variables["SUFFIX"] = "$(LLVM_TARGET_TRIPLE_SUFFIX)"
+        variables["TRIPLE"] = "$(TARGET_TRIPLES)"
         variables["SDK"] = "$(SYSROOT)"
         variables["BUILD_SUBDIR"] = "$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)"
         variables["PRODUCTS_DIR"] = "$(BUILT_PRODUCTS_DIR)"
