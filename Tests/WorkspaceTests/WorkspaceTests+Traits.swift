@@ -2648,4 +2648,48 @@ extension WorkspaceTests {
             }
         }
     }
+
+    /// A traitless package must be built with its default traits, not with the traits that were requested
+    /// of it. The warning alone isn't enough: the request has to be cleared out of the enabled traits map,
+    /// which unions its writes and would otherwise carry the request through to the graph.
+    func testDependencyWithoutTraits_ResolvesToDefaultTraits() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [.product(name: "TraitlessProduct", package: "TraitlessPackage")]
+                        ),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            path: "./TraitlessPackage",
+                            requirement: .upToNextMajor(from: "1.0.0"),
+                            traits: ["Logging"]
+                        ),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "TraitlessPackage",
+                    targets: [MockTarget(name: "TraitlessTarget")],
+                    products: [MockProduct(name: "TraitlessProduct", modules: ["TraitlessTarget"])],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"], deps: []) { graph, _ in
+            let traitlessPackage = graph.packages.first { $0.identity == .plain("traitlesspackage") }
+            XCTAssertEqual(traitlessPackage?.enabledTraits, ["default"])
+        }
+    }
 }
