@@ -27,11 +27,15 @@ public struct ProductDescription: Hashable, Codable, Sendable {
     /// The product-specific settings declared for this product.
     public let settings: [ProductSetting]
 
+    /// The deprecation information declared for the product, if any.
+    public let deprecation: ProductDeprecation?
+
     public init(
         name: String,
         type: ProductType,
         targets: [String],
-        settings: [ProductSetting] = []
+        settings: [ProductSetting] = [],
+        deprecation: ProductDeprecation? = nil,
     ) throws {
         guard type != .test else {
             throw InternalError("Declaring test products isn't supported: \(name):\(targets)")
@@ -40,6 +44,81 @@ public struct ProductDescription: Hashable, Codable, Sendable {
         self.type = type
         self.targets = targets
         self.settings = settings
+        self.deprecation = deprecation
+    }
+}
+
+/// The deprecation state of a product declared in a package manifest.
+public struct ProductDeprecation: Hashable, Codable, Sendable {
+    /// The product a consumer should adopt in place of an unsupported product.
+    ///
+    /// This enum is non-frozen: additional cases may be introduced in future evolution.
+    public enum Replacement: Hashable, Sendable {
+        /// The replacement product. When `package` is nil the replacement lives
+        /// in the same package as the deprecated product; otherwise it lives in
+        /// the named package (which the consumer must already depend on).
+        case renamed(_ product: String, package: String? = nil)
+    }
+
+    /// An author-supplied human-readable explanation of the deprecation.
+    public let message: String?
+
+    /// The product a consumer should adopt in place of the unsupported product.
+    public let replacement: Replacement?
+
+    public init(
+        message: String?,
+        replacement: Replacement?,
+    ) {
+        self.message = message
+        self.replacement = replacement
+    }
+}
+
+extension ProductDeprecation.Replacement: Codable {
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case product
+        case package
+    }
+
+    private enum Kind: String, Codable {
+        case renamed
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .renamed(let product, let package):
+            try container.encode(Kind.renamed, forKey: .kind)
+            try container.encode(product, forKey: .product)
+            try container.encodeIfPresent(package, forKey: .package)
+        }
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let kind = try container.decode(Kind.self, forKey: .kind)
+        switch kind {
+        case .renamed:
+            self = .renamed(
+                try container.decode(String.self, forKey: .product),
+                package: try container.decodeIfPresent(String.self, forKey: .package),
+            )
+        }
+    }
+}
+
+extension ProductDeprecation.Replacement {
+    /// A human-readable sentence pointing the consumer at the replacement,
+    /// suitable for appending to a deprecation diagnostic.
+    public var formattedInstruction: String {
+        switch self {
+        case .renamed(let product, nil):
+            return "Use '\(product)' instead."
+        case .renamed(let product, let package?):
+            return "Use '\(product)' from package '\(package)' instead."
+        }
     }
 }
 
