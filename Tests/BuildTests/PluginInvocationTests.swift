@@ -495,6 +495,165 @@ final class PluginInvocationTests: XCTestCase {
         )
     }
 
+    /// Regression test for a crash where a package-level dependency cycle -- legal since
+    /// tools-version >= 6.0 as long as there's no module cycle -- sent
+    /// `PluginContextSerializer.serialize(package:)` into unbounded recursion while building the
+    /// plugin's input context, because its visited-cache is only populated once a package's
+    /// dependencies finish serializing, so a package still mid-construction is never recognized as
+    /// already in progress. Verifies a descriptive failure is produced instead of recursing forever.
+    func testBuildToolPluginWithDependencyCycleFailsGracefully() async throws {
+        // RootPkg (root) depends on PackageA. PackageA's target LibA uses a build-tool plugin
+        // vended by PluginPackageB. PluginPackageB's library target LibB depends on the product
+        // "LibA", which creates the back edge PluginPackageB -> PackageA: the package graph is
+        // cyclic (PackageA <-> PluginPackageB) even though RootPkg isn't part of the cycle and
+        // there's no module-level cycle (LibB -> LibA only; LibA doesn't depend on LibB).
+        let fileSystem = InMemoryFileSystem(emptyFiles:
+            "/RootPkg/Sources/RootLib/source.swift",
+            "/PackageA/Sources/LibA/source.swift",
+            "/PluginPackageB/Plugins/MyPlugin/source.swift",
+            "/PluginPackageB/Sources/LibB/source.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "RootPkg",
+                    path: "/RootPkg",
+                    toolsVersion: .v6_0,
+                    dependencies: [
+                        .localSourceControl(path: "/PackageA", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "RootLib", dependencies: [
+                            .product(name: "LibA", package: "PackageA", condition: nil),
+                        ]),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "PackageA",
+                    path: "/PackageA",
+                    toolsVersion: .v6_0,
+                    dependencies: [
+                        .localSourceControl(path: "/PluginPackageB", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "LibA", type: .library(.automatic), targets: ["LibA"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "LibA",
+                            pluginUsages: [.plugin(name: "MyPlugin", package: "PluginPackageB")]
+                        ),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "PluginPackageB",
+                    path: "/PluginPackageB",
+                    toolsVersion: .v6_0,
+                    dependencies: [
+                        .localSourceControl(path: "/PackageA", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "MyPlugin", type: .plugin, targets: ["MyPlugin"]),
+                        ProductDescription(name: "LibB", type: .library(.automatic), targets: ["LibB"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "MyPlugin", type: .plugin, pluginCapability: .buildTool),
+                        TargetDescription(name: "LibB", dependencies: [
+                            .product(name: "LibA", package: "PackageA", condition: nil),
+                        ]),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        // The cycle is legal at graph-load time under tools-version 6.0: confirms this test
+        // exercises the same graph shape SwiftPM permits, not one the loader itself rejects.
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        // A script runner that would only ever be reached if the cycle went unnoticed and the
+        // serializer actually finished building a (bogus) plugin input.
+        struct UnreachablePluginScriptRunner: PluginScriptRunner {
+            var hostTriple: Triple {
+                get throws { try UserToolchain.default.targetTriple }
+            }
+
+            func compilePluginScript(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                toolsVersion: ToolsVersion,
+                workers: UInt32,
+                observabilityScope: ObservabilityScope,
+                callbackQueue: DispatchQueue,
+                delegate: PluginScriptCompilerDelegate,
+                completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
+            ) {
+                callbackQueue.async {
+                    completion(.failure(StringError("plugin script should never be compiled for a cyclic package graph")))
+                }
+            }
+
+            func buildCommandLine(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                toolsVersion: ToolsVersion,
+                workers: UInt32,
+                observabilityScope: ObservabilityScope?
+            ) -> (commandLine: [String], execName: String, execFilePath: Basics.AbsolutePath, diagFilePath: Basics.AbsolutePath) {
+                fatalError("plugin script should never be compiled for a cyclic package graph")
+            }
+
+            func runPluginScript(
+                sourceFiles: [AbsolutePath],
+                pluginName: String,
+                initialMessage: Data,
+                toolsVersion: ToolsVersion,
+                workingDirectory: AbsolutePath,
+                writableDirectories: [AbsolutePath],
+                readOnlyDirectories: [AbsolutePath],
+                allowNetworkConnections: [SandboxNetworkPermission],
+                workers: UInt32,
+                fileSystem: FileSystem,
+                observabilityScope: ObservabilityScope,
+                callbackQueue: DispatchQueue,
+                delegate: PluginScriptCompilerDelegate & PluginScriptRunnerDelegate
+            ) async throws -> Int32 {
+                throw StringError("plugin script should never run for a cyclic package graph")
+            }
+        }
+
+        let buildParameters = mockBuildParameters(
+            destination: .host,
+            environment: BuildEnvironment(platform: .macOS, configuration: .debug),
+            buildSystem: .native
+        )
+
+        let results = try await invokeBuildToolPlugins(
+            graph: graph,
+            buildParameters: buildParameters,
+            fileSystem: fileSystem,
+            outputDir: AbsolutePath("/RootPkg/.build"),
+            pluginScriptRunner: UnreachablePluginScriptRunner(),
+            observabilityScope: observability.topScope
+        )
+
+        let (_, (_, evalResults)) = try XCTUnwrap(results.first)
+        let evalFirstResult = try XCTUnwrap(evalResults.first)
+
+        // The cycle must be caught while serializing the plugin's input context -- surfaced as a
+        // failed, diagnosed invocation -- rather than recursing until the stack is exhausted.
+        XCTAssertFalse(evalFirstResult.succeeded)
+        XCTAssertEqual(evalFirstResult.diagnostics.count, 1)
+        let diagnostic = try XCTUnwrap(evalFirstResult.diagnostics.first)
+        XCTAssertTrue(
+            diagnostic.message.contains("cyclic dependency between packages involving 'packagea'"),
+            "unexpected diagnostic message: \(diagnostic.message)"
+        )
+    }
+
     func testCompilationDiagnostics() async throws {
         try await testWithTemporaryDirectory { tmpPath in
             // Create a sample package with a library target and a plugin.
