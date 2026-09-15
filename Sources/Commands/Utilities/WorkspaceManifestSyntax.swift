@@ -27,7 +27,7 @@ public enum WorkspaceManifestSyntaxError: Error, CustomStringConvertible {
     /// must be edited by hand.
     case nonLiteralMemberEntry(String)
     /// `removeMember` was called with a path that isn't currently
-    /// declared. Mirrors the `swift package workspace override remove`
+    /// declared. Mirrors the `swift workspace override remove`
     /// behaviour so mistyped paths surface early instead of a silent
     /// no-op.
     case memberNotDeclared(String)
@@ -56,7 +56,7 @@ public enum WorkspaceManifestSyntax {
     /// output (rather than preserving declaration order) makes the
     /// CLI's `list-members` deterministic across manifests that
     /// declare members in different orders, and matches the pattern
-    /// established by `swift package workspace override list`.
+    /// established by `swift workspace override list`.
     /// - Throws: `WorkspaceManifestSyntaxError.cannotFindWorkspaceCall`
     ///   when the source has no `Workspace(...)` call at all;
     ///   `.nonLiteralMemberEntry` when an entry is not a plain string
@@ -297,7 +297,7 @@ public enum WorkspaceManifestSyntax {
     /// - Throws `.nonLiteralMemberEntry` if the `members:` argument
     ///   isn't a plain array literal.
     /// - Throws `.memberNotDeclared` if `member` doesn't appear in
-    ///   `members:` — mirrors `swift package workspace override
+    ///   `members:` — mirrors `swift workspace override
     ///   remove` so mistakes surface loudly.
     public static func removeMember(_ member: String, from source: String) throws -> String {
         let syntax = Parser.parse(source: source)
