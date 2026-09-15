@@ -32,6 +32,7 @@ public struct SwiftWorkspaceCommand: AsyncParsableCommand {
         subcommands: [
             Init.self,
             AddMember.self,
+            AddDependency.self,
             ListMembers.self,
             RemoveMember.self,
             DumpWorkspace.self,

@@ -89,6 +89,129 @@ public enum WorkspaceManifestSyntax {
         return members.sorted()
     }
 
+    /// Parses `source` and returns the source-level
+    /// `trimmedDescription` of each entry in the `dependencies:`
+    /// array. Returns an empty list when the `dependencies:` argument
+    /// is present-but-empty *or* omitted entirely (both shapes are
+    /// legal for `Workspace(...)`). Callers use the returned strings
+    /// to detect "already declared" without re-parsing individual
+    /// requirement variants.
+    /// - Throws: `WorkspaceManifestSyntaxError.cannotFindWorkspaceCall`
+    ///   when the source has no `Workspace(...)` call.
+    ///   `.nonLiteralMemberEntry` when `dependencies:` isn't a plain
+    ///   array literal (dynamic composition is outside the edit
+    ///   surface).
+    public static func readDependencies(from source: String) throws -> [String] {
+        let syntax = Parser.parse(source: source)
+        guard let workspaceCall = findWorkspaceCall(in: syntax) else {
+            throw WorkspaceManifestSyntaxError.cannotFindWorkspaceCall
+        }
+        guard let dependenciesArg = workspaceCall.arguments.first(where: {
+            $0.label?.text == "dependencies"
+        }) else {
+            return []
+        }
+        guard let array = dependenciesArg.expression.as(ArrayExprSyntax.self) else {
+            throw WorkspaceManifestSyntaxError.nonLiteralMemberEntry(
+                dependenciesArg.expression.trimmedDescription,
+            )
+        }
+        return array.elements.map { $0.expression.trimmedDescription }
+    }
+
+    /// Appends `dependencyExpression` (a `.package(...)` expression
+    /// rendered as source text) to the `dependencies:` array of the
+    /// `Workspace(...)` call in `source`, inserting the argument if
+    /// it isn't present yet.
+    ///
+    /// - Idempotent: if an entry with the same trimmed source text
+    ///   already appears in `dependencies:`, the returned string is
+    ///   byte-identical to `source`.
+    /// - Preserves formatting: existing entries, whitespace, and any
+    ///   trailing-comma convention on the last element are kept
+    ///   intact; the new element mirrors the last element's leading
+    ///   trivia so indentation stays consistent.
+    /// - Throws `.cannotFindWorkspaceCall` if the source has no
+    ///   `Workspace(...)` call, or `.nonLiteralMemberEntry` if
+    ///   `dependencies:` is present but isn't a plain array literal.
+    public static func addDependency(
+        _ dependencyExpression: String,
+        to source: String,
+    ) throws -> String {
+        let syntax = Parser.parse(source: source)
+        guard let workspaceCall = findWorkspaceCall(in: syntax) else {
+            throw WorkspaceManifestSyntaxError.cannotFindWorkspaceCall
+        }
+        let dependencySyntax: ExprSyntax = "\(raw: dependencyExpression)"
+        let newDependencyText = dependencySyntax.trimmedDescription
+
+        if let existingArgIndex = workspaceCall.arguments.firstIndex(where: {
+            $0.label?.text == "dependencies"
+        }) {
+            let existingArg = workspaceCall.arguments[existingArgIndex]
+            guard let array = existingArg.expression.as(ArrayExprSyntax.self) else {
+                throw WorkspaceManifestSyntaxError.nonLiteralMemberEntry(
+                    existingArg.expression.trimmedDescription,
+                )
+            }
+            let alreadyPresent = array.elements.contains(where: {
+                $0.expression.trimmedDescription == newDependencyText
+            })
+            if alreadyPresent {
+                return source
+            }
+            let newArray = appendExpressionElement(dependencySyntax, to: array)
+            let rewriter = ReplaceArgumentExpression(
+                targetLabel: "dependencies",
+                newExpression: ExprSyntax(newArray),
+            )
+            let newTree = rewriter.rewrite(Syntax(syntax))
+            return newTree.description
+        }
+
+        // No `dependencies:` argument yet — inject one after
+        // `members:` in the same shape a hand-written manifest would
+        // use, then populate it with the single new entry.
+        let inserter = InsertDependenciesArgument(
+            initialElement: dependencySyntax,
+        )
+        let newTree = inserter.rewrite(Syntax(syntax))
+        return newTree.description
+    }
+
+    /// Shared helper for `addMember` and `addDependency`: appends an
+    /// arbitrary `ExprSyntax` element to `array`, reusing the last
+    /// existing element's leading trivia so indentation matches, and
+    /// ensuring the previous last element carries a trailing comma.
+    /// When the array is empty the new element is inserted as the
+    /// sole entry with a standard 8-space indent.
+    private static func appendExpressionElement(
+        _ expression: ExprSyntax,
+        to array: ArrayExprSyntax,
+    ) -> ArrayExprSyntax {
+        var mutable = Array(array.elements)
+        if let lastIndex = mutable.indices.last {
+            let lastElement = mutable[lastIndex]
+            let newLastElement = lastElement.with(\.trailingComma, .commaToken())
+            let newElement = ArrayElementSyntax(
+                leadingTrivia: lastElement.leadingTrivia,
+                expression: expression,
+                trailingComma: .commaToken(),
+                trailingTrivia: lastElement.trailingTrivia,
+            )
+            mutable[lastIndex] = newLastElement
+            mutable.append(newElement)
+            return array.with(\.elements, ArrayElementListSyntax(mutable))
+        }
+        let newElement = ArrayElementSyntax(
+            leadingTrivia: .newline + .spaces(8),
+            expression: expression,
+            trailingComma: .commaToken(),
+            trailingTrivia: .newline + .spaces(4),
+        )
+        return array.with(\.elements, ArrayElementListSyntax([newElement]))
+    }
+
     /// Appends a new member string-literal to the `members:` array of
     /// the `Workspace(...)` call in `source`. Returns the resulting
     /// source text.
@@ -295,5 +418,84 @@ private final class ReplaceArgumentExpression: SyntaxRewriter {
             )
         }
         return ExprSyntax(node.with(\.arguments, arguments))
+    }
+}
+
+/// Inserts a fresh `dependencies:` argument onto the first
+/// `Workspace(...)` call, populating it with a single element.
+/// Placed after the existing `members:` argument so the resulting
+/// manifest reads in the standard members-then-dependencies order.
+/// A no-op if the enclosing `Workspace(...)` call already declares
+/// `dependencies:` — the caller (`addDependency`) routes to
+/// `ReplaceArgumentExpression` in that case.
+private final class InsertDependenciesArgument: SyntaxRewriter {
+    let initialElement: ExprSyntax
+    private var applied = false
+
+    init(initialElement: ExprSyntax) {
+        self.initialElement = initialElement
+    }
+
+    override func visit(_ node: FunctionCallExprSyntax) -> ExprSyntax {
+        if applied {
+            return super.visit(node)
+        }
+        guard let callee = node.calledExpression.as(DeclReferenceExprSyntax.self),
+              callee.baseName.text == "Workspace"
+        else {
+            return super.visit(node)
+        }
+        if node.arguments.contains(where: { $0.label?.text == "dependencies" }) {
+            return super.visit(node)
+        }
+        applied = true
+
+        // Build a fresh `dependencies: [ <initialElement>, ]` array
+        // literal, matching the indentation style used by
+        // `swift workspace init` (8-space element indent, 4-space
+        // closing-bracket indent).
+        let newElement = ArrayElementSyntax(
+            leadingTrivia: .newline + .spaces(8),
+            expression: initialElement,
+            trailingComma: .commaToken(),
+            trailingTrivia: [],
+        )
+        let arrayExpr = ArrayExprSyntax(
+            leftSquare: .leftSquareToken(),
+            elements: ArrayElementListSyntax([newElement]),
+            rightSquare: .rightSquareToken(
+                leadingTrivia: .newline + .spaces(4),
+            ),
+        )
+
+        var arguments = Array(node.arguments)
+        let membersIndex = arguments.firstIndex(where: { $0.label?.text == "members" })
+        let insertAfter = membersIndex ?? (arguments.indices.last)
+        let referenceElement = insertAfter.map { arguments[$0] }
+        let leadingTrivia = referenceElement?.leadingTrivia ?? (.newline + .spaces(4))
+        let trailingTrivia = referenceElement?.trailingTrivia ?? []
+
+        // Ensure the reference element has a trailing comma so the
+        // new argument can slot in behind it without breaking the
+        // call's argument-list syntax.
+        if let insertAfter, arguments[insertAfter].trailingComma == nil {
+            arguments[insertAfter] = arguments[insertAfter].with(
+                \.trailingComma, .commaToken(),
+            )
+        }
+
+        let newArgument = LabeledExprSyntax(
+            leadingTrivia: leadingTrivia,
+            label: .identifier("dependencies"),
+            colon: .colonToken(),
+            expression: ExprSyntax(arrayExpr),
+            trailingComma: .commaToken(),
+            trailingTrivia: trailingTrivia,
+        )
+        let insertionIndex = (insertAfter.map { arguments.index(after: $0) }) ?? arguments.endIndex
+        arguments.insert(newArgument, at: insertionIndex)
+        return ExprSyntax(
+            node.with(\.arguments, LabeledExprListSyntax(arguments)),
+        )
     }
 }
