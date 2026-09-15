@@ -159,7 +159,11 @@ struct CFamilyTargetTestCase {
             }
 
             let errString = "\(error)"
-            let missingIncludeDirStr = "\(ModuleError.invalidPublicHeadersDirectory("Cfactorial"))"
+            let missingIncludeDir = ModuleError.missingPublicHeadersDirectory(
+                target: "Cfactorial",
+                path: "include"
+            )
+            let missingIncludeDirStr = "\(missingIncludeDir)"
             #expect(errString.contains(missingIncludeDirStr))
         }
     }
