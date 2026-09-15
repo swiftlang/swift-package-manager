@@ -68,7 +68,7 @@ extension SwiftWorkspaceCommand.Override.Add {
         func run(_ swiftCommandState: SwiftCommandState) throws {
             let workspaceRoot = try requireWorkspaceRoot(
                 swiftCommandState,
-                subcommandDisplayName: "swift package workspace override",
+                subcommandDisplayName: "swift workspace override",
             )
             let override = try Self.buildOverride(
                 identity: self.identity,
@@ -155,7 +155,7 @@ extension SwiftWorkspaceCommand.Override.Add {
         func run(_ swiftCommandState: SwiftCommandState) throws {
             let workspaceRoot = try requireWorkspaceRoot(
                 swiftCommandState,
-                subcommandDisplayName: "swift package workspace override",
+                subcommandDisplayName: "swift workspace override",
             )
             let override = try Self.buildOverride(
                 identity: self.identity,
@@ -292,7 +292,7 @@ extension SwiftWorkspaceCommand.Override.Add {
         func run(_ swiftCommandState: SwiftCommandState) throws {
             let workspaceRoot = try requireWorkspaceRoot(
                 swiftCommandState,
-                subcommandDisplayName: "swift package workspace override",
+                subcommandDisplayName: "swift workspace override",
             )
             let override = try Self.buildOverride(
                 identity: self.identity,
@@ -374,7 +374,7 @@ extension SwiftWorkspaceCommand.Override.Add {
 }
 
 /// Errors raised while parsing arguments to a
-/// `swift package workspace override add` subcommand. Cross-cuts the
+/// `swift workspace override add` subcommand. Cross-cuts the
 /// per-source subcommands (`path`, `url`, `registry`) so the same
 /// diagnostic case can surface from any of them where relevant.
 enum WorkspaceOverrideAddError: Error, CustomStringConvertible {
@@ -422,7 +422,7 @@ extension SwiftWorkspaceCommand.Override {
         func run(_ swiftCommandState: SwiftCommandState) throws {
             let workspaceRoot = try requireWorkspaceRoot(
                 swiftCommandState,
-                subcommandDisplayName: "swift package workspace override",
+                subcommandDisplayName: "swift workspace override",
             )
             let overridesFile = PackageWorkspace.DefaultLocations.workspaceOverridesFile(
                 forRootPackage: workspaceRoot,
@@ -462,7 +462,7 @@ extension SwiftWorkspaceCommand.Override {
         func run(_ swiftCommandState: SwiftCommandState) throws {
             let workspaceRoot = try requireWorkspaceRoot(
                 swiftCommandState,
-                subcommandDisplayName: "swift package workspace override",
+                subcommandDisplayName: "swift workspace override",
             )
             let overridesFile = PackageWorkspace.DefaultLocations.workspaceOverridesFile(
                 forRootPackage: workspaceRoot,
@@ -549,7 +549,7 @@ extension SwiftWorkspaceCommand.Override {
     }
 }
 
-/// JSON wire shape for a single entry in `swift package workspace
+/// JSON wire shape for a single entry in `swift workspace
 /// override list --format json`. Codable so we can drive the encoder
 /// with `.withoutEscapingSlashes` — `JSONSerialization` has no such
 /// option and would escape every `/` in the location path as `\/`.

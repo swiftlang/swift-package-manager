@@ -36,7 +36,7 @@ extension SwiftWorkspaceCommand {
         func run(_ swiftCommandState: SwiftCommandState) throws {
             let workspaceRoot = try requireWorkspaceRoot(
                 swiftCommandState,
-                subcommandDisplayName: "swift package workspace list-members",
+                subcommandDisplayName: "swift workspace list-members",
             )
             let manifestPath = workspaceRoot.appending(WorkspaceManifest.filename)
             let source: String = try swiftCommandState.fileSystem.readFileContents(manifestPath)

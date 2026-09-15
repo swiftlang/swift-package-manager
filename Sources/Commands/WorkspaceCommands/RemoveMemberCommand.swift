@@ -18,7 +18,7 @@ extension SwiftWorkspaceCommand {
 
     /// Removes an existing member entry from the enclosing workspace's
     /// `Workspace.swift`. Fails when the target isn't currently
-    /// declared — mirrors `swift package workspace override remove`
+    /// declared — mirrors `swift workspace override remove`
     /// so mistyped paths surface loudly instead of silently no-op'ing.
     /// The on-disk member directory and any `Package.swift` inside it
     /// are left untouched; the CLI's job is limited to the manifest.
@@ -38,7 +38,7 @@ extension SwiftWorkspaceCommand {
         func run(_ swiftCommandState: SwiftCommandState) throws {
             let workspaceRoot = try requireWorkspaceRoot(
                 swiftCommandState,
-                subcommandDisplayName: "swift package workspace remove-member",
+                subcommandDisplayName: "swift workspace remove-member",
             )
             let manifestPath = workspaceRoot.appending(WorkspaceManifest.filename)
             let fileSystem = swiftCommandState.fileSystem

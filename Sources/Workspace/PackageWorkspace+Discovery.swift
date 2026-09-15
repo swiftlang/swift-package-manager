@@ -293,7 +293,7 @@ extension PackageWorkspace {
     ///
     /// Depth 1 is sufficient for MVP: a `Workspace.swift` at the
     /// member's own root is the common misuse (someone accidentally
-    /// nested a fresh `swift package workspace init` inside another
+    /// nested a fresh `swift workspace init` inside another
     /// workspace's member). Deeper scans have diminishing returns.
     package static func checkNestedWorkspaceInMembers(
         _ members: [WorkspaceManifest.Member],

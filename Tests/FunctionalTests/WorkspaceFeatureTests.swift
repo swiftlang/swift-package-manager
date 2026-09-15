@@ -1789,7 +1789,7 @@ struct WorkspaceFeatureTests {
 
     // MARK: - Slice 12b: member-declared dep override — E2E
 
-    /// `swift package workspace override add path` on a dep declared in a
+    /// `swift workspace override add path` on a dep declared in a
     /// *member* `Package.swift` (not in `Workspace.swift`) redirects it to
     /// a local filesystem path, so `swift build` succeeds without contacting
     /// the nonexistent source-control URL. This exercises the extended override
@@ -1852,7 +1852,7 @@ struct WorkspaceFeatureTests {
 
     // MARK: - Slice 12a: help-text contract
 
-    /// Each `swift package workspace override add` help page must not
+    /// Each `swift workspace override add` help page must not
     /// mention "workspace-level" — overrides now apply to both
     /// workspace-declared and member-declared direct dependencies, so
     /// the old qualifier is misleading. Parameterized over four help
@@ -1901,7 +1901,7 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    /// `swift package workspace init` (bare, no `--members`) creates
+    /// `swift workspace init` (bare, no `--members`) creates
     /// a `Workspace.swift` file in the current working directory with
     /// an empty `members: []` list. Verifies the happy-path scaffold
     /// of the CLI.
@@ -1932,7 +1932,7 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    /// `swift package workspace init --members packages/lib-a
+    /// `swift workspace init --members packages/lib-a
     /// --members packages/app` scaffolds both member directories with
     /// their `Package.swift` files and lists them in the
     /// `Workspace.swift` manifest.
@@ -1977,7 +1977,7 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    /// `swift package workspace init` refuses to overwrite an existing
+    /// `swift workspace init` refuses to overwrite an existing
     /// `Workspace.swift` — users must remove the existing file
     /// themselves. Guards against destroying in-progress workspace
     /// authoring by an accidental re-run.
@@ -2015,7 +2015,7 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    /// `swift package workspace init --package-path <dir>` scaffolds
+    /// `swift workspace init --package-path <dir>` scaffolds
     /// into `<dir>` rather than the caller's current working directory.
     /// Creates `<dir>` if it doesn't exist (matches `swift package
     /// init` behaviour for the same flag). Locks in that the workspace
@@ -2877,7 +2877,7 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    /// `swift package workspace dump-workspace` prints the parsed
+    /// `swift workspace dump-workspace` prints the parsed
     /// `Workspace.swift` as JSON regardless of where inside the
     /// workspace tree it's invoked from. The top-level object exposes
     /// `path`, `toolsVersion`, `members`, and `dependencies`; each
@@ -2936,10 +2936,10 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    /// `swift package workspace dump-workspace` invoked outside of
+    /// `swift workspace dump-workspace` invoked outside of
     /// any workspace (no `Workspace.swift` discoverable up the tree)
     /// fails with a user-actionable error. Mirrors the other
-    /// `swift package workspace <sub>` commands.
+    /// `swift workspace <sub>` commands.
     @Test(
         .tags(
             .Feature.Command.Package.DumpPackage,
@@ -2961,7 +2961,7 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    /// `swift package workspace` exposes the workspace-aware
+    /// `swift workspace` exposes the workspace-aware
     /// commands from the top-level `swift package` tree without
     /// duplicating the implementation. `resolve`, `update`, `clean`,
     /// and `reset` are registered in both parent lists — this test
@@ -3397,7 +3397,7 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    /// `swift package workspace add-member <path>` writes the new
+    /// `swift workspace add-member <path>` writes the new
     /// member into `Workspace.swift` — a follow-up `list-members`
     /// reports the added entry alongside the pre-existing ones.
     /// Without `--scaffold`, no `Package.swift` is created for the
@@ -3602,10 +3602,10 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    /// `swift package workspace add-member <path> --scaffold <type>`
+    /// `swift workspace add-member <path> --scaffold <type>`
     /// writes the new member into `Workspace.swift` AND scaffolds a
     /// `Package.swift` for the new member using the given package
-    /// type — matches the composition of `swift package workspace
+    /// type — matches the composition of `swift workspace
     /// init --members <path>:<type>`.
     @Test(
         .tags(
@@ -3725,7 +3725,7 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    /// `swift package workspace remove-member <path>` drops the entry
+    /// `swift workspace remove-member <path>` drops the entry
     /// from `Workspace.swift`; a follow-up `list-members` no longer
     /// reports it. On-disk directory + `Package.swift` for the removed
     /// member are left untouched — the manifest edit is the sole
@@ -3763,9 +3763,9 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    /// `swift package workspace remove-member <path>` on a non-declared
+    /// `swift workspace remove-member <path>` on a non-declared
     /// member fails and leaves `Workspace.swift` byte-identical —
-    /// mirrors `swift package workspace override remove` behaviour so
+    /// mirrors `swift workspace override remove` behaviour so
     /// mistyped paths surface loudly rather than silently no-op.
     @Test(
         .tags(
@@ -3963,7 +3963,7 @@ struct WorkspaceFeatureTests {
 
     /// `swift package edit` under a SwiftPM workspace must fail
     /// with an actionable message that points the user at
-    /// `swift package workspace override` (the workspace-scoped
+    /// `swift workspace override` (the workspace-scoped
     /// replacement for the "redirect a dep to a local checkout"
     /// use case). The user must never see the generic
     /// "will be addressed in a follow-up" placeholder — they need
@@ -3991,7 +3991,7 @@ struct WorkspaceFeatureTests {
                     "expected the deferred-feature phrasing on stderr; got stderr=\(error.stderr)",
                 )
                 #expect(
-                    error.stderr.contains("swift package workspace override") == true,
+                    error.stderr.contains("swift workspace override") == true,
                     "expected the workspace-override redirect on stderr; got stderr=\(error.stderr)",
                 )
                 #expect(
@@ -4008,7 +4008,7 @@ struct WorkspaceFeatureTests {
 
     /// Parity coverage for `swift package unedit` under a workspace
     /// — same rejection, same actionable redirect at
-    /// `swift package workspace override remove`.
+    /// `swift workspace override remove`.
     @Test(
         .tags(
             .Feature.Command.Package.General,
@@ -4032,7 +4032,7 @@ struct WorkspaceFeatureTests {
                     "expected the deferred-feature phrasing on stderr; got stderr=\(error.stderr)",
                 )
                 #expect(
-                    error.stderr.contains("swift package workspace override") == true,
+                    error.stderr.contains("swift workspace override") == true,
                     "expected the workspace-override redirect on stderr; got stderr=\(error.stderr)",
                 )
                 #expect(
@@ -4339,7 +4339,7 @@ struct WorkspaceAddDependencyNoWorkspaceCase: Sendable, CustomTestStringConverti
     var testDescription: String { label }
 }
 
-/// A single `swift package workspace override add` help-page invocation
+/// A single `swift workspace override add` help-page invocation
 /// for parameterizing the no-`workspace-level` contract test. The
 /// `label` names the case in assertion failure text; `extraArgs` is
 /// forwarded directly to `executeSwiftPackage`.

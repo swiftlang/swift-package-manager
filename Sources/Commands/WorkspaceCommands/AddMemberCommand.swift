@@ -21,7 +21,7 @@ extension SwiftWorkspaceCommand {
     /// `Workspace.swift`. Idempotent — a duplicate `path` leaves the
     /// manifest byte-identical. With `--scaffold`, also creates the
     /// member's directory and a stub `Package.swift` when they don't
-    /// already exist, mirroring `swift package workspace init
+    /// already exist, mirroring `swift workspace init
     /// --members`.
     struct AddMember: SwiftCommand {
         static let configuration = CommandConfiguration(
@@ -45,7 +45,7 @@ extension SwiftWorkspaceCommand {
         func run(_ swiftCommandState: SwiftCommandState) throws {
             let workspaceRoot = try requireWorkspaceRoot(
                 swiftCommandState,
-                subcommandDisplayName: "swift package workspace add-member",
+                subcommandDisplayName: "swift workspace add-member",
             )
             let manifestPath = workspaceRoot.appending(WorkspaceManifest.filename)
             let fileSystem = swiftCommandState.fileSystem
@@ -109,7 +109,7 @@ extension SwiftWorkspaceCommand {
 
 
 extension Basics.Diagnostic {
-    /// Diagnostic emitted when `swift package workspace add-member
+    /// Diagnostic emitted when `swift workspace add-member
     /// <path> --scaffold <type>` is invoked but the member's
     /// `Package.swift` already exists. The manifest edit still
     /// happens; only the scaffolding is skipped, so this is a

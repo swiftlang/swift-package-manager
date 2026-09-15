@@ -25,7 +25,7 @@ struct EditDiagnosticsTests {
     /// diagnostic emitted when `swift package edit` (or `unedit`)
     /// runs under a SwiftPM workspace. The message MUST steer the
     /// user toward the workspace-scoped alternative
-    /// `swift package workspace override`, not the generic
+    /// `swift workspace override`, not the generic
     /// "will be addressed in a follow-up" placeholder — override
     /// already covers the redirect-a-dep-to-a-local-checkout use
     /// case that `edit` served in single-package mode.
@@ -46,7 +46,7 @@ struct EditDiagnosticsTests {
         // Actionable redirect: never surface the "will be addressed
         // in a follow-up" placeholder. Users need a concrete next
         // step, and `override` is it.
-        #expect(diagnostic.message.contains("swift package workspace override"))
+        #expect(diagnostic.message.contains("swift workspace override"))
         #expect(diagnostic.message.contains("follow-up") == false)
         // Naming the workspace root helps the user see WHICH
         // workspace triggered the rejection when they're deep in a
@@ -72,7 +72,7 @@ struct EditDiagnosticsTests {
         #expect(diagnostic.severity == .error)
         #expect(diagnostic.message.contains("swift package unedit"))
         #expect(diagnostic.message.contains("workspace"))
-        #expect(diagnostic.message.contains("swift package workspace override"))
+        #expect(diagnostic.message.contains("swift workspace override"))
         #expect(diagnostic.message.contains("follow-up") == false)
         #expect(diagnostic.message.contains("/repo"))
     }

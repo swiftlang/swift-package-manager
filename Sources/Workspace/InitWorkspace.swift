@@ -16,7 +16,7 @@ import SwiftSyntax
 import SwiftSyntaxBuilder
 
 /// Errors raised by `InitWorkspace.write()` when scaffolding a new
-/// workspace under `swift package workspace init`.
+/// workspace under `swift workspace init`.
 public enum InitWorkspaceError: Error, Equatable {
     /// The destination already contains a `Workspace.swift`.
     /// `init workspace` never overwrites; users must remove the
@@ -39,7 +39,7 @@ public enum InitWorkspaceError: Error, Equatable {
 ///
 /// Analogue of `InitPackage`, sharing the "options + write()" shape.
 /// This is a proof-of-concept implementation for
-/// `swift package workspace init`; the POC scope is member
+/// `swift workspace init`; the POC scope is member
 /// scaffolding only — workspace-level `dependencies:` are emitted
 /// as an empty array, and users edit `Workspace.swift` afterwards
 /// to add deps.

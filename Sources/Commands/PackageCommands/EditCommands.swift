@@ -132,7 +132,7 @@ extension Basics.Diagnostic {
     /// SwiftPM workspace. `edit`'s per-dependency editable-checkout
     /// model collides with the workspace's shared `.build/` and
     /// `workspaceMember` / workspace-level `dependencies:`
-    /// declarations. Points the user at `swift package workspace
+    /// declarations. Points the user at `swift workspace
     /// override`, which supersedes the "redirect a dependency to a
     /// local checkout" use case for workspaces.
     @_spi(SwiftPMInternal)
@@ -140,7 +140,7 @@ extension Basics.Diagnostic {
         .error(
             """
             swift package edit is not supported under a SwiftPM workspace (rooted at \
-            '\(workspaceRoot.pathString)'); use 'swift package workspace override' to \
+            '\(workspaceRoot.pathString)'); use 'swift workspace override' to \
             redirect a dependency to a local checkout instead
             """,
         )
@@ -150,13 +150,13 @@ extension Basics.Diagnostic {
     /// a SwiftPM workspace. Same reasoning as
     /// `editUnsupportedUnderWorkspace` — `unedit` is the inverse
     /// of `edit`, and both are subsumed by
-    /// `swift package workspace override` under a workspace.
+    /// `swift workspace override` under a workspace.
     @_spi(SwiftPMInternal)
     public static func uneditUnsupportedUnderWorkspace(workspaceRoot: AbsolutePath) -> Self {
         .error(
             """
             swift package unedit is not supported under a SwiftPM workspace (rooted at \
-            '\(workspaceRoot.pathString)'); use 'swift package workspace override remove' to \
+            '\(workspaceRoot.pathString)'); use 'swift workspace override remove' to \
             drop a dependency redirect instead
             """,
         )

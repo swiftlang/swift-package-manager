@@ -36,7 +36,7 @@ extension SwiftWorkspaceCommand {
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             let workspaceRoot = try requireWorkspaceRoot(
                 swiftCommandState,
-                subcommandDisplayName: "swift package workspace dump-workspace",
+                subcommandDisplayName: "swift workspace dump-workspace",
             )
             let manifestLoader = try ManifestLoader(
                 toolchain: swiftCommandState.getHostToolchain(),

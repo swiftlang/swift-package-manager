@@ -61,7 +61,7 @@ public struct SwiftWorkspaceCommand: AsyncParsableCommand {
 
 /// File-level helper: locates the enclosing workspace root or throws a
 /// user-actionable error mentioning `subcommandDisplayName`. Shared by
-/// every `swift package workspace <sub>` subcommand that must be
+/// every `swift workspace <sub>` subcommand that must be
 /// invoked from inside a workspace.
 package func requireWorkspaceRoot(
     _ swiftCommandState: SwiftCommandState,
@@ -93,7 +93,7 @@ package func requireWorkspaceRoot(
         fileSystem: swiftCommandState.fileSystem,
     ) else {
         throw ValidationError(
-            "'swift package workspace override' must be invoked inside a SwiftPM workspace (no Workspace.swift found starting from \(cwd.pathString))",
+            "'swift workspace override' must be invoked inside a SwiftPM workspace (no Workspace.swift found starting from \(cwd.pathString))",
         )
     }
     return workspaceRoot

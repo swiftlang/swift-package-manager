@@ -23,7 +23,7 @@ import _InternalTestSupport
 struct WorkspaceManifestSyntaxTests {
     /// A bare `Workspace(...)` call with `members: []` yields an empty
     /// list. Locks in the "empty members" happy path — this is the
-    /// shape emitted by `swift package workspace init` when no
+    /// shape emitted by `swift workspace init` when no
     /// `--members` are supplied.
     @Test(
         .tags(
@@ -73,7 +73,7 @@ struct WorkspaceManifestSyntaxTests {
 
     /// Members are returned sorted alphabetically regardless of the
     /// order they appear in the source. This matches
-    /// `swift package workspace override list`, keeping list output
+    /// `swift workspace override list`, keeping list output
     /// deterministic across manifests that declare members in
     /// different orders.
     @Test(
@@ -177,7 +177,7 @@ struct WorkspaceManifestSyntaxTests {
 
     /// Adding a member that already exists is a no-op — the returned
     /// source is byte-identical to the input. Locks in idempotency so
-    /// `swift package workspace add-member` can be re-run safely
+    /// `swift workspace add-member` can be re-run safely
     /// without producing spurious diffs.
     @Test(
         .tags(
@@ -278,7 +278,7 @@ struct WorkspaceManifestSyntaxTests {
     }
 
     /// Removing a member that isn't present throws — mirrors the
-    /// `swift package workspace override remove <identity>` behaviour
+    /// `swift workspace override remove <identity>` behaviour
     /// so mistyped paths surface early rather than silently no-op.
     @Test(
         .tags(
