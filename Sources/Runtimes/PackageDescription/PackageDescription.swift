@@ -114,6 +114,30 @@ public final class Package {
         set { swiftLanguageModes = newValue }
     }
 
+    /// The default Swift language settings.
+    ///
+    /// These settings can be selectively applied with `defaults` or completely overrridden on a per-target basis.
+    @available(_PackageDescription, introduced: 6.5)
+    public var defaultSwiftSettings: [SwiftSetting]?
+
+    /// The default C language settings.
+    ///
+    /// These settings can be selectively applied with `defaults` or completely overrridden on a per-target basis.
+    @available(_PackageDescription, introduced: 6.5)
+    public var defaultCSettings: [CSetting]?
+
+    /// The default C++ language settings.
+    ///
+    /// These settings can be selectively applied with `defaults` or completely overrridden on a per-target basis.
+    @available(_PackageDescription, introduced: 6.5)
+    public var defaultCXXSettings: [CXXSetting]?
+
+    /// The default linker settings.
+    ///
+    /// These settings can be selectively applied with `defaults` or completely overrridden on a per-target basis.
+    @available(_PackageDescription, introduced: 6.5)
+    public var defaultLinkerSettings: [LinkerSetting]?
+
     /// The C language standard to use for all C targets in this package.
     public var cLanguageStandard: CLanguageStandard?
 
@@ -316,7 +340,7 @@ public final class Package {
         targets: [Target] = [],
         swiftLanguageModes: [SwiftLanguageMode]? = nil,
         cLanguageStandard: CLanguageStandard? = nil,
-        cxxLanguageStandard: CXXLanguageStandard? = nil
+        cxxLanguageStandard: CXXLanguageStandard? = nil,
     ) {
         self.name = name
         self.defaultLocalization = defaultLocalization
@@ -328,8 +352,12 @@ public final class Package {
         self.targets = targets
         self.traits = []
         self.swiftLanguageModes = swiftLanguageModes
+        self.defaultSwiftSettings = nil
         self.cLanguageStandard = cLanguageStandard
+        self.defaultCSettings = nil
         self.cxxLanguageStandard = cxxLanguageStandard
+        self.defaultCXXSettings = nil
+        self.defaultLinkerSettings = nil
         registerExitHandler()
     }
 
@@ -363,7 +391,7 @@ public final class Package {
         targets: [Target] = [],
         swiftLanguageModes: [SwiftLanguageMode]? = nil,
         cLanguageStandard: CLanguageStandard? = nil,
-        cxxLanguageStandard: CXXLanguageStandard? = nil
+        cxxLanguageStandard: CXXLanguageStandard? = nil,
     ) {
         self.name = name
         self.defaultLocalization = defaultLocalization
@@ -375,8 +403,70 @@ public final class Package {
         self.dependencies = dependencies
         self.targets = targets
         self.swiftLanguageModes = swiftLanguageModes
+        self.defaultSwiftSettings = nil
         self.cLanguageStandard = cLanguageStandard
+        self.defaultCSettings = nil
         self.cxxLanguageStandard = cxxLanguageStandard
+        self.defaultCXXSettings = nil
+        self.defaultLinkerSettings = nil
+        registerExitHandler()
+    }
+
+    /// Initializes a Swift package with configuration options you provide.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the Swift package, or `nil` to use the package's Git URL to deduce the name.
+    ///   - defaultLocalization: The default localization for resources.
+    ///   - platforms: The list of supported platforms with a custom deployment target.
+    ///   - pkgConfig: The name to use for C modules. If present, Swift Package Manager searches for a
+    ///   `<name>.pc` file to get the additional flags required for a system target.
+    ///   - providers: The package providers for a system target.
+    ///   - defaultSwiftSettings: Swift compiler settings used for all targets that do not have additional settings applied.
+    ///   - defaultCSettings: C compiler settings used for all targets that do not have additional settings applied.
+    ///   - defaultCXXSettings: C++ compiler settings used for all targets that do not have additional settings applied.
+    ///   - defaultLinkerSettings: Linker compiler settings used for all targets that do not have additional settings applied.
+    ///   - products: The list of products that this package makes available for clients to use.
+    ///   - traits: The set of traits this package provides.
+    ///   - dependencies: The list of package dependencies.
+    ///   - targets: The list of targets that are part of this package.
+    ///   - swiftLanguageModes: The list of Swift language modes with which this package is compatible.
+    ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
+    ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
+    @available(_PackageDescription, introduced: 6.5)
+    public init(
+        name: String,
+        defaultLocalization: LanguageTag? = nil,
+        platforms: [SupportedPlatform]? = nil,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProvider]? = nil,
+        defaultSwiftSettings: [SwiftSetting]? = nil,
+        defaultCSettings: [CSetting]? = nil,
+        defaultCXXSettings: [CXXSetting]? = nil,
+        defaultLinkerSettings: [LinkerSetting]? = nil,
+        products: [Product] = [],
+        traits: Set<Trait> = [],
+        dependencies: [Dependency] = [],
+        targets: [Target] = [],
+        swiftLanguageModes: [SwiftLanguageMode]? = nil,
+        cLanguageStandard: CLanguageStandard? = nil,
+        cxxLanguageStandard: CXXLanguageStandard? = nil,
+    ) {
+        self.name = name
+        self.defaultLocalization = defaultLocalization
+        self.platforms = platforms
+        self.pkgConfig = pkgConfig
+        self.providers = providers
+        self.products = products
+        self.traits = traits
+        self.dependencies = dependencies
+        self.targets = targets
+        self.swiftLanguageModes = swiftLanguageModes
+        self.defaultSwiftSettings = defaultSwiftSettings
+        self.cLanguageStandard = cLanguageStandard
+        self.defaultCSettings = defaultCSettings
+        self.cxxLanguageStandard = cxxLanguageStandard
+        self.defaultCXXSettings = defaultCXXSettings
+        self.defaultLinkerSettings = defaultLinkerSettings
         registerExitHandler()
     }
 

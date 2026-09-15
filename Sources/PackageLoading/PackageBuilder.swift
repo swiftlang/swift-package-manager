@@ -1124,6 +1124,60 @@ public final class PackageBuilder {
         }
     }
 
+    private func resolvedSettings(for target: TargetDescription) throws -> [TargetBuildSettingDescription.Setting] {
+        var resolved: [TargetBuildSettingDescription.Setting] = []
+
+        // first, validate defaults
+        for setting in manifest.defaultSettings ?? [] {
+            if case .unsafeFlags = setting.kind {
+                throw ModuleError.invalidManifestConfig(
+                    self.identity.description, "default settings cannot contain unsafe flags"
+                )
+            }
+        }
+
+        // copy over all existing settings, substituting in defaults if encountered.
+        for setting in target.settings {
+            switch setting.kind {
+            case .defaults:
+                if setting.condition != nil {
+                    throw ModuleError.invalidManifestConfig(
+                        self.identity.description, "target settings may not conditionally reference package defaults"
+                    )
+                }
+
+                guard let defaults = manifest.defaultSettings?.filter({ $0.tool == setting.tool }) else {
+                    throw ModuleError.invalidManifestConfig(
+                        self.identity.description, "target references default settings, but none are defined for the package"
+                    )
+                }
+
+                resolved.append(contentsOf: defaults)
+            default:
+                resolved.append(setting)
+            }
+        }
+
+        // Now, apply the defaults if nothing explicit is present.
+        if !target.explicitSettings.swift {
+            resolved.append(contentsOf: manifest.defaultSettings?.filter({ $0.tool == .swift }) ?? [])
+        }
+
+        if !target.explicitSettings.c {
+            resolved.append(contentsOf: manifest.defaultSettings?.filter({ $0.tool == .c }) ?? [])
+        }
+
+        if !target.explicitSettings.cxx {
+            resolved.append(contentsOf: manifest.defaultSettings?.filter({ $0.tool == .cxx }) ?? [])
+        }
+
+        if !target.explicitSettings.linker {
+            resolved.append(contentsOf: manifest.defaultSettings?.filter({ $0.tool == .linker }) ?? [])
+        }
+
+        return resolved
+    }
+
     /// Creates build setting assignment table for the given target.
     func buildSettings(
         for target: TargetDescription?,
@@ -1150,7 +1204,7 @@ public final class PackageBuilder {
         }
 
         // Process each setting.
-        for setting in target.settings {
+        for setting in try resolvedSettings(for: target) {
             if let traits = setting.condition?.traits, traits.intersection(self.enabledTraits.names).isEmpty {
                 // The setting is currently not enabled so we should skip it
                 continue
@@ -1419,6 +1473,8 @@ public final class PackageBuilder {
                 }
 
                 values = ["-default-isolation", isolation.rawValue]
+            case .defaults:
+                throw InternalError("defaults cannot be in resolved settings")
             }
 
             // Create an assignment for this setting.
