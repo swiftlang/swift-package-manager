@@ -10,7 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if canImport(System)
+package import struct System.FilePath
+#else
 package import struct SystemPackage.FilePath
+#endif
 
 package protocol Query: Sendable {
     associatedtype Key: CacheKey
