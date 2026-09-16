@@ -410,9 +410,12 @@ extension PackagePIFProjectBuilder {
             directMacroDependencyIDs = []
         }
 
-        mainModule.recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: directMacroDependencyIDs) { dependency in
+        mainModule.recursivelyTraverseTransitiveLinkageDependencies(
+            includeDependenciesOfMacros: directMacroDependencyIDs,
+            toolsVersion: self.package.manifest.toolsVersion
+        ) { dependency, dependencyPlatformFilters in
             switch dependency {
-            case .module(let moduleDependency, let packageConditions):
+            case .module(let moduleDependency, _):
                 // This assertion is temporarily disabled since we may see targets from
                 // _other_ packages, but this should be resolved; see rdar://95467710.
                 /* assert(moduleDependency.packageName == self.package.name) */
@@ -426,12 +429,11 @@ extension PackagePIFProjectBuilder {
                     let binaryFileRef = self.binaryGroup.addFileReference { id in
                         Self.createBinaryModuleFileReference(binaryModule, id: id)
                     }
-                    let toolsVersion = self.package.manifest.toolsVersion
                     mainModuleTarget.addLibrary { id in
                         BuildFile(
                             id: id,
                             fileRef: binaryFileRef,
-                            platformFilters: packageConditions.toPlatformFilter(toolsVersion: toolsVersion),
+                            platformFilters: dependencyPlatformFilters,
                             codeSignOnCopy: true,
                             removeHeadersOnCopy: true
                         )
@@ -442,8 +444,7 @@ extension PackagePIFProjectBuilder {
                     let dependencyId = moduleDependency.pifTargetGUID
                     mainModuleTarget.common.addDependency(
                         on: dependencyId,
-                        platformFilters: packageConditions
-                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        platformFilters: dependencyPlatformFilters,
                         linkProduct: false
                     )
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyId)'")
@@ -452,8 +453,7 @@ extension PackagePIFProjectBuilder {
                     let dependencyId = moduleDependency.pifTargetGUID
                     mainModuleTarget.common.addDependency(
                         on: dependencyId,
-                        platformFilters: packageConditions
-                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        platformFilters: dependencyPlatformFilters,
                         linkProduct: false
                     )
                     log(.debug, indent: 1, "Added dependency on product '\(dependencyId)'")
@@ -461,8 +461,7 @@ extension PackagePIFProjectBuilder {
                     if directMacroDependencyIDs.contains(moduleDependency.id) {
                         mainModuleTarget.common.addDependency(
                             on: moduleDependency.pifTargetGUID(suffix: .testable),
-                            platformFilters: packageConditions
-                                .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                            platformFilters: dependencyPlatformFilters,
                             linkProduct: true
                         )
                         log(
@@ -480,8 +479,7 @@ extension PackagePIFProjectBuilder {
                         let productDependencyGUID = productDependency.pifTargetGUID
                         mainModuleTarget.common.addDependency(
                             on: productDependencyGUID,
-                            platformFilters: packageConditions
-                                .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                            platformFilters: dependencyPlatformFilters,
                             linkProduct: false
                         )
                         log(.debug, indent: 1, "Added dependency on product '\(productDependencyGUID)'")
@@ -493,8 +491,7 @@ extension PackagePIFProjectBuilder {
                         let moduleDependencyGUID = moduleDependency.pifTargetGUID(suffix: .testable)
                         mainModuleTarget.common.addDependency(
                             on: moduleDependencyGUID,
-                            platformFilters: packageConditions
-                                .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                            platformFilters: dependencyPlatformFilters,
                             // Only link the testable version of executables which use Swift, as we do not currently support renaming entrypoints written in other languages.
                             linkProduct: moduleDependency.usesSwift
                         )
@@ -506,8 +503,7 @@ extension PackagePIFProjectBuilder {
                     let dependencyGUID = moduleDependency.pifTargetGUID
                     mainModuleTarget.common.addDependency(
                         on: dependencyGUID,
-                        platformFilters: packageConditions
-                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        platformFilters: dependencyPlatformFilters,
                         linkProduct: shouldLinkProduct
                     )
                     log(
@@ -517,11 +513,11 @@ extension PackagePIFProjectBuilder {
                     )
                 }
 
-            case .product(let productDependency, let packageConditions):
+            case .product(let productDependency, _):
                 let isLinkable = productDependency.isLinkable
                 self.handleProduct(
                     productDependency,
-                    with: packageConditions,
+                    platformFilters: dependencyPlatformFilters,
                     isLinkable: isLinkable,
                     target: &mainModuleTarget,
                     settings: &settings
@@ -580,7 +576,7 @@ extension PackagePIFProjectBuilder {
 
     private func handleProduct(
         _ product: PackageGraph.ResolvedProduct,
-        with packageConditions: [PackageModel.PackageCondition],
+        platformFilters: Set<ProjectModel.PlatformFilter>,
         isLinkable: Bool,
         target: inout ProjectModel.Target,
         settings: inout ProjectModel.BuildSettings
@@ -594,7 +590,7 @@ extension PackagePIFProjectBuilder {
             let shouldLinkProduct = isLinkable
             target.common.addDependency(
                 on: product.pifTargetGUID,
-                platformFilters: packageConditions.toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                platformFilters: platformFilters,
                 linkProduct: shouldLinkProduct
             )
             log(
@@ -816,9 +812,12 @@ extension PackagePIFProjectBuilder {
         // against them).
         var libraryUmbrellaTarget = self.project[keyPath: libraryUmbrellaTargetKeyPath]
         let mainModuleProducts = package.products.filter(\.isMainModuleProduct)
-        product.modules.recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: []) { dependency in
+        product.modules.recursivelyTraverseTransitiveLinkageDependencies(
+            includeDependenciesOfMacros: [],
+            toolsVersion: package.manifest.toolsVersion
+        ) { dependency, dependencyPlatformFilters in
             switch dependency {
-            case .module(let moduleDependency, let packageConditions):
+            case .module(let moduleDependency, _):
                 // This assertion is temporarily disabled since we may see targets from
                 // _other_ packages, but this should be resolved; see rdar://95467710.
                 /* assert(moduleDependency.packageName == self.package.name) */
@@ -832,12 +831,11 @@ extension PackagePIFProjectBuilder {
                     let binaryFileRef = self.binaryGroup.addFileReference { id in
                         FileReference(id: id, path: binaryTarget.artifactPath.pathString)
                     }
-                    let toolsVersion = package.manifest.toolsVersion
                     libraryUmbrellaTarget.addLibrary { id in
                         BuildFile(
                             id: id,
                             fileRef: binaryFileRef,
-                            platformFilters: packageConditions.toPlatformFilter(toolsVersion: toolsVersion),
+                            platformFilters: dependencyPlatformFilters,
                             codeSignOnCopy: true,
                             removeHeadersOnCopy: true
                         )
@@ -850,8 +848,7 @@ extension PackagePIFProjectBuilder {
                     let dependencyId = moduleDependency.pifTargetGUID
                     libraryUmbrellaTarget.common.addDependency(
                         on: dependencyId,
-                        platformFilters: packageConditions
-                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        platformFilters: dependencyPlatformFilters,
                         linkProduct: false
                     )
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyId)'")
@@ -869,8 +866,7 @@ extension PackagePIFProjectBuilder {
                     {
                         libraryUmbrellaTarget.common.addDependency(
                             on: product.pifTargetGUID,
-                            platformFilters: packageConditions
-                                .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                            platformFilters: dependencyPlatformFilters,
                             linkProduct: false
                         )
                         log(.debug, indent: 1, "Added dependency on product '\(product.pifTargetGUID)'")
@@ -886,12 +882,12 @@ extension PackagePIFProjectBuilder {
 
                 libraryUmbrellaTarget.common.addDependency(
                     on: moduleDependency.pifTargetGUID,
-                    platformFilters: packageConditions.toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                    platformFilters: dependencyPlatformFilters,
                     linkProduct: true
                 )
                 log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependency.pifTargetGUID)'")
 
-            case .product(let productDependency, let packageConditions):
+            case .product(let productDependency, _):
                 // Do not add a dependency for binary-only executable products since they are not part of the build.
                 if productDependency.isBinaryOnlyExecutableProduct {
                     return
@@ -904,8 +900,7 @@ extension PackagePIFProjectBuilder {
                     let shouldLinkProduct = productDependency.isLinkable
                     libraryUmbrellaTarget.common.addDependency(
                         on: productDependency.pifTargetGUID,
-                        platformFilters: packageConditions
-                            .toPlatformFilter(toolsVersion: package.manifest.toolsVersion),
+                        platformFilters: dependencyPlatformFilters,
                         linkProduct: shouldLinkProduct
                     )
                     log(
