@@ -1368,7 +1368,7 @@ func generateResourceInfoPlist(
 
 extension Basics.Triple {
     var isSupportingStaticStdlib: Bool {
-        isLinux() || arch == .wasm32
+        isLinux() || isFreeBSD() || arch == .wasm32
     }
 }
 

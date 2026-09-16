@@ -2,7 +2,7 @@ SRC_FILES := $(wildcard *.c)
 
 # Define architectures and platforms
 ARCHS := x86_64 arm64
-PLATFORMS := macos linux
+PLATFORMS := macos linux freebsd
 
 # Define output directories
 BUILD_DIR := build
@@ -20,10 +20,14 @@ MACOS_X86_64_FLAGS := -target x86_64-apple-macos$(MACOS_MIN_VERSION) -isysroot $
 MACOS_ARM64_FLAGS := -target arm64-apple-macos$(MACOS_MIN_VERSION) -isysroot $(MACOS_SDK)
 LINUX_X86_64_FLAGS := -target x86_64-unknown-linux-gnu
 LINUX_ARM64_FLAGS := -target aarch64-unknown-linux-gnu
+FREEBSD_X86_64_FLAGS := -target x86_64-unknown-freebsd
+FREEBSD_ARM64_FLAGS := -target aarch64-unknown-freebsd
 
-.PHONY: all clean macos linux universal
 
-all: macos linux
+
+.PHONY: all clean macos linux freebsd universal
+
+all: macos linux freebsd
 
 # Create necessary directories
 $(BUILD_DIR):
@@ -31,10 +35,17 @@ $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)/macos/arm64
 	mkdir -p $(BUILD_DIR)/linux/x86_64
 	mkdir -p $(BUILD_DIR)/linux/arm64
+	mkdir -p $(BUILD_DIR)/linux/x86_64
+	mkdir -p $(BUILD_DIR)/freebsd/x86_64
+	mkdir -p $(BUILD_DIR)/freebsd/arm64
+
+
+
 
 $(DIST_DIR):
 	mkdir -p $(DIST_DIR)/macos
 	mkdir -p $(DIST_DIR)/linux
+	mkdir -p $(DIST_DIR)/freebsd
 
 # macOS x86_64 build
 $(BUILD_DIR)/macos/x86_64/%.o: %.c | $(BUILD_DIR)
@@ -52,11 +63,23 @@ $(BUILD_DIR)/linux/x86_64/%.o: %.c | $(BUILD_DIR)
 $(BUILD_DIR)/linux/arm64/%.o: %.c | $(BUILD_DIR)
 	clang $(COMMON_FLAGS) $(LINUX_ARM64_FLAGS) -c -o $@ $<
 
+# FreeBSD x86_64 build
+$(BUILD_DIR)/freebsd/x86_64/%.o: %.c | $(BUILD_DIR)
+	clang $(COMMON_FLAGS) $(FREEBSD_X86_64_FLAGS) -c -o $@ $<
+
+# FreeBSD arm64 build
+$(BUILD_DIR)/freebsd/arm64/%.o: %.c | $(BUILD_DIR)
+	clang $(COMMON_FLAGS) $(FREEBSD_ARM64_FLAGS) -c -o $@ $<
+
 # Define object files for each platform and architecture
 MACOS_X86_64_OBJ_FILES := $(patsubst %.c,$(BUILD_DIR)/macos/x86_64/%.o,$(SRC_FILES))
 MACOS_ARM64_OBJ_FILES := $(patsubst %.c,$(BUILD_DIR)/macos/arm64/%.o,$(SRC_FILES))
 LINUX_X86_64_OBJ_FILES := $(patsubst %.c,$(BUILD_DIR)/linux/x86_64/%.o,$(SRC_FILES))
 LINUX_ARM64_OBJ_FILES := $(patsubst %.c,$(BUILD_DIR)/linux/arm64/%.o,$(SRC_FILES))
+FREEBSD_X86_64_OBJ_FILES := $(patsubst %.c,$(BUILD_DIR)/freebsd/x86_64/%.o,$(SRC_FILES))
+FREEBSD_ARM64_OBJ_FILES := $(patsubst %.c,$(BUILD_DIR)/freebsd/arm64/%.o,$(SRC_FILES))
+
+
 
 # Create individual architecture libraries
 $(DIST_DIR)/macos/libSimple_x86_64.a: $(MACOS_X86_64_OBJ_FILES) | $(DIST_DIR)
@@ -71,6 +94,12 @@ $(DIST_DIR)/linux/libSimple_x86_64.a: $(LINUX_X86_64_OBJ_FILES) | $(DIST_DIR)
 $(DIST_DIR)/linux/libSimple_arm64.a: $(LINUX_ARM64_OBJ_FILES) | $(DIST_DIR)
 	llvm-ar rc $@ $^
 
+$(DIST_DIR)/freebsd/libSimple_x86_64.a: $(FREEBSD_X86_64_OBJ_FILES) | $(DIST_DIR)
+	llvm-ar rc $@ $^
+
+$(DIST_DIR)/freebsd/libSimple_arm64.a: $(FREEBSD_ARM64_OBJ_FILES) | $(DIST_DIR)
+	llvm-ar rc $@ $^
+
 # Create universal binary for macOS
 $(DIST_DIR)/macos/libSimple.a: $(DIST_DIR)/macos/libSimple_x86_64.a $(DIST_DIR)/macos/libSimple_arm64.a
 	lipo -create -output $@ $^
@@ -79,6 +108,10 @@ $(DIST_DIR)/macos/libSimple.a: $(DIST_DIR)/macos/libSimple_x86_64.a $(DIST_DIR)/
 linux: $(DIST_DIR)/linux/libSimple_x86_64.a $(DIST_DIR)/linux/libSimple_arm64.a
 	@echo "Linux libraries built in $(DIST_DIR)/linux/"
 	@echo "Note: For Linux, use the architecture-specific libraries as needed."
+
+freebsd: $(DIST_DIR)/freebsd/libSimple_x86_64.a $(DIST_DIR)/freebsd/libSimple_arm64.a
+	@echo "FreeBSD libraries built in $(DIST_DIR)/freebsd/"
+	@echo "Note: For FreeBSD, use the architecture-specific libraries as needed."
 
 macos: $(DIST_DIR)/macos/libSimple.a
 	@echo "macOS universal library built at $(DIST_DIR)/macos/libSimple.a"

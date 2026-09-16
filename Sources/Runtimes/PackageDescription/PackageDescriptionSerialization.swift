@@ -288,6 +288,7 @@ enum Serialization {
         case apt([String])
         case yum([String])
         case nuget([String])
+        case pkg([String])
     }
 
     struct Package: Codable {

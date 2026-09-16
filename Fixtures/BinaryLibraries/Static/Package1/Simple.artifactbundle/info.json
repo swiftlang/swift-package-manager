@@ -45,7 +45,22 @@
                         "moduleMapPath": "include/simple.modulemap"
                     }
                 },
-                             
+                {
+                    "path": "dist/freebsd/libSimple_x86_64.a",
+                    "supportedTriples": ["x86_64-unknown-freebsd"],
+                    "staticLibraryMetadata": {
+                        "headerPaths": ["include"],
+                        "moduleMapPath": "include/simple.modulemap"
+                    }
+                },
+                {
+                    "path": "dist/freebsd/libSimple_arm64.a",
+                    "supportedTriples": ["aarch-unknown-freebsd"],
+                    "staticLibraryMetadata": {
+                        "headerPaths": ["include"],
+                        "moduleMapPath": "include/simple.modulemap"
+                    }
+                },
             ]
         }
     }
