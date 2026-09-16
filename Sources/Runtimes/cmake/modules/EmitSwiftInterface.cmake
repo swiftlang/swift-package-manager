@@ -15,8 +15,6 @@
 # TODO: CMake should learn how to model library evolution and generate this
 #       stuff automatically.
 
-
-# Generate a swift interface file for the target if library evolution is enabled
 function(emit_swift_interface target)
   # Generate the target-variant binary swift module when performing zippered
   # build
@@ -37,17 +35,25 @@ function(emit_swift_interface target)
     message(STATUS "Removing regular file ${CMAKE_CURRENT_BINARY_DIR}/${module_name}.swiftmodule to support nested swiftmodule generation")
     file(REMOVE "${CMAKE_CURRENT_BINARY_DIR}/${module_name}.swiftmodule")
   endif()
-  target_compile_options(${target} PRIVATE
-    "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-emit-module-path ${CMAKE_CURRENT_BINARY_DIR}/${module_name}.swiftmodule/${${PROJECT_NAME}_MODULE_TRIPLE}.swiftmodule>")
+
+  set(_cmp0195_status "OLD")
+  if(POLICY CMP0195)
+    cmake_policy(GET CMP0195 _cmp0195_status)
+  endif()
+  if(NOT _cmp0195_status STREQUAL "NEW")
+    target_compile_options(${target} PRIVATE
+      "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-emit-module-path ${CMAKE_CURRENT_BINARY_DIR}/${module_name}.swiftmodule/${${PROJECT_NAME}_MODULE_TRIPLE}.swiftmodule>")
+    add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${module_name}.swiftmodule/${${PROJECT_NAME}_MODULE_TRIPLE}.swiftmodule"
+        DEPENDS ${target})
+    target_sources(${target}
+        INTERFACE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/${module_name}.swiftmodule/${${PROJECT_NAME}_MODULE_TRIPLE}.swiftmodule>)
+  endif()
+
   if(${PROJECT_NAME}_VARIANT_MODULE_TRIPLE)
     target_compile_options(${target} PRIVATE
       "$<$<COMPILE_LANGUAGE:Swift>:SHELL:-emit-variant-module-path ${CMAKE_CURRENT_BINARY_DIR}/${module_name}.swiftmodule/${${PROJECT_NAME}_VARIANT_MODULE_TRIPLE}.swiftmodule>")
   endif()
-  add_custom_command(OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${module_name}.swiftmodule/${${PROJECT_NAME}_MODULE_TRIPLE}.swiftmodule"
-    DEPENDS ${target})
-  target_sources(${target}
-    INTERFACE
-      $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/${module_name}.swiftmodule/${${PROJECT_NAME}_MODULE_TRIPLE}.swiftmodule>)
 
   # Generate textual swift interfaces is library-evolution is enabled
   if(${PROJECT_NAME}_ENABLE_LIBRARY_EVOLUTION)
