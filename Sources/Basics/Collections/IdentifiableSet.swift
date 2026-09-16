@@ -63,8 +63,15 @@ public struct IdentifiableSet<Element: Identifiable & Sendable>: Collection, Sen
         Index(storageIndex: self.storage.elements.index(after: i.storageIndex))
     }
 
-    public mutating func insert(_ element: Element) {
-        self.storage[element.id] = element
+    @discardableResult
+    public mutating func insert(_ element: Element) -> (inserted: Bool, memberAfterInsert: Element) {
+        if let existingMember = self.storage[element.id] {
+            return (false, existingMember)
+        } else {
+            self.storage[element.id] = element
+            return (true, element)
+        }
+
     }
 
     public func union(_ otherSequence: some Sequence<Element>) -> Self {
