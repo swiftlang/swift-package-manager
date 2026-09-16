@@ -16,11 +16,13 @@ import struct Basics.Diagnostic
 package enum CoverageFormat: String, ExpressibleByArgument, CaseIterable {
     case html
     case json
+    case lcov
 
     package var defaultValueDescription: String {
         switch self {
             case .json: "Produce a JSON coverage report by executing 'llvm-cov export'."
             case .html: "Produce an HTML report by executing 'llvm-cov show'."
+            case .lcov: "Produce an LCOV coverage report by executing 'llvm-cov export'."
         }
     }
 }
