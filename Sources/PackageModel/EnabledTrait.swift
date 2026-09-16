@@ -166,6 +166,12 @@ public struct EnabledTraitsMap {
     // for packages that can be versioned.
     public subscript(manifest: Manifest) -> EnabledTraits {
         get {
+            // A package that declares no traits can only be built with its defaults, whatever its parents
+            // or a trait configuration asked of it.
+            guard manifest.supportsTraits else {
+                return .defaults
+            }
+
             // use manifest version to acquire per-version traits
             let identity = manifest.packageIdentity
             guard let version = manifest.version else {
