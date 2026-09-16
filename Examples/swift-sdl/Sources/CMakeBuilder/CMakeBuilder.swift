@@ -29,38 +29,29 @@ struct CMakeBuilder: AsyncParsableCommand {
         }
 
         if !FileManager.default.fileExists(atPath: outputDir + "/build.ninja") {
-            print("Configuring...")
             try await configure(sourceDir: sourceDir, outputDir: outputDir)
         }
 
-        print("Building...")
         try await build(outputDir: outputDir)
     }
 
     // Do the build of the static library (skipping tests and utilities)
     func build(outputDir: String) async throws {
+        var arguments = [
+            "--build", outputDir,
+            "--target", "SDL3-static"
+        ]
+        let tripleComps = triple.split(separator: "-")
+        if tripleComps.count > 3, tripleComps[3].hasPrefix("android") {
+            arguments.append("SDL3-jar")
+        }
+
         _ = try await Subprocess.run(
             .name("cmake"),
-            arguments: [
-                "--build", outputDir,
-                "--target", "SDL3-static"
-            ],
+            arguments: .init(arguments),
             output: .currentStandardOutput,
             error: .currentStandardError
         )
-
-        let tripleComps = triple.split(separator: "-")
-        if tripleComps.count > 3, tripleComps[3].hasPrefix("android") {
-            _ = try await Subprocess.run(
-                .name("cmake"),
-                arguments: [
-                    "--build", outputDir,
-                    "--target", "SDL3-jar"
-                ],
-                output: .currentStandardOutput,
-                error: .currentStandardError
-            )
-        }
     }
 
     // Run the configure step of the CMake build

@@ -565,8 +565,6 @@ struct PackagePIFProjectBuilder {
             workingDir = nil
         }
 
-        // TODO: support always build for CMakeBuilder
-
         return ProjectModel.CustomTask(
             commandLine: commandLine.map { resolveVariables($0) },
             environment: command.environment.map { Pair($0, resolveVariables($1)) }.sorted(by: <),
@@ -575,7 +573,9 @@ struct PackagePIFProjectBuilder {
             inputFilePaths: command.inputPaths.map(\.pathString).map { resolveVariables($0) },
             outputFilePaths: command.outputPaths.map { resolveVariables($0) },
             enableSandboxing: false,
-            preparesForIndexing: true
+            preparesForIndexing: true,
+            alwaysOutOfDate: command.alwaysOutOfDate,
+            platformFilters: .init(command.targetPlatforms.flatMap { $0.toPlatformFilter() })
         )
     }
 

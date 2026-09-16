@@ -85,12 +85,16 @@ Things that need to be resolved:
 - How do plugins handle builds for multiple platforms?
     - Some of the commands it adds only work on certain platforms, e.g. building the jar files in SDL are only for Android
     - Can we add "when" clauses to the commands?
-- How do we implement cross-platform copy and touch commands?
-    - We could introduce variables for the commands and detect them.
-    - We don't want to open the sandbox to the product directory so the copy task needs to be managed carefully
+    - We could plumb through platform filters on CustomTasks and add filter checks in the CustomTaskProducer
+- How do we implement cross-platform copy commands?
+    -      We don't want to open the sandbox to the product directory so the copy task needs to be managed carefully
+    - But then, do we really want to be having copies both in the plugin output and the products dir? Would a move command make more sense?
+- The SDL Android example has already hit the target/product problem.
+    - We have a shared library product for the native code.
+    - We then want to add plugins that take that native code, does a Java (or Kotlin) build for the Java bridge, and assembles the APK
+    - Ideally we add the plugins to the shared library "target" that creates Commands with the shared library as an input file.
 ## Examples
 To help confirm we have the desired capability and ergonomics, we'll produce examples in the Examples directory.
-- Simple Java compile, produce jar from classes
 - SDL that includes an executable that shows calls into SDL working
     - Builds for host and for Android including creating an APK
 - MLX-swift and shaders

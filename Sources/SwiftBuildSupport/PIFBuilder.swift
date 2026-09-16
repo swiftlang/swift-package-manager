@@ -405,7 +405,7 @@ public final class PIFBuilder {
 
                     prebuildCommands.append(contentsOf: result.prebuildCommands)
 
-                    buildCommands.append(contentsOf: result.buildCommands.map( { buildCommand in
+                    try buildCommands.append(contentsOf: result.buildCommands.map( { buildCommand in
                         var newEnv: Environment = buildCommand.configuration.environment
 
                         // FIXME: This is largely a workaround for improper rpath setup on Linux. It should be
@@ -429,7 +429,7 @@ public final class PIFBuilder {
 
                         let writableDirectories: [AbsolutePath] = [pluginOutputDir]
 
-                        return PackagePIFBuilder.CustomBuildCommand(
+                        return try PackagePIFBuilder.CustomBuildCommand(
                             displayName: buildCommand.configuration.displayName,
                             executable: buildCommand.configuration.executable.pathString,
                             arguments: buildCommand.configuration.arguments,
@@ -437,6 +437,8 @@ public final class PIFBuilder {
                             workingDir: package.path,
                             inputPaths: buildCommand.inputFiles,
                             outputPaths: buildCommand.outputFiles.map(\.pathString),
+                            alwaysOutOfDate: buildCommand.alwaysOutOfDate,
+                            targetPlatforms: buildCommand.targetPlatforms.map { try .init(from: $0) },
                             pluginOutputDir: pluginOutputDir,
                             sandboxProfile:
                                 self.parameters.disableSandbox ?

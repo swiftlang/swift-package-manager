@@ -24,7 +24,8 @@ struct CMakeBuilderPlugin: BuildToolPlugin {
                     "--triple", "$(TRIPLE)",
                     target.directoryURL.path,
                 ],
-                outputFiles: [libSDL3]
+                outputFiles: [libSDL3],
+                alwaysOutOfDate: true
             ),
             .buildCommand(
                 displayName: "Copy libSDL.a",
@@ -35,7 +36,19 @@ struct CMakeBuilderPlugin: BuildToolPlugin {
                 ],
                 inputFiles: [libSDL3],
                 outputFiles: [productsDir.appending(path: "libSDL3.a")]
-            )
+            ),
+            .buildCommand(
+                displayName: "Copy SDL3.jar",
+                executable: URL(string: "file:/$(COPY_CMD)")!,
+                arguments: [
+                    "-L",
+                    buildDir.appending(path: "SDL3.jar").path,
+                    productsDir.path,
+                ],
+                inputFiles: [libSDL3],
+                outputFiles: [productsDir.appending(path: "SDL3.jar")],
+                targetPlatforms: [.android]
+            ),
         ]
     }
 }
