@@ -2283,6 +2283,185 @@ Test-only change — no production code touched. Cycle detection already worked;
 
 ---
 
+## Phase 17: Workspace-aware `swift package-registry publish`
+
+### Overview
+
+`swift package-registry publish` today publishes a single package as-is. Under a workspace, a member's `Package.swift` contains `.package(workspaceMember: ...)` and `.package(workspaceInherited: ...)` deps that a consumer downloading the archive from the registry cannot resolve — the workspace isn't there. Make publish workspace-aware by producing a self-contained archive: rewrite workspace-scoped deps and vendor sibling workspace-member sources directly into the archive.
+
+**Design decisions (approved before kickoff):**
+
+- **Self-contained archives via vendoring.** `.workspaceMember` siblings are copied into `.vendored/<identity>/` at the archive root; refs are rewritten to `.package(path: ".vendored/<identity>")` (or `"../<identity>"` when the rewrite is inside another vendored sibling — flat layout so grandchild `.workspaceMember` refs dedup).
+- **`.workspaceInherited` rewritten to concrete form.** Replaced with the concrete `.package(url:)` / `.package(id:)` / `.package(path:)` from the workspace's resolved dep. External deps are not vendored — the consumer's resolver fetches them normally.
+- **Recursive rewrite.** Every vendored `Package.swift` receives the same rewrite treatment (its own `.workspaceInherited` and `.workspaceMember` deps are rewritten too).
+- **Dirty-tree gate covers every archived directory.** Refuse publish if the primary package's directory OR any transitively-vendored sibling directory has uncommitted changes or untracked files. Message lists the offending files per directory.
+- **All manifests signed.** SwiftPM currently signs only root-level `Package.swift` / `Package@swift-X.Y.swift`. Under a workspace publish, every `Package.swift` in the archive is signed (root + each vendored sibling), for consistency with the existing per-manifest signing contract. Archive-level signing alone would be sufficient, but per-manifest signatures make the vendored manifests independently verifiable and match user expectations set by non-workspace publishes.
+- **Provenance metadata per vendored sibling.** Each `.vendored/<identity>/` gets a `.workspace-provenance.json` documenting where the vendored bytes came from — workspace-relative source path, git SHA (best-effort; may be null if not tracked), git-clean flag. Informational only; the toolchain does not use it during dep resolution.
+- **No DSL changes required for this phase.** Members do not need a registry decl since they are not published individually. The primary package's scope/identity/version come from the CLI (unchanged from today).
+- **`--package <identity>` selector.** Mirrors `swift build --package` / `swift test --package` / `swift package update --package` (Phases 5, 6, 11). Selects which workspace member to publish as the primary. Scope selection rules match the other workspace-aware commands: no `--package` inside a member → CWD auto-selects that member; no `--package` at a workspace root with 2+ members → hard error listing the known identities; `--package <id>` from anywhere → selects that member; unknown identity → hard error. Outside a workspace, `--package` surfaces the same "requires a Workspace.swift" error as the other commands.
+- **No transitive publish.** One archive contains everything; no walk of the workspaceMember DAG for publishing.
+- **Snapshot versioning avoided.** Because siblings are vendored (not published), no `0.0.0-<sha>` scheme, no per-commit publish contract, no requirement that siblings live in a git repo at all.
+
+### Approach
+
+The workspace-aware publish pipeline sits between the existing `Publish.run(...)` argument-parsing and the existing `PackageArchiver.archive(...)` step in `Sources/PackageRegistryCommand/PackageRegistryCommand+Publish.swift`.
+
+1. **Detect workspace context + resolve primary.** After argument parsing, if `PackageWorkspace.discoverWorkspaceRoot(from:)` resolves the CWD to a workspace root, take the workspace-aware path. The primary member is chosen by (in order): `--package <identity>` if supplied; else the member containing CWD; else — at the workspace root with 2+ members — hard-error listing the known identities. If not under a workspace, `--package` (if supplied) surfaces the standard "requires a Workspace.swift" error; otherwise fall through to existing single-package behavior.
+2. **Compute the transitive workspace-member closure.** Walk `.workspaceMember` deps from the primary package's manifest; recurse through each reached sibling. Cycles are already rejected at graph load (Phase 16); the walk uses the same graph.
+3. **Stage the archive tree.** In the existing temp working directory (`PackageArchiver.archive`'s scratch path), lay out:
+   - The primary package's tree at the archive root.
+   - A `.vendored/<identity>/` subdirectory for each member in the transitive closure, copied verbatim from its workspace-source path.
+4. **Dirty-tree gate.** For the primary package's directory and each vendored sibling's directory, check git status (or "not tracked" — treat as clean). Refuse with a per-directory file list if any is dirty.
+5. **Recursive manifest rewrite.** Run the rewrite pass (Swift Syntax) over `.staged/Package.swift` and every `.staged/.vendored/<id>/Package.swift`.
+6. **Provenance emission.** Write `.staged/.vendored/<id>/.workspace-provenance.json` per vendored sibling.
+7. **Manifest signing (extended).** For each `Package.swift` and `Package@swift-X.Y.swift` in the staged tree (root + vendored), invoke the existing per-manifest signing path.
+8. **Hand off to `PackageArchiver.archive(...)`.** The staged tree is now self-contained; the existing archive → sign → publish sequence runs unchanged.
+
+### Sub-slices
+
+Each sub-slice lands as its own commit; slices with a "TDD cycles" table are managed under the `/feature` TDD skill (matching the Phase 8D / Phase 9 pattern).
+
+#### 17a — Manifest rewrite pass
+
+**Files**:
+- New: `Sources/Workspace/PublishManifestRewriter.swift`
+- Tests: `Tests/WorkspaceTests/PublishManifestRewriterTests.swift`
+
+Swift Syntax-based rewriter. Input: a `Package.swift` source string + rewrite context (workspace's resolved deps map for `.workspaceInherited`, vendored-identity set + relative-path base for `.workspaceMember`). Output: rewritten source string.
+
+Rewrite rules:
+- `.package(workspaceInherited: "X", traits: T)` → concrete `.package(url:...)` / `.package(id:...)` / `.package(path:...)` from the workspace's resolved dep. Traits are the union already computed by `resolveInherited` (Phase 3).
+- `.package(workspaceMember: "X", traits: T)` → `.package(path: "<relative-base>/<X>", traits: T)`. Relative base is `.vendored` when rewriting the primary; `..` when rewriting inside a vendored sibling.
+
+Sharing surface with `InitWorkspace.renderManifest` (Phase 9) — both use Swift Syntax to edit manifest source. Extract shared helpers if they emerge; otherwise keep parallel.
+
+#### 17b — Sibling vendoring
+
+**Files**:
+- New: `Sources/Workspace/PublishStagingBuilder.swift`
+- Tests: `Tests/WorkspaceTests/PublishStagingBuilderTests.swift`
+
+Given a workspace's transitive workspace-member closure rooted at the primary, copy each member's source tree to `<staging>/.vendored/<identity>/`. Respects `.gitignore` and standard SwiftPM archive exclusions (`.build/`, `.swiftpm/`, etc.).
+
+Flat layout: grandchild `.workspaceMember` refs from a vendored sibling to another workspace member resolve to `../<identity>` (sibling in `.vendored/`), so any member appears at most once in the archive regardless of DAG depth.
+
+#### 17c — Provenance metadata
+
+**Files**:
+- New: `Sources/Workspace/PublishProvenance.swift`
+- Tests: `Tests/WorkspaceTests/PublishProvenanceTests.swift`
+
+`.workspace-provenance.json` schema (informational, versioned):
+
+```json
+{
+  "version": 1,
+  "identity": "lib-b",
+  "workspaceSourcePath": "packages/lib-b",
+  "git": {
+    "tracked": true,
+    "sha": "abc1234def5678901234567890abcdef01234567",
+    "clean": true
+  }
+}
+```
+
+When the sibling is not in a git working tree, `"git"` is `null`. When tracked but dirty, `"clean": false` (this should never actually publish because the dirty gate refuses first — the field is defensive).
+
+#### 17d — Dirty-tree gate
+
+**Files**:
+- New: `Sources/Workspace/PublishCleanTreeGate.swift`
+- Tests: `Tests/WorkspaceTests/PublishCleanTreeGateTests.swift`
+
+Given the primary package's directory + the transitive vendored-sibling directories, checks each via `git status --porcelain` (skipping directories not inside a git repo — those are trivially "clean" by absence of tracking). Aggregates the per-directory dirty file lists and throws `PublishError.dirtyWorkingTree(directories:)` naming each dirty directory and the offending files under it.
+
+Diagnostic wording (approved):
+
+```
+✗ Cannot publish: uncommitted changes in one or more directories
+  to be archived.
+  packages/app has uncommitted changes:
+      M  Sources/App/main.swift
+      ?? Sources/App/Draft.swift
+  packages/lib-b has uncommitted changes:
+      M  Sources/LibB/LibB.swift
+  Commit or stash before publishing so the published archive
+  bytes are reproducible from a git ref.
+```
+
+#### 17e — Extended manifest signing
+
+**File**: `Sources/PackageRegistryCommand/PackageRegistryCommand+Publish.swift`
+
+Extend `findManifests(packageDirectory:)` at line 428 to walk `<packageDirectory>/.vendored/*/Package.swift` (and `Package@swift-*.swift`) in addition to root-level manifests. Sign each with the existing per-manifest signing path.
+
+#### 17f — Publish command wiring
+
+**Files**:
+- Modified: `Sources/PackageRegistryCommand/PackageRegistryCommand+Publish.swift`
+- New: `Sources/Workspace/PackageWorkspace+Publish.swift` (thin façade that composes 17a–17d)
+
+Add `--package <identity>` (`@Option(name: .customLong("package"))`) to the `Publish` struct. `Publish.run(...)` gains a workspace-detection branch after argument parsing:
+
+1. Resolve the primary member via the scope rules in the design decisions (CWD-inside-member auto-selects; `--package` overrides; workspace-root with 2+ members and no `--package` errors listing known identities; unknown identity errors).
+2. Invoke `PackageWorkspace.stageForPublish(primary:workingDirectory:)` which returns a `StagedPackage { directory: AbsolutePath; manifestsToSign: [AbsolutePath] }`.
+3. The rest of the flow (archive, sign, publish) runs unchanged, pointed at the staged directory instead of the source directory.
+
+Non-workspace publishes take the existing pre-Phase-17 path bit-for-bit — including honoring `--package` only under a workspace (outside a workspace, supplying `--package` errors with the same "requires a Workspace.swift" diagnostic used by other workspace-aware commands).
+
+#### 17g — E2E tests + fixtures
+
+**Location**: `Tests/FunctionalTests/WorkspaceFeatureTests.swift` + `Fixtures/Workspaces/S17_Publish/`
+
+Fixtures (each a self-contained workspace):
+- `S17_Publish/SimpleMember/` — workspace with 1 primary + 0 workspace-member deps (baseline: rewrite `.workspaceInherited` only).
+- `S17_Publish/TwoHopDag/` — primary → lib-b → lib-c. Verifies flat vendoring and recursive rewrite.
+- `S17_Publish/DirtyPrimary/` — primary has uncommitted changes; expect refuse.
+- `S17_Publish/DirtyVendored/` — sibling has uncommitted changes; expect refuse.
+- `S17_Publish/NotTracked/` — sibling not in git; expect success with `git: null` in provenance.
+- `S17_Publish/InheritedInVendored/` — vendored sibling has its own `.workspaceInherited` dep; expect recursive rewrite to concrete form.
+- `S17_Publish/MultiMemberSelector/` — workspace with 2+ members; exercises `--package` selector paths.
+
+E2E test asserts:
+- `s17_publish_simpleMember_producesArchiveWithRewrittenInherited` — inspect the produced archive, confirm `Package.swift` has no `.workspaceInherited` calls remaining.
+- `s17_publish_twoHopDag_producesFlatVendoredArchive` — confirm `.vendored/lib-b/`, `.vendored/lib-c/` both present at archive root; confirm `.vendored/lib-b/Package.swift` refs lib-c via `../lib-c`.
+- `s17_publish_dirtyPrimary_refuses` — assert refuse diagnostic + zero registry calls.
+- `s17_publish_dirtyVendored_refuses` — assert refuse diagnostic names the vendored member's directory.
+- `s17_publish_notTracked_succeedsWithNullProvenance` — assert provenance file present with `"git": null`.
+- `s17_publish_inheritedInVendored_recursiveRewrite` — assert vendored manifest's `.workspaceInherited` is rewritten to concrete form.
+- `s17_publish_signsAllManifests` — assert every `Package.swift` in the produced archive has a corresponding signature (per-manifest signing extended).
+- `s17_publish_packageSelector_fromWorkspaceRoot_selectsMember` — from workspace root with `--package lib-b`, primary is lib-b.
+- `s17_publish_packageSelector_fromMemberCwd_autoSelects` — from `packages/lib-b`, no `--package`, primary is lib-b.
+- `s17_publish_workspaceRoot_multiMember_noSelector_errors` — from workspace root with 2+ members and no `--package`, hard-errors listing member identities and exiting non-zero.
+- `s17_publish_packageSelector_unknownIdentity_errors` — unknown identity is rejected with the known-members list.
+- `s17_publish_packageSelector_outsideWorkspace_errors` — `--package` supplied without a discoverable `Workspace.swift` surfaces the standard "requires a Workspace.swift" diagnostic.
+
+### Success Criteria
+
+#### Automated Verification:
+- [ ] `PublishManifestRewriterTests` — every rewrite rule covered per DSL variant (workspaceInherited: file-system/source-control/registry × traits present/absent; workspaceMember: at primary depth × at vendored depth).
+- [ ] `PublishStagingBuilderTests` — flat-layout property (any member appears at most once regardless of DAG depth); respects standard SwiftPM archive exclusions.
+- [ ] `PublishProvenanceTests` — schema round-trip; tracked-clean / tracked-dirty / not-tracked cases.
+- [ ] `PublishCleanTreeGateTests` — per-directory aggregation; not-in-git directories are trivially clean.
+- [ ] `--package <identity>` selector covered per scope rule (CWD auto-select, workspace-root disambiguation error, unknown identity, outside-workspace error).
+- [ ] E2E tests above pass on macOS + Linux.
+- [ ] Non-workspace publish path unchanged — existing `PackageRegistryCommand+Publish` tests pass unmodified.
+- [ ] Full regression green.
+
+#### Manual Verification:
+- [ ] Run `swift package-registry publish` against a two-hop workspace pointing at a local registry (e.g., `swift-registry-emulator`); inspect the pushed archive contents and provenance files.
+- [ ] Verify the pushed archive is consumable from a fresh directory: `swift package init`, add `.package(id: "my-scope.app", exact: "2.0.0")`, `swift build`.
+
+### Future Directions
+
+- **Registry-level dedup / shared source archives.** Today each publish of a workspace-member-using primary carries its own vendored copy of every reached sibling. If a workspace publishes `app` and `tools` and both use `lib-b`, the registry stores `lib-b` bytes twice (once per parent archive). Future work: a "shared archive" registry protocol extension that lets siblings be published once and referenced by hash from consumer archives, reducing storage and download size for consumers who fetch multiple parents. Out of scope for this phase — the vendored-per-parent model works correctly, just at a size cost.
+- **Snapshot-versioned workspace-member publishing.** An alternative to vendoring is publishing workspace members as first-class registry entries under a snapshot version scheme (e.g., `0.0.0-<gitSha>`), then rewriting `.workspaceMember` refs to registry pins. Considered and set aside because it requires every sibling to live in a git repo, adds transitive publish orchestration, and complicates the dirty-tree contract. Revisit if the vendoring approach hits archive-size or version-of-record ceilings in production use.
+- **Registry decl on `Workspace.Member`.** A per-member registry scope in `Workspace.swift` would enable "some members are vendored, some are published independently" hybrid publishing, and support the snapshot-versioned alternative above. Deferred until the vendored-only model has run in production.
+- **`--dry-run` on `swift package-registry publish`.** Preview the staged archive contents (rewritten manifests, vendored siblings, provenance) without pushing to the registry. Falls out mechanically from the staging step. Out of scope for MVP; add if user feedback asks for it.
+
+---
+
 ## Cross-Cutting Concerns
 
 These items don't belong to any single slice but must be addressed during implementation.
