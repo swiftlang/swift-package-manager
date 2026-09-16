@@ -19,6 +19,9 @@ that can be used as a starting point.
 **Important Note**: This list is not in any particular order. I plan to keep
 this post updated, but please let me know if you see something out-of-date.
 
+For the list of formal Swift Evolution proposals that affect SwiftPM, see
+[EvolutionProposals.md](EvolutionProposals.md).
+
 ## Mirror and Fork Support
 
 You may want an easy way to mirror or fork specific packages in your package
