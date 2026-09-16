@@ -183,6 +183,12 @@ extension Package.Dependency {
         case exact(Version)
         /// A requirement based on a range of versions.
         case range(Range<Version>)
+        /// A requirement based on the union of a list of version ranges.
+        ///
+        /// An allowable version is any version contained in at least one of the
+        /// given ranges. Exact versions are represented as single-version ranges.
+        @available(_PackageDescription, introduced: 999.0)
+        case ranges([Range<Version>])
         /// A commit based requirement.
         case revision(String)
         /// A branch based requirement.
@@ -209,6 +215,12 @@ extension Package.Dependency {
         case exact(Version)
         /// A requirement based on a range of versions.
         case range(Range<Version>)
+        /// A requirement based on the union of a list of version ranges.
+        ///
+        /// An allowable version is any version contained in at least one of the
+        /// given ranges. Exact versions are represented as single-version ranges.
+        @available(_PackageDescription, introduced: 999.0)
+        case ranges([Range<Version>])
     }
 }
 

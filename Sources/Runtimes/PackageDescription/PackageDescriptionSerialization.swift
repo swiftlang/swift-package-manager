@@ -125,9 +125,15 @@ enum Serialization {
             var name: String
             var condition: Condition?
         }
+        struct VersionRange: Codable {
+            let lowerBound: Version
+            let upperBound: Version
+        }
+
         enum SourceControlRequirement: Codable {
             case exact(Version)
             case range(lowerBound: Version, upperBound: Version)
+            case ranges([VersionRange])
             case revision(String)
             case branch(String)
         }
@@ -135,6 +141,7 @@ enum Serialization {
         enum RegistryRequirement: Codable {
             case exact(Version)
             case range(lowerBound: Version, upperBound: Version)
+            case ranges([VersionRange])
         }
 
         enum Kind: Codable {
