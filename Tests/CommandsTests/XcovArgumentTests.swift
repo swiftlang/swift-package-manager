@@ -413,7 +413,7 @@ struct XcovArgumentCollectionTests {
         func collectionWithOnlyUnsupportedFormats() throws {
             // Given: Collection with only unsupported formats
             let arg1 = try #require(XcovArgument(argument: "xml=file1.xml"))
-            let arg2 = try #require(XcovArgument(argument: "clover=file2.clover"))
+            let arg2 = try #require(XcovArgument(argument: "lcov=file2.lcov"))
             let arg3 = try #require(XcovArgument(argument: "cobertura=file3.xml"))
 
             let collection = XcovArgumentCollection([arg1, arg2, arg3])
@@ -424,9 +424,9 @@ struct XcovArgumentCollectionTests {
             let lcovResult = collection.getArguments(for: .lcov)
 
             // Then: Should return all unsupported format values
-            #expect(jsonResult == ["xml=file1.xml", "clover=file2.clover", "cobertura=file3.xml"])
-            #expect(htmlResult == ["xml=file1.xml", "clover=file2.clover", "cobertura=file3.xml"])
-            #expect(lcovResult == ["xml=file1.xml", "clover=file2.clover", "cobertura=file3.xml"])
+            #expect(jsonResult == ["xml=file1.xml", "cobertura=file3.xml"])
+            #expect(htmlResult == ["xml=file1.xml", "cobertura=file3.xml"])
+            #expect(lcovResult == ["xml=file1.xml", "file2.lcov", "cobertura=file3.xml"])
         }
     }
 
@@ -442,7 +442,7 @@ struct XcovArgumentCollectionTests {
                 try #require(XcovArgument(argument: "html=first.html")),
                 try #require(XcovArgument(argument: "json=second.json")),
                 try #require(XcovArgument(argument: "plain.txt")),  // No format
-                try #require(XcovArgument(argument: "clover=unsupported2.clover")),
+                try #require(XcovArgument(argument: "lcov=unsupported2.lcov")),
                 try #require(XcovArgument(argument: "html=second.html"))
             ]
 
@@ -457,7 +457,6 @@ struct XcovArgumentCollectionTests {
                 "xml=unsupported1.xml", // unsupported format
                 "second.json",          // json format
                 "plain.txt",            // no format specified
-                "clover=unsupported2.clover" // unsupported format
             ])
 
             // When: Getting arguments for html format
@@ -468,9 +467,19 @@ struct XcovArgumentCollectionTests {
                 "xml=unsupported1.xml", // unsupported format
                 "first.html",           // html format
                 "plain.txt",            // no format specified
-                "clover=unsupported2.clover", // unsupported format
                 "second.html"           // html format
             ])
+
+            // When: Getting arguments for lcov format
+            let lcovResult = collection.getArguments(for: .lcov)
+
+            // Then: Should include the lcov-tagged argument plus unsupported/no-format ones
+            #expect(lcovResult == [
+                "xml=unsupported1.xml", // unsupported format
+                "plain.txt",            // no format specified
+                "unsupported2.lcov"     // lcov format
+            ])
+
         }
 
         @Test("Collection handles duplicate values correctly")
