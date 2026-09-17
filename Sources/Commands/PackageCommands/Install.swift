@@ -11,13 +11,13 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-import struct Basics.Environment
+import Basics
 import CoreCommands
 import Foundation
 import PackageGraph
 import PackageModel
 import SPMBuildCore
-import TSCBasic
+import struct TSCBasic.StringError
 import Workspace
 
 extension SwiftPackageCommand {
@@ -61,13 +61,13 @@ extension SwiftPackageCommand {
             let possibleCandidates = packageGraph.rootPackages.flatMap(\.products)
                 .filter { $0.type == .executable }
 
-            let productToInstall: Product
+            let productToInstall: ResolvedProduct
 
             switch possibleCandidates.count {
             case 0:
                 throw StringError("No Executable Products in Package.swift.")
             case 1:
-                productToInstall = possibleCandidates[0].underlying
+                productToInstall = possibleCandidates[0]
             default:
                 guard let product, let first = possibleCandidates.first(where: { $0.name == product }) else {
                     throw StringError(
@@ -78,7 +78,7 @@ extension SwiftPackageCommand {
                     )
                 }
 
-                productToInstall = first.underlying
+                productToInstall = first
             }
 
             if let existingPkg = alreadyExisting.first(where: { $0.name == productToInstall.name }) {
@@ -92,10 +92,29 @@ extension SwiftPackageCommand {
             let buildSystem = try await commandState.createBuildSystem(explicitProduct: productToInstall.name)
             try await buildSystem.build(subset: .product(productToInstall.name), buildOutputs: [])
 
-            let binPath = try await buildSystem.buildProductsPath(for: commandState.productsBuildParameters)
-                .appending(component: productToInstall.name)
+            let buildProductsPath = try await buildSystem.buildProductsPath(for: commandState.productsBuildParameters)
+            let binPath = buildProductsPath.appending(component: productToInstall.name)
             let finalBinPath = swiftpmBinDir.appending(component: binPath.basename)
             try commandState.fileSystem.copy(from: binPath, to: finalBinPath)
+
+            // `Bundle.module` looks for the resource bundle next to the executable, so it has to
+            // follow the binary out of the build directory.
+            let bundleExtension = try commandState.productsBuildParameters.triple.nsbundleExtension
+            let resourceBundles = try productToInstall.recursiveModuleDependencies()
+                .compactMap(\.underlying.bundleName)
+                .map { buildProductsPath.appending(component: $0 + bundleExtension) }
+                .filter { commandState.fileSystem.exists($0) }
+
+            for bundle in resourceBundles {
+                let destination = swiftpmBinDir.appending(component: bundle.basename)
+                try commandState.fileSystem.removeFileTree(destination)
+                try commandState.fileSystem.copy(from: bundle, to: destination)
+            }
+
+            try InstalledPackageProduct(
+                path: finalBinPath,
+                resourceBundlePaths: resourceBundles.map { swiftpmBinDir.appending(component: $0.basename) }
+            ).writeResourceRecord(commandState.fileSystem)
 
             print("Executable product `\(productToInstall.name)` was successfully installed to \(finalBinPath).")
         }
@@ -123,28 +142,64 @@ extension SwiftPackageCommand {
             }
 
             try tool.fileSystem.removeFileTree(removedExecutable.path)
+            for bundle in removedExecutable.resourceBundlePaths {
+                try tool.fileSystem.removeFileTree(bundle)
+            }
+            try tool.fileSystem.removeFileTree(removedExecutable.resourceRecordPath)
             print("Executable product `\(self.name)` was successfully uninstalled from \(removedExecutable.path).")
         }
     }
 }
 
 private struct InstalledPackageProduct {
+    /// Suffix of the sidecar recording the resource bundles installed next to an executable, so
+    /// that uninstalling removes exactly what installing added.
+    private static let recordSuffix = ".resources.json"
+
     static func installedProducts(_ fileSystem: FileSystem) throws -> [InstalledPackageProduct] {
         let binPath = try fileSystem.getOrCreateSwiftPMInstalledBinariesDirectory()
+        let contents = (try? fileSystem.getDirectoryContents(binPath)) ?? []
 
-        let contents = ((try? fileSystem.getDirectoryContents(binPath)) ?? [])
-            .map { binPath.appending($0) }
+        let bundleNamesByProduct = try contents
+            .filter { $0.hasPrefix(".") && $0.hasSuffix(self.recordSuffix) }
+            .reduce(into: [String: [String]]()) { result, record in
+                result[String(record.dropFirst().dropLast(self.recordSuffix.count))] = try JSONDecoder
+                    .makeWithDefaults()
+                    .decode(path: binPath.appending(record), fileSystem: fileSystem, as: [String].self)
+            }
+        let bundleNames = Set(bundleNamesByProduct.values.joined())
 
-        return contents.map { path in
-            InstalledPackageProduct(path: .init(path))
-        }
+        return contents
+            .filter { !$0.hasPrefix(".") && !bundleNames.contains($0) }
+            .map { name in
+                InstalledPackageProduct(
+                    path: binPath.appending(name),
+                    resourceBundlePaths: (bundleNamesByProduct[name] ?? []).map { binPath.appending(component: $0) }
+                )
+            }
     }
+
+    /// Path of the executable.
+    let path: AbsolutePath
+
+    /// Paths of the resource bundles installed alongside the executable.
+    let resourceBundlePaths: [AbsolutePath]
 
     /// The name of this installed product, being the basename of the path.
     var name: String {
         self.path.basename
     }
 
-    /// Path of the executable.
-    let path: AbsolutePath
+    var resourceRecordPath: AbsolutePath {
+        self.path.parentDirectory.appending(component: ".\(self.name)\(Self.recordSuffix)")
+    }
+
+    func writeResourceRecord(_ fileSystem: FileSystem) throws {
+        guard !self.resourceBundlePaths.isEmpty else { return }
+        try JSONEncoder.makeWithDefaults().encode(
+            path: self.resourceRecordPath,
+            fileSystem: fileSystem,
+            self.resourceBundlePaths.map(\.basename)
+        )
+    }
 }
