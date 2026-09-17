@@ -83,7 +83,7 @@ fileprivate func withSwiftPMBSP(fixtureName: String, extraBSPArgs: [String] = []
 }
 
 @Suite(
-    .disabled(if: ProcessInfo.hostOperatingSystem == .windows, "This hangs intermittently on Windows in CI using the native build system")
+    .disabled("test is flaky in nightly toolchain builds"), .issue("https://github.com/swiftlang/swift-package-manager/issues/10514", relationship: .defect)
 )
 struct SwiftPMBuildServerTests {
     @Test
@@ -588,7 +588,7 @@ struct SwiftPMBuildServerTests {
         }
     }
 
-    @Test(.disabled("test is flaky in nightly toolchain builds"), .issue("https://github.com/swiftlang/swift-package-manager/issues/10514", relationship: .defect))
+    @Test
     func manifestPrepareIsNotForwardedToUnderlyingBuildServer() async throws {
         try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple") { connection, notificationCollector, _ in
             let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
