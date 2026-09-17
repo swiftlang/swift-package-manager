@@ -875,6 +875,28 @@ struct PluginTests {
     }
 
     @Test(
+        .tags(
+            .Feature.Command.Package.Plugin,
+        )
+    )
+    func testPluginAPIsForTargetVisibilityAndLibraryTargets() async throws {
+        try await fixture(name: "Miscellaneous/Plugins/TargetVisibilityPluginAPIs") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                extraArgs: ["dump-targets"],
+                buildSystem: .swiftbuild,
+            )
+
+            #expect(stdout.contains("Plain.visibility = package"), "stdout:\n\(stdout)")
+            #expect(stdout.contains("Plain.kind = generic"), "stdout:\n\(stdout)")
+            #expect(stdout.contains("DynamicLib.visibility = public"), "stdout:\n\(stdout)")
+            #expect(stdout.contains("DynamicLib.kind = library"), "stdout:\n\(stdout)")
+            #expect(stdout.contains("Aggregate.visibility = public"), "stdout:\n\(stdout)")
+            #expect(stdout.contains("Aggregate.kind = none"), "stdout:\n\(stdout)")
+        }
+    }
+
+    @Test(
         .requiresSwiftConcurrencySupport,
     )
     func testPluginUsageDoesntAffectTestTargetMappings() async throws {
