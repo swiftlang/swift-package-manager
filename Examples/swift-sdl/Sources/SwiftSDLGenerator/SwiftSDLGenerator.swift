@@ -17,6 +17,11 @@ struct SwiftSDLGenerator {
         #define SDL_MAIN_USE_CALLBACKS 1
         #include <SDL3/SDL.h>
         #include <SDL3/SDL_main.h>
+
+        // Dummies for OpaquePointer, don't use these
+        struct SDL_Window { int _private; };
+        struct SDL_Renderer { int _private; };
+        struct SDL_IOStream { int _private; };
         """
 
         let headerFile = URL(fileURLWithPath: CommandLine.arguments[2])

@@ -49,6 +49,8 @@ struct CMakeBuilder: AsyncParsableCommand {
         _ = try await Subprocess.run(
             .name("cmake"),
             arguments: .init(arguments),
+            // Needed to build for Android
+            environment: .inherit.updating(["JDK_JAVAC_OPTIONS": "--release 17"]),
             output: .currentStandardOutput,
             error: .currentStandardError
         )

@@ -1278,8 +1278,10 @@ extension PackagePIFProjectBuilder {
                 self.project[keyPath: customTargetKeyPath].common.addDependency(
                     on: module.pifTargetGUID, platformFilters: .init()
                 )
-            case .product:
-                fatalError("TODO")
+            case .product(let product, conditions: _):
+                self.project[keyPath: customTargetKeyPath].common.addDependency(
+                    on: product.pifTargetGUID, platformFilters: .init()
+                )
             }
         }
 

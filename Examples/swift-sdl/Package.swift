@@ -51,6 +51,7 @@ let package = Package(
             ],
             linkerSettings: [
                 .linkedLibrary("SDL3"),
+
                 .linkedFramework("CoreMedia", .when(platforms: [.macOS])),
                 .linkedFramework("CoreVideo", .when(platforms: [.macOS])),
                 .linkedFramework("Cocoa", .when(platforms: [.macOS])),
@@ -68,6 +69,14 @@ let package = Package(
                 .linkedFramework("QuartzCore", .when(platforms: [.macOS])),
                 .linkedFramework("Security", .when(platforms: [.macOS])),
                 .linkedFramework("CoreHaptics", .when(platforms: [.macOS])),
+
+                .linkedLibrary("m", .when(platforms: [.android])),
+                .linkedLibrary("OpenSLES", .when(platforms: [.android])),
+                .linkedLibrary("dl", .when(platforms: [.android])),
+                .linkedLibrary("log", .when(platforms: [.android])),
+                .linkedLibrary("android", .when(platforms: [.android])),
+                .linkedLibrary("GLESv1_CM", .when(platforms: [.android])),
+                .linkedLibrary("GLESv2", .when(platforms: [.android])),
             ],
             plugins: ["SwiftSDLGenPlugin"]
         ),

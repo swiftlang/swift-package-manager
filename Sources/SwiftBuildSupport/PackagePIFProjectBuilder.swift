@@ -535,16 +535,23 @@ struct PackagePIFProjectBuilder {
         _ command: PackagePIFBuilder.CustomBuildCommand,
     ) -> ProjectModel.CustomTask {
         var variables: [String: String] = [:]
-        variables["COPY_CMD"] = "/bin/cp" // TODO: need a solution for Windows
         variables["CONFIGURATION"] = "$(CONFIGURATION)"
         variables["TRIPLE"] = "$(TARGET_TRIPLES)"
         variables["SDK"] = "$(SYSROOT)"
+        variables["SWIFT_RESOURCE_DIR"] = "$(SWIFT_RESOURCE_DIR)"
         variables["BUILD_SUBDIR"] = "$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)"
         variables["PRODUCTS_DIR"] = "$(BUILT_PRODUCTS_DIR)"
 
-        var commandLine = [command.executable] + command.arguments
-        if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled, command.executable != "/$(COPY_CMD)" {
-            commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
+        var commandLine: [String]
+        if command.executable == "/$(COPY_CMD)" {
+            // TODO: make this more secure and ergonomic and add a Windows version
+            // e.g. should only be used to copy from the plugin output directory to the build products dir
+            commandLine = ["/bin/cp"] + command.arguments.map { resolveVariables($0) }
+        } else {
+            commandLine = [command.executable] + command.arguments.map { resolveVariables($0) }
+            if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled, command.executable != "/$(COPY_CMD)" {
+                commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
+            }
         }
 
         /// Replaces every occurrence of `$(variableName)` in `input` with the value of that name in
@@ -566,7 +573,7 @@ struct PackagePIFProjectBuilder {
         }
 
         return ProjectModel.CustomTask(
-            commandLine: commandLine.map { resolveVariables($0) },
+            commandLine: commandLine,
             environment: command.environment.map { Pair($0, resolveVariables($1)) }.sorted(by: <),
             workingDirectory: workingDir,
             executionDescription: command.displayName ?? "Performing build tool plugin command",
