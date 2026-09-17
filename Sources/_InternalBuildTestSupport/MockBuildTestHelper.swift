@@ -61,6 +61,7 @@ public func mockBuildPlan(
     config: BuildConfiguration = .debug,
     triple: Basics.Triple? = nil,
     platform: PackageModel.Platform? = nil,
+    useRealHostPlatform: Bool = false,
     toolchain: PackageModel.Toolchain = try! MockToolchain(),
     graph: ModulesGraph,
     pluginConfiguration: PluginConfiguration? = nil,
@@ -124,7 +125,7 @@ public func mockBuildPlan(
         toolchain: toolchain,
         flags: commonFlags,
         buildSystemKind: .native,
-        triple: inferredTriple,
+        triple: useRealHostPlatform ? hostTriple : inferredTriple,
         indexStoreMode: indexStoreMode,
         enableXCFrameworksOnLinux: enableXCFrameworksOnLinux
     )

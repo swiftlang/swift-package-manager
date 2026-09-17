@@ -82,25 +82,32 @@ public enum PackageCondition: Hashable, Sendable {
     }
 }
 
-/// Platforms condition implies that an assignment is valid on these platforms.
+/// Platforms condition implies that an assignment is valid on these platforms
+/// and invalid on the excluded platforms
 public struct PlatformsCondition: Hashable, Sendable {
     public let platforms: [Platform]
+
+    /// When set satisfied if this matches the supportsPrebuilts from the build environment.
+    // TODO: Platform isn't as expressive as PrebuiltsPlatform so we need help from the build environment.
+    public let includeIfPrebuiltsSupported: Bool?
 
     public init(platforms: [Platform]) {
         assert(!platforms.isEmpty, "List of platforms should not be empty")
         self.platforms = platforms
+        self.includeIfPrebuiltsSupported = nil
+    }
+
+    public init(includeIfPrebuiltsSupported: Bool) {
+        self.includeIfPrebuiltsSupported = includeIfPrebuiltsSupported
+        self.platforms = []
     }
 
     public func satisfies(_ environment: BuildEnvironment) -> Bool {
-        platforms.contains(environment.platform)
+        if let includeIfPrebuiltsSupported {
+            return includeIfPrebuiltsSupported == environment.supportsPrebuilts
+        }
+        return platforms.contains(environment.platform)
     }
-}
-
-/// A mini version of target platform constraints that will eventually be user specifiable..
-/// For now used to mark modules host only that are only accessed by macros and plugins.
-public enum PlatformConstraint {
-    case all
-    case host
 }
 
 /// A configuration condition implies that an assignment is valid on
@@ -122,8 +129,9 @@ public struct ConfigurationCondition: Hashable, Sendable {
 }
 
 
-/// A configuration condition implies that an assignment is valid on
-/// a particular build configuration.
+/// Trait conditions are evaluated at package resolution time so and traits are filtered out
+/// based on the requested traits for the package. As such, the build condition is always
+/// true since builds do not specify traits.
 public struct TraitCondition: Hashable, Sendable {
     public let traits: Set<String>
 

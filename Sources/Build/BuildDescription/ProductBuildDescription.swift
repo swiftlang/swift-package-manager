@@ -424,15 +424,7 @@ public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription
             flags += frameworks.flatMap { ["-framework", $0] }
         }
 
-        // Prebuilt libraries.
-        let prebuiltLibPaths = OrderedSet(self.staticTargets.reduce([]) {
-            $0 + self.buildParameters.createScope(for: $1).evaluate(.PREBUILT_LIBRARY_PATHS)
-        })
-        let prebuiltLibraries = OrderedSet(self.staticTargets.reduce([]) {
-            $0 + self.buildParameters.createScope(for: $1).evaluate(.PREBUILT_LIBRARIES)
-        })
-        flags += prebuiltLibPaths.flatMap({ ["-L", $0] }) + prebuiltLibraries.map({ "-l" + $0 })
-
+        // Other linker flags.
         for target in self.staticTargets {
             let scope = self.buildParameters.createScope(for: target)
             let ldFlags = scope.evaluate(.OTHER_LDFLAGS)
