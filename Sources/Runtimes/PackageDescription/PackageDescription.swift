@@ -95,7 +95,13 @@ public final class Package {
     public var targets: [Target]
 
     /// The list of products that this package vends and that clients can use.
-    public var products: [Product]
+    @available(_PackageDescription, deprecated: 999.0, message: "products are deprecated; declare a target with 'visibility: .public' instead")
+    public var products: [Product] {
+        get { self.productsStorage }
+        set { self.productsStorage = newValue }
+    }
+
+    var productsStorage: [Product]
 
     /// The set of traits this package provides.
     @available(_PackageDescription, introduced: 6.1)
@@ -174,7 +180,7 @@ public final class Package {
         self.name = name
         self.pkgConfig = pkgConfig
         self.providers = providers
-        self.products = products
+        self.productsStorage = products
         self.dependencies = dependencies
         self.targets = targets
         self.traits = []
@@ -214,7 +220,7 @@ public final class Package {
         self.name = name
         self.pkgConfig = pkgConfig
         self.providers = providers
-        self.products = products
+        self.productsStorage = products
         self.dependencies = dependencies
         self.targets = targets
         self.traits = []
@@ -257,7 +263,7 @@ public final class Package {
         self.platforms = platforms
         self.pkgConfig = pkgConfig
         self.providers = providers
-        self.products = products
+        self.productsStorage = products
         self.dependencies = dependencies
         self.targets = targets
         self.traits = []
@@ -303,7 +309,7 @@ public final class Package {
         self.platforms = platforms
         self.pkgConfig = pkgConfig
         self.providers = providers
-        self.products = products
+        self.productsStorage = products
         self.dependencies = dependencies
         self.targets = targets
         self.traits = []
@@ -328,7 +334,7 @@ public final class Package {
     ///   - swiftLanguageModes: The list of Swift language modes with which this package is compatible.
     ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
-    @available(_PackageDescription, introduced: 6)
+    @available(_PackageDescription, introduced: 6, obsoleted: 999.0)
     public init(
         name: String,
         defaultLocalization: LanguageTag? = nil,
@@ -347,7 +353,7 @@ public final class Package {
         self.platforms = platforms
         self.pkgConfig = pkgConfig
         self.providers = providers
-        self.products = products
+        self.productsStorage = products
         self.dependencies = dependencies
         self.targets = targets
         self.traits = []
@@ -379,6 +385,7 @@ public final class Package {
     ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
     @available(_PackageDescription, introduced: 6.1)
+    @available(_PackageDescription, deprecated: 999.0, message: "products are deprecated; declare targets with 'visibility: .public' instead")
     public init(
         name: String,
         defaultLocalization: LanguageTag? = nil,
@@ -398,7 +405,51 @@ public final class Package {
         self.platforms = platforms
         self.pkgConfig = pkgConfig
         self.providers = providers
-        self.products = products
+        self.productsStorage = products
+        self.traits = traits
+        self.dependencies = dependencies
+        self.targets = targets
+        self.swiftLanguageModes = swiftLanguageModes
+        self.cLanguageStandard = cLanguageStandard
+        self.cxxLanguageStandard = cxxLanguageStandard
+        registerExitHandler()
+    }
+
+    /// Initializes a Swift package with configuration options you provide.
+    ///
+    /// - Parameters:
+    ///   - name: The name of the Swift package, or `nil` to use the package's Git URL to deduce the name.
+    ///   - defaultLocalization: The default localization for resources.
+    ///   - platforms: The list of supported platforms with a custom deployment target.
+    ///   - pkgConfig: The name to use for C modules. If present, Swift Package Manager searches for a
+    ///   `<name>.pc` file to get the additional flags required for a system target.
+    ///   - providers: The package providers for a system target.
+    ///   - traits: The set of traits this package provides.
+    ///   - dependencies: The list of package dependencies.
+    ///   - targets: The list of targets that are part of this package.
+    ///   - swiftLanguageModes: The list of Swift language modes with which this package is compatible.
+    ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
+    ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
+    @available(_PackageDescription, introduced: 999.0)
+    public init(
+        name: String,
+        defaultLocalization: LanguageTag? = nil,
+        platforms: [SupportedPlatform]? = nil,
+        pkgConfig: String? = nil,
+        providers: [SystemPackageProvider]? = nil,
+        traits: Set<Trait> = [],
+        dependencies: [Dependency] = [],
+        targets: [Target] = [],
+        swiftLanguageModes: [SwiftLanguageMode]? = nil,
+        cLanguageStandard: CLanguageStandard? = nil,
+        cxxLanguageStandard: CXXLanguageStandard? = nil
+    ) {
+        self.name = name
+        self.defaultLocalization = defaultLocalization
+        self.platforms = platforms
+        self.pkgConfig = pkgConfig
+        self.providers = providers
+        self.productsStorage = []
         self.traits = traits
         self.dependencies = dependencies
         self.targets = targets
