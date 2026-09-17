@@ -31,6 +31,11 @@ endif()
 
 install(TARGETS PackagePlugin
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/swift/pm/PluginAPI)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:PackagePlugin>/$<TARGET_FILE_BASE_NAME:PackagePlugin>.pdb
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/swift/pm/PluginAPI
+    OPTIONAL)
+endif()
 
 set(SwiftPMRuntime_INSTALL_SWIFTMODULEDIR
   ${CMAKE_INSTALL_LIBDIR}/swift/pm/PluginAPI)

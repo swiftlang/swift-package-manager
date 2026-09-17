@@ -78,4 +78,9 @@ install(TARGETS PackageModel
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:PackageModel>/$<TARGET_FILE_BASE_NAME:PackageModel>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS PackageModel)
