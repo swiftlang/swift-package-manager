@@ -8,6 +8,10 @@
 
 add_executable(swift-test
   Entrypoint.swift)
+# TODO: Remove this once the minimum CMake version is 4.4.
+set_target_properties(swift-test PROPERTIES
+  Swift_MODULE_NAME swift_test)
+
 target_link_libraries(swift-test PRIVATE
   Commands)
 
