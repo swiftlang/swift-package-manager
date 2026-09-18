@@ -66,6 +66,73 @@ struct PluginTests {
     }
 
     @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10288", relationship: .verifies),
+        .requiresSwiftConcurrencySupport,
+        .tags(
+            .Feature.Command.Build,
+            .Feature.CommandLineArguments.BuildSystem,
+            .Feature.Plugin,
+            .Feature.SourceGeneration,
+            .FunctionalArea.Workspace,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testGeneratedSourcesAreReadOnly(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/Plugins/MySourceGenPlugin") { fixturePath in
+            let targetDirectory = fixturePath.appending(components: "Sources", "MyLocalTool")
+            let invalidInput = targetDirectory.appending("syntax-error.dat")
+            try localFileSystem.writeFileContents(invalidInput, string: "invalid")
+
+            await #expect(throws: SwiftPMError.self) {
+                try await executeSwiftBuild(
+                    fixturePath,
+                    extraArgs: ["--product", "MyLocalTool"],
+                    buildSystem: buildSystem,
+                )
+            }
+
+            let pluginOutputDirectory = fixturePath.appending(
+                components: ".build", "plugins", "outputs", "mysourcegenplugin", "MyLocalTool", "destination",
+                "MySourceGenBuildToolPlugin"
+            )
+            let invalidGeneratedSource = pluginOutputDirectory.appending("syntax-error.swift")
+            #expect(localFileSystem.exists(invalidGeneratedSource))
+            #expect(!localFileSystem.isWritable(invalidGeneratedSource))
+
+            _ = try await executeSwiftPackage(
+                fixturePath,
+                extraArgs: ["clean"],
+                buildSystem: buildSystem,
+            )
+            #expect(!localFileSystem.exists(invalidGeneratedSource))
+
+            try localFileSystem.removeFileTree(invalidInput)
+            _ = try await executeSwiftBuild(
+                fixturePath,
+                extraArgs: ["--product", "MyLocalTool"],
+                buildSystem: buildSystem,
+            )
+
+            let input = targetDirectory.appending("foo.dat")
+            let generatedSource = pluginOutputDirectory.appending("foo.swift")
+            #expect(!localFileSystem.isWritable(generatedSource))
+
+            try localFileSystem.writeFileContents(input, string: "regenerated")
+            _ = try await executeSwiftBuild(
+                fixturePath,
+                extraArgs: ["--product", "MyLocalTool"],
+                buildSystem: buildSystem,
+            )
+
+            let generatedSourceContents: String = try localFileSystem.readFileContents(generatedSource)
+            #expect(generatedSourceContents.contains("726567656e657261746564"))
+            #expect(!localFileSystem.isWritable(generatedSource))
+        }
+    }
+
+    @Test(
         .IssueWindowsRelativePathAssert,
         .requiresSwiftConcurrencySupport,
         .disabled(if: CiEnvironment.runningInSelfHostedPipeline && ProcessInfo.hostOperatingSystem == .windows),
