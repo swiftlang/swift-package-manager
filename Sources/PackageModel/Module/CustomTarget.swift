@@ -67,7 +67,7 @@ public final class ExternalTarget: Module {
 
         super.init(
             name: name,
-            type: .external,
+            type: .custom,
             path: path,
             sources: .init(paths: [], root: path),
             resources: [],

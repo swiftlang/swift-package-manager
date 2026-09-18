@@ -201,7 +201,6 @@ enum HostToPluginMessage: Codable {
                         case test
                         case macro
                         case custom
-                        case external
                     }
 
                     enum BinaryArtifactKind: Codable {

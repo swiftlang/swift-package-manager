@@ -257,7 +257,7 @@ extension PackageModel.Module {
         switch self.type {
         case .executable, .snippet:
             true
-        case .library, .test, .macro, .systemModule, .plugin, .binary, .custom, .external:
+        case .library, .test, .macro, .systemModule, .plugin, .binary, .custom:
             false
         }
     }
@@ -266,7 +266,7 @@ extension PackageModel.Module {
         switch self.type {
         case .binary:
             true
-        case .library, .executable, .snippet, .test, .plugin, .macro, .systemModule, .custom, .external:
+        case .library, .executable, .snippet, .test, .plugin, .macro, .systemModule, .custom:
             false
         }
     }
@@ -276,7 +276,7 @@ extension PackageModel.Module {
         switch self.type {
         case .library, .executable, .snippet, .test, .macro:
             true
-        case .systemModule, .plugin, .binary, .custom, .external:
+        case .systemModule, .plugin, .binary, .custom:
             false
         }
     }
@@ -795,8 +795,9 @@ extension PackageGraph.ResolvedModule {
                         pifPlatform = nil
                     }
 
-                    if self.type == .external && declaration != .SWIFT_VERSION {
-                        // All settings on external targets are imparted
+                    if self.type == .custom && declaration != .SWIFT_VERSION {
+                        // All settings on custom targets are imparted
+                        // TODO: or should this only be for external targets?
                         if let multipleValueSetting = multipleValueSetting {
                             allSettings.impartedMultipleValueSettings[pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
                         } else if let singleValueSetting = singleValueSetting, let singleValue = values.only {

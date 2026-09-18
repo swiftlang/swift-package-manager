@@ -547,7 +547,7 @@ extension PackagePIFProjectBuilder {
                         "Added linked dependency on target '\(dependencyGUID)'"
                     )
 
-                case .systemModule, .custom, .external:
+                case .systemModule, .custom:
                     let dependencyGUID = moduleDependency.pifTargetGUID
                     mainModuleTarget.common.addDependency(
                         on: dependencyGUID,
@@ -768,7 +768,7 @@ extension PackagePIFProjectBuilder {
                     BuildFile(id: id, fileRef: binaryFileRef, codeSignOnCopy: true, removeHeadersOnCopy: true)
                 }
                 log(.debug, indent: 1, "Added use of binary library '\(binaryTarget.artifactPath)'")
-            } else if module.type == .external || module.type == .custom {
+            } else if module.type == .custom {
                 // Do not link external libraries or custom targets. That is handled in their imparted settings.
                 libraryUmbrellaTargetForModules.common.addDependency(
                     on: module.pifTargetGUID,
@@ -889,8 +889,13 @@ extension PackagePIFProjectBuilder {
                 // _other_ packages, but this should be resolved; see rdar://95467710.
                 /* assert(moduleDependency.packageName == self.package.name) */
 
-                if moduleDependency.type == .systemModule || moduleDependency.type == .external {
+                if moduleDependency.type == .systemModule {
                     log(.debug, indent: 1, "Noted use of system module '\(moduleDependency.name)'")
+                    return
+                }
+
+                if moduleDependency.type == .custom {
+                    log(.debug, indent: 1, "Noted use of custom module '\(moduleDependency.name)'")
                     return
                 }
 

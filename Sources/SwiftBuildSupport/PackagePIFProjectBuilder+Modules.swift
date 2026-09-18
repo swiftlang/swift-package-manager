@@ -106,9 +106,6 @@ extension PackagePIFProjectBuilder {
 
                 case .custom:
                     fatalError("TODO")
-
-                case .external:
-                    fatalError("TODO")
                 }
 
             case .product(let productDependency, let packageConditions):
@@ -982,7 +979,7 @@ extension PackagePIFProjectBuilder {
                     )
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyGUID)'")
 
-                case .library, .test, .macro, .systemModule, .custom, .external:
+                case .library, .test, .macro, .systemModule, .custom:
                     moduleTarget.common.addDependency(
                         on: moduleDependency.pifTargetGUID,
                         platformFilters: dependencyPlatformFilters,
@@ -1238,7 +1235,7 @@ extension PackagePIFProjectBuilder {
 
     /// Creates an aggregate target and adds in the build tool commands
     mutating func makeCustomTarget(_ customTarget: PackageGraph.ResolvedModule) throws {
-        precondition(customTarget.type == .custom || customTarget.type == .external)
+        precondition(customTarget.type == .custom)
 
         let customTargetKeyPath = try self.project.addAggregateTarget { _ in
             ProjectModel.AggregateTarget(

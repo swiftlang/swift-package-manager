@@ -313,8 +313,6 @@ public enum ModuleKind {
     case macro // FIXME: This should really come from `CompilerPluginSupport` somehow, but we lack the infrastructure to allow that currently.
     @available(_PackageDescription, introduced: 6.5)
     case custom
-    @available(_PackageDescription, introduced: 6.5)
-    case external
 }
 
 /// A target consisting of a source code module compiled using Swift.
