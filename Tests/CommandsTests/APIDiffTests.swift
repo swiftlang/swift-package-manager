@@ -207,6 +207,46 @@ struct APIDiffTests {
     }
 
     @Test(
+        .requiresAPIDigester,
+        .tags(
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
+        ),
+    )
+    func testCheckPublicLibraryTargetsOnly() async throws {
+        try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
+            let packageRoot = fixturePath.appending("PublicLibraryTargets")
+            try localFileSystem.writeFileContents(
+                packageRoot.appending(components: "Sources", "Foo", "Foo.swift"),
+                string: #"public func baz() -> String { "hello, world!" }"#
+            )
+            try localFileSystem.writeFileContents(
+                packageRoot.appending(components: "Sources", "Bar", "Bar.swift"),
+                string: "public class Qux<T, U> { private let x = 1 }"
+            )
+            try localFileSystem.writeFileContents(
+                packageRoot.appending(components: "Sources", "Baz", "Baz.swift"),
+                string: "public enum Baz {case a, b, c }"
+            )
+            try localFileSystem.writeFileContents(
+                packageRoot.appending(components: "Sources", "Quux", "Quux.swift"),
+                string: "public enum Quux {case a, b, c }"
+            )
+            try localFileSystem.writeFileContents(
+                packageRoot.appending(components: "Sources", "Qux", "Qux.swift"),
+                string: "public class Qux<T, U> { private let x = 1 }"
+            )
+            try await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: .swiftbuild)) { error in
+                #expect(error.stdout.contains("💔 API breakage"))
+                for module in ["Foo", "Bar", "Baz", "Quux"] {
+                    let regex = try Regex("\\d+ breaking change(s?) detected in \(module)")
+                    #expect(error.stdout.contains(regex), "stdout:\n\(error.stdout)")
+                }
+                #expect(!error.stdout.contains("detected in Qux"), "stdout:\n\(error.stdout)")
+            }
+        }
+    }
+
+    @Test(
         .tags(
             .Feature.Command.Package.DiagnoseApiBreakingChanges,
         ),
