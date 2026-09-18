@@ -38,3 +38,13 @@ swift package completion-tool generate-zsh-script > ~/.zsh/_swift
 echo -e "fpath=(~/.zsh \$fpath)\n" >> ~/.zshrc
 compinit
 ```
+
+### Fish
+
+Use the following command to install the Fish completions to `~/.config/fish/completions/swift.fish`.
+It just needs to be in your `$fish_completion_path` environment variable. `~/.config/fish/completions` 
+is a typical value of that environment variable.
+
+```bash
+swift package completion-tool generate-fish-script > ~/.config/fish/completions/swift.fish
+```
