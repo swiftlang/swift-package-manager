@@ -167,7 +167,7 @@ enum Serialization {
             let traits: [String]?
         }
 
-        case target(name: String, condition: Condition?)
+        case target(name: String, package: String?, moduleAliases: [String: String]?, condition: Condition?)
         case product(name: String, package: String?, moduleAliases: [String: String]?, condition: Condition?)
         case byName(name: String, condition: Condition?)
     }
@@ -180,6 +180,18 @@ enum Serialization {
         case binary
         case plugin
         case `macro`
+        case library
+    }
+
+    enum LibraryType: Codable {
+        case automatic
+        case dynamic
+        case `static`
+    }
+
+    enum TargetVisibility: Codable {
+        case `public`
+        case `package`
     }
 
     enum PluginCapability: Codable {
@@ -220,6 +232,8 @@ enum Serialization {
         let dependencies: [TargetDependency]
         let publicHeadersPath: String?
         let type: TargetType
+        let libraryType: LibraryType?
+        let visibility: TargetVisibility
         let packageAccess: Bool
         let pkgConfig: String?
         let providers: [SystemPackageProvider]?
@@ -249,11 +263,7 @@ enum Serialization {
 
     struct Product: Codable {
         enum ProductType: Codable {
-            enum LibraryType: Codable {
-                case automatic
-                case dynamic
-                case `static`
-            }
+            typealias LibraryType = Serialization.LibraryType
 
             case executable
             case library(type: LibraryType)

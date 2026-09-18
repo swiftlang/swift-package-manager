@@ -481,7 +481,7 @@ struct SBOMExtractComponentsTests {
         // Create registry dependency package first
         let registryModule = SBOMTestModulesGraph.createSwiftModule(
             name: "TestLibrary",
-            type: .library
+            type: .library(libraryType: .object)
         )
         let registryProduct = try Product(
             package: registryPackageIdentity,

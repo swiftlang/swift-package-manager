@@ -257,7 +257,7 @@ extension PackageModel.Module {
         switch self.type {
         case .executable, .snippet:
             true
-        case .library, .test, .macro, .systemModule, .plugin, .binary:
+        case .library, .test, .macro, .systemModule, .plugin, .binary, .libraryAggregate:
             false
         }
     }
@@ -266,7 +266,7 @@ extension PackageModel.Module {
         switch self.type {
         case .binary:
             true
-        case .library, .executable, .snippet, .test, .plugin, .macro, .systemModule:
+        case .library, .executable, .snippet, .test, .plugin, .macro, .systemModule, .libraryAggregate:
             false
         }
     }
@@ -276,7 +276,7 @@ extension PackageModel.Module {
         switch self.type {
         case .library, .executable, .snippet, .test, .macro:
             true
-        case .systemModule, .plugin, .binary:
+        case .systemModule, .plugin, .binary, .libraryAggregate:
             false
         }
     }
@@ -288,7 +288,7 @@ extension PackageModel.ProductType {
         case .executable: .executable
         case .snippet: .snippet
         case .test: .test
-        case .library: .library
+        case .library: .library(libraryType: .object)
         case .plugin: .plugin
         case .macro: .macro
         }
@@ -1005,7 +1005,7 @@ extension PackageGraph.ResolvedModule {
                 settings[.SWIFT_LIBRARIES_ONLY] = "NO"
                 settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] = "YES"
             }
-        } else if [.library, .test].contains(self.type) {
+        } else if self.type.isLibrary || self.type == .test {
             // Always pass -parse-as-library for libraries and tests
             settings[.SWIFT_LIBRARIES_ONLY] = "YES"
             settings[.SWIFT_DISABLE_PARSE_AS_LIBRARY] = "NO"
@@ -1017,6 +1017,15 @@ extension Collection<PackageGraph.ResolvedModule> {
     /// Recursively applies a block to each of the linkage dependencies of the given module, in topological sort order.
     /// Each module or product dependency is visited only once.
     func recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: Set<ResolvedModule.ID>, with block: (ResolvedModule.Dependency) -> Void) {
+        self.flatMap(\.dependencies).recursivelyTraverseTransitiveLinkageDependencies(
+            includeDependenciesOfMacros: includeDependenciesOfMacros,
+            with: block
+        )
+    }
+}
+
+extension Collection<PackageGraph.ResolvedModule.Dependency> {
+    func recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: Set<ResolvedModule.ID>, with block: (ResolvedModule.Dependency) -> Void) {
         var moduleIDsSeen: Set<ResolvedModule.ID> = []
         var productIDsSeen: Set<ResolvedProduct.ID> = []
 
@@ -1026,14 +1035,19 @@ extension Collection<PackageGraph.ResolvedModule> {
                 let (unseenModule, _) = moduleIDsSeen.insert(moduleDependency.id)
                 guard unseenModule else { return }
 
-                // Do not traverse into *macro* or *plugin* dependencies unless explicitly requested.
-                // Macros run at compile time and their dependencies should not be linked into the client, unless a client includes their testable variant.
-                // Plugins run at build time and their dependencies should not be linked into the client.
                 let stopTraversal: Bool
                 switch moduleDependency.type {
                 case .macro:
+                    // Macros run at compile time and their dependencies should not be linked into
+                    // the client, unless a client includes their testable variant.
                     stopTraversal = !includeDependenciesOfMacros.contains(moduleDependency.id)
                 case .plugin:
+                    // Plugins run at build time and their dependencies should not be linked into
+                    // the client.
+                    stopTraversal = true
+                case .library(libraryType: .static), .library(libraryType: .dynamic), .libraryAggregate:
+                    // A library with explicit linkage incorporates its dependencies, which should not be
+                    // linked independently.
                     stopTraversal = true
                 default:
                     stopTraversal = false
@@ -1060,7 +1074,7 @@ extension Collection<PackageGraph.ResolvedModule> {
             }
         }
 
-        for dependency in self.flatMap(\.dependencies) {
+        for dependency in self {
             visitDependency(dependency)
         }
     }
