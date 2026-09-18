@@ -536,7 +536,7 @@ Module maps have several limitations:
 
 Swift Package Manager uses module maps to bridge C and C++ libraries:
 
-- The `moduleMapPath` field in artifact bundles specifies the module map location.
+- The `moduleMapPath` field in artifact bundles specifies the module map location. See <doc:ArtifactBundleReference> for the full `info.json` schema.
 - System library targets place module maps in the target directory.
 - The build system automatically adds `-fmodule-map-file=` flags.
 - Module names must match binary target or system library target names.

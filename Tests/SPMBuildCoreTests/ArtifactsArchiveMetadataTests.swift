@@ -127,6 +127,90 @@ struct ArtifactsArchiveMetadataTests {
         }
     }
 
+    // Mirrors the worked examples in Sources/PackageManagerDocs/Documentation.docc/ArtifactBundleReference.md.
+    // If this test starts failing, that doc's JSON examples need to be updated too.
+    @Test
+    func parseDocumentedExecutableExample() throws {
+        let fileSystem = InMemoryFileSystem()
+        try fileSystem.writeFileContents(
+            "/info.json",
+            string: """
+            {
+                "schemaVersion": "1.0",
+                "artifacts": {
+                    "protocol-buffer-compiler": {
+                        "type": "executable",
+                        "version": "3.5.1",
+                        "variants": [
+                            {
+                                "path": "x86_64-apple-macosx/protoc",
+                                "supportedTriples": ["x86_64-apple-macosx"]
+                            },
+                            {
+                                "path": "x86_64-unknown-linux-gnu/protoc",
+                                "supportedTriples": ["x86_64-unknown-linux-gnu"]
+                            }
+                        ]
+                    }
+                }
+            }
+            """
+        )
+
+        _ = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: .root)
+    }
+
+    @Test
+    func parseDocumentedStaticLibraryExample() throws {
+        let fileSystem = InMemoryFileSystem()
+        try fileSystem.writeFileContents(
+            "/info.json",
+            string: """
+            {
+                "schemaVersion": "1.0",
+                "artifacts": {
+                    "simple": {
+                        "type": "staticLibrary",
+                        "version": "1.0.0",
+                        "variants": [
+                            {
+                                "path": "dist/macOS/libSimple.a",
+                                "supportedTriples": ["arm64-apple-macosx", "x86_64-apple-macosx"],
+                                "staticLibraryMetadata": {
+                                    "headerPaths": ["include"],
+                                    "moduleMapPath": "include/simple.modulemap"
+                                }
+                            },
+                            {
+                                "path": "dist/linux/libSimple_x86_64.a",
+                                "supportedTriples": ["x86_64-unknown-linux-gnu"],
+                                "staticLibraryMetadata": {
+                                    "headerPaths": ["include"],
+                                    "moduleMapPath": "include/simple.modulemap"
+                                }
+                            },
+                            {
+                                "path": "dist/windows/Simple_x86_64.lib",
+                                "supportedTriples": ["x86_64-unknown-windows-msvc"],
+                                "staticLibraryMetadata": {
+                                    "headerPaths": ["include"],
+                                    "moduleMapPath": "include/simple.modulemap"
+                                }
+                            }
+                        ]
+                    }
+                }
+            }
+            """
+        )
+
+        let metadata = try ArtifactsArchiveMetadata.parse(fileSystem: fileSystem, rootPath: .root)
+        let artifact = try #require(metadata.artifacts["simple"])
+        #expect(artifact.type == .staticLibrary)
+        #expect(artifact.variants.count == 3)
+        #expect(artifact.variants.allSatisfy { $0.staticLibraryMetadata?.moduleMapPath != nil })
+    }
+
     @Test(
         arguments: [
             (
