@@ -269,6 +269,37 @@ import SwiftBuild
         }
     }
 
+    @Test(arguments: ["c", "m", "mm", "cc", "cpp", "cxx", "s", "S"])
+    func testClangSourceInSwift65(fileExtension: String) async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let source = try RelativePath(validating: "Gened.\(fileExtension)")
+        let toolsVersion = try #require(ToolsVersion(string: "6.5", experimentalFeatures: [.experimentalCGen]))
+        let pif = try await setup(
+            kind: .swiftModule,
+            gened: [source, "Gened.swift"],
+            toolsVersion: toolsVersion,
+            observability: observability.topScope
+        )
+        #expect(!observability.hasErrorDiagnostics)
+        #expect(!observability.warnings.contains { $0.message.contains("plugin generated C source files") })
+
+        let project = try #require(pif.workspace.projects.filter { $0.underlying.name == "MyPkg" }.only)
+        let modules = project.underlying.targets.filter { $0.common.name == "MyModule" }
+        #expect(!modules.isEmpty)
+        for module in modules {
+            let sourcesPhase = try #require(module.common.buildPhases.compactMap { phase -> ProjectModel.SourcesBuildPhase? in
+                guard case .sources(let sources) = phase else { return nil }
+                return sources
+            }.only)
+            let sources = try sourcesPhase.files.compactMap { file -> AbsolutePath? in
+                guard case .reference(id: let id) = file.ref else { return nil }
+                return try project.underlying.mainGroup.findSource(ref: id)
+            }
+            #expect(sources.contains(pluginOutputDir.appending(source)))
+            #expect(sources.contains(pluginOutputDir.appending(component: "Gened.swift")))
+        }
+    }
+
     /// Test that generating C into Swift modules throws warnings
     @Test func testCinSwift() async throws {
         let observability = ObservabilitySystem.makeForTesting()

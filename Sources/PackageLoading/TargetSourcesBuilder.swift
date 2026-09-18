@@ -583,7 +583,7 @@ public struct TargetSourcesBuilder {
                 if absPath.extension == "swift" {
                     files.sources.append(absPath)
                 } else if toolsVersion.experimentalCGen {
-                    if module is ClangModule {
+                    if module is ClangModule || (module is SwiftModule && toolsVersion >= .v6_5) {
                         files.sources.append(absPath)
                     } else {
                         observabilityScope.emit(warning: "Only C modules support plugin generated C source files: \(absPath)")
