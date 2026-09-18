@@ -206,6 +206,7 @@ extension Serialization.SupportedPlatform {
 extension Serialization.TargetDependency.Condition {
     init(_ condition: TargetDependencyCondition) {
         self.platforms = condition.platforms?.map { .init($0) }
+        self.config = condition.configuration.map { .init($0) }
         self.traits = condition.traits?.sorted()
     }
 }

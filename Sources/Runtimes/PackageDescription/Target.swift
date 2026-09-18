@@ -1413,10 +1413,12 @@ extension Target.Dependency {
 /// A condition that limits the application of a target's dependency.
 public struct TargetDependencyCondition: Sendable {
     let platforms: [Platform]?
+    let configuration: BuildConfiguration?
     let traits: Set<String>?
 
-    private init(platforms: [Platform]?, traits: Set<String>?) {
+    private init(platforms: [Platform]?, configuration: BuildConfiguration?, traits: Set<String>?) {
         self.platforms = platforms
+        self.configuration = configuration
         self.traits = traits
     }
 
@@ -1430,7 +1432,7 @@ public struct TargetDependencyCondition: Sendable {
     ) -> TargetDependencyCondition {
         // FIXME: This should be an error, not a precondition.
         precondition(!(platforms == nil))
-        return TargetDependencyCondition(platforms: platforms, traits: nil)
+        return TargetDependencyCondition(platforms: platforms, configuration: nil, traits: nil)
     }
 
     /// Creates a target dependency condition.
@@ -1440,7 +1442,7 @@ public struct TargetDependencyCondition: Sendable {
     public static func when(
         platforms: [Platform]
     ) -> TargetDependencyCondition? {
-        return !platforms.isEmpty ? TargetDependencyCondition(platforms: platforms, traits: nil) : .none
+        return !platforms.isEmpty ? TargetDependencyCondition(platforms: platforms, configuration: nil, traits: nil) : .none
     }
 
     /// Creates a target dependency condition.
@@ -1452,7 +1454,7 @@ public struct TargetDependencyCondition: Sendable {
         platforms: [Platform],
         traits: Set<String>
     ) -> TargetDependencyCondition? {
-        return TargetDependencyCondition(platforms: platforms, traits: traits)
+        return TargetDependencyCondition(platforms: platforms, configuration: nil, traits: traits)
     }
 
     /// Creates a target dependency condition.
@@ -1462,7 +1464,28 @@ public struct TargetDependencyCondition: Sendable {
     public static func when(
         traits: Set<String>
     ) -> TargetDependencyCondition? {
-        return TargetDependencyCondition(platforms: nil, traits: traits)
+        return TargetDependencyCondition(platforms: nil, configuration: nil, traits: traits)
+    }
+
+    /// Creates a target dependency condition.
+    ///
+    /// - Parameters:
+    ///   - platforms: The applicable platforms for this target dependency condition.
+    ///   - configuration: The applicable build configuration for this target dependency condition.
+    ///   - traits: The applicable traits for this target dependency condition.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func when(
+        platforms: [Platform]? = nil,
+        configuration: BuildConfiguration? = nil,
+        traits: Set<String>? = nil
+    ) -> TargetDependencyCondition? {
+        // Treat an empty collection as absent.
+        let platforms = platforms.flatMap { $0.isEmpty ? nil : $0 }
+        let traits = traits.flatMap { $0.isEmpty ? nil : $0 }
+        if platforms == nil && configuration == nil && traits == nil {
+            return .none
+        }
+        return TargetDependencyCondition(platforms: platforms, configuration: configuration, traits: traits)
     }
 }
 

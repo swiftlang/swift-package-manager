@@ -638,6 +638,38 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test func buildConfigurationConditionBasics() async throws {
+        try await withGeneratedPIF(
+            fromFixture: "PIFBuilder/ConditionalTargetDependencies",
+            withPackage: "App"
+        ) { pif, _, _ in
+            let appTarget = try pif.workspace
+                .project(named: "App")
+                .target(id: "PACKAGE-TARGET:App")
+
+            let filtersByDependency = Dictionary(
+                uniqueKeysWithValues: appTarget.common.dependencies.map {
+                    ($0.targetId.value, $0.buildConfigurationFilters)
+                }
+            )
+
+            let debug = ProjectModel.BuildConfigurationFilter(buildConfiguration: "Debug")
+            let release = ProjectModel.BuildConfigurationFilter(buildConfiguration: "Release")
+
+            // An unconditional dependency carries no filters, so it applies to every configuration.
+            #expect(filtersByDependency["PACKAGE-TARGET:Always"] == [])
+
+            // A conditional dependency on a target within the same package.
+            #expect(filtersByDependency["PACKAGE-TARGET:DebugOnly"] == [debug])
+
+            // Conditional dependencies on products of another package.
+            #expect(filtersByDependency["PACKAGE-PRODUCT:externallib_DebugTool.DebugTool"] == [debug])
+            #expect(filtersByDependency["PACKAGE-PRODUCT:externallib_ReleaseTool.ReleaseTool"] == [release])
+
+            #expect(filtersByDependency.count == 4)
+        }
+    }
+
     @Test func platformCCLibrary() async throws {
         try await withGeneratedPIF(fromFixture: "PIFBuilder/CCPackage") { pif, observabilitySystem, fixturePath in
             let releaseConfig = try pif.workspace
