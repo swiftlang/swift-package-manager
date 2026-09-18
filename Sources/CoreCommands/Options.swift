@@ -23,6 +23,7 @@ import struct Foundation.URL
 
 import enum PackageModel.BuildConfiguration
 import struct PackageModel.BuildFlags
+import struct PackageModel.BuildCacheConfiguration
 import struct PackageModel.EnabledSanitizers
 import class PackageModel.Manifest
 import struct PackageModel.PackageIdentity
@@ -54,6 +55,9 @@ public struct GlobalOptions: ParsableArguments {
 
     @OptionGroup(title: "Caching")
     public var caching: CachingOptions
+
+    @OptionGroup(title: "Build Caching")
+    public var buildCaching: BuildCachingOptions
 
     @OptionGroup(title: "Logging")
     public var logging: LoggingOptions
@@ -230,6 +234,70 @@ public struct CachingOptions: ParsableArguments {
         help: .hidden
     )
     public var prebuiltsRootCertPath: String?
+}
+
+public struct BuildCachingOptions: ParsableArguments {
+    public init() {}
+
+    @Flag(
+        name: .customLong("build-caching"),
+        inversion: .prefixedEnableDisable,
+        help: "Enable or disable the build cache."
+    )
+    public var enableBuildCache: Bool?
+
+    @Option(
+        name: .customLong("build-cache-path"),
+        help: "The path to the build cache.",
+        completion: .directory
+    )
+    public var path: AbsolutePath?
+
+    @Option(
+        name: .customLong("build-cache-size-limit"),
+        help: "Limit the build cache size, either as an absolute size (e.g. '10G') or as a percentage of available disk space (e.g. '50%')."
+    )
+    public var sizeLimit: BuildCacheConfiguration.SizeLimit?
+
+    @Flag(
+        name: .customLong("build-cache-diagnostic-remarks"),
+        inversion: .prefixedEnableDisable,
+        help: "Enable or disable diagnostic remarks about build cache hits and misses."
+    )
+    public var enableDiagnosticRemarks: Bool?
+
+    @Option(
+        name: .customLong("build-cache-plugin-path"),
+        help: "The path to an LLVM-compatible build cache plugin.",
+        completion: .directory
+    )
+    public var pluginPath: AbsolutePath?
+
+    @Option(
+        name: .customLong("build-cache-remote-service-path"),
+        help: "The path to a remote build cache service.",
+        completion: .directory
+    )
+    public var remoteServicePath: AbsolutePath?
+
+    @Flag(
+        name: .customLong("build-cache-prefix-mapping"),
+        inversion: .prefixedEnableDisable,
+        help: "Enable or disable prefix mapping, allowing copies of a package at different paths to share cached outputs."
+    )
+    public var enablePrefixMapping: Bool?
+
+    public func resolved() throws -> BuildCacheConfiguration {
+        .init(
+            enabled: self.enableBuildCache,
+            casPath: self.path,
+            sizeLimit: self.sizeLimit,
+            enableDiagnosticRemarks: self.enableDiagnosticRemarks,
+            remoteServicePath: self.remoteServicePath,
+            pluginPath: self.pluginPath,
+            enablePrefixMapping: self.enablePrefixMapping
+        )
+    }
 }
 
 public struct LoggingOptions: ParsableArguments {
@@ -960,8 +1028,18 @@ extension URL {
     }
 }
 
+extension BuildCacheConfiguration.SizeLimit {
+    public init?(argument: String) {
+        guard let sizeLimit = try? BuildCacheConfiguration.SizeLimit.parse(argument) else {
+            return nil
+        }
+        self = sizeLimit
+    }
+}
+
 extension BuildConfiguration: ExpressibleByArgument {}
 extension AbsolutePath: ExpressibleByArgument {}
+extension BuildCacheConfiguration.SizeLimit: ExpressibleByArgument {}
 extension WorkspaceConfiguration.CheckingMode: ExpressibleByArgument {}
 extension Sanitizer: ExpressibleByArgument {}
 extension BuildSystemProvider.Kind: ExpressibleByArgument {}
