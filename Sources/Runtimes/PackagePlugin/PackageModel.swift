@@ -311,6 +311,10 @@ public enum ModuleKind {
     /// A module that contains code for a macro.
     @available(_PackageDescription, introduced: 5.9)
     case macro // FIXME: This should really come from `CompilerPluginSupport` somehow, but we lack the infrastructure to allow that currently.
+    @available(_PackageDescription, introduced: 6.5)
+    case custom
+    @available(_PackageDescription, introduced: 6.5)
+    case external
 }
 
 /// A target consisting of a source code module compiled using Swift.
@@ -492,6 +496,64 @@ internal struct ConcreteSourceModuleTarget: SourceModuleTarget {
     let linkedFrameworks: [String]
     let pluginGeneratedSources: [URL]
     let pluginGeneratedResources: [URL]
+}
+
+public struct CustomTarget: SourceModuleTarget {
+    public let id: ID
+
+    public let name: String
+
+    public let moduleName: String
+    
+    public let kind: ModuleKind
+    
+    public let linkedLibraries: [String] = []
+
+    public let linkedFrameworks: [String] = []
+
+    public let pluginGeneratedSources: [URL]
+    
+    public let pluginGeneratedResources: [URL]
+    
+    public let directory: Path
+    
+    public let directoryURL: URL
+    
+    public let dependencies: [TargetDependency]
+
+    public let sourceFiles: FileList
+
+    public let swiftCompilationConditions: [String] = []
+
+    public let clangPreprocessorDefinitions: [String] = []
+
+    public let headerSearchPaths: [String] = []
+
+    public let publicHeadersDirectoryURL: URL? = nil
+
+    public init(
+        id: ID,
+        name: String,
+        moduleName: String,
+        kind: ModuleKind,
+        pluginGeneratedSources: [URL],
+        pluginGeneratedResources: [URL],
+        directory: Path,
+        directoryURL: URL,
+        dependencies: [TargetDependency],
+        sourceFiles: FileList
+    ) {
+        self.id = id
+        self.name = name
+        self.moduleName = moduleName
+        self.kind = kind
+        self.pluginGeneratedSources = pluginGeneratedSources
+        self.pluginGeneratedResources = pluginGeneratedResources
+        self.directory = directory
+        self.directoryURL = directoryURL
+        self.dependencies = dependencies
+        self.sourceFiles = sourceFiles
+    }
 }
 
 /// A target describing an artifact that is distributed as a binary.

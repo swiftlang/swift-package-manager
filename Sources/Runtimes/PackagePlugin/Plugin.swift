@@ -204,7 +204,7 @@ extension Plugin {
             for command in generatedCommands {
                 switch command {
 
-                case .buildCommand(let displayName, let executable, let arguments, let environment, let inputFiles, let outputFiles):
+                case .buildCommand(let displayName, let executable, let arguments, let environment, let inputFiles, let outputFiles, let alwaysOutOfDate, let targetPlatforms):
                     let command = PluginToHostMessage.CommandConfiguration(
                         displayName: displayName,
                         executable: executable,
@@ -214,7 +214,9 @@ extension Plugin {
                     let message = PluginToHostMessage.defineBuildCommand(
                         configuration: command,
                         inputFiles: inputFiles,
-                        outputFiles: outputFiles
+                        outputFiles: outputFiles,
+                        alwaysOutOfDate: alwaysOutOfDate,
+                        targetPlatforms: targetPlatforms.map { .init(name: $0.name )}
                     )
                     try pluginHostConnection.sendMessage(message)
 
@@ -283,7 +285,7 @@ extension Plugin {
             for command in record.generatedCommands {
                 switch command {
 
-                case let .buildCommand(name, exec, args, env, inputs, outputs):
+                case let .buildCommand(name, exec, args, env, inputs, outputs, alwaysOutOfDate, targetPlatforms):
                     let command = PluginToHostMessage.CommandConfiguration(
                         displayName: name,
                         executable: exec,
@@ -293,9 +295,11 @@ extension Plugin {
                     let message = PluginToHostMessage.defineBuildCommand(
                         configuration: command,
                         inputFiles: inputs,
-                        outputFiles: outputs)
+                        outputFiles: outputs,
+                        alwaysOutOfDate: alwaysOutOfDate,
+                        targetPlatforms: targetPlatforms.map { .init(name: $0.name) })
                     try pluginHostConnection.sendMessage(message)
-                    
+
                 case let .prebuildCommand(name, exec, args, env, outdir):
                     let command = PluginToHostMessage.CommandConfiguration(
                         displayName: name,

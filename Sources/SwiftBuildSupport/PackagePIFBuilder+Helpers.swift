@@ -257,7 +257,7 @@ extension PackageModel.Module {
         switch self.type {
         case .executable, .snippet:
             true
-        case .library, .test, .macro, .systemModule, .plugin, .binary:
+        case .library, .test, .macro, .systemModule, .plugin, .binary, .custom, .external:
             false
         }
     }
@@ -266,7 +266,7 @@ extension PackageModel.Module {
         switch self.type {
         case .binary:
             true
-        case .library, .executable, .snippet, .test, .plugin, .macro, .systemModule:
+        case .library, .executable, .snippet, .test, .plugin, .macro, .systemModule, .custom, .external:
             false
         }
     }
@@ -276,7 +276,7 @@ extension PackageModel.Module {
         switch self.type {
         case .library, .executable, .snippet, .test, .macro:
             true
-        case .systemModule, .plugin, .binary:
+        case .systemModule, .plugin, .binary, .custom, .external:
             false
         }
     }
@@ -793,6 +793,16 @@ extension PackageGraph.ResolvedModule {
                         pifPlatform = computedPifPlatform
                     } else {
                         pifPlatform = nil
+                    }
+
+                    if self.type == .external && declaration != .SWIFT_VERSION {
+                        // All settings on external targets are imparted
+                        if let multipleValueSetting = multipleValueSetting {
+                            allSettings.impartedMultipleValueSettings[pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
+                        } else if let singleValueSetting = singleValueSetting, let singleValue = values.only {
+                            allSettings.impartedSingleValueSettings[pifPlatform, default: [:]][singleValueSetting] = singleValue
+                        }
+                        continue
                     }
 
                     // Handle imparted settings for OTHER_LDFLAGS and prebuilts include paths (always multiple values)

@@ -182,6 +182,10 @@ fileprivate extension Module.Kind {
             return "snippets"
         case .macro:
             return "macros"
+        case .custom:
+            return "custom"
+        case .external:
+            return "external"
         }
     }
 }

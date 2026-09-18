@@ -68,6 +68,9 @@ extension PackagePIFBuilder {
             self.outputPaths.compactMap { try? AbsolutePath(validating: $0) }
         }
 
+        public var alwaysOutOfDate: Bool
+        public var targetPlatforms: [ProjectModel.BuildSettings.Platform]
+
         public var pluginOutputDir: AbsolutePath
 
         public var sandboxProfile: SandboxProfile? = nil
@@ -80,6 +83,8 @@ extension PackagePIFBuilder {
             workingDir: AbsolutePath?,
             inputPaths: [AbsolutePath],
             outputPaths: [String],
+            alwaysOutOfDate: Bool,
+            targetPlatforms: [ProjectModel.BuildSettings.Platform],
             pluginOutputDir: AbsolutePath,
             sandboxProfile: SandboxProfile?
         ) {
@@ -90,6 +95,8 @@ extension PackagePIFBuilder {
             self.workingDir = workingDir
             self.inputPaths = inputPaths
             self.outputPaths = outputPaths
+            self.alwaysOutOfDate = alwaysOutOfDate
+            self.targetPlatforms = targetPlatforms
             self.pluginOutputDir = pluginOutputDir
             self.sandboxProfile = sandboxProfile
         }
@@ -137,4 +144,3 @@ extension PackagePIFBuilder {
         }
     }
 }
-

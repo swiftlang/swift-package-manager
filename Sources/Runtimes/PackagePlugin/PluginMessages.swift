@@ -178,6 +178,12 @@ enum HostToPluginMessage: Codable {
                         linkedLibraries: [String],
                         linkedFrameworks: [String])
                     
+                    case customTargetInfo(
+                        moduleName: String,
+                        kind: SourceModuleKind,
+                        sourceFiles: [File],
+                    )
+
                     case binaryArtifactInfo(
                         kind: BinaryArtifactKind,
                         origin: BinaryArtifactOrigin,
@@ -194,6 +200,8 @@ enum HostToPluginMessage: Codable {
                         case snippet
                         case test
                         case macro
+                        case custom
+                        case external
                     }
 
                     enum BinaryArtifactKind: Codable {
@@ -350,7 +358,11 @@ enum PluginToHostMessage: Codable {
     case emitProgress(message: String)
 
     /// The plugin defines a build command.
-    case defineBuildCommand(configuration: CommandConfiguration, inputFiles: [URL], outputFiles: [URL])
+    case defineBuildCommand(configuration: CommandConfiguration, inputFiles: [URL], outputFiles: [URL], alwaysOutOfDate: Bool, targetPlatforms: [Platform])
+
+        struct Platform: Codable {
+            let name: String
+        }
 
     /// The plugin defines a prebuild command.
     case definePrebuildCommand(configuration: CommandConfiguration, outputFilesDirectory: URL)

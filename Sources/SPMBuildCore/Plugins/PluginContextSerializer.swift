@@ -137,6 +137,18 @@ internal struct PluginContextSerializer {
                 linkedLibraries: scope.evaluate(.LINK_LIBRARIES),
                 linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS))
 
+        case let target as CustomTarget:
+            targetInfo = .customTargetInfo(
+                moduleName: target.c99name,
+                kind: try .init(target.type),
+                sourceFiles: targetFiles)
+
+        case let target as ExternalTarget:
+            targetInfo = .customTargetInfo(
+                moduleName: target.c99name,
+                kind: try .init(target.type),
+                sourceFiles: targetFiles)
+
         case let target as SystemLibraryModule:
             var cFlags: [String] = []
             var ldFlags: [String] = []
@@ -366,6 +378,10 @@ fileprivate extension WireInput.Target.TargetInfo.SourceModuleKind {
             self = .test
         case .macro:
             self = .macro
+        case .custom:
+            self = .custom
+        case .external:
+            self = .external
         case .binary, .plugin, .systemModule:
             throw StringError("unexpected target kind \(kind) for source module")
         }
