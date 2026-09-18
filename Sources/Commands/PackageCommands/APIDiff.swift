@@ -46,9 +46,9 @@ struct APIDiff: AsyncSwiftCommand {
         You can use the `diagnose-api-breaking-changes` command to compare the Swift API of \
         a package to a baseline revision, diagnosing any breaking changes that were \
         introduced. By default, it compares every Swift module from the baseline \
-        revision that is part of a library product. For packages with many targets, this \
+        revision that is part of a public library target or library product. For packages with many targets, this \
         behavior may be undesirable as the comparison can be slow. \
-        The `--products` and `--targets` options may be used to restrict the scope of \
+        The `--targets` and `--products` options may be used to restrict the scope of \
         the comparison.
         """,
         helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
@@ -358,19 +358,20 @@ struct APIDiff: AsyncSwiftCommand {
                     }
                     continue
                 }
-                guard target.type.isLibrary else {
+                guard target.type.isLibrary || target.type.isLibraryAggregate else {
                     if diagnoseMissingNames {
                         observabilityScope.emit(error: "'\(targetName)' is not a library target")
                     }
                     continue
                 }
-                guard target.underlying is SwiftModule else {
+                let modules = target.apiDigesterModules.filter { $0.underlying is SwiftModule }
+                guard !modules.isEmpty else {
                     if diagnoseMissingNames {
                         observabilityScope.emit(error: "'\(targetName)' is not a Swift language target")
                     }
                     continue
                 }
-                modulesToDiff.insert(target.c99name)
+                modulesToDiff.formUnion(modules.map(\.c99name))
             }
             guard !observabilityScope.errorsReported else {
                 throw ExitCode.failure
