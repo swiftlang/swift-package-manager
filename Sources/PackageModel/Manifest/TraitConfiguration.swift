@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 /// The trait configuration.
-public enum TraitConfiguration: Codable, Hashable {
+public enum TraitConfiguration: Codable, Hashable, Sendable {
     case enableAllTraits
     case disableAllTraits
     case enabledTraits(Set<String>)
