@@ -15,6 +15,7 @@ import struct Foundation.URL
 
 import enum TSCUtility.PackageLocation
 import struct TSCUtility.Version
+//import struct SBOMModel.PURL
 
 /// The basic package representation.
 ///
@@ -46,7 +47,8 @@ import struct TSCUtility.Version
 /// result after `PackageLoading.transmute()`.
 public final class Package {
     /// The identity of the package.
-    public let identity: PackageIdentity
+//    public let identity: PackageIdentity
+    public let identity: PURL
 
     /// The manifest describing the package.
     public let manifest: Manifest
@@ -79,7 +81,7 @@ public final class Package {
         targetSearchPath: AbsolutePath,
         testTargetSearchPath: AbsolutePath
     ) {
-        self.identity = identity
+        self.identity = .from(identity: identity)
         self.manifest = manifest
         self.path = path
         self.modules = targets
@@ -138,7 +140,7 @@ extension Manifest {
 }
 
 extension ObservabilityMetadata {
-    public static func packageMetadata(identity: PackageIdentity, kind: PackageReference.Kind) -> Self {
+    public static func packageMetadata(identity: PURL, kind: PackageReference.Kind) -> Self {
         var metadata = ObservabilityMetadata()
         metadata.packageIdentity = identity
         metadata.packageKind = kind
@@ -147,7 +149,7 @@ extension ObservabilityMetadata {
 }
 
 extension ObservabilityMetadata {
-    public var packageIdentity: PackageIdentity? {
+    public var packageIdentity: PURL? {
         get {
             self[PackageIdentityKey.self]
         }
@@ -157,7 +159,7 @@ extension ObservabilityMetadata {
     }
 
     enum PackageIdentityKey: Key {
-        typealias Value = PackageIdentity
+        typealias Value = PURL
     }
 }
 
