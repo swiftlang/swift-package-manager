@@ -217,4 +217,56 @@ struct FileSystemTests {
             }
         }
     }
+
+    @Test
+    func checksumOfFileTracksContents() throws {
+        let fileSystem = InMemoryFileSystem()
+        let path = AbsolutePath("/file")
+        try fileSystem.writeFileContents(path, string: "contents")
+        let original = try fileSystem.checksum(of: path)
+
+        #expect(try fileSystem.checksum(of: path) == original)
+
+        try fileSystem.writeFileContents(path, string: "different")
+        #expect(try fileSystem.checksum(of: path) != original)
+    }
+
+    @Test
+    func checksumOfDirectoryMatchesIdenticalTrees() throws {
+        let fileSystem = InMemoryFileSystem()
+        for root in ["/one", "/two"] {
+            try fileSystem.writeFileContents(AbsolutePath("\(root)/a.txt"), string: "a")
+            try fileSystem.writeFileContents(AbsolutePath("\(root)/nested/b.txt"), string: "b")
+        }
+
+        #expect(try fileSystem.checksum(of: "/one") == fileSystem.checksum(of: "/two"))
+    }
+
+    @Test
+    func checksumOfDirectoryTracksNamesAndStructure() throws {
+        let fileSystem = InMemoryFileSystem()
+        let root = AbsolutePath("/bundle")
+        try fileSystem.writeFileContents(root.appending("a.txt"), string: "a")
+        let original = try fileSystem.checksum(of: root)
+
+        try fileSystem.move(from: root.appending("a.txt"), to: root.appending("renamed.txt"))
+        #expect(try fileSystem.checksum(of: root) != original)
+
+        try fileSystem.move(from: root.appending("renamed.txt"), to: root.appending("a.txt"))
+        #expect(try fileSystem.checksum(of: root) == original)
+
+        try fileSystem.writeFileContents(root.appending("added.txt"), string: "")
+        #expect(try fileSystem.checksum(of: root) != original)
+    }
+
+    @Test
+    func checksumOfDirectoryTracksEmptySubdirectories() throws {
+        let fileSystem = InMemoryFileSystem()
+        let root = AbsolutePath("/bundle")
+        try fileSystem.writeFileContents(root.appending("a.txt"), string: "a")
+        let original = try fileSystem.checksum(of: root)
+
+        try fileSystem.createDirectory(root.appending("empty"))
+        #expect(try fileSystem.checksum(of: root) != original)
+    }
 }
