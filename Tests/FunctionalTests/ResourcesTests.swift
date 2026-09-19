@@ -296,6 +296,73 @@ struct ResourcesTests{
     }
 
     @Test(
+        .serialized,
+        .tags(
+            .Feature.Command.Build,
+        ),
+        arguments: [BuildConfiguration.debug, .release],
+    )
+    func resourcesEmbeddedInObjectFile(
+        configuration: BuildConfiguration,
+    ) async throws {
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
+        try await fixture(name: "Resources/EmbedInObjectFile") { fixturePath in
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+            let execPath = try await getBinPath(
+                fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            ).appending(executableName("EmbedInObjectFile"))
+            let result = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
+            #expect(result.contains("hello from an object file"))
+
+            let resourcePath = fixturePath.appending(
+                components: "Sources", "EmbeddedResourceLibrary", "best.txt")
+            let originalContent = try localFileSystem.readFileContents(resourcePath).cString
+            // A same-size change leaves the accessor unchanged, but must still
+            // recompile the C source that embeds the resource.
+            for updatedContent in [originalContent.uppercased(), "updated object-file resource with a different size"] {
+                try localFileSystem.writeFileContents(resourcePath, string: updatedContent)
+                try await executeSwiftBuild(
+                    fixturePath,
+                    configuration: configuration,
+                    buildSystem: buildSystem,
+                )
+                let updatedResult = try await AsyncProcess.checkNonZeroExit(args: execPath.pathString)
+                #expect(updatedResult.contains(updatedContent))
+            }
+        }
+    }
+
+    @Test(.tags(.Feature.Command.Build))
+    func objectFileResourcesRequireLifetimes() async throws {
+        try await fixture(name: "Resources/EmbedInObjectFileWithoutLifetimes") { fixturePath in
+            let error = try await #require(throws: SwiftPMError.self) {
+                try await executeSwiftBuild(
+                    fixturePath,
+                    buildSystem: .swiftbuild,
+                )
+            }
+
+            guard case SwiftPMError.executionFailure(_, _, let stderr) = error else {
+                Issue.record("Unexpected error type: \(error.interpolationDescription)")
+                return
+            }
+
+            #expect(
+                stderr.contains(
+                    "object-file resource embedding, which requires Swift's experimental 'Lifetimes' feature"
+                ),
+                "stderr:\n\(stderr)"
+            )
+        }
+    }
+
+    @Test(
         .serialized, // crash occurs when executed in parallel. needs investigation
         .tags(
             .Feature.Command.Test,

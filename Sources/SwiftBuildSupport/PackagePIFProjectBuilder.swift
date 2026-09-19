@@ -290,8 +290,8 @@ struct PackagePIFProjectBuilder {
         }
 
         let resources = module.resources.map { PackagePIFBuilder.Resource($0) } + generatedResources
-        let shouldGenerateBundleAccessor = resources.anySatisfy { $0.rule != .embedInCode }
-        let shouldGenerateEmbedInCodeAccessor = resources.anySatisfy { $0.rule == .embedInCode }
+        let shouldGenerateBundleAccessor = resources.anySatisfy { !$0.rule.isEmbeddedInCode }
+        let shouldGenerateEmbedInCodeAccessor = resources.anySatisfy { $0.rule.isEmbeddedInCode }
 
         for resource in resources {
             let resourcePath = resource.path
@@ -341,6 +341,8 @@ struct PackagePIFProjectBuilder {
                     swiftBuildResourceRule = .copy
                 case .embedInCode:
                     swiftBuildResourceRule = .embedInCode
+                case .embedInCodeAsObject:
+                    swiftBuildResourceRule = .embedInCodeAsObject
                 }
                 self.project[keyPath: targetForResourcesKeyPath].addResourceFile { id in
                     BuildFile(
