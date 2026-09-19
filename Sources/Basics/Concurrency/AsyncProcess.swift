@@ -1248,7 +1248,11 @@ private func WTERMSIG(_ status: Int32) -> Int32 {
 
 /// Open the given pipe.
 private func open(pipe buffer: inout [Int32]) throws {
+    #if os(FreeBSD)
+    let rv = pipe2(&buffer, O_CLOEXEC)
+    #else
     let rv = pipe(&buffer)
+    #endif
     guard rv == 0 else {
         throw SystemError.pipe(rv)
     }
