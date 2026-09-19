@@ -22,9 +22,9 @@ let package = Package(
             targets: ["SwiftSDL3"]
         ),
         .library(
-            name: "AndroidExample",
+            name: "MyAppAndroid",
             type: .dynamic,
-            targets: ["AndroidExample"]
+            targets: ["MyAppCore"]
         )
     ],
     dependencies: [
@@ -105,9 +105,15 @@ let package = Package(
             ],
         ),
         .target(
-            name: "AndroidExample",
+            name: "MyAppCore",
             dependencies: [
                 "SwiftSDL3",
+            ]
+        ),
+        .executableTarget(
+            name: "MyAppExe",
+            dependencies: [
+                "MyAppCore",
             ]
         ),
         .testTarget(

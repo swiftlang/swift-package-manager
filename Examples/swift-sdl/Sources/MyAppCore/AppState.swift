@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 import SwiftSDL3
 
-class GameState {
+class AppState {
     var window: UnsafeMutablePointer<SDL_Window>
     var renderer: UnsafeMutablePointer<SDL_Renderer>
 
@@ -63,6 +63,8 @@ class GameState {
     }
 
     func draw() {
+        SDL_SetRenderDrawColor(renderer, 240, 81, 56, 255)
+        SDL_RenderClear(renderer)
     }
 
     deinit {

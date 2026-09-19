@@ -12,54 +12,51 @@
 import SwiftSDL3
 
 @_cdecl("SDL_AppInit") public func SDL_AppInit(
-    _ gameState: UnsafeMutablePointer<UnsafeMutableRawPointer?>?,
+    _ appState: UnsafeMutablePointer<UnsafeMutableRawPointer?>?,
     _ argc: Int32,
     _ argv: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?
 ) -> SDL_AppResult {
     guard SDL_Init(SDL_INIT_VIDEO),
-          let gameState,
-          let state = try? GameState()
+          let appState,
+          let state = try? AppState()
     else {
         return SDL_APP_FAILURE
     }
-    gameState.pointee = Unmanaged.passRetained(state).toOpaque()
+    appState.pointee = Unmanaged.passRetained(state).toOpaque()
 
     return SDL_APP_CONTINUE
 }
 
 @_cdecl("SDL_AppEvent") public func SDL_AppEvent(
-    _ gameState: UnsafeMutableRawPointer!,
+    _ appState: UnsafeMutableRawPointer!,
     _ event: UnsafeMutablePointer<SDL_Event>!
 ) -> SDL_AppResult {
-    let gameState: GameState = Unmanaged.fromOpaque(gameState).takeUnretainedValue()
+    let appState: AppState = Unmanaged.fromOpaque(appState).takeUnretainedValue()
 
-    return gameState.handle(event: event.pointee)
+    return appState.handle(event: event.pointee)
 }
 
 @_cdecl("SDL_AppIterate") public func SDL_AppIterate(
-    _ gameState: UnsafeMutableRawPointer!,
+    _ appState: UnsafeMutableRawPointer!,
 ) -> SDL_AppResult {
-    let gameState: GameState = Unmanaged.fromOpaque(gameState).takeUnretainedValue()
+    let appState: AppState = Unmanaged.fromOpaque(appState).takeUnretainedValue()
     let nowTime = SDL_GetTicks()
-    let deltaTime = (Float(nowTime) - Float(gameState.prevTime)) / 1000
+    let deltaTime = (Float(nowTime) - Float(appState.prevTime)) / 1000
 
-    gameState.update(deltaTime: deltaTime)
+    appState.update(deltaTime: deltaTime)
 
-    SDL_SetRenderDrawColor(gameState.renderer, 240, 81, 56, 255)
-    SDL_RenderClear(gameState.renderer)
+    appState.draw()
 
-    gameState.draw()
+    SDL_RenderPresent(appState.renderer)
 
-    SDL_RenderPresent(gameState.renderer)
-
-    gameState.prevTime = nowTime
+    appState.prevTime = nowTime
 
     return SDL_APP_CONTINUE
 }
 
 @_cdecl("SDL_AppQuit") public func SDL_AppQuit(
-    _ gameState: UnsafeMutableRawPointer!,
+    _ appState: UnsafeMutableRawPointer!,
 ) {
-    // Free the gamestate
-    _ = Unmanaged<GameState>.fromOpaque(gameState).takeRetainedValue()
+    // Free the appState
+    _ = Unmanaged<AppState>.fromOpaque(appState).takeRetainedValue()
 }

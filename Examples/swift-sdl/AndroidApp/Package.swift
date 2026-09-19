@@ -26,7 +26,7 @@ let package = Package(
             name: "AndroidApp",
             dependencies: [
                 // To pick up the shared library
-                .product(name: "AndroidExample", package: "swift-sdl"),
+                .product(name: "MyAppAndroid", package: "swift-sdl"),
                 // To pick up the jar file
                 .product(name: "SwiftSDL3", package: "swift-sdl"),
             ],

@@ -32,7 +32,7 @@ struct ApkBuilderPlugin: BuildToolPlugin {
         // TODO: Be more generic on how we find these dependencies
         let productsDir = URL(string: "file:/$(PRODUCTS_DIR)")!
         let sdljar = productsDir.appending(path: "SDL3.jar")
-        let native = productsDir.appending(path: "libAndroidExample.so")
+        let native = productsDir.appending(path: "libMyAppAndroid.so")
         let apk = outputDir.appending(path: "AndroidApp.apk")
 
         return [
@@ -52,6 +52,7 @@ struct ApkBuilderPlugin: BuildToolPlugin {
                     sdljar,
                     native,
                 ],
+                outputFiles: [apk],
                 alwaysOutOfDate: true
             ),
             .buildCommand(
