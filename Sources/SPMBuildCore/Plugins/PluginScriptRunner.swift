@@ -142,7 +142,14 @@ public struct PluginCompilationResult: Equatable {
     /// use `diagnosticsFiles` instead.
     @available(*, deprecated, message: "Use diagnosticsFiles instead")
     public var diagnosticsFile: Basics.AbsolutePath {
-        self.diagnosticsFiles[0]
+        get {
+            precondition(!self.diagnosticsFiles.isEmpty, "PluginCompilationResult must contain at least one diagnostics file")
+            return self.diagnosticsFiles[0]
+        }
+        set {
+            precondition(!self.diagnosticsFiles.isEmpty, "PluginCompilationResult must contain at least one diagnostics file")
+            self.diagnosticsFiles[0] = newValue
+        }
     }
     
     /// Any output emitted by the compiler (stdout and stderr combined).
@@ -159,6 +166,7 @@ public struct PluginCompilationResult: Equatable {
         compilerOutput rawCompilerOutput: String,
         cached: Bool
     ) {
+        precondition(!diagnosticsFiles.isEmpty, "PluginCompilationResult must contain at least one diagnostics file")
         self.succeeded = succeeded
         self.commandLine = commandLine
         self.executableFile = executableFile

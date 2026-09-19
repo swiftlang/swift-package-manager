@@ -1067,6 +1067,14 @@ final class PluginInvocationTests: XCTestCase {
             )
 
             XCTAssertTrue(result.succeeded, "plugin compilation failed: \(result.compilerOutput)")
+            let commandLineResult = pluginScriptRunner.buildCommandLine(
+                sourceFiles: [helperSource, pluginSource],
+                pluginName: "TestPlugin",
+                toolsVersion: .v5_6,
+                workers: 2,
+                observabilityScope: nil
+            )
+            XCTAssertEqual(commandLineResult.diagFilePath, result.diagnosticsFiles[0])
             let diagnostics = try result.diagnosticsFiles.flatMap { path in
                 let diaFileContents = try localFileSystem.readFileContents(path)
                 return try SerializedDiagnostics(bytes: diaFileContents).diagnostics
@@ -1074,6 +1082,29 @@ final class PluginInvocationTests: XCTestCase {
             XCTAssertEqual(diagnostics.count, 2)
             XCTAssertTrue(diagnostics.contains { $0.text.hasPrefix("helper diagnostic") }, "\(diagnostics)")
             XCTAssertTrue(diagnostics.contains { $0.text.hasPrefix("plugin diagnostic") }, "\(diagnostics)")
+
+            // Preserve the old writable diagnosticsFile API for source compatibility.
+            var compatibilityResult = result
+            compatibilityResult.diagnosticsFile = tmpPath.appending("compatibility.dia")
+            XCTAssertEqual(compatibilityResult.diagnosticsFiles[0], tmpPath.appending("compatibility.dia"))
+
+            let cachedResult = try await pluginScriptRunner.compilePluginScript(
+                sourceFiles: [helperSource, pluginSource],
+                pluginName: "TestPlugin",
+                toolsVersion: .v5_6,
+                workers: 2,
+                observabilityScope: observability.topScope,
+                callbackQueue: DispatchQueue.sharedConcurrent,
+                delegate: Delegate()
+            )
+            XCTAssertTrue(cachedResult.succeeded)
+            XCTAssertTrue(cachedResult.cached)
+            XCTAssertEqual(cachedResult.diagnosticsFiles, result.diagnosticsFiles)
+            let cachedDiagnostics = try cachedResult.diagnosticsFiles.flatMap { path in
+                let diaFileContents = try localFileSystem.readFileContents(path)
+                return try SerializedDiagnostics(bytes: diaFileContents).diagnostics
+            }
+            XCTAssertEqual(cachedDiagnostics.map(\.text).sorted(), diagnostics.map(\.text).sorted())
         }
     }
 

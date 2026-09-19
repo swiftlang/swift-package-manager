@@ -120,8 +120,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         let execSuffix = ""
         #endif
         let execFilePath = self.cacheDir.appending(component: execName + execSuffix)
-        let diagFilePath = self.cacheDir.appending(component: execName + ".dia")
-        let outputFileMapPath = self.cacheDir.appending(component: execName + "-output-file-map.json")
+        let diagFilePath = self.diagnosticsFilePaths(for: sourceFiles, pluginName: pluginName).first
+            ?? self.cacheDir.appending(component: execName + ".dia")
+        let outputFileMapPath = self.outputFileMapPath(for: pluginName)
         observabilityScope?.emit(debug: "Compiling plugin to executable at \(execFilePath)")
 
         // Construct the command line for compiling the plugin script(s).
@@ -243,12 +244,16 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
 
     private func diagnosticsFilePaths(for sourceFiles: [Basics.AbsolutePath], pluginName: String) -> [Basics.AbsolutePath] {
         let prefix = pluginName.spm_mangledToC99ExtendedIdentifier()
-        if sourceFiles.count == 1 {
-            return [self.cacheDir.appending(component: prefix + ".dia")]
-        }
         return sourceFiles.enumerated().map { index, sourceFile in
-            self.cacheDir.appending(component: "\(prefix)-\(index)-\(sourceFile.basename).dia")
+            let component = index == 0
+                ? prefix + ".dia"
+                : "\(prefix)-\(index)-\(sourceFile.basename).dia"
+            return self.cacheDir.appending(component: component)
         }
+    }
+
+    private func outputFileMapPath(for pluginName: String) -> Basics.AbsolutePath {
+        self.cacheDir.appending(component: pluginName.spm_mangledToC99ExtendedIdentifier() + "-output-file-map.json")
     }
 
     private func writeOutputFileMap(
@@ -256,7 +261,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         pluginName: String,
         fileSystem: FileSystem
     ) throws {
-        let outputFileMapPath = self.cacheDir.appending(component: pluginName.spm_mangledToC99ExtendedIdentifier() + "-output-file-map.json")
+        let outputFileMapPath = self.outputFileMapPath(for: pluginName)
         let diagnosticsPaths = self.diagnosticsFilePaths(for: sourceFiles, pluginName: pluginName)
         var outputFileMap: [String: [String: String]] = [:]
         for (sourceFile, diagnosticsPath) in zip(sourceFiles, diagnosticsPaths) {
@@ -277,7 +282,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         delegate: PluginScriptCompilerDelegate,
         completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
     ) {
-        let (commandLine, execName, execFilePath, diagFilePath) = self.buildCommandLine(
+        let (commandLine, execName, execFilePath, _) = self.buildCommandLine(
             sourceFiles: sourceFiles,
             pluginName: pluginName,
             toolsVersion: toolsVersion,
@@ -398,7 +403,6 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         // Clean up any old files to avoid confusion if the compiler can't be invoked.
         do {
             try fileSystem.removeFileTree(execFilePath)
-            try fileSystem.removeFileTree(diagFilePath)
             try fileSystem.removeFileTree(stateFilePath)
             for path in self.diagnosticsFilePaths(for: sourceFiles, pluginName: pluginName) {
                 try fileSystem.removeFileTree(path)
