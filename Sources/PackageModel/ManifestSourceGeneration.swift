@@ -734,6 +734,8 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .defaults:
+            self.init(enum: setting.kind.name, subnodes: [])
         }
     }
 
@@ -1224,6 +1226,8 @@ extension TargetBuildSettingDescription.Kind {
             return "defaultIsolation"
         case .bridgingHeader:
             return "bridgingHeader"
+        case .defaults:
+            return "defaults"
         }
     }
 }
