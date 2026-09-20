@@ -369,7 +369,7 @@ public final class PIFBuilder {
                         scriptRunner: pluginScriptRunner,
                         workingDirectory: package.path,
                         outputDirectory: pluginOutputDir,
-                        toolSearchDirectories: [buildParameters.toolchain.swiftCompilerPath.parentDirectory],
+                        toolSearchDirectories: buildParameters.toolchain.compilerBinDirectories,
                         accessibleTools: accessibleTools,
                         writableDirectories: writableDirectories,
                         readOnlyDirectories: readOnlyDirectories,
