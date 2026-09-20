@@ -70,7 +70,11 @@ public final class UserToolchain: Toolchain {
 
     /// Path of the `swift` interpreter.
     public var swiftInterpreterPath: AbsolutePath {
-        self.swiftCompilerPath.parentDirectory.appending("swift" + hostExecutableSuffix)
+        let interpreterName = "swift" + hostExecutableSuffix
+        let resolvedPath = self.resolvedSwiftCompilerBinDir.appending(interpreterName)
+        return self.fileSystem.exists(resolvedPath)
+            ? resolvedPath
+            : self.swiftCompilerPath.parentDirectory.appending(interpreterName)
     }
 
     private let fileSystem: any FileSystem
@@ -461,7 +465,7 @@ public final class UserToolchain: Toolchain {
         // Then, check the toolchain.
         if let toolPath = try? UserToolchain.getTool(
             "clang",
-            binDirectories: self.swiftSDK.toolset.rootPaths,
+            binDirectories: self.toolchainBinDirectories,
             fileSystem: self.fileSystem
         ) {
             self._clangCompiler = toolPath
@@ -494,7 +498,7 @@ public final class UserToolchain: Toolchain {
         // Look for LLDB next to the compiler first.
         if let lldbPath = try? UserToolchain.getTool(
             "lldb",
-            binDirectories: [self.swiftCompilerPath.parentDirectory],
+            binDirectories: self.compilerBinDirectories,
             fileSystem: self.fileSystem
         ) {
             return lldbPath
@@ -512,7 +516,7 @@ public final class UserToolchain: Toolchain {
     public func getLLVMCov() throws -> AbsolutePath {
         try UserToolchain.getTool(
             "llvm-cov",
-            binDirectories: [self.swiftCompilerPath.parentDirectory],
+            binDirectories: self.compilerBinDirectories,
             fileSystem: self.fileSystem
         )
     }
@@ -521,7 +525,7 @@ public final class UserToolchain: Toolchain {
     public func getLLVMProf() throws -> AbsolutePath {
         try UserToolchain.getTool(
             "llvm-profdata",
-            binDirectories: [self.swiftCompilerPath.parentDirectory],
+            binDirectories: self.compilerBinDirectories,
             fileSystem: self.fileSystem
         )
     }
@@ -530,7 +534,7 @@ public final class UserToolchain: Toolchain {
     package func getLLVMObjdump() throws -> AbsolutePath {
         try UserToolchain.getTool(
             "llvm-objdump",
-            binDirectories: [self.swiftCompilerPath.parentDirectory],
+            binDirectories: self.compilerBinDirectories,
             fileSystem: self.fileSystem
         )
     }
@@ -545,7 +549,7 @@ public final class UserToolchain: Toolchain {
         }
         return try UserToolchain.getTool(
             "swift-api-digester",
-            binDirectories: [self.swiftCompilerPath.parentDirectory],
+            binDirectories: self.compilerBinDirectories,
             fileSystem: self.fileSystem
 
         )
@@ -561,7 +565,7 @@ public final class UserToolchain: Toolchain {
         }
         return try UserToolchain.getTool(
             "swift-symbolgraph-extract",
-            binDirectories: [self.swiftCompilerPath.parentDirectory],
+            binDirectories: self.compilerBinDirectories,
             fileSystem: self.fileSystem
         )
     }
@@ -797,9 +801,13 @@ public final class UserToolchain: Toolchain {
         if let customInstalledSwiftPMConfiguration {
             self.installedSwiftPMConfiguration = customInstalledSwiftPMConfiguration
         } else {
-            let path = swiftCompilerPath.parentDirectory.parentDirectory.appending(components: [
-                "share", "pm", "config.json",
-            ])
+            let paths = Self.compilerBinDirectories(swiftCompilerPath: swiftCompilerPath).map {
+                $0.parentDirectory.appending(components: ["share", "pm", "config.json"])
+            }
+            let path = paths.first(where: fileSystem.exists)
+                ?? swiftCompilerPath.parentDirectory.parentDirectory.appending(components: [
+                    "share", "pm", "config.json",
+                ])
             self.installedSwiftPMConfiguration = try Self.loadJSONResource(
                 config: path,
                 type: InstalledSwiftPMConfiguration.self,
@@ -889,7 +897,10 @@ public final class UserToolchain: Toolchain {
 
         self.librarianPath = try swiftSDK.toolset.knownTools[.librarian]?.path ?? UserToolchain.determineLibrarian(
             triple: triple,
-            binDirectories: swiftSDK.toolset.rootPaths,
+            binDirectories: Self.toolchainBinDirectories(
+                swiftCompilerPath: swiftCompilers.compile,
+                swiftSDK: swiftSDK
+            ),
             useXcrun: useXcrun,
             environment: environment,
             searchPaths: envSearchPaths,
@@ -1022,7 +1033,11 @@ public final class UserToolchain: Toolchain {
         // an alternative cloud be to force explicit locations to always be set explicitly when running in Xcode/SwiftPM
         // debug and assert if not set but we detect that we are in this mode
 
-        for applicationPath in swiftSDK.toolset.rootPaths {
+        let binDirectories = Self.toolchainBinDirectories(
+            swiftCompilerPath: swiftCompilerPath,
+            swiftSDK: swiftSDK
+        )
+        for applicationPath in binDirectories {
             // this is the normal case when using the toolchain
             let librariesPath = applicationPath.parentDirectory.appending(components: "lib", "swift", "pm")
             if fileSystem.exists(librariesPath) {
