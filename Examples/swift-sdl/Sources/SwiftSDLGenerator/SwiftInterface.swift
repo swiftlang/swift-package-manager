@@ -21,7 +21,7 @@ public func parseInterface(headerPaths: [URL], moduleDir: URL, moduleName: Strin
     else { fatalError() }
     
     var synthArgs: [String] = [
-        "xcrun", "swift-synthesize-interface",
+        "swift-synthesize-interface",
         "-I", moduleDir.path,
         "-module-name", moduleName,
         "-target", "arm64-apple-macos15",
@@ -32,7 +32,12 @@ public func parseInterface(headerPaths: [URL], moduleDir: URL, moduleName: Strin
         synthArgs += ["-I", headerPath.path]
     }
 
-    guard let interface = try await run(.name("xcrun"), arguments: .init(synthArgs), output: .string(limit: .max)).standardOutput
+    guard let interface = try await run(
+        .name("xcrun"),
+        arguments: .init(synthArgs),
+        environment: .inherit.updating(["DEVELOPER_DIR": "/Applications/Xcode.app"]),
+        output: .string(limit: .max),
+        error: .currentStandardError).standardOutput
     else { fatalError() }
 
     return Parser.parse(source: interface)

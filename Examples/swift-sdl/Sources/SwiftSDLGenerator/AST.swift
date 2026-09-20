@@ -12,14 +12,14 @@
 import Foundation
 import Subprocess
 
-public class ASTNode: Decodable {
+public class ASTNode: Codable {
     var kind: String?
     var name: String?
     var tagUsed: String?
     var type: ASTType?
     var inner: [ASTNode]?
     
-    struct ASTType: Decodable {
+    struct ASTType: Codable {
         var qualType: String
     }
 }
@@ -28,7 +28,6 @@ public class ASTNode: Decodable {
 public func loadAST(headerPaths: [URL], headerFile: URL) async throws -> ASTNode {
     var clangArgs: [String] = [
         "-Xclang", "-ast-dump=json", "-fsyntax-only",
-        "-I", headerFile.deletingLastPathComponent().path
     ]
 
     for headerPath in headerPaths {
@@ -36,6 +35,11 @@ public func loadAST(headerPaths: [URL], headerFile: URL) async throws -> ASTNode
     }
     clangArgs += [headerFile.path]
 
-    let clangOutput = try await run(.name("clang"), arguments: .init(clangArgs), output: .data(limit: .max)).standardOutput
+    let clangOutput = try await run(
+        .name("clang"), 
+        arguments: .init(clangArgs),
+        environment: .inherit.updating(["DEVELOPER_DIR": "/Applications/Xcode.app"]),
+        output: .data(limit: .max),
+        error: .currentStandardError).standardOutput
     return try JSONDecoder().decode(ASTNode.self, from: clangOutput)
 }

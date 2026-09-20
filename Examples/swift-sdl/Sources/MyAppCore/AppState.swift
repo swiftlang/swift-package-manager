@@ -12,8 +12,10 @@
 import SwiftSDL3
 
 class AppState {
-    var window: UnsafeMutablePointer<SDL_Window>
-    var renderer: UnsafeMutablePointer<SDL_Renderer>
+    // TODO: generate SDL_Window type
+    var window: OpaquePointer
+    // TODO: generate SDL_Renderer type
+    var renderer: OpaquePointer
 
     var width: Int32 = 640
     var height: Int32 = 480

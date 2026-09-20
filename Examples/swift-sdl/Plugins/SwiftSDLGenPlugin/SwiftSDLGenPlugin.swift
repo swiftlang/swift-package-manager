@@ -23,6 +23,13 @@ struct SwiftSDLGenPlugin: BuildToolPlugin {
         let headerFile = include.appending(path: "SDL.h")
         let outputFile = context.pluginWorkDirectoryURL.appending(path: "SwiftSDL.swift")
 
+        var sdlHeaderPath: [String] = []
+        for dependency in target.dependencies {
+            if case let .target(depTarget) = dependency, depTarget.name == "SDL" {
+                sdlHeaderPath.append(depTarget.directoryURL.appending(path: "include").path)
+            }
+        }
+
         return [
             .buildCommand(
                 displayName: "SDL API Generator",
@@ -31,7 +38,7 @@ struct SwiftSDLGenPlugin: BuildToolPlugin {
                     moduleMap.path,
                     headerFile.path,
                     outputFile.path,
-                ],
+                ] + sdlHeaderPath,
                 outputFiles: [
                     moduleMap,
                     headerFile,
