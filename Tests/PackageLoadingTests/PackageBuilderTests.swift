@@ -3828,6 +3828,7 @@ struct PackageBuilderTests {
             "/Sources/A/a.swift",
             "/Sources/B/b.swift",
             "/Sources/C/c.swift",
+            "/Sources/D/d.swift",
         )
 
         let manifest = Manifest.createRootManifest(
@@ -3838,14 +3839,21 @@ struct PackageBuilderTests {
             toolsVersion: .v6_2,
             targets: [
                 try TargetDescription(
-                    name: "A"
+                    name: "A",
+                    // this must be explicit when using the TargetDescription API
+                    explicitSettings: .none
                 ),
                 try TargetDescription(
                     name: "B",
-                    settings: []
+                    settings: [
+                        .init(tool: .swift, kind: .defaults),
+                    ],
                 ),
                 try TargetDescription(
                     name: "C",
+                ),
+                try TargetDescription(
+                    name: "D",
                     settings: [
                         .init(tool: .swift, kind: .defaultIsolation(.nonisolated)),
                     ]
@@ -3873,6 +3881,15 @@ struct PackageBuilderTests {
             }
 
             try package.checkModule("C") { package in
+                let macosDebugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("-default-isolation") == false)
+                #expect(macosDebugScope.evaluate(.OTHER_SWIFT_FLAGS).contains("MainActor") == false)
+            }
+
+            try package.checkModule("D") { package in
                 let macosDebugScope = BuildSettings.Scope(
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
