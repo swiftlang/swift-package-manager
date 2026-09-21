@@ -24,6 +24,11 @@ struct CMakeBuilderPlugin: BuildToolPlugin {
         let libSDL3 = buildDir.appending(path: "libSDL3.a")
         let productsDir = URL(string: "file:/$(PRODUCTS_DIR)")!
 
+        var environment = ["HOME": ProcessInfo.processInfo.environment["HOME"]!]
+        if let developerDir = ProcessInfo.processInfo.environment["DEVELOPER_DIR"] {
+            environment["DEVELOPER_DIR"] = developerDir
+        }
+
         return [
             .buildCommand(
                 displayName: "CMake Build",
@@ -35,6 +40,7 @@ struct CMakeBuilderPlugin: BuildToolPlugin {
                     "--triple", "$(TRIPLE)",
                     target.directoryURL.path,
                 ],
+                environment: environment,
                 outputFiles: [libSDL3],
                 alwaysOutOfDate: true
             ),

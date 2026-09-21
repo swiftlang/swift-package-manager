@@ -11,6 +11,11 @@
 //===----------------------------------------------------------------------===//
 import Foundation
 import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 public class ASTNode: Codable {
     var kind: String?
@@ -25,15 +30,15 @@ public class ASTNode: Codable {
 }
 
 // Utility to create a clang AST from the module's umbrella header file
-public func loadAST(headerPaths: [URL], headerFile: URL) async throws -> ASTNode {
+public func loadAST(headerPaths: [FilePath], headerFile: FilePath) async throws -> ASTNode {
     var clangArgs: [String] = [
         "-Xclang", "-ast-dump=json", "-fsyntax-only",
     ]
 
     for headerPath in headerPaths {
-        clangArgs += ["-I", headerPath.path]
+        clangArgs += ["-I", headerPath.string]
     }
-    clangArgs += [headerFile.path]
+    clangArgs += [headerFile.string]
 
     let clangOutput = try await run(
         .name("clang"), 

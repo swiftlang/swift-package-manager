@@ -13,23 +13,28 @@ import Foundation
 import Subprocess
 import SwiftSyntax
 import SwiftParser
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 // Utility to load up the synthesized interface file for the C module into SwiftSyntax
-public func parseInterface(headerPaths: [URL], moduleDir: URL, moduleName: String) async throws -> SourceFileSyntax {
+public func parseInterface(headerPaths: [FilePath], moduleDir: FilePath, moduleName: String) async throws -> SourceFileSyntax {
     guard let sdkPath = try await run(.name("xcrun"), arguments: ["--show-sdk-path"], output: .string(limit: .max))
         .standardOutput?.trimmingCharacters(in: .newlines)
     else { fatalError() }
     
     var synthArgs: [String] = [
         "swift-synthesize-interface",
-        "-I", moduleDir.path,
+        "-I", moduleDir.string,
         "-module-name", moduleName,
         "-target", "arm64-apple-macos15",
         "-sdk", sdkPath
     ]
 
     for headerPath in headerPaths {
-        synthArgs += ["-I", headerPath.path]
+        synthArgs += ["-I", headerPath.string]
     }
 
     guard let interface = try await run(
