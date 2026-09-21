@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import SwiftASN1
 import Vapor
 import X509
 
@@ -24,5 +25,25 @@ public struct ClientCertificateAuthenticator: Sendable {
         guard let email = subjectEmail(of: certificate) else { return nil }
         guard await store.user(email: email) != nil else { return nil }
         return email
+    }
+
+    /// Gets the email from the email address field in `certificate`
+    /// The common name field is used if there is no email field
+    private func subjectEmail(of certificate: Certificate) -> RegistryExample.EmailAddress? {
+        let attributes = certificate.subject.flatMap { $0 }
+        return email(in: attributes, typed: .RDNAttributeType.emailAddress)
+            ?? email(in: attributes, typed: .RDNAttributeType.commonName)
+    }
+
+    private func email(
+        in attributes: [RelativeDistinguishedName.Attribute],
+        typed type: ASN1ObjectIdentifier
+    ) -> RegistryExample.EmailAddress? {
+        attributes
+            .lazy
+            .filter { $0.type == type }
+            .compactMap { String($0.value) }
+            .compactMap(RegistryExample.EmailAddress.init)
+            .first
     }
 }
