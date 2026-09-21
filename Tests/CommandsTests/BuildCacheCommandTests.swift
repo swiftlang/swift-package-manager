@@ -57,8 +57,8 @@ struct BuildCacheCommandTests {
                     "--enable-caching",
                     "--size-limit", "10G",
                     "--enable-diagnostic-remarks",
-                    "--remote-service-path", "/tmp/remote-service",
-                    "--plugin-path", "/tmp/plugin",
+                    "--experimental-remote-service-path", "/tmp/remote-service",
+                    "--experimental-plugin-path", "/tmp/plugin",
                     "--enable-prefix-mapping",
                 ],
                 packagePath: packageRoot,
@@ -207,8 +207,8 @@ struct BuildCacheCommandTests {
                 "--path", "/tmp/cache",
                 "--size-limit", "10G",
                 "--enable-diagnostic-remarks",
-                "--remote-service-path", "/tmp/remote-service",
-                "--plugin-path", "/tmp/plugin",
+                "--experimental-remote-service-path", "/tmp/remote-service",
+                "--experimental-plugin-path", "/tmp/plugin",
                 "--enable-prefix-mapping",
             ]
             let resetArgs = sharedConfig + ["build-cache", "reset-configuration"]
