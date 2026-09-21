@@ -16792,7 +16792,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: .regex(
-                        "failed extracting '.*[\\\\/]registry[\\\\/]downloads[\\\\/]org[\\\\/]foo[\\\\/]1.0.0.zip' to '.*[\\\\/]registry[\\\\/]downloads[\\\\/]org[\\\\/]foo[\\\\/]1.0.0': boom"
+                        "failed extracting '.*[\\\\/]registry[\\\\/]downloads[\\\\/][^\\\\/]+[\\\\/]org[\\\\/]foo[\\\\/]1.0.0.zip' to '.*[\\\\/]registry[\\\\/]downloads[\\\\/][^\\\\/]+[\\\\/]org[\\\\/]foo[\\\\/]1.0.0': boom"
                     ),
                     severity: .error
                 )
@@ -16847,7 +16847,9 @@ final class WorkspaceTests: XCTestCase {
         // for mock manifest loader to work with an actual registry download
         // we populate the mock manifest with a pointer to the correct download location
         let defaultLocations = try Workspace.Location(forRootPackage: sandbox, fileSystem: fs)
-        let packagePath = defaultLocations.registryDownloadDirectory.appending(components: ["org", "foo", "1.5.1"])
+        let packagePath = defaultLocations.registryDownloadDirectory
+            .appending(component: Registry(url: registryURL, supportsAvailability: false).storageKey)
+            .appending(components: ["org", "foo", "1.5.1"])
         workspace.manifestLoader.manifests[.init(url: "org.foo", version: "1.5.1")] =
             try Manifest.createManifest(
                 displayName: "Foo",

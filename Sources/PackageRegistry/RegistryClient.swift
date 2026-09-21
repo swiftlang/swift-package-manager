@@ -1385,7 +1385,7 @@ public final class RegistryClient: AsyncCancellable {
         return try availabilityHandler(result)
     }
 
-    private func unwrapRegistry(from package: PackageIdentity) throws -> (PackageIdentity.RegistryIdentity, Registry) {
+    func unwrapRegistry(from package: PackageIdentity) throws -> (PackageIdentity.RegistryIdentity, Registry) {
         guard let registryIdentity = package.registry else {
             throw RegistryError.invalidPackageIdentity(package)
         }
