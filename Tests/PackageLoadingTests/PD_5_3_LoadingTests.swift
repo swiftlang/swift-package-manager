@@ -111,6 +111,7 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             pkgConfig: nil,
             providers: nil,
             settings: [],
+            explicitSettings: .none,
             checksum: nil))
         XCTAssertEqual(foo2, try? TargetDescription(
             name: "Foo2",
@@ -126,6 +127,7 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             pkgConfig: nil,
             providers: nil,
             settings: [],
+            explicitSettings: .none,
             checksum: "839F9F30DC13C30795666DD8F6FB77DD0E097B83D06954073E34FE5154481F7A"))
         XCTAssertEqual(foo3, try? TargetDescription(
             name: "Foo3",
@@ -141,6 +143,7 @@ final class PackageDescription5_3LoadingTests: PackageDescriptionLoadingTests {
             pkgConfig: nil,
             providers: nil,
             settings: [],
+            explicitSettings: .none,
             checksum: nil
         ))
     }
