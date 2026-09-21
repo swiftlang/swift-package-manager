@@ -970,8 +970,16 @@ extension PackageGraph.ResolvedProduct {
 }
 
 extension PackageGraph.ResolvedModule {
-    func recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: Set<ResolvedModule.ID>, with block: (ResolvedModule.Dependency) -> Void) {
-        [self].recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: includeDependenciesOfMacros, with: block)
+    func recursivelyTraverseTransitiveLinkageDependencies(
+        includeDependenciesOfMacros: Set<ResolvedModule.ID>,
+        toolsVersion: ToolsVersion,
+        with block: (ResolvedModule.Dependency, Set<ProjectModel.PlatformFilter>) -> Void
+    ) {
+        [self].recursivelyTraverseTransitiveLinkageDependencies(
+            includeDependenciesOfMacros: includeDependenciesOfMacros,
+            toolsVersion: toolsVersion,
+            with: block
+        )
     }
 
     func addParseAsLibrarySettings(to settings: inout BuildSettings, toolsVersion: ToolsVersion, fileSystem: FileSystem) {
@@ -996,12 +1004,80 @@ extension PackageGraph.ResolvedModule {
     }
 }
 
+private enum PIFDependencyKey: Hashable {
+    case module(PackageGraph.ResolvedModule.ID)
+    case product(PackageGraph.ResolvedProduct.ID)
+}
+
+private enum PIFPlatformReachability: Equatable {
+    case unconditionallyReachable
+    case conditionallyReachable(Set<ProjectModel.PlatformFilter>)
+    case unreachable
+
+    init(filters: Set<ProjectModel.PlatformFilter>) {
+        self = filters.isEmpty ? .unconditionallyReachable : .conditionallyReachable(filters)
+    }
+
+    var platformFilters: Set<ProjectModel.PlatformFilter> {
+        switch self {
+        case .unconditionallyReachable, .unreachable: []
+        case .conditionallyReachable(let filters): filters
+        }
+    }
+
+    func intersection(_ other: Self) -> Self {
+        switch (self, other) {
+        case (.unreachable, _), (_, .unreachable):
+            return .unreachable
+        case (.unconditionallyReachable, let rhs):
+            return rhs
+        case (let lhs, .unconditionallyReachable):
+            return lhs
+        case (.conditionallyReachable(let lhs), .conditionallyReachable(let rhs)):
+            let intersection = lhs.intersection(rhs)
+            return intersection.isEmpty ? .unreachable : .conditionallyReachable(intersection)
+        }
+    }
+
+    func union(_ other: Self) -> Self {
+        switch (self, other) {
+        case (.unconditionallyReachable, _), (_, .unconditionallyReachable):
+            return .unconditionallyReachable
+        case (.unreachable, let rhs):
+            return rhs
+        case (let lhs, .unreachable):
+            return lhs
+        case (.conditionallyReachable(let lhs), .conditionallyReachable(let rhs)):
+            return .conditionallyReachable(lhs.union(rhs))
+        }
+    }
+}
+
 extension Collection<PackageGraph.ResolvedModule> {
     /// Recursively applies a block to each of the linkage dependencies of the given module, in topological sort order.
-    /// Each module or product dependency is visited only once.
-    func recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: Set<ResolvedModule.ID>, with block: (ResolvedModule.Dependency) -> Void) {
+    func recursivelyTraverseTransitiveLinkageDependencies(
+        includeDependenciesOfMacros: Set<ResolvedModule.ID>,
+        toolsVersion: ToolsVersion,
+        with block: (ResolvedModule.Dependency, Set<ProjectModel.PlatformFilter>) -> Void
+    ) {
+        // Do not traverse into *macro* or *plugin* dependencies unless explicitly requested.
+        // Macros run at compile time and their dependencies should not be linked into the client, unless a client includes their testable variant.
+        // Plugins run at build time and their dependencies should not be linked into the client.
+        func stopsTraversal(_ moduleDependency: ResolvedModule) -> Bool {
+            switch moduleDependency.type {
+            case .macro:
+                !includeDependenciesOfMacros.contains(moduleDependency.id)
+            case .plugin:
+                true
+            default:
+                false
+            }
+        }
+
+        // First determine the set of transitive linkage dependencies.
         var moduleIDsSeen: Set<ResolvedModule.ID> = []
         var productIDsSeen: Set<ResolvedProduct.ID> = []
+        var visitOrder: [(dependency: ResolvedModule.Dependency, key: PIFDependencyKey)] = []
 
         func visitDependency(_ dependency: ResolvedModule.Dependency) {
             switch dependency {
@@ -1009,42 +1085,86 @@ extension Collection<PackageGraph.ResolvedModule> {
                 let (unseenModule, _) = moduleIDsSeen.insert(moduleDependency.id)
                 guard unseenModule else { return }
 
-                // Do not traverse into *macro* or *plugin* dependencies unless explicitly requested.
-                // Macros run at compile time and their dependencies should not be linked into the client, unless a client includes their testable variant.
-                // Plugins run at build time and their dependencies should not be linked into the client.
-                let stopTraversal: Bool
-                switch moduleDependency.type {
-                case .macro:
-                    stopTraversal = !includeDependenciesOfMacros.contains(moduleDependency.id)
-                case .plugin:
-                    stopTraversal = true
-                default:
-                    stopTraversal = false
-                }
-
-                if !stopTraversal {
+                if !stopsTraversal(moduleDependency) {
                     for dependency in moduleDependency.dependencies {
                         visitDependency(dependency)
                     }
                 }
-                block(dependency)
+                visitOrder.append((dependency, .module(moduleDependency.id)))
 
             case .product(let productDependency, let conditions):
                 let (unseenProduct, _) = productIDsSeen.insert(productDependency.id)
                 guard unseenProduct && !productDependency.isBinaryOnlyExecutableProduct else { return }
-                block(dependency)
+                visitOrder.append((dependency, .product(productDependency.id)))
 
                 // We need to visit any binary modules to be able to add direct references to them to any client targets.
                 // This is needed so that XCFramework processing always happens *prior* to building any client targets.
                 for moduleDependency in productDependency.modules where moduleDependency.isBinary {
                     if moduleIDsSeen.contains(moduleDependency.id) { continue }
-                    block(.module(moduleDependency, conditions: conditions))
+                    visitOrder.append((
+                        .module(moduleDependency, conditions: conditions),
+                        .module(moduleDependency.id)
+                    ))
                 }
             }
         }
 
         for dependency in self.flatMap(\.dependencies) {
             visitDependency(dependency)
+        }
+
+        // Next, determine the set of platform filters for the new dependency edges introduced when the transitive dependencies
+        // are flattened.
+        var reachability: [PIFDependencyKey: PIFPlatformReachability] = [:]
+        var worklist: [(dependency: ResolvedModule.Dependency, reachability: PIFPlatformReachability)] = []
+
+        func widenReachability(
+            of dependency: ResolvedModule.Dependency,
+            reachedVia incoming: PIFPlatformReachability
+        ) {
+            // Determine how the dependency is reachable via the current edge. Intersect this with
+            // the reachability along the current path we're traversing.
+            let edge = PIFPlatformReachability(
+                filters: dependency.conditions.toPlatformFilter(toolsVersion: toolsVersion)
+            )
+            let reached = incoming.intersection(edge)
+
+            let key: PIFDependencyKey = switch dependency {
+            case .module(let moduleDependency, _): .module(moduleDependency.id)
+            case .product(let productDependency, _): .product(productDependency.id)
+            }
+
+            // We may reach a dependency via multiple paths, in which case we should union the reachability along each.
+            let widened = reachability[key]?.union(reached) ?? reached
+            guard widened != reachability[key], widened != .unreachable else { return }
+            reachability[key] = widened
+
+            // Add transitive dependencies to the worklist.
+            worklist.append((dependency, widened))
+        }
+
+        for dependency in self.flatMap(\.dependencies) {
+            widenReachability(of: dependency, reachedVia: .unconditionallyReachable)
+        }
+        while let (dependency, reachedVia) = worklist.popLast() {
+            switch dependency {
+            case .module(let moduleDependency, _):
+                guard !stopsTraversal(moduleDependency) else { continue }
+                for dependency in moduleDependency.dependencies {
+                    widenReachability(of: dependency, reachedVia: reachedVia)
+                }
+
+            case .product(let productDependency, _):
+                guard !productDependency.isBinaryOnlyExecutableProduct else { continue }
+                for moduleDependency in productDependency.modules where moduleDependency.isBinary {
+                    widenReachability(of: .module(moduleDependency, conditions: []), reachedVia: reachedVia)
+                }
+            }
+        }
+
+        for (dependency, key) in visitOrder {
+            guard let reached = reachability[key] else { continue }
+            block(dependency, reached.platformFilters)
         }
     }
 }

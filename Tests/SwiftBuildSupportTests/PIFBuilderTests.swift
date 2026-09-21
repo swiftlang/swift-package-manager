@@ -2741,6 +2741,184 @@ struct PIFBuilderTests {
             "Expected MyPlugin to depend on my-tool-product from ToolPkg. Actual dependencies: \(pluginTarget.common.dependencies.map(\.targetId.value))"
         )
     }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9516", relationship: .verifies)
+    )
+    func transitiveLinkageDependencyThroughPlatformFilter() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/Library/Library.swift",
+            "/Root/Sources/AndroidSupport/AndroidSupport.swift",
+            "/Root/Sources/AndroidOnlyHelper/AndroidOnlyHelper.swift",
+            "/Root/Sources/Shared/Shared.swift",
+        ])
+
+        let androidOnly = PackageConditionDescription(platformNames: ["android"])
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_2,
+                    targets: [
+                        TargetDescription(
+                            name: "Library",
+                            dependencies: [
+                                .target(name: "AndroidSupport", condition: androidOnly),
+                                .target(name: "Shared", condition: nil),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "AndroidSupport",
+                            dependencies: [
+                                .target(name: "AndroidOnlyHelper", condition: nil),
+                                .target(name: "Shared", condition: nil),
+                            ]
+                        ),
+                        TargetDescription(name: "AndroidOnlyHelper"),
+                        TargetDescription(name: "Shared"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "Root")
+        let library = try project.target(named: "Library")
+
+        let androidSupportEdge = try #require(library.common.dependencies.first { $0.targetId.value.hasSuffix("AndroidSupport") })
+        let helperEdge = try #require(
+            library.common.dependencies.first { $0.targetId.value.hasSuffix("AndroidOnlyHelper") }
+        )
+
+        #expect(!androidSupportEdge.platformFilters.isEmpty)
+        #expect(helperEdge.platformFilters == androidSupportEdge.platformFilters)
+
+        let androidSupport = try project.target(named: "AndroidSupport")
+        let directHelperEdge = try #require(androidSupport.common.dependencies.first { $0.targetId.value.hasSuffix("AndroidOnlyHelper") })
+        #expect(directHelperEdge.platformFilters.isEmpty)
+        let sharedEdge = try #require(library.common.dependencies.first { $0.targetId.value.hasSuffix("Shared") })
+        #expect(sharedEdge.platformFilters.isEmpty)
+    }
+
+    @Test
+    func transitiveLinkageDependencyThroughMultiplePlatformFilters() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/Library/Library.swift",
+            "/Root/Sources/MidA/MidA.swift",
+            "/Root/Sources/MidB/MidB.swift",
+            "/Root/Sources/MidC/MidC.swift",
+            "/Root/Sources/Deep/Deep.swift",
+            "/Root/Sources/DeadEnd/DeadEnd.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_2,
+                    targets: [
+                        TargetDescription(
+                            name: "Library",
+                            dependencies: [
+                                .target(name: "MidA", condition: PackageConditionDescription(platformNames: ["ios", "tvos"])),
+                                .target(name: "MidB", condition: PackageConditionDescription(platformNames: ["macos", "visionos"])),
+                                .target(name: "MidC", condition: PackageConditionDescription(platformNames: ["ios"])),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "MidA",
+                            dependencies: [.target(name: "Deep", condition: PackageConditionDescription(platformNames: ["tvos", "watchos"]))]
+                        ),
+                        TargetDescription(
+                            name: "MidB",
+                            dependencies: [.target(name: "Deep", condition: PackageConditionDescription(platformNames: ["macos", "watchos"]))]
+                        ),
+                        TargetDescription(
+                            name: "MidC",
+                            dependencies: [.target(name: "DeadEnd", condition: PackageConditionDescription(platformNames: ["watchos"]))]
+                        ),
+                        TargetDescription(name: "Deep"),
+                        TargetDescription(name: "DeadEnd"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "Root")
+
+        func filters(from targetName: String, to suffix: String) throws -> Set<ProjectModel.PlatformFilter> {
+            let dependencies = try project.target(named: targetName).common.dependencies
+            let edge = try #require(dependencies.only { $0.targetId.value.hasSuffix(suffix) })
+            return edge.platformFilters
+        }
+
+        #expect(try filters(from: "Library", to: "MidA") == [
+            .init(platform: "ios"), .init(platform: "ios", environment: "simulator"),
+            .init(platform: "tvos"), .init(platform: "tvos", environment: "simulator"),
+        ])
+        #expect(try filters(from: "Library", to: "MidB") == [
+            .init(platform: "macos"),
+            .init(platform: "xros"), .init(platform: "xros", environment: "simulator"),
+        ])
+        #expect(try filters(from: "Library", to: "MidC") == [
+            .init(platform: "ios"), .init(platform: "ios", environment: "simulator"),
+        ])
+        #expect(try filters(from: "MidA", to: "Deep") == [
+            .init(platform: "tvos"), .init(platform: "tvos", environment: "simulator"),
+            .init(platform: "watchos"), .init(platform: "watchos", environment: "simulator"),
+        ])
+        #expect(try filters(from: "MidB", to: "Deep") == [
+            .init(platform: "macos"),
+            .init(platform: "watchos"), .init(platform: "watchos", environment: "simulator"),
+        ])
+        #expect(try filters(from: "MidC", to: "DeadEnd") == [
+            .init(platform: "watchos"), .init(platform: "watchos", environment: "simulator"),
+        ])
+
+        #expect(try filters(from: "Library", to: "Deep") == [
+            .init(platform: "macos"),
+            .init(platform: "tvos"), .init(platform: "tvos", environment: "simulator"),
+        ])
+        let library = try project.target(named: "Library")
+        #expect(!library.common.dependencies.contains { $0.targetId.value.hasSuffix("DeadEnd") })
+    }
 }
 
 /// A no-op plugin script runner for use in PIF builder tests that need a plugin in the graph
