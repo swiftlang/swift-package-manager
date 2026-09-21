@@ -539,7 +539,7 @@ struct DefaultLoadingTests {
 
         try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
             diagnostics.check(
-                diagnostic: "configuration of package '\(package.packageIdentity)' is invalid; defaults cannot be referenced without being defined",
+                diagnostic: "configuration of package '\(package.packageIdentity)' is invalid; target references default settings, but none are defined for the package",
                 severity: .error
             )
         }
