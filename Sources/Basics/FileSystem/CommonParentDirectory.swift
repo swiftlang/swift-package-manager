@@ -24,65 +24,19 @@
 /// - `["/usr/local/bin", "/usr/local/lib"]` → `"/usr/local"`
 /// - `["/a/b", "/x/y"]` → `"/"`
 /// - `[]` → `"/"`
-public func getCommonParentDirectory(paths: [AbsolutePath]) throws-> AbsolutePath {
-    // Handle empty array case
-    guard !paths.isEmpty else {
+public func getCommonParentDirectory(paths: [AbsolutePath]) throws -> AbsolutePath {
+    guard let first = paths.first else {
         return AbsolutePath.root
     }
 
-    // Handle single path case
-    guard paths.count > 1 else {
-        return paths[0]
-    }
-
-    // Get the components of all paths
-    let allComponents = paths.map { $0.components }
-
-    // Find the minimum length to avoid index out of bounds
-    let minLength = allComponents.map { $0.count }.min() ?? 0
-
-    // Find the common prefix by comparing components at each position
-    var commonComponents: [String] = []
-
-    for index in 0..<minLength {
-        let component = allComponents[0][index]
-
-        // Check if this component is the same in all paths
-        let isCommon = allComponents.allSatisfy { $0[index] == component }
-
-        if isCommon {
-            commonComponents.append(component)
-        } else {
-            // Stop at the first different component
-            break
+    var common = first
+    for path in paths.dropFirst() {
+        while !common.isAncestorOfOrEqual(to: path) {
+            if common.isRoot {
+                return common
+            }
+            common = common.parentDirectory
         }
     }
-
-    // Handle the case where there are no common components beyond root
-    guard !commonComponents.isEmpty else {
-        return AbsolutePath.root
-    }
-
-    // Build the result path from common components
-    if commonComponents.count == 1 && commonComponents[0] == "/" {
-        return AbsolutePath.root
-    }
-
-    // Join the common components back into a path string
-    let commonPath = commonComponents.joined(separator: "/")
-
-    // Handle the case where the first component is the root separator
-    if commonComponents[0] == "/" {
-        if commonComponents.count == 1 {
-            return AbsolutePath.root
-        }
-        // Skip the first "/" component since AbsolutePath constructor expects paths to start with "/"
-        let pathWithoutLeadingSlash = commonComponents.dropFirst().joined(separator: "/")
-        return try AbsolutePath(validating: "/" + pathWithoutLeadingSlash)
-    }
-
-    if !commonPath.starts(with: "/") {
-        return try AbsolutePath(validating: "/\(commonPath)")
-    }
-    return try AbsolutePath(validating: commonPath)
+    return common
 }
