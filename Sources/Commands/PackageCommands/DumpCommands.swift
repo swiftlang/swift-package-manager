@@ -37,7 +37,7 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
     @Flag(help: "Skip members inherited through classes or default implementations.")
     var skipSynthesizedMembers = false
 
-    @Option(help: "Include symbols with this access level or more. Possible values: \(SymbolGraphExtract.AccessLevel.allValueStrings.joined(separator: " | ")).")
+    @Option(help: "Include symbols with this access level or more.")
     var minimumAccessLevel = defaultMinimumAccessLevel
 
     @Flag(help: "Skip emitting doc comments for members inherited through classes or default implementations.")
