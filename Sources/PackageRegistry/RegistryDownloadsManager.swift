@@ -56,11 +56,8 @@ public class RegistryDownloadsManager: AsyncCancellable {
         version: Version,
         observabilityScope: ObservabilityScope
     ) async throws -> Basics.AbsolutePath {
-        let packageRelativePath: Basics.RelativePath
-        let packagePath: Basics.AbsolutePath
-
-        packageRelativePath = try package.downloadPath(version: version)
-        packagePath = self.path.appending(packageRelativePath)
+        let relativePath = try self.storagePath(for: package, version: version)
+        let packagePath = self.path.appending(relativePath)
 
         // TODO: we can do some finger-print checking to improve the validation
         // already exists and valid, we can exit early
@@ -80,7 +77,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
                 let lookupTask = Task {
                     // inform delegate that we are starting to fetch
                     // calculate if cached (for delegate call) outside queue as it may change while queue is processing
-                    let isCached = self.cachePath.map { self.fileSystem.exists($0.appending(packageRelativePath)) } ?? false
+                    let isCached = self.cachePath.map { self.fileSystem.exists($0.appending(relativePath)) } ?? false
                     Task {
                         let details = FetchDetails(fromCache: isCached, updatedCache: false)
                         await delegate?.willFetch(package: package, version: version, fetchDetails: details)
@@ -95,6 +92,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
                             package: package,
                             version: version,
                             packagePath: packagePath,
+                            relativePath: relativePath,
                             observabilityScope: observabilityScope
                         )
                         // inform delegate that we finished to fetch
@@ -145,13 +143,12 @@ public class RegistryDownloadsManager: AsyncCancellable {
         package: PackageIdentity,
         version: Version,
         packagePath: Basics.AbsolutePath,
+        relativePath: Basics.RelativePath,
         observabilityScope: ObservabilityScope
     ) async throws -> FetchDetails {
         if let cachePath {
+            let cachedPackagePath = cachePath.appending(relativePath)
             do {
-                let relativePath = try package.downloadPath(version: version)
-                let cachedPackagePath = cachePath.appending(relativePath)
-
                 try self.initializeCacheIfNeeded(cachePath: cachePath)
 
                 return try await self.fileSystem.withLock(on: cachedPackagePath, type: .exclusive) {
@@ -218,7 +215,6 @@ public class RegistryDownloadsManager: AsyncCancellable {
             // it is possible that we already created the directory from failed attempts, so clear leftover data if present.
             try? self.fileSystem.removeFileTree(packagePath)
 
-            // download without populating the cache when no `cachePath` is set.
             let _ = try await self.registryClient.downloadSourceArchive(
                 package: package,
                 version: version,
@@ -248,9 +244,22 @@ public class RegistryDownloadsManager: AsyncCancellable {
         }
     }
 
+    /// Relative path where `package` is stored, both in the downloads directory and in the shared cache.
+    ///
+    /// Package identity is only scope and name, so the registry is part of the path: two registries
+    /// publishing the same scope and name would otherwise share one tree.
+    internal func storagePath(for package: PackageIdentity) throws -> Basics.RelativePath {
+        let (identity, registry) = try self.registryClient.unwrapRegistry(from: package)
+        return try RelativePath(validating: registry.storageKey)
+            .appending(components: identity.scope.description, identity.name.description)
+    }
+
+    internal func storagePath(for package: PackageIdentity, version: Version) throws -> Basics.RelativePath {
+        try self.storagePath(for: package).appending(component: version.description)
+    }
+
     public func remove(package: PackageIdentity) throws {
-        let relativePath = try package.downloadPath()
-        let packagesPath = self.path.appending(relativePath)
+        let packagesPath = try self.path.appending(self.storagePath(for: package))
         self.pendingLookups.removeValue(forPackage: package)
         try self.fileSystem.removeFileTree(packagesPath)
     }
@@ -379,15 +388,16 @@ extension FileSystem {
     }
 }
 
-extension PackageIdentity {
-    internal func downloadPath() throws -> Basics.RelativePath {
-        guard let registryIdentity = self.registry else {
-            throw StringError("invalid package identifier \(self), expected registry scope and name")
+extension Registry {
+    /// A unique identifier for this registry, suitable for use in a file system path.
+    package var storageKey: String {
+        // canonicalize across similar URLs, keeping the scheme significant
+        let canonical = CanonicalPackageURL(self.url.absoluteString)
+        let hash = "\(canonical.description)_\(canonical.scheme ?? "")".sha256Checksum.prefix(8)
+        // Host is a readability label only; drop it when long to stay under path length limits.
+        guard let host = self.url.host?.lowercased(), host.utf8.count <= 32 else {
+            return String(hash)
         }
-        return try RelativePath(validating: registryIdentity.scope.description).appending(component: registryIdentity.name.description)
-    }
-
-    internal func downloadPath(version: Version) throws -> Basics.RelativePath {
-        try self.downloadPath().appending(component: version.description)
+        return "\(host)-\(hash)"
     }
 }
