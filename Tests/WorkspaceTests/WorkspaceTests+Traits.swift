@@ -1600,6 +1600,64 @@ extension WorkspaceTests {
         }
     }
 
+    func testUpdateWithRootDependencyGuardedByDefaultTrait() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(
+                                    name: "GuardedProduct",
+                                    package: "GuardedPackage",
+                                    condition: .init(traits: ["EnabledByDefault"])
+                                )
+                            ]
+                        )
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./GuardedPackage", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    traits: [
+                        .init(name: "default", enabledTraits: ["EnabledByDefault"]),
+                        "EnabledByDefault",
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "GuardedPackage",
+                    targets: [MockTarget(name: "GuardedTarget")],
+                    products: [MockProduct(name: "GuardedProduct", modules: ["GuardedTarget"])],
+                    versions: ["1.0.0", "1.1.0"]
+                )
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Root", "GuardedPackage")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        try await workspace.checkUpdate(roots: ["Root"]) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "guardedpackage", at: .checkout(.version("1.1.0")))
+        }
+    }
+
     func testDependencyTraitEnabledViaMultipleRoots() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
