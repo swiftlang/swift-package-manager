@@ -46,6 +46,7 @@ struct SwiftSDLGenerator {
         #define SDL_MAIN_USE_CALLBACKS 1
         #include <SDL3/SDL.h>
         #include <SDL3/SDL_main.h>
+        #include <stddef.h>
         """
         let headerFile = FilePath(CommandLine.arguments[2])
         FileManager.default.createFile(atPath: headerFile.string, contents: header.data(using: .utf8))
@@ -104,7 +105,9 @@ struct SwiftSDLGenerator {
 
         var usedTypes: Set<String> = []
 
-        let functions = sourceFileSyntax.statements.compactMap { item -> CodeBlockItemSyntax? in
+        // Functions that use OpaquePointer, replaced with wrappers
+
+        let functions = sourceFileSyntax.statements.compactMap { item -> FunctionDeclSyntax? in
             guard let function = item.item.as(FunctionDeclSyntax.self),
                 let astFunction = astFunctions[function.name.text]
             else {
@@ -138,7 +141,7 @@ struct SwiftSDLGenerator {
                     )
                 } else {
                     newParameter = parameter
-                    expression = LabeledExprSyntax(expression: DeclReferenceExprSyntax(baseName: name)))
+                    expression = LabeledExprSyntax(expression: DeclReferenceExprSyntax(baseName: name))
                 }
 
                 if count < function.signature.parameterClause.parameters.count - 1 {
@@ -190,36 +193,105 @@ struct SwiftSDLGenerator {
                 .init(pieces: [.newlines(1), .spaces(4)])
             ).with(\.trailingTrivia, .newline)
 
-            return CodeBlockItemSyntax(item: .decl(.init(
-                function.with(\.signature, signature)
-                    .with(\.body, CodeBlockSyntax(
-                        leadingTrivia: .space,
-                        statements: .init([CodeBlockItemSyntax(item: .init(functionCall))]))
-                    )
+            return function.with(\.signature, signature)
+                .with(\.body, CodeBlockSyntax(
+                    leadingTrivia: .space,
+                    statements: .init([CodeBlockItemSyntax(item: .init(functionCall))]))
                 )
-            ))
         }
 
-        let opaquesFile = headerFile.removingLastComponent().appending("opaques.txt")
-        let newSourceFile = SourceFileSyntax(statements: .init(functions))
-        FileManager.default.createFile(atPath: opaquesFile.string, contents: newSourceFile.description.data(using: .utf8))
+        let functionItems = functions.map { function in
+            CodeBlockItemSyntax(item: .decl(.init(function)))
+        }
+
+        // The wrapper types for OpaquePointer
+
+        let pointerType = OptionalTypeSyntax(
+            wrappedType: IdentifierTypeSyntax(name: .identifier("OpaquePointer", leadingTrivia: .space))
+        )
+
+        let pointerVar = VariableDeclSyntax(
+            modifiers: [DeclModifierSyntax(name: .keyword(.public), trailingTrivia: .space)],
+            bindingSpecifier: .keyword(.let, trailingTrivia: .space),
+            bindings: [PatternBindingSyntax(
+                pattern: IdentifierPatternSyntax(identifier: .identifier("pointer")),
+                typeAnnotation: TypeAnnotationSyntax(type: pointerType)
+            )]
+        )
+
+        let wrapperInit = InitializerDeclSyntax(
+            modifiers: [DeclModifierSyntax(name: .keyword(.public, trailingTrivia: .space))],
+            signature: FunctionSignatureSyntax(
+                parameterClause: FunctionParameterClauseSyntax(
+                    parameters: [FunctionParameterSyntax(
+                        firstName: .wildcardToken(),
+                        secondName: .identifier("pointer", leadingTrivia: .space),
+                        type: pointerType
+                    )]
+                )
+            ),
+            body: CodeBlockSyntax(
+                leadingTrivia: .space,
+                statements: [CodeBlockItemSyntax(
+                    leadingTrivia: [.newlines(1), .spaces(8)],
+                    item: .init(InfixOperatorExprSyntax(
+                        leftOperand: MemberAccessExprSyntax(
+                            base: DeclReferenceExprSyntax(baseName: .keyword(.self)),
+                            declName: DeclReferenceExprSyntax(baseName: .identifier("pointer"))),
+                        operator: AssignmentExprSyntax(),
+                        rightOperand: DeclReferenceExprSyntax(baseName: .identifier("pointer")),
+                        trailingTrivia: [.newlines(1), .spaces(4)]
+                    ),
+                ))]
+            )
+        )
+
+        let wrappers = usedTypes.sorted().map { type in 
+            let wrapper = StructDeclSyntax(
+                modifiers: [DeclModifierSyntax(name: .keyword(.public), trailingTrivia: .space)],
+                name: .identifier(type, leadingTrivia: .space, trailingTrivia: .space),
+                memberBlock: MemberBlockSyntax(
+                    members: [
+                        MemberBlockItemSyntax(leadingTrivia: [.newlines(1), .spaces(4)], decl: pointerVar),
+                        MemberBlockItemSyntax(leadingTrivia: [.newlines(1), .spaces(4)], decl: wrapperInit, trailingTrivia: .newline)
+                    ],
+                ),
+                trailingTrivia: .newlines(2)
+            )
+
+            return CodeBlockItemSyntax(item: .init(wrapper))
+        }
+
+        // wchar_t needs a type alias
+        let wchar = CodeBlockItemSyntax(
+            item: .decl(DeclSyntax(
+                TypeAliasDeclSyntax(
+                    modifiers: [DeclModifierSyntax(name: .keyword(.public, trailingTrivia: .space))],
+                    name: .identifier("wchar_t",leadingTrivia: .space, trailingTrivia: .space),
+                    initializer: TypeInitializerClauseSyntax(
+                        value: TypeSyntax(IdentifierTypeSyntax(name: .identifier("_Builtin_stddef.wchar_t", leadingTrivia: .space)))
+                    ),
+                    trailingTrivia: .newlines(2)
+                )
+            ))
+        )
+
+        let newSourceFile = SourceFileSyntax(statements: .init(wrappers + functionItems))
+        let bindingsFile = FilePath(CommandLine.arguments[3])
+        FileManager.default.createFile(atPath: bindingsFile.string, contents: newSourceFile.description.data(using: .utf8))
 
         // TODO: Generate an API header to help with the Swift bindings
         let apiNotes = """
         Name: SwiftSDL3
-        Functions:
-        - Name: SDL_GetVersion
-          SwiftName: SwiftSDL_GetVersion()
-        """
+        Functions:\n
+        """ + functions.map { function in
+            let name = function.name.text
+            return """
+            - Name: \(name)
+              SwiftName: _\(name)(\(String(repeating: "_:", count: function.signature.parameterClause.parameters.count)))
+            """
+        }.joined(separator: "\n")
         FileManager.default.createFile(atPath: apiNotesFile.string, contents: apiNotes.data(using: .utf8))
-
-        // TODO: Generate Swift bindings to make the Swift interface more ergonomic.
-        // This includes replacing occurences of OpaquePointer with a more type safe alternative
-        // by parsing the interfaces that use opaque structs and create replacements.
-        let bindings = """
-        """
-        let bindingsFile = FilePath(CommandLine.arguments[3])
-        FileManager.default.createFile(atPath: bindingsFile.string, contents: bindings.data(using: .utf8))
     }
 }
 

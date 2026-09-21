@@ -69,17 +69,19 @@ struct CMakeBuilder: AsyncParsableCommand {
 
     // Run the configure step of the CMake build
     func configure(sourceDir: String, outputDir: String) async throws {
-        let toolchainFile = outputDir + "/cmake.toolchain"
-        try generateToolchain(toolchainFile: toolchainFile)
-
         var arguments = [
             "-G", "Ninja",
             "-S", sourceDir,
             "-B", outputDir,
-            "--toolchain", toolchainFile,
             "-DSDL_STATIC=ON",
             "-Wno-author",
         ]
+
+        if let toolchainFile = try generateToolchain(outputDir: outputDir) {
+            arguments += [
+                "--toolchain", toolchainFile,
+            ]
+        }
 
         let tripleComps = triple.split(separator: "-")
         if tripleComps.count > 3, tripleComps[3].hasPrefix("android"), let androidHome = ProcessInfo.processInfo.environment["ANDROID_HOME"] {
@@ -101,7 +103,7 @@ struct CMakeBuilder: AsyncParsableCommand {
     }
     
     // Generate the toolchain for the build
-    func generateToolchain(toolchainFile: String) throws {
+    func generateToolchain(outputDir: String) throws -> String? {
         let contents: String
 
         let components = triple.split(separator: "-")
@@ -110,19 +112,8 @@ struct CMakeBuilder: AsyncParsableCommand {
         let os = components[2]
 
         if vendor == "apple", components[2].hasPrefix("macos") {
-            let version = os[os.index(os.startIndex, offsetBy: 5)...]
-            
-            contents = """
-            set(CMAKE_SYSTEM_NAME Darwin)
-            set(CMAKE_SYSTEM_PROCESSOR \(arch))
-
-            set(CMAKE_OSX_DEPLOYMENT_TARGET \(version))
-            set(CMAKE_OSX_ARCHITECTURES \(arch))
-            set(CMAKE_OSX_SYSROOT \(sdk))
-
-            set(CMAKE_C_COMPILER   clang)
-            set(CMAKE_CXX_COMPILER clang++)
-            """
+            // Building for host, don't need a toolchain file
+            return nil
         } else if os == "linux" {
             if components.count > 3, components[3].hasPrefix("android") {
                 let os = components[3]
@@ -175,7 +166,9 @@ struct CMakeBuilder: AsyncParsableCommand {
             throw CMakeError.badTriple(triple)
         }
 
+        let toolchainFile = outputDir + "/cmake.toolchain"
         try contents.write(toFile: toolchainFile, atomically: true, encoding: .utf8)
+        return toolchainFile
     }
 }
 

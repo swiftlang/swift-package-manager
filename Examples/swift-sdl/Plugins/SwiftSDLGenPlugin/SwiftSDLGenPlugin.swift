@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import PackagePlugin
+import Foundation
 
 @main
 struct SwiftSDLGenPlugin: BuildToolPlugin {
@@ -30,6 +31,11 @@ struct SwiftSDLGenPlugin: BuildToolPlugin {
             }
         }
 
+        var environment = ["HOME": ProcessInfo.processInfo.environment["HOME"]!]
+        if let developerDir = ProcessInfo.processInfo.environment["DEVELOPER_DIR"] {
+            environment["DEVELOPER_DIR"] = developerDir
+        }
+
         return [
             .buildCommand(
                 displayName: "SDL API Generator",
@@ -39,6 +45,7 @@ struct SwiftSDLGenPlugin: BuildToolPlugin {
                     headerFile.path,
                     outputFile.path,
                 ] + sdlHeaderPath,
+                environment: environment,
                 outputFiles: [
                     moduleMap,
                     headerFile,
@@ -48,4 +55,3 @@ struct SwiftSDLGenPlugin: BuildToolPlugin {
         ]
     }
 }
-

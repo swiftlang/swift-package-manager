@@ -43,7 +43,6 @@ public func loadAST(headerPaths: [FilePath], headerFile: FilePath) async throws 
     let clangOutput = try await run(
         .name("clang"), 
         arguments: .init(clangArgs),
-        environment: .inherit.updating(["DEVELOPER_DIR": "/Applications/Xcode.app"]),
         output: .data(limit: .max),
         error: .currentStandardError).standardOutput
     return try JSONDecoder().decode(ASTNode.self, from: clangOutput)

@@ -40,7 +40,6 @@ public func parseInterface(headerPaths: [FilePath], moduleDir: FilePath, moduleN
     guard let interface = try await run(
         .name("xcrun"),
         arguments: .init(synthArgs),
-        environment: .inherit.updating(["DEVELOPER_DIR": "/Applications/Xcode.app"]),
         output: .string(limit: .max),
         error: .currentStandardError).standardOutput
     else { fatalError() }

@@ -13,9 +13,9 @@ import SwiftSDL3
 
 class AppState {
     // TODO: generate SDL_Window type
-    var window: OpaquePointer
+    var window: SDL_Window
     // TODO: generate SDL_Renderer type
-    var renderer: OpaquePointer
+    var renderer: SDL_Renderer
 
     var width: Int32 = 640
     var height: Int32 = 480
@@ -27,16 +27,10 @@ class AppState {
     init?() throws {
         let SDL_WINDOW_RESIZABLE: Uint64 = 0x0000000000000020
 
-        guard let window = SDL_CreateWindow("Hey", width, height, SDL_WINDOW_RESIZABLE) else {
-            return nil
-        }
-        self.window = window
+        self.window = SDL_CreateWindow("Hey", width, height, SDL_WINDOW_RESIZABLE)
+        self.renderer = SDL_CreateRenderer(window, nil)
 
-        guard let renderer = SDL_CreateRenderer(window, nil) else {
-            return nil
-        }
-        SDL_SetRenderLogicalPresentation(renderer, logWidth, logHeight, SDL_LOGICAL_PRESENTATION_LETTERBOX)
-        self.renderer = renderer
+        _ = SDL_SetRenderLogicalPresentation(renderer, logWidth, logHeight, SDL_LOGICAL_PRESENTATION_LETTERBOX)
 
         self.prevTime = SDL_GetTicks()
     }
@@ -65,8 +59,8 @@ class AppState {
     }
 
     func draw() {
-        SDL_SetRenderDrawColor(renderer, 240, 81, 56, 255)
-        SDL_RenderClear(renderer)
+        _ = SDL_SetRenderDrawColor(renderer, 240, 81, 56, 255)
+        _ = SDL_RenderClear(renderer)
     }
 
     deinit {
