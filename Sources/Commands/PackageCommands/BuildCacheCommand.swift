@@ -83,10 +83,16 @@ extension SwiftPackageCommand.BuildCache {
         )
         var diagnosticRemarks: Bool?
 
-        @Option(help: "The path to an LLVM-compatible build cache plugin.", completion: .directory)
+        @Option(
+            name: .customLong("experimental-plugin-path"),
+            help: "The path to an LLVM-compatible build cache plugin.", completion: .directory
+        )
         var pluginPath: AbsolutePath?
 
-        @Option(help: "The path to a remote build cache service.", completion: .directory)
+        @Option(
+            name: .customLong("experimental-remote-service-path"),
+            help: "The path to a remote build cache service.", completion: .directory
+        )
         var remoteServicePath: AbsolutePath?
 
         @Flag(

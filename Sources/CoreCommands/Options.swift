@@ -267,14 +267,14 @@ public struct BuildCachingOptions: ParsableArguments {
     public var enableDiagnosticRemarks: Bool?
 
     @Option(
-        name: .customLong("build-cache-plugin-path"),
+        name: .customLong("experimental-build-cache-plugin-path"),
         help: "The path to an LLVM-compatible build cache plugin.",
         completion: .directory
     )
     public var pluginPath: AbsolutePath?
 
     @Option(
-        name: .customLong("build-cache-remote-service-path"),
+        name: .customLong("experimental-build-cache-remote-service-path"),
         help: "The path to a remote build cache service.",
         completion: .directory
     )
