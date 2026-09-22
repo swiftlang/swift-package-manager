@@ -12,9 +12,7 @@
 import SwiftSDL3
 
 class AppState {
-    // TODO: generate SDL_Window type
     var window: SDL_Window
-    // TODO: generate SDL_Renderer type
     var renderer: SDL_Renderer
 
     var width: Int32 = 640

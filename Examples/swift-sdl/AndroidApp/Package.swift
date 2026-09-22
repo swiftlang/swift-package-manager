@@ -28,7 +28,7 @@ let package = Package(
                 // To pick up the shared library
                 .product(name: "MyAppAndroid", package: "swift-sdl"),
                 // To pick up the jar file
-                .product(name: "SwiftSDL3", package: "swift-sdl"),
+                //.product(name: "SwiftSDL3", package: "swift-sdl"),
             ],
             plugins: ["ApkBuilderPlugin"]
         ),

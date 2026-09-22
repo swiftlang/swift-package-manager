@@ -538,6 +538,7 @@ struct PackagePIFProjectBuilder {
         variables["CONFIGURATION"] = "$(CONFIGURATION)"
         variables["TRIPLE"] = "$(TARGET_TRIPLES)"
         variables["SDK"] = "$(SYSROOT)"
+        variables["CLANG_RESOURCE_DIR"] = "$(CLANG_RESOURCE_DIR)"
         variables["SWIFT_RESOURCE_DIR"] = "$(SWIFT_RESOURCE_DIR)"
         variables["BUILD_SUBDIR"] = "$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)"
         variables["PRODUCTS_DIR"] = "$(BUILT_PRODUCTS_DIR)"

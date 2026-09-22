@@ -19,15 +19,16 @@ struct SwiftSDLGenPlugin: BuildToolPlugin {
         target: Target
     ) async throws -> [Command] {
         let generator = try context.tool(named: "SwiftSDLGenerator")
-        let include = context.pluginWorkDirectoryURL
-        let moduleMap = include.appending(path: "module.modulemap")
-        let headerFile = include.appending(path: "SDL.h")
-        let outputFile = context.pluginWorkDirectoryURL.appending(path: "SwiftSDL.swift")
+        let workDir = context.pluginWorkDirectoryURL
+        let moduleMap = workDir.appending(path: "module.modulemap")
+        let headerFile = workDir.appending(path: "SDL.h")
+        let bindingsFile = workDir.appending(path: "SwiftSDL3.swift")
+        let apinotesFile = workDir.appending(path: "SwiftSDL3.apinotes")
 
         var sdlHeaderPath: [String] = []
         for dependency in target.dependencies {
             if case let .target(depTarget) = dependency, depTarget.name == "SDL" {
-                sdlHeaderPath.append(depTarget.directoryURL.appending(path: "include").path)
+                sdlHeaderPath += ["--header-path", depTarget.directoryURL.appending(path: "include").path]
             }
         }
 
@@ -41,15 +42,21 @@ struct SwiftSDLGenPlugin: BuildToolPlugin {
                 displayName: "SDL API Generator",
                 executable: generator.url,
                 arguments: [
-                    moduleMap.path,
-                    headerFile.path,
-                    outputFile.path,
+                    "--triple", "$(TRIPLE)",
+                    "--sdk", "$(SDK)",
+                    "--clang-resource-dir", "$(CLANG_RESOURCE_DIR)",
+                    "--swift-resource-dir", "$(SWIFT_RESOURCE_DIR)",
+                    "--modulemap-file", moduleMap.path,
+                    "--header-file", headerFile.path,
+                    "--bindings-file", bindingsFile.path,
+                    "--apinotes-file", apinotesFile.path,
                 ] + sdlHeaderPath,
                 environment: environment,
                 outputFiles: [
                     moduleMap,
                     headerFile,
-                    outputFile,
+                    bindingsFile,
+                    apinotesFile
                 ]
             ),
         ]

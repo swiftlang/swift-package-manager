@@ -47,7 +47,7 @@ import SwiftSDL3
 
     appState.draw()
 
-    SDL_RenderPresent(appState.renderer)
+    _ = SDL_RenderPresent(appState.renderer)
 
     appState.prevTime = nowTime
 

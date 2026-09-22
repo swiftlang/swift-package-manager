@@ -21,6 +21,7 @@
 //
 //===----------------------------------------------------------------------===//
 import Foundation
+import ArgumentParser
 import SwiftSyntax
 import SwiftParser
 #if canImport(System)
@@ -30,17 +31,42 @@ import SystemPackage
 #endif
 
 @main
-struct SwiftSDLGenerator {
+struct SwiftSDLGenerator: AsyncParsableCommand {
+    @Option(help: "The SDK to use when running the Swift interface generator")
+    var sdk: FilePath
 
-    static func main() async throws {
+    @Option(help: "The triple")
+    var triple: String
+
+    @Option(help: "swift resource dir")
+    var swiftResourceDir: FilePath
+
+    @Option(help: "clang resource dir")
+    var clangResourceDir: FilePath
+
+    @Option(help: "Generated modulemap file")
+    var modulemapFile: FilePath
+
+    @Option(help: "Generated header file")
+    var headerFile: FilePath
+
+    @Option(help: "Generated bindings file")
+    var bindingsFile: FilePath
+
+    @Option(help: "Generated API notes file")
+    var apinotesFile: FilePath
+
+    @Option(help: "Header paths for SDL")
+    var headerPath: [FilePath]
+
+    func run() async throws {
         let moduleMap = """
         module SwiftSDL3 [system] {
             header "SDL.h"
             export *
         }
         """
-        let moduleMapFile = FilePath(CommandLine.arguments[1])
-        FileManager.default.createFile(atPath: moduleMapFile.string, contents: moduleMap.data(using: .utf8))
+        FileManager.default.createFile(atPath: modulemapFile.string, contents: moduleMap.data(using: .utf8))
 
         let header = """
         #define SDL_MAIN_USE_CALLBACKS 1
@@ -48,18 +74,15 @@ struct SwiftSDLGenerator {
         #include <SDL3/SDL_main.h>
         #include <stddef.h>
         """
-        let headerFile = FilePath(CommandLine.arguments[2])
         FileManager.default.createFile(atPath: headerFile.string, contents: header.data(using: .utf8))
 
         // Remove api notes file before we parse the swift interface
-        let apiNotesFile = moduleMapFile.removingLastComponent().appending("SwiftSDL3.apinotes")
-        if FileManager.default.fileExists(atPath: apiNotesFile.string) {
-            try FileManager.default.removeItem(atPath: apiNotesFile.string)
+        if FileManager.default.fileExists(atPath: apinotesFile.string) {
+            try FileManager.default.removeItem(atPath: apinotesFile.string)
         }
 
         // Exercize the AST code
-        let headerPaths = [FilePath(CommandLine.arguments[4])]
-        let ast = try await loadAST(headerPaths: headerPaths, headerFile: headerFile)
+        let ast = try await loadAST(headerPaths: headerPath, headerFile: headerFile)
         let encoder = JSONEncoder()
         encoder.outputFormatting = .prettyPrinted
         let astData = try encoder.encode(ast)
@@ -95,9 +118,13 @@ struct SwiftSDLGenerator {
 
         // Exercise the parsing of the swiftinterface
         let sourceFileSyntax = try await parseInterface(
-            headerPaths: headerPaths,
-            moduleDir: moduleMapFile.removingLastComponent(),
-            moduleName: "SwiftSDL3"
+            headerPaths: headerPath,
+            moduleDir: modulemapFile.removingLastComponent(),
+            moduleName: "SwiftSDL3",
+            sdk: sdk,
+            clangResourceDir: clangResourceDir,
+            swiftResourceDir: swiftResourceDir,
+            triple: triple
         )
         let syntaxText = String(describing: sourceFileSyntax)
         let syntaxFile = headerFile.removingLastComponent().appending("syntax.txt")
@@ -262,22 +289,7 @@ struct SwiftSDLGenerator {
             return CodeBlockItemSyntax(item: .init(wrapper))
         }
 
-        // wchar_t needs a type alias
-        let wchar = CodeBlockItemSyntax(
-            item: .decl(DeclSyntax(
-                TypeAliasDeclSyntax(
-                    modifiers: [DeclModifierSyntax(name: .keyword(.public, trailingTrivia: .space))],
-                    name: .identifier("wchar_t",leadingTrivia: .space, trailingTrivia: .space),
-                    initializer: TypeInitializerClauseSyntax(
-                        value: TypeSyntax(IdentifierTypeSyntax(name: .identifier("_Builtin_stddef.wchar_t", leadingTrivia: .space)))
-                    ),
-                    trailingTrivia: .newlines(2)
-                )
-            ))
-        )
-
         let newSourceFile = SourceFileSyntax(statements: .init(wrappers + functionItems))
-        let bindingsFile = FilePath(CommandLine.arguments[3])
         FileManager.default.createFile(atPath: bindingsFile.string, contents: newSourceFile.description.data(using: .utf8))
 
         // TODO: Generate an API header to help with the Swift bindings
@@ -291,7 +303,7 @@ struct SwiftSDLGenerator {
               SwiftName: _\(name)(\(String(repeating: "_:", count: function.signature.parameterClause.parameters.count)))
             """
         }.joined(separator: "\n")
-        FileManager.default.createFile(atPath: apiNotesFile.string, contents: apiNotes.data(using: .utf8))
+        FileManager.default.createFile(atPath: apinotesFile.string, contents: apiNotes.data(using: .utf8))
     }
 }
 
@@ -306,4 +318,10 @@ func isOpaquePointerIUO(_ type: TypeSyntax) -> Bool {
 struct ASTFunction: Codable {
     let returnType: String
     let parameters: [String: String] // name to type
+}
+
+extension FilePath: @retroactive ExpressibleByArgument {
+    public init?(argument: String) {
+        self.init(argument)
+    }
 }

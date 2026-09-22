@@ -20,22 +20,37 @@ import SystemPackage
 #endif
 
 // Utility to load up the synthesized interface file for the C module into SwiftSyntax
-public func parseInterface(headerPaths: [FilePath], moduleDir: FilePath, moduleName: String) async throws -> SourceFileSyntax {
-    guard let sdkPath = try await run(.name("xcrun"), arguments: ["--show-sdk-path"], output: .string(limit: .max))
-        .standardOutput?.trimmingCharacters(in: .newlines)
-    else { fatalError() }
-    
+public func parseInterface(
+    headerPaths: [FilePath],
+    moduleDir: FilePath,
+    moduleName: String,
+    sdk: FilePath,
+    clangResourceDir: FilePath,
+    swiftResourceDir: FilePath,
+    triple: String
+) async throws -> SourceFileSyntax {
     var synthArgs: [String] = [
         "swift-synthesize-interface",
         "-I", moduleDir.string,
         "-module-name", moduleName,
-        "-target", "arm64-apple-macos15",
-        "-sdk", sdkPath
+        "-target", triple,
+        "-sdk", sdk.string
     ]
+
+    if !clangResourceDir.string.isEmpty {
+        synthArgs += ["-Xcc", "-resource-dir", "-Xcc", clangResourceDir.string]
+    }
+
+    if !swiftResourceDir.string.isEmpty {
+        synthArgs += ["-resource-dir", swiftResourceDir.string]
+    }
 
     for headerPath in headerPaths {
         synthArgs += ["-I", headerPath.string]
     }
+
+    //print("args:", synthArgs.joined(separator: " "))
+    //exit(1)
 
     guard let interface = try await run(
         .name("xcrun"),
