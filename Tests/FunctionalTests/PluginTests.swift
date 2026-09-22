@@ -897,6 +897,32 @@ struct PluginTests {
     }
 
     @Test(
+        .tags(
+            .Feature.Command.Package.Plugin,
+        )
+    )
+    func testCommandPluginTargetsWithPublicVisibilityInDependencies() async throws {
+        try await fixture(name: "Miscellaneous/Plugins/PublicPluginTargets") { fixturePath in
+            let rootPath = fixturePath.appending("Root")
+
+            let (listStdout, _) = try await executeSwiftPackage(
+                rootPath,
+                extraArgs: ["plugin", "--list"],
+                buildSystem: .swiftbuild,
+            )
+            #expect(listStdout.contains("‘public-cmd’"), "stdout:\n\(listStdout)")
+            #expect(!listStdout.contains("‘package-cmd’"), "stdout:\n\(listStdout)")
+
+            let (runStdout, _) = try await executeSwiftPackage(
+                rootPath,
+                extraArgs: ["public-cmd"],
+                buildSystem: .swiftbuild,
+            )
+            #expect(runStdout.contains("This is PublicCmd."), "stdout:\n\(runStdout)")
+        }
+    }
+
+    @Test(
         .requiresSwiftConcurrencySupport,
     )
     func testPluginUsageDoesntAffectTestTargetMappings() async throws {
