@@ -382,6 +382,57 @@ struct PackageRegistryCommandTests {
         ),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
+    func setRefusesInsecureURLWhenAuthenticationIsConfigured(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let config = BuildConfiguration.debug
+        try await fixture(name: "DependencyResolution/External/Simple") { fixturePath in
+            let packageRoot = fixturePath.appending("Bar")
+            let configurationFilePath = AbsolutePath(
+                ".swiftpm/configuration/registries.json",
+                relativeTo: packageRoot
+            )
+            try localFileSystem.createDirectory(configurationFilePath.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(
+                configurationFilePath,
+                string: #"""
+                {
+                  "registries": {},
+                  "authentication": {
+                    "package.example.com": {
+                      "type": "token"
+                    }
+                  },
+                  "version": 1
+                }
+                """#
+            )
+
+            await #expect(throws: (any Error).self) {
+                try await execute(
+                    ["set", "http://package.example.com", "--allow-insecure-http"],
+                    configuration: config,
+                    packagePath: packageRoot,
+                    buildSystem: buildSystem,
+                )
+            }
+
+            try await execute(
+                ["set", "http://other.example.com", "--allow-insecure-http"],
+                configuration: config,
+                packagePath: packageRoot,
+                buildSystem: buildSystem,
+            )
+        }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.large,
+            .Feature.Command.PackageRegistry.Set,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func setInvalidScope(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
@@ -1405,7 +1456,328 @@ struct PackageRegistryCommandTests {
         let registryURL = URL(string: "http://packages.example.com")!
 
         await #expect(throws: (any Error).self) {
-            try await SwiftPM.Registry.execute(["login", "--url", registryURL.absoluteString])
+            try await SwiftPM.Registry.execute(["login", registryURL.absoluteString])
+        }
+    }
+
+    private func loginConfiguration(
+        _ arguments: [String],
+        registryURL: URL = defaultRegistryBaseURL
+    ) throws -> RegistryConfiguration {
+        let login = try PackageRegistryCommand.Login.parse(arguments + [registryURL.absoluteString])
+        var configuration = RegistryConfiguration()
+        try configuration.add(
+            authentication: login.authentication(for: registryURL, fileSystem: localFileSystem),
+            for: registryURL
+        )
+        return configuration
+    }
+
+    private func withClientIdentityFiles(
+        _ body: (_ certificate: AbsolutePath, _ privateKey: AbsolutePath) throws -> Void
+    ) throws {
+        try fixture(name: "Signing") { fixturePath in
+            let certificates = fixturePath.appending("Certificates")
+            try body(
+                certificates.appending("Test_ec.cer"),
+                certificates.appending("Test_ec_key.pem")
+            )
+        }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+            .Feature.Command.PackageRegistry.Login,
+        ),
+    )
+    func clientCertificateAloneConfiguresMutualTLS() throws {
+        try self.withClientIdentityFiles { certificate, privateKey in
+            let configuration = try self.loginConfiguration([
+                "--cert", certificate.pathString,
+                "--key", privateKey.pathString,
+            ])
+
+            #expect(
+                try configuration.authentication(for: defaultRegistryBaseURL) == .init(
+                    type: .mtls,
+                    identity: .files(
+                        certificatePath: certificate.pathString,
+                        privateKeyPath: privateKey.pathString
+                    )
+                )
+            )
+        }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+            .Feature.Command.PackageRegistry.Login,
+        ),
+    )
+    func unreadableClientCertificateIsRejected() throws {
+        #expect(throws: (any Error).self) {
+            try self.loginConfiguration([
+                "--cert", "/identity/missing.cer",
+                "--key", "/identity/missing.key",
+            ])
+        }
+    }
+
+    // A credential sent over mTLS stays a credential: the registry can bind the token or password
+    // to the client certificate (https://www.rfc-editor.org/info/rfc8705/#section-3).
+    @Test(
+        .tags(
+            .TestSize.small,
+            .Feature.Command.PackageRegistry.Login,
+        ),
+    )
+    func credentialWithClientCertificateKeepsCredentialAuthenticationType() throws {
+        try self.withClientIdentityFiles { certificate, privateKey in
+            let identity = RegistryConfiguration.Identity.files(
+                certificatePath: certificate.pathString,
+                privateKeyPath: privateKey.pathString
+            )
+            let identityArguments = ["--cert", certificate.pathString, "--key", privateKey.pathString]
+
+            let tokenAuthentication = try self.loginConfiguration(identityArguments + ["--token", "top-secret"])
+                .authentication(for: defaultRegistryBaseURL)
+            let basicAuthentication = try self.loginConfiguration(identityArguments + ["--username", "mona"])
+                .authentication(for: defaultRegistryBaseURL)
+
+            #expect(tokenAuthentication == .init(type: .token, identity: identity))
+            #expect(basicAuthentication == .init(type: .basic, identity: identity))
+        }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+            .Feature.Command.PackageRegistry.Login,
+        ),
+    )
+    func credentialWithoutClientIdentityConfiguresNoIdentity() throws {
+        #expect(
+            try self.loginConfiguration(["--token", "top-secret"])
+                .authentication(for: defaultRegistryBaseURL) == .init(type: .token)
+        )
+        #expect(
+            try self.loginConfiguration(["--username", "mona"])
+                .authentication(for: defaultRegistryBaseURL) == .init(type: .basic)
+        )
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+            .Feature.Command.PackageRegistry.Login,
+        ),
+    )
+    func registryPathIsStoredAsLoginAPIPath() throws {
+        try self.withClientIdentityFiles { certificate, privateKey in
+            let registryURL = URL("https://packages.example.com/secret-sign-in")
+            let configuration = try self.loginConfiguration(
+                ["--cert", certificate.pathString, "--key", privateKey.pathString],
+                registryURL: registryURL
+            )
+
+            #expect(
+                try configuration.authentication(for: registryURL) == .init(
+                    type: .mtls,
+                    loginAPIPath: "/secret-sign-in",
+                    identity: .files(
+                        certificatePath: certificate.pathString,
+                        privateKeyPath: privateKey.pathString
+                    )
+                )
+            )
+        }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+            .Feature.Command.PackageRegistry.Login,
+        ),
+    )
+    func clientCertificateWithoutPrivateKeyIsRejected() throws {
+        for arguments in [["--cert", "/identity/client.cer"], ["--key", "/identity/client.key"]] {
+            #expect {
+                try self.loginConfiguration(arguments)
+            } throws: { error in
+                guard case PackageRegistryCommand.ValidationError.incompleteClientCertificate = error else {
+                    return false
+                }
+                return true
+            }
+        }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+            .Feature.Command.PackageRegistry.Login,
+        ),
+    )
+    func moreThanOneClientIdentityIsRejected() throws {
+        let certificateAndKey = ["--cert", "/identity/client.cer", "--key", "/identity/client.key"]
+        let combinations = [
+            certificateAndKey + ["--identity-common-name", "Mona Lisa"],
+            certificateAndKey + ["--identity-hash", "ABCDEF"],
+            certificateAndKey + ["--identity-common-name", "Mona Lisa", "--identity-hash", "ABCDEF"],
+            ["--identity-common-name", "Mona Lisa", "--identity-hash", "ABCDEF"],
+        ]
+
+        for arguments in combinations {
+            #expect {
+                try self.loginConfiguration(arguments)
+            } throws: { error in
+                guard case PackageRegistryCommand.ValidationError.multipleClientIdentities = error else {
+                    return false
+                }
+                return true
+            }
+        }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func clientIdentityValidationErrorMessages() throws {
+        let matches = [
+            KeychainIdentityAttributes(commonName: "Mona Lisa", hash: "737879F39CE872C961652C7EBCDE94B712C3E20A"),
+            KeychainIdentityAttributes(commonName: "Mona Lisa", hash: "3D5B0764BA7DE45B0CD7DEB429FFBF70F5A07C1E"),
+        ]
+
+        #expect(
+            "\(PackageRegistryCommand.ValidationError.incompleteClientCertificate)"
+                == "Both '--cert' and '--key' are required when one of them is set."
+        )
+        #expect(
+            "\(PackageRegistryCommand.ValidationError.multipleClientIdentities)"
+                == "Only one client identity may be specified: choose one of '--cert'/'--key', '--identity-common-name', or '--identity-hash'."
+        )
+        #expect(
+            "\(PackageRegistryCommand.ValidationError.ambiguousIdentityCommonName("Mona Lisa", matches))" == """
+            More than one identity has a Common Name of 'Mona Lisa':
+              737879F39CE872C961652C7EBCDE94B712C3E20A  "Mona Lisa"
+              3D5B0764BA7DE45B0CD7DEB429FFBF70F5A07C1E  "Mona Lisa"
+            Use --identity-hash instead.
+            """
+        )
+        #expect(
+            "\(PackageRegistryCommand.ValidationError.identityCommonNameNotFound("Mona Lisa"))"
+                == "No identity with a Common Name of 'Mona Lisa' was found in the keychain."
+        )
+        #expect(
+            "\(PackageRegistryCommand.ValidationError.identityHashNotFound("ABCDEF"))"
+                == "No identity with hash 'ABCDEF' was found in the keychain."
+        )
+    }
+
+    @Test(
+        .tags(
+            .TestSize.large,
+            .Feature.Command.PackageRegistry.Login,
+        ),
+    )
+    func loginRejectsCertificateWithoutKey() async throws {
+        let result = try await SwiftPM.Registry.execute(
+            ["login", "https://packages.example.com", "--cert", "/identity/client.cer"],
+            throwIfCommandFails: false
+        )
+
+        #expect(
+            (result.stdout + result.stderr)
+                .contains("Both '--cert' and '--key' are required when one of them is set.")
+        )
+    }
+
+    @Test(
+        .tags(
+            .TestSize.large,
+            .Feature.Command.PackageRegistry.Logout,
+        ),
+    )
+    func logoutOfClientIdentityRegistryNeedsNoCredentialStore() async throws {
+        try await withTemporaryDirectory { temporaryDirectory in
+            let configurationDirectory = temporaryDirectory.appending("configuration")
+            try localFileSystem.createDirectory(configurationDirectory, recursive: true)
+            let configurationFilePath = configurationDirectory.appending("registries.json")
+            try localFileSystem.writeFileContents(configurationFilePath, string: #"""
+            {
+                "registries": {},
+                "authentication": {
+                    "mtls.example.com": {
+                        "type": "mtls",
+                        "identity": {
+                            "files": {
+                                "certificatePath": "/identity/client.der",
+                                "privateKeyPath": "/identity/client.key.der"
+                            }
+                        }
+                    }
+                },
+                "version": 1
+            }
+            """#)
+
+            let result = try await SwiftPM.Registry.execute([
+                "logout",
+                "https://mtls.example.com",
+                "--config-path", configurationDirectory.pathString,
+            ])
+
+            #expect(result.stdout.contains("Logout successful."))
+            #expect(!result.stdout.contains("credential"))
+            let written = try localFileSystem.readFileContents(configurationFilePath).description
+            #expect(!written.contains("mtls.example.com"))
+        }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.large,
+            .Feature.Command.PackageRegistry.Logout,
+        ),
+    )
+    func logoutOfTokenRegistryStillRemovesCredentials() async throws {
+        try await withTemporaryDirectory { temporaryDirectory in
+            let configurationDirectory = temporaryDirectory.appending("configuration")
+            try localFileSystem.createDirectory(configurationDirectory, recursive: true)
+            let configurationFilePath = configurationDirectory.appending("registries.json")
+            try localFileSystem.writeFileContents(configurationFilePath, string: #"""
+            {
+                "registries": {},
+                "authentication": {
+                    "token.example.com": {
+                        "type": "token"
+                    }
+                },
+                "version": 1
+            }
+            """#)
+
+            let netrcPath = temporaryDirectory.appending("netrc")
+            try localFileSystem.writeFileContents(
+                netrcPath,
+                string: "machine token.example.com\nlogin token\npassword secret\n"
+            )
+
+            let result = try await SwiftPM.Registry.execute([
+                "logout",
+                "https://token.example.com",
+                "--config-path", configurationDirectory.pathString,
+                "--netrc-file", netrcPath.pathString,
+                "--netrc",
+            ])
+
+            #expect(result.stdout.contains("netrc file not updated."))
+            let written = try localFileSystem.readFileContents(configurationFilePath).description
+            #expect(!written.contains("token.example.com"))
         }
     }
 

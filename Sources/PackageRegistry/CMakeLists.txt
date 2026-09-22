@@ -8,13 +8,16 @@
 
 add_library(PackageRegistry STATIC
   ChecksumTOFU.swift  
+  KeychainIdentityStore.swift
   RegistryConfiguration.swift
   RegistryClient.swift
+  RegistryClientIdentityResolver.swift
   RegistryDownloadsManager.swift
   SignatureValidation.swift
   SigningEntityTOFU.swift)
 target_link_libraries(PackageRegistry PUBLIC
   Basics
+  Crypto
   PackageFingerprint
   PackageLoading
   PackageModel

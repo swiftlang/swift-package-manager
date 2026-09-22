@@ -101,6 +101,8 @@ public final class RegistryClient: AsyncCancellable {
                     return "Basic \(authorizationData.base64EncodedString())"
                 case .token: // `user` value is irrelevant in this case
                     return "Bearer \(password)"
+                case .mtls:
+                    return .none
                 case nil:
                     if user == "token" {
                         return "Bearer \(password)"
