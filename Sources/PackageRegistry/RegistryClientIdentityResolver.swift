@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if canImport(NIOSSL)
 import Basics
 import Foundation
 import NIOSSL
@@ -149,4 +148,3 @@ public struct RegistryClientIdentityResolver {
     }
     #endif
 }
-#endif

@@ -116,8 +116,10 @@ public final class RegistryClient: AsyncCancellable {
             self.authorizationProvider = .none
         }
 
-        self.httpClient = customHTTPClient ?? HTTPClient(
-            configuration: .init(maxConcurrentRequestsPerHost: Self.defaultMaxConcurrentRequestsPerHost)
+        self.httpClient = customHTTPClient ?? RegistryHTTPClientProvider.makeHTTPClient(
+            configuration: configuration,
+            httpClientConfiguration: .init(maxConcurrentRequestsPerHost: Self.defaultMaxConcurrentRequestsPerHost),
+            fileSystem: localFileSystem
         )
         self.archiverProvider = customArchiverProvider ?? { fileSystem in UniversalArchiver(fileSystem) }
         self.fingerprintStorage = fingerprintStorage

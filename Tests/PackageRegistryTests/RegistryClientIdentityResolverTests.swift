@@ -10,7 +10,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if canImport(NIOSSL)
 import Basics
 import Foundation
 import NIOSSL
@@ -296,4 +295,3 @@ struct IdentityMaterial {
         try await AsyncProcess.checkNonZeroExit(arguments: ["openssl"] + arguments)
     }
 }
-#endif

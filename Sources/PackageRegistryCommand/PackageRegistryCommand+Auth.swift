@@ -227,9 +227,7 @@ extension PackageRegistryCommand {
                 privateKeyPath: privateKey.pathString
             )
 
-            #if canImport(NIOSSL)
             _ = try RegistryClientIdentityResolver(fileSystem: fileSystem).resolve(identity)
-            #endif
 
             return identity
         }
