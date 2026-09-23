@@ -4600,6 +4600,179 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
     }
 
+    /// Mirrors `testModuleAliasingMergeAliasesOfSameTargets`'s shape (one canonical
+    /// module reached two ways, `preferContinuedOverRoot` expected to pick a winner),
+    /// but instead of one branch being a genuine dead end (a single, never-continued
+    /// declaration), BOTH branches are continued -- each is its own two-link chain
+    /// (a starting alias, then a further override of that alias):
+    ///   dPkg.Utils <- hPkg.H (Utils -> HUtils) <- gPkg.G (HUtils -> GUtils)
+    ///   dPkg.Utils <- cPkg.C (Utils -> CUtils) <- bPkg.B (CUtils -> BUtils)
+    /// Since neither branch is root-only, `preferContinuedOverRoot` can't discard
+    /// either one, and `closestCandidate` can't discriminate between them either --
+    /// both candidates share the same `originatingPackage` (dPkg), so its distance
+    /// bucketing collapses them together instead of comparing them.
+    func testModuleAliasingDivergingContinuedChainsOfSameTarget() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/aPkg/Sources/A/main.swift",
+            "/bPkg/Sources/B/file.swift",
+            "/cPkg/Sources/C/file.swift",
+            "/dPkg/Sources/Utils/file.swift",
+            "/gPkg/Sources/G/file.swift",
+            "/hPkg/Sources/H/file.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "dPkg",
+                    path: "/dPkg",
+                    products: [
+                        ProductDescription(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Utils", dependencies: []),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "hPkg",
+                    path: "/hPkg",
+                    dependencies: [
+                        .localSourceControl(path: "/dPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "H", type: .library(.automatic), targets: ["H"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "H",
+                            dependencies: [.product(
+                                name: "Utils",
+                                package: "dPkg",
+                                moduleAliases: ["Utils": "HUtils"]
+                            )]
+                        ),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "gPkg",
+                    path: "/gPkg",
+                    dependencies: [
+                        .localSourceControl(path: "/hPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "G", type: .library(.automatic), targets: ["G"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "G",
+                            dependencies: [.product(
+                                name: "H",
+                                package: "hPkg",
+                                moduleAliases: ["HUtils": "GUtils"]
+                            )]
+                        ),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "cPkg",
+                    path: "/cPkg",
+                    dependencies: [
+                        .localSourceControl(path: "/dPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "C", type: .library(.automatic), targets: ["C"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "C",
+                            dependencies: [.product(
+                                name: "Utils",
+                                package: "dPkg",
+                                moduleAliases: ["Utils": "CUtils"]
+                            )]
+                        ),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "bPkg",
+                    path: "/bPkg",
+                    dependencies: [
+                        .localSourceControl(path: "/cPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        ProductDescription(name: "B", type: .library(.automatic), targets: ["B"]),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "B",
+                            dependencies: [.product(
+                                name: "C",
+                                package: "cPkg",
+                                moduleAliases: ["CUtils": "BUtils"]
+                            )]
+                        ),
+                    ]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "aPkg",
+                    path: "/aPkg",
+                    dependencies: [
+                        .localSourceControl(path: "/gPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/bPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "A",
+                            dependencies: [
+                                .product(name: "G", package: "gPkg"),
+                                .product(name: "B", package: "bPkg"),
+                            ]
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let result = try await BuildPlanResult(plan: try mockBuildPlan(
+            graph: graph,
+            linkingParameters: .init(
+                shouldLinkStaticSwiftStdlib: true
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+
+        // `A` never declared anything itself -- it only receives the ambiguous
+        // broadcast for "Utils" -- so its own resolution is self-contained and
+        // should deterministically end up with no mapping at all, regardless of
+        // whichever candidate wins upstream.
+        XCTAssertTrue(
+            result.targetMap.values
+                .contains { $0.module.name == "A" && $0.module.moduleAliases?["Utils"] == nil }
+        )
+
+        // NOTE: what dPkg's own `Utils` target physically gets renamed to (`GUtils`
+        // vs `BUtils`), and what (if anything) `hPkg.H` and `gPkg.G` end up with,
+        // are left unasserted here intentionally. Tracing through `proposeAliases`/
+        // `disambiguateAndApplyAliases` by hand suggests: dPkg.Utils's own
+        // self-rename picks arbitrarily between the two candidates via
+        // `Set.first(where:)`; `H` (a non-terminal link with no competing name)
+        // may end up with no alias at all despite its own `import Utils`
+        // potentially resolving to a renamed module; and `G` may receive an entry
+        // keyed under the canonical name "Utils" rather than "HUtils", the name
+        // its own source actually references. Run this test and inspect the
+        // actual `moduleAliases` values below before deciding whether any of
+        // these need fixing.
+         print(result.targetMap.values.first { $0.module.name == "Utils" }?.module.moduleAliases)
+         print(result.targetMap.values.first { $0.module.name == "H" }?.module.moduleAliases)
+         print(result.targetMap.values.first { $0.module.name == "G" }?.module.moduleAliases)
+    }
+
     func testProductAliasingDoesNotBreakPackagesWithOlderToolsVersions() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
