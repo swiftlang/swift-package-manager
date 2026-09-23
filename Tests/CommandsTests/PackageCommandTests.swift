@@ -4508,7 +4508,10 @@ struct PackageCommandTests {
                 for (sourcePath, fixedSourcePath) in zip(sourcePaths, fixedSourcePaths) {
                     let sourceContent = try localFileSystem.readFileContents(sourcePath)
                     let fixedSourceContent = try localFileSystem.readFileContents(fixedSourcePath)
-                    #expect(sourceContent == fixedSourceContent)
+                    #expect(
+                        sourceContent == fixedSourceContent,
+                        "Contents of \(sourcePath) doesn't match the expected \(fixedSourcePath). Diff is:\n\(_getDiff(sourceContent.cString, with: fixedSourceContent.cString))"
+                    )
                 }
 
                 let regexMatch = try Regex("> \(expectedSummary)" + #" \([0-9]\.[0-9]{1,3}s\)"#)
