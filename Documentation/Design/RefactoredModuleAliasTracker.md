@@ -32,11 +32,15 @@ This structure represents a single unique product from a package, and all of its
 
 ### **ModuleInfo**
 
-
+The `ModuleInfo` serves as a container for a `Module` object for which it refers to, while also maintaining properties tracking the intra-package module dependencies that are populated upon initialization. It also stores the package identity for which it belongs to.
 
 ### **ProposedAlias**
 
 The purpose of this model is to capture a proxy stage for which the tracker is identifying which modules need to become aware of a particular module alias mapping. There is a set of criteria for a module to add a module alias map to its awareness, as well as other criteria that prohibit the addition of this mapping.
+
+#### **ProposedAlias.Candidate**
+
+A subtype associated with a `ProposedAlias`, a `Candidate` is representative of a possible terminal alias for a given module. It stores what this terminal alias would be, as well as other helper info about the module being aliased and where the alias was declared.
 
 ## Stages
 
@@ -280,6 +284,3 @@ Since a module could receive multiple alias proposals for a single module, this 
 
    => nothing applied (tie)
    ```
-
-
-
