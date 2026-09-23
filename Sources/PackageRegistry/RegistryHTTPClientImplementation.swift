@@ -26,6 +26,11 @@ struct RegistryHTTPClientImplementation: Sendable {
     private let mutualTLS: MutualTLS
     private let fallback: HTTPClient.Implementation
 
+    /// - Parameters:
+    ///     - identities: All the identities in the registry config
+    ///     - fileSystem: The file system where the cert/key lives
+    ///     - mutualTLS: A closure that accepts a request and returns a response: should be done over mTLS
+    ///     - fallback: A closure that executes the request if mTLS is not possible
     init(
         identities: RegistryClientIdentityLookup,
         fileSystem: FileSystem,

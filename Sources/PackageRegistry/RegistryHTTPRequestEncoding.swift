@@ -14,6 +14,7 @@ import Basics
 import Foundation
 import NIOHTTP1
 
+/// The encoding is hand-rolled because ``RegistryNIOHTTPClient`` is a custom HTTP client implementation
 enum RegistryHTTPRequestEncoding {
     static func head(for request: HTTPClientRequest) throws -> HTTPRequestHead {
         let target = try RequestTarget(url: request.url)

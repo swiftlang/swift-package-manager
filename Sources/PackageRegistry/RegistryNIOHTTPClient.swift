@@ -16,6 +16,9 @@ import NIOCore
 import NIOPosix
 import NIOSSL
 
+/// A custom HTTP Client that supports mTLS
+/// `AsyncHTTPClient` was not used because it bloats SPM's dependency graph
+/// If a lot of logic is being copied from `AsyncHTTPClient`, use it instead of this struct
 struct RegistryNIOHTTPClient: Sendable {
     static let connectTimeout: TimeAmount = .seconds(10)
 

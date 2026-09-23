@@ -27,13 +27,20 @@ final class RegistryHTTPExchangeHandler: ChannelInboundHandler {
     private let progress: HTTPClient.ProgressHandler?
 
     private var promise: EventLoopPromise<HTTPClientResponse>?
+    // SwiftPM sends the zip file of the package in the body of the request
+    // This is a large body, so the client sends the headers first:
+    // If the server can process the package, it response with a 100-continue status code
+    // The body, stored in `withheldBody` is then sent to the server
     private var withheldBody: Data?
     private var responseHead: HTTPResponseHead?
     private var responseBody: ByteBuffer?
     private var bytesReceived: Int64 = 0
     private var expectedBytes: Int64?
+    // Throws an error when the request times out
     private var timeoutTask: Scheduled<Void>?
+    // If the server stops sending bytes, it waits `stallTimeout` seconds then throws
     private var stallTask: Scheduled<Void>?
+    // If 100 Continue is not received within `continueTimeout` seconds, the request body is sent anyway
     private var continueTask: Scheduled<Void>?
 
     init(
@@ -98,6 +105,8 @@ final class RegistryHTTPExchangeHandler: ChannelInboundHandler {
             return
         }
 
+        // Include the body if the `Expect: 100-continue` header is missing
+        // Else, store the body in `withheldBody` until the server responds
         guard Self.expectsContinue(head) else {
             self.write(body: body, context: context)
             return
@@ -127,6 +136,7 @@ final class RegistryHTTPExchangeHandler: ChannelInboundHandler {
 
     private func receive(head: HTTPResponseHead, context: ChannelHandlerContext) {
         guard !Self.isInformational(head) else {
+            // The server can handle the body: send it over
             guard head.status == .continue else { return }
             return self.releaseWithheldBody(context: context)
         }

@@ -13,9 +13,11 @@
 import Basics
 import Foundation
 
+/// The redirect logic is hand-rolled because ``RegistryNIOHTTPClient`` is a custom HTTP client implementation
 struct RegistryHTTPRedirectFollower: Sendable {
     typealias Perform = @Sendable (HTTPClientRequest, HTTPClient.ProgressHandler?) async throws -> HTTPClientResponse
 
+    // Redirect up to 5 times
     static let maximumHops = 5
 
     private static let redirectStatusCodes: Set<Int> = [301, 302, 303, 307, 308]

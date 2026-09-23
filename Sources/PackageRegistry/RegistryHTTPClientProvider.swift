@@ -40,6 +40,7 @@ enum RegistryHTTPClientProvider {
         return HTTPClient(configuration: httpClientConfiguration, implementation: implementation.execute)
     }
 
+    /// Strips the client of wrapper logic because the caller of ``makeHTTPClient`` adds this already
     private static func withoutWrapperStrategies(_ request: HTTPClientRequest) -> HTTPClientRequest {
         var unwrapped = request
         unwrapped.options.retryStrategy = .none

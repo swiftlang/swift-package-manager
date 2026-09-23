@@ -12,6 +12,7 @@
 
 import NIOSSL
 
+// Input an identity, get a NIO.TLSConfiguration object back
 extension RegistryClientIdentity {
     func makeTLSConfiguration() throws -> TLSConfiguration {
         switch self {
