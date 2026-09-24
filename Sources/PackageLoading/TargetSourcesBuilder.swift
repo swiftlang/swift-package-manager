@@ -872,15 +872,18 @@ public struct FileRuleDescription: Sendable {
         header,
     ]
 
-    /// List of file types that requires the Xcode build system.
-    public static let xcbuildFileTypes: [FileRuleDescription] = [
+    /// List of file types that requires the Xcode build system, excluding privacy manifest.
+    private static let xcbuildFileTypesExcludingPrivacyManifest: [FileRuleDescription] = [
         xib,
         assetCatalog,
         stringCatalog,
         coredata,
         metal,
-        xcprivacyCopied,
     ]
+
+    /// List of file types that requires the Xcode build system.
+    public static let xcbuildFileTypes: [FileRuleDescription] =
+        xcbuildFileTypesExcludingPrivacyManifest + [xcprivacyCopied]
 
     /// List of file types that apply just to the SwiftPM build system.
     public static let swiftpmFileTypes: [FileRuleDescription] = [
@@ -888,10 +891,11 @@ public struct FileRuleDescription: Sendable {
         xcprivacyIgnored,
     ]
 
-    /// List of file types that apply to the SwiftBuild build system.
-    public static let swiftBuildFileTypes: [FileRuleDescription] = xcbuildFileTypes + [
-        docc,
-    ]
+    /// List of file types that apply to the SwiftBuild build system when building for targetTriple.
+    public static func swiftBuildFileTypes(targetTriple: Triple) -> [FileRuleDescription] {
+        xcbuildFileTypesExcludingPrivacyManifest
+            + [docc, targetTriple.isDarwin() ? xcprivacyCopied : xcprivacyIgnored]
+    }
 
     /// List of file directory extensions that should be treated as opaque, non source, directories.
     public static var opaqueDirectoriesExtensions: Set<String> {

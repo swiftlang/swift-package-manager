@@ -616,6 +616,8 @@ public final class SwiftCommandState {
             self.observabilityHandler.progress,
             self.observabilityHandler.prompt
         )
+
+        let targetTriple = try self.getTargetToolchain().targetTriple
         let workspace = try Workspace(
             fileSystem: self.fileSystem,
             location: .init(
@@ -635,7 +637,7 @@ public final class SwiftCommandState {
                 prefetchBasedOnResolvedFile: options.resolver.shouldEnableResolverPrefetching,
                 shouldCreateMultipleTestProducts: toolWorkspaceConfiguration.wantsMultipleTestProducts || options.build.buildSystem.shouldCreateMultipleTestProducts,
                 createREPLProduct: toolWorkspaceConfiguration.wantsREPLProduct,
-                additionalFileRules: options.build.buildSystem.additionalFileRules,
+                additionalFileRules: options.build.buildSystem.additionalFileRules(targetTriple: targetTriple),
                 sharedDependenciesCacheEnabled: self.options.caching.useDependenciesCache,
                 fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,
                 signingEntityCheckingMode: self.options.security.signingEntityCheckingMode,
@@ -1392,12 +1394,12 @@ extension BuildSystemProvider.Kind {
         }
     }
 
-    fileprivate var additionalFileRules: [FileRuleDescription] {
+    fileprivate func additionalFileRules(targetTriple: Triple) -> [FileRuleDescription] {
         switch self {
         case .xcode:
             FileRuleDescription.xcbuildFileTypes
         case .swiftbuild:
-            FileRuleDescription.swiftBuildFileTypes
+            FileRuleDescription.swiftBuildFileTypes(targetTriple: targetTriple)
         case .native:
             FileRuleDescription.swiftpmFileTypes
         }
