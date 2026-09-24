@@ -89,7 +89,11 @@ public struct PkgConfig {
             )
         }
 
-        var parser = try PkgConfigParser(pcFile: pcFile, fileSystem: fileSystem, sysrootDir: Environment.current["PKG_CONFIG_SYSROOT_DIR"])
+        // An explicit `sysrootDir` argument takes precedence over the
+        // `PKG_CONFIG_SYSROOT_DIR` environment variable; fall back to the
+        // environment only when no explicit value was supplied.
+        let effectiveSysrootDir = sysrootDir?.pathString ?? Environment.current["PKG_CONFIG_SYSROOT_DIR"]
+        var parser = try PkgConfigParser(pcFile: pcFile, fileSystem: fileSystem, sysrootDir: effectiveSysrootDir)
         try parser.parse()
 
         func getFlags(from dependencies: [String]) throws -> (cFlags: [String], libs: [String]) {
