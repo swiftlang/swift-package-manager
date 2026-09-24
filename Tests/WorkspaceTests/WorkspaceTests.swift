@@ -8500,6 +8500,19 @@ final class WorkspaceTests: XCTestCase {
             XCTAssertEqual(checksum, "ccbbaa")
         }
 
+        // Checks an artifact bundle index.
+        do {
+            let indexPath = sandbox.appending("binary.artifactbundleindex")
+            try fs.writeFileContents(indexPath, bytes: ByteString([0x11, 0x22, 0x33]))
+
+            let checksum = try binaryArtifactsManager.checksum(forBinaryArtifactAt: indexPath)
+            XCTAssertEqual(
+                checksumAlgorithm.hashes.map(\.contents),
+                [[0xAA, 0xBB, 0xCC], [0x11, 0x22, 0x33]]
+            )
+            XCTAssertEqual(checksum, "332211")
+        }
+
         // Checks an unsupported extension.
         do {
             let unknownPath = sandbox.appending("unknown")
@@ -8513,6 +8526,7 @@ final class WorkspaceTests: XCTestCase {
                 }
                 // What the file types are is platform specific
                 XCTAssert(stringError.description.hasPrefix("unexpected file type"))
+                XCTAssert(stringError.description.contains("artifactbundleindex"))
             }
         }
 
