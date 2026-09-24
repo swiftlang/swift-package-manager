@@ -39,3 +39,8 @@ install(TARGETS PackageCollectionsSigning
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:PackageCollectionsSigning>/$<TARGET_FILE_BASE_NAME:PackageCollectionsSigning>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()
