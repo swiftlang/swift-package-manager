@@ -88,6 +88,52 @@ public protocol Toolchain {
 }
 
 extension Toolchain {
+    package var resolvedSwiftCompilerBinDir: AbsolutePath {
+        Self.resolvedSwiftCompilerBinDir(swiftCompilerPath)
+    }
+
+    package static func resolvedSwiftCompilerBinDir(_ swiftCompilerPath: AbsolutePath) -> AbsolutePath {
+        ((try? resolveSymlinks(swiftCompilerPath)) ?? swiftCompilerPath).parentDirectory
+    }
+
+    package var compilerBinDirectories: [AbsolutePath] {
+        Self.compilerBinDirectories(swiftCompilerPath: swiftCompilerPath)
+    }
+
+    package static func compilerBinDirectories(swiftCompilerPath: AbsolutePath) -> [AbsolutePath] {
+        let compilerBinDir = swiftCompilerPath.parentDirectory
+        let resolvedCompilerBinDir = resolvedSwiftCompilerBinDir(swiftCompilerPath)
+        return resolvedCompilerBinDir == compilerBinDir
+            ? [compilerBinDir]
+            : [resolvedCompilerBinDir, compilerBinDir]
+    }
+
+    package var toolchainBinDirectories: [AbsolutePath] {
+        Self.toolchainBinDirectories(swiftCompilerPath: swiftCompilerPath, swiftSDK: swiftSDK)
+    }
+
+    package static func toolchainBinDirectories(
+        swiftCompilerPath: AbsolutePath,
+        swiftSDK: SwiftSDK
+    ) -> [AbsolutePath] {
+        let compilerBinDir = swiftCompilerPath.parentDirectory
+        var binDirectories: [AbsolutePath] = []
+        for rootPath in swiftSDK.toolset.rootPaths {
+            let candidates = rootPath == compilerBinDir
+                ? compilerBinDirectories(swiftCompilerPath: swiftCompilerPath)
+                : [rootPath]
+            for candidate in candidates where !binDirectories.contains(candidate) {
+                binDirectories.append(candidate)
+            }
+        }
+        for candidate in compilerBinDirectories(swiftCompilerPath: swiftCompilerPath)
+            where !binDirectories.contains(candidate)
+        {
+            binDirectories.append(candidate)
+        }
+        return binDirectories
+    }
+
     public func _isClangCompilerVendorApple() throws -> Bool? {
         return nil
     }
@@ -111,26 +157,27 @@ extension Toolchain {
     /// Toolchain path that's given to Swift Build to determine whether the compiler needs to be overridden.
     public var toolchainDir: AbsolutePath {
         get throws {
-            let compilerPath = try resolveSymlinks(swiftCompilerPath)
-            let realSwiftPath = compilerPath.parentDirectory
-
-            let hasUsrBin = realSwiftPath.components.contains(["usr", "bin"])
-            let hasUsrLocalBin = realSwiftPath.components.contains(["usr", "local", "bin"])
-
-            let path: AbsolutePath
-            switch (hasUsrBin, hasUsrLocalBin) {
-            case (true, false):
-                path = realSwiftPath.parentDirectory.parentDirectory
-            case (false, true):
-                path = realSwiftPath.parentDirectory.parentDirectory.parentDirectory
-            case (false, false):
-                throw UnknownToolchainLayout(path: realSwiftPath)
-            case (true, true):
-                preconditionFailure()
-            }
-
-            return path
+            try Self.toolchainDir(swiftCompilerPath: swiftCompilerPath)
         }
+    }
+
+    package static func toolchainDir(swiftCompilerPath: AbsolutePath) throws -> AbsolutePath {
+        let compilerPath = try resolveSymlinks(swiftCompilerPath)
+        let binDir = compilerPath.parentDirectory
+        guard binDir.basename == "bin" else {
+            throw UnknownToolchainLayout(path: binDir)
+        }
+
+        let installationPrefix = binDir.parentDirectory
+        if installationPrefix.basename == "usr" {
+            return installationPrefix.parentDirectory
+        }
+        if installationPrefix.basename == "local",
+            installationPrefix.parentDirectory.basename == "usr"
+        {
+            return installationPrefix.parentDirectory.parentDirectory
+        }
+        return installationPrefix
     }
 
     public var toolchainLibDir: AbsolutePath {

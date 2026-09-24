@@ -326,8 +326,8 @@ struct PluginCommand: AsyncSwiftCommand {
         let readOnlyDirectories = writableDirectories
             .contains { package.path.isDescendantOfOrEqual(to: $0) } ? [] : [package.path]
 
-        // Use the directory containing the compiler as an additional search directory, and add the $PATH.
-        let toolSearchDirs = [try swiftCommandState.getTargetToolchain().swiftCompilerPath.parentDirectory]
+        // Use the toolchain bin directories as additional search directories, and add the $PATH.
+        let toolSearchDirs = try swiftCommandState.getTargetToolchain().compilerBinDirectories
             + getEnvSearchPaths(pathString: Environment.current[.path], currentWorkingDirectory: .none)
 
         var buildParameters = try swiftCommandState.toolsBuildParameters

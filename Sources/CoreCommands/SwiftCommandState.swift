@@ -1202,7 +1202,7 @@ public final class SwiftCommandState {
 
             let store = SwiftSDKBundleStore(
                 swiftSDKsDirectory: self.sharedSwiftSDKsDirectory,
-                hostToolchainBinDir: hostToolchain.swiftCompilerPath.parentDirectory,
+                hostToolchainBinDir: hostToolchain.resolvedSwiftCompilerBinDir,
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,
                 outputHandler: { print($0.description) }
