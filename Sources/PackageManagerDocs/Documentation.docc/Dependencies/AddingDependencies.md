@@ -115,6 +115,7 @@ For more information on creating a binary target, see [Creating a multiplatform 
 
 - <doc:ResolvingPackageVersions>
 - <doc:PackageTraits>
+- <doc:DeprecatingProducts>
 - <doc:ResolvingDependencyFailures>
 - <doc:AddingSystemLibraryDependency>
 - <doc:ExampleSystemLibraryPkgConfig>

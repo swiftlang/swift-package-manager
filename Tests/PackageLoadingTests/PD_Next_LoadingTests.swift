@@ -39,4 +39,213 @@ final class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             }
         }
     }
+
+    // MARK: - Product deprecation (SE-NNNN)
+
+    func testProductDeprecationOnLibraryWithSamePackageReplacement() async throws {
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Test",
+                products: [
+                    .library(
+                        name: "Old",
+                        targets: ["Old"],
+                        deprecated: .unsupported(
+                            message: "Use New instead.",
+                            replacement: .renamed("New")
+                        )
+                    ),
+                ],
+                targets: [
+                    .target(name: "Old"),
+                ]
+            )
+            """
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, _) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let product = try XCTUnwrap(manifest.products.first)
+        XCTAssertEqual(product.name, "Old")
+        let deprecation = try XCTUnwrap(product.deprecation)
+        XCTAssertEqual(deprecation.message, "Use New instead.")
+        XCTAssertEqual(deprecation.replacement, .renamed("New"))
+    }
+
+    func testProductDeprecationOnLibraryWithCrossPackageReplacement() async throws {
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Test",
+                products: [
+                    .library(
+                        name: "Old",
+                        targets: ["Old"],
+                        deprecated: .unsupported(
+                            message: "Migrate to OtherPkg.",
+                            replacement: .renamed("OtherProduct", package: "other-pkg")
+                        )
+                    ),
+                ],
+                targets: [
+                    .target(name: "Old"),
+                ]
+            )
+            """
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, _) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let product = try XCTUnwrap(manifest.products.first)
+        let deprecation = try XCTUnwrap(product.deprecation)
+        XCTAssertEqual(
+            deprecation.replacement,
+            .renamed("OtherProduct", package: "other-pkg")
+        )
+    }
+
+    func testProductDeprecationOnLibraryWithoutReplacement() async throws {
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Test",
+                products: [
+                    .library(
+                        name: "Old",
+                        targets: ["Old"],
+                        deprecated: .unsupported(
+                            message: "Retired with no replacement."
+                        )
+                    ),
+                ],
+                targets: [
+                    .target(name: "Old"),
+                ]
+            )
+            """
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, _) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let product = try XCTUnwrap(manifest.products.first)
+        let deprecation = try XCTUnwrap(product.deprecation)
+        XCTAssertEqual(deprecation.message, "Retired with no replacement.")
+        XCTAssertNil(deprecation.replacement)
+    }
+
+    func testProductDeprecationOnLibraryWithEmptyUnsupported() async throws {
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Test",
+                products: [
+                    .library(
+                        name: "Old",
+                        targets: ["Old"],
+                        deprecated: .unsupported()
+                    ),
+                ],
+                targets: [
+                    .target(name: "Old"),
+                ]
+            )
+            """
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, _) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let product = try XCTUnwrap(manifest.products.first)
+        let deprecation = try XCTUnwrap(product.deprecation)
+        XCTAssertNil(deprecation.message)
+        XCTAssertNil(deprecation.replacement)
+    }
+
+    func testProductDeprecationOnExecutable() async throws {
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Test",
+                products: [
+                    .executable(
+                        name: "old-tool",
+                        targets: ["old-tool"],
+                        deprecated: .unsupported(
+                            message: "Use new-tool instead.",
+                            replacement: .renamed("new-tool", package: "tools")
+                        )
+                    ),
+                ],
+                targets: [
+                    .executableTarget(name: "old-tool"),
+                ]
+            )
+            """
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, _) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let product = try XCTUnwrap(manifest.products.first)
+        XCTAssertEqual(product.type, .executable)
+        let deprecation = try XCTUnwrap(product.deprecation)
+        XCTAssertEqual(deprecation.message, "Use new-tool instead.")
+        XCTAssertEqual(
+            deprecation.replacement,
+            .renamed("new-tool", package: "tools")
+        )
+    }
+
+    func testProductDeprecationOnPlugin() async throws {
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Test",
+                products: [
+                    .plugin(
+                        name: "OldPlugin",
+                        targets: ["OldPlugin"],
+                        deprecated: .unsupported(
+                            message: "Use NewPlugin instead.",
+                            replacement: .renamed("NewPlugin")
+                        )
+                    ),
+                ],
+                targets: [
+                    .plugin(
+                        name: "OldPlugin",
+                        capability: .command(intent: .custom(verb: "old", description: "old plugin"))
+                    ),
+                ]
+            )
+            """
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, _) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let product = try XCTUnwrap(manifest.products.first)
+        XCTAssertEqual(product.type, .plugin)
+        let deprecation = try XCTUnwrap(product.deprecation)
+        XCTAssertEqual(deprecation.replacement, .renamed("NewPlugin"))
+    }
+
+    func testProductWithoutDeprecatedParameterHasNilDeprecation() async throws {
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Test",
+                products: [
+                    .library(name: "Foo", targets: ["Foo"]),
+                ],
+                targets: [
+                    .target(name: "Foo"),
+                ]
+            )
+            """
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, _) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let product = try XCTUnwrap(manifest.products.first)
+        XCTAssertNil(product.deprecation)
+    }
 }
