@@ -1,0 +1,1 @@
+object-file resource without Lifetimes

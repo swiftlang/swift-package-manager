@@ -588,6 +588,9 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "copy", subnodes: params)
         case .embedInCode:
             self.init(enum: "embedInCode", subnodes: params)
+        case .embedInCodeAsObject:
+            params.append(SourceCodeFragment(key: "representation", enum: "objectFile"))
+            self.init(enum: "embedInCode", subnodes: params)
         }
     }
 
