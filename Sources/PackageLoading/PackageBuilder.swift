@@ -298,7 +298,8 @@ public final class PackageBuilder {
     public static let predefinedPluginDirectories = ["Plugins"]
 
     /// The identity for the package being constructed.
-    private let identity: PackageIdentity
+//    private let identity: PackageIdentity
+    private let identity: PURL
 
     /// The manifest for the package being constructed.
     private let manifest: Manifest
@@ -376,7 +377,7 @@ public final class PackageBuilder {
         observabilityScope: ObservabilityScope,
         enabledTraits: EnabledTraits
     ) {
-        self.identity = identity
+        self.identity = .from(identity: identity)
         self.manifest = manifest
         self.productFilter = productFilter
         self.packagePath = path
