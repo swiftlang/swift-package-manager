@@ -15,7 +15,17 @@ import Testing
 import Foundation
 import class TSCBasic.BufferedOutputByteStream
 
-
+package let allTestsPassRegex = try! Regex(#"Test run with \d+ test(s)? in \d+ suite(s)? passed after \d+(\.\d+)? second(s)?( with \d+ known issues)?\."#)
+// package let allTestsPassRegex = {
+//     do {
+//         let value = try Regex(#"Test run with \d+ tests in \d+ suites passed after \d+(\.\d+)? seconds( with \d+ known issues)."#)
+//         return value
+//     } catch {
+//         Issue.record(
+//             "Test configuraiton error. Failed to generate allTestsPassRegex "
+//         )
+//     }
+// }()
 fileprivate func fileErrorMessage(
     at path: AbsolutePath,
     prefix: Comment?,
