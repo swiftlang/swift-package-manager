@@ -188,7 +188,13 @@ internal struct PluginContextSerializer {
                 kind: artifactKind,
                 origin: artifactOrigin,
                 artifactId: try serialize(path: target.artifactPath))
-            
+
+        case is LibraryModule:
+            guard case .libraryAggregate(let libraryType) = target.underlying.type else {
+                throw InternalError("unexpected kind \(target.underlying.type) for library module \(target)")
+            }
+            targetInfo = .libraryInfo(kind: .init(libraryType))
+
         default:
             // It's not a type of target that we pass through to the plugin.
             return nil
@@ -204,13 +210,22 @@ internal struct PluginContextSerializer {
             }
         }
 
+        // A library target that has no sources of its own has no source directory, so report the
+        // directory of the package that declares it instead.
+        let directory = if target.underlying is LibraryModule {
+            modulesGraph.package(for: target)?.path ?? target.sources.root
+        } else {
+            target.sources.root
+        }
+
         // Finally assign the next wire ID to the target, and append a serialized Target record.
         let id = targets.count
         targets.append(.init(
             name: target.name,
-            directoryId: try serialize(path: target.sources.root),
+            directoryId: try serialize(path: directory),
             dependencies: dependencies,
-            info: targetInfo))
+            info: targetInfo,
+            visibility: .init(target.underlying.visibility)))
         targetsToWireIDs[target.id] = id
         return id
     }
@@ -356,8 +371,10 @@ internal struct PluginContextSerializer {
 fileprivate extension WireInput.Target.TargetInfo.SourceModuleKind {
     init(_ kind: Module.Kind) throws {
         switch kind {
-        case .library:
+        case .library(.object):
             self = .generic
+        case .library:
+            self = .library
         case .executable:
             self = .executable
         case .snippet:
@@ -366,8 +383,32 @@ fileprivate extension WireInput.Target.TargetInfo.SourceModuleKind {
             self = .test
         case .macro:
             self = .macro
-        case .binary, .plugin, .systemModule:
+        case .binary, .plugin, .systemModule, .libraryAggregate:
             throw StringError("unexpected target kind \(kind) for source module")
+        }
+    }
+}
+
+fileprivate extension WireInput.Target.TargetInfo.LibraryKind {
+    init(_ libraryType: ProductType.LibraryType) {
+        switch libraryType {
+        case .static:
+            self = .static
+        case .dynamic:
+            self = .dynamic
+        case .automatic:
+            self = .automatic
+        }
+    }
+}
+
+fileprivate extension WireInput.Target.Visibility {
+    init(_ visibility: TargetDescription.TargetVisibility) {
+        switch visibility {
+        case .public:
+            self = .public
+        case .package:
+            self = .package
         }
     }
 }
