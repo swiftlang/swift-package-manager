@@ -43,6 +43,7 @@ jobs:
       # freebsd_host_archs: '["aarch64", "x86_64"]' # FreeBSD builds currently only support x86_64
 
   test-example-package-registry:
+    needs: [soundness]
     strategy:
       fail-fast: false
     name: Build and Test Example Package Registry
