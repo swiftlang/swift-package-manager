@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import ArgumentParser
 import Basics
 import Foundation
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import PackageGraph
@@ -1467,6 +1468,103 @@ struct PackageCommandTests {
                 outputFiles.contains { $0.hasPrefix("MyCommand") && $0.hasSuffix(".symbols.json") },
                 "No symbol graph files found for executable target 'MyCommand', dir contains: \(outputFiles)"
             )
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Package.DumpSymbolGraph,
+        ),
+    )
+    func dumpSymbolGraphResolvesRelativeOutputDir() throws {
+        let cwd = try #require(localFileSystem.currentWorkingDirectory)
+        let dumpCommand = try #require(
+            try SwiftPackageCommand.parseAsRoot(
+                ["dump-symbol-graph", "--output-dir", "relative/symbol-graphs"]
+            ) as? DumpSymbolGraph
+        )
+        #expect(dumpCommand.outputDir == cwd.appending(components: "relative", "symbol-graphs"))
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Package.DumpSymbolGraph,
+        ),
+    )
+    func dumpSymbolGraphPreservesAbsoluteOutputDir() throws {
+        let cwd = try #require(localFileSystem.currentWorkingDirectory)
+        let absolutePath = cwd.appending(components: "absolute", "symbol-graphs")
+        let dumpCommand = try #require(
+            try SwiftPackageCommand.parseAsRoot(
+                ["dump-symbol-graph", "--output-dir", absolutePath.pathString]
+            ) as? DumpSymbolGraph
+        )
+        #expect(dumpCommand.outputDir == absolutePath)
+    }
+
+    @Test(
+        .requireSwift6_3,
+        .tags(
+            .Feature.Command.Package.DumpSymbolGraph,
+        ),
+        .requiresSymbolgraphExtract,
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func dumpSymbolGraphOverwritesStaleSGFsInUserDirectory(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir)
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Package.swift"),
+                string: """
+                    // swift-tools-version: 6.3
+                    import PackageDescription
+                    let package = Package(
+                        name: "MyPackage",
+                        targets: [
+                            .target(name: "MyLibrary"),
+                        ]
+                    )
+                    """
+            )
+            let sourcePath = packageDir.appending(components: "Sources", "MyLibrary", "MyLibrary.swift")
+            try localFileSystem.createDirectory(sourcePath.parentDirectory, recursive: true)
+            try localFileSystem.writeFileContents(sourcePath, string: "public struct MyType {}")
+
+            let outputDir = tmpPath.appending(components: "symbolgraphs")
+            try localFileSystem.createDirectory(outputDir)
+
+            let unrelatedFile = outputDir.appending(component: "unrelated.txt")
+            try localFileSystem.writeFileContents(unrelatedFile, string: "keep me")
+
+            let symbolGraphPath = outputDir.appending(component: "MyLibrary.symbols.json")
+
+            func run() async throws {
+                try await execute(
+                    ["dump-symbol-graph", "--output-dir", outputDir.pathString],
+                    packagePath: packageDir,
+                    configuration: .debug,
+                    buildSystem: buildSystem,
+                )
+            }
+
+            try await run()
+            try #require(localFileSystem.exists(symbolGraphPath), "Symbol graph was not generated on the first run")
+
+            try localFileSystem.writeFileContents(symbolGraphPath, string: "stale")
+
+            try await run()
+
+            let symbolGraphData = try Data(contentsOf: URL(fileURLWithPath: symbolGraphPath.pathString))
+            #expect(throws: Never.self) {
+                // The stale file should have been overwritten with the symbol graph
+                try JSONSerialization.jsonObject(with: symbolGraphData)
+            }
+
+            // Other files in the output dir are not touched
+            #expect(localFileSystem.exists(unrelatedFile))
         }
     }
 
