@@ -133,8 +133,24 @@ public struct PluginCompilationResult: Equatable {
     /// Path of the compiled executable.
     public var executableFile: Basics.AbsolutePath
 
-    /// Path of the libClang diagnostics file emitted by the compiler.
-    public var diagnosticsFile: Basics.AbsolutePath
+    /// Paths of the diagnostics files emitted by the compiler, one for each source file.
+    public var diagnosticsFiles: [Basics.AbsolutePath]
+
+    /// Path of the diagnostics file emitted by the compiler.
+    ///
+    /// This is retained for source compatibility. For plugins with multiple source files,
+    /// use `diagnosticsFiles` instead.
+    @available(*, deprecated, message: "Use diagnosticsFiles instead")
+    public var diagnosticsFile: Basics.AbsolutePath {
+        get {
+            precondition(!self.diagnosticsFiles.isEmpty, "PluginCompilationResult must contain at least one diagnostics file")
+            return self.diagnosticsFiles[0]
+        }
+        set {
+            precondition(!self.diagnosticsFiles.isEmpty, "PluginCompilationResult must contain at least one diagnostics file")
+            self.diagnosticsFiles[0] = newValue
+        }
+    }
     
     /// Any output emitted by the compiler (stdout and stderr combined).
     public var rawCompilerOutput: String
@@ -146,16 +162,36 @@ public struct PluginCompilationResult: Equatable {
         succeeded: Bool,
         commandLine: [String],
         executableFile: Basics.AbsolutePath,
+        diagnosticsFiles: [Basics.AbsolutePath],
+        compilerOutput rawCompilerOutput: String,
+        cached: Bool
+    ) {
+        precondition(!diagnosticsFiles.isEmpty, "PluginCompilationResult must contain at least one diagnostics file")
+        self.succeeded = succeeded
+        self.commandLine = commandLine
+        self.executableFile = executableFile
+        self.diagnosticsFiles = diagnosticsFiles
+        self.rawCompilerOutput = rawCompilerOutput
+        self.cached = cached
+    }
+
+    @available(*, deprecated, message: "Use init(... diagnosticsFiles: ...) instead")
+    public init(
+        succeeded: Bool,
+        commandLine: [String],
+        executableFile: Basics.AbsolutePath,
         diagnosticsFile: Basics.AbsolutePath,
         compilerOutput rawCompilerOutput: String,
         cached: Bool
     ) {
-        self.succeeded = succeeded
-        self.commandLine = commandLine
-        self.executableFile = executableFile
-        self.diagnosticsFile = diagnosticsFile
-        self.rawCompilerOutput = rawCompilerOutput
-        self.cached = cached
+        self.init(
+            succeeded: succeeded,
+            commandLine: commandLine,
+            executableFile: executableFile,
+            diagnosticsFiles: [diagnosticsFile],
+            compilerOutput: rawCompilerOutput,
+            cached: cached
+        )
     }
 }
 
@@ -173,7 +209,7 @@ extension PluginCompilationResult: CustomDebugStringConvertible {
                 succeeded: \(succeeded),
                 commandLine: \(commandLine.map{ $0.spm_shellEscaped() }.joined(separator: " ")),
                 executable: \(executableFile.prettyPath())
-                diagnostics: \(diagnosticsFile.prettyPath())
+                diagnostics: \(diagnosticsFiles.map { $0.prettyPath() }.joined(separator: ", "))
                 compilerOutput: \(compilerOutput.spm_shellEscaped())
             )>
             """
