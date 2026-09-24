@@ -322,10 +322,19 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         self.observabilityScope.emit(.multipleProducers(output: output, commands: commands))
     }
 
-    func commandProcessStarted(_ command: SPMLLBuild.Command, process: ProcessHandle) {}
+    func commandProcessStarted(_ command: SPMLLBuild.Command, process: ProcessHandle) {
+        self.queue.async {
+            self.outputStream.send("EXTRA VERBOSE COMMAND STARTED \(process.hashValue) for \(command.verboseDescription)\n")
+            self.outputStream.flush()
+        }
+    }
 
     func commandProcessHadError(_ command: SPMLLBuild.Command, process: ProcessHandle, message: String) {
         self.observabilityScope.emit(.commandError(command: command, message: message))
+        self.queue.sync {
+            self.outputStream.send("EXTRA VERBOSE PROCESS \(process.hashValue) HAD ERROR of \(message)\n")
+            self.outputStream.flush()
+        }
     }
 
     func commandProcessHadOutput(_ command: SPMLLBuild.Command, process: ProcessHandle, data: [UInt8]) {
@@ -345,18 +354,17 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         process: ProcessHandle,
         result: CommandExtendedResult
     ) {
-        // FIXME: This should really happen at the command-level and is just a stopgap measure.
-        let shouldFilterOutput = !self.logLevel.isVerbose && command.verboseDescription.hasPrefix("codesign ") && result
-            .result != .failed
-
         let commandName = command.name
 
         self.queue.async {
-            if let buffer = self.nonSwiftMessageBuffers[commandName], !shouldFilterOutput {
+            if let buffer = self.nonSwiftMessageBuffers[commandName] {
                 self.progressAnimation.clear()
-                self.outputStream.send(buffer)
+                self.outputStream.send("EXTRA VERBOSE COMMAND FINISHED \(process.hashValue) EXIT \(result.exitStatus) for \(command.verboseDescription) with \(buffer)\n")
                 self.outputStream.flush()
                 self.nonSwiftMessageBuffers[commandName] = nil
+            } else {
+                self.outputStream.send("EXTRA VERBOSE COMMAND FINISHED \(process.hashValue) EXIT \(result.exitStatus) for \(command.verboseDescription)\n")
+                self.outputStream.flush()
             }
         }
 
@@ -474,6 +482,10 @@ final class LLBuildProgressTracker: LLBuildBuildSystemDelegate, SwiftCompilerOut
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         self.observabilityScope.emit(.swiftCompilerOutputParsingError(message))
         self.hadCommandFailure()
+        self.queue.sync {
+            self.outputStream.send("EXTRA VERBOSE PARSER FAILURE for \(parser.targetName) of \(message)\n")
+            self.outputStream.flush()
+        }
     }
 
     func buildStart(configuration: BuildConfiguration) {
@@ -634,8 +646,15 @@ extension SwiftCompilerMessage {
     fileprivate var verboseProgressText: String? {
         switch kind {
         case .began(let info):
-            ([info.commandExecutable] + info.commandArguments).joined(separator: " ")
-        case .skipped, .finished, .abnormal, .signalled, .unparsableOutput:
+            "EXTRA VERBOSE STARTED \(info.pid) for \(([info.commandExecutable] + info.commandArguments).joined(separator: " "))"
+        case .finished(let info):
+            "EXTRA VERBOSE FINISHED \(info.pid) with \(info.output ?? "no output")"
+        case .abnormal(let info),
+             .signalled(let info):
+            "EXTRA VERBOSE FAILED \(info.pid) with \(info.output ?? "no output")"
+        case .unparsableOutput(let output):
+            "EXTRA VERBOSE UNPARSABLE with \(output)"
+        case .skipped:
             nil
         }
     }
