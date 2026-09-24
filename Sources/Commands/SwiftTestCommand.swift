@@ -1461,6 +1461,12 @@ extension SwiftTestCommand {
         @Flag(name: [.customLong("list-tests"), .customShort("l")], help: .hidden)
         var _deprecated_passthrough: Bool = false
 
+        @Flag(
+            name: .customLong("tags"),
+            help: "List the unique tags used by Swift Testing tests, instead of the tests."
+        )
+        var tags: Bool = false
+
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             do {
                 try await self.runCommand(swiftCommandState)
@@ -1501,7 +1507,8 @@ extension SwiftTestCommand {
                 buildSystem: buildSystem
             )
 
-            if testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
+            // XCTest has no tags, so there is nothing to list for it when `--tags` is set.
+            if !self.tags && testLibraryOptions.isEnabled(.xctest, swiftCommandState: swiftCommandState) {
                 let testSuites = try await TestingSupport.getTestSuites(
                     in: testProducts,
                     swiftCommandState: swiftCommandState,
@@ -1521,30 +1528,39 @@ extension SwiftTestCommand {
             if testLibraryOptions.isEnabled(.swiftTesting, swiftCommandState: swiftCommandState) {
                 lazy var testEntryPointPath = testProducts.lazy.compactMap(\.testEntryPointPath).first
                 if testLibraryOptions.isExplicitlyEnabled(.swiftTesting, swiftCommandState: swiftCommandState) || testEntryPointPath == nil {
-                    let additionalArguments = ["--list-tests"] + CommandLine.arguments.dropFirst()
-                    let runner = TestRunner(
-                        testProducts: testProducts,
-                        additionalArguments: additionalArguments,
-                        cancellator: swiftCommandState.cancellator,
-                        toolchain: toolchain,
-                        testEnv: testEnv,
-                        observabilityScope: swiftCommandState.observabilityScope,
-                        library: .swiftTesting
-                    )
+                    if self.tags {
+                        try await printTags(
+                            testProducts: testProducts,
+                            toolchain: toolchain,
+                            testEnv: testEnv,
+                            swiftCommandState: swiftCommandState
+                        )
+                    } else {
+                        let additionalArguments = ["--list-tests"] + CommandLine.arguments.dropFirst()
+                        let runner = TestRunner(
+                            testProducts: testProducts,
+                            additionalArguments: additionalArguments,
+                            cancellator: swiftCommandState.cancellator,
+                            toolchain: toolchain,
+                            testEnv: testEnv,
+                            observabilityScope: swiftCommandState.observabilityScope,
+                            library: .swiftTesting
+                        )
 
-                    // Finally, run the tests.
-                    let result = runner.test(outputHandler: {
-                        // command's result output goes on stdout
-                        // ie "swift test" should output to stdout
-                        print($0, terminator: "")
-                    })
-                    if result == .failure {
-                        swiftCommandState.executionStatus = .failure
-                        // If the runner reports failure, do a check to ensure
-                        // all the binaries are present on the file system.
-                        for path in testProducts.map(\.binaryPath) {
-                            if !swiftCommandState.fileSystem.exists(path) {
-                                throw FileSystemError(.noEntry, path)
+                        // Finally, run the tests.
+                        let result = runner.test(outputHandler: {
+                            // command's result output goes on stdout
+                            // ie "swift test" should output to stdout
+                            print($0, terminator: "")
+                        })
+                        if result == .failure {
+                            swiftCommandState.executionStatus = .failure
+                            // If the runner reports failure, do a check to ensure
+                            // all the binaries are present on the file system.
+                            for path in testProducts.map(\.binaryPath) {
+                                if !swiftCommandState.fileSystem.exists(path) {
+                                    throw FileSystemError(.noEntry, path)
+                                }
                             }
                         }
                     }
@@ -1555,6 +1571,44 @@ extension SwiftTestCommand {
                         debug: "Skipping automatic Swift Testing invocation (list) because a test entry point path is present: \(testEntryPointPath)"
                     )
                 }
+            }
+        }
+
+        private func printTags(
+            testProducts: [BuiltTestProduct],
+            toolchain: UserToolchain,
+            testEnv: Environment,
+            swiftCommandState: SwiftCommandState
+        ) async throws {
+            // Each test binary truncates its output file, so give every product its own file.
+            let allTags = try await withTemporaryDirectory(
+                prefix: "swiftpm-list-tags-",
+                removeTreeOnDeinit: true
+            ) { tempDir in
+                var tags: Set<String> = []
+                for (index, product) in testProducts.enumerated() {
+                    let eventStreamPath = tempDir.appending("event-stream-\(index).jsonl")
+                    let runner = TestRunner(
+                        testProducts: [product],
+                        additionalArguments: ["--list-tests", "--event-stream-output-path", eventStreamPath.pathString],
+                        cancellator: swiftCommandState.cancellator,
+                        toolchain: toolchain,
+                        testEnv: testEnv,
+                        observabilityScope: swiftCommandState.observabilityScope,
+                        library: .swiftTesting
+                    )
+                    if runner.test(outputHandler: { _ in }) == .failure {
+                        swiftCommandState.executionStatus = .failure
+                    }
+                    if swiftCommandState.fileSystem.exists(eventStreamPath) {
+                        let contents: String = try swiftCommandState.fileSystem.readFileContents(eventStreamPath)
+                        tags.formUnion(TestTagCollector.tags(fromJSONLines: contents))
+                    }
+                }
+                return tags
+            }
+            for tag in allTags.sorted() {
+                print(tag)
             }
         }
 
