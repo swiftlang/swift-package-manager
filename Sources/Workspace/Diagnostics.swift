@@ -132,58 +132,68 @@ struct BinaryArtifactsManagerError: Error, CustomStringConvertible {
         self.description = description
     }
 
-    static func artifactInvalidArchive(artifactURL: URL, targetName: String) -> Self {
+    static func artifactInvalidArchive(artifact: Workspace.BinaryArtifactsManager.RemoteArtifact) -> Self {
         .init(
-            description: "invalid archive returned from '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)'"
+            description: "invalid archive returned from '\(artifact.url.absoluteString)' which is required by binary target '\(artifact.targetName)'"
         )
     }
 
-    static func artifactChecksumChanged(targetName: String) -> Self {
+    static func artifactChecksumChanged(artifact: Workspace.BinaryArtifactsManager.RemoteArtifact) -> Self {
         .init(
-            description: "artifact of binary target '\(targetName)' has changed checksum; this is a potential security risk so the new artifact won't be downloaded"
+            description: "artifact of binary target '\(artifact.targetName)' has changed checksum; this is a potential security risk so the new artifact won't be downloaded"
         )
     }
 
-    static func artifactInvalidChecksum(targetName: String, expectedChecksum: String, actualChecksum: String?) -> Self {
+    static func artifactInvalidChecksum(artifact: Workspace.BinaryArtifactsManager.RemoteArtifact, actualChecksum: String?) -> Self {
         .init(
-            description: "checksum of downloaded artifact of binary target '\(targetName)' (\(actualChecksum ?? "none")) does not match checksum specified by the manifest (\(expectedChecksum))"
+            description: "checksum of downloaded artifact of binary target '\(artifact.targetName)' (\(actualChecksum ?? "none")) does not match checksum specified by the manifest (\(artifact.checksum))"
         )
     }
 
-    static func artifactFailedDownload(artifactURL: URL, targetName: String, reason: String) -> Self {
+    static func artifactFailedDownload(target: TargetDescription, artifactURL: URL, reason: String) -> Self {
         .init(
-            description: "failed downloading '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)"
+            description: "failed downloading '\(artifactURL.absoluteString)' which is required by binary target '\(target.name)': \(reason)"
         )
     }
 
-    static func artifactFailedValidation(artifactURL: URL, targetName: String, reason: String) -> Self {
+    static func artifactFailedDownload(artifact: Workspace.BinaryArtifactsManager.RemoteArtifact, reason: String) -> Self {
         .init(
-            description: "failed validating archive from '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)"
+            description: "failed downloading '\(artifact.url.absoluteString)' which is required by binary target '\(artifact.targetName)': \(reason)"
         )
     }
 
-    static func remoteArtifactFailedExtraction(artifactURL: URL, targetName: String, reason: String) -> Self {
+    static func artifactFailedValidation(artifact: Workspace.BinaryArtifactsManager.RemoteArtifact, reason: String) -> Self {
         .init(
-            description: "failed extracting '\(artifactURL.absoluteString)' which is required by binary target '\(targetName)': \(reason)"
+            description: "failed validating archive from '\(artifact.url.absoluteString)' which is required by binary target '\(artifact.targetName)': \(reason)"
         )
     }
 
-    static func localArtifactFailedExtraction(artifactPath: AbsolutePath, targetName: String, reason: String) -> Self {
-        .init(description: "failed extracting '\(artifactPath)' which is required by binary target '\(targetName)': \(reason)")
-    }
-
-    static func remoteArtifactNotFound(artifactURL: URL, targetName: String) -> Self {
+    static func remoteArtifactFailedExtraction(artifact: Workspace.BinaryArtifactsManager.RemoteArtifact, reason: String) -> Self {
         .init(
-            description: "downloaded archive of binary target '\(targetName)' from '\(artifactURL.absoluteString)' does not contain a binary artifact."
+            description: "failed extracting '\(artifact.url.absoluteString)' which is required by binary target '\(artifact.targetName)': \(reason)"
         )
     }
 
-    static func localArchivedArtifactNotFound(archivePath: AbsolutePath, targetName: String) -> Self {
-        .init(description: "local archive of binary target '\(targetName)' at '\(archivePath)' does not contain a binary artifact.")
+    static func localArtifactFailedExtraction(artifact: Workspace.ManagedArtifact, reason: String) -> Self {
+        .init(description: "failed extracting '\(artifact.path)' which is required by binary target '\(artifact.targetName)': \(reason)")
     }
 
-    static func localArtifactNotFound(artifactPath: AbsolutePath, targetName: String) -> Self {
-        .init(description: "local binary target '\(targetName)' at '\(artifactPath)' does not contain a binary artifact.")
+    static func remoteArtifactNotFound(artifact: Workspace.BinaryArtifactsManager.RemoteArtifact) -> Self {
+        .init(
+            description: "downloaded archive of binary target '\(artifact.targetName)' from '\(artifact.url.absoluteString)' does not contain a binary artifact."
+        )
+    }
+
+    static func localArchivedArtifactNotFound(artifact: Workspace.ManagedArtifact) -> Self {
+        .init(description: "local archive of binary target '\(artifact.targetName)' at '\(artifact.path)' does not contain a binary artifact.")
+    }
+
+    static func localArtifactNotFound(target: TargetDescription, artifactPath: AbsolutePath) -> Self {
+        .init(description: "local binary target '\(target.name)' at '\(artifactPath)' does not contain a binary artifact.")
+    }
+
+    static func localArtifactNotFound(artifact: Workspace.ManagedArtifact) -> Self {
+        .init(description: "local binary target '\(artifact.targetName)' at '\(artifact.path)' does not contain a binary artifact.")
     }
 
     static func artifactContainsEscapingSymlink(
