@@ -518,6 +518,7 @@ public final class InitPackage {
                 xcuserdata/
                 DerivedData/
                 .swiftpm/configuration/registries.json
+                .swiftpm/configuration/build-cache-config.json
                 .swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
                 .netrc
 
