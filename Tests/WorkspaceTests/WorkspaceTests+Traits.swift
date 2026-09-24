@@ -1658,6 +1658,131 @@ extension WorkspaceTests {
         }
     }
 
+    /// Console reaches Middle and Leaf with defaults before Proposal, one level deeper, enables the
+    /// Middle trait that conditionally enables a Leaf trait. The first graph load must include it.
+    func testConditionalTraitReachesPackageAlreadyLoadedWithDefaults() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "ServerProduct", package: "Server"),
+                                .product(name: "ConsoleLoggerProduct", package: "Console"),
+                            ]
+                        )
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Server", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Console", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "Server",
+                    targets: [
+                        MockTarget(
+                            name: "ServerTarget",
+                            dependencies: [.product(name: "ProposalProduct", package: "Proposal")]
+                        )
+                    ],
+                    products: [MockProduct(name: "ServerProduct", modules: ["ServerTarget"])],
+                    dependencies: [
+                        .sourceControl(path: "./Proposal", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Proposal",
+                    targets: [
+                        MockTarget(
+                            name: "ProposalTarget",
+                            dependencies: [.product(name: "MiddleProduct", package: "Middle")]
+                        )
+                    ],
+                    products: [MockProduct(name: "ProposalProduct", modules: ["ProposalTarget"])],
+                    dependencies: [
+                        .sourceControl(
+                            path: "./Middle",
+                            requirement: .upToNextMajor(from: "1.0.0"),
+                            traits: ["MiddleTrait"]
+                        )
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Console",
+                    targets: [
+                        MockTarget(
+                            name: "ConsoleKitTarget",
+                            dependencies: [.product(name: "MiddleProduct", package: "Middle")]
+                        ),
+                        MockTarget(
+                            name: "ConsoleLoggerTarget",
+                            dependencies: [.product(name: "LeafProduct", package: "Leaf")]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "ConsoleKitProduct", modules: ["ConsoleKitTarget"]),
+                        MockProduct(name: "ConsoleLoggerProduct", modules: ["ConsoleLoggerTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Middle", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Leaf", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Middle",
+                    targets: [
+                        MockTarget(
+                            name: "MiddleTarget",
+                            dependencies: [.product(name: "LeafProduct", package: "Leaf")]
+                        )
+                    ],
+                    products: [MockProduct(name: "MiddleProduct", modules: ["MiddleTarget"])],
+                    dependencies: [
+                        .sourceControl(
+                            path: "./Leaf",
+                            requirement: .upToNextMajor(from: "1.0.0"),
+                            traits: [.init(name: "LeafTrait", condition: .init(traits: ["MiddleTrait"]))]
+                        )
+                    ],
+                    traits: [.init(name: "default", enabledTraits: []), "MiddleTrait"],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Leaf",
+                    targets: [MockTarget(name: "LeafTarget")],
+                    products: [MockProduct(name: "LeafProduct", modules: ["LeafTarget"])],
+                    traits: [.init(name: "default", enabledTraits: []), "LeafTrait"],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(packages: "Root", "Server", "Proposal", "Console", "Middle", "Leaf")
+                result.checkPackage("Middle") { package in
+                    XCTAssertEqual(package.enabledTraits?.sorted(), ["MiddleTrait"])
+                }
+                result.checkPackage("Leaf") { package in
+                    XCTAssertEqual(package.enabledTraits?.sorted(), ["LeafTrait"])
+                }
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+    }
+
     func testDependencyTraitEnabledViaMultipleRoots() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
