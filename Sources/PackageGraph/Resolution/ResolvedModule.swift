@@ -137,6 +137,20 @@ public struct ResolvedModule {
         self.underlying.moduleAliases
     }
 
+    /// Module aliases that need to be passed to the compiler when building this module.
+    /// Aliases declared by this module are referenced directly in its source code.
+    package var moduleAliasesForCompilation: [String: String]? {
+        guard var aliases = self.moduleAliases else { return nil }
+        for dependency in self.underlying.dependencies {
+            guard case .product(let product, _) = dependency,
+                  let declaredAliases = product.moduleAliases else { continue }
+            for (originalName, alias) in declaredAliases where aliases[originalName] == alias {
+                aliases.removeValue(forKey: originalName)
+            }
+        }
+        return aliases.isEmpty ? nil : aliases
+    }
+
     /// Allows access to package symbols from other modules in the package
     public var packageAccess: Bool {
         self.underlying.packageAccess
