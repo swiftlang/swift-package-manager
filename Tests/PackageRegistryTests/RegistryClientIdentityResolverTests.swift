@@ -24,6 +24,13 @@ private let filesIdentity = RegistryConfiguration.Identity.files(
     privateKeyPath: privateKeyFile.pathString
 )
 
+private let combinedIdentityFile = AbsolutePath("/identity/client.pem")
+
+private let combinedFilesIdentity = RegistryConfiguration.Identity.files(
+    certificatePath: combinedIdentityFile.pathString,
+    privateKeyPath: combinedIdentityFile.pathString
+)
+
 @Suite("Registry Client Identity Resolver") struct RegistryClientIdentityResolverTests {
     @Test func resolvesPEMCertificateAndKey() async throws {
         try await withTemporaryDirectory { directory in
@@ -122,6 +129,46 @@ private let filesIdentity = RegistryConfiguration.Identity.files(
             }
 
             #expect(try certificateChain.first?.toDERBytes() == material.certificateDER)
+        }
+    }
+
+    @Test func resolvesPrivateKeyFollowedByCertificateChainFromSingleFile() async throws {
+        try await withTemporaryDirectory { directory in
+            let material = try await IdentityMaterial.make(in: directory)
+            let fileSystem = try material.fileSystem(
+                combined: material.privateKeyPEM + material.certificateChainPEM
+            )
+
+            let resolved = try RegistryClientIdentityResolver(fileSystem: fileSystem).resolve(combinedFilesIdentity)
+
+            guard case .files(let certificateChain, let privateKey) = resolved else {
+                Issue.record("expected a file-based identity")
+                return
+            }
+
+            #expect(certificateChain.count == 2)
+            #expect(try certificateChain.first?.toDERBytes() == material.certificateDER)
+            #expect(privateKey == (try NIOSSLPrivateKey(bytes: material.privateKeyDER, format: .der)))
+        }
+    }
+
+    @Test func resolvesCertificateChainFollowedByPrivateKeyFromSingleFile() async throws {
+        try await withTemporaryDirectory { directory in
+            let material = try await IdentityMaterial.make(in: directory)
+            let fileSystem = try material.fileSystem(
+                combined: material.certificateChainPEM + material.privateKeyPEM
+            )
+
+            let resolved = try RegistryClientIdentityResolver(fileSystem: fileSystem).resolve(combinedFilesIdentity)
+
+            guard case .files(let certificateChain, let privateKey) = resolved else {
+                Issue.record("expected a file-based identity")
+                return
+            }
+
+            #expect(certificateChain.count == 2)
+            #expect(try certificateChain.first?.toDERBytes() == material.certificateDER)
+            #expect(privateKey == (try NIOSSLPrivateKey(bytes: material.privateKeyDER, format: .der)))
         }
     }
 
@@ -268,6 +315,13 @@ struct IdentityMaterial {
         try fileSystem.createDirectory(certificateFile.parentDirectory, recursive: true)
         try fileSystem.writeFileContents(certificateFile, data: Data(certificate))
         try fileSystem.writeFileContents(privateKeyFile, data: Data(privateKey))
+        return fileSystem
+    }
+
+    func fileSystem(combined contents: [UInt8]) throws -> InMemoryFileSystem {
+        let fileSystem = InMemoryFileSystem()
+        try fileSystem.createDirectory(combinedIdentityFile.parentDirectory, recursive: true)
+        try fileSystem.writeFileContents(combinedIdentityFile, data: Data(contents))
         return fileSystem
     }
 
