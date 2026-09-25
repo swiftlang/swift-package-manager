@@ -36,8 +36,9 @@ public func configure(_ app: Application, authEnabled: Bool = true) async throws
 
     let store = app.registryStore
     let userStore = app.userStore
+    let certificateAuthenticator = ClientCertificateAuthenticator(store: userStore)
     let authenticator = UserAuthenticator(store: userStore)
-    let authGroup = app.grouped(authenticator)
+    let authGroup = app.grouped(certificateAuthenticator, authenticator)
 
     AvailabilityRoutes().register(app)
     IdentifiersRoutes(store: store).register(app)
@@ -68,7 +69,9 @@ func configureTLS(_ app: Application, certPath: String, keyPath: String) throws 
         privateKey: .privateKey(key)
     )
     tls.minimumTLSVersion = .tlsv12
+    tls.certificateVerification = .optionalVerification
     app.http.server.configuration.tlsConfiguration = tls
+    app.http.server.configuration.customCertificateVerifyCallbackWithMetadata = collectClientCertificateChain
     app.http.server.configuration.hostname = "localhost"
     app.http.server.configuration.port = 8000
     app.logger.info("TLS enabled; listening on https://localhost:8000")
