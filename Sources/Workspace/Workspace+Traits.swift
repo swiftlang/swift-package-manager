@@ -17,6 +17,7 @@ import enum PackageModel.ProductFilter
 import enum PackageModel.PackageDependency
 import struct PackageModel.EnabledTrait
 import struct PackageModel.EnabledTraits
+import enum PackageModel.TraitError
 import class Basics.ObservabilityScope
 import Basics
 
@@ -41,7 +42,7 @@ extension Workspace {
         // for a no-trait package it discards that information and returns ["default"].
         // Root packages are validated separately through the trait configuration path.
         if !manifest.packageKind.isRoot {
-            try manifest.validateEnabledTraits(explicitlyEnabledTraits)
+            try self.validateEnabledTraits(explicitlyEnabledTraits, for: manifest)
         }
 
         var enabledTraits = try manifest.enabledTraits(using: explicitlyEnabledTraits)
@@ -96,6 +97,97 @@ extension Workspace {
             self.enabledTraitsMap[dependency.identity] = defaultTraits
         }
     }
+
+    /// Validates the traits enabled for a non-root `Manifest`, throwing only for a request that must fail
+    /// package resolution.
+    ///
+    /// A parent manifest asking a traitless package to *disable* its defaults is an error. This rule is in place
+    /// to protect the ability of a package to move existing API behind a default trait without breaking its consumers.
+    /// The parent's author owns the manifest that made the request, so they can act on the error.
+    ///
+    /// Everything else falls back to the package's defaults, which is what `enabledTraits(using:)` returns for
+    /// a traitless package anyway, and `reportTraitFallbacks` warns about it. That covers naming traits the
+    /// package no longer declares, and disabling defaults from a stored trait configuration: in both cases the
+    /// dependency is the thing that changed, and there is nothing the consumer can do about it short of
+    /// editing a manifest they may not own.
+    func validateEnabledTraits(_ enabledTraits: EnabledTraits, for manifest: Manifest) throws {
+        guard let unsupportedTraits = manifest.unsupportedTraitsError(enabledTraits) else {
+            try manifest.validateEnabledTraits(enabledTraits)
+            return
+        }
+
+        if enabledTraits.isEmpty, !self.defaultsDisabledOnlyByTraitConfiguration(manifest) {
+            throw unsupportedTraits
+        }
+    }
+
+    /// Whether every setter that disabled this package's default traits was a stored trait configuration.
+    ///
+    /// `EnabledTraits.disabledBy` reports one setter picked arbitrarily out of the recorded disablers, so it
+    /// can't answer this when a package was disabled by more than one thing. Ask the map for all of them
+    /// instead: a parent manifest among them is a request its author can fix, and stays an error.
+    private func defaultsDisabledOnlyByTraitConfiguration(_ manifest: Manifest) -> Bool {
+        guard let disablers = self.enabledTraitsMap[disablersFor: manifest.packageIdentity],
+              !disablers.isEmpty
+        else {
+            return false
+        }
+
+        return disablers.allSatisfy { $0 == .traitConfiguration }
+    }
+
+    /// Warns about packages that were asked for traits they don't declare and will fall back to their defaults.
+    ///
+    /// This runs over the whole manifest set rather than from `updateEnabledTraits`, because a single
+    /// manifest's enabled traits aren't final until every parent has registered its edges. Warning as each
+    /// manifest loads would report a request that is still being assembled, and report it once per loading
+    /// pass rather than once per package.
+    func reportTraitFallbacks(
+        for manifests: some Sequence<Manifest>,
+        observabilityScope: ObservabilityScope
+    ) {
+        for manifest in manifests where !manifest.packageKind.isRoot {
+            // Report only the named traits, `default` is always present.
+            var requestedTraits = self.enabledTraitsMap[manifest.packageIdentity]
+            _ = requestedTraits.remove("default")
+
+            // If all that is left is an empty map, the request is to disable defaults. This is only tolerated
+            // (and so we only warn about it) when every disabler was a stored trait configuration.
+            // An empty map with no disablers at all means nothing was requested of this package, so there is nothing to report.
+            guard !requestedTraits.isEmpty || self.defaultsDisabledOnlyByTraitConfiguration(manifest),
+                  let unsupportedTraits = manifest.unsupportedTraitsError(requestedTraits)
+            else {
+                continue
+            }
+
+            observabilityScope.emit(
+                warning: """
+                \(self.traitFallbackReason(unsupportedTraits, requestedTraits, manifest)) The package will \
+                be built with its default traits.
+                """
+            )
+        }
+    }
+
+    /// Describes why a package can't honour what was asked of it, for use in a warning.
+    ///
+    /// `TraitError`'s own prose ends by explaining why the request is normally rejected, which contradicts a
+    /// warning saying we went ahead regardless. That only applies to disabling defaults, so reuse the error's
+    /// wording for a request naming traits and describe the disable case here.
+    private func traitFallbackReason(
+        _ unsupportedTraits: TraitError,
+        _ requestedTraits: EnabledTraits,
+        _ manifest: Manifest
+    ) -> String {
+        guard requestedTraits.isEmpty else {
+            return "\(unsupportedTraits)"
+        }
+
+        return """
+        The trait configuration disables the default traits of package \
+        \(Manifest.PackageIdentifier(manifest)), which declares no traits.
+        """
+    }
 }
 
 extension Workspace {
@@ -112,7 +204,7 @@ extension Workspace {
             let enabledTraits = self.enabledTraitsMap[manifest]
 
             // Validate traits on update.
-            try manifest.validateEnabledTraits(enabledTraits)
+            try self.validateEnabledTraits(enabledTraits, for: manifest)
         }
     }
 }
