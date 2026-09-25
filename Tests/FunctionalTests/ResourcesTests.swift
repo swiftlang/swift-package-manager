@@ -227,6 +227,43 @@ struct ResourcesTests{
     }
 
     @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10572", relationship: .defect),
+        .tags(
+            .Feature.Command.Build,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func undeclaredPrivacyManifestIsOnlyCopiedWhenTargetingDarwin(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "Resources/UndeclaredPrivacyManifest") { fixturePath in
+            try await executeSwiftBuild(
+                fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+            let binPath = try await getBinPath(
+                fixturePath,
+                configuration: configuration,
+                buildSystem: buildSystem,
+            )
+
+            let resourceBundles = try localFileSystem.getDirectoryContents(binPath).filter {
+                $0.hasSuffix(".bundle") || $0.hasSuffix(".resources")
+            }
+
+            let expectedBundles: [String] =
+                if buildSystem != .native && ProcessInfo.hostOperatingSystem == .macOS {
+                    ["UndeclaredPrivacyManifest_Utils.bundle"]
+                } else {
+                    []
+                }
+            #expect(resourceBundles == expectedBundles)
+        }
+    }
+
+    @Test(
         .tags(
             .Feature.Command.Test,
         ),
