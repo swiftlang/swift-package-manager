@@ -1658,6 +1658,131 @@ extension WorkspaceTests {
         }
     }
 
+    /// Console reaches Middle and Leaf with defaults before Proposal, one level deeper, enables the
+    /// Middle trait that conditionally enables a Leaf trait. The first graph load must include it.
+    func testConditionalTraitReachesPackageAlreadyLoadedWithDefaults() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "ServerProduct", package: "Server"),
+                                .product(name: "ConsoleLoggerProduct", package: "Console"),
+                            ]
+                        )
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Server", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Console", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "Server",
+                    targets: [
+                        MockTarget(
+                            name: "ServerTarget",
+                            dependencies: [.product(name: "ProposalProduct", package: "Proposal")]
+                        )
+                    ],
+                    products: [MockProduct(name: "ServerProduct", modules: ["ServerTarget"])],
+                    dependencies: [
+                        .sourceControl(path: "./Proposal", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Proposal",
+                    targets: [
+                        MockTarget(
+                            name: "ProposalTarget",
+                            dependencies: [.product(name: "MiddleProduct", package: "Middle")]
+                        )
+                    ],
+                    products: [MockProduct(name: "ProposalProduct", modules: ["ProposalTarget"])],
+                    dependencies: [
+                        .sourceControl(
+                            path: "./Middle",
+                            requirement: .upToNextMajor(from: "1.0.0"),
+                            traits: ["MiddleTrait"]
+                        )
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Console",
+                    targets: [
+                        MockTarget(
+                            name: "ConsoleKitTarget",
+                            dependencies: [.product(name: "MiddleProduct", package: "Middle")]
+                        ),
+                        MockTarget(
+                            name: "ConsoleLoggerTarget",
+                            dependencies: [.product(name: "LeafProduct", package: "Leaf")]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "ConsoleKitProduct", modules: ["ConsoleKitTarget"]),
+                        MockProduct(name: "ConsoleLoggerProduct", modules: ["ConsoleLoggerTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./Middle", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./Leaf", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Middle",
+                    targets: [
+                        MockTarget(
+                            name: "MiddleTarget",
+                            dependencies: [.product(name: "LeafProduct", package: "Leaf")]
+                        )
+                    ],
+                    products: [MockProduct(name: "MiddleProduct", modules: ["MiddleTarget"])],
+                    dependencies: [
+                        .sourceControl(
+                            path: "./Leaf",
+                            requirement: .upToNextMajor(from: "1.0.0"),
+                            traits: [.init(name: "LeafTrait", condition: .init(traits: ["MiddleTrait"]))]
+                        )
+                    ],
+                    traits: [.init(name: "default", enabledTraits: []), "MiddleTrait"],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Leaf",
+                    targets: [MockTarget(name: "LeafTarget")],
+                    products: [MockProduct(name: "LeafProduct", modules: ["LeafTarget"])],
+                    traits: [.init(name: "default", enabledTraits: []), "LeafTrait"],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(packages: "Root", "Server", "Proposal", "Console", "Middle", "Leaf")
+                result.checkPackage("Middle") { package in
+                    XCTAssertEqual(package.enabledTraits?.sorted(), ["MiddleTrait"])
+                }
+                result.checkPackage("Leaf") { package in
+                    XCTAssertEqual(package.enabledTraits?.sorted(), ["LeafTrait"])
+                }
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+    }
+
     /// One parent asks for the shared package's defaults while another names a trait, so both
     /// requests have to survive regardless of which parent registers first.
     func testSharedDependencyExpandsTraitsRegisteredAfterItLoads() async throws {
@@ -2649,6 +2774,131 @@ extension WorkspaceTests {
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "shareddependency", at: .checkout(.version("1.0.0")))
             result.check(dependency: "guardedleaf", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    /// One parent asks for the shared package's defaults while another names a trait, so both
+    /// requests have to survive regardless of which parent registers first.
+    func testSharedDependencyExpandsTraitsRegisteredAfterItLoads() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "ParentAProduct", package: "ParentA"),
+                                .product(name: "ParentBProduct", package: "ParentB"),
+                            ]
+                        )
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./ParentA", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./ParentB", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "ParentA",
+                    targets: [
+                        MockTarget(
+                            name: "ParentATarget",
+                            dependencies: [.product(name: "SharedProduct", package: "Shared")]
+                        )
+                    ],
+                    products: [MockProduct(name: "ParentAProduct", modules: ["ParentATarget"])],
+                    dependencies: [
+                        .sourceControl(path: "./Shared", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "ParentB",
+                    targets: [
+                        MockTarget(
+                            name: "ParentBTarget",
+                            dependencies: [.product(name: "SharedProduct", package: "Shared")]
+                        )
+                    ],
+                    products: [MockProduct(name: "ParentBProduct", modules: ["ParentBTarget"])],
+                    dependencies: [
+                        .sourceControl(
+                            path: "./Shared",
+                            requirement: .upToNextMajor(from: "1.0.0"),
+                            traits: ["TraitB"]
+                        )
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Shared",
+                    targets: [
+                        MockTarget(
+                            name: "SharedTarget",
+                            dependencies: [
+                                .product(
+                                    name: "GuardedDefaultProduct",
+                                    package: "GuardedDefault",
+                                    condition: .init(traits: ["TraitDefault"])
+                                ),
+                                .product(
+                                    name: "GuardedCProduct",
+                                    package: "GuardedC",
+                                    condition: .init(traits: ["TraitC"])
+                                ),
+                            ]
+                        )
+                    ],
+                    products: [MockProduct(name: "SharedProduct", modules: ["SharedTarget"])],
+                    dependencies: [
+                        .sourceControl(path: "./GuardedDefault", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./GuardedC", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    traits: [
+                        .init(name: "default", enabledTraits: ["TraitDefault"]),
+                        "TraitDefault",
+                        .init(name: "TraitB", enabledTraits: ["TraitC"]),
+                        "TraitC",
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "GuardedDefault",
+                    targets: [MockTarget(name: "GuardedDefaultTarget")],
+                    products: [MockProduct(name: "GuardedDefaultProduct", modules: ["GuardedDefaultTarget"])],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "GuardedC",
+                    targets: [MockTarget(name: "GuardedCTarget")],
+                    products: [MockProduct(name: "GuardedCProduct", modules: ["GuardedCTarget"])],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(
+                    packages: "Root", "ParentA", "ParentB", "Shared", "GuardedDefault", "GuardedC"
+                )
+                result.checkPackage("Shared") { package in
+                    guard let enabledTraits = package.enabledTraits else {
+                        XCTFail("No enabled traits on Shared package.")
+                        return
+                    }
+
+                    XCTAssertEqual(enabledTraits.sorted(), ["TraitB", "TraitC", "TraitDefault"])
+                }
+            }
+            XCTAssertNoDiagnostics(diagnostics)
         }
     }
 }
