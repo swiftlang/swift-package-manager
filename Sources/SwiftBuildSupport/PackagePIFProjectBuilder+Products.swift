@@ -180,11 +180,6 @@ extension PackagePIFProjectBuilder {
             settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitialize { ["$(inherited)"] }
             // Enable index-while building for Swift compilations to facilitate discovery of XCTest tests.
             settings[.INDEX_ENABLE_DATA_STORE] = "YES"
-
-            if mainModule.platformConstraint == .host {
-                // This is a macro test using prebuilts
-                settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
-            }
         } else if mainModule.type == .executable {
             // Setup install path for executables if it's in root of a pure Swift package.
             if pifBuilder.delegate.hostsOnlyPackages && pifBuilder.delegate.isRootPackage {

@@ -176,7 +176,9 @@ import SwiftBuild
                         environment: [:]
                     ),
                     inputFiles: inFiles,
-                    outputFiles: outFiles
+                    outputFiles: outFiles,
+                    alwaysOutOfDate: false,
+                    targetPlatforms: []
                 )
             ]
         }

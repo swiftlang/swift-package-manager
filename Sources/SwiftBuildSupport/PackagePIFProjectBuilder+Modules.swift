@@ -23,7 +23,8 @@ import struct Basics.SourceControlURL
 import class PackageModel.Manifest
 import class PackageModel.Module
 import class PackageModel.BinaryModule
-import enum PackageModel.PrebuiltsPlatform
+import struct PackageModel.Platform
+import class PackageModel.PrebuiltTarget
 import class PackageModel.Product
 import class PackageModel.SystemLibraryModule
 
@@ -534,9 +535,6 @@ extension PackagePIFProjectBuilder {
         // Ensure the intermediates for this target don't clash with the intermediates of a target representing a package product with the same name
         settings[.TARGET_TEMP_DIR_SUFFIX] = "-t"
 
-        if sourceModule.platformConstraint == .host {
-            settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
-        }
         if shouldGenerateBundleAccessor {
             settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
         }
@@ -1287,6 +1285,31 @@ extension PackagePIFProjectBuilder {
                 for command in pluginResult.buildCommands {
                     addBuildToolCommand(command, to: customTargetKeyPath)
                 }
+            }
+        }
+
+        if let prebuilt = customTarget.underlying as? PrebuiltTarget, let host = PackageModel.Platform.host {
+            // Add in the copy of the library file to the product dir
+            let lib: String
+            if host == .windows {
+                lib = "\(prebuilt.prebuilt.libraryName).lib"
+            } else {
+                lib = "lib\(prebuilt.prebuilt.libraryName).a"
+            }
+            let libFile = prebuilt.path.appending("lib").appending(lib)
+
+            let fileRef = self.binaryGroup.addFileReference { id in
+                FileReference(id: id, path: libFile.pathString)
+            }
+
+            self.project[keyPath: customTargetKeyPath].common.addCopyFilesBuildPhase { id in
+                var phase = ProjectModel.CopyFilesBuildPhase(common: .init(id: id), destinationSubfolder: .builtProductsDir)
+
+                phase.common.addBuildFile { id in
+                    BuildFile(id: id, fileRef: fileRef)
+                }
+
+                return phase
             }
         }
     }

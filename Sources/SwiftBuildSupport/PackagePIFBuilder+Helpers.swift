@@ -41,6 +41,7 @@ import struct PackageModel.PlatformRegistry
 import struct PackageModel.PlatformsCondition
 import struct PackageModel.PlatformVersion
 import class PackageModel.PluginModule
+import class PackageModel.PrebuiltTarget
 import class PackageModel.Product
 import enum PackageModel.ProductType
 import struct PackageModel.Resource
@@ -303,7 +304,19 @@ extension PackageModel.Platform {
 
 extension Sequence<PackageModel.PackageCondition> {
     func toPlatformFilter(toolsVersion: ToolsVersion) -> Set<ProjectModel.PlatformFilter> {
-        let pifPlatforms = self.flatMap { packageCondition -> [ProjectModel.BuildSettings.Platform] in
+        return .init(self.flatMap { packageCondition -> [ProjectModel.PlatformFilter] in
+            if let prebuiltsCondition = packageCondition.prebuiltsCondition,
+               let host = Platform.host,
+               let hostPlatform = try? ProjectModel.BuildSettings.Platform(from: host)
+            {
+                return hostPlatform.toPlatformFilter().map {
+                    var filter = $0
+                    // Condition is for non-host platforms when true
+                    filter.exclude = prebuiltsCondition.whenNotSupported
+                    return filter
+                }
+            }
+
             guard let platforms = packageCondition.platformsCondition?.platforms else {
                 return []
             }
@@ -315,25 +328,23 @@ extension Sequence<PackageModel.PackageCondition> {
             if pifPlatformsForCondition.contains(.macOS), toolsVersion < ToolsVersion.v5_5 {
                 pifPlatformsForCondition.append(.macCatalyst)
             }
-            return pifPlatformsForCondition
-        }
-        return Set(pifPlatforms.flatMap { $0.toPlatformFilter() })
+            return pifPlatformsForCondition.flatMap { $0.toPlatformFilter() }
+        })
     }
 
     var splitIntoConcreteConditions: (
         [PackageModel.Platform?],
-        [PackageModel.BuildConfiguration],
-        [PackageModel.TraitCondition]
+        [PackageModel.BuildConfiguration]
     ) {
         var platformConditions: [PackageModel.PlatformsCondition] = []
         var configurationConditions: [PackageModel.ConfigurationCondition] = []
-        var traitConditions: [PackageModel.TraitCondition] = []
 
         for packageCondition in self {
             switch packageCondition {
             case .platforms(let condition): platformConditions.append(condition)
             case .configuration(let condition): configurationConditions.append(condition)
-            case .traits(let condition): traitConditions.append(condition)
+            case .traits, .prebuilts:
+                break
             }
         }
 
@@ -353,7 +364,7 @@ extension Sequence<PackageModel.PackageCondition> {
             configurationConditions.map(\.configuration)
         }
 
-        return (platforms, configurations, traitConditions)
+        return (platforms, configurations)
     }
 }
 
@@ -361,7 +372,7 @@ extension PackageModel.BuildSettings.Declaration {
     var allowsMultipleValues: Bool {
         switch self {
         // Swift.
-        case .SWIFT_ACTIVE_COMPILATION_CONDITIONS, .OTHER_SWIFT_FLAGS:
+        case .SWIFT_ACTIVE_COMPILATION_CONDITIONS, .OTHER_SWIFT_FLAGS, .SWIFT_INCLUDE_PATHS:
             true
 
         case .SWIFT_VERSION:
@@ -376,10 +387,6 @@ extension PackageModel.BuildSettings.Declaration {
 
         // Linker.
         case .OTHER_LDFLAGS, .LINK_LIBRARIES, .LINK_FRAMEWORKS:
-            true
-
-        // Prebuilts
-        case .PREBUILT_INCLUDE_PATHS, .PREBUILT_LIBRARY_PATHS, .PREBUILT_LIBRARIES:
             true
 
         default:
@@ -740,19 +747,21 @@ extension PackageGraph.ResolvedModule {
                 case .HEADER_SEARCH_PATHS:
                     singleValueSetting = nil
                     multipleValueSetting = .HEADER_SEARCH_PATHS
-                    values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
-                case .PREBUILT_INCLUDE_PATHS:
+                    if underlying is PrebuiltTarget {
+                        // paths are absolute
+                        values = settingAssignment.values
+                    } else {
+                        values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
+                    }
+                case .SWIFT_INCLUDE_PATHS:
                     singleValueSetting = nil
-                    multipleValueSetting = .OTHER_SWIFT_FLAGS
-                    values = settingAssignment.values.flatMap { ["-I", $0] }
-                case .PREBUILT_LIBRARY_PATHS:
-                    singleValueSetting = nil
-                    multipleValueSetting = .LIBRARY_SEARCH_PATHS
-                    values = settingAssignment.values
-                case .PREBUILT_LIBRARIES:
-                    singleValueSetting = nil
-                    multipleValueSetting = .OTHER_LDFLAGS
-                    values = settingAssignment.values.map { "-l\($0)" }
+                    multipleValueSetting = .SWIFT_INCLUDE_PATHS
+                    if underlying is PrebuiltTarget {
+                        // paths are absolute
+                        values = settingAssignment.values
+                    } else {
+                        values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
+                    }
                 case .OTHER_SWIFT_FLAGS:
                     singleValueSetting = nil
                     multipleValueSetting = .OTHER_SWIFT_FLAGS
@@ -780,8 +789,7 @@ extension PackageGraph.ResolvedModule {
                     values = settingAssignment.values
                 }
 
-                // TODO: We are currently ignoring package traits (see rdar://138149810).
-                let (platforms, configurations, _) = settingAssignment.conditions.splitIntoConcreteConditions
+                let (platforms, configurations) = settingAssignment.conditions.splitIntoConcreteConditions
 
                 for platform in platforms {
                     let pifPlatform: ProjectModel.BuildSettings.Platform?
@@ -798,28 +806,26 @@ extension PackageGraph.ResolvedModule {
                     if self.type == .custom && declaration != .SWIFT_VERSION {
                         // All settings on custom targets are imparted
                         // TODO: or should this only be for external targets?
-                        if let multipleValueSetting = multipleValueSetting {
+                        if let multipleValueSetting {
                             allSettings.impartedMultipleValueSettings[pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
-                        } else if let singleValueSetting = singleValueSetting, let singleValue = values.only {
+                        } else if let singleValueSetting, let singleValue = values.only {
                             allSettings.impartedSingleValueSettings[pifPlatform, default: [:]][singleValueSetting] = singleValue
                         }
                         continue
                     }
 
                     // Handle imparted settings for OTHER_LDFLAGS and prebuilts include paths (always multiple values)
+                    // Custom targets impart all their settings.
                     // TODO: Do we realy need to impart OTHER_LDFLAGS?
-                    // TODO: Doing that for the PREBUILT_LIBRARIES was causing duplicate library warnings.
-                    if let multipleValueSetting = multipleValueSetting,
-                        declaration != .PREBUILT_LIBRARIES,
-                        (multipleValueSetting == .OTHER_LDFLAGS || declaration == .PREBUILT_INCLUDE_PATHS) {
+                    if let multipleValueSetting, multipleValueSetting == .OTHER_LDFLAGS || underlying.type == .custom {
                         allSettings.impartedMultipleValueSettings[pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
                     }
 
                     for configuration in configurations {
-                        if let multipleValueSetting = multipleValueSetting {
+                        if let multipleValueSetting {
                             // Handle multiple value settings
                             allSettings.targetMultipleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
-                        } else if let singleValueSetting = singleValueSetting, let singleValue = values.only {
+                        } else if let singleValueSetting, let singleValue = values.only {
                             // Handle single value settings
                             allSettings.targetSingleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][singleValueSetting] = singleValue
                         }
@@ -1161,7 +1167,7 @@ extension ProjectModel.BuildSettings.Platform {
         case unknownPlatform(String)
     }
 
-    init(from platform: PackageModel.Platform) throws {
+    public init(from platform: PackageModel.Platform) throws {
         self = switch platform {
         case .macOS: .macOS
         case .macCatalyst: .macCatalyst
@@ -1280,6 +1286,8 @@ extension ProjectModel.BuildSettings.MultipleValueSetting {
             self = .GCC_PREPROCESSOR_DEFINITIONS
         case .HEADER_SEARCH_PATHS:
             self = .HEADER_SEARCH_PATHS
+        case .SWIFT_INCLUDE_PATHS:
+            self = .SWIFT_INCLUDE_PATHS
         case .OTHER_CFLAGS:
             self = .OTHER_CFLAGS
         case .OTHER_CPLUSPLUSFLAGS:

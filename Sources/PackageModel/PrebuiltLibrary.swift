@@ -25,33 +25,28 @@ public struct PrebuiltLibrary {
     public let path: AbsolutePath
 
     /// The path to the checked out source
-    public let checkoutPath: AbsolutePath?
+    public let checkoutPath: AbsolutePath
 
     /// The products in the library
-    public let products: [String]
+    public let products: Set<String>
 
     /// The include path relative to the checkouts dir
-    public let includePath: [RelativePath]?
-
-    /// The C modules that need their includes directory added to the include path
-    public let cModules: [String]
+    public let includePath: [RelativePath]
 
     public init(
         identity: PackageIdentity,
         libraryName: String,
         path: AbsolutePath,
-        checkoutPath: AbsolutePath?,
+        checkoutPath: AbsolutePath,
         products: [String],
-        includePath: [RelativePath]? = nil,
-        cModules: [String] = []
+        includePath: [RelativePath]
     ) {
         self.identity = identity
         self.libraryName = libraryName
         self.path = path
         self.checkoutPath = checkoutPath
-        self.products = products
+        self.products = .init(products)
         self.includePath = includePath
-        self.cModules = cModules
     }
 }
 

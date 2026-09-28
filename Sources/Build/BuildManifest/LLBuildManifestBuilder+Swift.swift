@@ -225,12 +225,6 @@ extension LLBuildManifestBuilder {
             // Ignore External Targets.
             if module.underlying is ExternalTarget { return }
 
-            if target.target.platformConstraint == .all && module.platformConstraint == .host {
-                // Skip module that is host only.
-                // This only happens when the target isn't actually referenced by the root package.
-                return
-            }
-
             guard let description else {
                 throw InternalError("No build description for module: \(module)")
             }
