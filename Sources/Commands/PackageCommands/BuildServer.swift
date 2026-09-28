@@ -21,8 +21,13 @@ import Foundation
 import PackageGraph
 import SwiftPMBuildServer
 import SwiftBuildSupport
-import SystemPackage
 import SPMBuildCore
+
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 struct BuildServer: AsyncSwiftCommand {
     static let configuration = CommandConfiguration(

@@ -7,14 +7,18 @@ name: Automerger
 permissions:
   contents: read
 on:
-  # schedule:
-  #   - cron: '0 9 * * MON'
+  schedule:
+    - cron: '0 9 * * MON'
   workflow_dispatch:
 jobs:
   create_merge_pr:
     strategy:
       matrix:
         include:
+          - source_branch: release/6.4.1
+            destination_branch: release/6.4.2
+          - source_branch: release/6.4.2
+            destination_branch: release/6.4.x
           - source_branch: release/6.4.x
             destination_branch: main
     name: Create PR to merge `${{ matrix.source_branch }}` into `${{ matrix.destination_branch }}`

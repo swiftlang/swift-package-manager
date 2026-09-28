@@ -486,6 +486,9 @@ public enum SystemPackageProvider {
     /// Packages installable by the NuGet package manager.
     @available(_PackageDescription, introduced: 999.0)
     case nugetItem([String])
+    /// Packages installable by the pkg-ng package manager
+    @available(_PackageDescription, introduced: 999.0)
+    case pkgItem([String])
 
     /// Creates a system package provider with a list of installable packages
     /// for people who use the HomeBrew package manager on macOS.
@@ -528,6 +531,17 @@ public enum SystemPackageProvider {
     @available(_PackageDescription, introduced: 999.0)
     public static func nuget(_ packages: [String]) -> SystemPackageProvider {
         return .nugetItem(packages)
+    }
+
+    /// Creates a system package provider with a list of installable packages
+    /// for users of the pkgng package manager on FreeBSD.
+    ///
+    /// - Parameter packages: The list of package names.
+    ///
+    /// - Returns: A package provider.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func pkg(_ packages: [String]) -> SystemPackageProvider {
+        return .pkgItem(packages)
     }
 }
 

@@ -10,7 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if canImport(System)
+internal import System
+#else
 internal import SystemPackage
+#endif
+
 internal import class Dispatch.DispatchQueue
 
 /// Type-erasure wrapper over underlying file system readable streams.

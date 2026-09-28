@@ -12,7 +12,12 @@
 
 @_exported import protocol Crypto.HashFunction
 import struct Foundation.URL
+
+#if canImport(System)
+package import struct System.FilePath
+#else
 package import struct SystemPackage.FilePath
+#endif
 
 /// Indicates that values of a conforming type can be hashed with an arbitrary hashing function. Unlike `Hashable`,
 /// this protocol doesn't utilize random seed values and produces consistent hash values across process launches.

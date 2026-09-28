@@ -13,6 +13,7 @@
 import Dispatch
 
 import class Foundation.JSONDecoder
+import struct TSCBasic.StringError
 
 private let defaultImports = ["Swift", "SwiftOnoneSupport", "_Concurrency",
                               "_StringProcessing", "_SwiftConcurrencyShims"]
@@ -47,8 +48,21 @@ public struct SwiftcImportScanner: ImportScanner {
 
         let result = try await AsyncProcess.popen(arguments: cmd, environment: self.swiftCompilerEnvironment)
 
+        guard result.exitStatus == .terminated(code: 0) else {
+            throw try StringError(
+                "'\(cmd.joined(separator: " "))' failed with \(result.exitStatus): " +
+                    "\(result.utf8Output())\(result.utf8stderrOutput())"
+            )
+        }
+
         let stdout = try result.utf8Output()
-        return try JSONDecoder.makeWithDefaults().decode(Imports.self, from: stdout).imports
-            .filter { !defaultImports.contains($0) }
+        do {
+            return try JSONDecoder.makeWithDefaults().decode(Imports.self, from: stdout).imports
+                .filter { !defaultImports.contains($0) }
+        } catch {
+            throw StringError(
+                "'\(cmd.joined(separator: " "))' produced invalid JSON output: \(error)\n\(stdout)"
+            )
+        }
     }
 }

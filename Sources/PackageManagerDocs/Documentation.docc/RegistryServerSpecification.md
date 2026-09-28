@@ -447,7 +447,7 @@ The response body SHOULD contain a JSON object containing the following fields:
 | `version`     | String | The package release version number.       | ✓ |
 | `resources`   | Array  | The resources available for the release.  | ✓ |
 | `metadata`    | Object | Additional information about the release. | ✓ |
-| `publishedAt` | String | The [ISO 8601]-formatted datetime string of when the package release was published, as recorded by the registry. See related [`originalPublicationTime`](<doc:#Appendix-B---Package-Release-Metadata-JSON-Schema>) in `metadata`. | |
+| `publishedAt` | String | The [ISO 8601]-formatted datetime string of when the package release was published, as recorded by the registry. See related [`originalPublicationTime`](<doc:RegistryServerSpecificationAppendixB>) in `metadata`. | |
 
 A server SHOULD respond with a `Link` header containing the following entries:
 
@@ -490,7 +490,7 @@ with a given combination of `name` and `type` values.
 
 ##### 4.2.2. Package release metadata standards
 
- [Appendix B](<doc:#Appendix-B---Package-Release-Metadata-JSON-Schema>)
+ [Appendix B](<doc:RegistryServerSpecificationAppendixB>)
  defines the JSON schema for package release metadata that
  gets submitted as part of the ["create a package release"](<doc:#4.6.-Create-a-package-release>)
  request. A server MAY allow and/or populate additional metadata by
@@ -998,7 +998,7 @@ A client MAY include a multipart section named `metadata`
 containing additional information about the release.
 A client SHOULD set a `Content-Type` header with the value `application/json`
 and a `Content-Length` header with the size of the JSON document in bytes.
-The package release metadata MUST be based on the [JSON schema](<doc:#Appendix-B---Package-Release-Metadata-JSON-Schema>),
+The package release metadata MUST be based on the [JSON schema](<doc:RegistryServerSpecificationAppendixB>),
 as discussed in [4.2.2](<doc:#4.2.2.-Package-release-metadata-standards>).
 
 ```http
@@ -1021,7 +1021,7 @@ Content-Transfer-Encoding: quoted-printable
 
 A server MAY allow and/or populate additional metadata for a release.
 
-A server MAY make any properties in the [JSON schema](<doc:#Appendix-B---Package-Release-Metadata-JSON-Schema>)
+A server MAY make any properties in the [JSON schema](<doc:RegistryServerSpecificationAppendixB>)
 and additional metadata it defines required.
 
 If a client provides an invalid JSON document,
@@ -1211,142 +1211,12 @@ by responding with a status code of `409` (Conflict).
 * [Schema.org]: A shared vocabulary for structured data.
 * [OAS]: OpenAPI Specification
 
-### Appendix A - OpenAPI Document
+## Topics
 
-The following [OpenAPI (v3) specification][OAS] is non-normative,
-and is provided for the convenience of
-developers interested in building their own package registry.
+### Appendices
 
-See [registry.openapi.yaml](./registry.openapi.yaml).
-
-### Appendix B - Package Release Metadata JSON Schema
-
-The `metadata` section of the [create package release request](<doc:#4.6.-Create-a-package-release>)
-must be a JSON object of type [`PackageRelease`](<doc:#PackageRelease-type>), as defined in the
-JSON schema below.
-
-<details>
-
-<summary>Expand to view <a href="https://json-schema.org/specification.html">JSON schema</a></summary>
-
-```json
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/swiftlang/swift-package-manager/blob/main/Documentation/PackageRegistry/Registry.md",
-  "title": "Package Release Metadata",
-  "description": "Metadata of a package release.",
-  "type": "object",
-  "properties": {
-    "author": {
-      "type": "object",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "Name of the author."
-        },
-        "email": {
-          "type": "string",
-          "format": "email",
-          "description": "Email address of the author."
-        },
-        "description": {
-          "type": "string",
-          "description": "A description of the author."
-        },
-        "organization": {
-          "type": "object",
-          "properties": {
-            "name": {
-              "type": "string",
-              "description": "Name of the organization."
-            },
-            "email": {
-              "type": "string",
-              "format": "email",
-              "description": "Email address of the organization."
-            },
-            "description": {
-              "type": "string",
-              "description": "A description of the organization."
-            },
-            "url": {
-              "type": "string",
-              "format": "uri",
-              "description": "URL of the organization."
-            },
-          },
-          "required": ["name"]
-        },
-        "url": {
-          "type": "string",
-          "format": "uri",
-          "description": "URL of the author."
-        },
-      },
-      "required": ["name"]
-    },
-    "description": {
-      "type": "string",
-      "description": "A description of the package release."
-    },
-    "licenseURL": {
-      "type": "string",
-      "format": "uri",
-      "description": "URL of the package release's license document."
-    },
-    "originalPublicationTime": {
-      "type": "string",
-      "format": "date-time",
-      "description": "Original publication time of the package release in ISO 8601 format."
-    },
-    "readmeURL": {
-      "type": "string",
-      "format": "uri",
-      "description": "URL of the README specifically for the package release or broadly for the package."
-    },
-    "repositoryURLs": {
-      "type": "array",
-      "description": "Code repository URL(s) of the package release.",
-      "items": {
-        "type": "string",
-        "description": "Code repository URL."
-      }
-    }
-  }
-}
-```
-
-</details>
-
-###### PackageRelease type
-
-| Property                  | Type                | Description                                      | Required |
-| ------------------------- | :-----------------: | ------------------------------------------------ | :------: |
-| `author`                  | [Author](<doc:#Author-type>) | Author of the package release. | |
-| `description`             | String | A description of the package release. | |
-| `licenseURL`              | String | URL of the package release's license document. | |
-| `originalPublicationTime` | String | Original publication time of the package release in [ISO 8601] format. This can be set if the package release was previously published elsewhere.<br>A registry should record the publication time independently and include it as `publishedAt` in the [package release metadata response](<doc:#4.2.-Fetch-information-about-a-package-release>). <br>In case both `originalPublicationTime` and `publishedAt` are set, `originalPublicationTime` should be used. | |
-| `readmeURL`       | String | URL of the README specifically for the package release or broadly for the package. | |
-| `repositoryURLs`  | Array | Code repository URL(s) of the package. It is recommended to include all URL variations (e.g., SSH, HTTPS) for the same repository. This can be an empty array if the package does not have source control representation.<br/>Setting this property is one way through which a registry can obtain repository URL to package identifier mappings for the ["lookup package identifiers registered for a URL" API](<doc:#4.5.-Lookup-package-identifiers-registered-for-a-URL>). A registry may choose other mechanism(s) for package authors to specify such mappings. | |
-
-###### Author type
-
-| Property          | Type                | Description                                      | Required |
-| ----------------- | :-----------------: | ------------------------------------------------ | :------: |
-| `name`            | String | Name of the author. | ✓ |
-| `email`           | String | Email address of the author. | |
-| `description`     | String | A description of the author. | |
-| `organization`    | [Organization](<doc:#Organization-type>) | Organization that the author belongs to. | |
-| `url`             | String | URL of the author. | |
-
-###### Organization type
-
-| Property          | Type                | Description                                      | Required |
-| ----------------- | :-----------------: | ------------------------------------------------ | :------: |
-| `name`            | String | Name of the organization. | ✓ |
-| `email`           | String | Email address of the organization. | |
-| `description`     | String | A description of the organization. | |
-| `url`             | String | URL of the organization. | |
+- <doc:RegistryServerSpecificationAppendixA>
+- <doc:RegistryServerSpecificationAppendixB>
 
 [UAX18]: https://unicode.org/reports/tr18/
 [BCP 13]: https://tools.ietf.org/html/rfc6838 "Media Type Specifications and Registration Procedures"

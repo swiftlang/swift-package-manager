@@ -60,7 +60,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
+            XCTAssertEqual(path, try downloadsPath.appending(manager.storagePath(for: package, version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
             try delegate.wait(timeout: .now() + 2)
@@ -105,7 +105,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: false)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
+            XCTAssertEqual(path, try downloadsPath.appending(manager.storagePath(for: package, version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
             try delegate.wait(timeout: .now() + 2)
@@ -131,7 +131,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
+            XCTAssertEqual(path, try downloadsPath.appending(manager.storagePath(for: package, version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
             try delegate.wait(timeout: .now() + 2)
@@ -192,9 +192,10 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
+            XCTAssertEqual(path, try downloadsPath.appending(manager.storagePath(for: package, version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
-            XCTAssertTrue(fs.isDirectory(cachePath.appending(components: package.registry!.scope.description, package.registry!.name.description, packageVersion.description)))
+            XCTAssertTrue(fs.isDirectory(try cachePath
+                .appending(manager.storagePath(for: package, version: packageVersion))))
 
             try delegate.wait(timeout: .now() + 2)
 
@@ -215,7 +216,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
+            XCTAssertEqual(path, try downloadsPath.appending(manager.storagePath(for: package, version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
             try delegate.wait(timeout: .now() + 2)
@@ -238,7 +239,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             delegate.prepare(fetchExpected: true)
             let path = try await manager.lookup(package: package, version: packageVersion, observabilityScope: observability.topScope)
             XCTAssertNoDiagnostics(observability.diagnostics)
-            XCTAssertEqual(path, try downloadsPath.appending(package.downloadPath(version: packageVersion)))
+            XCTAssertEqual(path, try downloadsPath.appending(manager.storagePath(for: package, version: packageVersion)))
             XCTAssertTrue(fs.isDirectory(path))
 
             try delegate.wait(timeout: .now() + 2)
@@ -251,6 +252,69 @@ final class RegistryDownloadsManagerTests: XCTestCase {
             XCTAssertEqual(delegate.didFetch.last?.packageVersion, .init(package: package, version: packageVersion))
             XCTAssertEqual(try! delegate.didFetch.last?.result.get(), .init(fromCache: true, updatedCache: true))
         }
+    }
+
+    func testStorageIsScopedToRegistry() async throws {
+        let fs = InMemoryFileSystem()
+        let package: PackageIdentity = .plain("test.\(UUID().uuidString)")
+        let downloadsPath = AbsolutePath.root.appending(components: "registry", "downloads")
+        let cachePath = AbsolutePath.root.appending(components: "registry", "cache")
+
+        let first = try MockRegistryFixture(
+            fileSystem: fs,
+            name: "first",
+            target: "FromFirstRegistry",
+            downloadsPath: downloadsPath,
+            cachePath: cachePath,
+            package: package
+        )
+        let second = try MockRegistryFixture(
+            fileSystem: fs,
+            name: "second",
+            target: "FromSecondRegistry",
+            downloadsPath: downloadsPath,
+            cachePath: cachePath,
+            package: package
+        )
+
+        let firstObservability = ObservabilitySystem.makeForTesting()
+        let firstPath = try await first.lookup(observabilityScope: firstObservability.topScope)
+        XCTAssertNoDiagnostics(firstObservability.diagnostics)
+        XCTAssertTrue(fs.exists(firstPath.appending(components: "Sources", "FromFirstRegistry", "file.swift")))
+
+        let secondObservability = ObservabilitySystem.makeForTesting()
+        let secondPath = try await second.lookup(observabilityScope: secondObservability.topScope)
+        XCTAssertNoDiagnostics(secondObservability.diagnostics)
+
+        // the second registry gets its own tree rather than reusing the first registry's
+        XCTAssertNotEqual(firstPath, secondPath)
+        XCTAssertTrue(fs.exists(secondPath.appending(components: "Sources", "FromSecondRegistry", "file.swift")))
+        XCTAssertFalse(fs.exists(secondPath.appending(components: "Sources", "FromFirstRegistry", "file.swift")))
+
+        try second.delegate.wait(timeout: .now() + 2)
+        XCTAssertEqual(try! second.delegate.didFetch.last?.result.get(), .init(fromCache: true, updatedCache: true))
+
+        let firstCachedPath = try first.cachedPackagePath()
+        let secondCachedPath = try second.cachedPackagePath()
+        XCTAssertTrue(fs.isDirectory(firstCachedPath))
+        XCTAssertTrue(fs.isDirectory(secondCachedPath))
+        XCTAssertNotEqual(firstCachedPath, secondCachedPath)
+    }
+
+    func testStorageKeyIsCanonicalized() throws {
+        let key = { (url: String) in
+            Registry(url: URL(url), supportsAvailability: false).storageKey
+        }
+
+        XCTAssertTrue(key("http://localhost/registry").hasPrefix("localhost-"))
+        XCTAssertEqual(key("http://localhost/registry"), key("http://localhost/registry/"))
+        XCTAssertEqual(key("http://localhost/registry"), key("http://LOCALHOST/Registry"))
+        XCTAssertNotEqual(key("http://localhost/registry"), key("https://localhost/registry"))
+        XCTAssertNotEqual(key("http://localhost/registry"), key("http://localhost/other"))
+
+        // a host too long to label with stays under the path length limits
+        let longHost = String(repeating: "a", count: 250)
+        XCTAssertEqual(key("http://\(longHost)").utf8.count, 8)
     }
 
     func testConcurrency() async throws {
@@ -307,7 +371,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
 
             XCTAssertEqual(results.count, concurrency)
             for packageVersion in packageVersions {
-                let expectedPath = try downloadsPath.appending(package.downloadPath(version: packageVersion))
+                let expectedPath = try downloadsPath.appending(manager.storagePath(for: package, version: packageVersion))
                 XCTAssertEqual(results[packageVersion], expectedPath)
             }
         }
@@ -347,7 +411,7 @@ final class RegistryDownloadsManagerTests: XCTestCase {
 
             XCTAssertEqual(results.count, concurrency / repeatRatio)
             for packageVersion in packageVersions {
-                let expectedPath = try downloadsPath.appending(package.downloadPath(version: packageVersion))
+                let expectedPath = try downloadsPath.appending(manager.storagePath(for: package, version: packageVersion))
                 XCTAssertEqual(results[packageVersion], expectedPath)
             }
         }
@@ -412,4 +476,65 @@ private final class MockRegistryDownloadsManagerDelegate: RegistryDownloadsManag
 fileprivate struct PackageVersion: Hashable, Equatable, Sendable {
     let package: PackageIdentity
     let version: Version
+}
+
+private struct MockRegistryFixture {
+    let delegate: MockRegistryDownloadsManagerDelegate
+    let manager: RegistryDownloadsManager
+
+    private let package: PackageIdentity
+    private let version: Version
+    private let cachePath: AbsolutePath?
+
+    init(
+        fileSystem: InMemoryFileSystem,
+        name: String,
+        target: String,
+        downloadsPath: AbsolutePath,
+        cachePath: AbsolutePath?,
+        package: PackageIdentity = .plain("test.\(UUID().uuidString)"),
+        version: Version = "1.0.0"
+    ) throws {
+        let registry = MockRegistry(
+            filesystem: fileSystem,
+            identityResolver: DefaultIdentityResolver(),
+            checksumAlgorithm: MockHashAlgorithm(),
+            fingerprintStorage: MockPackageFingerprintStorage(),
+            signingEntityStorage: MockPackageSigningEntityStorage(),
+            customBaseURL: URL("http://localhost/registry/\(name)")
+        )
+
+        let source = InMemoryRegistryPackageSource(
+            fileSystem: fileSystem,
+            path: .root.appending(components: "registry", name, "server", package.description)
+        )
+        try source.writePackageContent(targets: [target])
+        registry.addPackage(identity: package, versions: [version], source: source)
+
+        self.package = package
+        self.version = version
+        self.cachePath = cachePath
+        self.delegate = MockRegistryDownloadsManagerDelegate()
+        self.manager = RegistryDownloadsManager(
+            fileSystem: fileSystem,
+            path: downloadsPath,
+            cachePath: cachePath,
+            registryClient: registry.registryClient,
+            delegate: self.delegate
+        )
+    }
+
+    func lookup(observabilityScope: ObservabilityScope) async throws -> AbsolutePath {
+        self.delegate.prepare(fetchExpected: true)
+        return try await self.manager.lookup(
+            package: self.package,
+            version: self.version,
+            observabilityScope: observabilityScope
+        )
+    }
+
+    func cachedPackagePath() throws -> AbsolutePath {
+        try XCTUnwrap(self.cachePath)
+            .appending(self.manager.storagePath(for: self.package, version: self.version))
+    }
 }

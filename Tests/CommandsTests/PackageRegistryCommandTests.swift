@@ -1488,28 +1488,57 @@ struct PackageRegistryCommandTests {
         #expect(actualString == "\(registryUrl)/\(data.expectedComponent)")
     }
 
+    enum ExpectedValidationError {
+        case insecureHTTP
+        case invalidURL
+
+        func matches(_ error: any Error, url: URL) -> Bool {
+            switch self {
+            case .insecureHTTP:
+                guard case PackageRegistryCommand.ValidationError.insecureHTTP(let thrownURL) = error else {
+                    return false
+                }
+                return thrownURL == url
+            case .invalidURL:
+                guard case PackageRegistryCommand.ValidationError.invalidURL(let thrownURL) = error else {
+                    return false
+                }
+                return thrownURL == url
+            }
+        }
+    }
+
+    struct RegistryURLValidationData {
+        let url: String
+        let allowHTTP: Bool
+        let expectedError: ExpectedValidationError?
+    }
+
     @Test(
         .tags(
             .TestSize.small,
         ),
+        arguments: [
+            RegistryURLValidationData(url: "https://packages.example.com", allowHTTP: false, expectedError: nil),
+            RegistryURLValidationData(url: "https://packages.example.com", allowHTTP: true, expectedError: nil),
+            RegistryURLValidationData(url: "http://packages.example.com", allowHTTP: true, expectedError: nil),
+            RegistryURLValidationData(url: "http://packages.example.com", allowHTTP: false, expectedError: .insecureHTTP),
+            RegistryURLValidationData(url: "ssh://packages.example.com", allowHTTP: false, expectedError: .invalidURL),
+            RegistryURLValidationData(url: "ftp://packages.example.com", allowHTTP: true, expectedError: .invalidURL),
+        ]
     )
-    func validateRegistryURL() throws {
+    func validateRegistryURL(data: RegistryURLValidationData) throws {
+        let url = try #require(URL(string: data.url), "Failed to instantiate registry URL")
 
-        try URL(string: "https://packages.example.com")!.validateRegistryURL()
-        try URL(string: "https://packages.example.com")!.validateRegistryURL(allowHTTP: true)
+        guard let expectedError = data.expectedError else {
+            try url.validateRegistryURL(allowHTTP: data.allowHTTP)
+            return
+        }
 
-        // Invalid
-        #expect(throws: (any Error).self) {
-            try URL(string: "http://packages.example.com")!.validateRegistryURL()
-        }
-        #expect(throws: (any Error).self) {
-            try URL(string: "http://packages.example.com")!.validateRegistryURL(allowHTTP: false)
-        }
-        #expect(throws: (any Error).self) {
-            try URL(string: "ssh://packages.example.com")!.validateRegistryURL()
-        }
-        #expect(throws: (any Error).self) {
-            try URL(string: "ftp://packages.example.com")!.validateRegistryURL(allowHTTP: true)
+        #expect {
+            try url.validateRegistryURL(allowHTTP: data.allowHTTP)
+        } throws: { error in
+            expectedError.matches(error, url: url)
         }
     }
 

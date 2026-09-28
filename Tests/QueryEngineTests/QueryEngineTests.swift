@@ -16,7 +16,13 @@ import Basics
 import Crypto
 import struct Foundation.Data
 @testable import QueryEngine
+
+#if canImport(System)
+import struct System.FilePath
+#else
 import struct SystemPackage.FilePath
+#endif
+
 import _InternalTestSupport
 import Testing
 

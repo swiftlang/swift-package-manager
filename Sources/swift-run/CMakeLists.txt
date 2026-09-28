@@ -8,6 +8,10 @@
 
 add_executable(swift-run
   Entrypoint.swift)
+# TODO: Remove this once the minimum CMake version is 4.4.
+set_target_properties(swift-run PROPERTIES
+  Swift_MODULE_NAME swift_run)
+
 target_link_libraries(swift-run PRIVATE
   Commands)
 

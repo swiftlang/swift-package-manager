@@ -8,6 +8,10 @@
 
 add_executable(swift-bootstrap
     main.swift)
+# TODO: Remove this once the minimum CMake version is 4.4.
+set_target_properties(swift-bootstrap PROPERTIES
+  Swift_MODULE_NAME swift_bootstrap)
+
 target_link_libraries(swift-bootstrap PRIVATE
   ArgumentParser
   Basics

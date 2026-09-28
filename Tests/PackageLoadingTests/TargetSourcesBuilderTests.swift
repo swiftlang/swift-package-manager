@@ -1109,7 +1109,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
             target: target,
             path: .root,
             defaultLocalization: nil,
-            additionalFileRules: FileRuleDescription.swiftBuildFileTypes,
+            additionalFileRules: FileRuleDescription.swiftBuildFileTypes(targetTriple: .arm64MacOS),
             toolsVersion: .v6_0,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1123,6 +1123,84 @@ final class TargetSourcesBuilderTests: XCTestCase {
         XCTAssertEqual(outputs.others, [])
 
         XCTAssertNoDiagnostics(observability.diagnostics)
+    }
+
+    func testUndeclaredPrivacyManifestIsOnlyCopiedWhenTargetingDarwin() throws {
+        let triples: [Triple] = [.arm64MacOS, .arm64iOS, .x86_64Linux, .arm64Android, .x86_64Windows, .wasi]
+
+        for triple in triples {
+            let observability = ObservabilitySystem.makeForTesting()
+            let outputs = try self.buildPrivacyManifestTarget(
+                declaresPrivacyManifestResource: false,
+                targetTriple: triple,
+                observabilityScope: observability.topScope
+            )
+
+            // A privacy manifest is only consumed on Apple platform, copying it elsewhere would generate a resource bundle accessor
+            // that imports Foundation.
+            let expectedResources: [Resource] = triple.isDarwin()
+                ? try [.init(rule: .copy, path: .init(validating: "/PrivacyInfo.xcprivacy"))]
+                : []
+            let expectedIgnored: [AbsolutePath] = triple.isDarwin() ? [] : ["/PrivacyInfo.xcprivacy"]
+
+            XCTAssertEqual(outputs.resources, expectedResources, "unexpected resources for \(triple)")
+            XCTAssertEqual(outputs.ignored, expectedIgnored, "unexpected ignored files for \(triple)")
+            XCTAssertNoDiagnostics(observability.diagnostics)
+        }
+    }
+
+    func testExplicitlyDeclaredPrivacyManifestIsCopiedWhenNotTargetingDarwin() throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let outputs = try self.buildPrivacyManifestTarget(
+            declaresPrivacyManifestResource: true,
+            targetTriple: .x86_64Linux,
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertEqual(outputs.resources, try [
+            .init(rule: .copy, path: .init(validating: "/PrivacyInfo.xcprivacy")),
+        ])
+        XCTAssertEqual(outputs.ignored, [])
+        XCTAssertNoDiagnostics(observability.diagnostics)
+    }
+
+    private func buildPrivacyManifestTarget(
+        declaresPrivacyManifestResource: Bool,
+        targetTriple: Triple,
+        observabilityScope: ObservabilityScope
+    ) throws -> (sources: Sources, resources: [Resource], headers: [AbsolutePath], ignored: [AbsolutePath], others: [AbsolutePath]) {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: [],
+            sources: ["File.swift"],
+            resources: declaresPrivacyManifestResource ? [.init(rule: .copy, path: "PrivacyInfo.xcprivacy")] : [],
+            publicHeadersPath: nil,
+            type: .regular
+        )
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: AbsolutePath.root, files: [
+            "/File.swift",
+            "/PrivacyInfo.xcprivacy",
+        ])
+
+        let builder = TargetSourcesBuilder(
+            packageIdentity: .plain("test"),
+            packageKind: .root(.root),
+            packagePath: .root,
+            target: target,
+            path: .root,
+            defaultLocalization: nil,
+            additionalFileRules: FileRuleDescription.swiftBuildFileTypes(targetTriple: targetTriple),
+            toolsVersion: .v6_0,
+            fileSystem: fs,
+            observabilityScope: observabilityScope
+        )
+
+        let outputs = try builder.run()
+        XCTAssertEqual(outputs.sources.paths, ["/File.swift"])
+        return outputs
     }
 
     func testResourcesAreSorted() throws {
