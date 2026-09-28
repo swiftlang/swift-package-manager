@@ -1,5 +1,4 @@
-
-# Extending Plugins for Custom Targets and External Targets
+# Custom Targets, External Targets, and Swift Syntax Prebuilts
 This feature breaks down restrictions on what files build plugin tools can produce. This includes being able to have a plugin without Swift/Clang sources but with other sources, or no sources at all, and let the plugins decide what commands with inputs and outputs to add to the build graph. This general concept is called Custom Targets though plugins should be able to produce any file for any type of target.
 We then build on this by introducing external targets that take a source tree, possibly downloaded from source control or a remote source archive, and plugins add commands to build that source to produce libraries or executables that can be introduced into the SwiftBuild build graph so Swift/Clang modules may depend on them.
 The aim 

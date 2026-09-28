@@ -16,6 +16,7 @@ import protocol TSCBasic.FileSystem
 
 import enum Basics.Sandbox
 import struct Basics.AbsolutePath
+import struct Basics.RelativePath
 import struct Basics.SourceControlURL
 
 import enum SwiftBuild.ProjectModel
@@ -50,6 +51,11 @@ extension PackagePIFBuilder {
         }
     }
 
+    public struct BuildProduct: Equatable {
+        public var outputFile: AbsolutePath
+        public var productSubdir: RelativePath?
+    }
+
     /// A command provided by a build tool plugin.
     /// Build tool plugins are evaluated after package graph resolution (and subsequently, when conditions change).
     ///
@@ -68,8 +74,10 @@ extension PackagePIFBuilder {
             self.outputPaths.compactMap { try? AbsolutePath(validating: $0) }
         }
 
+        public var buildProducts: [BuildProduct]
+
         public var alwaysOutOfDate: Bool
-        public var targetPlatforms: [ProjectModel.BuildSettings.Platform]
+        public var platformFilters: Set<ProjectModel.PlatformFilter>
 
         public var pluginOutputDir: AbsolutePath
 
@@ -83,8 +91,9 @@ extension PackagePIFBuilder {
             workingDir: AbsolutePath?,
             inputPaths: [AbsolutePath],
             outputPaths: [String],
+            buildProducts: [BuildProduct],
             alwaysOutOfDate: Bool,
-            targetPlatforms: [ProjectModel.BuildSettings.Platform],
+            platformFilters: Set<ProjectModel.PlatformFilter>,
             pluginOutputDir: AbsolutePath,
             sandboxProfile: SandboxProfile?
         ) {
@@ -95,8 +104,9 @@ extension PackagePIFBuilder {
             self.workingDir = workingDir
             self.inputPaths = inputPaths
             self.outputPaths = outputPaths
+            self.buildProducts = buildProducts
             self.alwaysOutOfDate = alwaysOutOfDate
-            self.targetPlatforms = targetPlatforms
+            self.platformFilters = platformFilters
             self.pluginOutputDir = pluginOutputDir
             self.sandboxProfile = sandboxProfile
         }

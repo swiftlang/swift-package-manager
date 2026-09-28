@@ -1280,14 +1280,7 @@ extension PackagePIFProjectBuilder {
             }
         }
 
-        if let pluginResults = pifBuilder.buildToolPluginResultsByTargetName[customTarget.name] {
-            for pluginResult in pluginResults {
-                for command in pluginResult.buildCommands {
-                    addBuildToolCommand(command, to: customTargetKeyPath)
-                }
-            }
-        }
-
+        var buildProducts: [(FileReference, Set<ProjectModel.PlatformFilter>)] = []
         if let prebuilt = customTarget.underlying as? PrebuiltTarget, let host = PackageModel.Platform.host {
             // Add in the copy of the library file to the product dir
             let lib: String
@@ -1301,12 +1294,33 @@ extension PackagePIFProjectBuilder {
             let fileRef = self.binaryGroup.addFileReference { id in
                 FileReference(id: id, path: libFile.pathString)
             }
+            buildProducts.append((fileRef, []))
+        } else {
+            if let pluginResults = pifBuilder.buildToolPluginResultsByTargetName[customTarget.name] {
+                for pluginResult in pluginResults {
+                    for command in pluginResult.buildCommands {
+                        addBuildToolCommand(command, to: customTargetKeyPath)
 
+                        for buildProduct in command.buildProducts {
+                            let file = resolveBuildToolVariables(buildProduct.outputFile.pathString)
+                            let fileRef = self.binaryGroup.addFileReference { id in
+                                FileReference(id: id, path: file)
+                            }
+                            buildProducts.append((fileRef, command.platformFilters))
+                        }
+                    }
+                }
+            }
+        }
+
+        if !buildProducts.isEmpty {
             self.project[keyPath: customTargetKeyPath].common.addCopyFilesBuildPhase { id in
                 var phase = ProjectModel.CopyFilesBuildPhase(common: .init(id: id), destinationSubfolder: .builtProductsDir)
 
-                phase.common.addBuildFile { id in
-                    BuildFile(id: id, fileRef: fileRef)
+                for buildProduct in buildProducts {
+                    phase.common.addBuildFile { id in
+                        BuildFile(id: id, fileRef: buildProduct.0, platformFilters: buildProduct.1)
+                    }
                 }
 
                 return phase

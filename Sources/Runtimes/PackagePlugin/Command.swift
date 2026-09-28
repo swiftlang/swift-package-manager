@@ -45,7 +45,7 @@ public enum Command {
     ///     as resources as if explicitly listed in `Package.swift` using
     ///     `.process(...)`.
     ///   - alwaysOutOfDate: Treat the outputs if any as always out of date.
-    ///   - platforms: List of target platforms this command should apply to, empty list implies all
+    ///   - platforms: List of target platforms this command should apply to or nil for all.
     @available(_PackageDescription, introduced: 6.0)
     case buildCommand(
         displayName: String?,
@@ -54,8 +54,9 @@ public enum Command {
         environment: [String: String] = [:],
         inputFiles: [URL] = [],
         outputFiles: [URL] = [],
+        productFiles: [BuildProduct] = [],
         alwaysOutOfDate: Bool = false,
-        targetPlatforms: [Platform] = []
+        targetPlatforms: [Platform]? = nil
     )
 
     /// Returns a command that runs unconditionally before every build.
@@ -276,9 +277,22 @@ extension Command {
     }
 }
 
-/// A platform supported by Swift Package Manager.
-public struct Platform: Equatable, Sendable {
+/// An output file for a build command that is added to the available products for the target
+public struct BuildProduct {
+    /// The file output by the command
+    public var outputFile: URL
 
+    /// Optional relative subdir in the build products directory for the target to copy the file
+    public var productSubdir: String?
+
+    public init(_ outputFile: URL, productSubdir: String? = nil) {
+        self.outputFile = outputFile
+        self.productSubdir = productSubdir
+    }
+}
+
+/// What Platforms a buildCommand supports
+public struct Platform: Equatable, Sendable {
     /// The name of the platform.
     let name: String
 

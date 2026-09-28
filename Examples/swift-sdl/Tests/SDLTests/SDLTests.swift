@@ -16,3 +16,29 @@ import SwiftSDL3
     print(SDL_GetVersion(), "Tests")
     sayVersion()
 }
+
+@_cdecl("SDL_AppInit") public func SDL_AppInit(
+    _ appState: UnsafeMutablePointer<UnsafeMutableRawPointer?>?,
+    _ argc: Int32,
+    _ argv: UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?
+) -> SDL_AppResult {
+    return SDL_APP_CONTINUE
+}
+
+@_cdecl("SDL_AppEvent") public func SDL_AppEvent(
+    _ appState: UnsafeMutableRawPointer!,
+    _ event: UnsafeMutablePointer<SDL_Event>!
+) -> SDL_AppResult {
+    return SDL_APP_CONTINUE
+}
+
+@_cdecl("SDL_AppIterate") public func SDL_AppIterate(
+    _ appState: UnsafeMutableRawPointer!,
+) -> SDL_AppResult {
+    return SDL_APP_CONTINUE
+}
+
+@_cdecl("SDL_AppQuit") public func SDL_AppQuit(
+    _ appState: UnsafeMutableRawPointer!,
+) {
+}

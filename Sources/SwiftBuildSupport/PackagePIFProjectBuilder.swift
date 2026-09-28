@@ -534,58 +534,54 @@ struct PackagePIFProjectBuilder {
     private func makeBuildToolCommand(
         _ command: PackagePIFBuilder.CustomBuildCommand,
     ) -> ProjectModel.CustomTask {
-        var variables: [String: String] = [:]
-        variables["CONFIGURATION"] = "$(CONFIGURATION)"
-        variables["TRIPLE"] = "$(TARGET_TRIPLES)"
-        variables["SDK"] = "$(SYSROOT)"
-        variables["CLANG_RESOURCE_DIR"] = "$(CLANG_RESOURCE_DIR)"
-        variables["SWIFT_RESOURCE_DIR"] = "$(SWIFT_RESOURCE_DIR)"
-        variables["BUILD_SUBDIR"] = "$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)"
-        variables["PRODUCTS_DIR"] = "$(BUILT_PRODUCTS_DIR)"
-
-        var commandLine: [String]
-        if command.executable == "/$(COPY_CMD)" {
-            // TODO: make this more secure and ergonomic and add a Windows version
-            // e.g. should only be used to copy from the plugin output directory to the build products dir
-            commandLine = ["/bin/cp"] + command.arguments.map { resolveVariables($0) }
-        } else {
-            commandLine = [command.executable] + command.arguments.map { resolveVariables($0) }
-            if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled, command.executable != "/$(COPY_CMD)" {
-                commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
-            }
-        }
-
-        /// Replaces every occurrence of `$(variableName)` in `input` with the value of that name in
-        /// `variables`, or with an empty string if the name isn't present in the dictionary.
-        func resolveVariables(_ input: String) -> String {
-            // A variable reference is '$(' followed by a name, terminated by the first ')'.
-            let variableReference = #/\$\(([^)]*)\)/#
-
-            return input.replacing(variableReference) { match in
-                variables[String(match.output.1)] ?? ""
-            }
+        var commandLine = [command.executable] + command.arguments.map { resolveBuildToolVariables($0) }
+        if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled, command.executable != "/$(COPY_CMD)" {
+            commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
         }
 
         let workingDir: String?
         if let dir = command.workingDir {
-            workingDir = resolveVariables(dir.pathString)
+            workingDir = resolveBuildToolVariables(dir.pathString)
         } else {
             workingDir = nil
         }
 
         return ProjectModel.CustomTask(
             commandLine: commandLine,
-            environment: command.environment.map { Pair($0, resolveVariables($1)) }.sorted(by: <),
+            environment: command.environment.map { Pair($0, resolveBuildToolVariables($1)) }.sorted(by: <),
             workingDirectory: workingDir,
             executionDescription: command.displayName ?? "Performing build tool plugin command",
-            inputFilePaths: command.inputPaths.map(\.pathString).map { resolveVariables($0) },
-            outputFilePaths: command.outputPaths.map { resolveVariables($0) },
+            inputFilePaths: command.inputPaths.map(\.pathString).map { resolveBuildToolVariables($0) },
+            outputFilePaths: command.outputPaths.map { resolveBuildToolVariables($0) },
             enableSandboxing: false,
             preparesForIndexing: true,
             alwaysOutOfDate: command.alwaysOutOfDate,
-            platformFilters: .init(command.targetPlatforms.flatMap { $0.toPlatformFilter() })
+            platformFilters: command.platformFilters
         )
     }
+
+    /// Replaces every occurrence of `$(variableName)` in `input` with the value of that name in
+    /// `variables`, or with an empty string if the name isn't present in the dictionary.
+    func resolveBuildToolVariables(_ input: String) -> String {
+        let variables = [
+            "CONFIGURATION": "$(CONFIGURATION)",
+            "TRIPLE": "$(TARGET_TRIPLES)",
+            "SDK": "$(SYSROOT)",
+            "CLANG_RESOURCE_DIR": "$(CLANG_RESOURCE_DIR)",
+            "SWIFT_RESOURCE_DIR": "$(SWIFT_RESOURCE_DIR)",
+            "BUILD_SUBDIR": "$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)",
+            "PRODUCTS_DIR": "$(BUILT_PRODUCTS_DIR)",
+        ]
+
+        // A variable reference is '$(' followed by a name, terminated by the first ')'.
+        let variableReference = #/\$\(([^)]*)\)/#
+
+        return input.replacing(variableReference) { match in
+            variables[String(match.output.1)] ?? ""
+        }
+    }
+
+
 
     /// Processes the paths of plugin-generated files for a particular package target,
     /// returning paths of those that should be treated as sources vs resources.

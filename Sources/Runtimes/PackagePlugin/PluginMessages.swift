@@ -357,7 +357,19 @@ enum PluginToHostMessage: Codable {
     case emitProgress(message: String)
 
     /// The plugin defines a build command.
-    case defineBuildCommand(configuration: CommandConfiguration, inputFiles: [URL], outputFiles: [URL], alwaysOutOfDate: Bool, targetPlatforms: [Platform])
+    case defineBuildCommand(
+        configuration: CommandConfiguration,
+        inputFiles: [URL],
+        outputFiles: [URL],
+        productFiles: [BuildProduct],
+        alwaysOutOfDate: Bool,
+        targetPlatforms: [Platform]?
+    )
+
+        struct BuildProduct: Codable {
+            let outputFile: URL
+            let productSubdir: String?
+        }
 
         struct Platform: Codable {
             let name: String
