@@ -53,17 +53,10 @@ struct ApkBuilderPlugin: BuildToolPlugin {
                     native,
                 ],
                 outputFiles: [apk],
-                alwaysOutOfDate: true
-            ),
-            .buildCommand(
-                displayName: "Copy AndroidApp.apk",
-                executable: URL(string: "file:/$(COPY_CMD)")!,
-                arguments: [
-                    apk.path,
-                    productsDir.path,
+                productFiles: [
+                    .init(apk)
                 ],
-                inputFiles: [apk],
-                outputFiles: [productsDir.appending(path: apk.lastPathComponent)]
+                alwaysOutOfDate: true
             ),
         ]
     }
