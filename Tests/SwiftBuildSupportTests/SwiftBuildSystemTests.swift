@@ -544,6 +544,39 @@ struct SwiftBuildSystemTests {
     }
 
     @Test
+    func bareMetalTripleOverridesAreDestinationOnly() async throws {
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: mockBuildParameters(
+                destination: .target,
+                toolchain: try UserToolchain.default,
+                buildSystemKind: .swiftbuild,
+                triple: try Triple("armv7em-none-none-eabi")
+            )
+        ) { swiftBuild, service, session, _, _ in
+            let parameters = try await swiftBuild.makeBuildParameters(
+                service: service,
+                session: session,
+                symbolGraphOptions: nil,
+                setToolchainSetting: false,
+                shouldDisableSandbox: false
+            )
+            let settings = try #require(parameters.overrides.synthesized).table
+
+            // The same build request also builds host tools, which must keep their host triple.
+            for (key, value) in [
+                "ARCHS": "armv7em",
+                "VALID_ARCHS": "armv7em",
+                "LLVM_TARGET_TRIPLE_VENDOR": "none",
+                "LLVM_TARGET_TRIPLE_SUFFIX": "-eabi",
+            ] {
+                #expect(settings[key] == nil, "Bare-metal overrides must not apply to host tools")
+                #expect(settings["\(key)[__destination_platform=YES]"] == value)
+            }
+        }
+    }
+
+    @Test
     func cFlagsAppliedToSwiftInBuildRequest() async throws {
         try await withTemporaryDirectory { tempDir in
             try await withInstantiatedSwiftBuildSystem(
