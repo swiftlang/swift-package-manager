@@ -213,7 +213,7 @@ extension Plugin {
                     let outputFiles,
                     let productFiles,
                     let alwaysOutOfDate,
-                    let targetPlatforms
+                    let platforms
                 ):
                     let command = PluginToHostMessage.CommandConfiguration(
                         displayName: displayName,
@@ -226,10 +226,14 @@ extension Plugin {
                         inputFiles: inputFiles,
                         outputFiles: outputFiles,
                         productFiles: productFiles.map {
-                            .init(outputFile: $0.outputFile, productSubdir: $0.productSubdir)
+                            .init(
+                                outputFile: $0.outputFile,
+                                productSubdir: $0.productSubdir,
+                                platforms: $0.platforms?.map({ .init(name: $0.name )})
+                            )
                         },
                         alwaysOutOfDate: alwaysOutOfDate,
-                        targetPlatforms: targetPlatforms?.map { .init(name: $0.name )}
+                        platforms: platforms?.map { .init(name: $0.name )}
                     )
                     try pluginHostConnection.sendMessage(message)
 
@@ -298,7 +302,7 @@ extension Plugin {
             for command in record.generatedCommands {
                 switch command {
 
-                case let .buildCommand(name, exec, args, env, inputs, outputs, productFiles, alwaysOutOfDate, targetPlatforms):
+                case let .buildCommand(name, exec, args, env, inputs, outputs, productFiles, alwaysOutOfDate, platforms):
                     let command = PluginToHostMessage.CommandConfiguration(
                         displayName: name,
                         executable: exec,
@@ -310,10 +314,14 @@ extension Plugin {
                         inputFiles: inputs,
                         outputFiles: outputs,
                         productFiles: productFiles.map {
-                            .init(outputFile: $0.outputFile, productSubdir: $0.productSubdir)
+                            .init(
+                                outputFile: $0.outputFile,
+                                productSubdir: $0.productSubdir,
+                                platforms: $0.platforms?.map({ .init(name: $0.name) })
+                            )
                         },
                         alwaysOutOfDate: alwaysOutOfDate,
-                        targetPlatforms: targetPlatforms?.map { .init(name: $0.name) })
+                        platforms: platforms?.map { .init(name: $0.name) })
                     try pluginHostConnection.sendMessage(message)
 
                 case let .prebuildCommand(name, exec, args, env, outdir):

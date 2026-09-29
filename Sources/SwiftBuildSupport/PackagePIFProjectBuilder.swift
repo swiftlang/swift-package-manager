@@ -546,13 +546,15 @@ struct PackagePIFProjectBuilder {
             workingDir = nil
         }
 
+        let outputPaths = command.outputPaths + command.buildProducts.map(\.outputFile.pathString)
+
         return ProjectModel.CustomTask(
             commandLine: commandLine,
             environment: command.environment.map { Pair($0, resolveBuildToolVariables($1)) }.sorted(by: <),
             workingDirectory: workingDir,
             executionDescription: command.displayName ?? "Performing build tool plugin command",
             inputFilePaths: command.inputPaths.map(\.pathString).map { resolveBuildToolVariables($0) },
-            outputFilePaths: command.outputPaths.map { resolveBuildToolVariables($0) },
+            outputFilePaths: outputPaths.map { resolveBuildToolVariables($0) },
             enableSandboxing: false,
             preparesForIndexing: true,
             alwaysOutOfDate: command.alwaysOutOfDate,

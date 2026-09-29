@@ -438,10 +438,14 @@ public final class PIFBuilder {
                             inputPaths: buildCommand.inputFiles,
                             outputPaths: buildCommand.outputFiles.map(\.pathString),
                             buildProducts: buildCommand.productFiles.map({
-                                .init(outputFile: $0.outputFile, productSubdir: $0.productSubdir)
+                                try .init(
+                                    outputFile: $0.outputFile,
+                                    productSubdir: $0.productSubdir,
+                                    platformFilters: .init($0.platforms?.flatMap({ try ProjectModel.BuildSettings.Platform(from: $0).toPlatformFilter() }) ?? []),
+                                )
                             }),
                             alwaysOutOfDate: buildCommand.alwaysOutOfDate,
-                            platformFilters: .init(buildCommand.targetPlatforms?.flatMap({ try ProjectModel.BuildSettings.Platform(from: $0).toPlatformFilter() }) ?? []),
+                            platformFilters: .init(buildCommand.platforms?.flatMap({ try ProjectModel.BuildSettings.Platform(from: $0).toPlatformFilter() }) ?? []),
                             pluginOutputDir: pluginOutputDir,
                             sandboxProfile:
                                 self.parameters.disableSandbox ?

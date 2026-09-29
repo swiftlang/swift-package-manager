@@ -35,44 +35,17 @@ struct CMakeBuilderPlugin: BuildToolPlugin {
                 executable: builder.url,
                 arguments: [
                     "--output-dir", buildDir.path,
-                    "--products-dir", "$(PRODUCTS_DIR)",
                     "--sdk", "$(SDK)",
                     "--triple", "$(TRIPLE)",
                     target.directoryURL.path,
                 ],
                 environment: environment,
-                outputFiles: [
-                    libSDL3
-                ],
-                productFiles: [
-                    BuildProduct(libSDL3),
-                ],
-                alwaysOutOfDate: true,
-                targetPlatforms: [.macOS, .windows, .linux]
-            ),
-            .buildCommand(
-                displayName: "CMake Build",
-                executable: builder.url,
-                arguments: [
-                    "--output-dir", buildDir.path,
-                    "--products-dir", "$(PRODUCTS_DIR)",
-                    "--sdk", "$(SDK)",
-                    "--triple", "$(TRIPLE)",
-                    target.directoryURL.path,
-                ],
-                environment: environment,
-                outputFiles: [
-                    libSDL3,
-                    SDL3jar
-                ],
                 productFiles: [
                     .init(libSDL3),
-                    .init(SDL3jar),
+                    .init(SDL3jar, platforms: [.android]),
                 ],
-                alwaysOutOfDate: true,
-                targetPlatforms: [.android]
+                alwaysOutOfDate: true
             ),
-
         ]
     }
 }

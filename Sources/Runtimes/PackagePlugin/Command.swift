@@ -56,7 +56,7 @@ public enum Command {
         outputFiles: [URL] = [],
         productFiles: [BuildProduct] = [],
         alwaysOutOfDate: Bool = false,
-        targetPlatforms: [Platform]? = nil
+        platforms: [Platform]? = nil
     )
 
     /// Returns a command that runs unconditionally before every build.
@@ -285,9 +285,14 @@ public struct BuildProduct {
     /// Optional relative subdir in the build products directory for the target to copy the file
     public var productSubdir: String?
 
-    public init(_ outputFile: URL, productSubdir: String? = nil) {
+    /// List of platforms this product is generated for, or nil if all of them.
+    /// Real list is the intersection of this list and the command's list.
+    public var platforms: [Platform]?
+
+    public init(_ outputFile: URL, productSubdir: String? = nil, platforms: [Platform]? = nil) {
         self.outputFile = outputFile
         self.productSubdir = productSubdir
+        self.platforms = platforms
     }
 }
 

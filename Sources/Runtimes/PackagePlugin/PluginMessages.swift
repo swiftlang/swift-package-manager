@@ -363,12 +363,13 @@ enum PluginToHostMessage: Codable {
         outputFiles: [URL],
         productFiles: [BuildProduct],
         alwaysOutOfDate: Bool,
-        targetPlatforms: [Platform]?
+        platforms: [Platform]?
     )
 
         struct BuildProduct: Codable {
             let outputFile: URL
             let productSubdir: String?
+            let platforms: [Platform]?
         }
 
         struct Platform: Codable {

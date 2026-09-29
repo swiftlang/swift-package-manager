@@ -22,9 +22,6 @@ struct CMakeBuilder: AsyncParsableCommand {
     @Option(help: "The directory the CMake build is configured and run in.")
     var outputDir: String
 
-    @Option(help: "The build products dir to copy the result into")
-    var productsDir: String
-
     @Option(help: "The SDK root directory")
     var sdk: String
 

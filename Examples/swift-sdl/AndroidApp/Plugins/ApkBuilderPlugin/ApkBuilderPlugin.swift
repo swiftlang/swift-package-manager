@@ -52,7 +52,6 @@ struct ApkBuilderPlugin: BuildToolPlugin {
                     sdljar,
                     native,
                 ],
-                outputFiles: [apk],
                 productFiles: [
                     .init(apk)
                 ],

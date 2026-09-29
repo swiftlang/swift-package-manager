@@ -295,7 +295,7 @@ extension PluginModule {
                     }
                     return nil
 
-                case .defineBuildCommand(let config, let inputFiles, let outputFiles, let productFiles, let alwaysOutOfDate, let targetPlatforms):
+                case .defineBuildCommand(let config, let inputFiles, let outputFiles, let productFiles, let alwaysOutOfDate, let platforms):
                     if config.version != 2 {
                         throw PluginEvaluationError.pluginUsesIncompatibleVersion(expected: 2, actual: config.version)
                     }
@@ -315,10 +315,14 @@ extension PluginModule {
                                 } else {
                                     productSubdir = nil
                                 }
-                                return .init(outputFile: try $0.outputFile.filePath, productSubdir: productSubdir)
+                                return .init(
+                                    outputFile: try $0.outputFile.filePath,
+                                    productSubdir: productSubdir,
+                                    platforms: $0.platforms?.map(\.name)
+                                )
                             },
                             alwaysOutOfDate: alwaysOutOfDate,
-                            targetPlatforms: targetPlatforms?.map(\.name))
+                            platforms: platforms?.map(\.name))
                     }
                     return nil
 
@@ -714,12 +718,13 @@ public struct BuildToolPluginInvocationResult {
         public var outputFiles: [AbsolutePath]
         public var productFiles: [BuildProduct]
         public var alwaysOutOfDate: Bool
-        public var targetPlatforms: [PackageModel.Platform]?
+        public var platforms: [PackageModel.Platform]?
     }
 
     public struct BuildProduct {
         public var outputFile: AbsolutePath
         public var productSubdir: RelativePath?
+        public var platforms: [PackageModel.Platform]?
     }
 
     /// A command to run before the start of every build.
@@ -790,7 +795,7 @@ public protocol PluginInvocationDelegate {
         outputFiles: [AbsolutePath],
         productFiles: [PluginInvocationBuildProduct],
         alwaysOutOfDate: Bool,
-        targetPlatforms: [String]?
+        platforms: [String]?
     )
 
     /// Called when a plugin defines a prebuild command through the PackagePlugin APIs.
@@ -856,7 +861,7 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
         outputFiles: [AbsolutePath],
         productFiles: [PluginInvocationBuildProduct],
         alwaysOutOfDate: Bool,
-        targetPlatforms: [String]?
+        platforms: [String]?
     ) {
         dispatchPrecondition(condition: .onQueue(self.delegateQueue))
         self.buildCommands.append(.init(
@@ -870,10 +875,14 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
             inputFiles: self.toolPaths + inputFiles,
             outputFiles: outputFiles,
             productFiles: productFiles.map({
-                .init(outputFile: $0.outputFile, productSubdir: $0.productSubdir)
+                .init(
+                    outputFile: $0.outputFile,
+                    productSubdir: $0.productSubdir,
+                    platforms: $0.platforms?.compactMap { PlatformRegistry.default.platformByName[$0] }
+                )
             }),
             alwaysOutOfDate: alwaysOutOfDate,
-            targetPlatforms: targetPlatforms?.compactMap { PlatformRegistry.default.platformByName[$0] }
+            platforms: platforms?.compactMap { PlatformRegistry.default.platformByName[$0] }
         ))
     }
 
@@ -913,6 +922,7 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
 public struct PluginInvocationBuildProduct {
     public var outputFile: AbsolutePath
     public var productSubdir: RelativePath?
+    public var platforms: [String]?
 }
 
 public struct PluginInvocationSymbolGraphOptions {
@@ -1038,7 +1048,7 @@ public extension PluginInvocationDelegate {
         outputFiles: [AbsolutePath],
         productFiles: [PluginInvocationBuildProduct],
         alwaysOutOfDate: Bool,
-        targetPlatforms: [String]?
+        platforms: [String]?
     ) { }
 
     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool {

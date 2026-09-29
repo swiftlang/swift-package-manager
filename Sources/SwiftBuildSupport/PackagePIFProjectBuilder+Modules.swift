@@ -1302,7 +1302,17 @@ extension PackagePIFProjectBuilder {
                             let fileRef = self.binaryGroup.addFileReference { id in
                                 FileReference(id: id, path: file)
                             }
-                            buildProducts.append((fileRef, command.platformFilters))
+
+                            let platformFilters: Set<ProjectModel.PlatformFilter>
+                            if command.platformFilters.isEmpty {
+                                platformFilters = buildProduct.platformFilters
+                            } else if buildProduct.platformFilters.isEmpty {
+                                platformFilters = command.platformFilters
+                            } else {
+                                platformFilters = command.platformFilters.intersection(buildProduct.platformFilters)
+                            }
+
+                            buildProducts.append((fileRef, platformFilters))
                         }
                     }
                 }

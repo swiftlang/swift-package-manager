@@ -54,6 +54,7 @@ extension PackagePIFBuilder {
     public struct BuildProduct: Equatable {
         public var outputFile: AbsolutePath
         public var productSubdir: RelativePath?
+        public var platformFilters: Set<ProjectModel.PlatformFilter>
     }
 
     /// A command provided by a build tool plugin.
@@ -75,7 +76,6 @@ extension PackagePIFBuilder {
         }
 
         public var buildProducts: [BuildProduct]
-
         public var alwaysOutOfDate: Bool
         public var platformFilters: Set<ProjectModel.PlatformFilter>
 
