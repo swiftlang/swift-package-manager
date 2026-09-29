@@ -89,9 +89,16 @@ extension BuildPlan {
                     // Add in the include path from the test targets to ensure this module builds
                     if let flags = testTarget.underlying.buildSettings.assignments[.OTHER_SWIFT_FLAGS] {
                         for assignment in flags {
-                            let values = assignment.values.filter({ $0.hasPrefix("-I") })
-                            if !values.isEmpty {
-                                discoveryBuildSettings.add(.init(values: values, conditions: []), for: .OTHER_SWIFT_FLAGS)
+                            let includePaths = assignment.values.filter({ $0.hasPrefix("-I") })
+                            if !includePaths.isEmpty {
+                                discoveryBuildSettings.add(.init(values: includePaths, conditions: []), for: .OTHER_SWIFT_FLAGS)
+                            }
+                            // Propagate upcoming/experimental feature flags: the discovery target
+                            // imports every test module, so the Swift compiler requires it to be
+                            // compiled under the same feature set to resolve module interfaces.
+                            if let first = assignment.values.first,
+                               first == "-enable-upcoming-feature" || first == "-enable-experimental-feature" {
+                                discoveryBuildSettings.add(.init(values: assignment.values, conditions: []), for: .OTHER_SWIFT_FLAGS)
                             }
                         }
                     }
@@ -146,9 +153,16 @@ extension BuildPlan {
                     // Add in the include path from the test targets to ensure this module builds
                     if let flags = testTarget.underlying.buildSettings.assignments[.OTHER_SWIFT_FLAGS] {
                         for assignment in flags {
-                            let values = assignment.values.filter({ $0.hasPrefix("-I") })
-                            if !values.isEmpty {
-                                entryPointBuildSettings.add(.init(values: values, conditions: []), for: .OTHER_SWIFT_FLAGS)
+                            let includePaths = assignment.values.filter({ $0.hasPrefix("-I") })
+                            if !includePaths.isEmpty {
+                                entryPointBuildSettings.add(.init(values: includePaths, conditions: []), for: .OTHER_SWIFT_FLAGS)
+                            }
+                            // Propagate upcoming/experimental feature flags: the entry-point target
+                            // imports every test module, so the Swift compiler requires it to be
+                            // compiled under the same feature set to resolve module interfaces.
+                            if let first = assignment.values.first,
+                               first == "-enable-upcoming-feature" || first == "-enable-experimental-feature" {
+                                entryPointBuildSettings.add(.init(values: assignment.values, conditions: []), for: .OTHER_SWIFT_FLAGS)
                             }
                         }
                     }
