@@ -246,14 +246,12 @@ struct TestCommandTests {
         .tags(
             .Feature.TargetType.Executable,
         ),
-        .SWBINTTODO("Test currently fails due to 'error: build failed'"),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func enableDisableTestabilityDisabled(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         let configuration = BuildConfiguration.debug
-        // disabled
             try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
                 let error = await #expect(throws: SwiftPMError.self) {
                     try await execute(
@@ -268,10 +266,22 @@ struct TestCommandTests {
                     return
                 }
 
-                #expect(
-                    stderr.contains("was not compiled for testing") || stderr.contains("ignore swiftmodule built without '-enable-testing'"),
-                    "got stdout: \(stdout), stderr: \(stderr)",
-                )
+                switch buildSystem {
+                    case .native:
+                        #expect(
+                            stderr.contains("was not compiled for testing"),
+                            "got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    case .swiftbuild:
+                        // The expected message is not produced by swiftPM. We need a better way to verify the corret log is emitted
+                        let expected = try Regex("found incompatible module '.*': module built without '-enable-testing'")
+                        #expect(
+                            stderr.contains(expected) == true,
+                            "got stdout: \(stdout), stderr: \(stderr)",
+                        )
+                    case .xcode:
+                        Issue.record("Test expection is not configured.")
+                }
             }
     }
 
