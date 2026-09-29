@@ -423,6 +423,28 @@ struct APIDiffTests {
     }
 
     @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10594", relationship: .verifies),
+        .requiresAPIDigester,
+        .tags(
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testAPIDiffPackageWithBuildToolPluginBackedByExecutable(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/APIDiff/WithBuildToolPlugin") { fixturePath in
+            initGitRepo(fixturePath, tag: "1.2.3", addFile: false)
+            let (output, _) = try await execute(
+                ["diagnose-api-breaking-changes", "1.2.3"],
+                packagePath: fixturePath,
+                buildSystem: buildSystem,
+            )
+            #expect(output.contains("No breaking changes detected in Lib"))
+        }
+    }
+
+    @Test(
         .requiresAPIDigester,
         .tags(
             .Feature.Command.Package.DiagnoseApiBreakingChanges,
