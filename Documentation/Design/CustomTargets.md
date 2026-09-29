@@ -1,110 +1,41 @@
 # Custom Targets, External Targets, and Swift Syntax Prebuilts
-This feature breaks down restrictions on what files build plugin tools can produce. This includes being able to have a plugin without Swift/Clang sources but with other sources, or no sources at all, and let the plugins decide what commands with inputs and outputs to add to the build graph. This general concept is called Custom Targets though plugins should be able to produce any file for any type of target.
-We then build on this by introducing external targets that take a source tree, possibly downloaded from source control or a remote source archive, and plugins add commands to build that source to produce libraries or executables that can be introduced into the SwiftBuild build graph so Swift/Clang modules may depend on them.
-The aim 
-## Requirements
-There are a number of use cases we'd like to extend plugins to support:
-- Generating arbitrary outputs
-  - Not just source as we have is today
-  - Include object code that can be linked with standard Clang/Swift objects
-- Incorporate knowledge of the build request
-  - Enable plugins to generate commands with knowledge of
-    - The triple(s) components
-    - The SDK
-    - The build configuration
-- Provide an intermediate directory for outputs
-    - For given combinations of build request properties
-- Enable them to copy results to the build products directory
-    - Make them available with -show-bin-path
-    - So that dependent targets can find the results
-- Allow to be the sole provider of the build for a target
-    - If a target has no source, headers, modulemap that would map it into a traditional target
-- But also apply to traditional targets
-    - can product traditional products as well as custom ones
-- Allow plugins to specify platform independent commands for "copy" and "touch"
+## Extending Build Tool Plugins
+At the core of these features is extending build tool plugins to allow them to specify outputs that are build products that should be made available to other target's plugins. In SwiftBuild terms, these files are added to the copy files phase and coped into the build products directory. This opens up incredible power to build plugin tools to produce artifacts of any kind and have those artifacts added to the build graph.
+With this extra power comes the need for build plugin tools to be able to adapt to build requests, particularly with the knowledge of the platform, triple, and build configuration. This is accomplished with the addition of build variables. They look suspicioulsly like SwiftBuild macro expressions but they are not directly those macros. To ensure we maintain a layer between the plugins and SwiftBuild that will allow us to evolve SwiftPM's build system, these variables are translated when the CustomTask for the plugin tool is created. Unknown variables will not be blindly copied to the task to ensure we keep that separation. The variable can apply to any string field in the build Command but usually will result in adapted arguments to the command or in the environment for the command. Input and output files may also use these variables.
+In order for plugins to discover the build products from the context target's dependencies, we will need to run the plugins in topographical order. The list of build products provided by a target's plugins should really be calculated close to package resolution time, potentially at package manifest load time. In fact, you need to know the list of generated files so you can tell whether a Module is a SwiftModule, ClangModule or CustomTarget. That is calculated in the PackageBuilder really early in the construction of the graph.
+## Sandboxing
+Plugins remain sandboxed on Mac and introduced on Linux using Bubblewrap or equivalent, and on Windows using AppContainers. Plugins continue to only have write access to the plugin output directory with read access to the package sources and the build products directory for the current effective platform. All network access and writes to the build products directory are performed by SwiftPM itself upon validating the parameters of the request.
+## Custom Targets
+While the extended plugin capability is available to plugins attached to Clang and Swift modules, they can also be applied to modules that do not have Clang or Swift sources. Previously this would error out. Instead, a new subclass of Module is created, CustomTarget, and a new target type, custom, to model this. CustomTargets result in AggregateTargets in the PIF. Commands from the build tool plugins are converted into CustomTasks on the target. As well, any build product files are added as BuildFiles to the copy phase of the target.
+When a custom target produces libraries that may be consumed by dependent targets, build settings may be specified on the custom target. Those settings are added to the imparted settings for the custom target.
+*TODO: do we need build settings to be imparted like this from Clang/Swift module targets as well?*
+## External Target
+External targets are custom targets with the source for the target being external to the package. Similar to package dependencies, the target specifies the location for that source as either
+- A path in the local file system
+- Remote source archive URL with checksum
+- Source control URL with version range
 
-Introduce a new target type, similar to binary targets, but allows incorporating a non-Swift source or binary tree
-- Target specifies location for source
-    - Local file system, allow outside package
-    - Source control, including version ranges
-    - Remote source archive with checksum
-- Target can also specify location for binaries
-    - Remote binary archive with checksum
-    - Selected based on condition
-- Uses the plugin extensions above to perform any steps necessary to get products in to the products directory.
-- Specifies build settings like public header file path needed for consuming targets
+It is expected that build tool plugins would be attached to the target to add commands that produce the build of that source and to register the build products that would be consumed by dependent targets. Build settings on the external target are imparted on those dependent targets.
+## Prebuilt Target
+We leverage Custom Targets to model the libraries for prebuilts. We can then add conditional dependencies on these targets to allow them to be used for host builds, or to use the prebuilts source package when building for non-host.
 
-External library target to incorporate library products into rest of build.
-    - Similar to system libraries except library is located in the build products directory
-
-External executable target to incorporate executable products into rest of build, including use by build tool plugins.
-## Design
-Introduce variables that can be used in the strings/URLs when the plugin defines a Command
-- e.g. `$(SDKROOT)
-- Looks like SwiftBuild build setting macros but they're not
-    - But can map to them when creating the CustomTask
-    - Lets us control what is visible and produce more ergonomic names for them
-    - (Also closes a hole where they can sneak in now)
-- Add variables for the build products and intermediates directory so the plugins can place files in build specific directories
-- provide variables from the copy command and the touch command
-    - To copy files to the build products directory
-    - To update timestamp on marker files to allow for variable output file list
-    - May want more in the future
-
-Add a new `Module` type for non-source targets, i.e. Not Swift or Clang modules.
-- Generate AggregateTargets for these and add the CustomTargets for each plugin usage
-
-Add a module type for external targets
-- Manages download of archive or checkout of source
-    - Can we get this at build request time so we only download archives we need
-- Plugins run the build and copy the products for the target to the build products directory for the target
-- Exposes build settings to allow dependent targets to use the build products
-    - User provided public header path
-    - Automatically adds build products directory to public library path (assuming it's different from other targets)
-
-Add module type for external executable.
-- Adds the executable to the model.
-
-Since the library path is added to the imparted settings of the external module, we don't need an external library module type
-- And we want to get the produced libraries into modules as quickly (directly) as possible
-
-## Implementation Questions
-Things that need to be resolved:
-- With the use of variable expressions in paths in the plugins, URL no longer makes as much sense
-    - Variables like BUILT\_PRODUCTS\_DIR is an absolute path so forcing these things into AbsolutePath with a leading "/" will cause issues on Windows
-    - Paths at this point need to be Strings across the wire, or a generic Path that can be either relative or absolute.
-- A new subclass of Module, CustomTarget, is added to handle targets that have no sources or headers as returned by the TargetSourcesBuilder.
-    - It returns a list of "other" files. we add those as sources for the CustomTarget
-    - Should other files be added to all targets? Needs more study
-- In order for a plugin to be more generic, it needs to be able to see the build products from it's dependencies, including the ones generated by plugins on those dependencies.
-    - That would require the plugins to be run in topographical order
-    - And then we need to add that to the target info passed to the plugin for those dependencies
-    - Should this info be part of the action graph like we have for the sources already?
-    - At the least, we should be able to detect when commands output files to the BUILT\_PRODUCTS\_DIR and make that list available to dependant targets' plugins.
-- How do plugins handle builds for multiple platforms?
-    - Some of the commands it adds only work on certain platforms, e.g. building the jar files in SDL are only for Android
-    - Can we add "when" clauses to the commands?
-    - We could plumb through platform filters on CustomTasks and add filter checks in the CustomTaskProducer
-- How do we implement cross-platform copy commands?
-    -      We don't want to open the sandbox to the product directory so the copy task needs to be managed carefully
-    - But then, do we really want to be having copies both in the plugin output and the products dir? Would a move command make more sense?
-- The SDL Android example has already hit the target/product problem.
-    - We have a shared library product for the native code.
-    - We then want to add plugins that take that native code, does a Java (or Kotlin) build for the Java bridge, and assembles the APK
-    - Ideally we add the plugins to the shared library "target" that creates Commands with the shared library as an input file.
-## Examples
+##  Examples
 To help confirm we have the desired capability and ergonomics, we'll produce examples in the Examples directory.
+- Simple Java/jar build to demonstrate the pure Custom Targets workflow.
 - SDL that includes an executable that shows calls into SDL working
     - Builds for host and for Android including creating an APK
+    - Note that until we get the products/target unification complette, the Android app part needs to be in a separate package so it can consume the shared library from the swift-sdl package.
 - MLX-swift and shaders
     - Can we integrate shader compilers into the build of MLX-swift in a more natural way
 
 ## Future Work
 ### Plugin Settings
 Once plugins become more powerful, package developers will want to be able to share plugins and apply them to multiple packages, adding to the ecosystem. We will need a way to configure the use of a plugin as applied to a target. Plugins have relied on config files to help with that. It would be more ergonomic if such settings were specified in the package manifest and passed to the plugin at run time. This could be a [String: [String]] dictionary.
-### External Binary Targets as Prebuilts
-Can we use external binary targets to generalize prebuilts?
-    - Somehow associate an external source target with a list of external binary targets that are prebuilts of the source target.
-- If one of the binary targets have successful target conditions, use it, otherwise use the source target
-
-We might want to make the binary target support future work as well until we can figure that out. Source would be fine for now.
+### External Binary Targets
+The Prebuilt Target shows how we can integrate binaries using the custom target mechanism. Can we generalize it to handle any binary targets?
+- Like external targets can specify the path or url/checksum to a binary archive that SwiftPM fetches.
+- Be able to specify the product files in the distribution as well as build settings that are imparted to dependent targets to use them.
+- Need more detailed target conditionals to ensure the right archive is fetched for the platform/triple of the build request
+###  Custom Executable Targets
+If a custom/external/binary target supplies executables that can be used by plugins or exposed to swift run, we need a way to add these executable to the graph.
+Could be as simple as an executable target that doesn't have source but who's binary is found in the build products directory of one of it's dependencies.

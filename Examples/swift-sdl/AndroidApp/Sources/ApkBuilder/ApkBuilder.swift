@@ -174,6 +174,8 @@ struct ApkBuilder: AsyncParsableCommand {
         let signResult = try await Subprocess.run(
             .path(buildToolsDir.appending("apksigner")),
             arguments: .init([
+                // Removes the ugly warning about unnamed access
+                "-J-enable-native-access=ALL-UNNAMED",
                 "sign",
                 "--ks", keystore.string,
                 "--ks-pass", "pass:android",
