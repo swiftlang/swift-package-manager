@@ -298,7 +298,7 @@ public final class PackagePIFBuilder {
 
     /// Build an empty PIF project for the specified `Package`.
 
-    public class func buildEmptyPIF(package: PackageModel.Package) -> ProjectModel.Project {
+    public static func buildEmptyPIF(package: PackageModel.Package) -> ProjectModel.Project {
         self.buildEmptyPIF(
             id: "PACKAGE:\(package.identity)",
             path: package.manifest.path.pathString,
@@ -309,7 +309,7 @@ public final class PackagePIFBuilder {
     }
 
     /// Build an empty PIF project.
-    public class func buildEmptyPIF(
+    public static func buildEmptyPIF(
         id: String,
         path: String,
         projectDir: String,
@@ -331,38 +331,79 @@ public final class PackagePIFBuilder {
         return project
     }
 
+    /// Build a *placeholder* PIF project.
     public func buildPlaceholderPIF(id: String, path: String, projectDir: String, name: String) -> ModuleOrProduct {
-        var project = ProjectModel.Project(
+        let (project, placeholderModule) = PackagePIFBuilder.buildPlaceholderPIF(
+            id: id,
+            path: path,
+            projectDir: projectDir,
+            name: name,
+            targetBuildSettings: self.package.underlying.packageBaseBuildSettings,
+            developmentRegion: self.package.manifest.defaultLocalization
+        )
+        self._pifProject = project
+        return placeholderModule
+    }
+
+    /// Build a *placeholder* PIF project for the specified `Package`.
+    public static func buildPlaceholderPIF(
+        package: PackageModel.Package
+    ) -> (project: ProjectModel.Project, placeholder: ModuleOrProduct) {
+        self.buildPlaceholderPIF(
+            id: "PACKAGE:\(package.identity)",
+            path: package.manifest.path.pathString,
+            projectDir: package.path.pathString,
+            name: package.name,
+            targetBuildSettings: package.packageBaseBuildSettings,
+            developmentRegion: package.manifest.defaultLocalization
+        )
+    }
+
+    /// Build a *placeholder* PIF project.
+    ///
+    /// The project contains a single *aggregate* target, `PACKAGE-PLACEHOLDER:<id>`, which has no
+    /// product and no build phases, and so builds nothing. Contrast with `buildEmptyPIF`, which
+    /// produces a project with no targets at all.
+    ///
+    /// Requires no builder instance, and so can be used for a package that failed to load.
+    public static func buildPlaceholderPIF(
+        id: String,
+        path: String,
+        projectDir: String,
+        name: String,
+        targetBuildSettings: ProjectModel.BuildSettings,
+        developmentRegion: String? = nil
+    ) -> (project: ProjectModel.Project, placeholder: ModuleOrProduct) {
+        var packageProject = ProjectModel.Project(
             id: GUID(id),
             path: path,
             projectDir: projectDir,
-            name: name
+            name: name,
+            developmentRegion: developmentRegion
         )
 
         let projectSettings = ProjectModel.BuildSettings()
 
-        project.addBuildConfig { id in ProjectModel.BuildConfig(id: id, name: "Debug", settings: projectSettings) }
-        project.addBuildConfig { id in ProjectModel.BuildConfig(id: id, name: "Release", settings: projectSettings) }
+        packageProject.addBuildConfig { id in ProjectModel.BuildConfig(id: id, name: "Debug", settings: projectSettings) }
+        packageProject.addBuildConfig { id in ProjectModel.BuildConfig(id: id, name: "Release", settings: projectSettings) }
 
-        let targetKeyPath = try! project.addAggregateTarget { _ in
+        // A new project can *not* already contain this target, so adding it cannot fail.
+        let targetKeyPath = try! packageProject.addAggregateTarget { _ in
             ProjectModel.AggregateTarget(id: "PACKAGE-PLACEHOLDER:\(id)", name: id)
         }
-        let targetSettings: ProjectModel.BuildSettings = self.package.underlying.packageBaseBuildSettings
 
-        project[keyPath: targetKeyPath].common.addBuildConfig { id in
-            ProjectModel.BuildConfig(id: id, name: "Debug", settings: targetSettings)
+        packageProject[keyPath: targetKeyPath].common.addBuildConfig { id in
+            ProjectModel.BuildConfig(id: id, name: "Debug", settings: targetBuildSettings)
         }
-        project[keyPath: targetKeyPath].common.addBuildConfig { id in
-            ProjectModel.BuildConfig(id: id, name: "Release", settings: targetSettings)
+        packageProject[keyPath: targetKeyPath].common.addBuildConfig { id in
+            ProjectModel.BuildConfig(id: id, name: "Release", settings: targetBuildSettings)
         }
-
-        self._pifProject = project
 
         let placeholderModule = ModuleOrProduct(
             type: .placeholder,
             name: name,
             moduleName: name,
-            pifTarget: .aggregate(project[keyPath: targetKeyPath]),
+            pifTarget: .aggregate(packageProject[keyPath: targetKeyPath]),
             indexableFileURLs: [],
             headerFiles: [],
             linkedPackageBinaries: [],
@@ -371,7 +412,7 @@ public final class PackagePIFBuilder {
             deploymentTargets: nil,
             toolsVersion: nil
         )
-        return placeholderModule
+        return (packageProject, placeholderModule)
     }
 
     // FIXME: Maybe break this up in a `ArtifactMetadata` protocol and two value types —— Paulo
