@@ -1231,6 +1231,73 @@ struct PIFBuilderTests {
         #expect(ldFlags.contains("-L") && ldFlags.contains("/Vendor"))
     }
 
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10597", relationship: .verifies),
+        arguments: BuildConfiguration.allCases
+    )
+    func conditionalLinkerFlagsAreImpartedPerConfiguration(configuration: BuildConfiguration) async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/Lib/Lib.swift",
+            "/Root/Sources/App/main.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_2,
+                    targets: [
+                        TargetDescription(
+                            name: "Lib",
+                            settings: [
+                                .init(tool: .linker, kind: .unsafeFlags(["-L", "/ReleaseOnly"]), condition: .init(config: "release")),
+                                .init(tool: .linker, kind: .unsafeFlags(["-L", "/DebugOnly"]), condition: .init(config: "debug")),
+                                .init(tool: .linker, kind: .unsafeFlags(["-L", "/Always"])),
+                            ]
+                        ),
+                        TargetDescription(name: "App", dependencies: ["Lib"], type: .executable),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let libConfig = try pif.workspace
+            .project(named: "Root")
+            .target(id: "PACKAGE-TARGET:Lib")
+            .buildConfig(named: configuration)
+        let imparted = try #require(libConfig.impartedBuildProperties.settings[.OTHER_LDFLAGS])
+
+        #expect(imparted.contains("/Always"))
+        switch configuration {
+        case .debug:
+            #expect(imparted.contains("/DebugOnly"))
+            #expect(!imparted.contains("/ReleaseOnly"), "Debug config imparts release-only flags: \(imparted)")
+        case .release:
+            #expect(imparted.contains("/ReleaseOnly"))
+            #expect(!imparted.contains("/DebugOnly"), "Release config imparts debug-only flags: \(imparted)")
+        }
+    }
+
     @Test(.skipHostOS(.linux, "linux does not support C-family test targets"), arguments: BuildConfiguration.allCases)
     func testProductsPassModuleNameToClang(configuration: BuildConfiguration) async throws {
         let observability = ObservabilitySystem.makeForTesting()
