@@ -13,6 +13,7 @@
 import Foundation
 import TSCBasic
 import TSCUtility
+import SWBUtil
 
 import struct Basics.AbsolutePath
 import class Basics.ObservabilitySystem
