@@ -695,6 +695,10 @@ extension Workspace {
             currentTraits = allManifests.mapValues { self.enabledTraitsMap[$0].names }
         }
 
+        // Now that every parent has registered its edges, each package's enabled traits are final
+        // and can be reported on.
+        self.reportTraitFallbacks(for: allManifests.values, observabilityScope: observabilityScope)
+
         let dependencyManifests = allNodes.filter { !$0.value.manifest.packageKind.isRoot }
 
         // TODO: this check should go away when introducing explicit overrides
