@@ -74,14 +74,22 @@ struct BridgingHeaderTests {
     @Test(
         .requiresGeneratedHeaderUnderlyingModuleIncludeBase,
         .requiresBridgingHeaderManifestSupport,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10781", relationship: .defect),
     )
     func bridgingHeaderWithUnderlyingClangModule() async throws {
+        try await withKnownIssue(
+            "https://github.com/swiftlang/swift-package-manager/issues/10781",
+            isIntermittent: true,
+        ) {
         try await fixture(name: "Miscellaneous/BridgingHeaderWithClangModule") { fixturePath in
             _ = try await executeSwiftBuild(
                 fixturePath,
                 configuration: .debug,
                 buildSystem: .swiftbuild,
             )
+        }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
