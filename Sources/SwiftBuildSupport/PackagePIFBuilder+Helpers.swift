@@ -717,7 +717,12 @@ extension PackageGraph.ResolvedModule {
     /// Collect the build settings defined in the package manifest.
     /// Some of them apply *only* to the target itself, while others are also imparted to clients.
     /// Note that the platform is *optional*; unconditional settings have no platform condition.
-    func computeAllBuildSettings(observabilityScope: ObservabilityScope, forRemotePackage: Bool) -> AllBuildSettings {
+    func computeAllBuildSettings(
+        observabilityScope: ObservabilityScope,
+        forRemotePackage: Bool,
+        toolsVersion: ToolsVersion
+    ) -> AllBuildSettings {
+        let impartsLinkerSettings = toolsVersion < .vNext
         var allSettings = AllBuildSettings()
 
         for (declaration, settingsAssigments) in self.underlying.buildSettings.assignments.sorted(by: { $0.key < $1.key }) {
@@ -800,7 +805,7 @@ extension PackageGraph.ResolvedModule {
                     // TODO: Doing that for the PREBUILT_LIBRARIES was causing duplicate library warnings.
                     if let multipleValueSetting = multipleValueSetting,
                         declaration != .PREBUILT_LIBRARIES,
-                        (multipleValueSetting == .OTHER_LDFLAGS || declaration == .PREBUILT_INCLUDE_PATHS) {
+                        ((impartsLinkerSettings && multipleValueSetting == .OTHER_LDFLAGS) || declaration == .PREBUILT_INCLUDE_PATHS) {
                         allSettings.impartedMultipleValueSettings[pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
                     }
 

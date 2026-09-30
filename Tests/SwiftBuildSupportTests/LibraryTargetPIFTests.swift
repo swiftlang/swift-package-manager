@@ -74,6 +74,7 @@ struct LibraryTargetPIFTests {
 
     private func makeProject(
         files: [String] = LibraryTargetPIFTests.files,
+        toolsVersion: ToolsVersion = .vNext,
         targets: [TargetDescription],
         products: [ProductDescription] = [],
         dependencies: [PackageDependency] = [],
@@ -88,7 +89,7 @@ struct LibraryTargetPIFTests {
                 Manifest.createRootManifest(
                     displayName: Self.packageName,
                     path: Self.packagePath,
-                    toolsVersion: .vNext,
+                    toolsVersion: toolsVersion,
                     dependencies: dependencies,
                     products: products,
                     targets: targets,
@@ -326,6 +327,142 @@ struct LibraryTargetPIFTests {
             )
         }
     }
+
+    private static let linkerSettings: [TargetBuildSettingDescription.Setting] = [
+        .init(tool: .linker, kind: .linkedLibrary("z")),
+        .init(tool: .linker, kind: .linkedFramework("Foo")),
+        .init(tool: .linker, kind: .unsafeFlags(["-Xlinker", "-bar"])),
+    ]
+
+    private static func expectLinkerSettings(
+        in flags: [String]?,
+        sourceLocation: Testing.SourceLocation = #_sourceLocation
+    ) {
+        let flags = flags ?? []
+        #expect(flags.contains("-lz"), "missing linked library in \(flags)", sourceLocation: sourceLocation)
+        #expect(flags.contains(["-framework", "Foo"]), "missing linked framework in \(flags)", sourceLocation: sourceLocation)
+        #expect(flags.contains(["-Xlinker", "-bar"]), "missing unsafe flags in \(flags)", sourceLocation: sourceLocation)
+    }
+
+    private static func expectNoLinkerSettings(
+        in flags: [String]?,
+        sourceLocation: Testing.SourceLocation = #_sourceLocation
+    ) {
+        let flags = flags ?? []
+        #expect(!flags.contains("-lz"), "unexpected linked library in \(flags)", sourceLocation: sourceLocation)
+        #expect(!flags.contains("Foo"), "unexpected linked framework in \(flags)", sourceLocation: sourceLocation)
+        #expect(!flags.contains("-bar"), "unexpected unsafe flags in \(flags)", sourceLocation: sourceLocation)
+    }
+
+    @Test(arguments: BuildConfiguration.allCases)
+    func olderToolsVersionsImpartsLinkerSettings(configuration: BuildConfiguration) async throws {
+        let project = try await makeProject(
+            files: ["/LibraryTargets/Sources/Lib/Lib.swift", "/LibraryTargets/Sources/Tool/main.swift"],
+            toolsVersion: .v6_2,
+            targets: [
+                try TargetDescription(name: "Lib", settings: Self.linkerSettings),
+                try TargetDescription(name: "Tool", dependencies: ["Lib"], type: .executable),
+            ]
+        )
+
+        let config = try project.requireStandardTarget(named: "Lib").buildConfig(named: configuration)
+        Self.expectLinkerSettings(in: config.settings[.OTHER_LDFLAGS])
+        Self.expectLinkerSettings(in: config.impartedBuildProperties.settings[.OTHER_LDFLAGS])
+    }
+
+    @Test(arguments: BuildConfiguration.allCases)
+    func targetDoesNotImpartLinkerSettings(configuration: BuildConfiguration) async throws {
+        let project = try await makeProject(
+            files: ["/LibraryTargets/Sources/Lib/Lib.swift", "/LibraryTargets/Sources/Tool/main.swift"],
+            targets: [
+                try TargetDescription(name: "Lib", settings: Self.linkerSettings),
+                try TargetDescription(name: "Tool", dependencies: ["Lib"], type: .executable),
+            ]
+        )
+
+        let libConfig = try project.requireStandardTarget(named: "Lib").buildConfig(named: configuration)
+        Self.expectLinkerSettings(in: libConfig.settings[.OTHER_LDFLAGS])
+        Self.expectNoLinkerSettings(in: libConfig.impartedBuildProperties.settings[.OTHER_LDFLAGS])
+
+        let toolConfig = try project.requireStandardTarget(productType: .executable).buildConfig(named: configuration)
+        Self.expectNoLinkerSettings(in: toolConfig.settings[.OTHER_LDFLAGS])
+    }
+
+    @Test(arguments: BuildConfiguration.allCases)
+    func executableTargetAppliesLinkerSettings(configuration: BuildConfiguration) async throws {
+        let project = try await makeProject(
+            files: ["/LibraryTargets/Sources/Tool/main.swift"],
+            targets: [
+                try TargetDescription(name: "Tool", type: .executable, settings: Self.linkerSettings),
+            ]
+        )
+
+        let config = try project.requireStandardTarget(productType: .executable).buildConfig(named: configuration)
+        Self.expectLinkerSettings(in: config.settings[.OTHER_LDFLAGS])
+        Self.expectNoLinkerSettings(in: config.impartedBuildProperties.settings[.OTHER_LDFLAGS])
+    }
+
+    @Test(arguments: BuildConfiguration.allCases)
+    func testTargetAppliesLinkerSettings(configuration: BuildConfiguration) async throws {
+        let project = try await makeProject(
+            files: ["/LibraryTargets/Tests/LibTests/LibTests.swift"],
+            targets: [
+                try TargetDescription(name: "LibTests", type: .test, settings: Self.linkerSettings),
+            ]
+        )
+
+        let config = try project.requireStandardTarget(productType: .unitTest).buildConfig(named: configuration)
+        Self.expectLinkerSettings(in: config.settings[.OTHER_LDFLAGS])
+        Self.expectNoLinkerSettings(in: config.impartedBuildProperties.settings[.OTHER_LDFLAGS])
+    }
+
+    @Test(arguments: [ProductType.LibraryType.static, .dynamic, .automatic], BuildConfiguration.allCases)
+    func libraryTargetWithSourcesAppliesLinkerSettings(
+        type: ProductType.LibraryType,
+        configuration: BuildConfiguration
+    ) async throws {
+        let project = try await makeProject(
+            files: ["/LibraryTargets/Sources/Lib/Lib.swift", "/LibraryTargets/Sources/Tool/main.swift"],
+            targets: [
+                try TargetDescription(name: "Lib", type: .library(type), settings: Self.linkerSettings),
+                try TargetDescription(name: "Tool", dependencies: ["Lib"], type: .executable),
+            ]
+        )
+
+        let libConfig = try project.requireStandardTarget(named: "Lib").buildConfig(named: configuration)
+        Self.expectLinkerSettings(in: libConfig.settings[.OTHER_LDFLAGS])
+        Self.expectNoLinkerSettings(in: libConfig.impartedBuildProperties.settings[.OTHER_LDFLAGS])
+
+        let toolConfig = try project.requireStandardTarget(productType: .executable).buildConfig(named: configuration)
+        Self.expectNoLinkerSettings(in: toolConfig.settings[.OTHER_LDFLAGS])
+    }
+
+    @Test(arguments: [ProductType.LibraryType.static, .dynamic, .automatic], BuildConfiguration.allCases)
+    func aggregateLibraryTargetAppliesLinkerSettings(
+        type: ProductType.LibraryType,
+        configuration: BuildConfiguration
+    ) async throws {
+        let project = try await makeProject(
+            files: ["/LibraryTargets/Sources/Member/Member.swift", "/LibraryTargets/Sources/Tool/main.swift"],
+            targets: [
+                try TargetDescription(name: "Member"),
+                try TargetDescription(
+                    name: "Lib",
+                    dependencies: ["Member"],
+                    type: .library(type),
+                    settings: Self.linkerSettings
+                ),
+                try TargetDescription(name: "Tool", dependencies: ["Lib"], type: .executable),
+            ]
+        )
+
+        let libConfig = try project.requireStandardTarget(named: "Lib").buildConfig(named: configuration)
+        Self.expectLinkerSettings(in: libConfig.settings[.OTHER_LDFLAGS])
+        Self.expectNoLinkerSettings(in: libConfig.impartedBuildProperties.settings[.OTHER_LDFLAGS])
+
+        let toolConfig = try project.requireStandardTarget(productType: .executable).buildConfig(named: configuration)
+        Self.expectNoLinkerSettings(in: toolConfig.settings[.OTHER_LDFLAGS])
+    }
 }
 
 extension SwiftBuildSupport.PIF.Project {
@@ -341,6 +478,18 @@ extension SwiftBuildSupport.PIF.Project {
             "expected exactly one target named '\(name)', found \(matches.count); found: \(underlying.targets.map(\.common.name))",
         )
         return try target.asStandardTarget()
+    }
+
+    fileprivate func requireStandardTarget(
+        productType: ProjectModel.Target.ProductType
+    ) throws -> ProjectModel.Target {
+        let matches = underlying.targets.compactMap { try? $0.asStandardTarget() }.filter {
+            $0.productType == productType
+        }
+        return try #require(
+            matches.only,
+            "expected exactly one target of type '\(productType)', found \(matches.count); found: \(underlying.targets.map(\.common.name))",
+        )
     }
 
     fileprivate func requireStandardTarget(withID id: ProjectModel.GUID) throws -> ProjectModel.Target {

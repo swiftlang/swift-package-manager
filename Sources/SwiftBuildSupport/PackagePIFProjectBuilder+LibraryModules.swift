@@ -115,12 +115,23 @@ extension PackagePIFProjectBuilder {
             settings: &settings
         )
 
+        var debugSettings = settings
+        var releaseSettings = settings
+
+        let allBuildSettings = libraryModule.computeAllBuildSettings(
+            observabilityScope: pifBuilder.observabilityScope,
+            forRemotePackage: pifBuilder.delegate.isRemote,
+            toolsVersion: package.manifest.toolsVersion
+        )
+        allBuildSettings.apply(to: &debugSettings, for: .debug)
+        allBuildSettings.apply(to: &releaseSettings, for: .release)
+
         var target = self.project[keyPath: targetKeyPath]
         target.common.addBuildConfig { id in
-            BuildConfig(id: id, name: "Debug", settings: settings)
+            BuildConfig(id: id, name: "Debug", settings: debugSettings)
         }
         target.common.addBuildConfig { id in
-            BuildConfig(id: id, name: "Release", settings: settings)
+            BuildConfig(id: id, name: "Release", settings: releaseSettings)
         }
         self.project[keyPath: targetKeyPath] = target
 

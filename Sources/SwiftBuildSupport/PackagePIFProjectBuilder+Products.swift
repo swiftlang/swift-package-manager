@@ -569,7 +569,11 @@ extension PackagePIFProjectBuilder {
         var releaseSettings: ProjectModel.BuildSettings = settings
 
         // Apply target-specific build settings defined in the manifest.
-        let allBuildSettings = mainModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
+        let allBuildSettings = mainModule.computeAllBuildSettings(
+            observabilityScope: pifBuilder.observabilityScope,
+            forRemotePackage: pifBuilder.delegate.isRemote,
+            toolsVersion: package.manifest.toolsVersion
+        )
 
         // Apply settings using the convenience methods
         allBuildSettings.apply(to: &debugSettings, for: .debug)
@@ -1060,7 +1064,11 @@ extension PackagePIFProjectBuilder {
         // of e.g. linker settings specify a linked library external to the package.
         var debugSettings: ProjectModel.BuildSettings = settings
         var releaseSettings: ProjectModel.BuildSettings = settings
-        let allBuildSettings = unitTestModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
+        let allBuildSettings = unitTestModule.computeAllBuildSettings(
+            observabilityScope: pifBuilder.observabilityScope,
+            forRemotePackage: pifBuilder.delegate.isRemote,
+            toolsVersion: package.manifest.toolsVersion
+        )
         allBuildSettings.apply(to: &debugSettings, for: .debug)
         allBuildSettings.apply(to: &releaseSettings, for: .release)
 
