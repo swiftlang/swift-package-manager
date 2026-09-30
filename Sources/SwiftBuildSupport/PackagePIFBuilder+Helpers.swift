@@ -725,7 +725,12 @@ extension PackageGraph.ResolvedModule {
     /// Collect the build settings defined in the package manifest.
     /// Some of them apply *only* to the target itself, while others are also imparted to clients.
     /// Note that the platform is *optional*; unconditional settings have no platform condition.
-     func computeAllBuildSettings(observabilityScope: ObservabilityScope, forRemotePackage: Bool) throws -> AllBuildSettings {
+    func computeAllBuildSettings(
+        observabilityScope: ObservabilityScope,
+        forRemotePackage: Bool,
+        toolsVersion: ToolsVersion
+    ) throws -> AllBuildSettings {
+        let impartsLinkerSettings = toolsVersion < .vNext
         var allSettings = AllBuildSettings()
 
         for (declaration, settingsAssigments) in self.underlying.buildSettings.assignments.sorted(by: { $0.key < $1.key }) {
@@ -817,7 +822,7 @@ extension PackageGraph.ResolvedModule {
                         } else {
                             // Handle imparted settings for OTHER_LDFLAGS and prebuilts include paths (always multiple values)
                             // TODO: Do we realy need to impart OTHER_LDFLAGS?
-                            if let multipleValueSetting = multipleValueSetting, multipleValueSetting == .OTHER_LDFLAGS {
+                            if let multipleValueSetting = multipleValueSetting, (impartsLinkerSettings && multipleValueSetting == .OTHER_LDFLAGS) {
                                 allSettings.impartedMultipleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
                             }
 

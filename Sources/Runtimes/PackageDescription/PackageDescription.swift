@@ -507,7 +507,7 @@ public final class Package {
         self.platforms = platforms
         self.pkgConfig = pkgConfig
         self.providers = providers
-        self.products = products
+        self.productsStorage = products
         self.traits = traits
         self.dependencies = dependencies
         self.targets = targets
