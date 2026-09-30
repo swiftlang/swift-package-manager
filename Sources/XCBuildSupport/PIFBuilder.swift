@@ -414,6 +414,8 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         case .macro:
             // Macros are not supported when using XCBuild, similar to package plugins.
             return
+        case .libraryAggregate:
+            throw StringError(LibraryModule.unsupportedMessage(target.name))
         }
     }
 
@@ -1613,7 +1615,7 @@ extension ProductType {
         case .test:
             .test
         case .library:
-            .library
+            .library(libraryType: .object)
         case .plugin:
             .plugin
         case .macro:

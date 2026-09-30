@@ -41,7 +41,7 @@ struct SBOMExtractScopeTests {
         ),
         ProductScopeTestCase(
             productType: .library(.automatic),
-            moduleType: .library,
+            moduleType: .library(libraryType: .object),
             expectedScope: .runtime,
             description: "library"
         ),
@@ -123,7 +123,7 @@ struct SBOMExtractScopeTests {
             let product = try SBOMTestModulesGraph.createProduct(
                 name: "Product\(index)",
                 type: productType,
-                moduleType: moduleType ?? .library
+                moduleType: moduleType ?? .library(libraryType: .object)
             )
             products.append(product)
         }

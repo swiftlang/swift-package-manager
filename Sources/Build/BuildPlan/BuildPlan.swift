@@ -258,6 +258,23 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
         self.shouldDisableSandbox = disableSandbox
         self.fileSystem = fileSystem
 
+        let libraryTargets = graph.reachableModules.filter {
+            switch $0.type {
+            case .executable, .systemModule, .test, .binary, .plugin, .snippet, .macro:
+                false
+            case .library(libraryType: .object):
+                false
+            case .library, .libraryAggregate:
+                true
+            }
+        }
+        if !libraryTargets.isEmpty {
+            for module in libraryTargets.sorted(by: { $0.name < $1.name }) {
+                observabilityScope.emit(error: LibraryModule.unsupportedMessage(module.name))
+            }
+            throw Diagnostics.fatalError
+        }
+
         var buildToolPluginInvocationResults: [ResolvedModule.ID: [BuildToolPluginInvocationResult]] = [:]
         var prebuildCommandResults: [ResolvedModule.ID: [CommandPluginResult]] = [:]
 

@@ -262,9 +262,21 @@ private func checkAllDependenciesAreUsed(
                         return product.name
                     }
                     return nil
-                case .module:
+                case .module, .externalModule:
                     return nil
                 }
+            }
+        })
+
+        // List all packages whose modules are directly depended on by this package's modules.
+        let moduleDependencyPackages = Set(package.modules.flatMap { module in
+            module.dependencies.compactMap { moduleDependency -> PackageIdentity? in
+                guard case .module(let dependencyModule, _) = moduleDependency,
+                      dependencyModule.packageIdentity != package.identity
+                else {
+                    return nil
+                }
+                return dependencyModule.packageIdentity
             }
         })
 
@@ -306,6 +318,10 @@ private func checkAllDependenciesAreUsed(
                 description: "Package Dependency Validation",
                 metadata: package.underlying.diagnosticsMetadata
             )
+
+            if moduleDependencyPackages.contains(dependency.identity) {
+                continue
+            }
 
             // Otherwise emit a warning if none of the dependency package's products are used.
             let dependencyIsUsed = dependency.products.contains { product in
@@ -594,8 +610,7 @@ private func createResolvedPackages(
         }
         packageBuilder.modules = moduleBuilders
 
-        // Establish dependencies between the modules. A module can only depend on another module present in the same
-        // package.
+        // Establish dependencies between the modules in the package.
         let modulesMap = moduleBuilders.spm_createDictionary { ($0.module, $0) }
         for moduleBuilder in moduleBuilders {
             moduleBuilder.dependencies += try moduleBuilder.module.dependencies.compactMap { dependency in
@@ -610,7 +625,7 @@ private func createResolvedPackages(
                         dependencyBuilder.isTestSupportModule = true
                     }
                     return .module(dependencyBuilder, conditions: conditions)
-                case .product:
+                case .product, .externalModule:
                     return nil
                 }
             }
@@ -738,10 +753,79 @@ private func createResolvedPackages(
             )
         }
 
+        let dependencyPackageMap: [String: ResolvedPackageBuilder] = Dictionary(
+            packageBuilder.dependencies.compactMap { dependency in
+                guard let name = packageBuilder
+                    .dependencyNamesForModuleDependencyResolutionOnly[dependency.package.identity]
+                else {
+                    return nil
+                }
+                return (name.lowercased(), dependency)
+            },
+            uniquingKeysWith: { lhs, _ in lhs }
+        )
+
+        func findPublicModule(named name: String, inPackageNamed packageName: String) -> ResolvedModuleBuilder? {
+            let candidatePackages: [ResolvedPackageBuilder] = dependencyPackageMap[packageName.lowercased()].map { [$0] } ?? []
+            let matches = candidatePackages.compactMap { candidate in
+                candidate.modules.first { $0.module.name == name && $0.module.visibility == .public }
+            }
+            return matches.spm_only
+        }
+
         // Establish dependencies in each module.
         for moduleBuilder in packageBuilder.modules {
             // Directly add all the system module dependencies.
             moduleBuilder.dependencies += implicitSystemLibraryDeps.map { .module($0, conditions: []) }
+
+            // Add dependencies on targets in other packages.
+            for case .externalModule(let moduleRef, let conditions) in moduleBuilder.module.dependencies {
+                guard let dependencyPackage = dependencyPackageMap[moduleRef.package.lowercased()] else {
+                    packageObservabilityScope.emit(
+                        PackageGraphError.externalModuleDependencyPackageNotFound(
+                            moduleName: moduleRef.name,
+                            dependentModuleName: moduleBuilder.module.name,
+                            packageName: moduleRef.package
+                        )
+                    )
+                    continue
+                }
+
+                guard let dependencyBuilder = dependencyPackage.modules.first(where: { $0.module.name == moduleRef.name }) else {
+                    packageObservabilityScope.emit(
+                        PackageGraphError.externalModuleDependencyNotFound(
+                            moduleName: moduleRef.name,
+                            dependentModuleName: moduleBuilder.module.name,
+                            packageName: moduleRef.package
+                        )
+                    )
+                    continue
+                }
+
+                guard dependencyBuilder.module.visibility == .public else {
+                    packageObservabilityScope.emit(
+                        PackageGraphError.externalModuleDependencyNotPublic(
+                            moduleName: moduleRef.name,
+                            dependentModuleName: moduleBuilder.module.name,
+                            packageName: moduleRef.package
+                        )
+                    )
+                    continue
+                }
+
+                if let moduleAliases = moduleRef.moduleAliases, !moduleAliases.isEmpty {
+                    packageObservabilityScope.emit(
+                        PackageGraphError.moduleAliasesUnsupportedForExternalModuleDependency(
+                            moduleName: moduleRef.name,
+                            dependentModuleName: moduleBuilder.module.name
+                        )
+                    )
+                    continue
+                }
+
+                try moduleBuilder.module.validateDependency(module: dependencyBuilder.module)
+                moduleBuilder.dependencies.append(.module(dependencyBuilder, conditions: conditions))
+            }
 
             // Establish product dependencies.
             for case .product(let productRef, let conditions) in moduleBuilder.module.dependencies {
@@ -750,6 +834,25 @@ private func createResolvedPackages(
                 let product = lookupByProductIDs ? productDependencyMap[productRef.identity] :
                     productDependencyMap[productRef.name]
                 guard let product else {
+                    // If the package doesn't declare a product with this name, fall back to a
+                    // target of the same name with public visibility. This allows a package to
+                    // migrate from products to public targets without breaking clients.
+                    if let package = productRef.package, let fallbackModuleBuilder = findPublicModule(
+                        named: productRef.name,
+                        inPackageNamed: package
+                    ) {
+                        if let moduleAliases = productRef.moduleAliases, !moduleAliases.isEmpty {
+                            packageObservabilityScope.emit(
+                                PackageGraphError.moduleAliasesUnsupportedForExternalModuleDependency(moduleName: productRef.name, dependentModuleName: moduleBuilder.module.name)
+                            )
+                            continue
+                        }
+
+                        try moduleBuilder.module.validateDependency(module: fallbackModuleBuilder.module)
+                        moduleBuilder.dependencies.append(.module(fallbackModuleBuilder, conditions: conditions))
+                        continue
+                    }
+
                     // Only emit a diagnostic if there are no other diagnostics.
                     // This avoids flooding the diagnostics with product not
                     // found errors when there are more important errors to
@@ -885,8 +988,10 @@ private func createResolvedPackages(
                 switch $0 {
                 case .product(let productBuilder, conditions: _):
                     return productBuilder.moduleBuilders.map { KeyedPair($0, key: $0.module) }
-                case .module:
-                    return [] // local modules were checked by PackageBuilder.
+                case .module(let moduleBuilder, conditions: _):
+                    // Dependencies on modules in the same package were checked by PackageBuilder,
+                    // but a dependency on a target in another package can still introduce a cycle.
+                    return [KeyedPair(moduleBuilder, key: moduleBuilder.module)]
                 }
             }
         }) {
@@ -1550,13 +1655,19 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
 
 extension Module {
     func validateDependency(module: Module) throws {
-        if self.type == .plugin && module.type == .library {
-            throw PackageGraphError.unsupportedPluginDependency(
-                moduleName: self.name,
-                dependencyName: module.name,
-                dependencyType: module.type.rawValue,
-                dependencyPackage: nil
-            )
+        if self.type == .plugin {
+            switch module.type {
+            case .executable, .systemModule, .test, .binary, .plugin, .snippet, .macro:
+                break
+            case .library, .libraryAggregate:
+                // FIXME: Should this apply to plugin, systemModule, binary, and macro as well?
+                throw PackageGraphError.unsupportedPluginDependency(
+                    moduleName: self.name,
+                    dependencyName: module.name,
+                    dependencyType: module.type.rawValue,
+                    dependencyPackage: nil
+                )
+            }
         }
     }
 

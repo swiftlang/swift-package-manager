@@ -339,13 +339,14 @@ public final class Manifest: Sendable {
         let productsByName = Dictionary(products.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
         let targetsByName = Dictionary(targets.map { ($0.name, $0) }, uniquingKeysWith: { $1 })
         let productTargetNames = products.flatMap(\.targets)
+            + self.targets.lazy.filter { $0.visibility == .public }.map(\.name)
 
         let dependentTargetNames = transitiveClosure(productTargetNames, successors: { targetName in
 
             if let target = targetsByName[targetName] {
                 let dependencies: [String] = target.dependencies.compactMap { dependency in
                     switch dependency {
-                    case .target(let name, _),
+                    case .target(let name, package: nil, _, _),
                          .byName(let name, _):
                         targetsByName.keys.contains(name) ? name : nil
                     default:
@@ -436,7 +437,8 @@ public final class Manifest: Sendable {
         let packageName: String
 
         switch targetDependency {
-        case .product(_, package: let name?, _, _),
+        case .target(_, package: let name?, _, _),
+             .product(_, package: let name?, _, _),
              .byName(name: let name, _):
             packageName = name
         default:
@@ -491,8 +493,15 @@ public final class Manifest: Sendable {
         availablePackages: Set<PackageIdentity>
     ) {
         switch targetDependency {
-        case .target:
+        case .target(_, package: nil, _, _):
             break
+        case .target(let target, package: let package?, _, _):
+            let identity = self.packageIdentity(referencedBy: package)
+            if availablePackages.contains(identity) {
+                registry.known[identity, default: .nothing].formUnion(.nothing)
+            } else {
+                registry.unknown.insert(target)
+            }
         case .product(let product, let package, _, _):
             if let package { // ≥ 5.2
                 if !self.register(

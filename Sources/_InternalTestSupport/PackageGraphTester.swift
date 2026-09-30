@@ -160,14 +160,14 @@ public final class ResolvedTargetResult {
     public func checkDependency(
         _ name: String,
         sourceLocation: SourceLocation = #_sourceLocation,
-        body: (ResolvedTargetDependencyResult) -> Void
+        body: (ResolvedTargetDependencyResult) throws -> Void
     ) throws {
         let dependency = try #require(
             target.dependencies.first(where: { $0.name == name }),
             "Dependency \(name) not found",
             sourceLocation: sourceLocation,
         )
-        body(ResolvedTargetDependencyResult(dependency))
+        try body(ResolvedTargetDependencyResult(dependency))
     }
 
     public func check(type: Module.Kind, sourceLocation: SourceLocation = #_sourceLocation) {

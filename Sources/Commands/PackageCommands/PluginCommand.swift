@@ -408,11 +408,16 @@ struct PluginCommand: AsyncSwiftCommand {
             graph.package(for: $0)
         }
 
-        let directDependencyPluginTargets = directDependencyPackages.flatMap { $0.products.filter { $0.type == .plugin } }.flatMap { $0.modules }
+        let directDependencyProductPluginTargets = directDependencyPackages.flatMap { $0.products.filter { $0.type == .plugin } }.flatMap { $0.modules }
+        let directDependencyPublicPluginTargets = directDependencyPackages.flatMap {
+            $0.modules.filter { $0.underlying.visibility == .public }
+        }
         // As well as any plugin targets in root packages.
         let rootPackageTargets = graph.rootPackages.filter { $0.identity.matching(identity: packageIdentity) }.flatMap { $0.modules }
-        return (directDependencyPluginTargets + rootPackageTargets).filter {
-            guard let plugin = $0.underlying as? PluginModule else {
+
+        var seen = Set<ResolvedModule.ID>()
+        return (directDependencyProductPluginTargets + directDependencyPublicPluginTargets + rootPackageTargets).filter {
+            guard let plugin = $0.underlying as? PluginModule, seen.insert($0.id).inserted else {
                 return false
             }
 

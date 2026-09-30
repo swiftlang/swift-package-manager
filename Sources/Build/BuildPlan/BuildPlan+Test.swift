@@ -156,7 +156,7 @@ extension BuildPlan {
 
                 let entryPointTarget = SwiftModule(
                     name: testProduct.name,
-                    type: .library,
+                    type: .library(libraryType: .object),
                     dependencies: testProduct.underlying.modules.map { .module($0, conditions: []) } + swiftTargetDependencies,
                     packageAccess: true, // test target is allowed access to package decls
                     testEntryPointSources: entryPointSources,

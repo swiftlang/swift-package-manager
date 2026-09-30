@@ -30,7 +30,8 @@ public final class SystemLibraryModule: Module {
         path: AbsolutePath,
         isImplicit: Bool = true,
         pkgConfig: String? = nil,
-        providers: [SystemPackageProviderDescription]? = nil
+        providers: [SystemPackageProviderDescription]? = nil,
+        visibility: TargetDescription.TargetVisibility = .package
     ) {
         let sources = Sources(paths: [], root: path)
         self.pkgConfig = pkgConfig
@@ -46,7 +47,8 @@ public final class SystemLibraryModule: Module {
             buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false,
-            implicit: isImplicit
+            implicit: isImplicit,
+            visibility: visibility
         )
     }
 }

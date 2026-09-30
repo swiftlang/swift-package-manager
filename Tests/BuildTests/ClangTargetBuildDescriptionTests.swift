@@ -58,7 +58,7 @@ final class ClangTargetBuildDescriptionTests: XCTestCase {
             cxxLanguageStandard: nil,
             includeDir: .root,
             moduleMapType: .none,
-            type: .library,
+            type: .library(libraryType: .object),
             path: .root,
             sources: .init(paths: [.root.appending(component: "foo.c")], root: .root),
             usesUnsafeFlags: false,

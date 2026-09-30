@@ -213,8 +213,13 @@ extension Serialization.TargetDependency.Condition {
 extension Serialization.TargetDependency {
     init(_ dependency: PackageDescription.Target.Dependency) {
         switch dependency {
-        case .targetItem(let name, let condition):
-            self = .target(name: name, condition: condition.map { .init($0) })
+        case .targetItem(let name, let package, let moduleAliases, let condition):
+            self = .target(
+                name: name,
+                package: package,
+                moduleAliases: moduleAliases,
+                condition: condition.map { .init($0) }
+            )
         case .productItem(let name, let package, let moduleAliases, let condition):
             self = .product(
                 name: name,
@@ -238,6 +243,25 @@ extension Serialization.TargetType {
         case .binary: self = .binary
         case .plugin: self = .plugin
         case .macro: self = .macro
+        case .library: self = .library
+        }
+    }
+}
+
+extension Serialization.LibraryType {
+    init(_ type: PackageDescription.LibraryType) {
+        switch type {
+        case .dynamic: self = .dynamic
+        case .static: self = .static
+        }
+    }
+}
+
+extension Serialization.TargetVisibility {
+    init(_ visibility: PackageDescription.TargetVisibility) {
+        switch visibility {
+        case .public: self = .public
+        case .package: self = .package
         }
     }
 }
@@ -308,6 +332,8 @@ extension Serialization.Target {
         self.dependencies = target.dependencies.map { .init($0) }
         self.publicHeadersPath = target.publicHeadersPath
         self.type = .init(target.type)
+        self.libraryType = target.libraryType.map { .init($0) }
+        self.visibility = .init(target.visibility)
         self.pkgConfig = target.pkgConfig
         self.providers = target.providers?.map { .init($0) }
         self.pluginCapability = target.pluginCapability.map { .init($0) }
@@ -333,15 +359,6 @@ extension Serialization.Resource.Localization {
         switch localization {
         case .base: self = .base
         case .default: self = .default
-        }
-    }
-}
-
-extension Serialization.Product.ProductType.LibraryType {
-    init(_ type: PackageDescription.Product.Library.LibraryType) {
-        switch type {
-        case .dynamic: self = .dynamic
-        case .static: self = .static
         }
     }
 }
@@ -404,7 +421,7 @@ extension Serialization.Package {
         self.pkgConfig = package.pkgConfig
         self.providers = package.providers?.map { .init($0) }
         self.targets = package.targets.map { .init($0) }
-        self.products = package.products.map { .init($0) }
+        self.products = package.productsStorage.map { .init($0) }
         self.traits = package.traits.map { Serialization.Trait($0) }
             .sorted { $0.name < $1.name }
         self.dependencies = package.dependencies.map { .init($0) }

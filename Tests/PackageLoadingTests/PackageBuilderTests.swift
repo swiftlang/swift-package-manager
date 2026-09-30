@@ -38,7 +38,7 @@ struct PackageBuilderTests {
         )
         try PackageBuilderTester(manifest, in: fs) { package, _ in
             try package.checkModule("foo") { module in
-                module.check(c99name: "foo", type: .library)
+                module.check(c99name: "foo", type: .library(libraryType: .object))
                 module.checkSources(root: "/Sources/foo", paths: "Foo.swift")
             }
         }
@@ -59,7 +59,7 @@ struct PackageBuilderTests {
         )
         try PackageBuilderTester(manifest, in: fs) { package, _ in
             try package.checkModule("foo") { module in
-                module.check(c99name: "foo", type: .library)
+                module.check(c99name: "foo", type: .library(libraryType: .object))
                 module.checkSources(root: "/Sources/foo", paths: "Foo.swift")
                 module.checkResources(resources: [])
             }
@@ -261,7 +261,7 @@ struct PackageBuilderTests {
         )
         try PackageBuilderTester(manifest, in: fs) { package, _ in
             try package.checkModule(name) { module in
-                module.check(c99name: name, type: .library)
+                module.check(c99name: name, type: .library(libraryType: .object))
                 module.checkSources(root: "/Sources/Foo", paths: "Package.swift", "Package@swift-1.swift")
             }
         }
@@ -283,7 +283,7 @@ struct PackageBuilderTests {
         )
         try PackageBuilderTester(manifest, in: fs) { package, _ in
             try package.checkModule("clib") { module in
-                module.check(c99name: "clib", type: .library)
+                module.check(c99name: "clib", type: .library(libraryType: .object))
                 module.checkSources(root: "/Sources/clib", paths: "clib.c")
                 module.check(moduleMapType: .custom("/Sources/clib/include/module.modulemap"))
             }
@@ -321,7 +321,7 @@ struct PackageBuilderTests {
                 severity: .warning
             )
             try package.checkModule("clib") { module in
-                module.check(c99name: "clib", type: .library)
+                module.check(c99name: "clib", type: .library(libraryType: .object))
                 module.checkSources(root: Sources.pathString, paths: RelativePath("clib").appending(components: "clib.c").pathString, RelativePath("clib").appending(components: "clib2.c").pathString, RelativePath("clib").appending(components: "nested", "nested.c").pathString)
                 module.check(moduleMapType: .umbrellaHeader(Sources.appending(components: "clib", "clib.h")))
             }
@@ -598,7 +598,7 @@ struct PackageBuilderTests {
             )
             try PackageBuilderTester(manifest, in: fs) { package, _ in
                 try package.checkModule("exe") { module in
-                    module.check(c99name: "exe", type: .library)
+                    module.check(c99name: "exe", type: .library(libraryType: .object))
                     module.checkSources(root: "/swift/exe", paths: "foo.swift")
                 }
 
@@ -752,17 +752,17 @@ struct PackageBuilderTests {
             }
 
             try package.checkModule("clib") { module in
-                module.check(c99name: "clib", type: .library)
+                module.check(c99name: "clib", type: .library(libraryType: .object))
                 module.checkSources(root: "/mah/target/exe", paths: "foo.c")
             }
 
             try package.checkModule("foo") { module in
-                module.check(c99name: "foo", type: .library)
+                module.check(c99name: "foo", type: .library(libraryType: .object))
                 module.checkSources(root: "/Sources/foo", paths: "foo.swift")
             }
 
             try package.checkModule("bar") { module in
-                module.check(c99name: "bar", type: .library)
+                module.check(c99name: "bar", type: .library(libraryType: .object))
                 module.checkSources(root: bar.pathString, paths: RelativePath("bar").appending(components: "foo.swift").pathString)
             }
 
@@ -812,7 +812,7 @@ struct PackageBuilderTests {
             package.checkPredefinedPaths(target: "/Sources", testTarget: "/Tests")
 
             try package.checkModule("bar") { module in
-                module.check(c99name: "bar", type: .library)
+                module.check(c99name: "bar", type: .library(libraryType: .object))
                 module.checkSources(root: "/target/bar", paths: "bar.swift")
             }
 
@@ -857,14 +857,14 @@ struct PackageBuilderTests {
             try package.checkModule("Foo") { module in
                 let clangTarget = try #require(module.target as? ClangModule)
                 #expect(clangTarget.headers.map{ $0.pathString } == [Sources.appending(components: "Foo", "Foo_private.h").pathString, Sources.appending(components: "Foo", "inc", "Foo.h").pathString])
-                module.check(c99name: "Foo", type: .library)
+                module.check(c99name: "Foo", type: .library(libraryType: .object))
                 module.checkSources(root: Sources.appending(components: "Foo").pathString, paths: "Foo.c")
                 module.check(includeDir: Sources.appending(components: "Foo", "inc").pathString)
                 module.check(moduleMapType: .custom(Sources.appending(components: "Foo", "inc", "module.modulemap")))
             }
 
             try package.checkModule("Bar") { module in
-                module.check(c99name: "Bar", type: .library)
+                module.check(c99name: "Bar", type: .library(libraryType: .object))
                 module.checkSources(root: Sources.appending(components: "Bar").pathString, paths: "Bar.c")
                 module.check(includeDir: Sources.appending(components: "Bar", "include").pathString)
                 module.check(moduleMapType: .custom(Sources.appending(components: "Bar", "include", "module.modulemap")))
@@ -1007,14 +1007,14 @@ struct PackageBuilderTests {
         )
         try PackageBuilderTester(manifest, in: fs) { package, _ in
             try package.checkModule("Foo") { module in
-                module.check(c99name: "Foo", type: .library)
+                module.check(c99name: "Foo", type: .library(libraryType: .object))
                 module.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
                 module.check(targetDependencies: ["Bar"])
             }
 
             for target in ["Bar", "Baz"] {
                 try package.checkModule(target) { module in
-                    module.check(c99name: target, type: .library)
+                    module.check(c99name: target, type: .library(libraryType: .object))
                     module.checkSources(root: "/Sources/\(target)", paths: "\(target).swift")
                 }
             }
@@ -1031,19 +1031,19 @@ struct PackageBuilderTests {
         )
         try PackageBuilderTester(manifest, in: fs) { package, _ in
             try package.checkModule("Foo") { module in
-                module.check(c99name: "Foo", type: .library)
+                module.check(c99name: "Foo", type: .library(libraryType: .object))
                 module.checkSources(root: "/Sources/Foo", paths: "Foo.swift")
                 module.check(targetDependencies: ["Bar"])
             }
 
             try package.checkModule("Bar") { module in
-                module.check(c99name: "Bar", type: .library)
+                module.check(c99name: "Bar", type: .library(libraryType: .object))
                 module.checkSources(root: "/Sources/Bar", paths: "Bar.swift")
                 module.check(targetDependencies: ["Baz"])
             }
 
             try package.checkModule("Baz") { module in
-                module.check(c99name: "Baz", type: .library)
+                module.check(c99name: "Baz", type: .library(libraryType: .object))
                 module.checkSources(root: "/Sources/Baz", paths: "Baz.swift")
             }
         }
@@ -1074,7 +1074,7 @@ struct PackageBuilderTests {
             package.checkPredefinedPaths(target: Sources, testTarget: "/Tests")
 
             try package.checkModule("Foo") { module in
-                module.check(c99name: "Foo", type: .library)
+                module.check(c99name: "Foo", type: .library(libraryType: .object))
                 module.checkSources(root: Sources.appending(components: "Foo").pathString, paths: "Foo.swift")
                 module.check(targetDependencies: ["Bar", "Baz"])
                 module.check(productDependencies: [.init(name: "Bam", package: nil)])
@@ -1082,7 +1082,7 @@ struct PackageBuilderTests {
 
             for target in ["Bar", "Baz"] {
                 try package.checkModule(target) { module in
-                    module.check(c99name: target, type: .library)
+                    module.check(c99name: target, type: .library(libraryType: .object))
                     module.checkSources(root: "/Sources/\(target)", paths: "\(target).swift")
                 }
             }
@@ -1860,7 +1860,7 @@ struct PackageBuilderTests {
                     severity: .warning
                 )
                 try package.checkModule("pkg1") { module in
-                    module.check(c99name: "pkg1", type: .library)
+                    module.check(c99name: "pkg1", type: .library(libraryType: .object))
                     module.checkSources(root: "/Sources/pkg1", paths: "Foo.swift")
                 }
             }
@@ -1963,7 +1963,7 @@ struct PackageBuilderTests {
             }
 
             try package.checkModule("lib") { module in
-                module.check(c99name: "lib", type: .library)
+                module.check(c99name: "lib", type: .library(libraryType: .object))
                 module.checkSources(root: "/Sources/lib", paths: "lib.swift")
             }
 
@@ -2197,7 +2197,7 @@ struct PackageBuilderTests {
             package.checkPredefinedPaths(target: src, testTarget: src)
 
             try package.checkModule("A") { module in
-                module.check(c99name: "A", type: .library)
+                module.check(c99name: "A", type: .library(libraryType: .object))
             }
             try package.checkModule("ATests") { module in
                 module.check(c99name: "ATests", type: .test)
@@ -2227,7 +2227,7 @@ struct PackageBuilderTests {
         )
         try PackageBuilderTester(manifest, in: fs) { package, _ in
             try package.checkModule("bar") { module in
-                module.check(c99name: "bar", type: .library)
+                module.check(c99name: "bar", type: .library(libraryType: .object))
                 module.checkSources(root: "/Sources/bar", paths: "bar.swift")
             }
         }
@@ -2322,7 +2322,7 @@ struct PackageBuilderTests {
                 module.checkSources(root: "/Sources/foo")
             }
             try package.checkModule("bar") { module in
-                module.check(c99name: "bar", type: .library)
+                module.check(c99name: "bar", type: .library(libraryType: .object))
                 module.checkSources(root: "/Sources/bar", paths: "bar.swift")
                 module.check(targetDependencies: ["foo"])
             }
@@ -3431,7 +3431,7 @@ struct PackageBuilderTests {
 
         try PackageBuilderTester(manifest, in: fs) { package, _ in
             try package.checkModule("Foo") { module in
-                module.check(c99name: "Foo", type: .library)
+                module.check(c99name: "Foo", type: .library(libraryType: .object))
                 module.check(buildSettings: settings)
             }
         }
