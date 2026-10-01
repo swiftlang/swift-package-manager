@@ -67,7 +67,7 @@ To add a binary target as a dependency, read <doc:AddingDependencies>.
 - term path: The path to the binary for this variant, relative to the bundle root.
 - term supportedTriples: An array of target triple strings this variant supports. The manifest parser treats the field as optional, but the artifact type determines what happens when it's missing. Include it for every variant.
   - For `executable` and `experimentalWindowsDLL` artifacts, a missing `supportedTriples` is an error.
-  - For `staticLibrary` artifacts, a missing `supportedTriples` isn't an error. Swift Package Manager never selects the variant, and it doesn't report an error for the omission.
+  - For `staticLibrary` artifacts, a missing `supportedTriples` isn't a manifest error. The variant doesn't match any platform, and Swift Package Manager doesn't warn about it. The build then fails, and the failure depends on the build system. The Swift Build system can fail at link time on archives built for other platforms. The native build system fails on the library's headers.
   - Swift Package Manager ignores the OS version in a triple when it compares triples. A variant that lists `arm64-apple-macosx` matches a host triple of `arm64-apple-macosx15.0`.
 - term staticLibraryMetadata: An optional `StaticLibraryMetadata` object, present for `staticLibrary` variants that Swift targets import.
 
