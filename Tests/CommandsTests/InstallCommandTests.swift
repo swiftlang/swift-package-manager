@@ -20,11 +20,11 @@ import struct SPMBuildCore.BuildSystemProvider
 
 private let packageName = "ToolWithResources"
 private let productName = "tool"
-private let resourceBundleName = "\(packageName)_\(productName)" + hostTriple.nsbundleExtension
+private let resourceBundleName = "\(packageName)_\(productName)"
 
 private let sharedPackageName = "MultiToolPackage"
 private let sharedModuleName = "SharedResources"
-private let sharedBundleName = "\(sharedPackageName)_\(sharedModuleName)" + hostTriple.nsbundleExtension
+private let sharedBundleName = "\(sharedPackageName)_\(sharedModuleName)"
 private let sharingProductNames = ["toolA", "toolB"]
 
 /// A package whose executable target carries its own resources.
@@ -137,6 +137,10 @@ private struct InstallFixture {
     func installed(_ name: String) -> AbsolutePath {
         self.installDir.appending(name)
     }
+
+    func installedBundle(_ name: String) -> AbsolutePath {
+        self.installed(name + self.buildSystem.resourceBundleExtension(for: hostTriple))
+    }
 }
 
 private func withInstallFixture(
@@ -177,14 +181,14 @@ struct InstallCommandTests {
             try await fixture.run("experimental-install")
 
             expectFileExists(at: fixture.installed(productName))
-            expectDirectoryExists(at: fixture.installed(resourceBundleName))
+            expectDirectoryExists(at: fixture.installedBundle(resourceBundleName))
 
             let stdout = try await AsyncProcess.checkNonZeroExit(
                 args: fixture.installed(productName).pathString
             )
             #expect(
                 stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-                    == fixture.installed(resourceBundleName).pathString
+                    == fixture.installedBundle(resourceBundleName).pathString
             )
 
             try await fixture.run("experimental-uninstall", productName)
@@ -205,7 +209,7 @@ struct InstallCommandTests {
 
             try await fixture.run("experimental-install")
 
-            let addedFile = fixture.installed(resourceBundleName).appending("added.txt")
+            let addedFile = fixture.installedBundle(resourceBundleName).appending("added.txt")
             try localFileSystem.writeFileContents(addedFile, string: "not ours\n")
 
             await expectThrowsCommandExecutionError(
@@ -243,14 +247,14 @@ struct InstallCommandTests {
 
             expectFileDoesNotExist(at: fixture.installed(sharingProductNames[0]))
             expectFileExists(at: fixture.installed(sharingProductNames[1]))
-            expectDirectoryExists(at: fixture.installed(sharedBundleName))
+            expectDirectoryExists(at: fixture.installedBundle(sharedBundleName))
 
             let stdout = try await AsyncProcess.checkNonZeroExit(
                 args: fixture.installed(sharingProductNames[1]).pathString
             )
             #expect(
                 stdout.trimmingCharacters(in: .whitespacesAndNewlines)
-                    == fixture.installed(sharedBundleName).pathString
+                    == fixture.installedBundle(sharedBundleName).pathString
             )
 
             try await fixture.run("experimental-uninstall", sharingProductNames[1])
@@ -278,7 +282,7 @@ struct InstallCommandTests {
                 "--product",
                 sharingProductNames[1]
             )
-            #expect(stderr.contains(sharedBundleName))
+            #expect(stderr.contains(fixture.installedBundle(sharedBundleName).basename))
 
             for product in sharingProductNames {
                 try await fixture.run("experimental-uninstall", product)

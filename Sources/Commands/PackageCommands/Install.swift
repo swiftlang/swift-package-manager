@@ -99,7 +99,8 @@ extension SwiftPackageCommand {
 
             // `Bundle.module` looks for the resource bundle next to the executable, so it has to
             // follow the binary out of the build directory.
-            let bundleExtension = try commandState.productsBuildParameters.triple.nsbundleExtension
+            let bundleExtension = try commandState.options.build.buildSystem
+                .resourceBundleExtension(for: commandState.productsBuildParameters.triple)
             let resourceBundles = try productToInstall.recursiveModuleDependencies()
                 .compactMap(\.underlying.bundleName)
                 .map { buildProductsPath.appending(component: $0 + bundleExtension) }

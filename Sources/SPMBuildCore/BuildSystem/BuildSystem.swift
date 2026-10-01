@@ -283,6 +283,14 @@ public struct BuildSystemProvider {
                 case .xcode: "Xcode build system integration (deprecated)"
             }
         }
+
+        /// The extension of the resource bundles this build system produces for `triple`.
+        public func resourceBundleExtension(for triple: Triple) -> String {
+            switch self {
+            case .native, .xcode: triple.nsbundleExtension
+            case .swiftbuild: ".bundle"
+            }
+        }
     }
 
     public let providers: [Kind: any BuildSystemFactory]
