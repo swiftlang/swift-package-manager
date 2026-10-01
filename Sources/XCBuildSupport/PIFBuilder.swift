@@ -794,10 +794,12 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
                     warning: "\(error.interpolationDescription)",
                     metadata: .pkgConfig(pcFile: result.pkgConfigName, targetName: target.name)
                 )
-            } else {
-                cFlags = result.cFlags
-                impartedSettings[.OTHER_LDFLAGS, default: ["$(inherited)"]] += result.libs
             }
+            // Keep allowlisted flags even when result.error is set.
+            // cFlags are appended, so every .pc name contributes. Previously only the last
+            // .pc name with no error was kept, and a prohibited flag dropped that name's flags.
+            cFlags += result.cFlags
+            impartedSettings[.OTHER_LDFLAGS, default: ["$(inherited)"]] += result.libs
         }
 
         impartedSettings[.OTHER_LDRFLAGS] = []
