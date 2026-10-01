@@ -30,13 +30,20 @@ import System
 import SystemPackage
 #endif
 
+enum GenError: Error {
+    case bye
+}
+
 @main
 struct SwiftSDLGenerator: AsyncParsableCommand {
     @Option(help: "The SDK to use when running the Swift interface generator")
     var sdk: FilePath
 
     @Option(help: "The triple")
-    var triple: String
+    var triple: Triple
+
+    @Option(help: "toolchain")
+    var toolchain: FilePath
 
     @Option(help: "swift resource dir")
     var swiftResourceDir: FilePath
@@ -120,11 +127,7 @@ struct SwiftSDLGenerator: AsyncParsableCommand {
         let sourceFileSyntax = try await parseInterface(
             headerPaths: headerPath,
             moduleDir: modulemapFile.removingLastComponent(),
-            moduleName: "SwiftSDL3",
-            sdk: sdk,
-            clangResourceDir: clangResourceDir,
-            swiftResourceDir: swiftResourceDir,
-            triple: triple
+            moduleName: "SwiftSDL3"
         )
         let syntaxText = String(describing: sourceFileSyntax)
         let syntaxFile = headerFile.removingLastComponent().appending("syntax.txt")
@@ -323,5 +326,29 @@ struct ASTFunction: Codable {
 extension FilePath: @retroactive ExpressibleByArgument {
     public init?(argument: String) {
         self.init(argument)
+    }
+}
+
+struct Triple: ExpressibleByArgument, CustomStringConvertible {
+    var arch: Substring
+    var vendor: Substring
+    var os: Substring
+    var env: Substring?
+
+    public init?(argument: String) {
+        let components = argument.split(separator: "-")
+        self.arch = components[0]
+        self.vendor = components[1]
+        self.os = components[2]
+        self.env = components.count > 3 ? components[3] : nil
+    }
+
+    var description: String {
+        let triple = "\(arch)-\(vendor)-\(os)"
+        if let env {
+            return triple + "-\(env)"
+        } else {
+            return triple
+        }
     }
 }

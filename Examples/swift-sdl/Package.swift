@@ -63,7 +63,8 @@ let package = Package(
                 "SDL",
             ],
             linkerSettings: [
-                .linkedLibrary("SDL3"),
+                .linkedLibrary("SDL3", .when(platforms: [.macOS, .android])),
+                .linkedLibrary("SDL3-static", .when(platforms: [.windows])),
 
                 .linkedFramework("CoreMedia", .when(platforms: [.macOS])),
                 .linkedFramework("CoreVideo", .when(platforms: [.macOS])),
@@ -82,6 +83,20 @@ let package = Package(
                 .linkedFramework("QuartzCore", .when(platforms: [.macOS])),
                 .linkedFramework("Security", .when(platforms: [.macOS])),
                 .linkedFramework("CoreHaptics", .when(platforms: [.macOS])),
+
+                .linkedLibrary("kernel32", .when(platforms: [.windows])),
+                .linkedLibrary("user32", .when(platforms: [.windows])),
+                .linkedLibrary("gdi32", .when(platforms: [.windows])),
+                .linkedLibrary("winmm", .when(platforms: [.windows])),
+                .linkedLibrary("imm32", .when(platforms: [.windows])),
+                .linkedLibrary("ole32", .when(platforms: [.windows])),
+                .linkedLibrary("oleaut32", .when(platforms: [.windows])),
+                .linkedLibrary("version", .when(platforms: [.windows])),
+                .linkedLibrary("uuid", .when(platforms: [.windows])),
+                .linkedLibrary("advapi32", .when(platforms: [.windows])),
+                .linkedLibrary("setupapi", .when(platforms: [.windows])),
+                .linkedLibrary("shell32", .when(platforms: [.windows])),
+                .linkedLibrary("dinput8", .when(platforms: [.windows])),
 
                 .linkedLibrary("m", .when(platforms: [.android])),
                 .linkedLibrary("OpenSLES", .when(platforms: [.android])),

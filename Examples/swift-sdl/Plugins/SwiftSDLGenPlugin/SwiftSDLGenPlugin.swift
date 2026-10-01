@@ -43,7 +43,8 @@ struct SwiftSDLGenPlugin: BuildToolPlugin {
                 executable: generator.url,
                 arguments: [
                     "--triple", "$(TRIPLE)",
-                    "--sdk", "$(SDK)",
+                    "--toolchain", "$(TOOLCHAIN)",
+                    "--sdk", "$(SDKROOT)",
                     "--clang-resource-dir", "$(CLANG_RESOURCE_DIR)",
                     "--swift-resource-dir", "$(SWIFT_RESOURCE_DIR)",
                     "--modulemap-file", moduleMap.path,

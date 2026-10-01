@@ -21,7 +21,7 @@ struct CMakeBuilderPlugin: BuildToolPlugin {
         let builder = try context.tool(named: "CMakeBuilder")
 
         let buildDir = context.pluginWorkDirectoryURL.appending(path: "$(BUILD_SUBDIR)")
-        let libSDL3 = buildDir.appending(path: "libSDL3.a")
+        let libSDL3 = buildDir.appending(path: "$(LIB_PREFIX)SDL3$(STATIC_LIB_EXTENSION)")
         let SDL3jar = buildDir.appending(path: "SDL3.jar")
 
         var environment = ["HOME": ProcessInfo.processInfo.environment["HOME"]!]
@@ -35,14 +35,15 @@ struct CMakeBuilderPlugin: BuildToolPlugin {
                 executable: builder.url,
                 arguments: [
                     "--output-dir", buildDir.path,
-                    "--sdk", "$(SDK)",
+                    "--sdk", "$(SYSROOT)",
                     "--triple", "$(TRIPLE)",
                     target.directoryURL.path,
                 ],
                 environment: environment,
                 productFiles: [
-                    .init(libSDL3),
-                    .init(SDL3jar, platforms: [.android]),
+                    .init(buildDir.appending(path: "libSDL3.a"), platforms: [.macOS, .android]),
+                    .init(buildDir.appending(path: "SDL3-static.lib"), platforms: [.windows]),
+                    .init(buildDir.appending(path: "SDL3.jar"), platforms: [.android]),
                 ],
                 alwaysOutOfDate: true
             ),

@@ -26,7 +26,7 @@ struct CMakeBuilder: AsyncParsableCommand {
     var sdk: String
 
     @Option(help: "The triple to build")
-    var triple: String
+    var triple: Triple
 
     @Argument(help: "The directory containing the project's CMakeLists.txt.")
     var sourceDir: String
@@ -49,8 +49,8 @@ struct CMakeBuilder: AsyncParsableCommand {
             "--build", outputDir,
             "--target", "SDL3-static"
         ]
-        let tripleComps = triple.split(separator: "-")
-        if tripleComps.count > 3, tripleComps[3].hasPrefix("android") {
+
+        if let env = triple.env, env.hasPrefix("android") {
             arguments.append("SDL3-jar")
         }
 
@@ -80,8 +80,7 @@ struct CMakeBuilder: AsyncParsableCommand {
             ]
         }
 
-        let tripleComps = triple.split(separator: "-")
-        if tripleComps.count > 3, tripleComps[3].hasPrefix("android"), let androidHome = ProcessInfo.processInfo.environment["ANDROID_HOME"] {
+        if let env = triple.env, env.hasPrefix("android"), let androidHome = ProcessInfo.processInfo.environment["ANDROID_HOME"] {
             arguments += [
                 "-DSDL_ANDROID_HOME=\(androidHome)"
             ]
@@ -103,25 +102,21 @@ struct CMakeBuilder: AsyncParsableCommand {
     func generateToolchain(outputDir: String) throws -> String? {
         let contents: String
 
-        let components = triple.split(separator: "-")
-        let arch = components[0]
-        let vendor = components[1]
-        let os = components[2]
-
-        if vendor == "apple", components[2].hasPrefix("macos") {
+        if triple.vendor == "apple", triple.os.hasPrefix("macos") {
             // Building for host, don't need a toolchain file
             return nil
-        } else if os == "linux" {
-            if components.count > 3, components[3].hasPrefix("android") {
-                let os = components[3]
-                let version = os[os.index(os.startIndex, offsetBy: 7)...]
+        } else if triple.os == "windows" {
+            return nil
+        } else if triple.os == "linux" {
+            if let env = triple.env {
+                let version = env[env.index(env.startIndex, offsetBy: 7)...]
 
                 guard let ndkHome = ProcessInfo.processInfo.environment["ANDROID_NDK_HOME"] else {
                     fatalError("ANDROID_NDK_HOME is not set")
                 }
 
                 let abi: String
-                switch arch {
+                switch triple.arch {
                 case "aarch64":
                     abi = "arm64-v8a"
                 default:
@@ -141,7 +136,7 @@ struct CMakeBuilder: AsyncParsableCommand {
             } else {
                 contents = """
                 set(CMAKE_SYSTEM_NAME Linux)
-                set(CMAKE_SYSTEM_PROCESSOR \(arch))
+                set(CMAKE_SYSTEM_PROCESSOR \(triple.arch))
 
                 set(CMAKE_C_COMPILER clang)
                 set(CMAKE_C_COMPILER_TARGET \(triple))
@@ -169,9 +164,33 @@ struct CMakeBuilder: AsyncParsableCommand {
     }
 }
 
+struct Triple: ExpressibleByArgument, CustomStringConvertible {
+    var arch: Substring
+    var vendor: Substring
+    var os: Substring
+    var env: Substring?
+
+    public init?(argument: String) {
+        let components = argument.split(separator: "-")
+        self.arch = components[0]
+        self.vendor = components[1]
+        self.os = components[2]
+        self.env = components.count > 3 ? components[3] : nil
+    }
+
+    var description: String {
+        let triple = "\(arch)-\(vendor)-\(os)"
+        if let env {
+            return triple + "-\(env)"
+        } else {
+            return triple
+        }
+    }
+}
+
 enum CMakeError: Error {
     case configureError(TerminationStatus)
-    case badTriple(String)
+    case badTriple(Triple)
     case missingEnvVar(String)
     case noProductsDir
     case boom

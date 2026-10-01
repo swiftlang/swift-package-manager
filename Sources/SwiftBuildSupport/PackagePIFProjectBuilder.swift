@@ -568,11 +568,16 @@ struct PackagePIFProjectBuilder {
         let variables = [
             "CONFIGURATION": "$(CONFIGURATION)",
             "TRIPLE": "$(TARGET_TRIPLES)",
-            "SDK": "$(SYSROOT)",
-            "CLANG_RESOURCE_DIR": "$(CLANG_RESOURCE_DIR)",
-            "SWIFT_RESOURCE_DIR": "$(SWIFT_RESOURCE_DIR)",
+            "TOOLCHAIN": "$(TOOLCHAIN_DIR)",
+            "SDKROOT": "$(SDKROOT:default=none)",
+            "SYSROOT": "$(SYSROOT:default=none)",
+            "CLANG_RESOURCE_DIR": "$(CLANG_RESOURCE_DIR:default=none)",
+            "SWIFT_RESOURCE_DIR": "$(SWIFT_RESOURCE_DIR:default=none)",
             "BUILD_SUBDIR": "$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)",
             "PRODUCTS_DIR": "$(BUILT_PRODUCTS_DIR)",
+            "LIB_PREFIX": "$(CUSTOM_TARGET_LIB_PREFIX)",
+            "STATIC_LIB_EXTENSION": "$(CUSTOM_TARGET_STATIC_LIB_EXTENSION)",
+            "DYNAMIC_LIB_EXTENSION": "$(CUSTOM_TARGET_DYNAMIC_LIB_EXTENSION)",
         ]
 
         // A variable reference is '$(' followed by a name, terminated by the first ')'.

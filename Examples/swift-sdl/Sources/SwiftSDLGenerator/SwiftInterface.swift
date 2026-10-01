@@ -20,44 +20,42 @@ import SystemPackage
 #endif
 
 // Utility to load up the synthesized interface file for the C module into SwiftSyntax
-public func parseInterface(
-    headerPaths: [FilePath],
-    moduleDir: FilePath,
-    moduleName: String,
-    sdk: FilePath,
-    clangResourceDir: FilePath,
-    swiftResourceDir: FilePath,
-    triple: String
-) async throws -> SourceFileSyntax {
-    var synthArgs: [String] = [
-        "swift-synthesize-interface",
-        "-I", moduleDir.string,
-        "-module-name", moduleName,
-        "-target", triple,
-        "-sdk", sdk.string
-    ]
+extension SwiftSDLGenerator {
+    func parseInterface(
+        headerPaths: [FilePath],
+        moduleDir: FilePath,
+        moduleName: String
+    ) async throws -> SourceFileSyntax {
+        var synthArgs: [String] = [
+            "swift-synthesize-interface",
+            "-I", moduleDir.string,
+            "-module-name", moduleName,
+            "-target", triple.description,
+        ]
 
-    if !clangResourceDir.string.isEmpty {
-        synthArgs += ["-Xcc", "-resource-dir", "-Xcc", clangResourceDir.string]
+        if sdk.string != "none" {
+            synthArgs += ["-sdk", sdk.string]
+        }
+
+        if clangResourceDir.string != "none" {
+            synthArgs += ["-Xcc", "-resource-dir", "-Xcc", clangResourceDir.string]
+        }
+
+        if swiftResourceDir.string != "none" {
+            synthArgs += ["-resource-dir", swiftResourceDir.string]
+        }
+
+        for headerPath in headerPaths {
+            synthArgs += ["-I", headerPath.string]
+        }
+
+        guard let interface = try await Subprocess.run(
+            .path(toolchain.appending("usr/bin/swift-synthesize-interface")),
+            arguments: .init(synthArgs),
+            output: .string(limit: .max),
+            error: .currentStandardError).standardOutput
+        else { fatalError() }
+
+        return Parser.parse(source: interface)
     }
-
-    if !swiftResourceDir.string.isEmpty {
-        synthArgs += ["-resource-dir", swiftResourceDir.string]
-    }
-
-    for headerPath in headerPaths {
-        synthArgs += ["-I", headerPath.string]
-    }
-
-    //print("args:", synthArgs.joined(separator: " "))
-    //exit(1)
-
-    guard let interface = try await run(
-        .name("xcrun"),
-        arguments: .init(synthArgs),
-        output: .string(limit: .max),
-        error: .currentStandardError).standardOutput
-    else { fatalError() }
-
-    return Parser.parse(source: interface)
 }
