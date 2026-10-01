@@ -43,6 +43,7 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 - <doc:CreatingMixedLanguageTargets>
 - <doc:ModuleMaps>
 - <doc:ArtifactBundleReference>
+- <doc:TroubleshootingArtifactBundles>
 - <doc:ModuleAliasing>
 
 ### Sharing Packages
@@ -51,6 +52,7 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 
 ### Extending Package Manager
 - <doc:Plugins>
+- <doc:BinaryExecutablePlugins>
 - <doc:SwiftPMAsALibrary>
 
 
