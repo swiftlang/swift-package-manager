@@ -27,11 +27,17 @@ extension SwiftSDLGenerator {
         moduleName: String
     ) async throws -> SourceFileSyntax {
         var synthArgs: [String] = [
-            "swift-synthesize-interface",
             "-I", moduleDir.string,
             "-module-name", moduleName,
             "-target", triple.description,
         ]
+
+        #if os(macos)
+        let executable: Executable = .name("xcrun")
+        synthArgs = ["swift-synthesize-interface"] + synthArgs
+        #else
+        let executable: Executable = .path(toolchain.appending("usr/bin/swift-synthesize-interface"))
+        #endif
 
         if sdk.string != "none" {
             synthArgs += ["-sdk", sdk.string]
@@ -50,7 +56,7 @@ extension SwiftSDLGenerator {
         }
 
         guard let interface = try await Subprocess.run(
-            .path(toolchain.appending("usr/bin/swift-synthesize-interface")),
+            executable,
             arguments: .init(synthArgs),
             output: .string(limit: .max),
             error: .currentStandardError).standardOutput
