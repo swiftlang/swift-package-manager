@@ -635,10 +635,10 @@ extension PackageGraph.ResolvedModule {
         var targetMultipleValueSettings: [BuildConfiguration: MultipleValueSettingsByPlatform] = [:]
 
         /// Target-specific single-value build settings that should be imparted to client targets (packages and projects).
-        var impartedSingleValueSettings: SingleValueSettingsByPlatform = [:]
+        var impartedSingleValueSettings: [BuildConfiguration: SingleValueSettingsByPlatform] = [:]
 
         /// Target-specific multiple-value build settings that should be imparted to client targets (packages and projects).
-        var impartedMultipleValueSettings: MultipleValueSettingsByPlatform = [:]
+        var impartedMultipleValueSettings: [BuildConfiguration: MultipleValueSettingsByPlatform] = [:]
 
         // MARK: - Convenience Methods
 
@@ -684,10 +684,10 @@ extension PackageGraph.ResolvedModule {
             }
         }
 
-        /// Apply imparted settings to a ProjectModel.BuildSettings instance
-        func applyImparted(to buildSettings: inout ProjectModel.BuildSettings) {
+        /// Apply the imparted settings of one build configuration to a ProjectModel.BuildSettings instance
+        func applyImparted(to buildSettings: inout ProjectModel.BuildSettings, for configuration: BuildConfiguration) {
             // Apply imparted single value settings for all platforms
-            for (platform, singleValues) in impartedSingleValueSettings {
+            for (platform, singleValues) in impartedSingleValueSettings[configuration] ?? [:] {
                 for (setting, value) in singleValues {
                     if let platform = platform {
                         buildSettings[setting, platform] = value
@@ -698,7 +698,7 @@ extension PackageGraph.ResolvedModule {
             }
 
             // Apply imparted multiple value settings for all platforms
-            for (platform, multipleValues) in impartedMultipleValueSettings {
+            for (platform, multipleValues) in impartedMultipleValueSettings[configuration] ?? [:] {
                 for (setting, values) in multipleValues {
                     if let platform = platform {
                         let existingValues = buildSettings[setting, platform] ?? ["$(inherited)"]
@@ -795,16 +795,16 @@ extension PackageGraph.ResolvedModule {
                         pifPlatform = nil
                     }
 
-                    // Handle imparted settings for OTHER_LDFLAGS and prebuilts include paths (always multiple values)
-                    // TODO: Do we realy need to impart OTHER_LDFLAGS?
-                    // TODO: Doing that for the PREBUILT_LIBRARIES was causing duplicate library warnings.
-                    if let multipleValueSetting = multipleValueSetting,
-                        declaration != .PREBUILT_LIBRARIES,
-                        (multipleValueSetting == .OTHER_LDFLAGS || declaration == .PREBUILT_INCLUDE_PATHS) {
-                        allSettings.impartedMultipleValueSettings[pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
-                    }
-
                     for configuration in configurations {
+                        // Handle imparted settings for OTHER_LDFLAGS and prebuilts include paths (always multiple values)
+                        // TODO: Do we realy need to impart OTHER_LDFLAGS?
+                        // TODO: Doing that for the PREBUILT_LIBRARIES was causing duplicate library warnings.
+                        if let multipleValueSetting = multipleValueSetting,
+                            declaration != .PREBUILT_LIBRARIES,
+                            (multipleValueSetting == .OTHER_LDFLAGS || declaration == .PREBUILT_INCLUDE_PATHS) {
+                            allSettings.impartedMultipleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
+                        }
+
                         if let multipleValueSetting = multipleValueSetting {
                             // Handle multiple value settings
                             allSettings.targetMultipleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)

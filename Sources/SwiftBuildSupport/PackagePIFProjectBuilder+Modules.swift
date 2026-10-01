@@ -990,9 +990,6 @@ extension PackagePIFProjectBuilder {
         allBuildSettings.apply(to: &debugSettings, for: .debug)
         allBuildSettings.apply(to: &releaseSettings, for: .release)
 
-        // Apply imparted settings
-        allBuildSettings.applyImparted(to: &impartedSettings)
-
         // Set the **imparted** settings, which are ones that clients (both direct and indirect ones) use.
         // For instance, given targets A, B, C with the following dependency graph:
         //
@@ -1014,6 +1011,11 @@ extension PackagePIFProjectBuilder {
             rpaths.append("$(BUILT_PRODUCTS_DIR)/PackageFrameworks")
             impartedDebugSettings[.LD_RUNPATH_SEARCH_PATHS] = rpaths + ["$(inherited)"]
         }
+        var impartedReleaseSettings = impartedSettings
+
+        // Apply the imparted settings declared in the manifest, which may differ per configuration.
+        allBuildSettings.applyImparted(to: &impartedDebugSettings, for: .debug)
+        allBuildSettings.applyImparted(to: &impartedReleaseSettings, for: .release)
 
         var moduleTargetForConfigs = self.project[keyPath: sourceModuleTargetKeyPath]
         moduleTargetForConfigs.common.addBuildConfig { id in
@@ -1029,7 +1031,7 @@ extension PackagePIFProjectBuilder {
                 id: id,
                 name: "Release",
                 settings: releaseSettings,
-                impartedBuildSettings: impartedSettings
+                impartedBuildSettings: impartedReleaseSettings
             )
         }
         self.project[keyPath: sourceModuleTargetKeyPath] = moduleTargetForConfigs
