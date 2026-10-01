@@ -788,16 +788,10 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     let queryV1 = "SELECT collection_id_blob_base64, package_id, package_repository_url, name FROM \(Self.targetsFTSNameV1);"
                     try self.executeStatement(queryV1) { statement in
                         while let row = try statement.step() {
-                            #if os(Linux)
-                            // lock not required since executeStatement locks
+                            // lock not required since executeStatement (via withDB) holds the state lock
                             guard case .connected = self.state else {
                                 return
                             }
-                            #else
-                            guard case .connected = (try self.withStateLock { self.state }) else {
-                                return
-                            }
-                            #endif
 
                             let targetName = row.string(at: 3)
 
@@ -817,16 +811,10 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                     let queryV0 = "SELECT collection_id_blob_base64, package_repository_url, name FROM \(Self.targetsFTSNameV0);"
                     try self.executeStatement(queryV0) { statement in
                         while let row = try statement.step() {
-                            #if os(Linux)
-                            // lock not required since executeStatement locks
+                            // lock not required since executeStatement (via withDB) holds the state lock
                             guard case .connected = self.state else {
                                 return
                             }
-                            #else
-                            guard case .connected = (try self.withStateLock { self.state }) else {
-                                return
-                            }
-                            #endif
 
                             let targetName = row.string(at: 2)
 
@@ -884,7 +872,7 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
             return db
         }
 
-        let db = try self.withStateLock { () -> SQLite in
+        return try self.withStateLock {
             let db: SQLite
             switch (self.location, self.state) {
             case (_, .disconnecting), (_, .disconnected):
@@ -908,17 +896,9 @@ final class SQLitePackageCollectionsStorage: PackageCollectionsStorage, Closable
                 db = try createDB()
             }
             self.state = .connected(db)
-            return db
-        }
 
-        // FIXME: workaround linux sqlite concurrency issues causing CI failures
-        #if os(Linux)
-        return try self.withStateLock {
-            try body(db)
+            return try body(db)
         }
-        #else
-        return try body(db)
-        #endif
     }
 
     private func createSchemaIfNecessary(db: SQLite) throws {
