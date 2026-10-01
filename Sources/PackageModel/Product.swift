@@ -36,6 +36,9 @@ public class Product: Identifiable {
     /// Was this product implicitly created
     public let isImplicit: Bool
 
+    /// The deprecation information declared for this product, if any.
+    public let deprecation: ProductDeprecation?
+
     /// The suffix for REPL product name.
     public static let replProductSuffix: String = "__REPL"
 
@@ -45,7 +48,8 @@ public class Product: Identifiable {
         type: ProductType,
         modules: [Module],
         testEntryPointPath: AbsolutePath? = nil,
-        isImplicit: Bool = false
+        isImplicit: Bool = false,
+        deprecation: ProductDeprecation? = nil,
     ) throws {
         guard !modules.isEmpty else {
             throw InternalError("Targets cannot be empty")
@@ -67,6 +71,7 @@ public class Product: Identifiable {
         self.modules = modules
         self.testEntryPointPath = testEntryPointPath
         self.isImplicit = isImplicit
+        self.deprecation = deprecation
     }
 }
 
