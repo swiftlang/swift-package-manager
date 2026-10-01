@@ -13,10 +13,12 @@
 /// A build environment with which to evaluate conditions.
 public struct BuildEnvironment {
     public let platform: Platform
+    public let supportsPrebuilts: Bool
     public let configuration: BuildConfiguration?
 
-    public init(platform: Platform, configuration: BuildConfiguration? = nil) {
+    public init(platform: Platform, supportsPrebuilts: Bool = false, configuration: BuildConfiguration? = nil) {
         self.platform = platform
+        self.supportsPrebuilts = supportsPrebuilts
         self.configuration = configuration
     }
 }

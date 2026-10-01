@@ -328,6 +328,8 @@ extension BuildPlan {
                     }
                 case .plugin:
                     continue
+                case .custom:
+                    continue
                 }
 
             case .product(let product, let description):

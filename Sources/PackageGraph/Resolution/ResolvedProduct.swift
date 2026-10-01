@@ -47,11 +47,6 @@ public struct ResolvedProduct {
     /// The list of platforms that are supported by this product.
     public let supportedPlatforms: [SupportedPlatform]
 
-    /// The platform constraint that applies to this product. If any module is .all, the product is .all
-    public var platformConstraint: PlatformConstraint {
-        modules.contains(where: { $0.platformConstraint == .all }) ? .all : .host
-    }
-
     @_spi(SwiftPMInternal)
     public let platformVersionProvider: PlatformVersionProvider
 
@@ -122,7 +117,6 @@ public struct ResolvedProduct {
                 dependencies: modules.map { .module($0, conditions: []) },
                 defaultLocalization: defaultLocalization ?? .none, // safe since this is a derived product
                 supportedPlatforms: platforms,
-                platformConstraint: .all,
                 platformVersionProvider: platformVersionProvider
             )
         }

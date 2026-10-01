@@ -222,12 +222,8 @@ extension LLBuildManifestBuilder {
             if module.underlying is BinaryModule { return }
             // Ignore Plugin Modules.
             if module.underlying is PluginModule { return }
-
-            if target.target.platformConstraint == .all && module.platformConstraint == .host {
-                // Skip module that is host only.
-                // This only happens when the target isn't actually referenced by the root package.
-                return
-            }
+            // Ignore External Targets.
+            if module.underlying is ExternalTarget { return }
 
             guard let description else {
                 throw InternalError("No build description for module: \(module)")

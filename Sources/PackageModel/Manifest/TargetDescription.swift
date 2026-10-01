@@ -24,6 +24,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         case binary
         case plugin
         case `macro`
+        case external
     }
 
     /// Represents a target's dependency on another entity.
@@ -97,6 +98,11 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         }
     }
 
+    public enum Location: Encodable, Hashable, Sendable {
+        case path(String)
+        case remoteArchive(url: String, checksum: String)
+    }
+
     /// The name of the target.
     public let name: String
 
@@ -106,6 +112,9 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
 
     /// The custom path of the target.
     public let path: String?
+
+    /// For binary and external targets, the location of the distribution
+    public let location: Location?
 
     /// The url of the binary target artifact.
     public let url: String?
@@ -198,6 +207,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         name: String,
         dependencies: [Dependency] = [],
         path: String? = nil,
+        location: Location? = nil,
         url: String? = nil,
         exclude: [String] = [],
         sources: [String]? = nil,
@@ -437,11 +447,15 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 propertyName: "pluginCapability",
                 value: String(describing: pluginCapability!)
             ) }
+        case .external:
+            // TODO:
+            break
         }
 
         self.name = name
         self.dependencies = dependencies
         self.path = path
+        self.location = location
         self.url = url
         self.publicHeadersPath = publicHeadersPath
         self.sources = sources

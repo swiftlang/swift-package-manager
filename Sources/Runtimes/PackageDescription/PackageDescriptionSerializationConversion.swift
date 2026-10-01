@@ -238,6 +238,7 @@ extension Serialization.TargetType {
         case .binary: self = .binary
         case .plugin: self = .plugin
         case .macro: self = .macro
+        case .external: self = .external
         }
     }
 }
@@ -301,6 +302,7 @@ extension Serialization.Target {
         self.name = target.name
         self.packageAccess = target.packageAccess
         self.path = target.path
+        self.location = .init(target.location)
         self.url = target.url
         self.sources = target.sources
         self.resources = target.resources?.map { .init($0) }
@@ -320,6 +322,18 @@ extension Serialization.Target {
     }
 }
 
+extension Serialization.Location? {
+    init(_ location: PackageDescription.Target.Location?) {
+        switch location {
+        case .none:
+            self = .none
+        case let .local(path):
+            self = .path(path)
+        case let .remoteArchive(url, checksum):
+            self = .remoteArchive(url: url, checksum: checksum)
+        }
+    }
+}
 extension Serialization.Resource {
     init(_ resource: PackageDescription.Resource) {
         self.rule = resource.rule

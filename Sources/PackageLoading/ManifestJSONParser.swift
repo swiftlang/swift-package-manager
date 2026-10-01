@@ -201,6 +201,7 @@ enum ManifestJSONParser {
             name: target.name,
             dependencies: dependencies,
             path: target.path,
+            location: parseLocation(target.location),
             url: target.url,
             exclude: target.exclude,
             sources: target.sources,
@@ -215,6 +216,17 @@ enum ManifestJSONParser {
             checksum: target.checksum,
             pluginUsages: pluginUsages
         )
+    }
+
+    private static func parseLocation(_ location: Serialization.Location?) -> TargetDescription.Location? {
+        switch location {
+        case .none:
+            return nil
+        case let .path(path):
+            return .path(path)
+        case let .remoteArchive(url, checksum):
+            return .remoteArchive(url: url, checksum: checksum)
+        }
     }
 
     private static func parseResources(_ resources: [Serialization.Resource]?) throws -> [TargetDescription.Resource] {
@@ -566,6 +578,8 @@ extension TargetDescription.TargetKind {
             self = .plugin
         case .macro:
             self = .macro
+        case .external:
+            self = .external
         }
     }
 }

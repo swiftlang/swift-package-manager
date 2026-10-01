@@ -574,6 +574,11 @@ public final class PackageBuilder {
                     throw ModuleError.artifactNotFound(moduleName: target.name, expectedArtifactName: target.name)
                 }
                 return artifact.path
+            } else if target.type == .external {
+                guard case let .path(path) = target.location else {
+                    fatalError("TODO")
+                }
+                return try packagePath.appending(RelativePath(validating: path))
             } else if let subpath = target.path { // If there is a custom path defined, use that.
                 if subpath == "" || subpath == "." {
                     return self.packagePath
@@ -957,6 +962,28 @@ public final class PackageBuilder {
             throw ModuleError.invalidPublicHeadersDirectory(potentialModule.name)
         }
 
+        if potentialModule.type == .external {
+            // no sources
+            guard let location = manifestTarget.location else {
+                throw InternalError("Missing location for external target")
+            }
+            let externalLocation: ExternalTarget.Location
+            switch location {
+            case let .path(path):
+                externalLocation = try .localPath(packagePath.appending(RelativePath(validating: path)))
+            case .remoteArchive:
+                fatalError("TODO")
+            }
+
+            return ExternalTarget(
+                name: potentialModule.name,
+                location: externalLocation,
+                dependencies: dependencies,
+                buildSettings: buildSettings,
+                buildSettingsDescription: manifestTarget.settings
+            )
+        }
+
         let sourcesBuilder = TargetSourcesBuilder(
             packageIdentity: self.identity,
             packageKind: self.manifest.packageKind,
@@ -982,7 +1009,20 @@ public final class PackageBuilder {
         let potentialBundleName = self.manifest.displayName + "_" + potentialModule.name
 
         if sources.relativePaths.isEmpty && resources.isEmpty && headers.isEmpty {
-            return nil
+            if manifestTarget.pluginUsages?.isEmpty ?? false {
+                return nil
+            } else {
+                // Target without sources but with plugins -> CustomTarget
+                return CustomTarget(
+                    name: potentialModule.name,
+                    path: potentialModule.path,
+                    sources: .init(paths: others, root: packagePath),
+                    resources: resources,
+                    dependencies: dependencies,
+                    buildSettings: buildSettings,
+                    buildSettingsDescription: manifestTarget.settings
+                )
+            }
         }
         try self.validateSourcesOverlapping(forTarget: potentialModule.name, sources: sources.paths)
 
@@ -1174,7 +1214,7 @@ public final class PackageBuilder {
                 // Ensure that the search path is contained within the package.
                 _ = try RelativePath(validating: value)
                 let path = try AbsolutePath(validating: value, relativeTo: targetRoot)
-                guard path.isDescendantOfOrEqual(to: self.packagePath) else {
+                guard path.isDescendantOfOrEqual(to: self.packagePath) || target.type == .external else {
                     throw ModuleError.invalidHeaderSearchPath(value)
                 }
 

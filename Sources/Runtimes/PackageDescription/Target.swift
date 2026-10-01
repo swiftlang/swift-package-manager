@@ -39,6 +39,8 @@ public final class Target {
         case plugin
         /// A target that provides a Swift macro.
         case `macro`
+        /// A target that uses source from outside the package
+        case external
     }
 
     /// The different types of a target's dependency on another entity.
@@ -87,6 +89,16 @@ public final class Target {
     /// Don't escape the package root; that is, values like `../Foo` or `/Foo`
     /// are invalid.
     public var path: String?
+
+    public enum Location {
+        case local(path: String)
+        case remoteArchive(url: String, checksum: String)
+        // TODO: case sourceControl(url: String, version: String)
+    }
+
+    /// Location for external target, i.e. where to fetch/find the source
+    /// TODO: unify binary targets onto this
+    public var location: Location?
 
     /// The URL of a binary target.
     ///
@@ -235,6 +247,7 @@ public final class Target {
         name: String,
         dependencies: [Dependency],
         path: String?,
+        location: Location? = nil,
         url: String? = nil,
         exclude: [String],
         sources: [String]?,
@@ -255,6 +268,7 @@ public final class Target {
         self.name = name
         self.dependencies = dependencies
         self.path = path
+        self.location = location
         self.url = url
         self.publicHeadersPath = publicHeadersPath
         self.sources = sources
@@ -334,6 +348,11 @@ public final class Target {
                 pkgConfig == nil &&
                 providers == nil &&
                 pluginCapability == nil
+            )
+        case .external:
+            precondition(
+                location != nil
+                // TODO: more
             )
         }
     }
@@ -1161,7 +1180,33 @@ public final class Target {
             type: .binary,
             packageAccess: false)
     }
-    
+
+    @available(_PackageDescription, introduced: 6.5)
+    public static func externalTarget(
+        name: String,
+        dependencies: [Dependency] = [],
+        location: Location,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        plugins: [PluginUsage]
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: nil,
+            location: location,
+            exclude: [],
+            sources: nil,
+            publicHeadersPath: nil,
+            type: .external,
+            packageAccess: false,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            plugins: plugins)
+    }
+
     /// Defines a new package plugin target.
     ///
     /// A plugin target provides custom build commands to SwiftPM (and to

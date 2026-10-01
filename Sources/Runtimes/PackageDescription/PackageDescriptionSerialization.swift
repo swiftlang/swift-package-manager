@@ -180,6 +180,7 @@ enum Serialization {
         case binary
         case plugin
         case `macro`
+        case external
     }
 
     enum PluginCapability: Codable {
@@ -210,9 +211,15 @@ enum Serialization {
         case plugin(name: String, package: String?)
     }
 
+     enum Location: Codable {
+        case path(String)
+        case remoteArchive(url: String, checksum: String)
+    }
+
     struct Target: Codable {
         let name: String
         let path: String?
+        let location: Location?
         let url: String?
         let sources: [String]?
         let resources: [Resource]?

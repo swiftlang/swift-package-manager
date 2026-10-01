@@ -405,7 +405,7 @@ public final class PIFBuilder {
 
                     prebuildCommands.append(contentsOf: result.prebuildCommands)
 
-                    buildCommands.append(contentsOf: result.buildCommands.map( { buildCommand in
+                    try buildCommands.append(contentsOf: result.buildCommands.map( { buildCommand in
                         var newEnv: Environment = buildCommand.configuration.environment
 
                         // FIXME: This is largely a workaround for improper rpath setup on Linux. It should be
@@ -429,7 +429,7 @@ public final class PIFBuilder {
 
                         let writableDirectories: [AbsolutePath] = [pluginOutputDir]
 
-                        return PackagePIFBuilder.CustomBuildCommand(
+                        return try PackagePIFBuilder.CustomBuildCommand(
                             displayName: buildCommand.configuration.displayName,
                             executable: buildCommand.configuration.executable.pathString,
                             arguments: buildCommand.configuration.arguments,
@@ -437,6 +437,15 @@ public final class PIFBuilder {
                             workingDir: package.path,
                             inputPaths: buildCommand.inputFiles,
                             outputPaths: buildCommand.outputFiles.map(\.pathString),
+                            buildProducts: buildCommand.productFiles.map({
+                                try .init(
+                                    outputFile: $0.outputFile,
+                                    productSubdir: $0.productSubdir,
+                                    platformFilters: .init($0.platforms?.flatMap({ try ProjectModel.BuildSettings.Platform(from: $0).toPlatformFilter() }) ?? []),
+                                )
+                            }),
+                            alwaysOutOfDate: buildCommand.alwaysOutOfDate,
+                            platformFilters: .init(buildCommand.platforms?.flatMap({ try ProjectModel.BuildSettings.Platform(from: $0).toPlatformFilter() }) ?? []),
                             pluginOutputDir: pluginOutputDir,
                             sandboxProfile:
                                 self.parameters.disableSandbox ?

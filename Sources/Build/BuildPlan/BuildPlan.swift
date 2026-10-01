@@ -415,7 +415,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                         toolsVersion: package.manifest.toolsVersion,
                         fileSystem: fileSystem
                     ))
-                case is SystemLibraryModule, is BinaryModule:
+                case is SystemLibraryModule, is BinaryModule, is CustomTarget, is ExternalTarget:
                     break
                 default:
                     throw InternalError("unhandled \(module.underlying)")
@@ -952,7 +952,7 @@ extension BuildPlan {
             case .test:
                 self = .product(product, product.hasDirectMacroDependencies ? .host : destination)
             default:
-                self = .product(product, product.platformConstraint == .host ? .host : destination)
+                self = .product(product, destination)
             }
         }
 
@@ -971,7 +971,7 @@ extension BuildPlan {
                 // This means that i.e. test products that reference macros
                 // would force all of their successors to be `host`.
                 // Also if the module has a platform constraint of `host`, use that.
-                self = .module(module, module.platformConstraint == .host ? .host : destination)
+                self = .module(module, destination)
             }
         }
     }
