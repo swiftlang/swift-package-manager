@@ -43,7 +43,7 @@ struct ApkBuilderPlugin: BuildToolPlugin {
                     "--name", target.name,
                     "--output-dir", outputDir.path,
                     "--swift-resource-dir", "$(SWIFT_RESOURCE_DIR)",
-                    "--sysroot", "$(SDK)",
+                    "--sysroot", "$(SYSROOT)",
                     "--native-lib", native.path,
                     "--jar", sdljar.path,
                     "--manifest", manifestFile.url.path
