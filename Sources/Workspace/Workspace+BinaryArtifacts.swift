@@ -376,6 +376,7 @@ extension Workspace {
                                                 }
                                                 try self.fileSystem.copy(from: source, to: destination)
                                             }
+                                            try self.updateModificationDates(in: destinationDirectory)
                                         }
                                         // remove temp location
                                         try self.fileSystem.removeFileTree(tempExtractionDirectory)
@@ -524,6 +525,7 @@ extension Workspace {
                                         }
                                         try self.fileSystem.copy(from: source, to: destination)
                                     }
+                                    try self.updateModificationDates(in: destinationDirectory)
                                 }
 
                                 // remove temp location
@@ -568,6 +570,34 @@ extension Workspace {
 
                 return try await group.reduce(into: []) {
                     if let artifact = $1 { $0.append(artifact) }
+                }
+            }
+        }
+
+        func updateModificationDates(in directory: AbsolutePath) throws {
+            // Archives preserve their entries' modification dates. Refresh them after extraction so build systems
+            // do not reuse outputs produced from an older artifact that occupied the same destination path.
+            // The in-memory file system does not model modification dates.
+            guard !(self.fileSystem is InMemoryFileSystem) else {
+                return
+            }
+
+            let modificationDate = Date()
+            try self.updateModificationDates(in: directory, to: modificationDate)
+        }
+
+        private func updateModificationDates(in directory: AbsolutePath, to modificationDate: Date) throws {
+            for entry in try self.fileSystem.getDirectoryContents(directory) {
+                let path = directory.appending(component: entry)
+                if self.fileSystem.isSymlink(path) {
+                    continue
+                } else if self.fileSystem.isDirectory(path) {
+                    try self.updateModificationDates(in: path, to: modificationDate)
+                } else {
+                    try FileManager.default.setAttributes(
+                        [.modificationDate: modificationDate],
+                        ofItemAtPath: path.pathString
+                    )
                 }
             }
         }
