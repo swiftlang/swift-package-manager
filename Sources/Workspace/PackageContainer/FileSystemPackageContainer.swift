@@ -36,8 +36,8 @@ public struct FileSystemPackageContainer: PackageContainer {
     /// resolving a workspace member. Populated by `PackageWorkspace` at
     /// container-construction time; when non-nil, the container applies
     /// `PackageWorkspace.resolveWorkspaceMemberPaths` on manifests it
-    /// loads so that `.workspaceMember` / `.workspaceInherited` deps
-    /// are rewritten before they reach downstream consumers.
+    /// loads so that `.workspaceMember` deps are rewritten before they
+    /// reach downstream consumers.
     private let workspaceManifest: WorkspaceManifest?
 
     /// The parsed workspace overrides, when this container is resolving
