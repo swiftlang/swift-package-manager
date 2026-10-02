@@ -5,7 +5,7 @@ let package = Package(
     name: "app",
     dependencies: [
         .package(workspaceMember: "lib-a"),
-        .package(workspaceInherited: "some-lib"),
+        .package(path: "../../external/some-lib"),
     ],
     targets: [
         .executableTarget(
