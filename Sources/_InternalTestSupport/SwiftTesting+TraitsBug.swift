@@ -31,7 +31,8 @@ extension Trait where Self == Testing.Bug {
         comment: Comment? = nil
     ) -> Self {
         if let comment {
-            bug(nil, id: 0, "\(relationship): \(issue) - \(comment)")        } else {
+            bug(nil, id: 0, "\(relationship): \(issue) - \(comment)")
+        } else {
             bug(nil, id: 0, "\(relationship): \(issue)")
         }
     }
