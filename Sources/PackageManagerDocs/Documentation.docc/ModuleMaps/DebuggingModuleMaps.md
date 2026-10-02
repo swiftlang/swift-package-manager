@@ -63,7 +63,7 @@ If Swift can't find your module, verify:
 
 - The module name in the module map matches the artifact or target name exactly.
 - The module map file is named `module.modulemap`.
-- The `moduleMapPath` in info.json points to the correct file.
+- The `moduleMapPath` in `info.json` points to the correct file. See <doc:ArtifactBundleReference> for the full `info.json` schema.
 - For system libraries, the target directory contains the module map.
 
 ### Locate missing headers
@@ -74,7 +74,7 @@ If the compiler reports a missing header:
 
 - Check that the header path in the module map is relative to the module map file.
 - Verify the header file exists at the specified location.
-- Ensure the `headerPaths` array in info.json includes the directory.
+- Ensure the `headerPaths` array in `info.json` includes the directory. See <doc:ArtifactBundleReference> for the full `info.json` schema.
 
 ### Fix C++ compilation errors
 

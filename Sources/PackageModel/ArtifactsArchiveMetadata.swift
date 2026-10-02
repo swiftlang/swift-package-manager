@@ -87,6 +87,8 @@ extension ArtifactsArchiveMetadata {
                 usesLenientParsing: true
             )
 
+            // Update the "schemaVersion history" table in ArtifactBundleReference.md (Sources/PackageManagerDocs)
+            // when adding a new version.
             switch (version.major, version.minor) {
             case (1, 2), (1, 1), (1, 0):
                 return decodedMetadata
