@@ -117,7 +117,6 @@ extension Basics.Diagnostic {
     /// single shared `.build/` so per-package restriction is
     /// meaningless. The command still succeeds; users get the hint
     /// once and the shared directory is cleaned.
-    @_spi(SwiftPMInternal)
     public static func packageSelectorHasNoEffectForClean() -> Self {
         .info(
             "--package has no effect for 'clean' under a workspace; the workspace uses a shared build directory",
