@@ -40,6 +40,7 @@ public struct SwiftPackageCommand: AsyncParsableCommand {
             PurgeCache.self,
             Reset.self,
             Update.self,
+            UpgradeDependencies.self,
             Describe.self,
             Init.self,
             Format.self,
