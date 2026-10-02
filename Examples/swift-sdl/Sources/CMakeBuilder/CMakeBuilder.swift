@@ -62,6 +62,10 @@ struct CMakeBuilder: AsyncParsableCommand {
             output: .currentStandardOutput,
             error: .currentStandardError
         )
+
+        if !FileManager.default.fileExists(atPath: outputDir + "/SDL3.jar") {
+            try FileManager.default.copyItem(atPath: outputDir + "/SDL3-3.4.17.jar", toPath: outputDir + "/SDL3.jar")
+        }
     }
 
     // Run the configure step of the CMake build
@@ -131,7 +135,7 @@ struct CMakeBuilder: AsyncParsableCommand {
 
                 set(CMAKE_ANDROID_API_MIN \(version))
 
-                include("\(ndkHome)/build/cmake/android.toolchain.cmake")
+                include("\(ndkHome.replacing("\\", with: "/"))/build/cmake/android.toolchain.cmake")
                 """
             } else {
                 contents = """

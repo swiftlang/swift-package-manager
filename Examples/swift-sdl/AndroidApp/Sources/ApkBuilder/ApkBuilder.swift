@@ -57,7 +57,7 @@ struct ApkBuilder: AsyncParsableCommand {
     func run() async throws {
         // TODO: parameterize the platform version
         let androidJar = androidHome.appending("platforms/android-35/android.jar")
-        let buildToolsDir = androidHome.appending("build-tools/35.0.0")
+        let buildToolsDir = androidHome.appending("build-tools/35.0.1")
 
         // Copy over native libraries and runtime
         let apkTemp = outputDir.appending("apk")
@@ -100,8 +100,20 @@ struct ApkBuilder: AsyncParsableCommand {
         let classOutput = outputDir.appending("classes")
 
         var classpath = androidJar.string
+        #if os(Windows)
+        let separator = ";"
+        let exeExtension = ".exe"
+        let batExtension = ".bat"
+        #else
+        let separator = ":"
+        let exeExtension = ""
+        let batExtension = ""
+        #endif
+
+        let jars = jar.map(\.string).map { String($0.dropFirst()) }
+
         if !jar.isEmpty {
-            classpath += ":" + jar.map(\.string).joined(separator: ":")
+            classpath += separator + jars.joined(separator: separator)
         }
 
         let javacResult = try await Subprocess.run(
@@ -119,13 +131,16 @@ struct ApkBuilder: AsyncParsableCommand {
             throw ApkBuilderError.javaCompileFailed
         }
 
+        let (d8Exe, d8Args) = try Self.run(
+            bat: buildToolsDir.appending("d8\(batExtension)"),
+            arguments: [
+                "--output", apkTemp.string,
+                androidJar.string
+            ] + jars + Self.findClassFiles(in: classOutput).map(\.string),
+        )
         let d8Result = try await Subprocess.run(
-            .path(buildToolsDir.appending("d8")),
-            arguments: .init([
-                androidJar.string,
-            ] + jar.map(\.string) + Self.findClassFiles(in: classOutput).map(\.string) + [
-                "--output", apkTemp.string
-            ]),
+            d8Exe,
+            arguments: d8Args,
             output: .currentStandardOutput,
             error: .currentStandardError
         )
@@ -137,7 +152,7 @@ struct ApkBuilder: AsyncParsableCommand {
         // TODO: Should use aapt2
         let unsignedApk = outputDir.appending(name + "-unsigned.apk")
         let aaptResult = try await Subprocess.run(
-            .path(buildToolsDir.appending("aapt")),
+            .path(buildToolsDir.appending("aapt\(exeExtension)")),
             arguments: .init([
                 "package", "-f",
                 "-M", manifest.string,
@@ -155,7 +170,7 @@ struct ApkBuilder: AsyncParsableCommand {
 
         let alignedApk = outputDir.appending(name + "-aligned.apk")
         let alignResult = try await Subprocess.run(
-            .path(buildToolsDir.appending("zipalign")),
+            .path(buildToolsDir.appending("zipalign\(exeExtension)")),
             arguments: .init([
                 "-f", "-p", "4",
                 unsignedApk.string,
@@ -171,18 +186,20 @@ struct ApkBuilder: AsyncParsableCommand {
 
         let keystore = androidHome.appending("../android.keystore")
         let apk = outputDir.appending(name + ".apk")
-        let signResult = try await Subprocess.run(
-            .path(buildToolsDir.appending("apksigner")),
-            arguments: .init([
-                // Removes the ugly warning about unnamed access
-                "-J-enable-native-access=ALL-UNNAMED",
+        let (apksignExe, apksignArgs) = Self.run(
+            bat: buildToolsDir.appending("apksigner\(batExtension)"),
+            arguments: [
                 "sign",
                 "--ks", keystore.string,
                 "--ks-pass", "pass:android",
                 "--key-pass", "pass:android",
                 "--out", apk.string,
                 alignedApk.string
-            ]),
+            ]
+        )
+        let signResult = try await Subprocess.run(
+            apksignExe,
+            arguments: apksignArgs,
             output: .currentStandardOutput,
             error: .currentStandardError
         )
@@ -190,6 +207,14 @@ struct ApkBuilder: AsyncParsableCommand {
         if !signResult.terminationStatus.isSuccess {
             throw ApkBuilderError.signingFailed
         }
+    }
+
+    static func run(bat: FilePath, arguments: [String]) -> (Executable, Arguments) {
+        #if os(Windows)
+        return (.name("cmd"), .init(["/c", bat.string] + arguments))
+        #else
+        return (.path(bat.string), .init(arguments))
+        #endif
     }
 
     static func findClassFiles(in directory: FilePath) throws -> [FilePath] {

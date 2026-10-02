@@ -535,7 +535,7 @@ struct PackagePIFProjectBuilder {
         _ command: PackagePIFBuilder.CustomBuildCommand,
     ) -> ProjectModel.CustomTask {
         var commandLine = [command.executable] + command.arguments.map { resolveBuildToolVariables($0) }
-        if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled, command.executable != "/$(COPY_CMD)" {
+        if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
             commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
         }
 
@@ -546,15 +546,23 @@ struct PackagePIFProjectBuilder {
             workingDir = nil
         }
 
-        let outputPaths = command.outputPaths + command.buildProducts.map(\.outputFile.pathString)
+        let inputPaths = command.inputPaths.map(\.pathString)
+            .map {
+                resolveBuildToolVariables($0)
+            }
+
+        let outputPaths = (command.outputPaths + command.buildProducts.map(\.outputFile.pathString))
+            .map {
+                resolveBuildToolVariables($0)
+            }
 
         return ProjectModel.CustomTask(
             commandLine: commandLine,
             environment: command.environment.map { Pair($0, resolveBuildToolVariables($1)) }.sorted(by: <),
             workingDirectory: workingDir,
             executionDescription: command.displayName ?? "Performing build tool plugin command",
-            inputFilePaths: command.inputPaths.map(\.pathString).map { resolveBuildToolVariables($0) },
-            outputFilePaths: outputPaths.map { resolveBuildToolVariables($0) },
+            inputFilePaths: inputPaths,
+            outputFilePaths: outputPaths,
             enableSandboxing: false,
             preparesForIndexing: true,
             alwaysOutOfDate: command.alwaysOutOfDate,
@@ -579,6 +587,10 @@ struct PackagePIFProjectBuilder {
             "STATIC_LIB_EXTENSION": "$(CUSTOM_TARGET_STATIC_LIB_EXTENSION)",
             "DYNAMIC_LIB_EXTENSION": "$(CUSTOM_TARGET_DYNAMIC_LIB_EXTENSION)",
         ]
+
+        // Remove the hack to fit these things in to URLs.
+        // It causes these paths to crash SwiftBuild on Windows, e.g. \C:\
+        let input = input.hasPrefix("\\$(") ? String(input.dropFirst()) : input
 
         // A variable reference is '$(' followed by a name, terminated by the first ')'.
         let variableReference = #/\$\(([^)]*)\)/#
