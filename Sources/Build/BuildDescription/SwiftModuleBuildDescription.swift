@@ -85,7 +85,7 @@ public final class SwiftModuleBuildDescription {
     }
 
     private var needsResourceBundle: Bool {
-        return resources.filter { $0.rule != .embedInCode }.isEmpty == false
+        return resources.filter { !$0.rule.isEmbeddedInCode }.isEmpty == false
     }
 
     var resourceFilesToEmbed: [AbsolutePath] {
@@ -286,6 +286,12 @@ public final class SwiftModuleBuildDescription {
 
         guard let swiftTarget = target.underlying as? SwiftModule else {
             throw InternalError("underlying target type mismatch \(target)")
+        }
+
+        if swiftTarget.resources.contains(where: { $0.rule == .embedInCodeAsObject }) {
+            throw StringError(
+                "\(target.name): object-file resource embedding requires '--build-system swiftbuild'."
+            )
         }
 
         self.swiftTarget = swiftTarget
