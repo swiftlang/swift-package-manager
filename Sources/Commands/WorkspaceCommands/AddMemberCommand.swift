@@ -114,7 +114,6 @@ extension Basics.Diagnostic {
     /// `Package.swift` already exists. The manifest edit still
     /// happens; only the scaffolding is skipped, so this is a
     /// warning rather than an error.
-    @_spi(SwiftPMInternal)
     public static func scaffoldIgnoredMemberAlreadyExists(memberPath: String) -> Self {
         .warning(
             "'--scaffold' ignored: \(memberPath)/\(Manifest.filename) already exists",
