@@ -21,8 +21,7 @@ extension SwiftWorkspaceCommand {
     /// `Workspace.swift`. Workspace-level counterpart to
     /// `swift package add-dependency`, differing in two ways:
     /// (1) the manifest target is `Workspace.swift`'s workspace-level
-    /// `dependencies:` (members reach the dep via
-    /// `.package(workspaceInherited:)`), and (2) the dependency source
+    /// `dependencies:`, and (2) the dependency source
     /// is a **subcommand** rather than a `--type` flag — matching the
     /// shape established by `swift workspace override add {path,url,registry}`
     /// so Argument Parser structurally enforces the mutual exclusion

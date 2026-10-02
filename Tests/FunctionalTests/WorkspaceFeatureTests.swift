@@ -2987,10 +2987,8 @@ struct WorkspaceFeatureTests {
 
     /// `swift workspace add-dependency url <url> --from <version>`
     /// appends the workspace-level source-control dependency to
-    /// `Workspace.swift`. Members inherit it via
-    /// `.package(workspaceInherited: <identity>)`; this test only
-    /// verifies the manifest edit (the resolver side is exercised
-    /// by the Phase 3 `.workspaceInherited` tests).
+    /// `Workspace.swift`; this test only verifies the manifest edit
+    /// (the resolver side is exercised elsewhere).
     @Test(
         .tags(
             .Feature.Command.Package.General,
