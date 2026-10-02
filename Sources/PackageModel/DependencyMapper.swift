@@ -355,21 +355,8 @@ extension PackageDependency {
                 productFilter: seed.productFilter,
                 traits: seed.traits
             )
-<<<<<<< HEAD
-        case .workspaceMember(let identity):
-            self = .workspaceMember(
-                PackageDependency.WorkspaceMember(
-                    identity: .plain(identity),
-                    productFilter: seed.productFilter,
-                    traits: seed.traits,
-                )
-            )
-=======
         case .workspaceMember(let member):
             self = .workspaceMember(member)
-        case .workspaceInherited(let inherited):
-            self = .workspaceInherited(inherited)
->>>>>>> 94cc9314e (Workspace: Add --package to scope `swift build` to a workspace member)
         }
     }
 }

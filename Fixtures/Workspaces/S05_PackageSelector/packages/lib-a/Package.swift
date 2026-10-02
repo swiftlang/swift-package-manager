@@ -7,7 +7,7 @@ let package = Package(
         .library(name: "LibA", targets: ["LibA"]),
     ],
     dependencies: [
-        .package(workspaceInherited: "some-lib"),
+        .package(path: "../../external/some-lib"),
     ],
     targets: [
         .target(

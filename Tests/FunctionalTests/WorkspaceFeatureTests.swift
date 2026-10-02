@@ -358,13 +358,11 @@ struct WorkspaceFeatureTests {
     /// overrides the CWD-derived focus on `Y`. The selector wins; only
     /// `X`'s products are built. This is the cross-member escape valve.
     ///
-    /// Also exercises the deferred-from-Slice-4 nested-`.workspaceInherited`
-    /// chain: `app` uses `.package(workspaceMember: "lib-a")` and
-    /// `lib-a` uses `.package(workspaceInherited: "some-lib")`. Focus
-    /// on `app` must pull `lib-a` in transitively and resolve `lib-a`'s
-    /// inherited dep against the workspace's `some-lib` — exercising
-    /// the container-side rewrite (from Slice 3) for a NON-root member
-    /// manifest.
+    /// Also exercises a nested member-dep chain: `app` uses
+    /// `.package(workspaceMember: "lib-a")` and `lib-a` declares a
+    /// local external dep (`external/some-lib`) directly. Focus on
+    /// `app` must pull `lib-a` in transitively and resolve `lib-a`'s
+    /// external dep via the unified multi-root resolution.
     @Test(
         .tags(
             Tag.Feature.Command.Build,
@@ -397,10 +395,10 @@ struct WorkspaceFeatureTests {
             // `app` was built via the selector.
             expectFileExists(at: binPath.appending("app"))
             // `lib-a` (transitive workspace-member dep of `app`) was
-            // built too — and its `.workspaceInherited("some-lib")`
-            // was resolved through the container-side rewrite.
+            // built too — and its external dep `some-lib` was resolved
+            // via the unified multi-root resolver.
             expectFileExists(at: binPath.appending("LibA.swiftmodule"))
-            // `SomeLib` (transitive workspace-inherited dep of `lib-a`
+            // `SomeLib` (transitive external dep of `lib-a` via `app`)
             // via `app`) was built.
             expectFileExists(at: binPath.appending("SomeLib.swiftmodule"))
             // `lib-b` (the CWD's enclosing member, NOT a dep of `app`)
