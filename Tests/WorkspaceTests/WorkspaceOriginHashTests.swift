@@ -195,7 +195,6 @@ struct WorkspaceOriginHashTests {
             path: workspaceManifestPath,
             toolsVersion: .current,
             members: [],
-            dependencies: [],
         )
         let root = PackageGraphRootInput(
             packages: [memberPath],
