@@ -12,6 +12,7 @@ add_library(PackageModel
   BuildEnvironment.swift
   BuildFlags.swift
   BuildSettings.swift
+  BuildCacheConfiguration.swift
   DependencyMapper.swift
   Diagnostics.swift
   EnabledTrait.swift
