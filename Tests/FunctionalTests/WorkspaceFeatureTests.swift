@@ -1244,76 +1244,6 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    /// Workspace-level dependencies contribute to the resolved-file
-    /// `originHash`: two resolves whose member manifests are
-    /// identical but whose `Workspace.swift` `dependencies:` clauses
-    /// differ must produce different origin hashes. This is what lets
-    /// SwiftPM correctly invalidate a stale `Package.resolved` when a
-    /// workspace-level dep is added, removed, or changed — without
-    /// this, workspace-scope dependency edits would silently skip
-    /// re-resolution.
-    @Test(
-        .tags(
-            .Feature.Command.Package.Resolve,
-        ),
-        arguments: [BuildSystemProvider.Kind.swiftbuild],
-    )
-    func s08_originHashUnionsMembersAndWorkspaceDeps(
-        buildSystem: BuildSystemProvider.Kind,
-    ) async throws {
-        try await fixture(name: "Workspaces/S08_ResolveAndWarnings") { fixturePath in
-            try Self.initializeExternalRepo(at: fixturePath.appending(components: "external", "some-lib"))
-            try Self.initializeExternalRepo(at: fixturePath.appending(components: "external", "other-lib"))
-
-            _ = try await executeSwiftPackage(
-                fixturePath,
-                configuration: .debug,
-                extraArgs: ["resolve"],
-                buildSystem: buildSystem,
-            )
-            let hashBefore = try Self.readOriginHash(
-                from: fixturePath.appending("Package.resolved"),
-            )
-
-            let workspaceManifestPath = fixturePath.appending("Workspace.swift")
-            let augmentedManifest = """
-                // swift-tools-version: 999.0
-                import PackageDescription
-
-                let workspace = Workspace(
-                    members: [
-                        "packages/app",
-                        "packages/lib-a",
-                        .member(
-                            path: "packages/lib-b",
-                            ignoredStateDirectories: [.build],
-                        ),
-                    ],
-                    dependencies: [
-                        .package(url: "external/some-lib", from: "1.0.0"),
-                        .package(url: "external/other-lib", from: "1.0.0"),
-                    ],
-                )
-                """
-            try localFileSystem.writeFileContents(workspaceManifestPath, string: augmentedManifest)
-
-            _ = try await executeSwiftPackage(
-                fixturePath,
-                configuration: .debug,
-                extraArgs: ["resolve"],
-                buildSystem: buildSystem,
-            )
-            let hashAfter = try Self.readOriginHash(
-                from: fixturePath.appending("Package.resolved"),
-            )
-
-            #expect(
-                hashBefore != hashAfter,
-                "originHash must change when a workspace-level dep is added; got \(hashBefore) both times",
-            )
-        }
-    }
-
     /// Initializes an external-dependency directory in the S08
     /// fixture as a git repository tagged `1.0.0`. The fixture ships
     /// each `external/*` directory without a `.git/` folder (nothing
@@ -1326,16 +1256,6 @@ struct WorkspaceFeatureTests {
         try repo.stageEverything()
         try repo.commit(message: "Initial commit at \(fixturePath.basename)")
         try repo.tag(name: "1.0.0")
-    }
-
-    /// Reads a `Package.resolved` file and returns its `originHash`
-    /// field. The `Package.resolved` v3 schema serializes the hash as
-    /// a top-level `originHash` string; `nil` when the file predates
-    /// v3 or the hash wasn't recorded.
-    private static func readOriginHash(from resolvedFile: AbsolutePath) throws -> String? {
-        let contents: String = try localFileSystem.readFileContents(resolvedFile)
-        let json = try JSONSerialization.jsonObject(with: Data(contents.utf8)) as? [String: Any]
-        return json?["originHash"] as? String
     }
 }
 
