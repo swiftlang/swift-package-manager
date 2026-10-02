@@ -7,9 +7,7 @@ import PackageDescription
 // but with DIFFERENT per-consumer trait sets — `app` requests
 // `["extras"]`, `lib-b` requests `["perf"]`. This exercises the
 // per-member trait preservation for `.workspaceMember` end-to-end
-// (there is no workspace-level counterpart to union with, unlike
-// `.workspaceInherited`; the authored trait set is preserved
-// verbatim, one set per consumer).
+// (the authored trait set is preserved verbatim, one set per consumer).
 let workspace = Workspace(
     members: [
         "packages/app",
