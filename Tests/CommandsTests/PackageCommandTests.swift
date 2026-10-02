@@ -2013,6 +2013,28 @@ struct PackageCommandTests {
         }
 
         @Test
+        func showDependencies_dotFormatEscapesPackageLocations() throws {
+            // Graphviz uses the backslash as an escape introducer, so a literal backslash has to be
+            // doubled. A Windows package location such as `C:\Users\New` otherwise loses `\U` and
+            // has `\N` substituted with the node name when it is rendered as part of a label.
+            #expect(DotDumper.escapedForDOT(#"C:\Users\New"#) == #"C:\\Users\\New"#)
+
+            // A location that ends in a path separator would otherwise escape the closing quote of
+            // the identifier, leaving the rest of the graph unparsable.
+            #expect(DotDumper.escapedForDOT(#"C:\Users\pkg\"#) == #"C:\\Users\\pkg\\"#)
+
+            // An unescaped double quote ends the identifier or label early.
+            #expect(DotDumper.escapedForDOT(#"/tmp/a"b"#) == #"/tmp/a\"b"#)
+
+            // Backslashes have to be escaped before quotes, otherwise the backslash introduced by
+            // escaping a quote is escaped a second time.
+            #expect(DotDumper.escapedForDOT(#"/tmp/a"b\c"#) == #"/tmp/a\"b\\c"#)
+
+            // Locations that contain neither character are passed through unchanged.
+            #expect(DotDumper.escapedForDOT("https://example.com/pkg.git") == "https://example.com/pkg.git")
+        }
+
+        @Test
         func showDependencies_dotFormat_sr12016() throws {
             let fileSystem = InMemoryFileSystem(emptyFiles: [
                 "/PackageA/Sources/TargetA/main.swift",
@@ -2106,7 +2128,9 @@ struct PackageCommandTests {
             }
 
             #if os(Windows)
-                let pathSep = "\\"
+                // Package locations are file system paths, so the Windows path separator appears
+                // doubled in the output: Graphviz treats a single backslash as an escape introducer.
+                let pathSep = "\\\\"
             #else
                 let pathSep = "/"
             #endif
