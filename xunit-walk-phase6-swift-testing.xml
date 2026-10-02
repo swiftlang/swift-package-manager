@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="0.000301167"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.1916e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.1875e-05"/>
+    <testsuite name="TestResults" errors="0" tests="20" failures="0" skipped="0" time="1.353753375">
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="findEnclosingMember_whenCwdEqualsMemberPath_returnsThatIdentity()" time="0.001315416"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withEmptyMembers_throws()" time="0.001799833"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withAbsoluteMemberPath_throws()" time="0.002235916"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="packageWorkspaceLoadWorkspaceManifest_withMissingMemberDirectory_throws()" time="1.352769208"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="packageWorkspaceLoadWorkspaceManifest_withValidWorkspace_yieldsResolvedManifest()" time="1.352992709"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="loadWorkspaceManifest_withTwoMembers_producesResolvedMembers()" time="1.352803166"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="findEnclosingMember_whenCwdDeepInsideMember_returnsThatIdentity()" time="0.001196917"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="findEnclosingMember_whenNestedMembers_returnsDeepestMatch()" time="0.001194458"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="discoverWorkspaceRoot_multipleAncestors_findsClosest()" time="0.001042333"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withTwoMembers_yieldsBothWithDistinctIdentities()" time="0.001557875"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="findEnclosingMember_whenMembersEmpty_returnsNil()" time="0.001202125"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="packageWorkspaceLoadWorkspaceManifest_withMemberMissingPackageSwift_throws()" time="1.35282875"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="discoverWorkspaceRoot_fromSubdirectory_walksUpToWorkspaceRoot()" time="0.001230041"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withOneMember_yieldsResolvedMember()" time="0.001573"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="findEnclosingMember_whenCwdAtWorkspaceRoot_returnsNil()" time="0.001172041"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="discoverWorkspaceRoot_noWorkspaceSwiftInAncestors_returnsNil()" time="0.001260375"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="findEnclosingMember_whenCwdInUnrelatedSibling_returnsNil()" time="0.001247667"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="discoverWorkspaceRoot_atRootDirectory_findsWorkspaceSwift()" time="0.0012605"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withDuplicateMemberIdentities_throws()" time="0.002153542"/>
+        <testcase classname="WorkspaceTests.FindEnclosingMemberIntegrationTests" name="loadedWorkspace_findEnclosingMember_returnsExpectedFocusForCwd()" time="1.353268667"/>
+    </testsuite>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="6.9625e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="6.475e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.5875e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.775e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.9333e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="9.1791e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.2e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.4875e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.4292e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.3083e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.7875e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.9417e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="0.00016675"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.6042e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.6917e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="6.7584e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.6667e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.975e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.7042e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="6.825e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.7416e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.5875e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.6542e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.1458e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.4583e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.1e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.7625e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.8333e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.025e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="5.9083e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="9.5083e-05"/>
+</testsuites>

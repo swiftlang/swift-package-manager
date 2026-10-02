@@ -204,7 +204,7 @@ struct WorkspaceOverridesJSONParserTests {
         }
     }
 
-    /// A `.workspaceMember` or `.workspaceInherited` kind cannot
+    /// A `.workspaceMember` kind cannot
     /// stand in for a concrete override — those kinds only make
     /// sense at the member level. The parser rejects them so a
     /// mistake doesn't silently produce a broken graph.
@@ -232,109 +232,11 @@ struct WorkspaceOverridesJSONParserTests {
     /// An empty overrides list is a no-op: the returned manifest's
     /// dependencies are byte-identical to the input's. Establishes
     /// the identity element of the apply operation.
-    @Test(
-        .tags(
-            Tag.TestSize.small,
-        ),
-    )
-    func apply_withEmptyOverrides_returnsDependenciesUnchanged() throws {
-        let dependencies = [
-            Self.fileSystemDep(identity: "some-lib", relativePath: "external/some-lib"),
-        ]
-        let manifest = Self.makeManifest(dependencies: dependencies)
-
-        let actual = try WorkspaceOverridesJSONParser.apply([], to: manifest)
-
-        #expect(actual.dependencies == dependencies)
-    }
 
     /// A single override matching a workspace-level dep replaces
     /// that dep in place. Only the dependencies list is under test
     /// here — other manifest fields (members, toolsVersion, path)
     /// are pass-through concerns tested elsewhere.
-    @Test(
-        .tags(
-            Tag.TestSize.small,
-        ),
-    )
-    func apply_withSingleMatch_replacesDep() throws {
-        let unchanged = Self.fileSystemDep(identity: "other-lib", relativePath: "external/other-lib")
-        let manifest = Self.makeManifest(
-            dependencies: [
-                Self.fileSystemDep(identity: "some-lib", relativePath: "external/some-lib"),
-                unchanged,
-            ],
-        )
-        let replacement = Self.fileSystemDep(identity: "some-lib", relativePath: "external/local-some-lib")
-        let override = WorkspaceOverridesJSONParser.Override(
-            identity: .plain("some-lib"),
-            overridingDependency: replacement,
-        )
-
-        let actual = try WorkspaceOverridesJSONParser.apply([override], to: manifest)
-
-        #expect(actual.dependencies == [replacement, unchanged])
-    }
-
-    /// Multiple overrides each match a distinct workspace-level dep
-    /// and all get replaced. Verifies the apply step scales to the
-    /// realistic multi-dep case, not just the single-match happy
-    /// path.
-    @Test(
-        .tags(
-            Tag.TestSize.small,
-        ),
-    )
-    func apply_withMultipleMatches_replacesAll() throws {
-        let manifest = Self.makeManifest(
-            dependencies: [
-                Self.fileSystemDep(identity: "some-lib", relativePath: "external/some-lib"),
-                Self.fileSystemDep(identity: "other-lib", relativePath: "external/other-lib"),
-            ],
-        )
-        let someReplacement = Self.fileSystemDep(identity: "some-lib", relativePath: "external/local-some-lib")
-        let otherReplacement = Self.fileSystemDep(identity: "other-lib", relativePath: "external/local-other-lib")
-        let overrides = [
-            WorkspaceOverridesJSONParser.Override(
-                identity: .plain("some-lib"),
-                overridingDependency: someReplacement,
-            ),
-            WorkspaceOverridesJSONParser.Override(
-                identity: .plain("other-lib"),
-                overridingDependency: otherReplacement,
-            ),
-        ]
-
-        let actual = try WorkspaceOverridesJSONParser.apply(overrides, to: manifest)
-
-        #expect(actual.dependencies == [someReplacement, otherReplacement])
-    }
-
-    /// An override whose identity doesn't match any workspace-level
-    /// dep is rejected. This is the guard-rail against typos: a
-    /// silent no-op would let a broken override sit in the repo
-    /// undetected. The error names the offending identity so users
-    /// can find it in the JSON file.
-    @Test(
-        .tags(
-            Tag.TestSize.small,
-        ),
-    )
-    func apply_withUnknownIdentity_throws() throws {
-        let manifest = Self.makeManifest(
-            dependencies: [
-                Self.fileSystemDep(identity: "some-lib", relativePath: "external/some-lib"),
-            ],
-        )
-        let override = WorkspaceOverridesJSONParser.Override(
-            identity: .plain("ghost-lib"),
-            overridingDependency: Self.fileSystemDep(identity: "ghost-lib", relativePath: "external/ghost"),
-        )
-
-        #expect(throws: WorkspaceOverridesApplyError.unknownIdentity("ghost-lib")) {
-            _ = try WorkspaceOverridesJSONParser.apply([override], to: manifest)
-        }
-    }
 
     // MARK: - loadIfPresent
 
@@ -492,16 +394,6 @@ struct WorkspaceOverridesJSONParserTests {
 
     // MARK: - test helpers
 
-    private static func makeManifest(
-        dependencies: [PackageDependency],
-    ) -> WorkspaceManifest {
-        WorkspaceManifest(
-            path: AbsolutePath("/repo/Workspace.swift"),
-            toolsVersion: .current,
-            members: [],
-            dependencies: dependencies,
-        )
-    }
 
     private static func fileSystemDep(
         identity: String,

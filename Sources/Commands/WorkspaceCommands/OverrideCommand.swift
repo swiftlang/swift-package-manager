@@ -178,7 +178,7 @@ private func overrideDisplayTarget(_ dep: PackageDependency) -> String {
         }
     case .registry(let reg):
         return reg.identity.description
-    case .workspaceMember, .workspaceInherited:
+    case .workspaceMember:
         // Rejected by the parser; unreachable via a valid overrides file.
         return "<workspace-scoped>"
     }

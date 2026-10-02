@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="0.000344667"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.3083e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="0.000104709"/>
+    <testsuite name="TestResults" errors="0" tests="58" failures="0" skipped="0" time="36.266518542">
+        <testcase classname="WorkspaceTests.PackageWorkspaceDeprecationTests" name="deprecatedTypealiasResolvesToPackageWorkspace()" time="0.002633959"/>
+        <testcase classname="WorkspaceTests.MirrorsConfigurationTests" name="sameInputProducesIdenticalFileContents()" time="0.006137458"/>
+        <testcase classname="WorkspaceTests.MirrorsConfigurationTests" name="throwsWhenBothLocalAndSharedAreNil()" time="0.00613675"/>
+        <testcase classname="WorkspaceTests.MirrorsConfigurationTests" name="loadingSchema1()" time="0.006126959"/>
+        <testcase classname="WorkspaceTests.MirrorsConfigurationTests" name="localAndShared()" time="0.006105625"/>
+        <testcase classname="WorkspaceTests.MirrorsConfigurationTests" name="onlyShared()" time="0.006144167"/>
+        <testcase classname="WorkspaceTests.MirrorsConfigurationTests" name="consistentOrderingAcrossMultipleSaves()" time="0.005858625"/>
+        <testcase classname="WorkspaceTests.MirrorsConfigurationTests" name="deleteWhenEmpty()" time="0.006123459"/>
+        <testcase classname="WorkspaceTests.MirrorsConfigurationTests" name="deterministicJSONOutputWithMultipleMirrors()" time="0.0064085"/>
+        <testcase classname="WorkspaceTests.MirrorsConfigurationTests" name="incrementalMirrorAdditionPreservesOrder()" time="0.00612625"/>
+        <testcase classname="WorkspaceTests.MirrorsConfigurationTests" name="jsonOutputOrderingIsAlphabetical()" time="0.00624625"/>
+        <testcase classname="WorkspaceTests.MirrorsConfigurationTests" name="deterministicOutputForEdgeCases()" time="0.0061275"/>
+        <testcase classname="WorkspaceTests.MirrorsConfigurationTests" name="dontDeleteWhenEmpty()" time="0.006117875"/>
+        <testcase classname="WorkspaceTests.MirrorsConfigurationTests" name="throwsWhenNotFound()" time="0.006155042"/>
+        <testcase classname="WorkspaceTests.ToolsVersionSpecificationGenerationTests" name="toolsVersionSpecificationGeneration()" time="0.003593166"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withEmptyMembers_throws()" time="0.006219375"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="discoverWorkspaceRoot_atRootDirectory_findsWorkspaceSwift()" time="0.005854167"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withTwoMembers_yieldsBothWithDistinctIdentities()" time="0.006173042"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="loadWorkspaceManifest_withTwoMembers_producesResolvedMembers()" time="0.590775708"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="packageWorkspaceLoadWorkspaceManifest_withMissingMemberDirectory_throws()" time="0.59088375"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="discoverWorkspaceRoot_multipleAncestors_findsClosest()" time="0.006121833"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="discoverWorkspaceRoot_noWorkspaceSwiftInAncestors_returnsNil()" time="0.005811792"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withDuplicateMemberIdentities_throws()" time="0.006242209"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withOneMember_yieldsResolvedMember()" time="0.006147292"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="packageWorkspaceLoadWorkspaceManifest_withValidWorkspace_yieldsResolvedManifest()" time="0.591019208"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="discoverWorkspaceRoot_fromSubdirectory_walksUpToWorkspaceRoot()" time="0.006201875"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="packageWorkspaceLoadWorkspaceManifest_withMemberMissingPackageSwift_throws()" time="0.590896542"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withAbsoluteMemberPath_throws()" time="0.006212666"/>
+        <testcase classname="WorkspaceTests.InitTests" name="initPackageCommandPlugin()" time="0.007348833"/>
+        <testcase classname="WorkspaceTests.InitTests" name="initPackageToolWithSwiftTesting()" time="0.007612958"/>
+        <testcase classname="WorkspaceTests.InitTests" name="initPackageEmpty()" time="0.006543917"/>
+        <testcase classname="WorkspaceTests.InitTests" name="initPackageBuildToolPlugin()" time="0.007070208"/>
+        <testcase classname="WorkspaceTests.InitTests" name="initPackageIncludesNonDefaultSwiftLanguageMode()" time="0.006924041"/>
+        <testcase classname="WorkspaceTests.InitTests" name="initPackageExecutableWithSwiftTesting()" time="0.00759725"/>
+        <testcase classname="WorkspaceTests.InitTests" name="initPackageIncludesSwiftLanguageMode()" time="0.007246084"/>
+        <testcase classname="WorkspaceTests.InitTests" name="platforms()" time="0.007617666"/>
+        <testcase classname="WorkspaceTests.InitTests.InitTestsThatPerformABuild" name="initPackageLibraryWithBothSwiftTestingAndXCTest(buildSystem:)" time="0.002466292"/>
+        <testcase classname="WorkspaceTests.InitTests.InitTestsThatPerformABuild" name="nonC99NameExecutablePackage(buildSystem:)" time="4.841080624999999"/>
+        <testcase classname="WorkspaceTests.InitTests.InitTestsThatPerformABuild" name="initPackageNonc99Directory(buildSystem:)" time="5.745287791000001"/>
+        <testcase classname="WorkspaceTests.InitTests.InitTestsThatPerformABuild" name="initPackageLibraryWithSwiftTestingOnly(buildSystem:)" time="0.002721083"/>
+        <testcase classname="WorkspaceTests.InitTests.InitTestsThatPerformABuild" name="initPackageExecutable(buildSystem:)" time="14.751620208"/>
+        <testcase classname="WorkspaceTests.InitTests.InitTestsThatPerformABuild" name="initPackageLibraryWithXCTestOnly(buildSystem:)" time="5.955297916"/>
+        <testcase classname="WorkspaceTests.InitTests.InitTestsThatPerformABuild" name="initPackageExecutableCalledMain(buildSystem:)" time="4.9608885"/>
+        <testcase classname="WorkspaceTests.InitTests.InitTestsThatPerformABuild" name="initPackageLibraryWithNoTests(buildSystem:)" time="0.001912375"/>
+        <testcase classname="WorkspaceTests.WorkspaceStateTests" name="v5Format()" time="0.006210583"/>
+        <testcase classname="WorkspaceTests.WorkspaceStateTests" name="artifacts()" time="0.006237375"/>
+        <testcase classname="WorkspaceTests.WorkspaceStateTests" name="v4Format()" time="0.006126042"/>
+        <testcase classname="WorkspaceTests.WorkspaceStateTests" name="duplicateDependenciesDoNotCrash()" time="0.006250041"/>
+        <testcase classname="WorkspaceTests.WorkspaceStateTests" name="v4FormatWithPath()" time="0.006363084"/>
+        <testcase classname="WorkspaceTests.WorkspaceStateTests" name="duplicateArtifactsDoNotCrash()" time="0.006308417"/>
+        <testcase classname="WorkspaceTests.WorkspaceStateTests" name="savedDependenciesAreSorted()" time="0.006200834"/>
+        <testcase classname="WorkspaceTests.AuthorizationProviderTests" name="netrcAuthorizationProviders()" time="0.127848042"/>
+        <testcase classname="WorkspaceTests.AuthorizationProviderTests" name="registryNetrcAuthorizationProviders()" time="0.082231542"/>
+        <testcase classname="WorkspaceTests.AuthorizationProviderTests" name="registryEnvironmentCredentialsAreBoundToTheConfiguredRegistries()" time="0.000504041"/>
+        <testcase classname="WorkspaceTests.ToolsVersionSpecificationRewriterTests" name="manifestAccessFailures()" time="0.006320583"/>
+        <testcase classname="WorkspaceTests.ToolsVersionSpecificationRewriterTests" name="versionSpecificManifests()" time="0.006137291"/>
+        <testcase classname="WorkspaceTests.ToolsVersionSpecificationRewriterTests" name="nonVersionSpecificManifests(_:)" time="0.006247625"/>
+        <testcase classname="WorkspaceTests.ToolsVersionSpecificationRewriterTests" name="zeroedPatchVersion()" time="0.006143916"/>
+    </testsuite>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.1208e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="9.0541e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.9541e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.375e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.7792e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.7209e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="6.8792e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.4167e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.1333e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="6.8625e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.1917e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.5708e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="0.00011575"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.0916e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="6.5209e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="0.000117958"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.7584e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.7625e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.9958e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.8333e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.9042e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.8625e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="0.000102625"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.6166e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.3625e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="0.000107209"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.2167e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="0.000100667"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.5875e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.3917e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="0.00011175"/>
+</testsuites>

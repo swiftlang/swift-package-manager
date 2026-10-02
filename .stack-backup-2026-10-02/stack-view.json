@@ -1,0 +1,321 @@
+{
+  "trunk": "main",
+  "currentBranch": "bkhouri/t/main/poc_workspaces_phase17_make-swift-package-registry-publish-worspace-aware",
+  "branches": [
+    {
+      "name": "bkhouri/t/main/poc_workspaces",
+      "head": "5dc5fafc405a14387603feaaa45a799925adb62f",
+      "base": "166166b37a94179fafb39db8c9891158e35441be",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase0",
+      "head": "1967ef15be60291eb56e715c501bafbf00e15a3f",
+      "base": "5dc5fafc405a14387603feaaa45a799925adb62f",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase1",
+      "head": "ec17d398b4e14acc8dc5065d5e7739b03ce60cf6",
+      "base": "1967ef15be60291eb56e715c501bafbf00e15a3f",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase2",
+      "head": "737e05c9009e3dd8d6f7b7784d8955565a8ca060",
+      "base": "ec17d398b4e14acc8dc5065d5e7739b03ce60cf6",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase3",
+      "head": "96eb70cc56adbbe213d42f74569500489523ba98",
+      "base": "737e05c9009e3dd8d6f7b7784d8955565a8ca060",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase4",
+      "head": "cf174083a66d70c67c21770d77011106dcdb3d14",
+      "base": "96eb70cc56adbbe213d42f74569500489523ba98",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase5",
+      "head": "6c36a1c2baa7b80e6efe421711fa435ddea5db3e",
+      "base": "cf174083a66d70c67c21770d77011106dcdb3d14",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase6",
+      "head": "6fae5c1a8764d5beef3f7973de95a6acb389fc53",
+      "base": "6c36a1c2baa7b80e6efe421711fa435ddea5db3e",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase6_1",
+      "head": "1f27185546649ad7b8e7ec0c5ec225b414388aee",
+      "base": "6fae5c1a8764d5beef3f7973de95a6acb389fc53",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase7",
+      "head": "739971fc4a4616e7c1e7d2200b3a7a5922b2cf1c",
+      "base": "1f27185546649ad7b8e7ec0c5ec225b414388aee",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase8",
+      "head": "ab96fe44d8e87b89ebc20debdd6f85d95afdcbb7",
+      "base": "739971fc4a4616e7c1e7d2200b3a7a5922b2cf1c",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase8_diverge-workspace_deps_override",
+      "head": "c5ca5c0754eebb434c01f6970cd904413c4652ff",
+      "base": "ab96fe44d8e87b89ebc20debdd6f85d95afdcbb7",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase8_diverge-workspace_deps_override_add_subcommand",
+      "head": "4882c6da63b48575b6992ad3e7ca685e69014763",
+      "base": "c5ca5c0754eebb434c01f6970cd904413c4652ff",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase8_diverge-workspace_deps_override_add_subcommand_support-overridi",
+      "head": "f950fccee3f00294e78ddd6c45fc19e2487f66be",
+      "base": "4882c6da63b48575b6992ad3e7ca685e69014763",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase9",
+      "head": "5eb554ca4d5fbd3460434548e0e9df67cceed122",
+      "base": "f950fccee3f00294e78ddd6c45fc19e2487f66be",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase10",
+      "head": "f1c11941150dbc824b8873c89d7da337305c458c",
+      "base": "5eb554ca4d5fbd3460434548e0e9df67cceed122",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase10_diverge_augment_swift-package-workspace-command-to-allow-edit",
+      "head": "96be2da14a1068b1ba3216ec7b0a8ce788a7ae77",
+      "base": "f1c11941150dbc824b8873c89d7da337305c458c",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase10_diverge_augment_swift-package-workspace-command-to-allow-edit_2",
+      "head": "f478beb54eaeabb6cce00796287eabbb56e7e48a",
+      "base": "96be2da14a1068b1ba3216ec7b0a8ce788a7ae77",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase10_diverge_augment_swift-package-workspace-command-to-allow-edit_3_remove_members",
+      "head": "8a6557e626617c9bcb1cad31a5f173e777f44656",
+      "base": "f478beb54eaeabb6cce00796287eabbb56e7e48a",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase11-make-package-update-workspace-aware",
+      "head": "9d8d2f60a5ae1951f19191493a69692f925208ce",
+      "base": "8a6557e626617c9bcb1cad31a5f173e777f44656",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase12-make-package-clean-workspace-aware",
+      "head": "9cb802663f966bacafd45f384e93786bda4e9e01",
+      "base": "9d8d2f60a5ae1951f19191493a69692f925208ce",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase13-make-package-describe-workspace-aware",
+      "head": "61514e9eaf98326becd83669d1719d64b7314bda",
+      "base": "9cb802663f966bacafd45f384e93786bda4e9e01",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase14-make-package-dump-package-workspace-aware",
+      "head": "c8e806eacbdae63992bf3d7eaad9625d5e927137",
+      "base": "61514e9eaf98326becd83669d1719d64b7314bda",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase14-diverge-incorporate-more-command-to-workspace",
+      "head": "0d43766416cdf424f3f71c8b084114c7a805cd8c",
+      "base": "c8e806eacbdae63992bf3d7eaad9625d5e927137",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase_unknown_Workspace-with-mirror",
+      "head": "876691b8ca0baf4e9f6d63ec48f9b6a7ac60cec3",
+      "base": "0d43766416cdf424f3f71c8b084114c7a805cd8c",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase15-improve-error-with-invalid-workspace-member-or-inherited",
+      "head": "83d6f9f341c8f9d913b714d34938ae7cc3fa7f30",
+      "base": "876691b8ca0baf4e9f6d63ec48f9b6a7ac60cec3",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase15-error-handling",
+      "head": "5fc59ba1ae41bc0dac88a62a80d8303f8c4de93a",
+      "base": "83d6f9f341c8f9d913b714d34938ae7cc3fa7f30",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase15-error-handling-cli-conflict",
+      "head": "94961ed8511e28de155f3b85eb642a92929ec0dc",
+      "base": "5fc59ba1ae41bc0dac88a62a80d8303f8c4de93a",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase15-error-handling-swift-package-edit-errors-with-workspace",
+      "head": "6ced2696720ae00e5218f25e865d53370be7e57b",
+      "base": "94961ed8511e28de155f3b85eb642a92929ec0dc",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase15-error-handling-workspace-and-traits-validation",
+      "head": "3a167d2927c087b9c74193cc3439204e0fa6a4e4",
+      "base": "6ced2696720ae00e5218f25e865d53370be7e57b",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase15-error-handling-workspace-member-and-trait",
+      "head": "80921eddabcca6157196f768fa7494518c463d29",
+      "base": "3a167d2927c087b9c74193cc3439204e0fa6a4e4",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase15-error-handling-workspace-cyclical-dependency",
+      "head": "dc1e04fd2481031e1f100564db2b21e194dc3889",
+      "base": "80921eddabcca6157196f768fa7494518c463d29",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase8_diverge-workspace_add-dependency-subcommand",
+      "head": "925b8f34b4833d017360ba961553f9599e51e714",
+      "base": "dc1e04fd2481031e1f100564db2b21e194dc3889",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_update-swift-package-workspace-to-swift-workspace",
+      "head": "c8f6e8028c9c54f4ae31f22e654da56f4a3b3a4a",
+      "base": "925b8f34b4833d017360ba961553f9599e51e714",
+      "isCurrent": false,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    },
+    {
+      "name": "bkhouri/t/main/poc_workspaces_phase17_make-swift-package-registry-publish-worspace-aware",
+      "head": "c8f6e8028c9c54f4ae31f22e654da56f4a3b3a4a",
+      "base": "c8f6e8028c9c54f4ae31f22e654da56f4a3b3a4a",
+      "isCurrent": true,
+      "isMerged": false,
+      "isQueued": false,
+      "needsRebase": false
+    }
+  ]
+}

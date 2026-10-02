@@ -335,7 +335,6 @@ struct WorkspaceOriginHashTests {
                 path: workspaceManifestPath,
                 toolsVersion: .current,
                 members: [],
-                dependencies: [],
             ),
         )
 
