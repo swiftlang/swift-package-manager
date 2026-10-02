@@ -1904,6 +1904,80 @@ final class PluginInvocationTests: XCTestCase {
         }
     }
 
+    func testSystemLibraryPkgConfigFlagsAreSerializedForPlugins() throws {
+        let fileSystem = InMemoryFileSystem(emptyFiles: "/Pkg/Sources/CLib/module.modulemap")
+        let pcDir = AbsolutePath("/Pkg/pc")
+        try fileSystem.createDirectory(pcDir, recursive: true)
+        try fileSystem.writeFileContents(
+            pcDir.appending("library.pc"),
+            string: """
+            Name: library
+            Description: test library
+            Version: 1.0
+            Cflags: -I/x -DFOO=1
+            Libs: -L/opt/lib -llibrary
+            """
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fileSystem,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        try TargetDescription(name: "CLib", type: .system, pkgConfig: "library"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        let module = try XCTUnwrap(graph.module(for: "CLib"))
+        var serializer = PluginContextSerializer(
+            fileSystem: fileSystem,
+            modulesGraph: graph,
+            buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+            pkgConfigDirectories: [pcDir],
+            sdkRootPath: nil
+        )
+        _ = try serializer.serialize(target: module)
+
+        guard case .systemLibraryInfo(_, let compilerFlags, let linkerFlags) = serializer.targets.first?.info else {
+            return XCTFail("expected serialized system library info")
+        }
+        XCTAssertTrue(compilerFlags.contains("-I/x"), "compiler flags: \(compilerFlags)")
+        XCTAssertTrue(compilerFlags.contains("-DFOO=1"), "compiler flags: \(compilerFlags)")
+        XCTAssertTrue(linkerFlags.contains("-llibrary"), "linker flags: \(linkerFlags)")
+
+        // A still-prohibited flag must not discard the flags that are allowed.
+        try fileSystem.writeFileContents(
+            pcDir.appending("library.pc"),
+            string: """
+            Name: library
+            Description: test library
+            Version: 1.0
+            Cflags: -I/x -werror
+            Libs: -L/opt/lib -llibrary
+            """
+        )
+        var serializerWithProhibitedFlag = PluginContextSerializer(
+            fileSystem: fileSystem,
+            modulesGraph: graph,
+            buildEnvironment: BuildEnvironment(platform: .macOS, configuration: .debug),
+            pkgConfigDirectories: [pcDir],
+            sdkRootPath: nil
+        )
+        _ = try serializerWithProhibitedFlag.serialize(target: module)
+        guard case .systemLibraryInfo(_, let flagsWithProhibited, _) = serializerWithProhibitedFlag.targets.first?.info else {
+            return XCTFail("expected serialized system library info")
+        }
+        XCTAssertTrue(flagsWithProhibited.contains("-I/x"), "compiler flags: \(flagsWithProhibited)")
+        XCTAssertFalse(flagsWithProhibited.contains("-werror"), "compiler flags: \(flagsWithProhibited)")
+    }
+
     private func invokeBuildToolPlugins(
         graph: ModulesGraph,
         buildParameters: BuildParameters,

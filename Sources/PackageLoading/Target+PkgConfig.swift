@@ -235,7 +235,7 @@ extension SystemPackageProviderDescription {
 
 /// Filters the flags with allowed arguments so unexpected arguments are not passed to
 /// compiler/linker. List of allowed flags:
-/// cFlags: -I, -F
+/// cFlags: -I, -F, -D
 /// libs: -L, -l, -F, -framework, -w
 public func allowlist(
     pcFile: String,
@@ -263,7 +263,9 @@ public func allowlist(
                 guard let associated = it.next() else {
                     throw InternalError("Expected associated value")
                 }
-                if flag == "-framework" {
+                // Keep the value of a split `-D MACRO`, same as `-framework Name`.
+                // `-w` takes no argument, so it is excluded above; `-werror` never matches `-D`.
+                if flag == "-framework" || flag == "-D" {
                     allowed += [flag, associated]
                     continue
                 }
@@ -273,7 +275,7 @@ public func allowlist(
         return (allowed, disallowed)
     }
 
-    let filteredCFlags = try filter(flags: flags.cFlags, filters: ["-I", "-F"])
+    let filteredCFlags = try filter(flags: flags.cFlags, filters: ["-I", "-F", "-D"])
     let filteredLibs = try filter(flags: flags.libs, filters: ["-L", "-l", "-F", "-framework", "-w"])
 
     return (filteredCFlags.allowed, filteredLibs.allowed, filteredCFlags.disallowed + filteredLibs.disallowed)

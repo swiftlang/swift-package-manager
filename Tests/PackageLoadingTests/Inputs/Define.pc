@@ -1,0 +1,10 @@
+prefix=/usr
+exec_prefix=${prefix}
+libdir=${exec_prefix}/lib
+includedir=${prefix}/include
+
+Name: Define
+Description: allowed preprocessor define
+Version: 1.0.0
+Cflags: -I/path/to/inc -DFOO
+Libs: -L/usr/da/lib -lfoo
