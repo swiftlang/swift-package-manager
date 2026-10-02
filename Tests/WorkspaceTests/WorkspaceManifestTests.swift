@@ -788,7 +788,6 @@ struct FindEnclosingMemberIntegrationTests {
             path: AbsolutePath("/repo/Workspace.swift"),
             toolsVersion: .vNext,
             members: [],
-            dependencies: [],
         )
 
         let data = try JSONEncoder().encode(manifest)
@@ -824,7 +823,6 @@ struct FindEnclosingMemberIntegrationTests {
                     path: AbsolutePath("/repo/packages/lib-a"),
                 ),
             ],
-            dependencies: [],
         )
 
         let data = try JSONEncoder().encode(manifest)
@@ -837,36 +835,4 @@ struct FindEnclosingMemberIntegrationTests {
         #expect(decoded.members[1].path == "/repo/packages/lib-a")
     }
 
-    /// Dependencies encode via `PackageDependency`'s existing
-    /// `Encodable` conformance. This test verifies that a workspace
-    /// with a file-system dependency round-trips through JSON and
-    /// arrives at the same count on the other side — the exact per-
-    /// entry shape is owned by `PackageDependency` and covered by its
-    /// own tests.
-    @Test(
-        .tags(
-            Tag.TestSize.small,
-        ),
-    )
-    func workspaceManifest_encoding_withDependencies_preservesCount() throws {
-        let manifest = WorkspaceManifest(
-            path: AbsolutePath("/repo/Workspace.swift"),
-            toolsVersion: .vNext,
-            members: [],
-            dependencies: [
-                .fileSystem(
-                    identity: .plain("dep-a"),
-                    nameForTargetDependencyResolutionOnly: nil,
-                    path: AbsolutePath("/repo/vendor/dep-a"),
-                    productFilter: .everything,
-                    traits: [],
-                ),
-            ],
-        )
-
-        let data = try JSONEncoder().encode(manifest)
-        let decoded = try JSONDecoder().decode(WorkspaceManifestJSON.self, from: data)
-
-        #expect(decoded.dependencies.count == 1)
-    }
 }
