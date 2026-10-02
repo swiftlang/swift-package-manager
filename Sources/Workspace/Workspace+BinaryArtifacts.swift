@@ -106,11 +106,11 @@ extension Workspace {
                                 path: absolutePath,
                                 observabilityScope: observabilityScope
                             ) else {
-                                observabilityScope.emit(
-                                    BinaryArtifactsManagerError.localArtifactNotFound(
-                                        artifactPath: absolutePath,
-                                        targetName: target.name
-                                    )
+                                Self.emitLocalArtifactNotFoundError(
+                                    fileSystem: self.fileSystem,
+                                    artifactPath: absolutePath,
+                                    targetName: target.name,
+                                    observabilityScope: observabilityScope
                                 )
                                 continue
                             }
@@ -792,7 +792,7 @@ extension Workspace.BinaryArtifactsManager {
         path: AbsolutePath,
         observabilityScope: ObservabilityScope
     ) throws -> [(AbsolutePath, BinaryModule.Kind)] {
-        guard fileSystem.exists(path) else {
+        guard fileSystem.exists(path), fileSystem.isDirectory(path) else {
             return []
         }
 
@@ -857,6 +857,64 @@ extension Workspace.BinaryArtifactsManager {
         }
 
         return .none
+    }
+
+    package static func isZipArchive(fileSystem: FileSystem, path: AbsolutePath) -> Bool {
+        guard fileSystem.isFile(path) else {
+            return false
+        }
+        let bytes: [UInt8]
+        if let fileHandle = try? FileHandle(forReadingFrom: URL(fileURLWithPath: path.pathString)) {
+            defer { try? fileHandle.close() }
+            if let data = try? fileHandle.read(upToCount: 4), data.count >= 4 {
+                bytes = [UInt8](data)
+            } else {
+                return false
+            }
+        } else if let contents = try? fileSystem.readFileContents(path) {
+            bytes = Array(contents.contents.prefix(4))
+        } else {
+            return false
+        }
+        guard bytes.count >= 4 else {
+            return false
+        }
+        return bytes[0] == 0x50 && bytes[1] == 0x4B && (
+            (bytes[2] == 0x03 && bytes[3] == 0x04) ||
+            (bytes[2] == 0x05 && bytes[3] == 0x06) ||
+            (bytes[2] == 0x07 && bytes[3] == 0x08)
+        )
+    }
+
+    package static func emitLocalArtifactNotFoundError(
+        fileSystem: FileSystem,
+        artifactPath: AbsolutePath,
+        targetName: String,
+        observabilityScope: ObservabilityScope
+    ) {
+        if !fileSystem.exists(artifactPath) {
+            observabilityScope.emit(BinaryArtifactsManagerError.localArtifactNotFound(
+                artifactPath: artifactPath,
+                targetName: targetName
+            ))
+        } else if fileSystem.isFile(artifactPath) {
+            if Self.isZipArchive(fileSystem: fileSystem, path: artifactPath) {
+                observabilityScope.emit(BinaryArtifactsManagerError.localArtifactIsZipArchive(
+                    artifactPath: artifactPath,
+                    targetName: targetName
+                ))
+            } else {
+                observabilityScope.emit(BinaryArtifactsManagerError.localArtifactNotDirectory(
+                    artifactPath: artifactPath,
+                    targetName: targetName
+                ))
+            }
+        } else {
+            observabilityScope.emit(BinaryArtifactsManagerError.localArtifactNotFound(
+                artifactPath: artifactPath,
+                targetName: targetName
+            ))
+        }
     }
 }
 
@@ -929,10 +987,12 @@ extension Workspace {
                     path: artifact.path,
                     observabilityScope: observabilityScope
                 ) else {
-                    observabilityScope.emit(BinaryArtifactsManagerError.localArtifactNotFound(
+                    BinaryArtifactsManager.emitLocalArtifactNotFoundError(
+                        fileSystem: self.fileSystem,
                         artifactPath: artifact.path,
-                        targetName: artifact.targetName
-                    ))
+                        targetName: artifact.targetName,
+                        observabilityScope: observabilityScope
+                    )
                     continue
                 }
                 artifactsToAdd.append(artifact)
