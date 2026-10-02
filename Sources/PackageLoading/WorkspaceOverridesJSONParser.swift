@@ -28,9 +28,9 @@ public enum WorkspaceOverridesParseError: Error, Equatable {
     ///   the file.
     case unsupportedVersion(version: Int)
 
-    /// An override entry declared a `.workspaceMember` or
-    /// `.workspaceInherited` kind — workspace-scoped kinds cannot
-    /// stand in for a concrete workspace-level dependency and are
+    /// An override entry declared a `.workspaceMember`
+    /// kind — workspace-scoped kinds cannot
+    /// stand in for a concrete member-level dependency and are
     /// rejected at parse time. Only `.fileSystem`, `.sourceControl`,
     /// and `.registry` kinds are allowed as override targets.
     /// - Parameter identity: The identity of the offending override
@@ -189,27 +189,12 @@ public enum WorkspaceOverridesJSONParser {
         _ overrides: [Override],
         to manifest: WorkspaceManifest,
     ) throws -> WorkspaceManifest {
-        guard !overrides.isEmpty else { return manifest }
-
-        var overridesByIdentity: [PackageIdentity: PackageDependency] = [:]
-        for override in overrides {
-            overridesByIdentity[override.identity] = override.overridingDependency
-        }
-
-        let declaredIdentities = Set(manifest.dependencies.map(\.identity))
-        for override in overrides where !declaredIdentities.contains(override.identity) {
-            throw WorkspaceOverridesApplyError.unknownIdentity(override.identity.description)
-        }
-
-        let newDependencies = manifest.dependencies.map { dep in
-            overridesByIdentity[dep.identity] ?? dep
-        }
-        return WorkspaceManifest(
-            path: manifest.path,
-            toolsVersion: manifest.toolsVersion,
-            members: manifest.members,
-            dependencies: newDependencies,
-        )
+        // Workspace-level overrides dropped in redesign (2026-10-02):
+        // `WorkspaceManifest.dependencies` no longer exists, so there is
+        // nothing to rewrite at the workspace level. Member-level
+        // overrides are applied via the member `apply(_:to:)` overload
+        // (added in a later slice).
+        return manifest
     }
 
     // MARK: - Mutating the override list
@@ -310,7 +295,7 @@ public enum WorkspaceOverridesJSONParser {
                 productFilter: .everything,
                 traits: nil,
             )
-        case .workspaceMember, .workspaceInherited:
+        case .workspaceMember:
             throw WorkspaceOverridesParseError.workspaceScopedKindNotAllowed(identity: wire.identity)
         }
         return Override(identity: identity, overridingDependency: dependency)

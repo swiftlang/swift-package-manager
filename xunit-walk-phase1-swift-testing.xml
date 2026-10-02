@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="0.000150708"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.4125e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="9.0083e-05"/>
+    <testsuite name="TestResults" errors="0" tests="13" failures="0" skipped="0" time="1.043103417">
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withEmptyMembers_throws()" time="0.001641625"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="packageWorkspaceLoadWorkspaceManifest_withValidWorkspace_yieldsResolvedManifest()" time="1.04264875"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="discoverWorkspaceRoot_noWorkspaceSwiftInAncestors_returnsNil()" time="0.000891542"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withTwoMembers_yieldsBothWithDistinctIdentities()" time="0.001538333"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withDuplicateMemberIdentities_throws()" time="0.003176417"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="packageWorkspaceLoadWorkspaceManifest_withMemberMissingPackageSwift_throws()" time="1.0423735"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withOneMember_yieldsResolvedMember()" time="0.001638834"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="loadWorkspaceManifest_withTwoMembers_producesResolvedMembers()" time="1.042290708"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="discoverWorkspaceRoot_multipleAncestors_findsClosest()" time="0.0007505"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withAbsoluteMemberPath_throws()" time="0.003258416"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="packageWorkspaceLoadWorkspaceManifest_withMissingMemberDirectory_throws()" time="1.042295709"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="discoverWorkspaceRoot_fromSubdirectory_walksUpToWorkspaceRoot()" time="0.000833875"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="discoverWorkspaceRoot_atRootDirectory_findsWorkspaceSwift()" time="0.000888125"/>
+    </testsuite>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.8666e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="0.003005958"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="0.000188209"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="0.000210083"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.825e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="9.45e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.4458e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.0459e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.1917e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.4708e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="6.7041e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="9.1125e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.6375e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.8791e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.1208e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.6083e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.6959e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="9.65e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.9125e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.1625e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.425e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.4958e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.5583e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.325e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="9.8083e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.7041e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.35e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.7625e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.3083e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.0542e-05"/>
+</testsuites>

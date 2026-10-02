@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="0.000119083"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.3333e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="9.7667e-05"/>
+    <testsuite name="TestResults" errors="0" tests="20" failures="0" skipped="0" time="0.997149958">
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withTwoMembers_yieldsBothWithDistinctIdentities()" time="0.001483458"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withDuplicateMemberIdentities_throws()" time="0.002495875"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withAbsoluteMemberPath_throws()" time="0.002320875"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="discoverWorkspaceRoot_multipleAncestors_findsClosest()" time="0.001066833"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="findEnclosingMember_whenMembersEmpty_returnsNil()" time="0.000882791"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="findEnclosingMember_whenCwdInUnrelatedSibling_returnsNil()" time="0.000916041"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="discoverWorkspaceRoot_fromSubdirectory_walksUpToWorkspaceRoot()" time="0.000964875"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withEmptyMembers_throws()" time="0.001761625"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="packageWorkspaceLoadWorkspaceManifest_withMemberMissingPackageSwift_throws()" time="0.996175792"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="packageWorkspaceLoadWorkspaceManifest_withValidWorkspace_yieldsResolvedManifest()" time="0.996445958"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="findEnclosingMember_whenCwdAtWorkspaceRoot_returnsNil()" time="0.000995208"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="loadWorkspaceManifest_withTwoMembers_producesResolvedMembers()" time="0.996074917"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="parseJSON_withOneMember_yieldsResolvedMember()" time="0.001571375"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="discoverWorkspaceRoot_atRootDirectory_findsWorkspaceSwift()" time="0.000974875"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="findEnclosingMember_whenCwdEqualsMemberPath_returnsThatIdentity()" time="0.001087084"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="findEnclosingMember_whenCwdDeepInsideMember_returnsThatIdentity()" time="0.001039917"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="packageWorkspaceLoadWorkspaceManifest_withMissingMemberDirectory_throws()" time="0.996298209"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="findEnclosingMember_whenNestedMembers_returnsDeepestMatch()" time="0.001085375"/>
+        <testcase classname="WorkspaceTests.WorkspaceManifestTests" name="discoverWorkspaceRoot_noWorkspaceSwiftInAncestors_returnsNil()" time="0.0009625"/>
+        <testcase classname="WorkspaceTests.FindEnclosingMemberIntegrationTests" name="loadedWorkspace_findEnclosingMember_returnsExpectedFocusForCwd()" time="0.9967215"/>
+    </testsuite>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.8292e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="6.8666e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.3458e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.5e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.3333e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.8167e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="6.9083e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.6334e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.5458e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.9042e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.6834e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.125e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.75e-05"/>
+    <testsuite name="TestResults" errors="0" tests="9" failures="0" skipped="0" time="0.001788166">
+        <testcase classname="PackageModelTests.DependencyMapperTests" name="workspaceMemberRoundTripPreservesNilPathField()" time="0.000636166"/>
+        <testcase classname="PackageModelTests.DependencyMapperTests" name="tildePathIsExpandedAgainstHomeDirectory()" time="0.000906833"/>
+        <testcase classname="PackageModelTests.DependencyMapperTests" name="workspaceMemberRoundTripPreservesPathField()" time="0.000660292"/>
+        <testcase classname="PackageModelTests.DependencyMapperTests" name="relativePathIsResolvedAgainstParent()" time="0.000861375"/>
+        <testcase classname="PackageModelTests.DependencyMapperTests" name="absolutePathIsLeftAlone()" time="0.0007575"/>
+        <testcase classname="PackageModelTests.DependencyMapperTests" name="workspaceMemberMappedDependencyPreservesPath()" time="0.000651292"/>
+        <testcase classname="PackageModelTests.DependencyMapperTests" name="workspaceMemberRoundTripThenFilterPreservesPath()" time="0.000613875"/>
+        <testcase classname="PackageModelTests.DependencyMapperTests" name="workspaceMemberFilteredByProductFilterPreservesPath()" time="0.000661959"/>
+        <testcase classname="PackageModelTests.DependencyMapperTests" name="tildePathThrowsInsteadOfCrashingWhenHomeDirectoryUnsupported()" time="0.0014355"/>
+    </testsuite>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.0333e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.5375e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.7167e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="9.9792e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.4292e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.5667e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="9.7e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="0.000109875"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.7042e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.1542e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="8.0958e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="9.3292e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.925e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="6.8875e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="9e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="7.2792e-05"/>
+    <testsuite name="TestResults" errors="0" tests="0" failures="0" skipped="0" time="9.3291e-05"/>
+</testsuites>

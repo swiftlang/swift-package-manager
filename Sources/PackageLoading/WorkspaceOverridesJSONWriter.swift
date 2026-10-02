@@ -87,9 +87,9 @@ public enum WorkspaceOverridesJSONWriter {
                 id: reg.identity.description,
                 requirement: .init(reg.requirement),
             )
-        case .workspaceMember, .workspaceInherited:
+        case .workspaceMember:
             preconditionFailure(
-                "workspace-scoped deps (.workspaceMember / .workspaceInherited) cannot appear in workspace overrides; the parser rejects them, so this branch is unreachable in practice."
+                "workspace-scoped dep (.workspaceMember) cannot appear in workspace overrides; the parser rejects it, so this branch is unreachable in practice."
             )
         }
         return WireOverride(
