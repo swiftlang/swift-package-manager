@@ -1,5 +1,7 @@
 # SwiftPM Workspaces — Implementation Plan
 
+> **⚠️ Redesign in progress (2026-10-02):** Workspace-level dependencies (`Workspace.dependencies:`) and `.package(workspaceInherited:)` have been dropped from the design. The resolver already unifies external deps across all member root manifests (PubGrub's `<synthesized-root>`), and Phase 8D's member-level overrides handle local redirection. Members declare their external deps directly in their own `Package.swift`. `.workspaceMember` for sibling-to-sibling edges stays. **The sections below retain the historical TDD-cycle records of the dropped work for traceability;** the gh-stack is being reworked separately to remove the inherited code paths. New additions post-redesign: Phase 18 (`swift workspace update-dependencies` command). The design-of-record is the swift-evolution proposal at `/Users/bkhouri/Documents/git/public/swiftlang/swift-evolution/proposals/NNNN-swiftpm-workspaces.md`.
+
 ## Overview
 
 Implement first-class workspaces in Swift Package Manager: a new `Workspace.swift` manifest declares multiple member packages with unified dependency resolution, shared build state, and consistent CLI ergonomics. Design is locked in `/Users/bkhouri/Documents/git/public/swiftlang/swift-evolution/proposals/NNNN-swiftpm-workspaces.md`.
@@ -8,30 +10,32 @@ Implement first-class workspaces in Swift Package Manager: a new `Workspace.swif
 
 **Gating:** all new DSL surface gated on `@available(_PackageDescription, introduced: 999.0)` using SwiftPM's existing `vNext` convention (`Sources/PackageModel/ToolsVersion.swift:39`). Graduation to a real tools-version is out of scope for this plan.
 
-## Status (as of 2026-09-01)
+## Status (as of 2026-10-02)
 
 | Phase | Slice | Status | Branch |
 |---|---|---|---|
 | 0 | Rename `Workspace` → `PackageWorkspace` | ✅ Done | `bkhouri/t/main/poc_workspaces_phase0` |
 | 1 | Minimal Workspace (S01) | ✅ Done | `bkhouri/t/main/poc_workspaces_phase1` |
 | 2 | `.package(workspaceMember:)` DSL (S02) | ✅ Done | `bkhouri/t/main/poc_workspaces_phase2` |
-| 3 | `.package(workspaceInherited:)` DSL (S03) | ✅ Done — **augmented, not rewritten** (see phase note) | `bkhouri/t/main/poc_workspaces_phase3` |
+| 3 | ~~`.package(workspaceInherited:)` DSL~~ | ❌ **DROPPED in redesign** — members declare external deps directly; multi-root resolver unifies | removed |
 | 4 | Case A — CWD inside member (S04) | ✅ Done | `bkhouri/t/main/poc_workspaces_phase4` |
 | 5 | `--package` selector for `swift build` (S05) | ✅ Done | `bkhouri/t/main/poc_workspaces_phase5` |
 | 6 | `swift test` in workspace (S06) | ✅ Done — includes `XUnitGenerator` per-package annotation and `swift test list --package` migration (on a separate branch) | `bkhouri/t/main/poc_workspaces_phase6` (+ follow-up branch) |
 | 7 | `swift run` collisions | ✅ Done | `bkhouri/t/main/poc_workspaces_phase7` |
-| 8 | `swift package resolve` + trailing warnings + workspace-scope originHash | ✅ Done | `bkhouri/t/main/poc_workspaces_phase8` |
-| 8B | Workspace dependency overrides (`.swiftpm/configuration/workspace-overrides.json`) | ✅ Done — folds overrides file content into origin hash | `bkhouri/t/main/poc_workspaces_phase8_diverge-workspace_deps_override` |
-| 8C | `swift package workspace override` subcommand (add / remove / list) | ✅ Done — POC scope, nested under `swift package workspace` | `bkhouri/t/main/poc_workspaces_phase8` |
-| 8D | `workspace override` extended scope — member-level dep support | 🟡 In progress — TDD cycles 1-12 (see Phase 8D section) | `bkhouri/t/main/poc_workspaces_phase8_diverge-workspace_deps_override_add_subcommand` |
-| 9 | `swift package workspace init` | ✅ Done — POC scope, nested under `swift package workspace` (respects `--package-path`) | `bkhouri/t/main/poc_workspaces_phase8` |
+| 8 | `swift package resolve` + trailing warnings | ✅ Done — originHash input scope reduced to member manifests only in redesign | `bkhouri/t/main/poc_workspaces_phase8` |
+| 8B | ~~Workspace dependency overrides~~ → Member dependency overrides (`.swiftpm/configuration/workspace-overrides.json`) | 🔄 **Rework in redesign** — folds overrides file content into origin hash; member-only apply surface | `bkhouri/t/main/poc_workspaces_phase8_diverge-workspace_deps_override` |
+| 8C | `swift workspace override` subcommand (add / remove / list) | ✅ Done — POC scope, now top-level `swift workspace` | `bkhouri/t/main/poc_workspaces_phase8` |
+| 8D | `workspace override` — the override apply path (member-level) | 🔄 **Workspace-level apply arm dropped in redesign** — member-level apply path survives (see Phase 8D section for TDD cycle log) | `bkhouri/t/main/poc_workspaces_phase8_diverge-workspace_deps_override_add_subcommand` |
+| 9 | `swift workspace init / add-member / list-members / remove-member` | ✅ Done — `swift workspace add-dependency` **dropped in redesign** | `bkhouri/t/main/poc_workspaces_phase8` |
 | 10 | `swift package show-dependencies` workspace awareness | ✅ Done — all four formats extended, coverage split between unit + e2e | `bkhouri/t/main/poc_workspaces_phase10` |
 | 11 | `swift package update` workspace awareness | ✅ Done — `--package` selector + CWD focus + workspace-root routing | `bkhouri/t/main/poc_workspaces_phase11-make-package-update-workspace-aware` |
 | 12 | `swift package clean` workspace awareness | ✅ Done — workspace-root `.build/` cleanup + info diagnostics + `--package` parity | `bkhouri/t/main/poc_workspaces_phase11-make-package-update-workspace-aware` (Phase 12 landed on the Phase 11 branch as follow-up) |
-| 13 | `swift package describe` workspace awareness | ✅ Done — per-member iteration for text/json/mermaid + `--package` + CWD focus + `DescribedPackageDependency.workspaceInherited` case fix | `bkhouri/t/main/poc_workspaces_phase13-make-package-describe-workspace-aware` |
-| 14 | `swift package dump-package` workspace awareness + `swift package workspace dump-workspace` | ✅ Done — `--package` selector + CWD focus + workspace-root ambiguity error; workspace manifest dump added alongside | `bkhouri/t/main/poc_workspaces_phase14-make-package-dump-package-workspace-aware` |
+| 13 | `swift package describe` workspace awareness | ✅ Done — per-member iteration for text/json/mermaid + `--package` + CWD focus (`DescribedPackageDependency.workspaceInherited` case **dropped in redesign**) | `bkhouri/t/main/poc_workspaces_phase13-make-package-describe-workspace-aware` |
+| 14 | `swift package dump-package` workspace awareness + `swift package workspace dump-workspace` | ✅ Done — `--package` selector + CWD focus + workspace-root ambiguity error; workspace manifest dump added alongside (`WorkspaceManifest.dependencies` field **dropped in redesign**) | `bkhouri/t/main/poc_workspaces_phase14-make-package-dump-package-workspace-aware` |
 | 15 | Error paths + edge cases | ✅ Done — split into 15a (load-time errors), 15b (nested workspaces), 15c (`--multiroot-data-file` conflict + `--package-path` → `--project-path` rename), 15d (`edit`/`unedit` deferred + workspace-only DSL outside workspace) | `bkhouri/t/main/poc_workspaces_phase15-*` (multiple stack branches) |
-| 16 | Per-member trait isolation + cross-package cycle detection | ✅ Done — unit + e2e coverage for `.workspaceMember` and `.workspaceInherited` trait isolation; e2e coverage for cycle detection through both DSL edges | `bkhouri/t/main/poc_workspaces_phase15-error-handling-workspace-cyclical-dependency` |
+| 16 | Per-member trait isolation for `.workspaceMember` + cross-package cycle detection through `.workspaceMember` edges | 🔄 **Inherited arm dropped in redesign** — `.workspaceMember` arm retained | `bkhouri/t/main/poc_workspaces_phase15-error-handling-workspace-cyclical-dependency` |
+| 17 | Workspace-aware `swift package-registry publish` | 🟡 Planning complete; implementation not yet started | `bkhouri/t/main/poc_workspaces_phase17_make-swift-package-registry-publish-worspace-aware` |
+| 18 | `swift workspace update-dependencies` command | 🔵 New in redesign — bulk editor for member external-dep version constraints | (branch TBD) |
 
 ## Current State Analysis
 
@@ -53,8 +57,8 @@ The relevant machinery is partially present:
 
 At completion of Slice 15 on branch `bkhouri/t/main/poc_workspaces`:
 
-- A user with `// swift-tools-version: 999.0` can write `Workspace.swift` at a directory root, list members and workspace-wide deps, and run `swift build`, `swift test`, `swift run`, `swift package resolve`, `swift package init workspace` with the semantics locked in the SE proposal.
-- Members reference each other via `.package(workspaceMember:)` and inherit workspace deps via `.package(workspaceInherited:)`.
+- A user with `// swift-tools-version: 999.0` can write `Workspace.swift` at a directory root, list members, and run `swift build`, `swift test`, `swift run`, `swift package resolve`, `swift package init workspace` with the semantics locked in the SE proposal.
+- Members reference each other via `.package(workspaceMember:)`. Members declare external dependencies directly in their own `Package.swift`; the multi-root resolver unifies versions.
 - Discovery, Case A, `--package` selector, xUnit aggregation, trailing warnings, error paths, `--path`/`--package-path` deprecation, `--multiroot-data-file` conflict rejection, nested-workspace rejection — all working.
 - Internal `Workspace` class renamed to `PackageWorkspace` with a deprecated typealias.
 - Every existing SwiftPM test still passes on every slice commit.
@@ -756,128 +760,6 @@ func s02_memberToMemberDependency(
 - [x] Loading a member `Package.swift` with `.package(workspaceMember:)` outside a workspace errors with the documented diagnostic — covered by `WorkspaceResolveTests.validateNoWorkspaceMemberDependencies_withWorkspaceMemberDep_throws`
 - [x] Test assertion: running the built `app` binary from the fixture's `.build/` produces stdout containing "Hello from lib-a"
 - [x] Test assertion: outside-workspace stderr contains the requires-workspace diagnostic — asserted via the `.workspaceMemberUsedOutsideWorkspace` case in unit tests
-
-#### Manual Verification:
-(none — all criteria automated)
-
----
-
-## Phase 3: `.package(workspaceInherited:)` DSL
-
-**Status:** ✅ Complete. **Design deviated from original plan:** `.workspaceInherited` is *augmented* in place at workspace load (populating a `resolved: ResolvedInherited?` field on the payload), rather than *rewritten* to a concrete `.sourceControl` / `.registry` / `.fileSystem` case. Mirrors the Slice 2 `.workspaceMember` augmentation pattern. Kind preservation was needed so the workspace-level "declared but not inherited" audit can run against the true post-load state and so `.workspaceInherited` stays observable for diagnostics/tooling. Trade-off: workspace-awareness in ~3 downstream sites (`toConstraintRequirement`, `packageRef`, `locationString`); each dispatches on `resolved`. SE proposal updated accordingly (Model changes, Resolution and workspace lifecycle, Alternatives considered).
-
-### Overview
-
-Members inherit workspace-level external dependencies. Adds `PackageDependency.Kind.workspaceInherited` case, DSL factory, trait union at rewrite, unknown-identity hard error, unused-workspace-dep warning.
-
-### Changes Required
-
-#### 1. New Kind case
-**File**: `Sources/PackageModel/Manifest/PackageDependencyDescription.swift`
-
-```swift
-extension PackageDependency {
-    public enum Kind {
-        // ...existing + .workspaceMember from Slice 2...
-        case workspaceInherited(WorkspaceInherited)
-    }
-
-    public struct WorkspaceInherited: Equatable, Hashable, Encodable, Sendable {
-        public let identity: PackageIdentity
-        public let traits: Set<PackageDependency.Trait>?
-    }
-}
-```
-
-Update internal switches.
-
-#### 2. DSL factory
-**File**: `Sources/Runtimes/PackageDescription/PackageDependency.swift`
-
-```swift
-extension Package.Dependency {
-    @available(_PackageDescription, introduced: 999.0)
-    public static func package(
-        workspaceInherited id: String,
-        traits: Set<Package.Dependency.Trait> = [.defaults],
-    ) -> Package.Dependency
-}
-```
-
-#### 3. Rewrite pass extension
-**File**: `Sources/Workspace/PackageWorkspace+WorkspaceRewrite.swift`
-
-Extend the rewrite to handle `.workspaceInherited`:
-```swift
-case .workspaceInherited(let inherited):
-    let workspaceDeps = Dictionary(
-        uniqueKeysWithValues: workspaceManifest.dependencies.map { ($0.identity, $0) },
-    )
-    guard let workspaceDep = workspaceDeps[inherited.identity] else {
-        throw WorkspaceError.unknownInheritedDependency(
-            identity: inherited.identity,
-            manifestPath: manifest.path,
-        )
-    }
-    let unionedTraits = (workspaceDep.traits ?? []).union(inherited.traits ?? [])
-    return workspaceDep.with(traits: unionedTraits)  // Reuses workspaceDep's kind/version/location
-```
-
-#### 4. Unused workspace deps warning
-After the rewrite pass, collect the set of inherited identities across all members. Any workspace-level `dependencies:` entry not inherited by any member → warning added to the observability scope, emitted at command end.
-
-#### 5. Fixture
-**Directory**: `Fixtures/Workspaces/S03_InheritedExternalDep/`
-
-Requires a real external dep. Use `swift-log` or an in-fixture path-based external dep that we generate. To avoid network dependencies in tests, use a fixture-local dep:
-
-```
-Fixtures/Workspaces/S03_InheritedExternalDep/
-  Workspace.swift              # declares .package(path: "external/some-lib", ...)
-                                #    OR .package(url: ..., from: ...) if we accept network fetch
-  external/
-    some-lib/
-      Package.swift             # library
-      Sources/SomeLib/SomeLib.swift
-  packages/
-    app/
-      Package.swift             # .package(workspaceInherited: "some-lib")
-      Sources/app/main.swift    # imports SomeLib
-    lib-a/
-      Package.swift             # .package(workspaceInherited: "some-lib")
-      Sources/LibA/LibA.swift
-```
-
-Note: existing fixtures like `Fixtures/DependencyResolution/Internal/*` prefer path-based externals to avoid network. Match that convention.
-
-#### 6. Functional test
-Extend `WorkspaceFeatureTests.swift`:
-
-```swift
-@Test
-func s03_inheritedExternalDep(...) async throws {
-    try await fixture(name: "Workspaces/S03_InheritedExternalDep") { fixturePath in
-        try await executeSwiftBuild(fixturePath, buildSystem: buildSystem)
-        // Verify both members compile against SomeLib; only one resolved version.
-    }
-}
-
-@Test
-func s03_unknownInheritedIdentityFails(...) async throws {
-    // A fixture variant where a member inherits an identity not in the workspace.
-    // Assert the build fails with the documented diagnostic.
-}
-```
-
-### Success Criteria
-
-#### Automated Verification:
-- [x] Slice 3 fixture builds; app inherits `some-lib` via lib-a's `.package(workspaceInherited:)` chain (`s03_inheritedExternalDepBuildsAndRuns`)
-- [x] Test assertion: the resolved graph reports exactly one `SomeLib` package (implicit — `app says: Hello from some-lib` output proves single resolution)
-- [x] Unknown-inherited-identity errors with `"no workspace-level dependency"` — covered by `WorkspaceResolveTests.resolveWorkspaceMemberPaths_withUnknownInherited_throwsUnknownInheritedDependency`
-- [x] Trait union: `WorkspaceResolveTests.resolveWorkspaceMemberPaths_withInheritedTraits_unionsWithWorkspaceTraits` asserts `A ∪ B` on the augmented `.workspaceInherited` payload (plus 3 sibling tests for the nil-arm variants)
-- [x] Unused-workspace-dep audit — Bug A regression assertion added to `s03_inheritedExternalDepBuildsAndRuns` (stderr must NOT contain the "declared but not inherited" warning for `some-lib`, which IS inherited)
-- [x] Full regression green (Slice 3 branch at-desk)
 
 #### Manual Verification:
 (none — all criteria automated)
@@ -2137,7 +2019,7 @@ Cover all documented error paths and edge cases. `--package-path` → `--project
 - **15a** — Actionable descriptions for `WorkspaceManifestParseError` cases (`emptyMembers`, `memberAbsolutePathError`, `duplicateMembernames`, `memberPathNotFound`, `memberMissingPackageManifest`) via `CustomStringConvertible`, plus out-of-tree member warning via `Basics.Diagnostic.memberOutsideWorkspaceTree` factory.
 - **15b** — Nested workspace detection (in ancestor + in member subtree) with new `WorkspaceManifestParseError.nestedWorkspaceInAncestor` / `.nestedWorkspaceInMember` cases. Refactored into a single `PackageWorkspace.validateWorkspace(...)` orchestrator.
 - **15c** — `--multiroot-data-file` conflict detection + the `--package-path` → `--project-path` rename with aliased `@Option` (last-wins) + argv-scanning deprecation warning.
-- **15d** — `swift package edit` / `unedit` deferred under workspace pointing at `swift package workspace override` (NOT "will be addressed in a follow-up"), plus explicit e2e coverage for workspace-only DSL used outside a workspace (`.package(workspaceMember:)` / `.package(workspaceInherited:)` in a standalone `Package.swift`).
+- **15d** — `swift package edit` / `unedit` deferred under workspace pointing at `swift package workspace override` (NOT "will be addressed in a follow-up"), plus explicit e2e coverage for workspace-only DSL used outside a workspace (`.package(workspaceMember:)` in a standalone `Package.swift`).
 
 Design deviation on the flag rename: the pitched target was `--package-path` → `--path`. `swift package edit --path <checkout>` is public API (an evolution-locked flag on the `edit` subcommand), so a global `--path` alias collides at the ArgumentParser level. The rename target became `--project-path` instead.
 
@@ -2186,7 +2068,7 @@ Design deviation on the flag rename: the pitched target was `--package-path` →
 
 #### 11. Workspace-only DSL outside workspace
 **Location**: `Workspace.loadRootManifests(...)` at `Sources/Workspace/Workspace.swift`
-- ✅ `WorkspaceResolveError` is now propagated through `loadRootManifests` alongside `TraitError` instead of being silently swallowed into an empty manifest set. `.package(workspaceMember:)` / `.package(workspaceInherited:)` in a standalone `Package.swift` (no ancestor `Workspace.swift`) now surfaces the actionable error at the CLI boundary.
+- ✅ `WorkspaceResolveError` is now propagated through `loadRootManifests` alongside `TraitError` instead of being silently swallowed into an empty manifest set. `.package(workspaceMember:)` in a standalone `Package.swift` (no ancestor `Workspace.swift`) now surfaces the actionable error at the CLI boundary.
 
 #### 12. Fixtures (landed)
 **Directory**: `Fixtures/Workspaces/S15_ErrorPaths/`
@@ -2196,7 +2078,7 @@ Design deviation on the flag rename: the pitched target was `--package-path` →
 - `NestedWorkspaceInMember/`
 - `NestedWorkspaceInAncestor/`
 - `WorkspaceMemberUsedOutsideWorkspace/` — standalone `Package.swift` using `.package(workspaceMember:)`
-- `WorkspaceInheritedUsedOutsideWorkspace/` — standalone `Package.swift` using `.package(workspaceInherited:)`
+- `WorkspaceMemberUsedOutsideWorkspace/` — standalone `Package.swift` using `.package(workspaceMember:)`
 
 The `WorkspaceAndMultirootBoth/` fixture from the original plan wasn't needed: the check happens at CLI init from any workspace fixture, so `--multiroot-data-file` conflict coverage reuses `S14_DumpPackage`.
 
@@ -2226,56 +2108,34 @@ The `WorkspaceAndMultirootBoth/` fixture from the original plan wasn't needed: t
 
 ### Overview
 
-Follow-up coverage discovered during Phase 15 stack-top review. Three concerns:
+Follow-up coverage discovered during Phase 15 stack-top review. Two concerns (post-redesign; the `.workspaceInherited` arm was dropped when workspace-level dependencies were removed from the design):
 
-1. **Per-member trait isolation for `.workspaceInherited`.** `resolveInherited` already computed each member's `workspace ∪ member` trait union independently, but the multi-member case had no test coverage. A future refactor of the trait-union arm could silently regress cross-member isolation.
-2. **Per-member trait isolation for `.workspaceMember`.** No workspace-level counterpart to merge with, so `resolveWorkspaceMemberPaths` preserves each consumer's authored trait set verbatim. No coverage locking that in.
-3. **Cross-package cycle detection through workspace-scoped edges.** For tools-version 6.0+, package-level cycle detection is intentionally disabled (`ModulesGraph+Loading.swift:112`) and the graph relies on the module-level cycle scan (`:892-914`) that follows `.product()` edges. No coverage locking in that `.workspaceMember` / `.workspaceInherited`-resolved packages participate in that scan.
-
-Also discovered during Phase 15 stack-top review: **`swift package describe` crashed on any workspace using `.package(workspaceInherited:)`**. `DescribedPackageDependency.init(from:)` had a `preconditionFailure` on `.workspaceInherited` predicated on a non-existent "rewrite pass" that replaces `.workspaceInherited` with a concrete kind — but the workspaces pipeline preserves `.workspaceInherited` end-to-end and populates the `resolved:` field instead. Fixed by adding a first-class `workspaceInherited(identity:, resolved:)` case to `DescribedPackageDependency`.
+1. **Per-member trait isolation for `.workspaceMember`.** No workspace-level counterpart to merge with, so `resolveWorkspaceMemberPaths` preserves each consumer's authored trait set verbatim. No coverage locking that in.
+2. **Cross-package cycle detection through `.workspaceMember` edges.** For tools-version 6.0+, package-level cycle detection is intentionally disabled (`ModulesGraph+Loading.swift:112`) and the graph relies on the module-level cycle scan (`:892-914`) that follows `.product()` edges. No coverage locking in that `.workspaceMember`-resolved packages participate in that scan.
 
 ### Changes Required (as landed)
 
-#### 1. Trait isolation for `.workspaceInherited`
+#### 1. Trait isolation for `.workspaceMember`
 **Location**: `Tests/WorkspaceTests/WorkspaceResolveTests.swift` + `Tests/FunctionalTests/WorkspaceFeatureTests.swift`
 
-- ✅ 4 unit tests locking per-member `resolveInherited` isolation: two members inheriting the same workspace dep with divergent traits (guards against cross-contamination), two members inheriting different workspace deps (per-dep-scoped traits), mixed nil/explicit fall-through, and the "only one member inherits" case.
-- ✅ E2E test `s15_workspaceInheritedTraits_perMemberIsolation_workspaceLoadsAndBuilds` against fixture `Fixtures/Workspaces/S15_InheritedTraits/` (2 members + trait-bearing workspace dep + divergent per-member layered traits).
-
-#### 2. Trait isolation for `.workspaceMember`
-**Location**: `Tests/WorkspaceTests/WorkspaceResolveTests.swift` + `Tests/FunctionalTests/WorkspaceFeatureTests.swift`
-
-- ✅ `workspaceMemberDep(identity:traits:productFilter:)` helper added mirroring the existing `inheritedDep(...)`.
+- ✅ `workspaceMemberDep(identity:traits:productFilter:)` helper added.
 - ✅ 4 unit tests locking per-consumer `.workspaceMember` isolation: two members referencing the same target with divergent traits (verbatim preservation, no cross-contamination), two members referencing different targets (per-target-scoped traits), mixed nil/explicit (nil stays nil), and the "only one member references" case.
 - ✅ E2E test `s15_workspaceMemberTraits_perMemberIsolation_workspaceLoadsAndBuilds` against fixture `Fixtures/Workspaces/S15_MemberTraits/` (3 members, two consumers referencing the third with divergent traits).
 
-#### 3. Cross-package cycle detection through workspace-scoped edges
+#### 2. Cross-package cycle detection through `.workspaceMember` edges
 **Location**: `Tests/FunctionalTests/WorkspaceFeatureTests.swift`
 
 - ✅ Fixture `Fixtures/Workspaces/S15_WorkspaceMemberCycle/` — two workspace members forming a `.workspaceMember` + `.product()` target cycle.
-- ✅ Fixture `Fixtures/Workspaces/S15_WorkspaceInheritedCycle/` — one workspace member inherits an external via `.workspaceInherited`; the external declares a `.package(path:)` back-reference to the member, closing a target cycle.
-- ✅ E2E tests `s15_workspaceMemberCycle_hardErrors` and `s15_workspaceInheritedCycle_hardErrors` — both use `swift package describe` (which triggers full graph load without incurring compile time) and assert stderr contains `"cyclic dependency declaration"` plus both cycle-path target names.
+- ✅ E2E test `s15_workspaceMemberCycle_hardErrors` — uses `swift package describe` (which triggers full graph load without incurring compile time) and asserts stderr contains `"cyclic dependency declaration"` plus both cycle-path target names.
 
-Test-only change — no production code touched. Cycle detection already worked; there was no coverage locking it in for the workspace DSL cases.
-
-#### 4. `swift package describe` handles `.workspaceInherited`
-**File**: `Sources/Commands/Utilities/DescribedPackage.swift`
-
-- ✅ Added first-class `case workspaceInherited(identity: PackageIdentity, resolved: ResolvedInherited)` to `DescribedPackageDependency`, mirroring the existing `workspaceMember` case.
-- ✅ Nested `enum ResolvedInherited: Encodable` with `.fileSystem`, `.sourceControl`, `.registry` sub-cases mirrors `PackageDependency.WorkspaceInherited.ResolvedInherited` in describe-appropriate shape (source-control location as a string, no `nameForTargetDependencyResolutionOnly` / `registryIdentity` metadata that isn't part of describe output).
-- ✅ `init(from:)` unpacks `settings.resolved` into the describe case. Preserved a `preconditionFailure` for the "nil resolved" invariant violation, retooled with a message pointing at `resolveInherited` (the field's populator) rather than the non-existent rewrite pass the previous message referenced.
-- ✅ Added `.resolved` coding key + `.workspaceInherited` to `Kind` + encoding branch.
-- ✅ Unit tests `DescribedPackageDependencyTests` (new file, 4 tests) — `.workspaceInherited` round-trip through `init(from:)` for all three resolved variants (file-system, source-control remote, source-control local, registry).
+Test-only change — no production code touched. Cycle detection already worked; there was no coverage locking it in for the `.workspaceMember` edge kind.
 
 ### Success Criteria
 
 #### Automated Verification:
-- [x] Multi-member `.workspaceInherited` unit tests lock cross-member trait isolation (workspace ∪ member per member, no cross-contamination)
 - [x] Multi-member `.workspaceMember` unit tests lock per-consumer verbatim preservation
-- [x] E2E tests exercise the full manifest-load pipeline for both DSL forms with divergent per-member traits
-- [x] Cycle detection e2e tests exercise both DSL edge kinds
-- [x] `DescribedPackageDependencyTests` (new suite) unit tests cover all three resolved variants for `.workspaceInherited`
-- [x] `swift package describe` on any workspace using `.package(workspaceInherited:)` no longer crashes
+- [x] E2E tests exercise the full manifest-load pipeline for `.workspaceMember` with divergent per-member traits
+- [x] Cycle detection e2e tests exercise the `.workspaceMember` edge kind
 - [x] Full regression green
 
 #### Manual Verification:
@@ -2287,13 +2147,12 @@ Test-only change — no production code touched. Cycle detection already worked;
 
 ### Overview
 
-`swift package-registry publish` today publishes a single package as-is. Under a workspace, a member's `Package.swift` contains `.package(workspaceMember: ...)` and `.package(workspaceInherited: ...)` deps that a consumer downloading the archive from the registry cannot resolve — the workspace isn't there. Make publish workspace-aware by producing a self-contained archive: rewrite workspace-scoped deps and vendor sibling workspace-member sources directly into the archive.
+`swift package-registry publish` today publishes a single package as-is. Under a workspace, a member's `Package.swift` contains `.package(workspaceMember: ...)` deps that a consumer downloading the archive from the registry cannot resolve — the sibling isn't there. Make publish workspace-aware by producing a self-contained archive: rewrite `.workspaceMember` deps and vendor sibling workspace-member sources directly into the archive.
 
 **Design decisions (approved before kickoff):**
 
 - **Self-contained archives via vendoring.** `.workspaceMember` siblings are copied into `.vendored/<identity>/` at the archive root; refs are rewritten to `.package(path: ".vendored/<identity>")` (or `"../<identity>"` when the rewrite is inside another vendored sibling — flat layout so grandchild `.workspaceMember` refs dedup).
-- **`.workspaceInherited` rewritten to concrete form.** Replaced with the concrete `.package(url:)` / `.package(id:)` / `.package(path:)` from the workspace's resolved dep. External deps are not vendored — the consumer's resolver fetches them normally.
-- **Recursive rewrite.** Every vendored `Package.swift` receives the same rewrite treatment (its own `.workspaceInherited` and `.workspaceMember` deps are rewritten too).
+- **Recursive rewrite.** Every vendored `Package.swift` receives the same rewrite treatment (its own `.workspaceMember` deps are rewritten too).
 - **Dirty-tree gate covers every archived directory.** Refuse publish if the primary package's directory OR any transitively-vendored sibling directory has uncommitted changes or untracked files. Message lists the offending files per directory.
 - **All manifests signed.** SwiftPM currently signs only root-level `Package.swift` / `Package@swift-X.Y.swift`. Under a workspace publish, every `Package.swift` in the archive is signed (root + each vendored sibling), for consistency with the existing per-manifest signing contract. Archive-level signing alone would be sufficient, but per-manifest signatures make the vendored manifests independently verifiable and match user expectations set by non-workspace publishes.
 - **Provenance metadata per vendored sibling.** Each `.vendored/<identity>/` gets a `.workspace-provenance.json` documenting where the vendored bytes came from — workspace-relative source path, git SHA (best-effort; may be null if not tracked), git-clean flag. Informational only; the toolchain does not use it during dep resolution.
@@ -2327,10 +2186,9 @@ Each sub-slice lands as its own commit; slices with a "TDD cycles" table are man
 - New: `Sources/Workspace/PublishManifestRewriter.swift`
 - Tests: `Tests/WorkspaceTests/PublishManifestRewriterTests.swift`
 
-Swift Syntax-based rewriter. Input: a `Package.swift` source string + rewrite context (workspace's resolved deps map for `.workspaceInherited`, vendored-identity set + relative-path base for `.workspaceMember`). Output: rewritten source string.
+Swift Syntax-based rewriter. Input: a `Package.swift` source string + rewrite context (vendored-identity set + relative-path base for `.workspaceMember`). Output: rewritten source string.
 
 Rewrite rules:
-- `.package(workspaceInherited: "X", traits: T)` → concrete `.package(url:...)` / `.package(id:...)` / `.package(path:...)` from the workspace's resolved dep. Traits are the union already computed by `resolveInherited` (Phase 3).
 - `.package(workspaceMember: "X", traits: T)` → `.package(path: "<relative-base>/<X>", traits: T)`. Relative base is `.vendored` when rewriting the primary; `..` when rewriting inside a vendored sibling.
 
 Sharing surface with `InitWorkspace.renderManifest` (Phase 9) — both use Swift Syntax to edit manifest source. Extract shared helpers if they emerge; otherwise keep parallel.
@@ -2415,21 +2273,19 @@ Non-workspace publishes take the existing pre-Phase-17 path bit-for-bit — incl
 **Location**: `Tests/FunctionalTests/WorkspaceFeatureTests.swift` + `Fixtures/Workspaces/S17_Publish/`
 
 Fixtures (each a self-contained workspace):
-- `S17_Publish/SimpleMember/` — workspace with 1 primary + 0 workspace-member deps (baseline: rewrite `.workspaceInherited` only).
+- `S17_Publish/SimpleMember/` — workspace with 1 primary + 0 workspace-member deps (baseline: no rewrites required; archive bytes should match the source directory for the primary).
 - `S17_Publish/TwoHopDag/` — primary → lib-b → lib-c. Verifies flat vendoring and recursive rewrite.
 - `S17_Publish/DirtyPrimary/` — primary has uncommitted changes; expect refuse.
 - `S17_Publish/DirtyVendored/` — sibling has uncommitted changes; expect refuse.
 - `S17_Publish/NotTracked/` — sibling not in git; expect success with `git: null` in provenance.
-- `S17_Publish/InheritedInVendored/` — vendored sibling has its own `.workspaceInherited` dep; expect recursive rewrite to concrete form.
 - `S17_Publish/MultiMemberSelector/` — workspace with 2+ members; exercises `--package` selector paths.
 
 E2E test asserts:
-- `s17_publish_simpleMember_producesArchiveWithRewrittenInherited` — inspect the produced archive, confirm `Package.swift` has no `.workspaceInherited` calls remaining.
+- `s17_publish_simpleMember_producesByteIdenticalArchive` — inspect the produced archive, confirm `Package.swift` is byte-identical to the source (no vendored siblings, nothing to rewrite).
 - `s17_publish_twoHopDag_producesFlatVendoredArchive` — confirm `.vendored/lib-b/`, `.vendored/lib-c/` both present at archive root; confirm `.vendored/lib-b/Package.swift` refs lib-c via `../lib-c`.
 - `s17_publish_dirtyPrimary_refuses` — assert refuse diagnostic + zero registry calls.
 - `s17_publish_dirtyVendored_refuses` — assert refuse diagnostic names the vendored member's directory.
 - `s17_publish_notTracked_succeedsWithNullProvenance` — assert provenance file present with `"git": null`.
-- `s17_publish_inheritedInVendored_recursiveRewrite` — assert vendored manifest's `.workspaceInherited` is rewritten to concrete form.
 - `s17_publish_signsAllManifests` — assert every `Package.swift` in the produced archive has a corresponding signature (per-manifest signing extended).
 - `s17_publish_packageSelector_fromWorkspaceRoot_selectsMember` — from workspace root with `--package lib-b`, primary is lib-b.
 - `s17_publish_packageSelector_fromMemberCwd_autoSelects` — from `packages/lib-b`, no `--package`, primary is lib-b.
@@ -2440,7 +2296,7 @@ E2E test asserts:
 ### Success Criteria
 
 #### Automated Verification:
-- [ ] `PublishManifestRewriterTests` — every rewrite rule covered per DSL variant (workspaceInherited: file-system/source-control/registry × traits present/absent; workspaceMember: at primary depth × at vendored depth).
+- [ ] `PublishManifestRewriterTests` — every rewrite rule covered (workspaceMember: at primary depth × at vendored depth; traits present/absent).
 - [ ] `PublishStagingBuilderTests` — flat-layout property (any member appears at most once regardless of DAG depth); respects standard SwiftPM archive exclusions.
 - [ ] `PublishProvenanceTests` — schema round-trip; tracked-clean / tracked-dirty / not-tracked cases.
 - [ ] `PublishCleanTreeGateTests` — per-directory aggregation; not-in-git directories are trivially clean.
@@ -2459,6 +2315,45 @@ E2E test asserts:
 - **Snapshot-versioned workspace-member publishing.** An alternative to vendoring is publishing workspace members as first-class registry entries under a snapshot version scheme (e.g., `0.0.0-<gitSha>`), then rewriting `.workspaceMember` refs to registry pins. Considered and set aside because it requires every sibling to live in a git repo, adds transitive publish orchestration, and complicates the dirty-tree contract. Revisit if the vendoring approach hits archive-size or version-of-record ceilings in production use.
 - **Registry decl on `Workspace.Member`.** A per-member registry scope in `Workspace.swift` would enable "some members are vendored, some are published independently" hybrid publishing, and support the snapshot-versioned alternative above. Deferred until the vendored-only model has run in production.
 - **`--dry-run` on `swift package-registry publish`.** Preview the staged archive contents (rewritten manifests, vendored siblings, provenance) without pushing to the registry. Falls out mechanically from the staging step. Out of scope for MVP; add if user feedback asks for it.
+
+---
+
+## Phase 18: `swift workspace update-dependencies` command
+
+### Overview
+
+Companion to `swift package upgrade-dependencies` ([swift-package-manager#10212](https://github.com/swiftlang/swift-package-manager/pull/10212)). Walks every member's `Package.swift` and rewrites the version constraint for a given external dep identity, bumping `.exact("x.y.z")` / `.from("x.y.z")` / `.upToNextMinor(from: ...)` / etc. across every member that declares that dep. Addresses the "no central version floor" tradeoff of dropping workspace-level `dependencies:` — bulk-bumping a shared external dep stays a one-command operation even though the authored constraints live in N member manifests.
+
+### Approach
+
+1. Resolve the workspace root; load every member's `Manifest`.
+2. For each member, find `.package(url:/id:)` entries whose identity matches the target.
+3. Rewrite the version-requirement expression in-source using Swift Syntax (same `WorkspaceManifestSyntax`-style trivia-preserving rewriter as Phases 9 / 17).
+4. In dry-run mode, print the diff per member and exit without writing.
+5. In write mode, write each rewritten `Package.swift` back to disk; emit a per-member confirmation line.
+
+### Sub-slices
+
+- **18a — Bulk-edit mechanics via Swift Syntax.** Find-and-replace the version-requirement expression on `.package(url:/id:)` calls matching an identity. Preserves surrounding trivia; no formatting changes elsewhere. New file: `Sources/Workspace/UpdateDependenciesRewriter.swift`. Tests: `Tests/WorkspaceTests/UpdateDependenciesRewriterTests.swift` (Swift Testing).
+- **18b — Dry-run (`--dry-run`).** Emit a unified diff per member instead of writing. Default off; always available.
+- **18c — CLI wiring.** `swift workspace update-dependencies <identity> <new-requirement-spec>` with the same requirement vocabulary as the existing `swift package add-dependency` version qualifiers (`--exact`, `--from`, `--up-to-next-minor-from`, `--to`). Resolves the workspace root via `PackageWorkspace.discoverWorkspaceRoot(from:)`; errors cleanly if run outside a workspace. Scope selection: no `--package` edits every member that declares the dep; `--package <identity>` (repeatable) restricts to the named members.
+- **18d — E2E fixtures.** `Fixtures/Workspaces/S18_UpdateDeps/{SingleMember,MultiMember,NoMatch,DryRun}/` + tests asserting (a) every matching member gets rewritten, (b) non-matching deps left alone, (c) dry-run produces no file changes, (d) missing-identity errors with an actionable "no member declares <identity>" diagnostic.
+
+### Success Criteria
+
+#### Automated Verification:
+- [ ] `UpdateDependenciesRewriterTests` — covers each requirement-kind rewrite (exact → from, from → up-to-next-minor-from, etc.) with surrounding-trivia preservation.
+- [ ] E2E tests above pass on macOS + Linux.
+- [ ] Non-matching member manifests are byte-identical after the command.
+- [ ] Full regression green.
+
+#### Manual Verification:
+- [ ] Run against a 5+ member workspace; confirm one command bumps swift-nio across every consumer.
+
+### Future Directions
+
+- **Shared-trait bulk edit.** `swift workspace update-dependencies <identity> --traits <set>` to layer a trait set on every member that declares the dep. Covers the "centralized trait defaults" gap from the dropped `.workspaceInherited` design.
+- **Lint command.** `swift workspace lint` to flag constraint divergence (member A: `from "2.0"`, member B: `from "2.1"`) as a hygiene concern caught in CI.
 
 ---
 
