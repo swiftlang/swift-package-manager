@@ -39,7 +39,6 @@ struct WorkspaceRewriteTests {
                     path: workspaceRoot.appending(components: "packages", "lib-b"),
                 ),
             ],
-            dependencies: [],
         )
     }
 
