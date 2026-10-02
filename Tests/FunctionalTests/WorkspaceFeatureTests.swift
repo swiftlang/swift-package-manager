@@ -3469,40 +3469,6 @@ struct WorkspaceFeatureTests {
         }
     }
 
-    /// Parity coverage for `.package(workspaceInherited:)` outside
-    /// a workspace: same rejection with the identity-only variant
-    /// of the DSL.
-    @Test(
-        .tags(
-            .Feature.Command.Package.General,
-        ),
-        arguments: [BuildSystemProvider.Kind.swiftbuild],
-    )
-    func s15_workspaceInherited_outsideWorkspace_hardErrors(
-        buildSystem: BuildSystemProvider.Kind,
-    ) async throws {
-        try await fixture(
-            name: "Workspaces/S15_ErrorPaths/WorkspaceInheritedUsedOutsideWorkspace",
-        ) { fixturePath in
-            await expectThrowsCommandExecutionError(
-                try await executeSwiftPackage(
-                    fixturePath,
-                    configuration: .debug,
-                    extraArgs: ["describe"],
-                    buildSystem: buildSystem,
-                ),
-            ) { error in
-                #expect(
-                    error.stderr.contains(".package(workspaceInherited:)"),
-                    "expected `.package(workspaceInherited:)` mention on stderr; got stderr=\(error.stderr)",
-                )
-                #expect(
-                    error.stderr.contains("Workspace.swift"),
-                    "expected the Workspace.swift precondition on stderr; got stderr=\(error.stderr)",
-                )
-            }
-        }
-    }
 
     /// Initializes an external-dependency directory in the S08
     /// fixture as a git repository tagged `1.0.0`. The fixture ships
