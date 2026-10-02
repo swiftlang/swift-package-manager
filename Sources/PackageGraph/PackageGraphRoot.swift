@@ -78,9 +78,10 @@ public struct PackageGraphRoot {
         }
     }
 
-    /// Whether a package is exporting out the root, i.e. a root package or a root dependency
-    public func isExporting(_ identity: PackageIdentity) -> Bool{
-        return packages[identity] != nil || dependencies.contains(where: { $0.identity == identity })
+    /// Whether a package's product is exporting out the root, i.e. a product of a root package
+    /// or a product included in a root dependency's product filter
+    public func isExporting(_ identity: PackageIdentity, product: String) -> Bool {
+        return packages[identity] != nil || dependencies.contains(where: { $0.identity == identity && $0.productFilter.contains(product) })
     }
 
     private let dependencyMapper: DependencyMapper?
