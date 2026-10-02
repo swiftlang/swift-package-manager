@@ -21,6 +21,9 @@ let package = Package(
         .package(url: "https://github.com/weichsel/ZIPFoundation.git", from: "0.9.19"),
         .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.8.2"),
         .package(url: "https://github.com/apple/swift-crypto.git", "3.0.0" ..< "5.0.0"),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.37.0"),
+        .package(url: "https://github.com/apple/swift-certificates.git", from: "1.14.0"),
+        .package(url: "https://github.com/apple/swift-asn1.git", from: "1.7.0"),
     ],
     targets: [
         .target(
@@ -28,6 +31,9 @@ let package = Package(
             dependencies: [
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "ZIPFoundation", package: "ZIPFoundation"),
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
+                .product(name: "X509", package: "swift-certificates"),
+                .product(name: "SwiftASN1", package: "swift-asn1"),
                 .product(
                     name: "Crypto",
                     package: "swift-crypto",
@@ -53,6 +59,10 @@ let package = Package(
             dependencies: [
                 "RegistryExample",
                 .product(name: "VaporTesting", package: "vapor"),
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
+                .product(name: "X509", package: "swift-certificates"),
+                .product(name: "SwiftASN1", package: "swift-asn1"),
+                .product(name: "Crypto", package: "swift-crypto"),
             ],
             swiftSettings: [
                 .enableUpcomingFeature("ApproachableConcurrency"),
