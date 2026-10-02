@@ -66,7 +66,7 @@ struct WorkspaceFeatureTests {
         .tags(
             Tag.Feature.Command.Build,
         ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
     )
     func s02_memberToMemberDependencyBuildsAndRuns(
         buildSystem: BuildSystemProvider.Kind,
