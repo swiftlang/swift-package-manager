@@ -6,15 +6,11 @@ import PackageDescription
 //     graph. `app` depends on `lib-a` via `.package(workspaceMember:)`
 //     — that edge is what carries the `[workspace member]` tag in the
 //     text format.
-//   - One workspace-level `some-lib` dep both members inherit via
-//     `.package(workspaceInherited:)` — collapses to a single entry in
-//     the deduplicated flatlist output.
+//   - Both members directly declare `.package(path: "../../external/some-lib")`
+//     — the deduplicated flatlist output collapses them to a single entry.
 let workspace = Workspace(
     members: [
         "packages/app",
         "packages/lib-a",
-    ],
-    dependencies: [
-        .package(path: "external/some-lib"),
     ],
 )
