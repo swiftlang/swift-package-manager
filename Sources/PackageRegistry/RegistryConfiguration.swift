@@ -14,6 +14,17 @@ import Basics
 import Foundation
 import PackageModel
 
+private enum RegistryConfigurationError: Error, CustomStringConvertible {
+    case invalidVersion(Int)
+
+    var description: String {
+        switch self {
+        case .invalidVersion(let version):
+            return "invalid version: \(version)"
+        }
+    }
+}
+
 public struct RegistryConfiguration: Hashable {
     static func authenticationStorageKey(for registryURL: URL) throws -> String {
         guard let host = registryURL.host?.lowercased() else {
@@ -367,7 +378,16 @@ extension RegistryConfiguration: Codable {
 
         let version = try container.decode(Version.RawValue.self, forKey: .version)
         switch Version(rawValue: version) {
-        case .v1:
+        case nil:
+            if version < 1 {
+                throw RegistryConfigurationError.invalidVersion(version)
+            } else {
+                print(
+                    "Warning: the registry configuration version '\(version)' is not recognized. Please update your version of Swift."
+                )
+                fallthrough
+            }
+        default:
             let nestedContainer = try container.nestedContainer(keyedBy: ScopeCodingKey.self, forKey: .registries)
 
             self.defaultRegistry = try nestedContainer.decodeIfPresent(Registry.self, forKey: .default)
@@ -385,12 +405,6 @@ extension RegistryConfiguration: Codable {
             ) ?? [:]
             self.security = try container.decodeIfPresent(Security.self, forKey: .security) ?? nil
             self.replaceScmWithRegistry = try container.decodeIfPresent(Bool.self, forKey: .replaceScmWithRegistry)
-        case nil:
-            throw DecodingError.dataCorruptedError(
-                forKey: .version,
-                in: container,
-                debugDescription: "invalid version: \(version)"
-            )
         }
     }
 
