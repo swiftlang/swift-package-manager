@@ -1449,8 +1449,24 @@ extension Workspace {
 
         // Take an action based on the result.
         switch result {
-        case .success(let bindings):
-            return bindings
+//        case .success(let bindings):
+//            return bindings
+        case .success(let resolutionResult):
+            // Detect which packages are slated for multiple major versions:
+            if !resolutionResult.multipleMajorVersionPackages.isEmpty {
+                var multipleMajorAssignments: [PackageReference: [DependencyResolverBinding]] = [:]
+                // Organize the assignments accordingly;
+                for (pkg, versions) in resolutionResult.multipleMajorVersionPackages {
+                    let assignmentsForPkg = resolutionResult.bindings.filter({ $0.package.identity.description.hasPrefix(pkg.identity.description) })
+                    multipleMajorAssignments[pkg, default: []].append(contentsOf: assignmentsForPkg)
+                }
+                print("Multiple major assignments:")
+                for (pkg, binding) in multipleMajorAssignments {
+                    print("\(pkg.identity): \(binding.map({ "\($0.package.identity)-->\($0.boundVersion.description)" }).joined(separator: ", "))")
+                }
+            }
+
+            return resolutionResult
         case .failure(let error):
             observabilityScope.emit(error)
             return []

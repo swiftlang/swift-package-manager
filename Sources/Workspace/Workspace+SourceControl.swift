@@ -208,6 +208,8 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+        // TODO bp amend the name here; detect if multi major, create new parent directory
+        // with the basename, child directories represent different major version checkouts
         // Clone the repository into the checkouts.
         let checkoutPath = self.location.repositoriesCheckoutsDirectory.appending(component: repository.basename)
 

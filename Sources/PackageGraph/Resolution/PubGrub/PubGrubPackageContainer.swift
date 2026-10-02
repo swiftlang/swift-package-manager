@@ -82,9 +82,17 @@ final class PubGrubPackageContainer {
     }
 
     /// Returns the best available version for a given term.
-    func getBestAvailableVersion(for term: Term) async throws -> Version? {
+    func getBestAvailableVersion(for term: Term, flaggedMultipleMajorVersions: [PackageReference: Set<Int>]) async throws -> Version? {
         assert(term.isPositive, "Expected term to be positive")
         let versionSet = term.requirement
+
+        if let versions = flaggedMultipleMajorVersions[term.node.package], !versions.isEmpty {
+            // do something.
+            print("Multiple major versions contendor: \(term.node.package.identity)")
+            print("Available versions: \(versions.map(\.description).joined(separator: ", "))")
+        }
+
+        // TODO bp; check if the package for this term is flagged for multiple major versions.
 
         // Restrict the selection to the pinned version if is allowed by the current requirements.
         if let pinnedVersion = self.pinnedVersion {
