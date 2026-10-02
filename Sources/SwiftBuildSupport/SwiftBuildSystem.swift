@@ -407,6 +407,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             of: request.configuredTargets,
             buildSettings: ["MODULEMAP_PATH"]
         )
+        // The REPL needs to know where to find the REPL product's dynamic library.
+        let librarySearchPaths = try await getUniqueBuildSettingsIncludingDependencies(
+            of: request.configuredTargets,
+            buildSettings: ["BUILT_PRODUCTS_DIR"]
+        )
 
         let graph = try await self.getPackageGraph()
         // Link the special REPL product that contains all of the library targets.
@@ -416,6 +421,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         assert(graph.product(for: replProductName) != nil)
 
         let arguments = ["repl", "-l\(replProductName)"]
+            + librarySearchPaths.filter { !$0.isEmpty }.map { "-L\($0)" }
             + includePaths.filter { !$0.isEmpty }.map { "-I\($0)" }
             + moduleMapPaths.filter { !$0.isEmpty }.flatMap { ["-Xcc", "-fmodule-map-file=\($0)"] }
 
