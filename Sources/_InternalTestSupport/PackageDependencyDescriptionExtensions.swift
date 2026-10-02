@@ -32,8 +32,8 @@ package extension PackageDependency {
         return nil
     }
 
-    var workspaceInheritedSettings: WorkspaceInherited? {
-        if case .workspaceInherited(let s) = self { return s }
+    var workspaceMemberSettings: WorkspaceMember? {
+        if case .workspaceMember(let s) = self { return s }
         return nil
     }
 

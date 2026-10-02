@@ -86,7 +86,6 @@ struct WorkspaceOverridesPipelineTests {
                     path: memberPath,
                 ),
             ],
-            dependencies: [],
         )
 
         // Override redirects "ext-lib" from the remote URL to a local .fileSystem path.
@@ -118,7 +117,7 @@ struct WorkspaceOverridesPipelineTests {
         // Act.
         let result = try await workspace.loadRootManifests(
             packages: [memberPath],
-            workspaceManifest: workspaceManifest,
+            workspaceManifest: nil,
             overrides: [override],
             observabilityScope: ObservabilitySystem.NOOP,
         )
@@ -194,7 +193,6 @@ struct WorkspaceOverridesPipelineTests {
                     path: memberPath,
                 ),
             ],
-            dependencies: [],
         )
 
         // Override targets "ghost-lib" — absent from workspace and all members.
@@ -228,7 +226,7 @@ struct WorkspaceOverridesPipelineTests {
         await #expect(throws: WorkspaceOverridesApplyError.unknownIdentity("ghost-lib")) {
             _ = try await workspace.loadRootManifests(
                 packages: [memberPath],
-                workspaceManifest: workspaceManifest,
+            workspaceManifest: nil,
                 overrides: [ghostOverride],
                 observabilityScope: ObservabilitySystem.NOOP,
             )
@@ -295,7 +293,6 @@ struct WorkspaceOverridesPipelineTests {
                     path: memberPath,
                 ),
             ],
-            dependencies: [],
         )
 
         let ghostOverride = WorkspaceOverridesJSONParser.Override(
@@ -329,7 +326,7 @@ struct WorkspaceOverridesPipelineTests {
         // `loadRootManifests(...)` call so `validate` fires.
         let rootInput = PackageGraphRootInput(
             packages: [memberPath],
-            workspaceManifest: workspaceManifest,
+            workspaceManifest: nil,
             overrides: [ghostOverride],
         )
 
