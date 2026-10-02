@@ -11,11 +11,11 @@
 
 ## Prework
 
-- [ ] **A1 — Resolve 3 AUDIT_NEEDED branches** (determine KEEP vs EDIT per branch; move to the correct bucket below).
-  - [ ] `poc_workspaces_phase1` — diff `Sources/Runtimes/PackageDescription/Workspace.swift` for `dependencies:` scaffolding. If present, move to EDIT_IN_PLACE.
-  - [ ] `poc_workspaces_phase4` — grep `Fixtures/Workspaces/S04_*` for `.workspaceInherited` or `.package(workspaceInherited:)`. If present, move to EDIT_IN_PLACE.
-  - [ ] `poc_workspaces_phase9` — diff `Sources/Workspace/InitWorkspace.swift` for `dependencies:` block emission. If present, move to EDIT_IN_PLACE.
-  - [ ] `poc_workspaces_phase13-make-package-describe-workspace-aware` — diff `Sources/Commands/Utilities/DescribedPackage.swift` for `.workspaceInherited` case beyond the Phase 15/16 addition.
+- [x] **A1 — Resolve 3 AUDIT_NEEDED branches** (audit results 2026-10-02):
+  - [x] `poc_workspaces_phase1` → **EDIT_IN_PLACE**. Ships `Workspace.dependencies:` DSL field + `WorkspaceManifest.dependencies` model field + `WorkspaceManifestJSONParser.swift` serialization + related plumbing. Needs removal of all four.
+  - [x] `poc_workspaces_phase4` → **EDIT_IN_PLACE**. `Fixtures/Workspaces/S04_CwdInsideMember/packages/app/Package.swift` uses `.package(workspaceInherited: "some-lib")`. Rewrite the fixture to declare `some-lib` directly (e.g. `.package(path: "../../external/some-lib")`).
+  - [x] `poc_workspaces_phase9` → **EDIT_IN_PLACE**. `Sources/Workspace/InitWorkspace.swift` emits an empty `dependencies:` block in the scaffolded `Workspace.swift`. Remove the emission (and any `--dependencies` CLI option if present).
+  - [x] `poc_workspaces_phase13-make-package-describe-workspace-aware` → **KEEP_AS_IS for inherited**. The `.workspaceInherited` case in `DescribedPackageDependency` was added in `phase15-error-handling-workspace-and-traits-validation` (already DELETE_ENTIRELY), not here.
 
 ## Deletion pass (3 branches to drop entirely)
 
