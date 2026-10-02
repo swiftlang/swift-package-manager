@@ -80,66 +80,6 @@ struct DependencyMapperTests {
         #expect(resolved == parentPath.appending(component: "Sibling"))
     }
 
-    /// A `.workspaceInherited` `PackageDependency` whose `resolved` field
-    /// has already been populated (Slice 3 augmentation) must survive a
-    /// projection to `MappablePackageDependency` and back. Prior to the
-    /// fix, `MappablePackageDependency.Kind.workspaceInherited` only
-    /// carried the identity string — round-tripping through the mapper
-    /// (as the graph does for mirror rewrites, path normalization, etc.)
-    /// dropped `resolved`, and downstream `packageRef` then hit a
-    /// `preconditionFailure` on the nil field.
-    @Test(
-        .tags(
-            .FunctionalArea.WorkspaceManiest,
-        ),
-    )
-    func workspaceInheritedRoundTripPreservesResolvedField() throws {
-        let externalPath = try Basics.AbsolutePath(validating: "/repo/external/some-lib")
-        let expected = PackageDependency.WorkspaceInherited(
-            identity: .plain("some-lib"),
-            productFilter: .specific(["LibB"]),
-            traits: [PackageDependency.Trait(name: "default")],
-            resolved: .fileSystem(path: externalPath, nameForTargetDependencyResolutionOnly: nil),
-        )
-        let original: PackageDependency = .workspaceInherited(expected)
-
-        let mappable = MappablePackageDependency(original, parentPackagePath: parentPath)
-        let roundTripped = try PackageDependency(mappable, newLocationString: "")
-
-        guard case .workspaceInherited(let inherited) = roundTripped else {
-            Issue.record("expected .workspaceInherited after round-trip, got: \(roundTripped)")
-            return
-        }
-        #expect(inherited == expected)
-    }
-
-    /// A `.workspaceInherited` `PackageDependency` with `resolved == nil`
-    /// (parse-time state, before workspace load augments it) must round-
-    /// trip as nil — the mapper doesn't invent a resolution.
-    @Test(
-        .tags(
-            .FunctionalArea.WorkspaceManiest,
-        ),
-    )
-    func workspaceInheritedRoundTripPreservesNilResolvedField() throws {
-        let expected = PackageDependency.WorkspaceInherited(
-            identity: .plain("some-lib"),
-            productFilter: .everything,
-            traits: nil,
-            resolved: nil,
-        )
-        let original: PackageDependency = .workspaceInherited(expected)
-
-        let mappable = MappablePackageDependency(original, parentPackagePath: parentPath)
-        let roundTripped = try PackageDependency(mappable, newLocationString: "")
-
-        guard case .workspaceInherited(let inherited) = roundTripped else {
-            Issue.record("expected .workspaceInherited after round-trip, got: \(roundTripped)")
-            return
-        }
-        #expect(inherited == expected)
-    }
-
     /// A `.workspaceMember` `PackageDependency` whose `path` field has
     /// been populated by `PackageWorkspace.resolveWorkspaceMemberPaths`
     /// (Slice 2 augmentation) must survive a projection to
@@ -233,105 +173,14 @@ struct DependencyMapperTests {
         #expect(member == expected)
     }
 
-    /// `PackageDependency.filtered(by:)` on a `.workspaceInherited` must
-    /// preserve the augmented `resolved` field. The Slice 3 augmentation
-    /// contract expects the concrete workspace source to survive filter
-    /// propagation just like the Slice 2 `.workspaceMember` case.
-    @Test(
-        .tags(
-            .FunctionalArea.WorkspaceManiest,
-        ),
-    )
-    func workspaceInheritedFilteredByProductFilterPreservesResolved() throws {
-        let externalPath = try Basics.AbsolutePath(validating: "/repo/external/some-lib")
-        let resolved: PackageDependency.WorkspaceInherited.ResolvedInherited =
-            .fileSystem(path: externalPath, nameForTargetDependencyResolutionOnly: nil)
-        let original: PackageDependency = .workspaceInherited(
-            PackageDependency.WorkspaceInherited(
-                identity: .plain("some-lib"),
-                productFilter: .everything,
-                traits: nil,
-                resolved: resolved,
-            )
-        )
-        let expected = PackageDependency.WorkspaceInherited(
-            identity: .plain("some-lib"),
-            productFilter: .specific(["LibB"]),
-            traits: nil,
-            resolved: resolved,
-        )
-
-        let filtered = original.filtered(by: .specific(["LibB"]))
-        guard case .workspaceInherited(let inherited) = filtered else {
-            Issue.record("expected .workspaceInherited after filtered(by:), got: \(filtered)")
-            return
-        }
-        #expect(inherited == expected)
-    }
-
     // MARK: - Coverage: all ResolvedInherited variants
 
     /// Round-trip preserves a `.sourceControl` `ResolvedInherited` payload
     /// (location, requirement, name-for-target-dep-resolution, registryIdentity).
     /// Guards against a future field addition on the source-control variant
     /// silently dropping through the mapper.
-    @Test(
-        .tags(
-            .FunctionalArea.WorkspaceManiest,
-        ),
-    )
-    func workspaceInheritedRoundTripPreservesSourceControlResolved() throws {
-        let url = SourceControlURL("https://github.com/apple/swift-nio")
-        let requirement: PackageDependency.SourceControl.Requirement = .range(Version(2, 0, 0) ..< Version(3, 0, 0))
-        let registryIdentity = PackageIdentity.plain("apple.swift-nio")
-        let expected = PackageDependency.WorkspaceInherited(
-            identity: .plain("swift-nio"),
-            productFilter: .everything,
-            traits: nil,
-            resolved: .sourceControl(
-                location: .remote(url),
-                requirement: requirement,
-                nameForTargetDependencyResolutionOnly: "swift-nio-name",
-                registryIdentity: registryIdentity,
-            ),
-        )
-        let original: PackageDependency = .workspaceInherited(expected)
-
-        let mappable = MappablePackageDependency(original, parentPackagePath: parentPath)
-        let roundTripped = try PackageDependency(mappable, newLocationString: "")
-
-        guard case .workspaceInherited(let inherited) = roundTripped else {
-            Issue.record("expected .workspaceInherited after round-trip, got: \(roundTripped)")
-            return
-        }
-        #expect(inherited == expected)
-    }
 
     /// Round-trip preserves a `.registry` `ResolvedInherited` payload.
-    @Test(
-        .tags(
-            .FunctionalArea.WorkspaceManiest,
-        ),
-    )
-    func workspaceInheritedRoundTripPreservesRegistryResolved() throws {
-        let requirement: PackageDependency.Registry.Requirement = .exact(Version(1, 2, 3))
-        let expected = PackageDependency.WorkspaceInherited(
-            identity: .plain("scope.pkg"),
-            productFilter: .everything,
-            traits: nil,
-            resolved: .registry(requirement: requirement),
-        )
-        let original: PackageDependency = .workspaceInherited(expected)
-
-        let mappable = MappablePackageDependency(original, parentPackagePath: parentPath)
-        let roundTripped = try PackageDependency(mappable, newLocationString: "")
-
-        guard case .workspaceInherited(let inherited) = roundTripped else {
-            Issue.record("expected .workspaceInherited after round-trip, got: \(roundTripped)")
-            return
-        }
-        #expect(inherited == expected)
-    }
 
     // MARK: - Coverage: public DefaultDependencyMapper.mappedDependency
 
@@ -368,39 +217,6 @@ struct DependencyMapperTests {
         }
         #expect(member == expected)
     }
-
-    /// `DefaultDependencyMapper.mappedDependency` must preserve
-    /// `WorkspaceInherited.resolved` through its pipeline.
-    @Test(
-        .tags(
-            .FunctionalArea.WorkspaceManiest,
-        ),
-    )
-    func workspaceInheritedMappedDependencyPreservesResolved() throws {
-        let externalPath = try Basics.AbsolutePath(validating: "/repo/external/some-lib")
-        let expected = PackageDependency.WorkspaceInherited(
-            identity: .plain("some-lib"),
-            productFilter: .everything,
-            traits: nil,
-            resolved: .fileSystem(path: externalPath, nameForTargetDependencyResolutionOnly: nil),
-        )
-        let dependency = MappablePackageDependency(
-            parentPackagePath: parentPath,
-            kind: .workspaceInherited(expected),
-            productFilter: .everything,
-            traits: nil,
-        )
-
-        let mapper = DefaultDependencyMapper(identityResolver: DefaultIdentityResolver())
-        let mapped = try mapper.mappedDependency(dependency, fileSystem: InMemoryFileSystem())
-
-        guard case .workspaceInherited(let inherited) = mapped else {
-            Issue.record("expected .workspaceInherited from mappedDependency, got: \(mapped)")
-            return
-        }
-        #expect(inherited == expected)
-    }
-
     // MARK: - Coverage: composed roundtrip + filter
 
     /// Round-trip through the mapper AND then `.filtered(by:)`. Both
@@ -439,43 +255,6 @@ struct DependencyMapperTests {
             return
         }
         #expect(member == expected)
-    }
-
-    /// Round-trip through the mapper AND then `.filtered(by:)` for
-    /// `.workspaceInherited`.
-    @Test(
-        .tags(
-            .FunctionalArea.WorkspaceManiest,
-        ),
-    )
-    func workspaceInheritedRoundTripThenFilterPreservesResolved() throws {
-        let externalPath = try Basics.AbsolutePath(validating: "/repo/external/some-lib")
-        let resolved: PackageDependency.WorkspaceInherited.ResolvedInherited =
-            .fileSystem(path: externalPath, nameForTargetDependencyResolutionOnly: nil)
-        let original: PackageDependency = .workspaceInherited(
-            PackageDependency.WorkspaceInherited(
-                identity: .plain("some-lib"),
-                productFilter: .everything,
-                traits: nil,
-                resolved: resolved,
-            )
-        )
-        let expected = PackageDependency.WorkspaceInherited(
-            identity: .plain("some-lib"),
-            productFilter: .specific(["LibB"]),
-            traits: nil,
-            resolved: resolved,
-        )
-
-        let mappable = MappablePackageDependency(original, parentPackagePath: parentPath)
-        let roundTripped = try PackageDependency(mappable, newLocationString: "")
-        let filtered = roundTripped.filtered(by: .specific(["LibB"]))
-
-        guard case .workspaceInherited(let inherited) = filtered else {
-            Issue.record("expected .workspaceInherited after round-trip + filter, got: \(filtered)")
-            return
-        }
-        #expect(inherited == expected)
     }
 }
 

@@ -7,7 +7,4 @@ let workspace = Workspace(
         "packages/lib-a",
         "packages/lib-b",
     ],
-    dependencies: [
-        .package(path: "external/some-lib"),
-    ],
 )
