@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "app",
     dependencies: [
-        .package(workspaceInherited: "some-lib"),
+        .package(url: "../../external/some-lib", from: "1.0.0"),
     ],
     targets: [
         .executableTarget(
