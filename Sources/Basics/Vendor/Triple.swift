@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -15,9 +15,19 @@
 // Warning: This file has been copied with minimal modifications from
 // swift-driver to avoid a direct dependency. See Vendor/README.md for details.
 //
+// When updating, copy the file verbatim from swift-driver's
+// Sources/SwiftDriver/Utilities/ directory and then re-apply the changes
+// listed below. Changes marked [upstream] should be contributed back to
+// swift-driver so that they can be dropped from this list.
+//
 // Changes:
-// - Replaced usage of `\(_:or:)` string interpolation.
-// - Replaced usage of `self.isDarwin` with `self.os?.isDarwin ?? false`.
+// - Removed `Triple.isDarwin` (it conflicts with SwiftPM's `Triple.isDarwin()`);
+//   use `Triple.isDarwin(vendor:os:)` instead, which is internal rather than
+//   fileprivate.
+// - Pass `normalizing: false` explicitly in `init(from:)` to disambiguate from
+//   SwiftPM's throwing `Triple.init(_:)`.
+// - [upstream] Added DriverKit (`driverkit`) support.
+// - [upstream] Accept `visionos` as an alias of `xros`, as LLVM does.
 //
 //===----------------------------------------------------------------------===//
 
@@ -71,7 +81,7 @@ public struct Triple: Sendable {
   public let objectFormat: ObjectFormat?
 
   /// Represents a version that may be present in the target triple.
-    public struct Version: Equatable, Comparable, CustomStringConvertible, Sendable {
+  public struct Version: Equatable, Comparable, CustomStringConvertible, Sendable {
     public static let zero = Version(0, 0, 0)
 
     public var major: Int
@@ -137,7 +147,7 @@ public struct Triple: Sendable {
         parser.components.resize(toCount: 4, paddingWith: "")
         parser.components[2] = "windows"
         if parsedEnv?.value.environment == nil {
-          if let objectFormat = parsedEnv?.value.objectFormat, objectFormat != .coff {
+          if let objectFormat = parsedEnv?.value.objectFormat {
             parser.components[3] = Substring(objectFormat.name)
           } else {
             parser.components[3] = "msvc"
@@ -179,11 +189,13 @@ public struct Triple: Sendable {
       self.environment = parsedEnv.value.environment
       self.objectFormat = parsedEnv.value.objectFormat
         ?? ObjectFormat.infer(arch: parsedArch?.value.arch,
+                              vendor: parsedVendor?.value,
                               os: parsedOS?.value)
     }
     else {
       self.environment = Environment.infer(archName: parsedArch?.substring)
       self.objectFormat = ObjectFormat.infer(arch: parsedArch?.value.arch,
+                                             vendor: parsedVendor?.value,
                                              os: parsedOS?.value)
     }
   }
@@ -426,7 +438,7 @@ extension Triple {
     }
   }
 
-public enum Arch: String, CaseIterable, Decodable, Sendable {
+  public enum Arch: String, CaseIterable, Decodable, Sendable {
     /// ARM (little endian): arm, armv.*, xscale
     case arm
     // ARM (big endian): armeb
@@ -439,7 +451,7 @@ public enum Arch: String, CaseIterable, Decodable, Sendable {
     case aarch64_be
     // AArch64 (little endian) ILP32: aarch64_32
     case aarch64_32
-    /// ARC: Synopsis ARC
+    /// ARC: Synopsys ARC
     case arc
     /// AVR: Atmel AVR microcontroller
     case avr
@@ -449,6 +461,8 @@ public enum Arch: String, CaseIterable, Decodable, Sendable {
     case bpfeb
     /// Hexagon: hexagon
     case hexagon
+    // M68k: Motorola 680x0 family
+    case m68k
     /// MIPS: mips, mipsallegrex, mipsr6
     case mips
     /// MIPSEL: mipsel, mipsallegrexe, mipsr6el
@@ -529,6 +543,8 @@ public enum Arch: String, CaseIterable, Decodable, Sendable {
     case renderscript32
     // 64-bit RenderScript
     case renderscript64
+    // Xtensa instruction set
+    case xtensa
 
     static func parse(_ archName: Substring) -> Triple.Arch? {
       switch archName {
@@ -572,6 +588,8 @@ public enum Arch: String, CaseIterable, Decodable, Sendable {
         return .thumbeb
       case "avr":
         return .avr
+      case "m68k":
+        return .m68k
       case "msp430":
         return .msp430
       case "mips", "mipseb", "mipsallegrex", "mipsisa32r6", "mipsr6":
@@ -640,6 +658,8 @@ public enum Arch: String, CaseIterable, Decodable, Sendable {
         return .renderscript32
       case "renderscript64":
         return .renderscript64
+      case "xtensa":
+        return .xtensa
 
       case _ where archName.hasPrefix("arm") || archName.hasPrefix("thumb") || archName.hasPrefix("aarch64"):
         return parseARMArch(archName)
@@ -711,14 +731,14 @@ public enum Arch: String, CaseIterable, Decodable, Sendable {
         arch = nil
       }
 
-      let cannonicalArchName = cannonicalARMArchName(from: archName)
+      let canonicalArchName = canonicalARMArchName(from: archName)
 
-      if cannonicalArchName.isEmpty {
+      if canonicalArchName.isEmpty {
         return nil
       }
 
       // Thumb only exists in v4+
-      if ISA == .thumb && (cannonicalArchName.hasPrefix("v2") || cannonicalArchName.hasPrefix("v3")) {
+      if ISA == .thumb && (canonicalArchName.hasPrefix("v2") || canonicalArchName.hasPrefix("v3")) {
           return nil
       }
 
@@ -740,7 +760,7 @@ public enum Arch: String, CaseIterable, Decodable, Sendable {
     // (iwmmxt|xscale)(eb)? is also permitted. If the former, return
     // "v.+", if the latter, return unmodified string, minus 'eb'.
     // If invalid, return empty string.
-    fileprivate static func cannonicalARMArchName<S: StringProtocol>(from arch: S) -> String {
+    fileprivate static func canonicalARMArchName<S: StringProtocol>(from arch: S) -> String {
       var name = Substring(arch)
 
       func dropPrefix(_ prefix: String) {
@@ -829,7 +849,7 @@ public enum Arch: String, CaseIterable, Decodable, Sendable {
       case .arc, .arm, .armeb, .hexagon, .le32, .mips, .mipsel, .nvptx,
            .ppc, .r600, .riscv32, .sparc, .sparcel, .tce, .tcele, .thumb,
            .thumbeb, .x86, .xcore, .amdil, .hsail, .spir, .kalimba,.lanai,
-           .shave, .wasm32, .renderscript32, .aarch64_32:
+           .shave, .wasm32, .renderscript32, .aarch64_32, .m68k, .xtensa:
         return 32
 
       case .aarch64, .aarch64e, .aarch64_be, .amdgcn, .bpfel, .bpfeb, .le64, .mips64,
@@ -844,11 +864,11 @@ public enum Arch: String, CaseIterable, Decodable, Sendable {
 // MARK: - Parse SubArch
 
 extension Triple {
-    public enum SubArch: Hashable, Sendable {
+  public enum SubArch: Hashable, Sendable {
 
     public enum ARM: Sendable {
 
-      public enum Profile {
+      public enum Profile: Sendable {
         case a, r, m
       }
 
@@ -936,7 +956,7 @@ extension Triple {
         return .mips(.r6)
       }
 
-      let armSubArch = Triple.Arch.cannonicalARMArchName(from: component)
+      let armSubArch = Triple.Arch.canonicalARMArchName(from: component)
 
       if armSubArch.isEmpty {
         switch component {
@@ -1022,7 +1042,7 @@ extension Triple {
 // MARK: - Parse Vendor
 
 extension Triple {
-    public enum Vendor: String, CaseIterable, TripleComponent, Sendable {
+  public enum Vendor: String, CaseIterable, TripleComponent, Sendable {
     case apple
     case pc
     case scei
@@ -1039,6 +1059,7 @@ extension Triple {
     case mesa
     case suse
     case openEmbedded = "oe"
+    case swift
 
     fileprivate static func parse(_ component: Substring) -> Triple.Vendor? {
       switch component {
@@ -1074,6 +1095,8 @@ extension Triple {
         return .suse
       case "oe":
         return .openEmbedded
+      case "swift":
+        return .swift
       default:
         return nil
       }
@@ -1089,8 +1112,7 @@ extension Triple {
     case cloudABI = "cloudabi"
     case darwin
     case dragonFly = "dragonfly"
-    case driverkit
-    case freebsd = "freebsd"
+    case freeBSD = "freebsd"
     case fuchsia
     case ios
     case kfreebsd
@@ -1114,7 +1136,6 @@ extension Triple {
     case elfiamcu
     case tvos
     case watchos
-    case visionos = "xros"
     case mesa3d
     case contiki
     case amdpal
@@ -1122,6 +1143,9 @@ extension Triple {
     case hurd
     case wasi
     case emscripten
+    case visionos = "xros"
+    case firmware
+    case driverkit
     case noneOS // 'OS' suffix purely to avoid name clash with Optional.none
 
     var name: String {
@@ -1138,10 +1162,8 @@ extension Triple {
         return .darwin
       case _ where os.hasPrefix("dragonfly"):
         return .dragonFly
-      case _ where os.hasPrefix("driverkit"):
-        return .driverkit
       case _ where os.hasPrefix("freebsd"):
-        return .freebsd
+        return .freeBSD
       case _ where os.hasPrefix("fuchsia"):
         return .fuchsia
       case _ where os.hasPrefix("ios"):
@@ -1190,8 +1212,6 @@ extension Triple {
         return .tvos
       case _ where os.hasPrefix("watchos"):
         return .watchos
-      case _ where os.hasPrefix("xros") || os.hasPrefix("visionos"):
-        return .visionos
       case _ where os.hasPrefix("mesa3d"):
         return .mesa3d
       case _ where os.hasPrefix("contiki"):
@@ -1208,6 +1228,12 @@ extension Triple {
         return .emscripten
       case _ where os.hasPrefix("none"):
         return .noneOS
+      case _ where os.hasPrefix("xros") || os.hasPrefix("visionos"):
+        return .visionos
+      case _ where os.hasPrefix("firmware"):
+        return .firmware
+      case _ where os.hasPrefix("driverkit"):
+        return .driverkit
       default:
         return nil
       }
@@ -1385,10 +1411,10 @@ extension Triple {
       }
     }
 
-    fileprivate static func infer(arch: Triple.Arch?, os: Triple.OS?) -> Triple.ObjectFormat {
+    fileprivate static func infer(arch: Triple.Arch?, vendor: Triple.Vendor?, os: Triple.OS?) -> Triple.ObjectFormat {
       switch arch {
         case nil, .aarch64, .aarch64e, .aarch64_32, .arm, .thumb, .x86, .x86_64:
-          if os?.isDarwin ?? false {
+        if Triple.isDarwin(vendor: vendor, os: os) {
             return .macho
           } else if os?.isWindows ?? false {
             return .coff
@@ -1411,6 +1437,7 @@ extension Triple {
         case .kalimba: fallthrough
         case .le32: fallthrough
         case .le64: fallthrough
+        case .m68k: fallthrough
         case .mips: fallthrough
         case .mips64: fallthrough
         case .mips64el: fallthrough
@@ -1434,11 +1461,12 @@ extension Triple {
         case .tce: fallthrough
         case .tcele: fallthrough
         case .thumbeb: fallthrough
-        case .xcore:
+        case .xcore: fallthrough
+        case .xtensa:
           return .elf
 
         case .ppc, .ppc64:
-          if os?.isDarwin ?? false {
+          if Triple.isDarwin(vendor: vendor, os: os) {
             return .macho
           } else if os == .aix {
             return .xcoff
@@ -1474,20 +1502,16 @@ extension Triple.OS {
     self == .aix
   }
 
-  /// isMacOSX - Is this a Mac OS X triple. For legacy reasons, we support both
-  /// "darwin" and "osx" as OS X triples.
+  /// Is this an Apple macOS triple.
+  /// - note: For legacy reasons, we support both "darwin" and "macosx" as macOS triples.
   public var isMacOSX: Bool {
     self == .darwin || self == .macosx
   }
 
-  /// Is this an iOS triple.
-  /// Note: This identifies tvOS as a variant of iOS. If that ever
-  /// changes, i.e., if the two operating systems diverge or their version
-  /// numbers get out of sync, that will need to be changed.
-  /// watchOS has completely different version numbers so it is not included.
-  @available(*, unavailable, message: "Do not use - this confusingly named property indicates either iOS or tvOS due to LLVM history. Compare directly with .ios or .tvos as needed.")
+  /// Is this an Apple iOS triple.
+  /// - note: Contrary to historical behavior with regard to LLVM's Triple type, this does NOT match tvOS in order to avoid confusion moving forward.
   public var isiOS: Bool {
-    self == .ios || isTvOS
+    self == .ios
   }
 
   /// Is this an Apple tvOS triple.
@@ -1500,13 +1524,19 @@ extension Triple.OS {
     self == .watchos
   }
 
-  /// isOSDarwin - Is this a "Darwin" OS (macOS, iOS, tvOS, watchOS, visionOS, or DriverKit).
-  public var isDarwin: Bool {
-      [.darwin, .macosx, .ios, .tvos, .watchos, .visionos, .driverkit].contains(self)
+  /// Is this an Apple visionOS triple.
+  public var isVisionOS: Bool {
+    self == .visionos
   }
 
-  public var isFreeBSD: Bool {
-    self == .freebsd
+  /// Is this a Firmware triple.
+  public var isFirmware: Bool {
+    self == .firmware
+  }
+
+  /// Is this an Apple DriverKit triple.
+  public var isDriverKit: Bool {
+    self == .driverkit
   }
 }
 
@@ -1546,6 +1576,8 @@ extension Triple {
         osName = osName.dropFirst(os.name.count)
       } else if os == .macosx, osName.hasPrefix("macos") {
         osName = osName.dropFirst(5)
+      } else if os == .visionos, osName.hasPrefix("visionos") {
+        osName = osName.dropFirst(8)
       }
     }
 
@@ -1561,6 +1593,8 @@ extension Triple {
         canonicalOsName = osName.prefix(os.name.count)
       } else if os == .macosx, osName.hasPrefix("macos") {
         canonicalOsName = osName.prefix(5)
+      } else if os == .visionos, osName.hasPrefix("visionos") {
+        canonicalOsName = osName.prefix(8)
       }
     }
     return String(canonicalOsName)
@@ -1570,6 +1604,32 @@ extension Triple {
 // MARK: - Darwin Versions
 
 extension Triple {
+  // Version 26 alignment helper. Each Apple OS jumped to version 26, so the
+  // last pre-jump release canonicalizes to 26; versions in the unshipped gap
+  // below 26 are left unchanged. Only `_iOSVersion` consumes this.
+
+  /// Canonicalize the last pre-26 release to the year-aligned version 26.
+  /// Gap versions (between the pre-jump release and 26) pass through unchanged.
+  static func _canonicalVersion(_ version: Version, for os: OS) -> Version {
+    func isExactly(_ major: Int) -> Bool {
+      version.major == major && version.minor == 0 && version.micro == 0
+    }
+    switch os {
+    case .macosx:
+      if version.major == 10 && version.minor == 16 { return Version(11, 0, 0) }
+      if isExactly(16) { return Version(26, 0, 0) }
+    case .ios, .tvos:
+      if isExactly(19) { return Version(26, 0, 0) }
+    case .visionos:
+      if isExactly(3) { return Version(26, 0, 0) }
+    case .watchos:
+      if isExactly(12) { return Version(26, 0, 0) }
+    default:
+      break
+    }
+    return version
+  }
+
   /// Parse the version number as with getOSVersion and then
   /// translate generic "darwin" versions to the corresponding OS X versions.
   /// This may also be called with IOS triples but the OS X version number is
@@ -1598,11 +1658,16 @@ extension Triple {
         version.micro = 0
         version.minor = version.major - 4
         version.major = 10
-      } else {
+      } else if version.major < 25 {
         version.micro = 0
         version.minor = 0
-        // darwin20+ corresponds to macOS 11+.
+        // darwin20-24 corresponds to macOS 11-15.
         version.major = version.major - 9
+      } else if version.major == 25 || version.major == 26 {
+        version.micro = 0
+        version.minor = 0
+        // darwin25-26 corresponds to macOS 26-27.
+        version.major = version.major + 1
       }
 
     case .macosx:
@@ -1615,8 +1680,7 @@ extension Triple {
       if version.major < 10 {
         return nil
       }
-
-    case .ios, .tvos, .watchos, .visionos, .driverkit:
+    case .ios, .tvos, .watchos, .visionos, .firmware, .driverkit:
        // Ignore the version from the triple.  This is only handled because the
        // the clang driver combines OS X and IOS support into a common Darwin
        // toolchain that wants to know the OS X version number even when targeting
@@ -1648,8 +1712,49 @@ extension Triple {
       if version.major == 0 {
         version.major = arch == .aarch64 ? 7 : 5
       }
+      // iOS & tvOS 19 correspond to iOS 26.
+      if version.major == 19 {
+        return Version(26, 0, 0)
+      }
+      return Triple._canonicalVersion(version, for: .ios)
+    case .visionos:
+      let version = self.osVersion
+      // xrOS 1/2 are aligned with iOS 17/18.
+      if version.major < 3 {
+        return Version(version.major + 16, version.minor, version.micro)
+      }
+      // visionOS 3 corresponds to iOS 26.
+      return Triple._canonicalVersion(version, for: .visionos)
+    case .watchos:
+      let version = self.osVersion
+      // watchOS 12 corresponds to iOS 26.
+      return Triple._canonicalVersion(version, for: .watchos)
+    default:
+      fatalError("unexpected OS for Darwin triple")
+    }
+  }
+
+  /// Parse the version number as with getOSVersion.  This should
+  /// only be called with tvOS or generic triples.
+  ///
+  /// This accessor is semi-private; it's typically better to use `version(for:)` or
+  /// `Triple.FeatureAvailability`.
+  public var _tvOSVersion: Version {
+    switch os {
+    case .darwin, .macosx:
+      // Ignore the version from the triple.  This is only handled because the
+      // the clang driver combines OS X and iOS support into a common Darwin
+      // toolchain that wants to know the iOS version number even when targeting
+      // OS X.
+      return Version(9, 0, 0)
+    case .ios, .tvos:
+      var version = self.osVersion
+      // Default to 9.0, which was the first version of tvOS.
+      if version.major == 0 {
+        version.major = 9
+      }
       return version
-    case .watchos, .visionos, .driverkit:
+    case .watchos:
       fatalError("conflicting triple info")
     default:
       fatalError("unexpected OS for Darwin triple")
@@ -1671,55 +1776,95 @@ extension Triple {
       return Version(2, 0, 0)
     case .watchos:
       var version = self.osVersion
+      // Default to 2.0, which was the first version of watchOS.
       if version.major == 0 {
         version.major = 2
       }
       return version
-    case .ios:
+    case .ios, .tvos, .visionos:
       fatalError("conflicting triple info")
     default:
       fatalError("unexpected OS for Darwin triple")
     }
   }
 
-  /// Parse the version number as with getOSVersion. This should only be
-  /// called with visionOS or generic triples.
-  ///
-  /// This accessor is semi-private; it's typically better to use `version(for:)` or
-  /// `Triple.FeatureAvailability`.
   public var _visionOSVersion: Version {
-      switch os {
-      case .visionos:
-          var version = self.osVersion
-          if version.major == 0 {
-              version.major = 1
-          }
-          return version
-      case .darwin, .macosx, .ios, .tvos, .watchos:
-          fatalError("conflicting triple info")
-      default:
-          fatalError("unexpected OS for Darwin triple")
+    switch os {
+    case .darwin, .macosx:
+      return Version(1, 0, 0)
+    case .visionos, .ios:
+      var version = self.osVersion
+      // Default to 1.0
+      if version.major == 0 {
+        version.major = 1
       }
+      return version
+    case .watchos:
+      fatalError("conflicting triple info")
+    default:
+      fatalError("unexpected OS for Darwin triple")
+    }
   }
 
-  /// Parse the version number as with getOSVersion. This should only be
-  /// called with DriverKit or generic triples.
+  public var _FirmwareVersion: Version {
+    switch os {
+    case .darwin, .macosx:
+      return Version(1, 0, 0)
+    case .firmware:
+      var version = self.osVersion
+      // Default to 1.0
+      if version.major == 0 {
+        version.major = 1
+      }
+      return version
+    case .ios, .tvos, .watchos, .visionos, .driverkit:
+      fatalError("conflicting triple info")
+    default:
+      fatalError("unexpected OS for Darwin triple")
+    }
+  }
+
+  /// Parse the version number as with getOSVersion.  This should
+  /// only be called with DriverKit or generic triples.
   ///
   /// This accessor is semi-private; it's typically better to use `version(for:)` or
   /// `Triple.FeatureAvailability`.
-  public var _driverKitOSVersion: Version {
-      switch os {
-      case .driverkit:
-          var version = self.osVersion
-          if version.major == 0 {
-              version.major = 1
-          }
-          return version
-      case .darwin, .macosx, .ios, .tvos, .watchos, .visionos:
-          fatalError("conflicting triple info")
-      default:
-          fatalError("unexpected OS for Darwin triple")
+  public var _driverKitVersion: Version {
+    switch os {
+    case .darwin, .macosx:
+      return Version(19, 0, 0)
+    case .driverkit:
+      var version = self.osVersion
+      // Default to 19.0, which was the first version of DriverKit.
+      if version.major == 0 {
+        version.major = 19
       }
+      return version
+    case .ios, .tvos, .watchos, .visionos, .firmware:
+      fatalError("conflicting triple info")
+    default:
+      fatalError("unexpected OS for Darwin triple")
+    }
+  }
+}
+
+extension Triple {
+  public var isAppleFirmware: Bool {
+    return (vendor == .apple) && (os?.isFirmware ?? false)
+  }
+
+  /// isDarwin - Is this a "Darwin" triple (macOS, iOS, tvOS, watchOS, visionOS, DriverKit, or other Darwin like platforms).
+  static func isDarwin(vendor: Triple.Vendor?, os: Triple.OS?) -> Bool {
+    switch os {
+    case .darwin, .macosx, .ios, .tvos, .watchos, .visionos, .driverkit:
+      return true
+    case .firmware:
+      // Apple firmware isn't necessarily a Darwin based OS, but for most intents
+      // and purposes it can be treated like a Darwin OS in the driver.
+      return vendor == .apple
+    default:
+      return false
+    }
   }
 }
 
@@ -1727,7 +1872,7 @@ extension Triple {
 
 extension Triple {
   @_spi(Testing) public var isMacCatalyst: Bool {
-    return os == .ios && environment == .macabi
+    return self.isiOS && environment == .macabi
   }
 
   func isValidForZipperingWithTriple(_ variant: Triple) -> Bool {
@@ -1765,5 +1910,24 @@ fileprivate extension Array {
     } else if desiredCount < count {
       removeLast(count - desiredCount)
     }
+  }
+}
+
+// MARK: - Fully static Linux support
+
+extension Triple {
+  /// Returns `true` if this is the triple for Swift's fully statically
+  /// linked Linux target.
+  var isFullyStaticLinux: Bool {
+    self.vendor == .swift && self.environment == .musl
+  }
+
+  /// Returns `true` if a given triple supports producing fully
+  /// statically linked executables by providing `-static` flag to
+  /// the linker. This implies statically linking platform's libc,
+  /// and of those that Swift supports currently only Musl allows
+  /// that reliably.
+  var supportsStaticExecutables: Bool {
+    self.isFullyStaticLinux
   }
 }

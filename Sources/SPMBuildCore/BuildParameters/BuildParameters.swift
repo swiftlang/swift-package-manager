@@ -106,8 +106,8 @@ public struct BuildParameters: Encodable {
     var currentPlatform: PackageModel.Platform {
         if self.triple.isDarwin() {
             switch self.triple.darwinPlatform {
-            case .driverKit:
-                return .driverKit
+            case .macOS:
+                return .macOS
             case .iOS(.catalyst):
                 return .macCatalyst
             case .iOS(.device), .iOS(.simulator):
@@ -118,8 +118,11 @@ public struct BuildParameters: Encodable {
                 return .watchOS
             case .visionOS:
                 return .visionOS
-            case .macOS, nil:
-                return .macOS
+            case .driverKit:
+                return .driverKit
+            case .Firmware, nil:
+                // Don't silently treat Apple platforms we don't model as macOS.
+                return .custom(name: self.triple.osNameUnversioned, oldestSupportedVersion: .unknown)
             }
         } else if self.triple.isAndroid() {
             return .android

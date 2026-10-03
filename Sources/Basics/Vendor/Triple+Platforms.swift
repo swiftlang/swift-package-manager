@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014 - 2019 Apple Inc. and the Swift project authors
+// Copyright (c) 2014 - 2025 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -15,9 +15,18 @@
 // Warning: This file has been copied with minimal modifications from
 // swift-driver to avoid a direct dependency. See Vendor/README.md for details.
 //
+// When updating, copy the file verbatim from swift-driver's
+// Sources/SwiftDriver/Utilities/ directory and then re-apply the changes
+// listed below. Changes marked [upstream] should be contributed back to
+// swift-driver so that they can be dropped from this list.
+//
 // Changes:
 // - Replaced usage of `\(_:or:)` string interpolation.
-// - Replaced usage of `self.isDarwin` with `self.os?.isDarwin ?? false`.
+// - Removed `Triple.isDarwin` (it conflicts with SwiftPM's `Triple.isDarwin()`);
+//   use `Triple.isDarwin(vendor:os:)` instead, which is internal rather than
+//   fileprivate.
+// - [upstream] Added DriverKit (`driverkit`) support.
+// - [upstream] Accept `visionos` as an alias of `xros`, as LLVM does.
 //
 //===----------------------------------------------------------------------===//
 
@@ -45,6 +54,9 @@ public enum DarwinPlatform: Hashable {
 
   /// visionOS, corresponding to the `xros` and `visionos` OS names.
   case visionOS(EnvironmentWithoutCatalyst)
+
+  /// Firmware, corresponding to the `firmware` OS name.
+  case Firmware
 
   /// DriverKit, corresponding to the `driverkit` OS name.
   case driverKit
@@ -94,10 +106,14 @@ public enum DarwinPlatform: Hashable {
     guard let withoutCatalyst = environment.withoutCatalyst else { return nil }
       return .watchOS(withoutCatalyst)
     case .visionOS:
-    guard let withoutCatalyst = environment.withoutCatalyst else { return nil }
+      guard let withoutCatalyst = environment.withoutCatalyst else { return nil }
       return .visionOS(withoutCatalyst)
+    case .Firmware:
+      guard environment == .device else { return nil }
+      return .Firmware
     case .driverKit:
-        return .driverKit
+      guard environment == .device else { return nil }
+      return .driverKit
     }
   }
 
@@ -123,6 +139,8 @@ public enum DarwinPlatform: Hashable {
       return "visionOS"
     case .visionOS(.simulator):
       return "visionOS Simulator"
+    case .Firmware:
+      return "Firmware"
     case .driverKit:
       return "DriverKit"
     }
@@ -154,6 +172,8 @@ public enum DarwinPlatform: Hashable {
       return "xrsimulator"
     case .driverKit:
       return "driverkit"
+    default:
+      fatalError("Unsupported Darwin platform \(self)")
     }
   }
 
@@ -177,11 +197,13 @@ public enum DarwinPlatform: Hashable {
     case .watchOS(.simulator):
       return "watchos-simulator"
     case .visionOS(.device):
-      return "visionos"
+      return "xros"
     case .visionOS(.simulator):
-      return "visionos-simulator"
+      return "xros-simulator"
     case .driverKit:
       return "driverkit"
+    default:
+      fatalError("Unsupported Darwin platform \(self)")
     }
   }
 
@@ -211,6 +233,8 @@ public enum DarwinPlatform: Hashable {
       return "xrossim"
     case .driverKit:
       return "driverkit"
+    default:
+      fatalError("Unsupported Darwin platform \(self)")
     }
   }
 }
@@ -239,14 +263,18 @@ extension Triple {
     switch compatibilityPlatform ?? darwinPlatform! {
     case .macOS:
       return _macOSVersion ?? osVersion
-    case .iOS, .tvOS:
+    case .iOS:
       return _iOSVersion
+    case .tvOS:
+      return _tvOSVersion
     case .watchOS:
       return _watchOSVersion
     case .visionOS:
       return _visionOSVersion
+    case .Firmware:
+      return _FirmwareVersion
     case .driverKit:
-      return _driverKitOSVersion
+      return _driverKitVersion
     }
   }
 
@@ -275,6 +303,8 @@ extension Triple {
       return .tvOS(makeEnvironment())
     case .visionos:
       return .visionOS(makeEnvironment())
+    case .firmware:
+      return isAppleFirmware ? .Firmware : nil
     case .driverkit:
       return .driverKit
     default:
@@ -284,7 +314,7 @@ extension Triple {
 
   // The Darwin platform version used for linking.
   public var darwinLinkerPlatformVersion: Version {
-    precondition(self.os?.isDarwin ?? false)
+    precondition(Triple.isDarwin(vendor: vendor, os: os))
     switch darwinPlatform! {
     case .macOS:
       // The integrated driver falls back to `osVersion` for invalid macOS
@@ -310,14 +340,22 @@ extension Triple {
       }
 
       return _iOSVersion
-    case .iOS(.device), .iOS(.simulator), .tvOS(_):
-      // The first deployment of arm64 simulators is iOS/tvOS 14.0;
+    case .iOS(_):
+      // The first deployment of arm64 simulators is iOS 14.0;
       // the linker doesn't want to see a deployment target before that.
       if _isSimulatorEnvironment && _iOSVersion.major < 14 && arch == .aarch64 {
         return Version(14, 0, 0)
       }
 
       return _iOSVersion
+    case .tvOS(_):
+      // The first deployment of arm64 simulators is tvOS 14.0;
+      // the linker doesn't want to see a deployment target before that.
+      if _isSimulatorEnvironment && _tvOSVersion.major < 14 && arch == .aarch64 {
+        return Version(14, 0, 0)
+      }
+
+      return _tvOSVersion
     case .watchOS(_):
       // The first deployment of arm64 simulators is watchOS 7;
       // the linker doesn't want to see a deployment target before that.
@@ -325,18 +363,38 @@ extension Triple {
         return Version(7, 0, 0)
       }
 
-      return osVersion
+      return _watchOSVersion
     case .visionOS(_):
-      return osVersion
+      return _visionOSVersion
+    case .Firmware:
+      return _FirmwareVersion
     case .driverKit:
-      if osVersion.major < 19 {
-        return Version(19, 0, 0)
-      }
-      return osVersion
+      return _driverKitVersion
     }
   }
 
-  /// The platform name, i.e. the name clang uses to identify this target in its
+
+  /// The "os" component of the Clang compiler resource library directory (`<ResourceDir>/lib/<OSName>`).
+  /// Must be kept in sync with Clang driver:
+  /// https://github.com/llvm/llvm-project/blob/llvmorg-20.1.4/clang/lib/Driver/ToolChain.cpp#L690
+  @_spi(Testing) public var clangOSLibName: String {
+    guard let os else {
+      return osName
+    }
+    if Triple.isDarwin(vendor: vendor, os: os) {
+      return "darwin"
+    }
+
+    switch os {
+    case .freeBSD: return "freebsd"
+    case .netbsd: return "netbsd"
+    case .openbsd: return "openbsd"
+    case .aix: return "aix"
+    default: return osName
+    }
+  }
+
+  /// The platform name, i.e. the name Swift uses to identify this target in its
   /// resource directory.
   ///
   /// - Parameter conflatingDarwin: If true, all Darwin platforms will be
@@ -346,16 +404,26 @@ extension Triple {
     switch os {
     case nil:
       fatalError("unknown OS")
-    case .darwin, .macosx, .ios, .tvos, .watchos, .visionos:
+    case .darwin, .macosx, .ios, .tvos, .watchos, .visionos, .firmware, .driverkit:
       guard let darwinPlatform = darwinPlatform else {
         fatalError("unsupported darwin platform kind?")
       }
       return conflatingDarwin ? "darwin" : darwinPlatform.platformName
-    case .driverkit:
-        return "driverkit"
+
     case .linux:
-      return environment == .android ? "android" : "linux"
-    case .freebsd:
+      switch environment {
+      case .musl where vendor == .swift:
+        // The triple for linux-static is <arch>-swift-linux-musl, to distinguish
+        // it from a "normal" musl set-up (ala Alpine).
+        return "linux-static"
+      case .musl, .musleabihf, .musleabi:
+        return "musl"
+      case .android:
+        return "android"
+      default:
+        return "linux"
+      }
+    case .freeBSD:
       return "freebsd"
     case .openbsd:
       return "openbsd"
@@ -380,6 +448,8 @@ extension Triple {
       return "haiku"
     case .wasi:
       return "wasi"
+    case .emscripten:
+      return "emscripten"
     case .noneOS:
       return nil
 
@@ -387,7 +457,7 @@ extension Triple {
     // Triple updates
     case .ananas, .cloudABI, .dragonFly, .fuchsia, .kfreebsd, .lv2, .netbsd,
          .solaris, .minix, .rtems, .nacl, .cnk, .aix, .cuda, .nvcl, .amdhsa,
-         .elfiamcu, .mesa3d, .contiki, .amdpal, .hermitcore, .hurd, .emscripten:
+         .elfiamcu, .mesa3d, .contiki, .amdpal, .hermitcore, .hurd:
       return nil
     }
   }
@@ -401,7 +471,7 @@ extension Triple {
   /// `tripleVersion >= featureVersion`.
   ///
   /// - SeeAlso: `Triple.supports(_:)`
-public struct FeatureAvailability: Sendable {
+  public struct FeatureAvailability: Sendable {
 
     public enum Availability: Sendable {
       case unavailable
@@ -413,8 +483,7 @@ public struct FeatureAvailability: Sendable {
     public let iOS: Availability
     public let tvOS: Availability
     public let watchOS: Availability
-    public let visionOS: Availability
-    public let driverKit: Availability
+    public var visionOS: Availability
 
     // TODO: We should have linux, windows, etc.
     public let nonDarwin: Bool
@@ -426,19 +495,21 @@ public struct FeatureAvailability: Sendable {
       iOS: Availability,
       tvOS: Availability,
       watchOS: Availability,
-      visionOS: Availability,
-      driverKit: Availability,
       nonDarwin: Bool = false
     ) {
       self.macOS = macOS
       self.iOS = iOS
       self.tvOS = tvOS
       self.watchOS = watchOS
-      self.visionOS = visionOS
-      self.driverKit = driverKit
       self.nonDarwin = nonDarwin
+      self.visionOS = iOS
     }
 
+    public func withVisionOS(_ visionOS: Availability) -> FeatureAvailability {
+      var res = self
+      res.visionOS = visionOS
+      return res
+    }
     /// Returns the version when the feature was introduced on the specified Darwin
     /// platform, or `.unavailable` if the feature has not been introduced there.
     public subscript(darwinPlatform: DarwinPlatform) -> Availability {
@@ -453,8 +524,8 @@ public struct FeatureAvailability: Sendable {
         return watchOS
       case .visionOS:
         return visionOS
-      case .driverKit:
-        return driverKit
+      case .Firmware, .driverKit:
+        return .availableInAllVersions
       }
     }
   }
@@ -490,9 +561,7 @@ extension Triple.FeatureAvailability {
     macOS: .available(since: Triple.Version(10, 11, 0)),
     iOS: .available(since: Triple.Version(9, 0, 0)),
     tvOS: .available(since: Triple.Version(9, 0, 0)),
-    watchOS: .availableInAllVersions,
-    visionOS: .availableInAllVersions,
-    driverKit: .availableInAllVersions // no Objective-C in DriverKit, but ARClite shouldn't be linked
+    watchOS: .availableInAllVersions
   )
   // When updating the versions listed here, please record the most recent
   // feature being depended on and when it was introduced:
