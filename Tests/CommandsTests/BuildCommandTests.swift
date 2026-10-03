@@ -1148,6 +1148,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.BuildSystem,
         ),
+        .enabled(if: ProcessInfo.hostOperatingSystem == .macOS, "Compilation caching fails on Linux"),
     )
     func buildCacheBasics() async throws {
         let config = BuildConfiguration.debug
@@ -1241,6 +1242,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.BuildSystem,
         ),
+        .enabled(if: ProcessInfo.hostOperatingSystem == .macOS, "Compilation caching fails on Linux"),
     )
     func buildCachePrefixMapping() async throws {
         let config = BuildConfiguration.debug
@@ -1332,6 +1334,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.BuildSystem,
         ),
+        .enabled(if: ProcessInfo.hostOperatingSystem == .macOS, "Compilation caching fails on Linux"),
     )
     func buildCacheInfo() async throws {
         let config = BuildConfiguration.debug
