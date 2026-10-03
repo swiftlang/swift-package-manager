@@ -691,6 +691,12 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .enableTestableImport(let enable):
+            params.append(SourceCodeFragment(boolean: enable))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
         case .treatAllWarnings(let level):
             params.append(SourceCodeFragment(key: "as", enum: level.rawValue))
             if let condition = setting.condition {
@@ -1224,6 +1230,8 @@ extension TargetBuildSettingDescription.Kind {
             return "defaultIsolation"
         case .bridgingHeader:
             return "bridgingHeader"
+        case .enableTestableImport:
+            return "enableTestableImport"
         }
     }
 }

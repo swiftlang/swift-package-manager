@@ -1056,7 +1056,7 @@ extension PIFBuilderParameters {
     ) {
         self.init(
             isPackageAccessModifierSupported: buildParameters.driverParameters.isPackageAccessModifierSupported,
-            enableTestability: buildParameters.enableTestability,
+            enableTestability: buildParameters.testingParameters.explicitlyEnabledTestability ?? (buildParameters.configuration == .debug),
             shouldCreateDylibForDynamicProducts: buildParameters.shouldCreateDylibForDynamicProducts,
             materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
             createDynamicVariantsForLibraryProducts: createDynamicVariantsForLibraryProducts,
