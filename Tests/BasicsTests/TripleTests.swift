@@ -43,6 +43,14 @@ struct TripleTests {
             (tripleName: "x86_64-apple-macosx", isApple: true, isDarwin: true),
             (tripleName: "x86_64-apple-macosx10.15", isApple: true, isDarwin: true),
             (tripleName: "x86_64h-apple-darwin", isApple: true, isDarwin: true),
+            (tripleName: "arm64-apple-ios", isApple: true, isDarwin: true),
+            (tripleName: "arm64-apple-ios-simulator", isApple: true, isDarwin: true),
+            (tripleName: "arm64-apple-ios-macabi", isApple: true, isDarwin: true),
+            (tripleName: "arm64-apple-tvos", isApple: true, isDarwin: true),
+            (tripleName: "arm64-apple-watchos", isApple: true, isDarwin: true),
+            (tripleName: "arm64-apple-xros", isApple: true, isDarwin: true),
+            (tripleName: "arm64-apple-xros-simulator", isApple: true, isDarwin: true),
+            (tripleName: "arm64-apple-visionos", isApple: true, isDarwin: true),
             (tripleName: "x86_64-apple-driverkit", isApple: true, isDarwin: true),
             (tripleName: "arm64-apple-driverkit", isApple: true, isDarwin: true),
             (tripleName: "i686-pc-windows-msvc", isApple: false, isDarwin: false),
@@ -157,6 +165,31 @@ struct TripleTests {
                 version: "13.0",
                 expectedTriple: "arm64-apple-ios13.0-simulator",
             ),
+            (
+                tripleName: "arm64-apple-xros1.0",
+                version: "",
+                expectedTriple: "arm64-apple-xros",
+            ),
+            (
+                tripleName: "arm64-apple-xros1.0-simulator",
+                version: "26.0",
+                expectedTriple: "arm64-apple-xros26.0-simulator",
+            ),
+            (
+                tripleName: "arm64-apple-visionos1.0",
+                version: "26.0",
+                expectedTriple: "arm64-apple-visionos26.0",
+            ),
+            (
+                tripleName: "arm64-apple-driverkit19.0",
+                version: "",
+                expectedTriple: "arm64-apple-driverkit",
+            ),
+            (
+                tripleName: "arm64-apple-driverkit19.0",
+                version: "21.0",
+                expectedTriple: "arm64-apple-driverkit21.0",
+            ),
         ]
     )
     func tripleStringForPlatformVersion(
@@ -250,6 +283,33 @@ struct TripleTests {
                 expectedObjectFormat: .wasm
             ),
             DataKnownTripleParsing(
+                tripleName: "arm64-apple-xros2.0",
+                expectedArch: .aarch64,
+                expectedSubArch: nil,
+                expectedVendor: .apple,
+                expectedOs: .visionos,
+                expectedEnvironment: nil,
+                expectedObjectFormat: .macho
+            ),
+            DataKnownTripleParsing(
+                tripleName: "arm64-apple-xros2.0-simulator",
+                expectedArch: .aarch64,
+                expectedSubArch: nil,
+                expectedVendor: .apple,
+                expectedOs: .visionos,
+                expectedEnvironment: .simulator,
+                expectedObjectFormat: .macho
+            ),
+            DataKnownTripleParsing(
+                tripleName: "arm64-apple-visionos2.0",
+                expectedArch: .aarch64,
+                expectedSubArch: nil,
+                expectedVendor: .apple,
+                expectedOs: .visionos,
+                expectedEnvironment: nil,
+                expectedObjectFormat: .macho
+            ),
+            DataKnownTripleParsing(
                 tripleName: "arm64-apple-driverkit19.0",
                 expectedArch: .aarch64,
                 expectedSubArch: nil,
@@ -270,6 +330,52 @@ struct TripleTests {
         #expect(triple.os == data.expectedOs, "Actual OS is not as expcted")
         #expect(triple.environment == data.expectedEnvironment, "Actual environment is not as expected")
         #expect(triple.objectFormat == data.expectedObjectFormat, "Actual object format is not as expected")
+    }
+
+    @Test(
+        "Darwin platform information",
+        arguments: [
+            // (triple, display name, OS version, platform/SDK name, linker platform name, compiler-rt suffix)
+            ("arm64-apple-macosx14.0", "macOS", "14.0.0", "macosx", "macos", "osx"),
+            ("arm64-apple-ios17.0", "iOS", "17.0.0", "iphoneos", "ios", "ios"),
+            ("arm64-apple-ios17.0-simulator", "iOS Simulator", "17.0.0", "iphonesimulator", "ios-simulator", "iossim"),
+            ("arm64-apple-ios17.0-macabi", "Mac Catalyst", "17.0.0", "maccatalyst", "mac-catalyst", "osx"),
+            ("arm64-apple-tvos17.0", "tvOS", "17.0.0", "appletvos", "tvos", "tvos"),
+            ("arm64-apple-watchos10.0", "watchOS", "10.0.0", "watchos", "watchos", "watchos"),
+            ("arm64-apple-xros1.0", "visionOS", "1.0.0", "xros", "xros", "xros"),
+            ("arm64-apple-xros2.1-simulator", "visionOS Simulator", "2.1.0", "xrsimulator", "xros-simulator", "xrossim"),
+            ("arm64-apple-visionos2.1", "visionOS", "2.1.0", "xros", "xros", "xros"),
+            ("arm64-apple-visionos2.1-simulator", "visionOS Simulator", "2.1.0", "xrsimulator", "xros-simulator", "xrossim"),
+            ("arm64-apple-xros", "visionOS", "1.0.0", "xros", "xros", "xros"),
+            ("arm64-apple-driverkit21.0", "DriverKit", "21.0.0", "driverkit", "driverkit", "driverkit"),
+            ("x86_64-apple-driverkit", "DriverKit", "19.0.0", "driverkit", "driverkit", "driverkit"),
+        ]
+    )
+    func darwinPlatform(
+        tripleName: String,
+        displayName: String,
+        version: String,
+        platformName: String,
+        linkerPlatformName: String,
+        libraryNameSuffix: String
+    ) throws {
+        let triple = try Triple(tripleName)
+        let darwinPlatform = try #require(triple.darwinPlatform)
+        #expect(darwinPlatform.platformDisplayName == displayName)
+        #expect(triple.version(for: darwinPlatform).description == version)
+        #expect(darwinPlatform.platformName == platformName)
+        #expect(darwinPlatform.linkerPlatformName == linkerPlatformName)
+        #expect(darwinPlatform.libraryNameSuffix == libraryNameSuffix)
+        #expect(triple.platformName() == platformName)
+        #expect(triple.platformName(conflatingDarwin: true) == "darwin")
+    }
+
+    @Test(
+        "Non-Darwin triples have no Darwin platform",
+        arguments: ["x86_64-unknown-linux-gnu", "armv7em-apple-none-macho", "wasm32-unknown-wasi", "x86_64-unknown-windows-msvc"]
+    )
+    func nonDarwinPlatform(tripleName: String) throws {
+        #expect(try Triple(tripleName).darwinPlatform == nil)
     }
 
     @Test
