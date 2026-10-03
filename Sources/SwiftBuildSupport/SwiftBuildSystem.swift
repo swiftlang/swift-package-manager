@@ -148,6 +148,39 @@ func withSession(
     }
 }
 
+package func queryBuildCacheInfo(
+    casPath: Basics.AbsolutePath,
+    pluginPath: Basics.AbsolutePath?,
+    remoteServicePath: Basics.AbsolutePath?,
+    toolchain: Toolchain,
+    packageManagerResourcesDirectory: Basics.AbsolutePath?
+) async throws -> SWBBuildCacheInfo {
+    let usingXcodeDeveloperDirectory = (try? toolchainDeveloperPathInfo(toolchain: toolchain))?.isEmbeddedInXcode ?? false
+    let pluginEnabled = pluginPath != nil || usingXcodeDeveloperDirectory
+
+    return try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
+        let (session, _) = try await createSession(
+            service: service,
+            name: "swiftpm-build-cache-info",
+            toolchain: toolchain,
+            packageManagerResourcesDirectory: packageManagerResourcesDirectory
+        )
+        do {
+            let info = try await session.buildCacheInfo(
+                casPath: casPath.pathString,
+                pluginPath: pluginPath?.pathString,
+                remoteServicePath: remoteServicePath?.pathString,
+                pluginEnabled: pluginEnabled
+            )
+            try await session.close()
+            return info
+        } catch {
+            try? await session.close()
+            throw error
+        }
+    }
+}
+
 package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperationDelegate, SWBIndexingDelegate, Sendable {
     private let shouldEnableDebuggingEntitlement: Bool
 
@@ -1066,12 +1099,18 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 settings[setting.enableVariableName] = "YES"
                 settings[setting.pathVariable] = try await self.indexStore(for: self.buildParameters).pathStringWithPosixSlashes
             }
+            // When indexing is explicitly enabled, set COMPILER_INDEX_STORE_ENABLE explicitly to allow index-while-building
+            // with optimizations enabled.
+            settings["COMPILER_INDEX_STORE_ENABLE"] = "YES"
         case .off:
             for setting in indexStoreSettingNames {
                 settings[setting.enableVariableName] = "NO"
             }
         case .auto:
-            // The settings are handles in the PIF builder
+            // The enablement settings are handled in the PIF builder
+            for setting in indexStoreSettingNames {
+                settings[setting.pathVariable] = try await self.indexStore(for: self.buildParameters).pathStringWithPosixSlashes
+            }
             break
         }
 
@@ -1085,6 +1124,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructAPIDigesterSettingsOverrides(from: buildParameters.apiDigesterMode), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructOutputSettingsOverrides(from: buildParameters.outputParameters), uniquingKeysWith: reportConflict)
+        let usingXcodeDeveloperDirectory = (try? toolchainDeveloperPathInfo(toolchain: buildParameters.toolchain))?.isEmbeddedInXcode ?? false
+        try settings.merge(Self.constructBuildCacheSettingsOverrides(from: buildParameters.buildCaching, usingXcodeDeveloperDirectory: usingXcodeDeveloperDirectory), uniquingKeysWith: reportConflict)
 
         if buildParameters.driverParameters.codesizeProfileEnabled {
             // dSYM generation is required to attribute code size to source locations
@@ -1144,6 +1185,17 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         let ddPathPrefix = derivedDataPath.pathString
         #endif
 
+        let indexEnableDataStore: Bool
+        let indexDataStoreFolderPath: String?
+        switch buildParameters.indexStoreMode {
+        case .off:
+            indexEnableDataStore = false
+            indexDataStoreFolderPath = nil
+        case .on, .auto:
+            indexEnableDataStore = true
+            indexDataStoreFolderPath = try await self.indexStore(for: buildParameters).pathStringWithPosixSlashes
+        }
+
         let arenaInfo = SWBArenaInfo(
             derivedDataPath: ddPathPrefix,
             buildProductsPath: ddPathPrefix + "/Products",
@@ -1152,8 +1204,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             indexRegularBuildProductsPath: nil,
             indexRegularBuildIntermediatesPath: nil,
             indexPCHPath: ddPathPrefix,
-            indexDataStoreFolderPath: ddPathPrefix,
-            indexEnableDataStore: request.parameters.arenaInfo?.indexEnableDataStore ?? false
+            indexDataStoreFolderPath: indexDataStoreFolderPath,
+            indexEnableDataStore: request.parameters.arenaInfo?.indexEnableDataStore ?? indexEnableDataStore
         )
 
         request.parameters.arenaInfo = arenaInfo
@@ -1181,6 +1233,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // swiftCompilerFlags += buildParameters.toolchain.extraFlags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
         // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
         // swiftCompilerFlags += buildParameters.flags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
+
+        // Filter out module cache path flags and override the build setting independently.
+        if let moduleCachePath = Self.extractLastModuleCachePath(from: &swiftCompilerFlags) {
+            settings["MODULE_CACHE_DIR"] = moduleCachePath
+        }
+
         let compilerAndLinkerFlags = [
             "OTHER_CFLAGS": buildParameters.toolchain.extraFlags.cCompilerFlags + buildParameters.flags.cCompilerFlags,
             "OTHER_CPLUSPLUSFLAGS": buildParameters.toolchain.extraFlags.cxxCompilerFlags + buildParameters.flags.cxxCompilerFlags,
@@ -1245,6 +1303,30 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         settings["OTHER_LDFLAGS"] = (settings["OTHER_LDFLAGS"] ?? "$(inherited)") + " $(OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_$(LINKER_DRIVER))"
 
         return settings
+    }
+
+    private static func extractLastModuleCachePath(from flags: inout [BuildFlag]) -> String? {
+        var remaining: [BuildFlag] = []
+        remaining.reserveCapacity(flags.count)
+        var moduleCachePath: String? = nil
+
+        var index = flags.startIndex
+        while index < flags.endIndex {
+            let flag = flags[index]
+            let nextIndex = flags.index(after: index)
+            if flag.source == .commandLineOptions, flag.value == "-module-cache-path", nextIndex < flags.endIndex {
+                moduleCachePath = flags[nextIndex].value
+                index = flags.index(after: nextIndex)
+                continue
+            }
+            remaining.append(flag)
+            index = nextIndex
+        }
+
+        if moduleCachePath != nil {
+            flags = remaining
+        }
+        return moduleCachePath
     }
 
     private static func constructDebuggingSettingsOverrides(from parameters: BuildParameters.Debugging, for configuration: BuildConfiguration) -> [String: String] {
@@ -1320,12 +1402,70 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         return settings
     }
 
+    package static func constructBuildCacheSettingsOverrides(
+        from configuration: BuildCacheConfiguration,
+        usingXcodeDeveloperDirectory: Bool
+    ) -> [String: String] {
+        var settings: [String: String] = [:]
+
+        // Caching is off by default, so only emit overrides when it's enabled.
+        if configuration.enabled != true {
+            return settings
+        }
+
+        settings["SWIFT_ENABLE_COMPILE_CACHE"] = "YES"
+        settings["CLANG_ENABLE_COMPILE_CACHE"] = "YES"
+        settings["SWIFT_ENABLE_EXPLICIT_MODULES"] = "YES"
+        settings["CLANG_ENABLE_EXPLICIT_MODULES"] = "YES"
+
+        if let casPath = configuration.casPath {
+            settings["COMPILATION_CACHE_CAS_PATH"] = casPath.pathStringWithPosixSlashes
+        }
+
+        switch configuration.sizeLimit {
+        case .size(let value):
+            settings["COMPILATION_CACHE_LIMIT_SIZE"] = value
+        case .percent(let value):
+            settings["COMPILATION_CACHE_LIMIT_PERCENT"] = "\(value)"
+        case .none:
+            break
+        }
+
+        if let enableDiagnosticRemarks = configuration.enableDiagnosticRemarks {
+            settings["COMPILATION_CACHE_ENABLE_DIAGNOSTIC_REMARKS"] = enableDiagnosticRemarks ? "YES" : "NO"
+        }
+
+        if let pluginPath = configuration.pluginPath {
+            settings["COMPILATION_CACHE_PLUGIN_PATH"] = pluginPath.pathStringWithPosixSlashes
+        }
+
+        // Enable the CAS plugin when a plugin path is provided, or when building
+        // with an Xcode developer directory, which ships a compatible plugin.
+        if configuration.pluginPath != nil || usingXcodeDeveloperDirectory {
+            settings["COMPILATION_CACHE_ENABLE_PLUGIN"] = "YES"
+        }
+
+        if let remoteServicePath = configuration.remoteServicePath {
+            settings["COMPILATION_CACHE_REMOTE_SERVICE_PATH"] = remoteServicePath.pathStringWithPosixSlashes
+        }
+
+        // Caching is enabled here, so default prefix mapping to on unless the user
+        // expressed a preference.
+        let enablePrefixMapping = configuration.enablePrefixMapping ?? true
+        let prefixMappingValue = enablePrefixMapping ? "YES" : "NO"
+        settings["CLANG_ENABLE_PREFIX_MAPPING"] = prefixMappingValue
+        settings["SWIFT_ENABLE_PREFIX_MAPPING"] = prefixMappingValue
+        settings["CLANG_ENABLE_PROJECT_PREFIX_MAPPING"] = prefixMappingValue
+        settings["SWIFT_ENABLE_PROJECT_PREFIX_MAPPING"] = prefixMappingValue
+
+        return settings
+    }
+
     private static func constructTestingSettingsOverrides(from parameters: BuildParameters.Testing) -> [String: String] {
         var settings: [String: String] = [:]
 
         // Coverage settings
         settings["CLANG_COVERAGE_MAPPING"] = parameters.enableCodeCoverage ? "YES" : "NO"
-
         if let testability = parameters.explicitlyEnabledTestability {
             settings["ENABLE_TESTABILITY"] = testability ? "YES" : "NO"
         }

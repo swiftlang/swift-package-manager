@@ -247,11 +247,44 @@ final class AuthorizationProviderTests: XCTestCase {
 
     // MARK: - EnvironmentAuthorizationProvider Tests
 
+    private static let registryKind = EnvironmentAuthorizationProvider.Kind.registry(
+        origins: [URL("https://registry.example.com")]
+    )
+
+    func testEnvironmentRegistryCredentialsAreBoundToConfiguredOrigins() {
+        var env = Environment()
+        env[.SWIFTPM_REGISTRY_TOKEN] = "my-registry-token"
+
+        let provider = EnvironmentAuthorizationProvider(
+            environment: env,
+            kind: .registry(origins: [URL("https://registry.example.com"), URL("https://other.example.com:8443")])
+        )
+
+        XCTAssertEqual(
+            provider.authentication(for: URL("https://registry.example.com/scope/name/1.0.0.zip"))?.password,
+            "my-registry-token"
+        )
+        XCTAssertEqual(
+            provider.authentication(for: URL("https://other.example.com:8443/scope/name/1.0.0.zip"))?.password,
+            "my-registry-token"
+        )
+
+        XCTAssertNil(provider.authentication(for: URL("https://cdn.example.com/archive.zip")))
+    }
+
+    func testEnvironmentRegistryWithoutConfiguredOriginsReturnsNothing() {
+        var env = Environment()
+        env[.SWIFTPM_REGISTRY_TOKEN] = "my-registry-token"
+
+        let provider = EnvironmentAuthorizationProvider(environment: env, kind: .registry(origins: []))
+        XCTAssertNil(provider.authentication(for: URL("https://registry.example.com")))
+    }
+
     func testEnvironmentRegistryToken() {
         var env = Environment()
         env[.SWIFTPM_REGISTRY_TOKEN] = "my-registry-token"
 
-        let provider = EnvironmentAuthorizationProvider(environment: env, kind: .registry)
+        let provider = EnvironmentAuthorizationProvider(environment: env, kind: Self.registryKind)
         let url = URL("https://registry.example.com")
 
         let auth = provider.authentication(for: url)
@@ -264,12 +297,13 @@ final class AuthorizationProviderTests: XCTestCase {
         env[.SWIFTPM_REGISTRY_LOGIN] = "myuser"
         env[.SWIFTPM_REGISTRY_PASSWORD] = "mypassword"
 
-        let provider = EnvironmentAuthorizationProvider(environment: env, kind: .registry)
+        let provider = EnvironmentAuthorizationProvider(environment: env, kind: Self.registryKind)
         let url = URL("https://registry.example.com")
 
         let auth = provider.authentication(for: url)
         XCTAssertEqual(auth?.user, "myuser")
         XCTAssertEqual(auth?.password, "mypassword")
+        XCTAssertNil(provider.authentication(for: URL("https://cdn.example.com/archive.zip")))
     }
 
     func testEnvironmentRegistryTokenPrecedence() {
@@ -278,7 +312,7 @@ final class AuthorizationProviderTests: XCTestCase {
         env[.SWIFTPM_REGISTRY_LOGIN] = "myuser"
         env[.SWIFTPM_REGISTRY_PASSWORD] = "mypassword"
 
-        let provider = EnvironmentAuthorizationProvider(environment: env, kind: .registry)
+        let provider = EnvironmentAuthorizationProvider(environment: env, kind: Self.registryKind)
         let url = URL("https://registry.example.com")
 
         let auth = provider.authentication(for: url)
@@ -301,7 +335,7 @@ final class AuthorizationProviderTests: XCTestCase {
     func testEnvironmentNoVarsReturnsNil() {
         let env = Environment()
 
-        let registryProvider = EnvironmentAuthorizationProvider(environment: env, kind: .registry)
+        let registryProvider = EnvironmentAuthorizationProvider(environment: env, kind: Self.registryKind)
         XCTAssertNil(registryProvider.authentication(for: URL("https://registry.example.com")))
 
         let scProvider = EnvironmentAuthorizationProvider(environment: env, kind: .sourceControl)
@@ -312,7 +346,7 @@ final class AuthorizationProviderTests: XCTestCase {
         var env = Environment()
         env[.SWIFTPM_REGISTRY_LOGIN] = "myuser"
 
-        let provider = EnvironmentAuthorizationProvider(environment: env, kind: .registry)
+        let provider = EnvironmentAuthorizationProvider(environment: env, kind: Self.registryKind)
         XCTAssertNil(provider.authentication(for: URL("https://registry.example.com")))
     }
 
@@ -323,7 +357,7 @@ final class AuthorizationProviderTests: XCTestCase {
         env[.SWIFTPM_REGISTRY_PASSWORD] = ""
         env[.SWIFTPM_SOURCE_CONTROL_TOKEN] = ""
 
-        let registryProvider = EnvironmentAuthorizationProvider(environment: env, kind: .registry)
+        let registryProvider = EnvironmentAuthorizationProvider(environment: env, kind: Self.registryKind)
         XCTAssertNil(registryProvider.authentication(for: URL("https://registry.example.com")))
 
         let scProvider = EnvironmentAuthorizationProvider(environment: env, kind: .sourceControl)
@@ -335,7 +369,7 @@ final class AuthorizationProviderTests: XCTestCase {
         env[.SWIFTPM_REGISTRY_TOKEN] = "env-token"
 
         let url = URL("https://registry.example.com")
-        let envProvider = EnvironmentAuthorizationProvider(environment: env, kind: .registry)
+        let envProvider = EnvironmentAuthorizationProvider(environment: env, kind: Self.registryKind)
         let fileProvider = TestProvider(map: [url: (user: "fileuser", password: "filepass")])
 
         let composite = CompositeAuthorizationProvider(
@@ -354,7 +388,7 @@ final class AuthorizationProviderTests: XCTestCase {
         let env = Environment()
 
         let url = URL("https://registry.example.com")
-        let envProvider = EnvironmentAuthorizationProvider(environment: env, kind: .registry)
+        let envProvider = EnvironmentAuthorizationProvider(environment: env, kind: Self.registryKind)
         let fileProvider = TestProvider(map: [url: (user: "fileuser", password: "filepass")])
 
         let composite = CompositeAuthorizationProvider(

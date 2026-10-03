@@ -211,7 +211,7 @@ struct PackageBuilderTests {
                 diagnostic: "ignoring target 'MyPackageTests' in package '\(package.packageIdentity)'; C language in tests is not yet supported",
                 severity: .warning
             )
-            #elseif os(macOS) || os(Android) || os(Windows)
+            #elseif os(macOS) || os(Android) || os(Windows) || os(FreeBSD)
             package.checkProduct("MyPackagePackageTests") { _ in }
             #endif
         }

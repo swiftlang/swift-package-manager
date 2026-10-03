@@ -10,6 +10,10 @@
                     "supportedTriples": ["x86_64-apple-macosx", "arm64-apple-macosx"]
                 },
                 {
+                    "path": "mytool-freebsd/mytool",
+                    "supportedTriples": ["x86_64-unknown-freebsd", "aarch64-unknown-freebsd"]
+                },
+                {
                     "path": "mytool-linux/mytool",
                     "supportedTriples": ["x86_64-unknown-linux-gnu", "aarch64-unknown-linux-gnu"]
                 },

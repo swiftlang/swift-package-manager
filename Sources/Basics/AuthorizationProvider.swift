@@ -57,7 +57,7 @@ public struct EnvironmentAuthorizationProvider: AuthorizationProvider {
     private let environment: Environment
 
     public enum Kind: Sendable {
-        case registry
+        case registry(origins: [URL])
         case sourceControl
     }
 
@@ -70,7 +70,10 @@ public struct EnvironmentAuthorizationProvider: AuthorizationProvider {
 
     public func authentication(for url: URL) -> (user: String, password: String)? {
         switch kind {
-        case .registry:
+        case .registry(let origins):
+            guard origins.contains(where: { $0.hasSameOrigin(as: url) }) else {
+                return nil
+            }
             if let token = nonEmpty(ConfigurableEnvVar.SWIFTPM_REGISTRY_TOKEN.value(from: self.environment)) {
                 return (user: "token", password: token)
             }

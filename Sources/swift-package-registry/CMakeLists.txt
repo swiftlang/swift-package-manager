@@ -8,6 +8,10 @@
 
 add_executable(swift-package-registry
   runner.swift)
+# TODO: Remove this once the minimum CMake version is 4.4.
+set_target_properties(swift-package-registry PROPERTIES
+  Swift_MODULE_NAME swift_package_registry)
+
 target_link_libraries(swift-package-registry PRIVATE
   PackageRegistryCommand)
 

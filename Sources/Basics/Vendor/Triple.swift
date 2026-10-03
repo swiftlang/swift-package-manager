@@ -1497,6 +1497,10 @@ extension Triple.OS {
   public var isDarwin: Bool {
     isMacOSX || isiOS || isWatchOS
   }
+
+  public var isFreeBSD: Bool {
+    self == .freebsd
+  }
 }
 
 // MARK: - Versions

@@ -52,6 +52,7 @@ class PkgConfigTests: XCTestCase {
                     .apt(["libFoo-dev"]),
                     .yum(["libFoo-devel"]),
                     .nuget(["Foo"]),
+                    .pkg(["Foo"]),
                 ]
             )
             for result in try pkgConfigArgs(

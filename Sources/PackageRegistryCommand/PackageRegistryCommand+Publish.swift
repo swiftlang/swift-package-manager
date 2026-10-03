@@ -141,7 +141,9 @@ extension PackageRegistryCommand {
                 metadataLocation = .sourceTree(defaultMetadataPath)
             }
 
-            guard let authorizationProvider = try swiftCommandState.getRegistryAuthorizationProvider() else {
+            guard let authorizationProvider = try swiftCommandState.getRegistryAuthorizationProvider(
+                additionalRegistryURLs: [registryURL]
+            ) else {
                 throw ValidationError.unknownCredentialStore
             }
 

@@ -720,6 +720,7 @@ struct MiscellaneousTestCase {
     @Test(
         .skipHostOS(.linux),
         .skipHostOS(.android),
+        .skipHostOS(.freebsd),
         .tags(
             .Feature.Command.Test,
             .Feature.Command.Run,

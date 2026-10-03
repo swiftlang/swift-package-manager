@@ -96,6 +96,121 @@ struct SwiftCommandStateTestSuites {
         )
     }
 
+    private static func makeSDKRootOverrideState(
+        arguments: [String],
+        environment: Environment,
+    ) throws -> (state: SwiftCommandState, output: BufferedOutputByteStream) {
+        let fs = InMemoryFileSystem(emptyFiles: ["/Pkg/Sources/exe/main.swift"])
+        let outputStream = BufferedOutputByteStream()
+        let state = try SwiftCommandState.makeMockState(
+            outputStream: outputStream,
+            options: GlobalOptions.parse(arguments),
+            fileSystem: fs,
+            environment: environment,
+        )
+        return (state, outputStream)
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func sdkRootOverrideDefaultsToUnset() throws {
+        let (state, output) = try Self.makeSDKRootOverrideState(arguments: [], environment: [:])
+
+        #expect(state.computeSDKRootOverride() == nil)
+
+        state.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+        #expect(!output.bytes.validDescription!.contains("warning:"))
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func sdkRootOverrideComesFromSDKOption() throws {
+        let (state, _) = try Self.makeSDKRootOverrideState(
+            arguments: ["--sdk", "/fake/sdk"],
+            environment: [:],
+        )
+
+        #expect(state.computeSDKRootOverride() == AbsolutePath("/fake/sdk"))
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func sdkRootOverrideComesFromSDKROOTEnvironmentVariable() throws {
+        let (state, _) = try Self.makeSDKRootOverrideState(
+            arguments: [],
+            environment: ["SDKROOT": "/fake/env/sdk"],
+        )
+
+        #expect(state.computeSDKRootOverride() == AbsolutePath("/fake/env/sdk"))
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func sdkOptionTakesPrecedenceOverSDKROOTEnvironmentVariable() throws {
+        let (state, _) = try Self.makeSDKRootOverrideState(
+            arguments: ["--sdk", "/fake/sdk"],
+            environment: ["SDKROOT": "/fake/env/sdk"],
+        )
+
+        #expect(state.computeSDKRootOverride() == AbsolutePath("/fake/sdk"))
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func swiftSDKSuppressesSDKOptionWithWarning() throws {
+        let (state, output) = try Self.makeSDKRootOverrideState(
+            arguments: ["--sdk", "/fake/sdk", "--swift-sdk", "my-swift-sdk"],
+            environment: [:],
+        )
+
+        #expect(state.computeSDKRootOverride() == nil)
+
+        state.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+        let contents = try #require(output.bytes.validDescription)
+        #expect(
+            contents.contains(
+                "warning: ignoring the SDK '/fake/sdk' specified using '--sdk' because the Swift SDK 'my-swift-sdk' was selected with '--swift-sdk'"
+            ),
+        )
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func swiftSDKSuppressesSDKROOTEnvironmentVariableWithWarning() throws {
+        let (state, output) = try Self.makeSDKRootOverrideState(
+            arguments: ["--swift-sdk", "my-swift-sdk"],
+            environment: ["SDKROOT": "/fake/env/sdk"],
+        )
+
+        #expect(state.computeSDKRootOverride() == nil)
+
+        state.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+        let contents = try #require(output.bytes.validDescription)
+        #expect(
+            contents.contains(
+                "warning: ignoring the SDK '/fake/env/sdk' specified using the 'SDKROOT' environment variable because the Swift SDK 'my-swift-sdk' was selected with '--swift-sdk'"
+            ),
+        )
+    }
+
     @Test(
         .tags(
             .TestSize.small,

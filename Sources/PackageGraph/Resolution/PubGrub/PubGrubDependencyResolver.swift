@@ -65,6 +65,24 @@ public struct PubGrubDependencyResolver {
             self.solution = solution
         }
 
+        /// The traits to resolve a package with, including an outstanding request for that
+        /// package's defaults.
+        ///
+        /// Reading `enabledTraitsMap` directly hides that request behind any named traits, and a
+        /// dependency reachable only through a default trait is then never derived. The request
+        /// stays an unexpanded marker because expanding it needs the package's manifest. Callers
+        /// must already hold `lock`.
+        private func resolutionTraits(for identity: PackageIdentity) -> EnabledTraits {
+            let named = self.enabledTraitsMap[identity]
+            guard !named.contains("default"),
+                  let defaultSetter = self.enabledTraitsMap[defaultSettersFor: identity]?.first
+            else {
+                return named
+            }
+
+            return named.union(EnabledTraits(["default"], setBy: defaultSetter))
+        }
+
         func addIncompatibility(_ incompatibility: Incompatibility, at location: LogLocation) {
             self.lock.withLock {
                 for package in incompatibility.terms.map(\.node) {
@@ -72,9 +90,9 @@ public struct PubGrubDependencyResolver {
                     // and therefore should not need repairs.
                     if !package.package.kind.isRoot {
                         let identity = package.package.identity
-                        let previousDecisionEnabledTraits = self.enabledTraitsMap[identity]
+                        let previousDecisionEnabledTraits = self.resolutionTraits(for: identity)
                         self.enabledTraitsMap[identity] = package.enabledTraits
-                        let currentEnabledTraits = self.enabledTraitsMap[identity]
+                        let currentEnabledTraits = self.resolutionTraits(for: identity)
                         // If a decision has already been made for this package but a change in enabled traits
                         // is detected, flag it so the resolver can repair the shape of the package graph below
                         // it (if applicable due to trait-guarded dependencies).
@@ -111,7 +129,7 @@ public struct PubGrubDependencyResolver {
         /// discovered and loaded).
         func enabledTraits(for node: DependencyResolutionNode) -> EnabledTraits {
             self.lock.withLock {
-                self.enabledTraitsMap[node.package.identity]
+                self.resolutionTraits(for: node.package.identity)
             }
         }
 

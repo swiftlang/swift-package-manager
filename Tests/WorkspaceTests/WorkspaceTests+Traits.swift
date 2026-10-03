@@ -1600,6 +1600,189 @@ extension WorkspaceTests {
         }
     }
 
+    func testUpdateWithRootDependencyGuardedByDefaultTrait() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(
+                                    name: "GuardedProduct",
+                                    package: "GuardedPackage",
+                                    condition: .init(traits: ["EnabledByDefault"])
+                                )
+                            ]
+                        )
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./GuardedPackage", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    traits: [
+                        .init(name: "default", enabledTraits: ["EnabledByDefault"]),
+                        "EnabledByDefault",
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "GuardedPackage",
+                    targets: [MockTarget(name: "GuardedTarget")],
+                    products: [MockProduct(name: "GuardedProduct", modules: ["GuardedTarget"])],
+                    versions: ["1.0.0", "1.1.0"]
+                )
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Root", "GuardedPackage")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        try await workspace.checkUpdate(roots: ["Root"]) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "guardedpackage", at: .checkout(.version("1.1.0")))
+        }
+    }
+
+    /// One parent asks for the shared package's defaults while another names a trait, so both
+    /// requests have to survive regardless of which parent registers first.
+    func testSharedDependencyExpandsTraitsRegisteredAfterItLoads() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [
+                                .product(name: "ParentAProduct", package: "ParentA"),
+                                .product(name: "ParentBProduct", package: "ParentB"),
+                            ]
+                        )
+                    ],
+                    dependencies: [
+                        .sourceControl(path: "./ParentA", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./ParentB", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                )
+            ],
+            packages: [
+                MockPackage(
+                    name: "ParentA",
+                    targets: [
+                        MockTarget(
+                            name: "ParentATarget",
+                            dependencies: [.product(name: "SharedProduct", package: "Shared")]
+                        )
+                    ],
+                    products: [MockProduct(name: "ParentAProduct", modules: ["ParentATarget"])],
+                    dependencies: [
+                        .sourceControl(path: "./Shared", requirement: .upToNextMajor(from: "1.0.0"))
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "ParentB",
+                    targets: [
+                        MockTarget(
+                            name: "ParentBTarget",
+                            dependencies: [.product(name: "SharedProduct", package: "Shared")]
+                        )
+                    ],
+                    products: [MockProduct(name: "ParentBProduct", modules: ["ParentBTarget"])],
+                    dependencies: [
+                        .sourceControl(
+                            path: "./Shared",
+                            requirement: .upToNextMajor(from: "1.0.0"),
+                            traits: ["TraitB"]
+                        )
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "Shared",
+                    targets: [
+                        MockTarget(
+                            name: "SharedTarget",
+                            dependencies: [
+                                .product(
+                                    name: "GuardedDefaultProduct",
+                                    package: "GuardedDefault",
+                                    condition: .init(traits: ["TraitDefault"])
+                                ),
+                                .product(
+                                    name: "GuardedCProduct",
+                                    package: "GuardedC",
+                                    condition: .init(traits: ["TraitC"])
+                                ),
+                            ]
+                        )
+                    ],
+                    products: [MockProduct(name: "SharedProduct", modules: ["SharedTarget"])],
+                    dependencies: [
+                        .sourceControl(path: "./GuardedDefault", requirement: .upToNextMajor(from: "1.0.0")),
+                        .sourceControl(path: "./GuardedC", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    traits: [
+                        .init(name: "default", enabledTraits: ["TraitDefault"]),
+                        "TraitDefault",
+                        .init(name: "TraitB", enabledTraits: ["TraitC"]),
+                        "TraitC",
+                    ],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "GuardedDefault",
+                    targets: [MockTarget(name: "GuardedDefaultTarget")],
+                    products: [MockProduct(name: "GuardedDefaultProduct", modules: ["GuardedDefaultTarget"])],
+                    versions: ["1.0.0"]
+                ),
+                MockPackage(
+                    name: "GuardedC",
+                    targets: [MockTarget(name: "GuardedCTarget")],
+                    products: [MockProduct(name: "GuardedCProduct", modules: ["GuardedCTarget"])],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(
+                    packages: "Root", "ParentA", "ParentB", "Shared", "GuardedDefault", "GuardedC"
+                )
+                result.checkPackage("Shared") { package in
+                    guard let enabledTraits = package.enabledTraits else {
+                        XCTFail("No enabled traits on Shared package.")
+                        return
+                    }
+
+                    XCTAssertEqual(enabledTraits.sorted(), ["TraitB", "TraitC", "TraitDefault"])
+                }
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+    }
+
     func testDependencyTraitEnabledViaMultipleRoots() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -2466,6 +2649,230 @@ extension WorkspaceTests {
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "shareddependency", at: .checkout(.version("1.0.0")))
             result.check(dependency: "guardedleaf", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    /// A dependency that declared a trait in one version and declares none in the next.
+    func testDependencyDropsTraitsInNewVersion_WarnsOnUpdate() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [.product(name: "TraitfulProduct", package: "TraitfulPackage")]
+                        ),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            path: "./TraitfulPackage",
+                            requirement: .range("1.0.0" ..< "3.0.0"),
+                            traits: ["Logging"]
+                        ),
+                    ]
+                ),
+            ],
+            packages: [
+                // Declares the trait the root asks for.
+                MockPackage(
+                    name: "TraitfulPackage",
+                    targets: [MockTarget(name: "TraitfulTarget")],
+                    products: [MockProduct(name: "TraitfulProduct", modules: ["TraitfulTarget"])],
+                    traits: ["Logging"],
+                    versions: ["1.0.0", "1.0.1"]
+                ),
+                // Same package, next major, with the trait removed.
+                MockPackage(
+                    name: "TraitfulPackage",
+                    targets: [MockTarget(name: "TraitfulTarget")],
+                    products: [MockProduct(name: "TraitfulProduct", modules: ["TraitfulTarget"])],
+                    versions: ["2.0.0"]
+                ),
+            ]
+        )
+
+        // Hold the first resolution at 1.x, where the root's request is still honourable.
+        let deps: [MockDependency] = [
+            .sourceControl(path: "./TraitfulPackage", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+
+        try await workspace.checkPackageGraph(roots: ["Root"], deps: deps) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "Root", "TraitfulPackage")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "traitfulpackage", at: .checkout(.version("1.0.1")))
+        }
+
+        // Updating moves to 2.0.0, which declares no traits at all.
+        try await workspace.checkUpdate(roots: ["Root"]) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(
+                    diagnostic: .contains(
+                        "Package 'root' (Root) enables traits [Logging] on package 'traitfulpackage' (TraitfulPackage) that declares no traits. The package will be built with its default traits."
+                    ),
+                    severity: .warning
+                )
+            }
+        }
+
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "traitfulpackage", at: .checkout(.version("2.0.0")))
+        }
+    }
+
+    /// Disabling a traitless package's defaults is a hard error.
+    func testDependencyWithoutTraits_ParentDisablesDefaults_IsError() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [.product(name: "TraitlessProduct", package: "TraitlessPackage")]
+                        ),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            path: "./TraitlessPackage",
+                            requirement: .upToNextMajor(from: "1.0.0"),
+                            traits: []
+                        ),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "TraitlessPackage",
+                    targets: [MockTarget(name: "TraitlessTarget")],
+                    products: [MockProduct(name: "TraitlessProduct", modules: ["TraitlessTarget"])],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraphFailure(roots: ["Root"], deps: []) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(
+                    diagnostic: .contains("Disabled default traits by package 'root' (Root) on package 'traitlesspackage' (TraitlessPackage) that declares no traits."),
+                    severity: .error
+                )
+            }
+        }
+    }
+
+    /// The fallback warning is suppressed per package so a single resolution doesn't repeat it on every
+    /// manifest-loading pass. That suppression must not outlive the resolution. This ensures a `Workspace`
+    /// can be reused across resolutions.
+    func testDependencyWithoutTraits_WarnsOnEveryResolution() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [.product(name: "TraitlessProduct", package: "TraitlessPackage")]
+                        ),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            path: "./TraitlessPackage",
+                            requirement: .upToNextMajor(from: "1.0.0"),
+                            traits: ["Logging"]
+                        ),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "TraitlessPackage",
+                    targets: [MockTarget(name: "TraitlessTarget")],
+                    products: [MockProduct(name: "TraitlessProduct", modules: ["TraitlessTarget"])],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        for _ in 0 ..< 2 {
+            try await workspace.checkPackageGraph(roots: ["Root"], deps: []) { graph, diagnostics in
+                PackageGraphTesterXCTest(graph) { result in
+                    result.check(packages: "Root", "TraitlessPackage")
+                }
+                testDiagnostics(diagnostics) { result in
+                    result.check(
+                        diagnostic: .contains(
+                            "on package 'traitlesspackage' (TraitlessPackage) that declares no traits. The package will be built with its default traits."
+                        ),
+                        severity: .warning
+                    )
+                }
+            }
+        }
+    }
+
+    /// A traitless package must be built with its default traits, not with the traits that were requested
+    /// of it. The warning alone isn't enough: the request has to be cleared out of the enabled traits map,
+    /// which unions its writes and would otherwise carry the request through to the graph.
+    func testDependencyWithoutTraits_ResolvesToDefaultTraits() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "RootTarget",
+                            dependencies: [.product(name: "TraitlessProduct", package: "TraitlessPackage")]
+                        ),
+                    ],
+                    dependencies: [
+                        .sourceControl(
+                            path: "./TraitlessPackage",
+                            requirement: .upToNextMajor(from: "1.0.0"),
+                            traits: ["Logging"]
+                        ),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "TraitlessPackage",
+                    targets: [MockTarget(name: "TraitlessTarget")],
+                    products: [MockProduct(name: "TraitlessProduct", modules: ["TraitlessTarget"])],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"], deps: []) { graph, _ in
+            let traitlessPackage = graph.packages.first { $0.identity == .plain("traitlesspackage") }
+            XCTAssertEqual(traitlessPackage?.enabledTraits, ["default"])
         }
     }
 }

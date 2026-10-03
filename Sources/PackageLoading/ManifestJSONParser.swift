@@ -266,6 +266,8 @@ extension SystemPackageProviderDescription {
             self = .yum(values)
         case .nuget(let values):
             self = .nuget(values)
+        case .pkg(let values):
+            self = .pkg(values)
         }
     }
 }

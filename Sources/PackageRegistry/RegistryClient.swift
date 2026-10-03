@@ -91,9 +91,7 @@ public final class RegistryClient: AsyncCancellable {
                     return .none
                 }
 
-                // authentication(for:) throws only for hostless URLs, which environment
-                // variable providers may still return credentials for. In that case, fall
-                // through to type inference below.
+                // `configuration.authentication(for:)` throws for hostless URLs.
                 let authType = (try? configuration.authentication(for: url))?.type
 
                 switch authType {
@@ -178,13 +176,7 @@ public final class RegistryClient: AsyncCancellable {
             observabilityScope: observabilityScope
         )
 
-        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-            throw RegistryError.invalidURL(registry.url)
-        }
-        components.appendPathComponents("\(registryIdentity.scope)", "\(registryIdentity.name)")
-        guard let url = components.url else {
-            throw RegistryError.invalidURL(registry.url)
-        }
+        let url = try registry.url.appendingRegistryPath("\(registryIdentity.scope)", "\(registryIdentity.name)")
 
         // If the responses are paginated then iterate until we've exasuasted all the pages and have a full versions list.
         func iterateResponses(url: URL, existingMetadata: PackageMetadata) async throws -> PackageMetadata {
@@ -256,23 +248,18 @@ public final class RegistryClient: AsyncCancellable {
         timeout: DispatchTimeInterval?,
         observabilityScope: ObservabilityScope
     ) async throws -> PackageMetadata {
-        let start = DispatchTime.now()
-        observabilityScope.emit(info: "retrieving \(package) metadata from \(url)")
-
-        let response: HTTPClient.Response
-        do {
-            response = try await self.httpClient.get(
-                url,
-                headers: ["Accept": self.acceptHeader(mediaType: .json)],
-                options: self.defaultRequestOptions(timeout: timeout)
-            )
-        } catch let error where !(error is _Concurrency.CancellationError) {
-            throw RegistryError.failedRetrievingReleases(registry: registry, package: package.underlying, error: error)
+        let wrapWithFailedRetrievingReleases: (Error) -> Error = {
+            RegistryError.failedRetrievingReleases(registry: registry, package: package.underlying, error: $0)
         }
-        observabilityScope
-            .emit(
-                debug: "server response for \(url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-            )
+
+        let response = try await self.get(
+            url,
+            accepting: .json,
+            intent: "retrieving \(package) metadata",
+            timeout: timeout,
+            observabilityScope: observabilityScope,
+            wrappingErrorsWith: wrapWithFailedRetrievingReleases
+        )
 
         switch response.statusCode {
         case 200:
@@ -294,17 +281,9 @@ public final class RegistryClient: AsyncCancellable {
                 nextPage: paginationLinks.first { $0.kind == .next }?.url
             )
         case 404:
-            throw RegistryError.failedRetrievingReleases(
-                registry: registry,
-                package: package.underlying,
-                error: RegistryError.packageNotFound
-            )
+            throw wrapWithFailedRetrievingReleases(RegistryError.packageNotFound)
         default:
-            throw RegistryError.failedRetrievingReleases(
-                registry: registry,
-                package: package.underlying,
-                error: self.unexpectedStatusError(response, expectedStatus: [200, 404])
-            )
+            throw wrapWithFailedRetrievingReleases(self.unexpectedStatusError(response, expectedStatus: [200, 404]))
         }
     }
 
@@ -423,37 +402,25 @@ public final class RegistryClient: AsyncCancellable {
             return cached.metadata
         }
 
-        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-            throw RegistryError.invalidURL(registry.url)
-        }
+        let url = try registry.url.appendingRegistryPath("\(package.scope)", "\(package.name)", "\(version)")
 
-        components.appendPathComponents("\(package.scope)", "\(package.name)", "\(version)")
-        guard let url = components.url else {
-            throw RegistryError.invalidURL(registry.url)
-        }
-
-        let start = DispatchTime.now()
-        observabilityScope.emit(info: "retrieving \(package) \(version) metadata from \(url)")
-
-        let response: HTTPClient.Response
-        do {
-            response = try await self.httpClient.get(
-                url,
-                headers: ["Accept": self.acceptHeader(mediaType: .json)],
-                options: self.defaultRequestOptions(timeout: timeout)
-            )
-        } catch let error where !(error is _Concurrency.CancellationError) {
-            throw RegistryError.failedRetrievingReleaseInfo(
+        let wrapWithFailedRetrievingReleaseInfo: (Error) -> Error = {
+            RegistryError.failedRetrievingReleaseInfo(
                 registry: registry,
                 package: package.underlying,
                 version: version,
-                error: error
+                error: $0
             )
         }
-        observabilityScope
-            .emit(
-                debug: "server response for \(url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-            )
+
+        let response = try await self.get(
+            url,
+            accepting: .json,
+            intent: "retrieving \(package) \(version) metadata",
+            timeout: timeout,
+            observabilityScope: observabilityScope,
+            wrappingErrorsWith: wrapWithFailedRetrievingReleaseInfo
+        )
 
         switch response.statusCode {
         case 200:
@@ -464,19 +431,9 @@ public final class RegistryClient: AsyncCancellable {
             self.metadataCache[cacheKey] = (metadata: metadata, expires: .now() + Self.metadataCacheTTL)
             return metadata
         case 404:
-            throw RegistryError.failedRetrievingReleaseInfo(
-                registry: registry,
-                package: package.underlying,
-                version: version,
-                error: RegistryError.packageVersionNotFound
-            )
+            throw wrapWithFailedRetrievingReleaseInfo(RegistryError.packageVersionNotFound)
         default:
-            throw RegistryError.failedRetrievingReleaseInfo(
-                registry: registry,
-                package: package.underlying,
-                version: version,
-                error: self.unexpectedStatusError(response, expectedStatus: [200, 404])
-            )
+            throw wrapWithFailedRetrievingReleaseInfo(self.unexpectedStatusError(response, expectedStatus: [200, 404]))
         }
     }
 
@@ -501,44 +458,31 @@ public final class RegistryClient: AsyncCancellable {
             fileSystem: localFileSystem,
             observabilityScope: observabilityScope
         )
-        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-            throw RegistryError.invalidURL(registry.url)
-        }
 
-        components.appendPathComponents(
+        let url = try registry.url.appendingRegistryPath(
             "\(registryIdentity.scope)",
             "\(registryIdentity.name)",
             "\(version)",
             Manifest.filename
         )
 
-        guard let url = components.url else {
-            throw RegistryError.invalidURL(registry.url)
-        }
-
-        let start = DispatchTime.now()
-        observabilityScope.emit(info: "retrieving available manifests for \(package) \(version) from \(url)")
-
-        let response: LegacyHTTPClient.Response
-        do {
-            response = try await self.httpClient.get(
-                url,
-                headers: ["Accept": self.acceptHeader(mediaType: .swift)],
-                options: self.defaultRequestOptions(timeout: timeout)
-            )
-        } catch let error where !(error is _Concurrency.CancellationError) {
-            throw RegistryError.failedRetrievingManifest(
+        let wrapWithFailedRetrievingManifest: (Error) -> Error = {
+            RegistryError.failedRetrievingManifest(
                 registry: registry,
                 package: registryIdentity.underlying,
                 version: version,
-                error: error
+                error: $0
             )
         }
 
-        observabilityScope
-            .emit(
-                debug: "server response for \(url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-            )
+        let response = try await self.get(
+            url,
+            accepting: .swift,
+            intent: "retrieving available manifests for \(package) \(version)",
+            timeout: timeout,
+            observabilityScope: observabilityScope,
+            wrappingErrorsWith: wrapWithFailedRetrievingManifest
+        )
 
         // signature validation helper
         let signatureValidation = SignatureValidation(
@@ -582,55 +526,39 @@ public final class RegistryClient: AsyncCancellable {
             let actualChecksum = self.checksumAlgorithm.hash(.init(data))
                 .hexadecimalRepresentation
 
-            do {
-                try checksumTOFU.validateManifest(
-                    registry: registry,
-                    package: registryIdentity,
-                    version: version,
-                    toolsVersion: .none,
-                    checksum: actualChecksum,
-                    timeout: timeout,
-                    observabilityScope: observabilityScope
-                )
-                do {
-                    var result = [String: (toolsVersion: ToolsVersion, content: String?)]()
-                    let toolsVersion = try ToolsVersionParser.parse(utf8String: manifestContent)
-                    result[Manifest.filename] = (
-                        toolsVersion: toolsVersion,
-                        content: manifestContent
-                    )
+            try checksumTOFU.validateManifest(
+                registry: registry,
+                package: registryIdentity,
+                version: version,
+                toolsVersion: .none,
+                checksum: actualChecksum,
+                timeout: timeout,
+                observabilityScope: observabilityScope
+            )
 
-                    let alternativeManifests = try response.headers.parseManifestLinks()
-                    for alternativeManifest in alternativeManifests {
-                        result[alternativeManifest.filename] = (
-                            toolsVersion: alternativeManifest.toolsVersion,
-                            content: .none
-                        )
-                    }
-                    return result
-                } catch {
-                    throw RegistryError.failedRetrievingManifest(
-                        registry: registry,
-                        package: registryIdentity.underlying,
-                        version: version,
-                        error: error
+            do {
+                var result = [String: (toolsVersion: ToolsVersion, content: String?)]()
+                let toolsVersion = try ToolsVersionParser.parse(utf8String: manifestContent)
+                result[Manifest.filename] = (
+                    toolsVersion: toolsVersion,
+                    content: manifestContent
+                )
+
+                let alternativeManifests = try response.headers.parseManifestLinks()
+                for alternativeManifest in alternativeManifests {
+                    result[alternativeManifest.filename] = (
+                        toolsVersion: alternativeManifest.toolsVersion,
+                        content: .none
                     )
                 }
+                return result
+            } catch {
+                throw wrapWithFailedRetrievingManifest(error)
             }
         case 404:
-            throw RegistryError.failedRetrievingManifest(
-                registry: registry,
-                package: registryIdentity.underlying,
-                version: version,
-                error: RegistryError.packageVersionNotFound
-            )
+            throw wrapWithFailedRetrievingManifest(RegistryError.packageVersionNotFound)
         default:
-            throw RegistryError.failedRetrievingManifest(
-                registry: registry,
-                package: registryIdentity.underlying,
-                version: version,
-                error: self.unexpectedStatusError(response, expectedStatus: [200, 404])
-            )
+            throw wrapWithFailedRetrievingManifest(self.unexpectedStatusError(response, expectedStatus: [200, 404]))
         }
     }
 
@@ -674,48 +602,31 @@ public final class RegistryClient: AsyncCancellable {
             fileSystem: localFileSystem,
             observabilityScope: observabilityScope
         )
-        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-            throw RegistryError.invalidURL(registry.url)
-        }
-        components.appendPathComponents(
+        let url = try registry.url.appendingRegistryPath(
             "\(registryIdentity.scope)",
             "\(registryIdentity.name)",
             "\(version)",
-            Manifest.filename
+            Manifest.filename,
+            query: customToolsVersion.map { [URLQueryItem(name: "swift-version", value: $0.description)] } ?? []
         )
 
-        if let toolsVersion = customToolsVersion {
-            components.queryItems = [
-                URLQueryItem(name: "swift-version", value: toolsVersion.description),
-            ]
-        }
-
-        guard let url = components.url else {
-            throw RegistryError.invalidURL(registry.url)
-        }
-
-        let start = DispatchTime.now()
-        observabilityScope.emit(info: "retrieving \(package) \(version) manifest from \(url)")
-
-        let response: HTTPClient.Response
-        do {
-            response = try await self.httpClient.get(
-                url,
-                headers: ["Accept": self.acceptHeader(mediaType: .swift)],
-                options: self.defaultRequestOptions(timeout: timeout)
-            )
-        } catch let error where !(error is _Concurrency.CancellationError) {
-            throw RegistryError.failedRetrievingManifest(
+        let wrapWithFailedRetrievingManifest: (Error) -> Error = {
+            RegistryError.failedRetrievingManifest(
                 registry: registry,
                 package: registryIdentity.underlying,
                 version: version,
-                error: error
+                error: $0
             )
         }
-        observabilityScope
-            .emit(
-                debug: "server response for \(url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-            )
+
+        let response = try await self.get(
+            url,
+            accepting: .swift,
+            intent: "retrieving \(package) \(version) manifest",
+            timeout: timeout,
+            observabilityScope: observabilityScope,
+            wrappingErrorsWith: wrapWithFailedRetrievingManifest
+        )
 
         // signature validation helper
         let signatureValidation = SignatureValidation(
@@ -771,19 +682,9 @@ public final class RegistryClient: AsyncCancellable {
 
             return manifestContent
         case 404:
-            throw RegistryError.failedRetrievingManifest(
-                registry: registry,
-                package: registryIdentity.underlying,
-                version: version,
-                error: RegistryError.packageVersionNotFound
-            )
+            throw wrapWithFailedRetrievingManifest(RegistryError.packageVersionNotFound)
         default:
-            throw RegistryError.failedRetrievingManifest(
-                registry: registry,
-                package: registryIdentity.underlying,
-                version: version,
-                error: self.unexpectedStatusError(response, expectedStatus: [200, 404])
-            )
+            throw wrapWithFailedRetrievingManifest(self.unexpectedStatusError(response, expectedStatus: [200, 404]))
         }
     }
 
@@ -834,14 +735,11 @@ public final class RegistryClient: AsyncCancellable {
             observabilityScope: observabilityScope
         )
         // download archive
-        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-            throw RegistryError.invalidURL(registry.url)
-        }
-        components.appendPathComponents("\(registryIdentity.scope)", "\(registryIdentity.name)", "\(version).zip")
-
-        guard let url = components.url else {
-            throw RegistryError.invalidURL(registry.url)
-        }
+        let url = try registry.url.appendingRegistryPath(
+            "\(registryIdentity.scope)",
+            "\(registryIdentity.name)",
+            "\(version).zip"
+        )
 
         // prepare target download locations
         let downloadPath = destinationPath.appending(extension: "zip")
@@ -873,31 +771,28 @@ public final class RegistryClient: AsyncCancellable {
             versionMetadataProvider: { _, _ in versionMetadata }
         )
 
-        let downloadStart = DispatchTime.now()
-        observabilityScope.emit(info: "downloading \(package) \(version) source archive from \(url)")
-
-        let response: HTTPClient.Response
-        do {
-            response = try await self.httpClient.download(
-                url,
-                headers: ["Accept": self.acceptHeader(mediaType: .zip)],
-                options: self.defaultRequestOptions(timeout: timeout),
-                progressHandler: progressHandler,
-                fileSystem: fileSystem,
-                destination: downloadPath
-            )
-        } catch let error where !(error is _Concurrency.CancellationError) {
-            throw RegistryError.failedDownloadingSourceArchive(
+        let wrapWithFailedDownloadingSourceArchive: (Error) -> Error = {
+            RegistryError.failedDownloadingSourceArchive(
                 registry: registry,
                 package: registryIdentity.underlying,
                 version: version,
-                error: error
+                error: $0
             )
         }
-        observabilityScope
-            .emit(
-                debug: "server response for \(url): \(response.statusCode) in \(downloadStart.distance(to: .now()).descriptionInSeconds)"
-            )
+
+        let response = try await self.send(
+            HTTPClient.Request.download(
+                url: url,
+                headers: ["Accept": self.acceptHeader(mediaType: .zip)],
+                fileSystem: fileSystem,
+                destination: downloadPath
+            ),
+            intent: "downloading \(package) \(version) source archive",
+            timeout: timeout,
+            progressHandler: progressHandler,
+            observabilityScope: observabilityScope,
+            wrappingErrorsWith: wrapWithFailedDownloadingSourceArchive
+        )
 
         switch response.statusCode {
         case 200:
@@ -1003,27 +898,12 @@ public final class RegistryClient: AsyncCancellable {
                     )
                 }
             } catch {
-                throw RegistryError.failedDownloadingSourceArchive(
-                    registry: registry,
-                    package: registryIdentity.underlying,
-                    version: version,
-                    error: error
-                )
+                throw wrapWithFailedDownloadingSourceArchive(error)
             }
         case 404:
-            throw RegistryError.failedDownloadingSourceArchive(
-                registry: registry,
-                package: registryIdentity.underlying,
-                version: version,
-                error: RegistryError.packageVersionNotFound
-            )
+            throw wrapWithFailedDownloadingSourceArchive(RegistryError.packageVersionNotFound)
         default:
-            throw RegistryError.failedDownloadingSourceArchive(
-                registry: registry,
-                package: registryIdentity.underlying,
-                version: version,
-                error: self.unexpectedStatusError(response, expectedStatus: [200, 404])
-            )
+            throw wrapWithFailedDownloadingSourceArchive(self.unexpectedStatusError(response, expectedStatus: [200, 404]))
         }
     }
 
@@ -1066,37 +946,23 @@ public final class RegistryClient: AsyncCancellable {
             observabilityScope: observabilityScope
         )
 
-        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-            throw RegistryError.invalidURL(registry.url)
-        }
-        components.appendPathComponents("identifiers")
-
-        components.queryItems = [
-            URLQueryItem(name: "url", value: scmURL.absoluteString),
-        ]
-
-        guard let url = components.url else {
-            throw RegistryError.invalidURL(registry.url)
+        let wrapWithFailedIdentityLookup: (Error) -> Error = {
+            RegistryError.failedIdentityLookup(registry: registry, scmURL: scmURL, error: $0)
         }
 
-        let start = DispatchTime.now()
-        observabilityScope.emit(info: "looking up identity for \(scmURL) from \(url)")
+        let url = try registry.url.appendingRegistryPath(
+            "identifiers",
+            query: [URLQueryItem(name: "url", value: scmURL.absoluteString)]
+        )
 
-        let response: HTTPClient.Response
-        do {
-            response = try await self.httpClient.get(
-                url,
-                headers: ["Accept": self.acceptHeader(mediaType: .json)],
-                options: self.defaultRequestOptions(timeout: timeout)
-            )
-        } catch let error where !(error is _Concurrency.CancellationError) {
-            throw RegistryError.failedIdentityLookup(registry: registry, scmURL: scmURL, error: error)
-        }
-
-        observabilityScope
-            .emit(
-                debug: "server response for \(url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-            )
+        let response = try await self.get(
+            url,
+            accepting: .json,
+            intent: "looking up identity for \(scmURL)",
+            timeout: timeout,
+            observabilityScope: observabilityScope,
+            wrappingErrorsWith: wrapWithFailedIdentityLookup
+        )
 
         switch response.statusCode {
         case 200:
@@ -1110,11 +976,7 @@ public final class RegistryClient: AsyncCancellable {
             // 404 is valid, no identities mapped
             return []
         default:
-            throw RegistryError.failedIdentityLookup(
-                registry: registry,
-                scmURL: scmURL,
-                error: self.unexpectedStatusError(response, expectedStatus: [200, 404])
-            )
+            throw wrapWithFailedIdentityLookup(self.unexpectedStatusError(response, expectedStatus: [200, 404]))
         }
     }
 
@@ -1149,38 +1011,25 @@ public final class RegistryClient: AsyncCancellable {
             observabilityScope: observabilityScope
         )
 
-        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-            throw RegistryError.invalidURL(registry.url)
-        }
-        components.appendPathComponents("search")
-        components.queryItems = [
-            URLQueryItem(name: "q", value: query),
-            URLQueryItem(name: "limit", value: String(limit)),
-            URLQueryItem(name: "offset", value: String(offset)),
-        ]
+        let wrapWithSearchFailed: (Error) -> Error = { RegistryError.searchFailed(registry: registry, error: $0) }
 
-        guard let url = components.url else {
-            throw RegistryError.invalidURL(registry.url)
-        }
+        let url = try registry.url.appendingRegistryPath(
+            "search",
+            query: [
+                URLQueryItem(name: "q", value: query),
+                URLQueryItem(name: "limit", value: String(limit)),
+                URLQueryItem(name: "offset", value: String(offset)),
+            ]
+        )
 
-        let start = DispatchTime.now()
-        observabilityScope.emit(info: "searching \(registry.url) with query '\(query)'")
-
-        let response: HTTPClient.Response
-        do {
-            response = try await self.httpClient.get(
-                url,
-                headers: ["Accept": self.acceptHeader(mediaType: .json)],
-                options: self.defaultRequestOptions(timeout: timeout)
-            )
-        } catch let error where !(error is _Concurrency.CancellationError) {
-            throw RegistryError.searchFailed(registry: registry, error: error)
-        }
-
-        observabilityScope
-            .emit(
-                debug: "server response for \(url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-            )
+        let response = try await self.get(
+            url,
+            accepting: .json,
+            intent: "searching \(registry.url) with query '\(query)'",
+            timeout: timeout,
+            observabilityScope: observabilityScope,
+            wrappingErrorsWith: wrapWithSearchFailed
+        )
 
         switch response.statusCode {
         case 200:
@@ -1206,10 +1055,7 @@ public final class RegistryClient: AsyncCancellable {
         case 404:
             throw RegistryError.capabilityNotSupported(registry: registry, capability: .search)
         default:
-            throw RegistryError.searchFailed(
-                registry: registry,
-                error: self.unexpectedStatusError(response, expectedStatus: [200])
-            )
+            throw wrapWithSearchFailed(self.unexpectedStatusError(response, expectedStatus: [200]))
         }
     }
 
@@ -1218,30 +1064,21 @@ public final class RegistryClient: AsyncCancellable {
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope
     ) async throws {
-        let start = DispatchTime.now()
-        observabilityScope.emit(info: "logging-in into \(loginURL)")
+        let wrapWithLoginFailed: (Error) -> Error = { RegistryError.loginFailed(url: loginURL, error: $0) }
 
-        let response: LegacyHTTPClient.Response
-        do {
-            response = try await self.httpClient.post(
-                loginURL,
-                body: nil,
-                options: self.defaultRequestOptions(timeout: timeout)
-            )
-        } catch let error where !(error is _Concurrency.CancellationError) {
-            throw RegistryError.loginFailed(url: loginURL, error: error)
-        }
-
-        observabilityScope
-            .emit(
-                debug: "server response for \(loginURL): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-            )
+        let response = try await self.send(
+            HTTPClient.Request(method: .post, url: loginURL),
+            intent: "logging-in",
+            timeout: timeout,
+            observabilityScope: observabilityScope,
+            wrappingErrorsWith: wrapWithLoginFailed
+        )
 
         switch response.statusCode {
         case 200:
             return
         default:
-            throw RegistryError.loginFailed(url: loginURL, error: self.unexpectedStatusError(response, expectedStatus: [200]))
+            throw wrapWithLoginFailed(self.unexpectedStatusError(response, expectedStatus: [200]))
         }
     }
 
@@ -1311,16 +1148,11 @@ public final class RegistryClient: AsyncCancellable {
         guard let registryIdentity = packageIdentity.registry else {
             throw RegistryError.invalidPackageIdentity(packageIdentity)
         }
-        guard var components = URLComponents(url: registryURL, resolvingAgainstBaseURL: true) else {
-            throw RegistryError.invalidURL(registryURL)
-        }
-        components.appendPathComponents(registryIdentity.scope.description)
-        components.appendPathComponents(registryIdentity.name.description)
-        components.appendPathComponents(packageVersion.description)
-
-        guard let url = components.url else {
-            throw RegistryError.invalidURL(registryURL)
-        }
+        let url = try registryURL.appendingRegistryPath(
+            registryIdentity.scope.description,
+            registryIdentity.name.description,
+            packageVersion.description
+        )
 
         // TODO: don't load the entire file in memory
         guard let packageArchiveContent: Data = try? fileSystem.readFileContents(packageArchive) else {
@@ -1415,25 +1247,18 @@ public final class RegistryClient: AsyncCancellable {
             headers.add(HTTPClientHeaders.Item(name: "X-Swift-Package-Signature-Format", value: signatureFormat.rawValue))
         }
 
-        let start = DispatchTime.now()
-        observabilityScope.emit(info: "publishing \(packageIdentity) \(packageVersion) to \(url)")
-
-        let response: HTTPClient.Response
-        do {
-            response = try await self.httpClient.put(
-                url,
-                body: body,
+        let response = try await self.send(
+            HTTPClient.Request(
+                method: .put,
+                url: url,
                 headers: headers,
-                options: self.defaultRequestOptions(timeout: timeout)
-            )
-        } catch let error where !(error is _Concurrency.CancellationError) {
-            throw RegistryError.failedPublishing(error)
-        }
-
-        observabilityScope
-            .emit(
-                debug: "server response for \(url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-            )
+                body: body
+            ),
+            intent: "publishing \(packageIdentity) \(packageVersion)",
+            timeout: timeout,
+            observabilityScope: observabilityScope,
+            wrappingErrorsWith: RegistryError.failedPublishing
+        )
 
         switch response.statusCode {
         case 201:
@@ -1480,32 +1305,15 @@ public final class RegistryClient: AsyncCancellable {
             throw StringError("registry \(registry.url) does not support availability checks.")
         }
 
-        guard var components = URLComponents(url: registry.url, resolvingAgainstBaseURL: true) else {
-            throw RegistryError.invalidURL(registry.url)
-        }
-        components.appendPathComponents("availability")
+        let url = try registry.url.appendingRegistryPath("availability")
 
-        guard let url = components.url else {
-            throw RegistryError.invalidURL(registry.url)
-        }
-
-        let start = DispatchTime.now()
-        observabilityScope.emit(info: "checking availability of \(registry.url) using \(url)")
-
-        let response: HTTPClient.Response
-        do {
-            response = try await self.httpClient.get(
-                url,
-                options: self.defaultRequestOptions(timeout: timeout)
-            )
-        } catch let error where !(error is _Concurrency.CancellationError) {
-            throw RegistryError.availabilityCheckFailed(registry: registry, error: error)
-        }
-
-        observabilityScope
-            .emit(
-                debug: "server response for \(url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
-            )
+        let response = try await self.get(
+            url,
+            intent: "checking availability of \(registry.url)",
+            timeout: timeout,
+            observabilityScope: observabilityScope,
+            wrappingErrorsWith: { RegistryError.availabilityCheckFailed(registry: registry, error: $0) }
+        )
 
         switch response.statusCode {
         case 200:
@@ -1577,7 +1385,7 @@ public final class RegistryClient: AsyncCancellable {
         return try availabilityHandler(result)
     }
 
-    private func unwrapRegistry(from package: PackageIdentity) throws -> (PackageIdentity.RegistryIdentity, Registry) {
+    func unwrapRegistry(from package: PackageIdentity) throws -> (PackageIdentity.RegistryIdentity, Registry) {
         guard let registryIdentity = package.registry else {
             throw RegistryError.invalidPackageIdentity(package)
         }
@@ -1626,6 +1434,60 @@ public final class RegistryClient: AsyncCancellable {
         options.timeout = timeout
         options.authorizationProvider = self.authorizationProvider
         return options
+    }
+
+    /// Sends `request`, logging `intent` before and the status and duration after.
+    ///
+    /// Transport failures are mapped through `wrapError`; cancellation propagates
+    /// unwrapped so callers can tell it apart from a registry failure.
+    private func send(
+        _ request: HTTPClient.Request,
+        intent: String,
+        timeout: DispatchTimeInterval?,
+        progressHandler: HTTPClient.ProgressHandler? = .none,
+        observabilityScope: ObservabilityScope,
+        wrappingErrorsWith wrapError: (Error) -> Error
+    ) async throws -> HTTPClient.Response {
+        var request = request
+        request.options = self.defaultRequestOptions(timeout: timeout)
+
+        let start = DispatchTime.now()
+        observabilityScope.emit(info: "\(intent) (\(request.url))")
+
+        let response: HTTPClient.Response
+        do {
+            response = try await self.httpClient.execute(
+                request,
+                observabilityScope: observabilityScope,
+                progress: progressHandler
+            )
+        } catch let error where !(error is _Concurrency.CancellationError) {
+            throw wrapError(error)
+        }
+
+        observabilityScope.emit(
+            debug: "server response for \(request.url): \(response.statusCode) in \(start.distance(to: .now()).descriptionInSeconds)"
+        )
+        return response
+    }
+
+    private func get(
+        _ url: URL,
+        accepting mediaType: MediaType? = .none,
+        intent: String,
+        timeout: DispatchTimeInterval?,
+        observabilityScope: ObservabilityScope,
+        wrappingErrorsWith wrapError: (Error) -> Error
+    ) async throws -> HTTPClient.Response {
+        let headers: HTTPClientHeaders = mediaType.map { ["Accept": self.acceptHeader(mediaType: $0)] } ?? [:]
+
+        return try await self.send(
+            HTTPClient.Request(method: .get, url: url, headers: headers),
+            intent: intent,
+            timeout: timeout,
+            observabilityScope: observabilityScope,
+            wrappingErrorsWith: wrapError
+        )
     }
 
     private struct MetadataCacheKey: Hashable {
@@ -2574,9 +2436,25 @@ private struct RegistryClientSignatureValidationDelegate: SignatureValidation.De
 
 // MARK: - Utilities
 
-extension URLComponents {
-    fileprivate mutating func appendPathComponents(_ components: String...) {
-        path += (path.last == "/" ? "" : "/") + components.joined(separator: "/")
+extension URL {
+    /// Appends registry API path components, preserving the existing base path.
+    fileprivate func appendingRegistryPath(
+        _ components: String...,
+        query: [URLQueryItem] = []
+    ) throws -> URL {
+        guard var urlComponents = URLComponents(url: self, resolvingAgainstBaseURL: true) else {
+            throw RegistryError.invalidURL(self)
+        }
+
+        urlComponents.path += (urlComponents.path.last == "/" ? "" : "/") + components.joined(separator: "/")
+        if !query.isEmpty {
+            urlComponents.queryItems = query
+        }
+
+        guard let url = urlComponents.url else {
+            throw RegistryError.invalidURL(self)
+        }
+        return url
     }
 }
 

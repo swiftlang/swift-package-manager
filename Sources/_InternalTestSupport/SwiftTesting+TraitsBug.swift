@@ -28,10 +28,14 @@ extension Trait where Self == Testing.Bug {
     public static func issue(
         _ issue: _const String,
         relationship: Relationship,
+        comment: Comment? = nil
     ) -> Self {
-        bug(nil, id: 0, "\(relationship): \(issue)")
+        if let comment {
+            bug(nil, id: 0, "\(relationship): \(issue) - \(comment)")        } else {
+            bug(nil, id: 0, "\(relationship): \(issue)")
+        }
     }
-
+    
     public static var IssueWindowsRelativePathAssert: Self {
         // TSCBasic/Path.swift:969: Assertion failed
         issue(
