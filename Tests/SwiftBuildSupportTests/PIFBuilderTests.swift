@@ -2131,6 +2131,91 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test func packageBuildPreservesHeaderAndTransitiveLinkDependencies() async throws {
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/App/main.swift",
+            "/Library/Sources/Headers/include/Headers.h",
+            "/Library/Sources/Implementation/implementation.c",
+            "/Library/Sources/Implementation/include/implementation.h",
+        ])
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_0,
+                    dependencies: [.fileSystem(path: "/Library")],
+                    products: [
+                        ProductDescription(name: "App", type: .executable, targets: ["App"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "App", dependencies: [.product(name: "Library", package: "Library")], type: .executable),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "Library",
+                    path: "/Library",
+                    toolsVersion: .v6_0,
+                    products: [
+                        ProductDescription(name: "Library", type: .library(.automatic), targets: ["Headers"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Headers", dependencies: ["Implementation"]),
+                        TargetDescription(name: "Implementation"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        #expect(observability.diagnostics.isEmpty)
+        // Call the public package builder directly: its results must not need workspace-level repair.
+        var projects: [SwiftBuildSupport.PIF.Project] = []
+        var modulesAndProducts: [PackagePIFBuilder.ModuleOrProduct] = []
+        for package in graph.packages {
+            let delegate = PromotingBuildDelegate(package: package, promotedProductType: nil)
+            let builder = PackagePIFBuilder(
+                modulesGraph: graph,
+                resolvedPackage: package,
+                packageManifest: package.manifest,
+                delegate: delegate,
+                buildToolPluginResultsByTargetName: [String: [PackagePIFBuilder.BuildToolPluginInvocationResult]](),
+                shouldPreserveSymlinks: false,
+                packageDisplayVersion: package.manifest.displayName,
+                pkgConfigDirectories: [],
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+            modulesAndProducts += try withExtendedLifetime(delegate) { try builder.build() }
+            projects.append(.init(wrapping: builder.pifProject))
+        }
+        let project = try #require(projects.first { $0.underlying.name == "Library" })
+        let headers = try project.target(named: "Headers")
+        let implementation = try project.target(named: "Implementation")
+        let libraryProduct = try project.target(named: "Library-product")
+        let app = try #require(projects.first { $0.underlying.name == "Root" }).target(named: "App-product")
+        #expect(app.common.dependencies.contains { $0.targetId == libraryProduct.id })
+
+        // Header-only targets still generate module maps needed to compile their consumers.
+        let settings = try headers.buildConfig(named: .debug).settings
+        #expect(settings[.MODULEMAP_FILE_CONTENTS]?.contains("module Headers") == true)
+
+        // Both the PIF and its returned target metadata must agree about link inputs.
+        let libraryMetadata = try #require(modulesAndProducts.compactMap(\.pifTarget).first { $0.id == libraryProduct.id })
+        for consumer in [libraryProduct, libraryMetadata] {
+            #expect(consumer.common.dependencies.contains { $0.targetId == headers.id })
+            let linkedTargets = consumer.common.buildPhases.flatMap { phase -> [ProjectModel.GUID] in
+                guard case .frameworks(let frameworks) = phase else { return [] }
+                return frameworks.files.compactMap {
+                    guard case .targetProduct(let id) = $0.ref else { return nil }
+                    return id
+                }
+            }
+            #expect(linkedTargets == [implementation.id])
+        }
+    }
+
     @Test func mixedSourceTarget() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
