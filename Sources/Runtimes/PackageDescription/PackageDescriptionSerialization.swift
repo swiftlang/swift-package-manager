@@ -230,6 +230,14 @@ enum Serialization {
         let linkerSettings: [LinkerSetting]?
         let checksum: String?
         let pluginUsages: [PluginUsage]?
+        let traitConfigurations: [TraitConfiguration]?
+    }
+
+    enum TraitConfiguration: Codable {
+        case `default`
+        case enableAllTraits
+        case disableAllTraits
+        case enabledTraits([String])
     }
 
     // MARK: - resource serialization
