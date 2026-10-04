@@ -1,0 +1,3 @@
+import Library
+
+print(answer())

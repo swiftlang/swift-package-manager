@@ -1611,6 +1611,18 @@ struct MiscellaneousTestCase {
         }
     }
 
+    @Test(.tags(.Feature.Command.Run))
+    func staticDependencyProductProducesArchive() async throws {
+        try await fixture(name: "Miscellaneous/StaticDependencyProduct") { fixturePath in
+            let packagePath = fixturePath.appending("App")
+            let (stdout, _) = try await executeSwiftRun(packagePath, "App", buildSystem: .swiftbuild)
+            #expect(stdout.trimmingCharacters(in: .whitespacesAndNewlines) == "42")
+            let binPath = try await getBinPath(packagePath, buildSystem: .swiftbuild)
+            let archiveName = ProcessInfo.hostOperatingSystem == .windows ? "StaticLibrary.lib" : "libStaticLibrary.a"
+            expectFileExists(at: binPath.appending(archiveName))
+        }
+    }
+
     @Test(
         .tags(
             .Feature.Command.Run,
