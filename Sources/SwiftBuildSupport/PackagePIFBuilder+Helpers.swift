@@ -998,7 +998,7 @@ extension PackageGraph.ResolvedModule {
     func recursivelyTraverseTransitiveLinkageDependencies(
         includeDependenciesOfMacros: Set<ResolvedModule.ID>,
         toolsVersion: ToolsVersion,
-        with block: (ResolvedModule.Dependency, Set<ProjectModel.PlatformFilter>) -> Void
+        with block: (ResolvedModule.Dependency, Set<ProjectModel.PlatformFilter>, Set<ProjectModel.BuildConfigurationFilter>) -> Void
     ) {
         [self].recursivelyTraverseTransitiveLinkageDependencies(
             includeDependenciesOfMacros: includeDependenciesOfMacros,
@@ -1034,16 +1034,16 @@ private enum PIFDependencyKey: Hashable {
     case product(PackageGraph.ResolvedProduct.ID)
 }
 
-private enum PIFPlatformReachability: Equatable {
+private enum PIFReachability<Filter: Hashable>: Equatable {
     case unconditionallyReachable
-    case conditionallyReachable(Set<ProjectModel.PlatformFilter>)
+    case conditionallyReachable(Set<Filter>)
     case unreachable
 
-    init(filters: Set<ProjectModel.PlatformFilter>) {
+    init(filters: Set<Filter>) {
         self = filters.isEmpty ? .unconditionallyReachable : .conditionallyReachable(filters)
     }
 
-    var platformFilters: Set<ProjectModel.PlatformFilter> {
+    var filters: Set<Filter> {
         switch self {
         case .unconditionallyReachable, .unreachable: []
         case .conditionallyReachable(let filters): filters
@@ -1078,12 +1078,42 @@ private enum PIFPlatformReachability: Equatable {
     }
 }
 
+/// Reachability of a dependency across both filter dimensions.
+///
+/// If a path can't be followed on any platform, or in any build configuration, it can't be
+/// followed at all. `intersection` marks both parts as unreachable in that case, so that a
+/// blocked path adds nothing when paths are combined later.
+private struct PIFDependencyReachability: Equatable {
+    var platform: PIFReachability<ProjectModel.PlatformFilter>
+    var buildConfiguration: PIFReachability<ProjectModel.BuildConfigurationFilter>
+
+    static let unconditionallyReachable = Self(platform: .unconditionallyReachable, buildConfiguration: .unconditionallyReachable)
+    static let unreachable = Self(platform: .unreachable, buildConfiguration: .unreachable)
+
+    var isUnreachable: Bool { platform == .unreachable || buildConfiguration == .unreachable }
+
+    func intersection(_ other: Self) -> Self {
+        let result = Self(
+            platform: platform.intersection(other.platform),
+            buildConfiguration: buildConfiguration.intersection(other.buildConfiguration)
+        )
+        return result.isUnreachable ? .unreachable : result
+    }
+
+    func union(_ other: Self) -> Self {
+        Self(
+            platform: platform.union(other.platform),
+            buildConfiguration: buildConfiguration.union(other.buildConfiguration)
+        )
+    }
+}
+
 extension Collection<PackageGraph.ResolvedModule> {
     /// Recursively applies a block to each of the linkage dependencies of the given module, in topological sort order.
     func recursivelyTraverseTransitiveLinkageDependencies(
         includeDependenciesOfMacros: Set<ResolvedModule.ID>,
         toolsVersion: ToolsVersion,
-        with block: (ResolvedModule.Dependency, Set<ProjectModel.PlatformFilter>) -> Void
+        with block: (ResolvedModule.Dependency, Set<ProjectModel.PlatformFilter>, Set<ProjectModel.BuildConfigurationFilter>) -> Void
     ) {
         // Do not traverse into *macro* or *plugin* dependencies unless explicitly requested.
         // Macros run at compile time and their dependencies should not be linked into the client, unless a client includes their testable variant.
@@ -1138,19 +1168,20 @@ extension Collection<PackageGraph.ResolvedModule> {
             visitDependency(dependency)
         }
 
-        // Next, determine the set of platform filters for the new dependency edges introduced when the transitive dependencies
-        // are flattened.
-        var reachability: [PIFDependencyKey: PIFPlatformReachability] = [:]
-        var worklist: [(dependency: ResolvedModule.Dependency, reachability: PIFPlatformReachability)] = []
+        // Next, determine the set of platform and build configuration filters for the new dependency edges introduced
+        // when the transitive dependencies are flattened.
+        var reachability: [PIFDependencyKey: PIFDependencyReachability] = [:]
+        var worklist: [(dependency: ResolvedModule.Dependency, reachability: PIFDependencyReachability)] = []
 
         func widenReachability(
             of dependency: ResolvedModule.Dependency,
-            reachedVia incoming: PIFPlatformReachability
+            reachedVia incoming: PIFDependencyReachability
         ) {
             // Determine how the dependency is reachable via the current edge. Intersect this with
             // the reachability along the current path we're traversing.
-            let edge = PIFPlatformReachability(
-                filters: dependency.conditions.toPlatformFilter(toolsVersion: toolsVersion)
+            let edge = PIFDependencyReachability(
+                platform: PIFReachability(filters: dependency.conditions.toPlatformFilter(toolsVersion: toolsVersion)),
+                buildConfiguration: PIFReachability(filters: dependency.conditions.toBuildConfigurationFilter())
             )
             let reached = incoming.intersection(edge)
 
@@ -1161,7 +1192,7 @@ extension Collection<PackageGraph.ResolvedModule> {
 
             // We may reach a dependency via multiple paths, in which case we should union the reachability along each.
             let widened = reachability[key]?.union(reached) ?? reached
-            guard widened != reachability[key], widened != .unreachable else { return }
+            guard widened != reachability[key], !widened.isUnreachable else { return }
             reachability[key] = widened
 
             // Add transitive dependencies to the worklist.
@@ -1189,7 +1220,7 @@ extension Collection<PackageGraph.ResolvedModule> {
 
         for (dependency, key) in visitOrder {
             guard let reached = reachability[key] else { continue }
-            block(dependency, reached.platformFilters)
+            block(dependency, reached.platform.filters, reached.buildConfiguration.filters)
         }
     }
 }

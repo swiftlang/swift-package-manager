@@ -3140,6 +3140,228 @@ struct PIFBuilderTests {
         let library = try project.target(named: "Library")
         #expect(!library.common.dependencies.contains { $0.targetId.value.hasSuffix("DeadEnd") })
     }
+
+    @Test
+    func transitiveLinkageDependencyThroughBuildConfigurationFilters() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/Library/Library.swift",
+            "/Root/Sources/MidA/MidA.swift",
+            "/Root/Sources/MidB/MidB.swift",
+            "/Root/Sources/MidC/MidC.swift",
+            "/Root/Sources/Deep/Deep.swift",
+            "/Root/Sources/DeadEnd/DeadEnd.swift",
+        ])
+
+        let debugOnly = PackageConditionDescription(config: "debug")
+        let releaseOnly = PackageConditionDescription(config: "release")
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .vNext,
+                    targets: [
+                        TargetDescription(
+                            name: "Library",
+                            dependencies: [
+                                .target(name: "MidA", condition: debugOnly),
+                                .target(name: "MidB", condition: releaseOnly),
+                                .target(name: "MidC", condition: debugOnly),
+                            ]
+                        ),
+                        TargetDescription(name: "MidA", dependencies: [.target(name: "Deep", condition: nil)]),
+                        TargetDescription(name: "MidB", dependencies: [.target(name: "Deep", condition: nil)]),
+                        TargetDescription(name: "MidC", dependencies: [.target(name: "DeadEnd", condition: releaseOnly)]),
+                        TargetDescription(name: "Deep"),
+                        TargetDescription(name: "DeadEnd"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "Root")
+
+        func filters(from targetName: String, to suffix: String) throws -> Set<ProjectModel.BuildConfigurationFilter> {
+            let dependencies = try project.target(named: targetName).common.dependencies
+            let edge = try #require(dependencies.only { $0.targetId.value.hasSuffix(suffix) })
+            return edge.buildConfigurationFilters
+        }
+
+        let debug = ProjectModel.BuildConfigurationFilter(buildConfiguration: "Debug")
+        let release = ProjectModel.BuildConfigurationFilter(buildConfiguration: "Release")
+
+        #expect(try filters(from: "Library", to: "MidA") == [debug])
+        #expect(try filters(from: "Library", to: "MidB") == [release])
+        #expect(try filters(from: "Library", to: "MidC") == [debug])
+        #expect(try filters(from: "MidC", to: "DeadEnd") == [release])
+
+        // Deep is reached through MidA in debug and through MidB in release.
+        #expect(try filters(from: "Library", to: "Deep") == [debug, release])
+
+        // DeadEnd needs debug to reach MidC and release to continue from there, so no configuration reaches it.
+        let library = try project.target(named: "Library")
+        #expect(!library.common.dependencies.contains { $0.targetId.value.hasSuffix("DeadEnd") })
+    }
+
+    @Test
+    func transitiveLinkageDependencyThroughPlatformAndBuildConfigurationFilters() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/Library/Library.swift",
+            "/Root/Sources/ReversedLibrary/ReversedLibrary.swift",
+            "/Root/Sources/LinuxDebug/LinuxDebug.swift",
+            "/Root/Sources/ReleaseOnly/ReleaseOnly.swift",
+            "/Root/Sources/Shared/Shared.swift",
+        ])
+
+        let linuxDebugDependency = TargetDescription.Dependency.target(
+            name: "LinuxDebug",
+            condition: PackageConditionDescription(platformNames: ["linux"], config: "debug")
+        )
+        let releaseOnlyDependency = TargetDescription.Dependency.target(
+            name: "ReleaseOnly",
+            condition: PackageConditionDescription(config: "release")
+        )
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .vNext,
+                    targets: [
+                        // The same two paths in both orders, so the result can't depend on which one is explored first.
+                        TargetDescription(name: "Library", dependencies: [linuxDebugDependency, releaseOnlyDependency]),
+                        TargetDescription(name: "ReversedLibrary", dependencies: [releaseOnlyDependency, linuxDebugDependency]),
+                        TargetDescription(
+                            name: "LinuxDebug",
+                            dependencies: [.target(name: "Shared", condition: PackageConditionDescription(platformNames: ["macos"]))]
+                        ),
+                        TargetDescription(name: "ReleaseOnly", dependencies: [.target(name: "Shared", condition: nil)]),
+                        TargetDescription(name: "Shared"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "Root")
+
+        // The path through LinuxDebug needs both linux and macOS, so it reaches Shared on no platform at all.
+        // It must not contribute its debug condition, leaving Shared needed only in release.
+        for libraryName in ["Library", "ReversedLibrary"] {
+            let dependencies = try project.target(named: libraryName).common.dependencies
+            let sharedEdge = try #require(dependencies.only { $0.targetId.value.hasSuffix("Shared") })
+            #expect(sharedEdge.platformFilters.isEmpty, "from \(libraryName)")
+            #expect(sharedEdge.buildConfigurationFilters == [.init(buildConfiguration: "Release")], "from \(libraryName)")
+        }
+    }
+
+    @Test
+    func binaryLinkageDependencyThroughBuildConfigurationFilter() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/Tool/main.swift",
+            "/Root/Sources/Library/Library.swift",
+        ])
+
+        let debugOnly = PackageConditionDescription(config: "debug")
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .vNext,
+                    products: [
+                        .init(name: "Tool", type: .executable, targets: ["Tool"]),
+                        .init(name: "Library", type: .library(.dynamic), targets: ["Library"]),
+                    ],
+                    targets: [
+                        .init(name: "Tool", dependencies: [.target(name: "Bin", condition: debugOnly)], type: .executable),
+                        .init(name: "Library", dependencies: [.target(name: "Bin", condition: debugOnly)]),
+                        .init(name: "Bin", path: "Bin.xcframework", type: .binary),
+                    ]
+                ),
+            ],
+            binaryArtifacts: [
+                .plain("root"): [
+                    "Bin": .init(kind: .xcframework, originURL: nil, path: "/Root/Bin.xcframework"),
+                ],
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "Root")
+
+        func linkedBinaryFilters(of productName: String) throws -> Set<ProjectModel.BuildConfigurationFilter> {
+            let product = try project.target(named: PackagePIFBuilder.targetName(forProductName: productName))
+            let linkedFiles = product.common.buildPhases.flatMap { phase -> [ProjectModel.BuildFile] in
+                guard case .frameworks(let frameworks) = phase else { return [] }
+                return frameworks.files
+            }
+            // Targets are linked by product reference, while a binary is linked by file reference.
+            let binary = try #require(linkedFiles.only {
+                guard case .reference = $0.ref else { return false }
+                return true
+            })
+            return binary.buildConfigurationFilters
+        }
+
+        // An executable product links the binary from its main module target and a library product
+        // from its umbrella target, which are separate code paths.
+        let debug = ProjectModel.BuildConfigurationFilter(buildConfiguration: "Debug")
+        #expect(try linkedBinaryFilters(of: "Tool") == [debug])
+        #expect(try linkedBinaryFilters(of: "Library") == [debug])
+    }
 }
 
 /// A no-op plugin script runner for use in PIF builder tests that need a plugin in the graph

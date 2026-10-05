@@ -67,7 +67,7 @@ extension PackagePIFProjectBuilder {
         pluginModule.recursivelyTraverseTransitiveLinkageDependencies(
             includeDependenciesOfMacros: [],
             toolsVersion: self.package.manifest.toolsVersion
-        ) { dependency, dependencyPlatformFilters in
+        ) { dependency, dependencyPlatformFilters, dependencyBuildConfigurationFilters in
             switch dependency {
             case .module(let moduleDependency, _):
                 // This assertion is temporarily disabled since we may see targets from
@@ -84,7 +84,7 @@ extension PackagePIFProjectBuilder {
                         pluginTarget.common.addDependency(
                             on: productDependency.pifTargetGUID,
                             platformFilters: dependencyPlatformFilters,
-                            buildConfigurationFilters: [] // TODO:
+                            buildConfigurationFilters: dependencyBuildConfigurationFilters
                         )
                         log(.debug, indent: 1, "Added dependency on product '\(productDependency.pifTargetGUID)'")
                     } else {
@@ -100,7 +100,7 @@ extension PackagePIFProjectBuilder {
                     pluginTarget.common.addDependency(
                         on: dependencyGUID,
                         platformFilters: dependencyPlatformFilters,
-                        buildConfigurationFilters: [] // TODO:
+                        buildConfigurationFilters: dependencyBuildConfigurationFilters
                     )
                     log(.debug, indent: 1, "Added dependency on target '\(dependencyGUID)'")
                 }
@@ -120,7 +120,7 @@ extension PackagePIFProjectBuilder {
                     pluginTarget.common.addDependency(
                         on: dependencyGUID,
                         platformFilters: dependencyPlatformFilters,
-                        buildConfigurationFilters: [] // TODO:
+                        buildConfigurationFilters: dependencyBuildConfigurationFilters
                     )
                     log(.debug, indent: 1, "Added dependency on product '\(dependencyGUID)'")
                 }
@@ -867,7 +867,7 @@ extension PackagePIFProjectBuilder {
         sourceModule.recursivelyTraverseTransitiveLinkageDependencies(
             includeDependenciesOfMacros: [],
             toolsVersion: self.package.manifest.toolsVersion
-        ) { dependency, dependencyPlatformFilters in
+        ) { dependency, dependencyPlatformFilters, dependencyBuildConfigurationFilters in
             switch dependency {
             case .module(let moduleDependency, _):
                 // This assertion is temporarily disabled since we may see targets from
@@ -883,7 +883,7 @@ extension PackagePIFProjectBuilder {
                         moduleTarget.common.addDependency(
                             on: product.pifTargetGUID,
                             platformFilters: dependencyPlatformFilters,
-                            buildConfigurationFilters: [], // TODO: Pass the build configuration filters
+                            buildConfigurationFilters: dependencyBuildConfigurationFilters,
                             linkProduct: false
                         )
                         log(.debug, indent: 1, "Added dependency on product '\(product.pifTargetGUID)'")
@@ -909,7 +909,7 @@ extension PackagePIFProjectBuilder {
                                 id: id,
                                 fileRef: binaryReference,
                                 platformFilters: dependencyPlatformFilters,
-                                buildConfigurationFilters: [], // TODO: Pass the build configuration filters
+                                buildConfigurationFilters: dependencyBuildConfigurationFilters,
                                 codeSignOnCopy: true,
                                 removeHeadersOnCopy: true
                             )
@@ -922,7 +922,7 @@ extension PackagePIFProjectBuilder {
                                 id: id,
                                 fileRef: binaryReference,
                                 platformFilters: dependencyPlatformFilters,
-                                buildConfigurationFilters: [] // TODO:
+                                buildConfigurationFilters: dependencyBuildConfigurationFilters
                             )
                         }
                     }
@@ -933,7 +933,7 @@ extension PackagePIFProjectBuilder {
                     moduleTarget.common.addDependency(
                         on: dependencyGUID,
                         platformFilters: dependencyPlatformFilters,
-                        buildConfigurationFilters: [], // TODO: Pass the build configuration filters
+                        buildConfigurationFilters: dependencyBuildConfigurationFilters,
                         linkProduct: false
                     )
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyGUID)'")
@@ -942,7 +942,7 @@ extension PackagePIFProjectBuilder {
                     moduleTarget.common.addDependency(
                         on: moduleDependency.pifTargetGUID,
                         platformFilters: dependencyPlatformFilters,
-                        buildConfigurationFilters: [], // TODO: Pass the build configuration filters
+                        buildConfigurationFilters: dependencyBuildConfigurationFilters,
                         linkProduct: shouldLinkProduct
                     )
                     log(
@@ -967,7 +967,7 @@ extension PackagePIFProjectBuilder {
                     moduleTarget.common.addDependency(
                         on: productDependency.pifTargetGUID,
                         platformFilters: dependencyPlatformFilters,
-                        buildConfigurationFilters: [], // TODO: Pass the build configuration filters
+                        buildConfigurationFilters: dependencyBuildConfigurationFilters,
                         linkProduct: shouldLinkProduct
                     )
                     log(
