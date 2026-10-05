@@ -39,7 +39,8 @@ struct IntegrationTestData: CustomTestStringConvertible {
     let expectedXcovArgumentCount: Int
     let expectedJsonArgs: [String]
     let expectedHtmlArgs: [String]
-}
+    let expectedLcovArgs: [String]
+    }
 
 @Suite
 struct SwiftTestIntegrationTests {
@@ -62,6 +63,7 @@ struct SwiftTestIntegrationTests {
                     expectedXcovArgumentCount: 1,
                     expectedJsonArgs: ["coverage.json"],
                     expectedHtmlArgs: [],
+                    expectedLcovArgs: [],
                 ),
                 IntegrationTestData(
                     category: .singleArgument,
@@ -70,6 +72,7 @@ struct SwiftTestIntegrationTests {
                     expectedXcovArgumentCount: 1,
                     expectedJsonArgs: [],
                     expectedHtmlArgs: ["coverage-report"],
+                    expectedLcovArgs: [],
                 ),
                 IntegrationTestData(
                     category: .singleArgument,
@@ -78,6 +81,7 @@ struct SwiftTestIntegrationTests {
                     expectedXcovArgumentCount: 1,
                     expectedJsonArgs: ["output.json"],
                     expectedHtmlArgs: ["output.json"],
+                    expectedLcovArgs: ["output.json"],
                 ),
                 IntegrationTestData(
                     category: .singleArgument,
@@ -86,6 +90,7 @@ struct SwiftTestIntegrationTests {
                     expectedXcovArgumentCount: 1,
                     expectedJsonArgs: ["--title"],
                     expectedHtmlArgs: ["--title"],
+                    expectedLcovArgs: ["--title"],
                 ),
                 IntegrationTestData(
                     category: .singleArgument,
@@ -94,6 +99,7 @@ struct SwiftTestIntegrationTests {
                     expectedXcovArgumentCount: 1,
                     expectedJsonArgs: ["--coverage-watermark=80,20"],
                     expectedHtmlArgs: ["--coverage-watermark=80,20"],
+                    expectedLcovArgs: ["--coverage-watermark=80,20"],
                 ),
                 // MARK: - Multiple Arguments Tests
                 IntegrationTestData(
@@ -108,6 +114,7 @@ struct SwiftTestIntegrationTests {
                     expectedXcovArgumentCount: 4,
                     expectedJsonArgs: ["coverage.json", "xml=coverage.xml", "plain-output.txt"],
                     expectedHtmlArgs: ["coverage-report", "xml=coverage.xml", "plain-output.txt"],
+                    expectedLcovArgs: ["xml=coverage.xml", "plain-output.txt"],
                 ),
                 IntegrationTestData(
                     category: .multipleArguments,
@@ -120,6 +127,7 @@ struct SwiftTestIntegrationTests {
                     expectedXcovArgumentCount: 3,
                     expectedJsonArgs: ["/path/with spaces/coverage.json", "~/home/coverage.json"],
                     expectedHtmlArgs: ["./relative/path/coverage-report"],
+                    expectedLcovArgs: [],
                 ),
                 // MARK: - Ordering Tests
                 IntegrationTestData(
@@ -134,6 +142,7 @@ struct SwiftTestIntegrationTests {
                     expectedXcovArgumentCount: 4,
                     expectedJsonArgs: ["first.json", "xml=unsupported.xml", "second.json", "third.txt"],
                     expectedHtmlArgs: ["xml=unsupported.xml", "third.txt"],
+                    expectedLcovArgs: ["xml=unsupported.xml", "third.txt"],
                 ),
                 // MARK: - Edge Cases Tests
                 IntegrationTestData(
@@ -148,6 +157,7 @@ struct SwiftTestIntegrationTests {
                     expectedXcovArgumentCount: 4,
                     expectedJsonArgs: ["", "=", "key=value", ""],
                     expectedHtmlArgs: ["=", ""],
+                    expectedLcovArgs: ["=", ""],
                 ),
                 IntegrationTestData(
                     category: .edgeCases,
@@ -156,6 +166,7 @@ struct SwiftTestIntegrationTests {
                     expectedXcovArgumentCount: 0,
                     expectedJsonArgs: [],
                     expectedHtmlArgs: [],
+                    expectedLcovArgs: [],
                 ),
                 // MARK: - Compatibility Tests
                 IntegrationTestData(
@@ -171,6 +182,7 @@ struct SwiftTestIntegrationTests {
                     expectedXcovArgumentCount: 2,
                     expectedJsonArgs: ["coverage.json"],
                     expectedHtmlArgs: ["coverage-report"],
+                    expectedLcovArgs: [],
                 ),
                 IntegrationTestData(
                     category: .compatibility,
@@ -185,6 +197,7 @@ struct SwiftTestIntegrationTests {
                     expectedXcovArgumentCount: 2,
                     expectedJsonArgs: ["coverage.json"],
                     expectedHtmlArgs: ["coverage-report"],
+                    expectedLcovArgs: [],
                 ),
                 // MARK: - Real World Scenarios
                 IntegrationTestData(
@@ -193,23 +206,26 @@ struct SwiftTestIntegrationTests {
                     commandLineArgs: [
                         "-Xcov", "json=./build/coverage.json",
                         "-Xcov", "html=./build/coverage-report",
-                        "-Xcov", "lcov=./build/coverage.lcov",  // Unsupported
+                        "-Xcov", "lcov=./build/coverage.lcov",
                         "-Xcov", "exclude-paths=/tmp/*",        // Generic flag (no leading dashes)
                         "-Xcov", "xml=./build/cobertura.xml",   // Unsupported
                     ],
                     expectedXcovArgumentCount: 5,
                     expectedJsonArgs: [
                         "./build/coverage.json",
-                        "lcov=./build/coverage.lcov",
                         "exclude-paths=/tmp/*",
                         "xml=./build/cobertura.xml"
                     ],
                     expectedHtmlArgs: [
                         "./build/coverage-report",
-                        "lcov=./build/coverage.lcov",
                         "exclude-paths=/tmp/*",
                         "xml=./build/cobertura.xml"
                     ],
+                    expectedLcovArgs: [
+                            "./build/coverage.lcov",
+                            "exclude-paths=/tmp/*",
+                            "xml=./build/cobertura.xml"
+                        ],
                 ),
             ],
         )
@@ -237,8 +253,15 @@ struct SwiftTestIntegrationTests {
                 htmlArgs == testData.expectedHtmlArgs,
                 "HTML args mismatch for: \(testData.description). Expected: \(testData.expectedHtmlArgs), Got: \(htmlArgs)",
             )
-        }
+
+            // AND: lcov arguments should match expectations
+            let lcovArgs = xcovArgs.getArguments(for: .lcov)
+            #expect(
+                lcovArgs == testData.expectedLcovArgs,
+                "lcov args mismatch for: \(testData.description). Expected: \(testData.expectedLcovArgs), Got: \(lcovArgs)",
+            )
     }
+}
 
 }
 
