@@ -845,6 +845,79 @@ struct PIFBuilderTests {
     }
 
     @Test
+    func optimizationLevel() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(
+            emptyFiles: [
+                "/MyPkg/Sources/SwiftLib/SwiftLib.swift",
+                "/MyPkg/Sources/CLib/CLib.c",
+                "/MyPkg/Sources/CLib/include/CLib.h",
+            ]
+        )
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "MyPkg",
+                    path: "/MyPkg",
+                    toolsVersion: .vNext,
+                    targets: [
+                        .init(
+                            name: "SwiftLib",
+                            settings: [
+                                .init(tool: .swift, kind: .optimizationLevel(.size)),
+                                .init(tool: .swift, kind: .optimizationLevel(.custom("-Ounchecked")), condition: .init(config: "release")),
+                            ]
+                        ),
+                        .init(
+                            name: "CLib",
+                            settings: [
+                                .init(tool: .c, kind: .optimizationLevel(.custom("-Oz"))),
+                                .init(tool: .cxx, kind: .optimizationLevel(.speed)),
+                            ]
+                        ),
+                    ]
+                )
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root,
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "MyPkg")
+
+        let projectReleaseConfig = try project.buildConfig(named: .release)
+        #expect(projectReleaseConfig.settings[.SWIFT_OPTIMIZATION_LEVEL] == "-O")
+        #expect(projectReleaseConfig.settings[single: "SWIFT_COMPILATION_MODE"] == "wholemodule")
+
+        let swiftLib = try project.target(named: "SwiftLib")
+        #expect(try swiftLib.buildConfig(named: .debug).settings[.SWIFT_OPTIMIZATION_LEVEL] == "-Osize")
+        #expect(try swiftLib.buildConfig(named: .release).settings[.SWIFT_OPTIMIZATION_LEVEL] == "-Ounchecked")
+
+        let cLib = try project.target(named: "CLib")
+        let cLibDebugSettings = try cLib.buildConfig(named: .debug).settings
+        #expect(cLibDebugSettings[.CLANG_C_OPTIMIZATION_LEVEL] == "z")
+        #expect(cLibDebugSettings[.CLANG_CXX_OPTIMIZATION_LEVEL] == "2")
+        #expect(cLibDebugSettings[.OTHER_CFLAGS]?.contains("-Oz") != true)
+        #expect(cLibDebugSettings[.OTHER_CPLUSPLUSFLAGS]?.contains("-O2") != true)
+    }
+
+    @Test
     func binaryFrameworkProductWithStubTargetSynthesizesDisambiguatedDynamicVariant() async throws {
         let observability = ObservabilitySystem.makeForTesting()
 
