@@ -7,6 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(SwiftBuildSupport
+  BuildCacheConfiguration+SettingsOverrides.swift
   BuildSystem.swift
   TraceEventsWriter.swift
   Diagnostics+Extensions.swift
