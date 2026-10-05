@@ -21,12 +21,15 @@ public enum BuildSettings {
         public static let SWIFT_VERSION: Declaration = .init("SWIFT_VERSION")
         public static let SWIFT_OBJC_BRIDGING_HEADER: Declaration = .init("SWIFT_OBJC_BRIDGING_HEADER")
         public static let SWIFT_BRIDGING_HEADER_IS_INTERNAL: Declaration = .init("SWIFT_BRIDGING_HEADER_IS_INTERNAL")
+        public static let SWIFT_OPTIMIZATION_LEVEL: Declaration = .init("SWIFT_OPTIMIZATION_LEVEL")
 
         // C family.
         public static let GCC_PREPROCESSOR_DEFINITIONS: Declaration = .init("GCC_PREPROCESSOR_DEFINITIONS")
         public static let HEADER_SEARCH_PATHS: Declaration = .init("HEADER_SEARCH_PATHS")
         public static let OTHER_CFLAGS: Declaration = .init("OTHER_CFLAGS")
         public static let OTHER_CPLUSPLUSFLAGS: Declaration = .init("OTHER_CPLUSPLUSFLAGS")
+        public static let C_OPTIMIZATION_LEVEL: Declaration = .init("C_OPTIMIZATION_LEVEL")
+        public static let CXX_OPTIMIZATION_LEVEL: Declaration = .init("CXX_OPTIMIZATION_LEVEL")
 
         // Linker.
         public static let OTHER_LDFLAGS: Declaration = .init("OTHER_LDFLAGS")

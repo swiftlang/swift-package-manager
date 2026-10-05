@@ -726,7 +726,8 @@ public final class PackagePIFBuilder {
         //TODO would be nice to have this defaulted by the build systems as we may want different default based on platform (ie codeview for windows)
         releaseSettings[.DEBUG_INFORMATION_FORMAT] = "dwarf-with-dsym"
         releaseSettings[.GCC_OPTIMIZATION_LEVEL] = "s"
-        releaseSettings[.SWIFT_OPTIMIZATION_LEVEL] = "-Owholemodule"
+        releaseSettings[.SWIFT_OPTIMIZATION_LEVEL] = "-O"
+        releaseSettings[single: "SWIFT_COMPILATION_MODE"] = "wholemodule"
         releaseSettings[.DEPLOYMENT_POSTPROCESSING] = "YES"
         builder.project.addBuildConfig { id in BuildConfig(id: id, name: "Release", settings: releaseSettings) }
     }

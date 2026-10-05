@@ -734,6 +734,21 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .optimizationLevel(let level):
+            switch level {
+            case .none:
+                params.append(SourceCodeFragment(enum: "none"))
+            case .speed:
+                params.append(SourceCodeFragment(enum: "speed"))
+            case .size:
+                params.append(SourceCodeFragment(enum: "size"))
+            case .custom(let flag):
+                params.append(SourceCodeFragment(enum: "custom", subnodes: [SourceCodeFragment(string: flag)]))
+            }
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
         }
     }
 
@@ -1224,6 +1239,8 @@ extension TargetBuildSettingDescription.Kind {
             return "defaultIsolation"
         case .bridgingHeader:
             return "bridgingHeader"
+        case .optimizationLevel:
+            return "optimizationLevel"
         }
     }
 }

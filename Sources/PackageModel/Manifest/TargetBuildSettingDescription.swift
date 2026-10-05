@@ -42,6 +42,13 @@ public enum TargetBuildSettingDescription {
         case `internal`
     }
 
+    public enum OptimizationLevel: Codable, Hashable, Sendable {
+        case none
+        case speed
+        case size
+        case custom(String)
+    }
+
     /// The kind of the build setting, with associate configuration
     public enum Kind: Codable, Hashable, Sendable {
         case headerSearchPath(String)
@@ -68,6 +75,8 @@ public enum TargetBuildSettingDescription {
 
         case bridgingHeader(String, BridgingHeaderVisibility)
 
+        case optimizationLevel(OptimizationLevel)
+
         public var isUnsafeFlags: Bool {
             switch self {
             case .unsafeFlags(let flags):
@@ -76,7 +85,7 @@ public enum TargetBuildSettingDescription {
             case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
                  .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode,
                  .treatAllWarnings, .treatWarning, .enableWarning, .disableWarning, .defaultIsolation,
-                 .bridgingHeader:
+                 .bridgingHeader, .optimizationLevel:
                 return false
             }
         }
