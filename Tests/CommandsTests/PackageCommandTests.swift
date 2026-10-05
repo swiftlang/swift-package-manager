@@ -106,6 +106,14 @@ struct PackageCommandTests {
     )
     enum PackageResolveCommandTests { }
 
+    @Suite(
+        .tags(
+            .TestSize.large,
+            .Feature.Command.Package.Report,
+        ),
+    )
+    enum PackageReportCommandTests { }
+
     @Test(
         arguments: SupportedBuildSystemOnAllPlatforms,
     )

@@ -1003,6 +1003,7 @@ extension Workspace {
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope,
         treatWarningsAsErrors: Bool = false,
+        emitProductDeprecationDiagnostics: Bool = true,
     ) async throws -> ModulesGraph {
         let start = DispatchTime.now()
         self.delegate?.willLoadGraph()
@@ -1065,6 +1066,7 @@ extension Workspace {
             observabilityScope: observabilityScope,
             enabledTraitsMap: self.enabledTraitsMap,
             treatWarningsAsErrors: treatWarningsAsErrors,
+            emitProductDeprecationDiagnostics: emitProductDeprecationDiagnostics,
         )
 
         try self.validateSignatures(
