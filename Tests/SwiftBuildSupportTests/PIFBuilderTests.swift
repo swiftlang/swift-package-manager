@@ -34,14 +34,13 @@ extension PIFBuilderParameters {
         createDynamicVariantsForLibraryProducts: Bool = false,
         pluginScriptRunner: PluginScriptRunner? = nil,
         hostBuildProductsPath: Basics.AbsolutePath? = nil,
-        hostTriple: Basics.Triple? = nil,
-        materializeStaticArchiveProductsForRootPackages: Bool = true
+        hostTriple: Basics.Triple? = nil
     ) throws -> Self {
         try self.init(
             isPackageAccessModifierSupported: true,
             enableTestability: false,
             shouldCreateDylibForDynamicProducts: shouldCreateDylibForDynamicProducts,
-            materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
+            materializeStaticArchiveProductsForRootPackages: true,
             createDynamicVariantsForLibraryProducts: createDynamicVariantsForLibraryProducts,
             toolchainLibDir: temporaryDirectory.appending(component: "toolchain-lib-dir"),
             pkgConfigDirectories: [],
@@ -1894,68 +1893,6 @@ struct PIFBuilderTests {
                 }
             }
         }
-    }
-
-    @Test(arguments: [ProductType.LibraryType.static, .automatic, .dynamic], [false, true])
-    func dependencyLibraryProductMaterialization(type: ProductType.LibraryType, materializeArchives: Bool) async throws {
-        let fs = InMemoryFileSystem(emptyFiles: [
-            "/Root/Sources/App/main.swift",
-            "/Dependency/Sources/Library/Library.swift",
-        ])
-        let observability = ObservabilitySystem.makeForTesting()
-        let graph = try loadModulesGraph(
-            fileSystem: fs,
-            manifests: [
-                Manifest.createRootManifest(
-                    displayName: "Root",
-                    path: "/Root",
-                    toolsVersion: .v6_0,
-                    dependencies: [.fileSystem(path: "/Dependency")],
-                    products: [ProductDescription(name: "App", type: .executable, targets: ["App"])],
-                    targets: [
-                        TargetDescription(
-                            name: "App",
-                            dependencies: [.product(name: "Library", package: "Dependency")],
-                            type: .executable
-                        ),
-                    ]
-                ),
-                Manifest.createFileSystemManifest(
-                    displayName: "Dependency",
-                    path: "/Dependency",
-                    toolsVersion: .v6_0,
-                    products: [ProductDescription(name: "Library", type: .library(type), targets: ["Library"])],
-                    targets: [TargetDescription(name: "Library")]
-                ),
-            ],
-            observabilityScope: observability.topScope
-        )
-        let builder = PIFBuilder(
-            graph: graph,
-            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
-                temporaryDirectory: "/tmp",
-                addLocalRpaths: .always,
-                shouldCreateDylibForDynamicProducts: true,
-                materializeStaticArchiveProductsForRootPackages: materializeArchives
-            ),
-            fileSystem: fs,
-            observabilityScope: observability.topScope
-        )
-        let (pif, _) = try await builder.constructPIF(
-            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
-        )
-        let product = try pif.workspace.project(named: "Dependency").target(named: "Library-product")
-        guard case .target(let library) = product else {
-            Issue.record("Expected a library product target")
-            return
-        }
-        let expectedType: ProjectModel.Target.ProductType = switch type {
-        case .dynamic: .dynamicLibrary
-        case .static where materializeArchives: .staticArchive
-        default: .packageProduct
-        }
-        #expect(library.productType == expectedType)
-        #expect(!observability.hasErrorDiagnostics)
     }
 
     @Test func swiftCompileForStaticLinkingInDynamicLibraries() async throws {
