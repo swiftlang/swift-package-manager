@@ -267,6 +267,41 @@ struct SwiftBuildSystemTests {
         }
     }
 
+    @Test(
+        arguments: [
+            (architectures: ["arm64"], expected: "YES" as String?),
+            (architectures: ["arm64", "x86_64"], expected: "YES" as String?),
+            (architectures: [String](), expected: nil as String?),
+        ]
+    )
+    func moduleOnlyArchsDisabledWhenArchitecturesAreRequested(
+        architectures: [String],
+        expected: String?,
+    ) async throws {
+        var buildParameters = mockBuildParameters(
+            destination: .host,
+            toolchain: try UserToolchain.default,
+            buildSystemKind: .swiftbuild,
+        )
+        buildParameters.architectures = architectures.isEmpty ? nil : architectures
+
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: buildParameters,
+        ) { swiftBuild, service, session, _, _ in
+            let buildSettings = try await swiftBuild.makeBuildParameters(
+                service: service,
+                session: session,
+                symbolGraphOptions: nil,
+                setToolchainSetting: false,
+                shouldDisableSandbox: false,
+            )
+
+            let synthesized = try #require(buildSettings.overrides.synthesized)
+            #expect(synthesized.table["SWIFT_DISABLE_MODULE_ONLY_ARCHS"] == expected)
+        }
+    }
+
     @Suite(
         .tags(
             .FunctionalArea.LinkSwiftStaticStdlib,
