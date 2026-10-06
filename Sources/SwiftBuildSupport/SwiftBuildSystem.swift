@@ -1404,14 +1404,18 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public func generatePIFAndAccompanyingMetadata(preserveStructure: Bool) async throws -> PIFGenerationResult {
-        pifBuilder = .init()
-        packageGraph = .init()
         let pifBuilder = try await getPIFBuilder()
         return try await pifBuilder.generatePIF(
             preservePIFModelStructure: preserveStructure,
             printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
             buildParameters: buildParameters
         )
+    }
+
+    /// Drop the cached package graph so the next PIF generation reloads it.
+    public func invalidatePackageGraphCache() {
+        pifBuilder = .init()
+        packageGraph = .init()
     }
 
     public func generatePIF(preserveStructure: Bool) async throws -> String {
