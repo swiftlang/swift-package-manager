@@ -3268,6 +3268,89 @@ final class ModuleAliasingBuildTests: XCTestCase {
         )
     }
 
+    func testModuleAliasingPropagatesFromAllRoots() async throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/aOne/Sources/AShared/file.swift",
+            "/aTwo/Sources/AShared/file.swift",
+            "/rootA/Sources/RootAExe/main.swift",
+            "/bOne/Sources/BShared/file.swift",
+            "/bTwo/Sources/BShared/file.swift",
+            "/rootB/Sources/RootBExe/main.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "aOne",
+                    path: "/aOne",
+                    products: [ProductDescription(name: "AOne", type: .library(.automatic), targets: ["AShared"])],
+                    targets: [TargetDescription(name: "AShared")]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "aTwo",
+                    path: "/aTwo",
+                    products: [ProductDescription(name: "ATwo", type: .library(.automatic), targets: ["AShared"])],
+                    targets: [TargetDescription(name: "AShared")]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "rootA",
+                    path: "/rootA",
+                    dependencies: [
+                        .localSourceControl(path: "/aOne", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/aTwo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "RootAExe", dependencies: [
+                            .product(name: "AOne", package: "aOne", moduleAliases: ["AShared": "ASharedOne"]),
+                            .product(name: "ATwo", package: "aTwo", moduleAliases: ["AShared": "ASharedTwo"]),
+                        ]),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "bOne",
+                    path: "/bOne",
+                    products: [ProductDescription(name: "BOne", type: .library(.automatic), targets: ["BShared"])],
+                    targets: [TargetDescription(name: "BShared")]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "bTwo",
+                    path: "/bTwo",
+                    products: [ProductDescription(name: "BTwo", type: .library(.automatic), targets: ["BShared"])],
+                    targets: [TargetDescription(name: "BShared")]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "rootB",
+                    path: "/rootB",
+                    dependencies: [
+                        .localSourceControl(path: "/bOne", requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/bTwo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "RootBExe", dependencies: [
+                            .product(name: "BOne", package: "bOne", moduleAliases: ["BShared": "BSharedOne"]),
+                            .product(name: "BTwo", package: "bTwo", moduleAliases: ["BShared": "BSharedTwo"]),
+                        ]),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        // Both roots' aliases are applied: each same name target was renamed via its
+        // own alias, and that no unaliased collision remains.
+        let modules = graph.reachableModules
+        XCTAssertTrue(modules.contains { $0.name == "ASharedOne" && $0.moduleAliases?["AShared"] == "ASharedOne" })
+        XCTAssertTrue(modules.contains { $0.name == "ASharedTwo" && $0.moduleAliases?["AShared"] == "ASharedTwo" })
+        XCTAssertTrue(modules.contains { $0.name == "BSharedOne" && $0.moduleAliases?["BShared"] == "BSharedOne" })
+        XCTAssertTrue(modules.contains { $0.name == "BSharedTwo" && $0.moduleAliases?["BShared"] == "BSharedTwo" })
+        XCTAssertFalse(modules.contains { $0.name == "AShared" })
+        XCTAssertFalse(modules.contains { $0.name == "BShared" })
+    }
+
     func testModuleAliasingTargetAndProductTargetWithSameName() async throws {
         let fs = InMemoryFileSystem(
             emptyFiles:

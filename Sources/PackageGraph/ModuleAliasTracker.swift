@@ -115,17 +115,19 @@ struct ModuleAliasTracker {
     }
 
     mutating func propagateAliases(observabilityScope: ObservabilityScope) {
-        // First get the root package ID
-        var pkgID = childToParentID.first?.key
-        var rootPkg = pkgID
-        while pkgID != nil {
-            rootPkg = pkgID
-            // pkgID is not nil here so can be force unwrapped
-            pkgID = childToParentID[pkgID!]
+        // The dependency graph can be a forest so propagate from every root
+        var rootPackages = Set<PackageIdentity>()
+        for package in idToProductToAllModules.keys {
+            var current = package
+            var seen: Set<PackageIdentity> = [current]
+            while let parent = childToParentID[current], seen.insert(parent).inserted {
+                current = parent
+            }
+            rootPackages.insert(current)
         }
-        guard let rootPkg else { return }
 
-        if let productToAllModules = idToProductToAllModules[rootPkg] {
+        for rootPkg in rootPackages.sorted() {
+            guard let productToAllModules = idToProductToAllModules[rootPkg] else { continue }
             // First, propagate aliases upstream
             for productID in productToAllModules.keys {
                 var aliasBuffer = [String: ModuleAliasModel]()
@@ -136,10 +138,11 @@ struct ModuleAliasTracker {
             for productID in productToAllModules.keys {
                 merge(productID: productID, observabilityScope: observabilityScope)
             }
+
+            // Finally, fill in aliases for modules in products that are in the
+            // dependency chain but not in a product consumed by other packages
+            fillInRest(package: rootPkg)
         }
-        // Finally, fill in aliases for modules in products that are in the
-        // dependency chain but not in a product consumed by other packages
-        fillInRest(package: rootPkg)
     }
 
     // Propagate defined aliases upstream. If they are chained, the final
