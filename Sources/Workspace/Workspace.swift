@@ -1023,6 +1023,9 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+        // TODO bp -- here, we have finished running the resolver. now we need to carry over the package
+        // major versions and ensure that we created the appropriate nodes.
+
         let binaryArtifacts = await self.state.artifacts
             .reduce(into: [PackageIdentity: [String: BinaryArtifact]]()) { partial, artifact in
                 partial[artifact.packageRef.identity, default: [:]][artifact.targetName] = BinaryArtifact(

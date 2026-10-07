@@ -245,7 +245,17 @@ public struct PubGrubDependencyResolver {
 
     public struct ResolutionResult {
         public var bindings: [DependencyResolverBinding]
-        public var multipleMajorVersionPackages: [PackageReference: Set<Int>]
+        public var multipleMajorVersionPackages: [PackageReference: Set<Version>]
+
+        public init(bindings: [DependencyResolverBinding], multipleMajorVersionPackages: [PackageReference: Set<Version>]) {
+            self.bindings = bindings
+            self.multipleMajorVersionPackages = multipleMajorVersionPackages
+        }
+
+        public init() {
+            self.bindings = []
+            self.multipleMajorVersionPackages = [:]
+        }
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
@@ -269,8 +279,18 @@ public struct PubGrubDependencyResolver {
 
         do {
             let (bindings, state) = try await self.solve(root: root, constraints: constraints)
+            // TODO bp: amend the multiple major version number mapping to now also store the exact
+            // version for which this has resolved to.
 
-            let result = ResolutionResult(bindings: bindings, multipleMajorVersionPackages: state.multipleMajorVersionPackages)
+            // also note that the package identity here has been changed with the appended package version
+            // so we must search against the same root package id
+            let resolvedMajorVersions = bindings.filter({ state.multipleMajorVersionPackages[$0.package.identityWithoutMajor()] != nil }).reduce(into: [PackageReference: Set<Version>]()) { multiMajors, binding in
+                if case let .version(version) = binding.boundVersion {
+                    multiMajors[binding.package.identityWithoutMajor(), default: []].insert(version)
+                }
+            }
+
+            let result = ResolutionResult(bindings: bindings, multipleMajorVersionPackages: resolvedMajorVersions)
 
 //            return .success(bindings)
             return .success(result)
@@ -1027,6 +1047,16 @@ private extension PackageRequirement {
 extension PackageReference {
     func scoped(toMajor major: Int) -> PackageReference {
         PackageReference(identity: .plain("\(self.identity)@\(major)"), kind: self.kind, name: self.deprecatedName)
+    }
+
+    public func identityWithoutMajor() -> PackageReference {
+        if let genericId = self.identity.description.components(separatedBy: "@").first
+        {
+            let packageId = PackageIdentity.plain(genericId)
+            return PackageReference(identity: packageId, kind: self.kind, name: self.deprecatedName)
+        }
+
+        return self
     }
 }
 
