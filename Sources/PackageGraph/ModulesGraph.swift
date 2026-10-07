@@ -460,6 +460,7 @@ public func loadModulesGraph(
     manifests: [Manifest],
     binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]] = [:],
     prebuilts: [PackageIdentity: [String: PrebuiltLibrary]] = [:],
+    implicitDependencies: [ImplicitDependency] = [],
     explicitProduct: String? = .none,
     shouldCreateMultipleTestProducts: Bool = false,
     createREPLProduct: Bool = false,
@@ -486,6 +487,7 @@ public func loadModulesGraph(
         manifests: rootManifests,
         explicitProduct: explicitProduct,
         observabilityScope: observabilityScope,
+        implicitDependencies: implicitDependencies,
         enabledTraitsMap: enabledTraitsMap
     )
 
@@ -497,6 +499,7 @@ public func loadModulesGraph(
         externalManifests: externalManifests,
         binaryArtifacts: binaryArtifacts,
         prebuilts: prebuilts,
+        implicitDependencies: implicitDependencies,
         shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
         createREPLProduct: createREPLProduct,
         customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,

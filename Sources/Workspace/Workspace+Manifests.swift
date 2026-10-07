@@ -37,6 +37,7 @@ import class PackageModel.Manifest
 import struct PackageModel.PackageIdentity
 import struct PackageModel.PackageReference
 import enum PackageModel.ProductFilter
+import struct PackageModel.TargetDescription
 import struct PackageModel.ToolsVersion
 import enum PackageModel.TraitConfiguration
 import protocol TSCBasic.FileSystem
