@@ -167,7 +167,8 @@ public struct ResolvedModule {
     public let supportedPlatforms: [SupportedPlatform]
 
     /// A constraint on which platforms this module needs to build for.
-    /// Note: currently only set to .host if prebuilts are enabled.
+    /// `.host` for modules reachable only via host-only paths (macros, plugins,
+    /// macro-dependent tests); `.all` otherwise.
     public let platformConstraint: PlatformConstraint
 
     /// True if this is a test module that is directly depended upon by other test modules
