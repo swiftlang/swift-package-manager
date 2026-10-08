@@ -7,5 +7,5 @@ Name: Foo
 URL: http://127.0.0.1/
 Description: The one and only SystemFramework
 Version: 1.10.0
-Cflags: -I${includedir} -F${libdir} -DDenyListed
+Cflags: -I${includedir} -F${libdir} -werror
 Libs: -F${libdir} -framework SystemFramework
