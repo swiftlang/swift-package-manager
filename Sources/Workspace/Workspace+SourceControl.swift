@@ -112,6 +112,9 @@ extension Workspace {
                 subpath: checkoutPath.relative(to: self.location.repositoriesCheckoutsDirectory)
             )
         )
+        if isMultipleMajor {
+            await self.state.addMultiMajor(identity: package.identity)
+        }
         try await self.state.save()
 
         // Inform the delegate that we're done.
@@ -222,6 +225,8 @@ extension Workspace {
         // Clone the repository into the checkouts.
         let baseRepositoryName = self.location.repositoriesCheckoutsDirectory.appending(component: repository.basename)
         let checkoutPath = isMultipleMajor ? baseRepositoryName.appending(package.identity.description) : baseRepositoryName
+
+        print("Is package \(package) multi major? \(isMultipleMajor)")
 
         // Remove any existing content at that path.
         try self.fileSystem.chmod(.userWritable, path: checkoutPath, options: [.recursive, .onlyFiles])

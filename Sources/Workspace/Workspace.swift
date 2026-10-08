@@ -1583,7 +1583,7 @@ extension Workspace {
 extension Workspace.Location {
     /// Returns the path to the dependency's repository checkout directory.
     func repositoriesCheckoutSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
-        self.repositoriesCheckoutsDirectory.appending(dependency.subpath)
+            self.repositoriesCheckoutsDirectory.appending(dependency.subpath)
     }
 
     /// Returns the path to the  dependency's download directory.

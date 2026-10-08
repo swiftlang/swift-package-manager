@@ -256,6 +256,22 @@ public struct PubGrubDependencyResolver {
             self.bindings = []
             self.multipleMajorVersionPackages = [:]
         }
+
+        public func majorVersionForIdentity(_ pkg: PackageReference) -> Version? {
+            let baseIdentity = pkg.identityWithoutMajor()
+            guard let versions = self.multipleMajorVersionPackages[pkg.identityWithoutMajor()] else {
+                return nil
+            }
+
+            for version in versions {
+                let possibleMatch = baseIdentity.scoped(toMajor: version.major)
+                if possibleMatch == pkg {
+                    return version
+                }
+            }
+
+            return nil
+        }
     }
 
     /// Execute the resolution algorithm to find a valid assignment of versions.
@@ -1045,7 +1061,7 @@ private extension PackageRequirement {
 }
 
 extension PackageReference {
-    func scoped(toMajor major: Int) -> PackageReference {
+    public func scoped(toMajor major: Int) -> PackageReference {
         PackageReference(identity: .plain("\(self.identity)@\(major)"), kind: self.kind, name: self.deprecatedName)
     }
 

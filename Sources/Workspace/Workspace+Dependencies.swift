@@ -240,7 +240,13 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
         // If we have missing packages, something is fundamentally wrong with the resolution of the graph
-        let stillMissingPackages = try updatedDependencyManifests.missingPackages
+        let possibleMissingPackages = try updatedDependencyManifests.missingPackages
+        var stillMissingPackages: [PackageReference] = []
+        for pkg in possibleMissingPackages {
+            if await !self.state.isMultiMajor(identity: pkg.identity) {
+                stillMissingPackages.append(pkg)
+            }
+        }
         guard stillMissingPackages.isEmpty else {
             observabilityScope.emit(BinaryArtifactsManagerError.exhaustedAttempts(missing: stillMissingPackages))
             return nil
@@ -739,6 +745,9 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+        // todo bp; using the result from resolution, inject new dependency nodes/manifests to load
+        // re: multiple majors while maintaining their modified id
+
         // Reset the active resolver.
         self.activeResolver = nil
 
@@ -763,7 +772,13 @@ extension Workspace {
         )
 
         // If we still have missing packages, something is fundamentally wrong with the resolution of the graph
-        let stillMissingPackages = try updatedDependencyManifests.missingPackages
+        let possibleMissingPackages = try updatedDependencyManifests.missingPackages
+        var stillMissingPackages: [PackageReference] = []
+        for pkg in possibleMissingPackages {
+            if await !self.state.isMultiMajor(identity: pkg.identity) {
+                stillMissingPackages.append(pkg)
+            }
+        }
         guard stillMissingPackages.isEmpty else {
             observabilityScope.emit(BinaryArtifactsManagerError.exhaustedAttempts(missing: stillMissingPackages))
             return updatedDependencyManifests
@@ -900,6 +915,7 @@ extension Workspace {
 
             if let container = container as? SourceControlPackageContainer {
                 // todo bp get available versions, consolidate all nodes.
+                // todo: should oNLY  ever match the version specifier in the identity to the version needed here?
                 for version in versions {
                     guard let tag = await container.getTag(for: version) else {
                         throw try await InternalError(
@@ -926,6 +942,8 @@ extension Workspace {
             }
 
             if let repo = repos.first {
+//                await self.state.add(dependency: dependency)
+//                try await self.state.save()
                 return repo
             } else {
                 throw InternalError("No file found for multi majors -- this error is placeholder")
@@ -1312,17 +1330,23 @@ extension Workspace {
             case .version(let version):
                 let stateChange: PackageStateChange
                 let majorVersions = resolvedDependencies.multipleMajorVersionPackages[binding.package.identityWithoutMajor()]
+                let majorVersionForIdentity = resolvedDependencies.majorVersionForIdentity(binding.package)
                 switch currentDependency?.state {
                 case .sourceControlCheckout(.version(version, _)), .registryDownload(version, _), .custom(version, _):
                     stateChange = .unchanged
                 case .edited, .fileSystem, .sourceControlCheckout, .registryDownload, .custom:
-                    if let majorVersions {
+                    if let majorVersionForIdentity {
+                        stateChange = .updated(.init(requirement: .multipleMajorVersions([majorVersionForIdentity]), products: binding.products))
+                    } else if let majorVersions {
                         stateChange = .updated(.init(requirement: .multipleMajorVersions(majorVersions.map({ $0 })), products: binding.products))
                     } else {
                         stateChange = .updated(.init(requirement: .version(version), products: binding.products))
                     }
                 case nil:
-                    if let majorVersions {
+                    // todo bp this is being run across every identity of major versions (dep, dep@1, dep@2 etc.)
+                    if let majorVersionForIdentity {
+                        stateChange = .added(.init(requirement: .multipleMajorVersions([majorVersionForIdentity]), products: binding.products))
+                    } else if let majorVersions {
                         stateChange = .added(.init(requirement: .multipleMajorVersions(majorVersions.map({ $0 })), products: binding.products))
                     } else {
                         stateChange = .added(.init(requirement: .version(version), products: binding.products))
