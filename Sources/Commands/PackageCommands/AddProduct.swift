@@ -15,7 +15,6 @@ import Basics
 import CoreCommands
 import Foundation
 import PackageGraph
-import SwiftParser
 @_spi(PackageRefactor) import SwiftRefactor
 import SwiftSyntax
 import TSCBasic
@@ -55,30 +54,7 @@ extension SwiftPackageCommand {
         var targets: [String] = []
 
         func run(_ swiftCommandState: SwiftCommandState) throws {
-            let workspace = try swiftCommandState.getActiveWorkspace()
-
-            guard let packagePath = try swiftCommandState.getWorkspaceRoot().packages.first else {
-                throw StringError("unknown package")
-            }
-
-            // Load the manifest file
-            let fileSystem = workspace.fileSystem
-            let manifestPath = packagePath.appending("Package.swift")
-            let manifestContents: ByteString
-            do {
-                manifestContents = try fileSystem.readFileContents(manifestPath)
-            } catch {
-                throw StringError("cannot find package manifest in \(manifestPath)")
-            }
-
-            // Parse the manifest.
-            let manifestSyntax = manifestContents.withData { data in
-                data.withUnsafeBytes { buffer in
-                    buffer.withMemoryRebound(to: UInt8.self) { buffer in
-                        Parser.parse(source: buffer)
-                    }
-                }
-            }
+            let (manifestSyntax, manifestPath) = try swiftCommandState.readPackageManifestAsSyntaxTree()
 
             // Map the product type.
             let type: ProductDescription.ProductType = switch self.type {
@@ -101,7 +77,7 @@ extension SwiftPackageCommand {
             )
 
             try editResult.applyEdits(
-                to: fileSystem,
+                to: swiftCommandState.getActiveWorkspace().fileSystem,
                 manifest: manifestSyntax,
                 manifestPath: manifestPath,
                 verbose: !globalOptions.logging.quiet
@@ -109,4 +85,3 @@ extension SwiftPackageCommand {
         }
     }
 }
-

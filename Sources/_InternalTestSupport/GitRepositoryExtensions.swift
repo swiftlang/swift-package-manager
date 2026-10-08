@@ -53,13 +53,17 @@ package extension GitRepository {
     }
 
     /// Commit the staged changes. If the message is not provided a dummy message will be used for the commit.
-    func commit(message: String? = nil) throws {
+    func commit(message: String? = nil, allowEmpty: Bool = false) throws {
         // FIXME: We don't need to set these every time but we usually only commit once or twice for a test repo.
         try Process.checkNonZeroExit(args: Git.tool, "-C", self.path.pathString, "config", "user.email", "example@example.com")
         try Process.checkNonZeroExit(args: Git.tool, "-C", self.path.pathString, "config", "user.name", "Example Example")
         try Process.checkNonZeroExit(args: Git.tool, "-C", self.path.pathString, "config", "commit.gpgsign", "false")
         try Process.checkNonZeroExit(args: Git.tool, "-C", self.path.pathString, "config", "tag.gpgsign", "false")
-        try Process.checkNonZeroExit(args: Git.tool, "-C", self.path.pathString, "commit", "-m", message ?? "Add some files.")
+        var arguments = [Git.tool, "-C", self.path.pathString, "commit", "-m", message ?? "Add some files."]
+        if allowEmpty {
+            arguments.append("--allow-empty")
+        }
+        try Process.checkNonZeroExit(arguments: arguments)
     }
 
     /// Tag the git repo.
