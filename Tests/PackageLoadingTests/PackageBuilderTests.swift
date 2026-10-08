@@ -872,6 +872,43 @@ struct PackageBuilderTests {
         }
     }
 
+    @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/7734"),
+        arguments: [
+            (publicHeadersPath: nil, expectedPath: "include"),
+            (publicHeadersPath: "includes", expectedPath: "includes"),
+        ]
+    )
+    func missingPublicHeadersDirectory(
+        publicHeadersPath: String?,
+        expectedPath: String
+    ) throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/Foo/Foo.c"
+        )
+
+        let manifest = try Manifest.createRootManifest(
+            displayName: "Foo",
+            toolsVersion: .v5_5,
+            targets: [
+                TargetDescription(
+                    name: "Foo",
+                    publicHeadersPath: publicHeadersPath
+                ),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+            let expectedDiagnostic =
+                "target 'Foo' is missing required public headers directory '\(expectedPath)'; " +
+                "create it or configure 'publicHeadersPath' in Package.swift"
+            diagnostics.check(
+                diagnostic: .equal(expectedDiagnostic),
+                severity: .error
+            )
+        }
+    }
+
     @Test
     func testInvalidPublicHeadersPath() throws {
         let fs = InMemoryFileSystem(emptyFiles:
@@ -1879,7 +1916,13 @@ struct PackageBuilderTests {
             )
 
             try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: "public headers (\"include\") directory path for 'Foo' is invalid or not contained in the target", severity: .error)
+                let expectedDiagnostic =
+                    "public headers directory path for target 'Foo' must be contained " +
+                    "within the target directory"
+                diagnostics.check(
+                    diagnostic: .equal(expectedDiagnostic),
+                    severity: .error
+                )
             }
 
             manifest = Manifest.createRootManifest(
@@ -1889,7 +1932,13 @@ struct PackageBuilderTests {
                 ]
             )
             try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
-                diagnostics.check(diagnostic: "public headers (\"include\") directory path for 'Bar' is invalid or not contained in the target", severity: .error)
+                let expectedDiagnostic =
+                    "public headers directory path for target 'Bar' must be contained " +
+                    "within the target directory"
+                diagnostics.check(
+                    diagnostic: .equal(expectedDiagnostic),
+                    severity: .error
+                )
             }
         }
 
