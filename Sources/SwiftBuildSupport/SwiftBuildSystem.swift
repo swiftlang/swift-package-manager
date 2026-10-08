@@ -1538,31 +1538,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
 // MARK: - Helpers
 
-extension String {
-    /// Escape the usual shell related things, such as quoting, but also handle Windows
-    /// back-slashes.
-    fileprivate func shellEscaped() -> String {
-        #if os(Windows)
-        return self.spm_shellEscaped().replacingOccurrences(of: "\\", with: "/")
-        #else
-        return self.spm_shellEscaped()
-        #endif
-    }
-}
-
-extension Basics.AbsolutePath {
-    /// Returns a string representation of the path which uses POSIX slashes even on Windows.
-    ///
-    /// This is necessary for some cases where tools may treat the `\` character as part of an escape sequence rather than a path separator even on Windows. Use sparingly.
-    public var pathStringWithPosixSlashes: String {
-        #if os(Windows)
-        pathString.replacingOccurrences(of: "\\", with: "/")
-        #else
-        pathString
-        #endif
-    }
-}
-
 fileprivate extension [BuildFlag] {
     var rawFlagsForSwiftBuild: [String] {
         filter {

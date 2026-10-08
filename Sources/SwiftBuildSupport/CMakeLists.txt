@@ -24,7 +24,8 @@ add_library(SwiftBuildSupport
   PIFGenerationInputs.swift
   PluginConfiguration.swift
   SwiftBuildSystem.swift
-  SwiftBuildSystemMessageHandler.swift)
+  SwiftBuildSystemMessageHandler.swift
+  Utils.swift)
 target_link_libraries(SwiftBuildSupport PUBLIC
   Basics
   Build
