@@ -97,6 +97,87 @@ private func executeAddURLDependencyAndAssert(
     ),
 )
 struct PackageCommandTests {
+    @Suite(
+        .tags(
+            .Feature.Command.Package.General,
+        ),
+    )
+    struct ArgumentOrderingTests {
+        @Test(
+            .bug("https://github.com/swiftlang/swift-package-manager/issues/8418"),
+        )
+        func globalOptionAfterSubcommandOption() throws {
+            let packagePath = AbsolutePath("/tmp/example")
+            let parsedCommand = try SwiftPackageCommand.parseAsRootWithInterspersedGlobalOptions([
+                "init",
+                "--type", "empty",
+                "--package-path", packagePath.pathString,
+            ])
+            let command = try #require(parsedCommand as? SwiftPackageCommand.Init)
+
+            #expect(command.initMode == .empty)
+            #expect(command.globalOptions.locations.packageDirectory == packagePath)
+        }
+
+        @Test(
+            .bug("https://github.com/swiftlang/swift-package-manager/issues/8425"),
+        )
+        func globalOptionAfterImplicitPluginOption() throws {
+            let parsedCommand = try SwiftPackageCommand.parseAsRootWithInterspersedGlobalOptions([
+                "--allow-network-connections", "all",
+                "-Xswiftc", "-static-stdlib",
+                "build-container-image",
+                "--repository", "localhost:5555/example",
+            ])
+            let command = try #require(parsedCommand as? SwiftPackageCommand.DefaultCommand)
+
+            #expect(command.globalOptions.build.swiftCompilerFlags == ["-static-stdlib"])
+            if case .all(let ports) = command.pluginOptions.allowNetworkConnections {
+                #expect(ports.isEmpty)
+            } else {
+                Issue.record("Expected all network connections to be allowed.")
+            }
+            #expect(command.remaining == [
+                "build-container-image",
+                "--repository", "localhost:5555/example",
+            ])
+        }
+
+        @Test(
+            .bug("https://github.com/swiftlang/swift-package-manager/issues/8425"),
+        )
+        func globalOptionAfterExplicitPluginSubcommand() throws {
+            let parsedCommand = try SwiftPackageCommand.parseAsRootWithInterspersedGlobalOptions([
+                "plugin",
+                "--allow-network-connections", "all",
+                "--swift-sdk", "swift-6.0.3-RELEASE_static-linux-0.0.1",
+                "MyPlugin",
+                "--verbose",
+            ])
+            let command = try #require(parsedCommand as? PluginCommand)
+
+            #expect(command.globalOptions.build.swiftSDKSelector == "swift-6.0.3-RELEASE_static-linux-0.0.1")
+            if case .all(let ports) = command.pluginOptions.allowNetworkConnections {
+                #expect(ports.isEmpty)
+            } else {
+                Issue.record("Expected all network connections to be allowed.")
+            }
+            #expect(command.command == "MyPlugin")
+            #expect(command.arguments == ["--verbose"])
+        }
+
+        @Test
+        func globalOptionAfterTerminatorIsNotReordered() {
+            #expect(throws: (any Error).self) {
+                try SwiftPackageCommand.parseAsRootWithInterspersedGlobalOptions([
+                    "init",
+                    "--",
+                    "--package-path", "/tmp/example",
+                ])
+            }
+        }
+    }
+
     @Test(
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
