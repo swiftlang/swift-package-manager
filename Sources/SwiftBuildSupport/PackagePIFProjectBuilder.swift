@@ -170,6 +170,54 @@ struct PackagePIFProjectBuilder {
         self.builtModulesAndProducts = []
     }
 
+    // MARK: - Finalizing Link Inputs
+
+    /// Removes archive link references to Clang modules with empty source phases, preserving build dependencies
+    /// and module-map access in both the project and its accompanying metadata.
+    ///
+    /// Call after all targets have been constructed so source phases include plugin outputs and resource
+    /// code-generation inputs.
+    mutating func removeLinkInputsForModulesWithoutSources() {
+        let clangModuleIDs = Set(self.package.modules.filter { $0.underlying is ClangModule }.map(\.pifTargetGUID))
+        let modulesWithoutSources = Set(self.project.targets.compactMap { target -> ProjectModel.GUID? in
+            guard case .target(let target) = target,
+                  target.productType == .commonStaticArchive,
+                  clangModuleIDs.contains(target.id),
+                  !target.common.buildPhases.contains(where: { phase in
+                      guard case .sources(let sources) = phase else { return false }
+                      return !sources.files.isEmpty
+                  }) else { return nil }
+            return target.id
+        })
+        guard !modulesWithoutSources.isEmpty else { return }
+
+        /// Removes only archive link references, leaving the target's build dependencies and settings intact.
+        func removingLinkInputs(from target: ProjectModel.BaseTarget) -> ProjectModel.BaseTarget {
+            guard target.common.buildPhases.contains(where: { phase in
+                if case .frameworks = phase { return true }
+                return false
+            }) else { return target }
+
+            var target = target
+            target.common.withFrameworksBuildPhase { phase in
+                phase = .init(id: phase.id, files: phase.files.filter { file in
+                    guard case .targetProduct(let id) = file.ref else { return true }
+                    return !modulesWithoutSources.contains(id)
+                })
+            }
+            return target
+        }
+
+        // Cross-package dependencies reference products, whose module link inputs are finalized in their own package.
+        // Preserve build dependencies and imparted settings in both the project and its accompanying metadata.
+        self.project.targets = self.project.targets.map { removingLinkInputs(from: $0) }
+        for index in self.builtModulesAndProducts.indices {
+            self.builtModulesAndProducts[index].pifTarget = self.builtModulesAndProducts[index].pifTarget.map {
+                removingLinkInputs(from: $0)
+            }
+        }
+    }
+
     // MARK: - Handling Resources
 
     mutating func addResourceBundle(
