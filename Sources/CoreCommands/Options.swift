@@ -673,12 +673,33 @@ public struct BuildOptions: ParsableArguments {
     public var omitFramePointers: Bool? = nil
 
     // Whether to enable task backtrace logging.
+    @Flag(
+        name: .customLong("enable-task-backtraces"),
+        help: "Log a backtrace explaining why each build task ran. Requires '--verbose', '--very-verbose', or '--trace-events-file'."
+    )
+    var _enableTaskBacktraces: Bool = false
+
     @Flag(name: .customLong("experimental-task-backtraces"), help: .hidden)
-    public var enableTaskBacktraces: Bool = false
+    var _deprecated_enableTaskBacktraces: Bool = false
+
+    public var enableTaskBacktraces: Bool {
+        self._enableTaskBacktraces || self._deprecated_enableTaskBacktraces
+    }
 
     // Path to write a Trace Event Format JSON file with build task timeline data.
+    @Option(
+        name: .customLong("trace-events-file"),
+        help: "Write a Trace Event Format JSON file containing a timeline of build tasks to the given path.",
+        completion: .file()
+    )
+    var _traceEventsFilePath: String? = nil
+
     @Option(name: .customLong("experimental-trace-events-file"), help: .hidden)
-    public var traceEventsFilePath: String? = nil
+    var _deprecated_traceEventsFilePath: String? = nil
+
+    public var traceEventsFilePath: String? {
+        self._traceEventsFilePath ?? self._deprecated_traceEventsFilePath
+    }
 
     // Build dynamic library targets as frameworks (only available for Darwin targets and only when using the 'swiftbuild' build-system (currently used for tests).
     @Flag(name: .customLong("experimental-build-dylibs-as-frameworks"), help: .hidden )
