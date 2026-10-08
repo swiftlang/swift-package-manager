@@ -53,7 +53,7 @@ struct BuildCacheCommandTests {
 
             try await execute(
                 sharedConfig + [
-                    "experimental-build-cache", "configure",
+                    "build-cache", "configure",
                     "--enable-caching",
                     "--size-limit", "10G",
                     "--enable-diagnostic-remarks",
@@ -66,7 +66,7 @@ struct BuildCacheCommandTests {
 
             // Capture the first package's effective configuration.
             let (firstConfig, _) = try await execute(
-                sharedConfig + ["experimental-build-cache", "get-configuration"],
+                sharedConfig + ["build-cache", "get-configuration"],
                 packagePath: packageRoot,
             )
             #expect(firstConfig.contains("build cache: enabled"))
@@ -86,7 +86,7 @@ struct BuildCacheCommandTests {
 
             try await execute(
                 sharedConfig + [
-                    "experimental-build-cache", "configure",
+                    "build-cache", "configure",
                     "--enable-caching",
                     "--size-limit", "20%",
                     "--disable-diagnostic-remarks",
@@ -96,7 +96,7 @@ struct BuildCacheCommandTests {
             )
 
             let (secondConfig, _) = try await execute(
-                sharedConfig + ["experimental-build-cache", "get-configuration"],
+                sharedConfig + ["build-cache", "get-configuration"],
                 packagePath: secondPackageRoot,
             )
             #expect(secondConfig.contains("build cache: enabled"))
@@ -108,7 +108,7 @@ struct BuildCacheCommandTests {
 
             // The first package's configuration should be unaffected by the second.
             let (firstConfigAgain, _) = try await execute(
-                sharedConfig + ["experimental-build-cache", "get-configuration"],
+                sharedConfig + ["build-cache", "get-configuration"],
                 packagePath: packageRoot,
             )
             #expect(firstConfigAgain.contains("build cache: enabled"))
@@ -136,7 +136,7 @@ struct BuildCacheCommandTests {
             // Set a global configuration.
             try await execute(
                 sharedConfig + [
-                    "experimental-build-cache", "configure", "--global",
+                    "build-cache", "configure", "--global",
                     "--enable-caching",
                     "--size-limit", "10G",
                     "--enable-diagnostic-remarks",
@@ -147,7 +147,7 @@ struct BuildCacheCommandTests {
 
             // A package with no local configuration sees the global configuration.
             let (firstConfig, _) = try await execute(
-                sharedConfig + ["experimental-build-cache", "get-configuration"],
+                sharedConfig + ["build-cache", "get-configuration"],
                 packagePath: firstPackageRoot,
             )
             #expect(firstConfig.contains("build cache: enabled"))
@@ -164,12 +164,12 @@ struct BuildCacheCommandTests {
             )
 
             try await execute(
-                sharedConfig + ["experimental-build-cache", "configure", "--size-limit", "50%"],
+                sharedConfig + ["build-cache", "configure", "--size-limit", "50%"],
                 packagePath: secondPackageRoot,
             )
 
             let (secondConfig, _) = try await execute(
-                sharedConfig + ["experimental-build-cache", "get-configuration"],
+                sharedConfig + ["build-cache", "get-configuration"],
                 packagePath: secondPackageRoot,
             )
             #expect(secondConfig.contains("size limit: 50% of available disk space"))
@@ -178,7 +178,7 @@ struct BuildCacheCommandTests {
             #expect(secondConfig.contains("prefix mapping: enabled"))
 
             let (firstConfigAgain, _) = try await execute(
-                sharedConfig + ["experimental-build-cache", "get-configuration"],
+                sharedConfig + ["build-cache", "get-configuration"],
                 packagePath: firstPackageRoot,
             )
             #expect(firstConfigAgain.contains("size limit: 10G"))
@@ -202,7 +202,7 @@ struct BuildCacheCommandTests {
             )
 
             let configureArgs = sharedConfig + [
-                "experimental-build-cache", "configure",
+                "build-cache", "configure",
                 "--enable-caching",
                 "--path", "/tmp/cache",
                 "--size-limit", "10G",
@@ -211,7 +211,7 @@ struct BuildCacheCommandTests {
                 "--experimental-plugin-path", "/tmp/plugin",
                 "--enable-prefix-mapping",
             ]
-            let resetArgs = sharedConfig + ["experimental-build-cache", "reset-configuration"]
+            let resetArgs = sharedConfig + ["build-cache", "reset-configuration"]
 
             try await execute(configureArgs, packagePath: packageRoot)
             let expectedContent: String = try fs.readFileContents(configFile)
@@ -247,13 +247,13 @@ struct BuildCacheCommandTests {
             )
 
             try await execute(
-                sharedConfig + ["experimental-build-cache", "configure", "--enable-caching"],
+                sharedConfig + ["build-cache", "configure", "--enable-caching"],
                 packagePath: packageRoot,
             )
             #expect(fs.isFile(configFile))
 
             try await execute(
-                sharedConfig + ["experimental-build-cache", "reset-configuration"],
+                sharedConfig + ["build-cache", "reset-configuration"],
                 packagePath: packageRoot,
             )
             #expect(!fs.isFile(configFile))
@@ -275,33 +275,33 @@ struct BuildCacheCommandTests {
 
             // Start with an absolute size limit.
             try await execute(
-                sharedConfig + ["experimental-build-cache", "configure", "--enable-caching", "--size-limit", "10G"],
+                sharedConfig + ["build-cache", "configure", "--enable-caching", "--size-limit", "10G"],
                 packagePath: packageRoot,
             )
             let (absoluteConfig, _) = try await execute(
-                sharedConfig + ["experimental-build-cache", "get-configuration"],
+                sharedConfig + ["build-cache", "get-configuration"],
                 packagePath: packageRoot,
             )
             #expect(absoluteConfig.contains("size limit: 10G"))
 
             // Setting a percentage should replace the absolute size limit.
             try await execute(
-                sharedConfig + ["experimental-build-cache", "configure", "--size-limit", "40%"],
+                sharedConfig + ["build-cache", "configure", "--size-limit", "40%"],
                 packagePath: packageRoot,
             )
             let (percentConfig, _) = try await execute(
-                sharedConfig + ["experimental-build-cache", "get-configuration"],
+                sharedConfig + ["build-cache", "get-configuration"],
                 packagePath: packageRoot,
             )
             #expect(percentConfig.contains("size limit: 40% of available disk space"))
 
             // Setting an absolute size limit again should replace the percentage.
             try await execute(
-                sharedConfig + ["experimental-build-cache", "configure", "--size-limit", "20G"],
+                sharedConfig + ["build-cache", "configure", "--size-limit", "20G"],
                 packagePath: packageRoot,
             )
             let (absoluteAgainConfig, _) = try await execute(
-                sharedConfig + ["experimental-build-cache", "get-configuration"],
+                sharedConfig + ["build-cache", "get-configuration"],
                 packagePath: packageRoot,
             )
             #expect(absoluteAgainConfig.contains("size limit: 20G"))
@@ -323,7 +323,7 @@ struct BuildCacheCommandTests {
 
             await expectThrowsCommandExecutionError(
                 try await execute(
-                    sharedConfig + ["experimental-build-cache", "configure", "--size-limit", "150%"],
+                    sharedConfig + ["build-cache", "configure", "--size-limit", "150%"],
                     packagePath: packageRoot,
                 )
             ) { error in

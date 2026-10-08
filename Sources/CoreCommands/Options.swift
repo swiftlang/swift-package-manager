@@ -240,27 +240,27 @@ public struct BuildCachingOptions: ParsableArguments {
     public init() {}
 
     @Flag(
-        name: .customLong("experimental-build-caching"),
+        name: .customLong("build-caching"),
         inversion: .prefixedEnableDisable,
         help: "Enable or disable the build cache."
     )
     public var enableBuildCache: Bool?
 
     @Option(
-        name: .customLong("experimental-build-cache-path"),
+        name: .customLong("build-cache-path"),
         help: "The path to the build cache.",
         completion: .directory
     )
     public var path: AbsolutePath?
 
     @Option(
-        name: .customLong("experimental-build-cache-size-limit"),
+        name: .customLong("build-cache-size-limit"),
         help: "Limit the build cache size, either as an absolute size (e.g. '10G') or as a percentage of available disk space (e.g. '50%')."
     )
     public var sizeLimit: BuildCacheConfiguration.SizeLimit?
 
     @Flag(
-        name: .customLong("experimental-build-cache-diagnostic-remarks"),
+        name: .customLong("build-cache-diagnostic-remarks"),
         inversion: .prefixedEnableDisable,
         help: "Enable or disable diagnostic remarks about build cache hits and misses."
     )
@@ -281,7 +281,7 @@ public struct BuildCachingOptions: ParsableArguments {
     public var remoteServicePath: AbsolutePath?
 
     @Flag(
-        name: .customLong("experimental-build-cache-prefix-mapping"),
+        name: .customLong("build-cache-prefix-mapping"),
         inversion: .prefixedEnableDisable,
         help: "Enable or disable prefix mapping, allowing copies of a package at different paths to share cached outputs."
     )
