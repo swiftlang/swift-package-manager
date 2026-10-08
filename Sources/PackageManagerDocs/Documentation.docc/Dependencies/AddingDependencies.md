@@ -111,6 +111,12 @@ After adding the binary target, you can add it to the list of dependencies for a
 For more information on identifying and verifying a binary target, see [Identifying binary dependencies](https://developer.apple.com/documentation/xcode/identifying-binary-dependencies).
 For more information on creating a binary target, see [Creating a multiplatform binary framework bundle](https://developer.apple.com/documentation/xcode/creating-a-multi-platform-binary-framework-bundle).
 
+### Precompiled Binary Targets for Other platforms
+
+On platforms other than Apple's, a `.binaryTarget` can depend on a C-ABI static library distributed as an `.artifactbundle`, rather than an XCFramework. Swift Package Manager introduced this with [SE-0482](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0482-swiftpm-static-library-binary-target-non-apple-platforms.md).
+
+For the full `info.json` manifest schema an artifact bundle must provide, see <doc:ArtifactBundleReference>.
+
 ## Topics
 
 - <doc:ResolvingPackageVersions>
