@@ -444,7 +444,7 @@ extension PackagePIFProjectBuilder {
         mainModule.recursivelyTraverseTransitiveLinkageDependencies(
             includeDependenciesOfMacros: directMacroDependencyIDs,
             toolsVersion: self.package.manifest.toolsVersion
-        ) { dependency, dependencyPlatformFilters in
+        ) { dependency, dependencyPlatformFilters, dependencyBuildConfigurationFilters in
             switch dependency {
             case .module(let moduleDependency, _):
                 // This assertion is temporarily disabled since we may see targets from
@@ -465,6 +465,7 @@ extension PackagePIFProjectBuilder {
                             id: id,
                             fileRef: binaryFileRef,
                             platformFilters: dependencyPlatformFilters,
+                            buildConfigurationFilters: dependencyBuildConfigurationFilters,
                             codeSignOnCopy: true,
                             removeHeadersOnCopy: true
                         )
@@ -476,6 +477,7 @@ extension PackagePIFProjectBuilder {
                     mainModuleTarget.common.addDependency(
                         on: dependencyId,
                         platformFilters: dependencyPlatformFilters,
+                        buildConfigurationFilters: dependencyBuildConfigurationFilters,
                         linkProduct: false
                     )
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyId)'")
@@ -485,6 +487,7 @@ extension PackagePIFProjectBuilder {
                     mainModuleTarget.common.addDependency(
                         on: dependencyId,
                         platformFilters: dependencyPlatformFilters,
+                        buildConfigurationFilters: dependencyBuildConfigurationFilters,
                         linkProduct: false
                     )
                     log(.debug, indent: 1, "Added dependency on product '\(dependencyId)'")
@@ -493,6 +496,7 @@ extension PackagePIFProjectBuilder {
                         mainModuleTarget.common.addDependency(
                             on: moduleDependency.pifTargetGUID(suffix: .testable),
                             platformFilters: dependencyPlatformFilters,
+                            buildConfigurationFilters: dependencyBuildConfigurationFilters,
                             linkProduct: true
                         )
                         log(
@@ -511,6 +515,7 @@ extension PackagePIFProjectBuilder {
                         mainModuleTarget.common.addDependency(
                             on: productDependencyGUID,
                             platformFilters: dependencyPlatformFilters,
+                            buildConfigurationFilters: dependencyBuildConfigurationFilters,
                             linkProduct: false
                         )
                         log(.debug, indent: 1, "Added dependency on product '\(productDependencyGUID)'")
@@ -523,6 +528,7 @@ extension PackagePIFProjectBuilder {
                         mainModuleTarget.common.addDependency(
                             on: moduleDependencyGUID,
                             platformFilters: dependencyPlatformFilters,
+                            buildConfigurationFilters: dependencyBuildConfigurationFilters,
                             // Only link the testable version of executables which use Swift, as we do not currently support renaming entrypoints written in other languages.
                             linkProduct: moduleDependency.usesSwift
                         )
@@ -535,6 +541,7 @@ extension PackagePIFProjectBuilder {
                     mainModuleTarget.common.addDependency(
                         on: dependencyGUID,
                         platformFilters: dependencyPlatformFilters,
+                        buildConfigurationFilters: dependencyBuildConfigurationFilters,
                         linkProduct: shouldLinkProduct
                     )
                     log(
@@ -549,6 +556,7 @@ extension PackagePIFProjectBuilder {
                 self.handleProduct(
                     productDependency,
                     platformFilters: dependencyPlatformFilters,
+                    buildConfigurationFilters: dependencyBuildConfigurationFilters,
                     isLinkable: isLinkable,
                     target: &mainModuleTarget,
                     settings: &settings
@@ -617,6 +625,7 @@ extension PackagePIFProjectBuilder {
     private func handleProduct(
         _ product: PackageGraph.ResolvedProduct,
         platformFilters: Set<ProjectModel.PlatformFilter>,
+        buildConfigurationFilters: Set<ProjectModel.BuildConfigurationFilter>,
         isLinkable: Bool,
         target: inout ProjectModel.Target,
         settings: inout ProjectModel.BuildSettings
@@ -631,6 +640,7 @@ extension PackagePIFProjectBuilder {
             target.common.addDependency(
                 on: product.pifTargetGUID,
                 platformFilters: platformFilters,
+                buildConfigurationFilters: buildConfigurationFilters,
                 linkProduct: shouldLinkProduct
             )
             log(
@@ -856,7 +866,7 @@ extension PackagePIFProjectBuilder {
         product.modules.recursivelyTraverseTransitiveLinkageDependencies(
             includeDependenciesOfMacros: [],
             toolsVersion: package.manifest.toolsVersion
-        ) { dependency, dependencyPlatformFilters in
+        ) { dependency, dependencyPlatformFilters, dependencyBuildConfigurationFilters in
             switch dependency {
             case .module(let moduleDependency, _):
                 // This assertion is temporarily disabled since we may see targets from
@@ -877,6 +887,7 @@ extension PackagePIFProjectBuilder {
                             id: id,
                             fileRef: binaryFileRef,
                             platformFilters: dependencyPlatformFilters,
+                            buildConfigurationFilters: dependencyBuildConfigurationFilters,
                             codeSignOnCopy: true,
                             removeHeadersOnCopy: true
                         )
@@ -890,6 +901,7 @@ extension PackagePIFProjectBuilder {
                     libraryUmbrellaTarget.common.addDependency(
                         on: dependencyId,
                         platformFilters: dependencyPlatformFilters,
+                        buildConfigurationFilters: dependencyBuildConfigurationFilters,
                         linkProduct: false
                     )
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyId)'")
@@ -908,6 +920,7 @@ extension PackagePIFProjectBuilder {
                         libraryUmbrellaTarget.common.addDependency(
                             on: product.pifTargetGUID,
                             platformFilters: dependencyPlatformFilters,
+                            buildConfigurationFilters: dependencyBuildConfigurationFilters,
                             linkProduct: false
                         )
                         log(.debug, indent: 1, "Added dependency on product '\(product.pifTargetGUID)'")
@@ -924,6 +937,7 @@ extension PackagePIFProjectBuilder {
                 libraryUmbrellaTarget.common.addDependency(
                     on: moduleDependency.pifTargetGUID,
                     platformFilters: dependencyPlatformFilters,
+                    buildConfigurationFilters: dependencyBuildConfigurationFilters,
                     linkProduct: true
                 )
                 log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependency.pifTargetGUID)'")
@@ -942,6 +956,7 @@ extension PackagePIFProjectBuilder {
                     libraryUmbrellaTarget.common.addDependency(
                         on: productDependency.pifTargetGUID,
                         platformFilters: dependencyPlatformFilters,
+                        buildConfigurationFilters: dependencyBuildConfigurationFilters,
                         linkProduct: shouldLinkProduct
                     )
                     log(

@@ -544,6 +544,7 @@ extension PackageConditionDescription {
     init(_ condition: Serialization.TargetDependency.Condition) {
         self.init(
             platformNames: condition.platforms?.map { $0.name } ?? [],
+            config: condition.config?.config,
             traits: condition.traits.map { Set($0) }
         )
     }
