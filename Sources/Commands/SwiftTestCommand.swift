@@ -223,8 +223,8 @@ struct TestCommandOptions: ParsableArguments {
     var shouldShowDetailedFailureMessage: Bool = false
 
     /// Generate LinuxMain entries and exit.
-    @Flag(name: .customLong("testable-imports"), inversion: .prefixedEnableDisable, help: "Determines whether test modules use @testable imports.")
-    var enableTestableImports: Bool = true
+    @Flag(name: .customLong("testable-imports"), inversion: .prefixedEnableDisable, help: "Enable or disable testable imports. Based on target settings by default.")
+    var enableTestableImports: Bool?
 
     @OptionGroup(
         title: "Coverage Options",
