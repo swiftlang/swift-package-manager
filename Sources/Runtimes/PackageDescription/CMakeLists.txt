@@ -11,6 +11,7 @@ add_library(PackageDescription
   Context.swift
   ContextModel.swift
   LanguageStandardSettings.swift
+  OptimizationLevel.swift
   PackageDescription.swift
   PackageDescriptionSerialization.swift
   PackageDescriptionSerializationConversion.swift

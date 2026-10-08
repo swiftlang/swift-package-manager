@@ -2116,6 +2116,67 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         }
     }
 
+    func test_optimizationLevelUnsupportedByNativeBuildSystem() async throws {
+        let Pkg: AbsolutePath = "/Pkg"
+        let fs: FileSystem = InMemoryFileSystem(
+            emptyFiles:
+                Pkg.appending(components: "Sources", "A", "A.swift").pathString,
+                Pkg.appending(components: "Sources", "B", "B.c").pathString,
+                Pkg.appending(components: "Sources", "B", "include", "B.h").pathString
+        )
+
+        for (target, tool) in [("A", TargetBuildSettingDescription.Tool.swift), ("B", .c), ("B", .cxx)] {
+            let observability = ObservabilitySystem.makeForTesting()
+            let graph = try loadModulesGraph(
+                fileSystem: fs,
+                manifests: [
+                    Manifest.createRootManifest(
+                        displayName: "Pkg",
+                        path: .init(validating: Pkg.pathString),
+                        toolsVersion: .vNext,
+                        targets: [
+                            TargetDescription(
+                                name: "A",
+                                settings: target == "A" ? [
+                                    .init(tool: tool, kind: .optimizationLevel(.size), condition: .init(config: "release")),
+                                ] : []
+                            ),
+                            TargetDescription(
+                                name: "B",
+                                settings: target == "B" ? [
+                                    .init(tool: tool, kind: .optimizationLevel(.size), condition: .init(config: "release")),
+                                ] : []
+                            ),
+                        ]
+                    ),
+                ],
+                observabilityScope: observability.topScope
+            )
+            XCTAssertNoDiagnostics(observability.diagnostics)
+
+            _ = try await mockBuildPlan(
+                graph: graph,
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+
+            do {
+                _ = try await mockBuildPlan(
+                    environment: BuildEnvironment(platform: .linux, configuration: .release),
+                    graph: graph,
+                    fileSystem: fs,
+                    observabilityScope: observability.topScope
+                )
+                XCTFail("expected an error for \(tool) optimizationLevel")
+            } catch {
+                XCTAssertEqual(
+                    "\(error)",
+                    "\(target): the 'optimizationLevel' build setting is not supported when using the native build system."
+                )
+            }
+        }
+    }
+
     func test_wholeModuleOptimization_enabledInEmbedded() async throws {
         let Pkg: AbsolutePath = "/Pkg"
         let fs: FileSystem = InMemoryFileSystem(

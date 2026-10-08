@@ -158,6 +158,8 @@ public final class ClangModuleBuildDescription {
             throw InternalError("underlying target type mismatch \(target)")
         }
 
+        try target.diagnoseUnsupportedSettings(buildParameters)
+
         self.package = package
         self.clangTarget = clangTarget
         self.fileSystem = fileSystem
