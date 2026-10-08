@@ -352,6 +352,202 @@ final class RegistryConfigurationTests: XCTestCase {
         XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
     }
 
+    func testRoundTripCodingForFilesIdentity() throws {
+        var configuration = RegistryConfiguration()
+        try configuration.add(
+            authentication: .init(
+                type: .mtls,
+                identity: .files(certificatePath: "/certs/client.cer", privateKeyPath: "/certs/client.key")
+            ),
+            for: defaultRegistryBaseURL
+        )
+
+        let encoded = try encoder.encode(configuration)
+        let decoded = try decoder.decode(RegistryConfiguration.self, from: encoded)
+
+        XCTAssertEqual(configuration, decoded)
+    }
+
+    func testRoundTripCodingForKeychainIdentity() throws {
+        var configuration = RegistryConfiguration()
+        try configuration.add(
+            authentication: .init(
+                type: .token,
+                identity: .keychain(commonName: "Mona Lisa", hash: "0123456789ABCDEF0123456789ABCDEF01234567")
+            ),
+            for: defaultRegistryBaseURL
+        )
+
+        let encoded = try encoder.encode(configuration)
+        let decoded = try decoder.decode(RegistryConfiguration.self, from: encoded)
+
+        XCTAssertEqual(configuration, decoded)
+    }
+
+    func testDecodeConfigurationWithFilesIdentity() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "authentication": {
+                "packages.example.com": {
+                    "type": "mtls",
+                    "identity": {
+                        "files": {
+                            "certificatePath": "/certs/client.cer",
+                            "privateKeyPath": "/certs/client.key"
+                        }
+                    }
+                }
+            },
+            "version": 1
+        }
+        """#
+
+        let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
+        XCTAssertEqual(configuration.registryAuthentication["packages.example.com"]?.type, .mtls)
+        XCTAssertEqual(
+            configuration.registryAuthentication["packages.example.com"]?.identity,
+            .files(certificatePath: "/certs/client.cer", privateKeyPath: "/certs/client.key")
+        )
+    }
+
+    func testDecodeConfigurationWithKeychainIdentity() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "authentication": {
+                "packages.example.com": {
+                    "type": "basic",
+                    "identity": {
+                        "keychain": {
+                            "commonName": "Mona Lisa",
+                            "hash": "0123456789ABCDEF0123456789ABCDEF01234567"
+                        }
+                    }
+                }
+            },
+            "version": 1
+        }
+        """#
+
+        let configuration = try decoder.decode(RegistryConfiguration.self, from: json)
+        XCTAssertEqual(configuration.registryAuthentication["packages.example.com"]?.type, .basic)
+        XCTAssertEqual(
+            configuration.registryAuthentication["packages.example.com"]?.identity,
+            .keychain(commonName: "Mona Lisa", hash: "0123456789ABCDEF0123456789ABCDEF01234567")
+        )
+    }
+
+    func testDecodeConfigurationWithMutualTLSAndNoIdentity() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "authentication": {
+                "packages.example.com": {
+                    "type": "mtls"
+                }
+            },
+            "version": 1
+        }
+        """#
+
+        XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
+    }
+
+    func testDecodeConfigurationWithBothIdentitySources() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "authentication": {
+                "packages.example.com": {
+                    "type": "mtls",
+                    "identity": {
+                        "files": {
+                            "certificatePath": "/certs/client.cer",
+                            "privateKeyPath": "/certs/client.key"
+                        },
+                        "keychain": {
+                            "commonName": "Mona Lisa",
+                            "hash": "0123456789ABCDEF0123456789ABCDEF01234567"
+                        }
+                    }
+                }
+            },
+            "version": 1
+        }
+        """#
+
+        XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
+    }
+
+    func testDecodeConfigurationWithoutAnyIdentitySource() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "authentication": {
+                "packages.example.com": {
+                    "type": "mtls",
+                    "identity": {}
+                }
+            },
+            "version": 1
+        }
+        """#
+
+        XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
+    }
+
+    func testDecodeConfigurationWithFilesIdentityMissingPrivateKeyPath() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "authentication": {
+                "packages.example.com": {
+                    "type": "mtls",
+                    "identity": {
+                        "files": {
+                            "certificatePath": "/certs/client.cer"
+                        }
+                    }
+                }
+            },
+            "version": 1
+        }
+        """#
+
+        XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
+    }
+
+    func testDecodeConfigurationWithRelativeIdentityPaths() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "authentication": {
+                "packages.example.com": {
+                    "type": "mtls",
+                    "identity": {
+                        "files": {
+                            "certificatePath": "certs/client.cer",
+                            "privateKeyPath": "/certs/client.key"
+                        }
+                    }
+                }
+            },
+            "version": 1
+        }
+        """#
+
+        XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
+    }
+
+    func testEncodeAuthenticationWithoutIdentity() throws {
+        let authentication = RegistryConfiguration.Authentication(type: .basic)
+
+        let encoded = try encoder.encode(authentication)
+
+        XCTAssertEqual(String(decoding: encoded, as: UTF8.self), #"{"type":"basic"}"#)
+    }
+
     func testDecodeConfigurationWithMissingVersion() throws {
         let json = #"""
         {
