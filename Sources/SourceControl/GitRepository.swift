@@ -14,7 +14,9 @@
 import Basics
 import Dispatch
 import class Foundation.NSLock
+import class Foundation.Process
 import class Foundation.ProcessInfo
+import struct Foundation.URL
 
 import struct PackageModel.CanonicalPackageURL
 
@@ -1062,17 +1064,145 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
 
         try self.lock.withLock {
+            let prefix = "\(path.basenameWithoutExt)/"
             try callGit(
                 "archive",
                 "--format",
                 "zip",
                 "--prefix",
-                "\(path.basenameWithoutExt)/",
+                prefix,
                 "--output",
                 path.pathString,
                 "HEAD",
                 failureMessage: "Couldn’t create an archive"
             )
+
+            // `git archive` does not include the contents of submodules, so
+            // archive each submodule separately and merge the results.
+            try self.archiveSubmodules(into: path, prefix: prefix)
+        }
+    }
+
+    /// Merges the contents of the repository's submodules into a source archive
+    /// previously created by `archive(to:)`.
+    ///
+    /// `git archive` records submodules as empty directories, so without this
+    /// step the archive would be missing the submodule sources.
+    private func archiveSubmodules(into archivePath: AbsolutePath, prefix: String) throws {
+        // List the initialized submodules, recursing into nested ones.
+        // `$sha1` is the commit of the submodule recorded in the superproject.
+        let listing = try callGit(
+            "submodule",
+            "foreach",
+            "--recursive",
+            "--quiet",
+            "echo $path $sha1",
+            failureMessage: "Couldn’t list repository submodules"
+        )
+        let submodules: [(path: String, sha: String)] = listing.split(separator: "\n").compactMap { line in
+            // The SHA is always the last whitespace-separated field, which keeps
+            // this working for submodule paths that contain spaces.
+            let fields = line.split(separator: " ")
+            guard fields.count >= 2, let sha = fields.last, sha.count == 40 else {
+                return nil
+            }
+            return (fields.dropLast().joined(separator: " "), String(sha))
+        }
+        guard !submodules.isEmpty else {
+            return
+        }
+
+        #if os(Windows)
+        throw StringError(
+            "Cannot create a source archive: archiving repositories with submodules is not supported on Windows"
+        )
+        #else
+        let envSearchPaths = getEnvSearchPaths(
+            pathString: Environment.current[.path],
+            currentWorkingDirectory: .none
+        )
+        guard let unzip = lookupExecutablePath(filename: "unzip", searchPaths: envSearchPaths),
+              let zip = lookupExecutablePath(filename: "zip", searchPaths: envSearchPaths)
+        else {
+            throw StringError(
+                "Cannot create a source archive: the 'unzip' and 'zip' tools are required to archive repositories with submodules"
+            )
+        }
+
+        try withTemporaryDirectory { temporaryDirectory in
+            let stagingDirectory = temporaryDirectory.appending("staging")
+            try localFileSystem.createDirectory(stagingDirectory)
+
+            // Extract the main archive into the staging directory.
+            try self.runTool(unzip, arguments: ["-q", "-o", archivePath.pathString, "-d", stagingDirectory.pathString])
+
+            // Archive each submodule at the commit recorded in the superproject
+            // and extract it into the staging directory.
+            for (index, submodule) in submodules.enumerated() {
+                let submoduleArchivePath = temporaryDirectory.appending("submodule-\(index).zip")
+                let submoduleRepository = GitRepository(
+                    git: self.git,
+                    path: self.path.appending(submodule.path)
+                )
+                try submoduleRepository.archiveSingle(
+                    to: submoduleArchivePath,
+                    prefix: "\(prefix)\(submodule.path)/",
+                    revision: submodule.sha
+                )
+                try self.runTool(
+                    unzip,
+                    arguments: ["-q", "-o", submoduleArchivePath.pathString, "-d", stagingDirectory.pathString]
+                )
+            }
+
+            // Recreate the archive from the merged staging directory.
+            try self.runTool(
+                zip,
+                arguments: ["-qry", archivePath.pathString, String(prefix.dropLast())],
+                workingDirectory: stagingDirectory
+            )
+        }
+        #endif
+    }
+
+    /// Creates a source archive of a single repository without descending into
+    /// its submodules.
+    private func archiveSingle(to path: AbsolutePath, prefix: String, revision: String) throws {
+        guard self.isWorkingRepo else {
+            throw InternalError("This operation is only valid in a working repository")
+        }
+
+        try self.lock.withLock {
+            try callGit(
+                "archive",
+                "--format",
+                "zip",
+                "--prefix",
+                prefix,
+                "--output",
+                path.pathString,
+                revision,
+                failureMessage: "Couldn’t create an archive"
+            )
+        }
+    }
+
+    /// Runs a command-line tool synchronously, throwing if it exits non-zero.
+    private func runTool(
+        _ tool: AbsolutePath,
+        arguments: [String],
+        workingDirectory: AbsolutePath? = nil
+    ) throws {
+        let process = Foundation.Process()
+        process.executableURL = URL(fileURLWithPath: tool.pathString)
+        process.arguments = arguments
+        if let workingDirectory {
+            process.currentDirectoryURL = workingDirectory.asURL
+        }
+        try process.run()
+        process.waitUntilExit()
+        guard process.terminationStatus == 0 else {
+            throw StringError("Command '\(tool.basename)' exited with status \(process.terminationStatus)")
         }
     }
 
