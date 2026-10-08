@@ -8066,7 +8066,7 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient { request, _ in
+        let httpClient = HTTPClient(configuration: .init(retryStrategy: .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(1)))) { request, _ in
             guard case .download(let fileSystem, let destination) = request.kind else {
                 throw StringError("invalid request \(request.kind)")
             }
@@ -8126,6 +8126,12 @@ final class WorkspaceTests: XCTestCase {
 
         await workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
+                for _ in 0 ..< 2 {
+                    result.checkUnordered(
+                        diagnostic: .contains("https://a.com/a1.zip failed, retrying in"),
+                        severity: .warning
+                    )
+                }
                 result.checkUnordered(
                     diagnostic: .contains(
                         "failed downloading 'https://a.com/a1.zip' which is required by binary target 'A1': badResponseStatusCode(500)"
@@ -10482,7 +10488,7 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         // returns a dummy files for the requested artifact
-        let httpClient = HTTPClient { _, _ in
+        let httpClient = HTTPClient(configuration: .init(retryStrategy: .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(1)))) { _, _ in
             .serverError()
         }
 
@@ -10509,6 +10515,12 @@ final class WorkspaceTests: XCTestCase {
 
         await workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
+                for _ in 0 ..< 2 {
+                    result.check(
+                        diagnostic: .contains("https://a.com/a.artifactbundleindex failed, retrying in"),
+                        severity: .warning
+                    )
+                }
                 result.check(
                     diagnostic: .contains(
                         "failed retrieving 'https://a.com/a.artifactbundleindex': badResponseStatusCode(500)"
@@ -17839,7 +17851,7 @@ final class WorkspaceTests: XCTestCase {
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: signingEntityCheckingMode,
             authorizationProvider: authorizationProvider,
-            customHTTPClient: HTTPClient(configuration: .init(), implementation: { request, progress in
+            customHTTPClient: HTTPClient(configuration: .init(retryStrategy: nil), implementation: { request, progress in
                 switch request.url.path {
                 // request to get package releases
                 case "/\(identity.scope)/\(identity.name)":

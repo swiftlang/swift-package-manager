@@ -1247,13 +1247,16 @@ public final class RegistryClient: AsyncCancellable {
             headers.add(HTTPClientHeaders.Item(name: "X-Swift-Package-Signature-Format", value: signatureFormat.rawValue))
         }
 
+        var request = HTTPClient.Request(
+            method: .put,
+            url: url,
+            headers: headers,
+            body: body
+        )
+        // A retry after a timed-out upload the registry already accepted would fail with a misleading conflict.
+        request.options.retryStrategy = .never
         let response = try await self.send(
-            HTTPClient.Request(
-                method: .put,
-                url: url,
-                headers: headers,
-                body: body
-            ),
+            request,
             intent: "publishing \(packageIdentity) \(packageVersion)",
             timeout: timeout,
             observabilityScope: observabilityScope,
@@ -1427,15 +1430,6 @@ public final class RegistryClient: AsyncCancellable {
         }
     }
 
-    private func defaultRequestOptions(
-        timeout: DispatchTimeInterval? = .none
-    ) -> HTTPClient.Request.Options {
-        var options = HTTPClient.Request.Options()
-        options.timeout = timeout
-        options.authorizationProvider = self.authorizationProvider
-        return options
-    }
-
     /// Sends `request`, logging `intent` before and the status and duration after.
     ///
     /// Transport failures are mapped through `wrapError`; cancellation propagates
@@ -1449,7 +1443,8 @@ public final class RegistryClient: AsyncCancellable {
         wrappingErrorsWith wrapError: (Error) -> Error
     ) async throws -> HTTPClient.Response {
         var request = request
-        request.options = self.defaultRequestOptions(timeout: timeout)
+        request.options.timeout = timeout
+        request.options.authorizationProvider = self.authorizationProvider
 
         let start = DispatchTime.now()
         observabilityScope.emit(info: "\(intent) (\(request.url))")

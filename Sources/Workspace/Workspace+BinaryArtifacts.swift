@@ -183,7 +183,7 @@ extension Workspace {
                             request.options.authorizationProvider = self.authorizationProvider?
                                 .httpAuthorizationHeader(for:)
                             do {
-                                let response = try await self.httpClient.execute(request)
+                                let response = try await self.httpClient.execute(request, observabilityScope: observabilityScope)
                                 guard let body = response.body else {
                                     throw StringError("Body is empty")
                                 }
@@ -699,10 +699,9 @@ extension Workspace {
                 destination: destination
             )
             request.options.authorizationProvider = self.authorizationProvider?.httpAuthorizationHeader(for:)
-            request.options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
             request.options.validResponseCodes = [200]
 
-            _ = try await self.httpClient.execute(request, progress: progress)
+            _ = try await self.httpClient.execute(request, observabilityScope: observabilityScope, progress: progress)
         }
     }
 }
