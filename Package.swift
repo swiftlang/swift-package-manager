@@ -1162,7 +1162,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     if !useSystemSDKDeps {
         package.dependencies += [
             .package(url: "https://github.com/apple/swift-crypto.git", revision: "3.12.5"),
-            .package(url: "https://github.com/apple/swift-system.git", revision: "1.5.0"),
+            .package(url: "https://github.com/apple/swift-system.git", revision: "1.7.3"),
             .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", revision: "1.0.9"),
         ]
     }
