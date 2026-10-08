@@ -18,25 +18,118 @@ import Foundation
 // but it is the closest to accurate we can do at this point
 package func containsAtMain(fileSystem: FileSystem, path: AbsolutePath) throws -> Bool {
     let content: String = try fileSystem.readFileContents(path)
-    let lines = content.split(whereSeparator: { $0.isNewline }).map { $0.trimmingCharacters(in: .whitespaces) }
+    return containsAtMain(in: content)
+}
 
-    var multilineComment = false
-    for line in lines {
-        if line.hasPrefix("//") {
+// Scans the content character-by-character, tracking line and block comment
+// state plus single and multi-line string literal state. Returns true when
+// `@main` is the first non-comment token on a line.
+func containsAtMain(in content: String) -> Bool {
+    var blockCommentDepth = 0
+    var inLineComment = false
+    var inString = false
+    var inMultilineString = false
+    var atLineStart = true
+    let chars = Array(content)
+    let n = chars.count
+    var i = 0
+    while i < n {
+        let c = chars[i]
+
+        if c.isNewline {
+            inLineComment = false
+            atLineStart = true
+            i += 1
             continue
         }
-        if line.hasPrefix("/*") {
-            multilineComment = true
-        }
-        if line.hasSuffix("*/") {
-            multilineComment = false
-        }
-        if multilineComment {
+
+        if inMultilineString {
+            if c == "\\", i + 1 < n {
+                i += 2
+                continue
+            }
+            if c == "\"", i + 2 < n, chars[i + 1] == "\"", chars[i + 2] == "\"" {
+                inMultilineString = false
+                i += 3
+                continue
+            }
+            i += 1
             continue
         }
-        if line.hasPrefix("@main") {
+
+        if inString {
+            if c == "\\", i + 1 < n {
+                i += 2
+                continue
+            }
+            if c == "\"" {
+                inString = false
+                i += 1
+                continue
+            }
+            i += 1
+            continue
+        }
+
+        if blockCommentDepth > 0 {
+            if c == "/", i + 1 < n, chars[i + 1] == "*" {
+                blockCommentDepth += 1
+                i += 2
+                continue
+            }
+            if c == "*", i + 1 < n, chars[i + 1] == "/" {
+                blockCommentDepth -= 1
+                i += 2
+                continue
+            }
+            i += 1
+            continue
+        }
+
+        if inLineComment {
+            i += 1
+            continue
+        }
+
+        if c == "/", i + 1 < n, chars[i + 1] == "/" {
+            inLineComment = true
+            i += 2
+            continue
+        }
+        if c == "/", i + 1 < n, chars[i + 1] == "*" {
+            blockCommentDepth = 1
+            i += 2
+            continue
+        }
+        if c == "\"", i + 2 < n, chars[i + 1] == "\"", chars[i + 2] == "\"" {
+            inMultilineString = true
+            atLineStart = false
+            i += 3
+            continue
+        }
+        if c == "\"" {
+            inString = true
+            atLineStart = false
+            i += 1
+            continue
+        }
+
+        if c == " " || c == "\t" {
+            i += 1
+            continue
+        }
+
+        if atLineStart, c == "@",
+           i + 4 < n,
+           chars[i + 1] == "m",
+           chars[i + 2] == "a",
+           chars[i + 3] == "i",
+           chars[i + 4] == "n"
+        {
             return true
         }
+        atLineStart = false
+        i += 1
     }
     return false
 }
