@@ -44,6 +44,8 @@ extension Workspace {
     public struct BinaryArtifactsManager: Cancellable {
         public typealias Delegate = BinaryArtifactsManagerDelegate
 
+        private static let checksumOnlyFileExtensions: Set<String> = ["artifactbundleindex"]
+
         private let fileSystem: FileSystem
         private let authorizationProvider: AuthorizationProvider?
         private let hostToolchain: UserToolchain
@@ -579,9 +581,15 @@ extension Workspace {
             fileSystem: any FileSystem
         ) throws -> String {
             let archiver = archiver ?? UniversalArchiver(fileSystem)
-            // Validate the path has a supported extension.
-            guard let lastPathComponent = path.components.last, archiver.isFileSupported(lastPathComponent) else {
-                let supportedExtensionList = archiver.supportedExtensions.joined(separator: ", ")
+            // Validate that the path is either an archive or another supported binary artifact file.
+            guard let lastPathComponent = path.components.last,
+                  archiver.isFileSupported(lastPathComponent)
+                  || path.extension.map(Self.checksumOnlyFileExtensions.contains) == true
+            else {
+                let supportedExtensionList = archiver.supportedExtensions
+                    .union(Self.checksumOnlyFileExtensions)
+                    .sorted()
+                    .joined(separator: ", ")
                 throw StringError("unexpected file type; supported extensions are: \(supportedExtensionList)")
             }
 
