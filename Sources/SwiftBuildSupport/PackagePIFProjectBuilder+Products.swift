@@ -708,7 +708,9 @@ extension PackagePIFProjectBuilder {
                 productName = "$(WRAPPER_NAME)"
                 productType = .framework
             }
-        } else if pifBuilder.delegate.isRootPackage && pifBuilder.materializeStaticArchiveProductsForRootPackages {
+        } else if pifBuilder.materializeStaticArchiveProductsForRootPackages
+            && (pifBuilder.delegate.isRootPackage || desiredProductType == .static) {
+            // Explicit static products need an archive even when declared in a dependency package.
             productType = .staticArchive
         } else {
             productType = .packageProduct
