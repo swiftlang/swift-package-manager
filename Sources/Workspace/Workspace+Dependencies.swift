@@ -129,7 +129,7 @@ extension Workspace {
                 }
         }
 
-        let updateResults: [DependencyResolverBinding]
+        let updateResults: PubGrubDependencyResolver.ResolutionResult
         if skipUpdateForResolvedPackages && !self.configuration.skipDependenciesUpdates {
             let localProvider = ResolverPrecomputationProvider(
                 root: graphRoot,
@@ -240,7 +240,13 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
         // If we have missing packages, something is fundamentally wrong with the resolution of the graph
-        let stillMissingPackages = try updatedDependencyManifests.missingPackages
+        let possibleMissingPackages = try updatedDependencyManifests.missingPackages
+        var stillMissingPackages: [PackageReference] = []
+        for pkg in possibleMissingPackages {
+            if await !self.state.isMultiMajor(identity: pkg.identity) {
+                stillMissingPackages.append(pkg)
+            }
+        }
         guard stillMissingPackages.isEmpty else {
             observabilityScope.emit(BinaryArtifactsManagerError.exhaustedAttempts(missing: stillMissingPackages))
             return nil
@@ -739,6 +745,9 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+        // todo bp; using the result from resolution, inject new dependency nodes/manifests to load
+        // re: multiple majors while maintaining their modified id
+
         // Reset the active resolver.
         self.activeResolver = nil
 
@@ -763,7 +772,13 @@ extension Workspace {
         )
 
         // If we still have missing packages, something is fundamentally wrong with the resolution of the graph
-        let stillMissingPackages = try updatedDependencyManifests.missingPackages
+        let possibleMissingPackages = try updatedDependencyManifests.missingPackages
+        var stillMissingPackages: [PackageReference] = []
+        for pkg in possibleMissingPackages {
+            if await !self.state.isMultiMajor(identity: pkg.identity) {
+                stillMissingPackages.append(pkg)
+            }
+        }
         guard stillMissingPackages.isEmpty else {
             observabilityScope.emit(BinaryArtifactsManagerError.exhaustedAttempts(missing: stillMissingPackages))
             return updatedDependencyManifests
@@ -813,7 +828,7 @@ extension Workspace {
     @discardableResult
     fileprivate func updateDependenciesCheckouts(
         root: PackageGraphRoot,
-        updateResults: [DependencyResolverBinding],
+        updateResults: PubGrubDependencyResolver.ResolutionResult,
         updateBranches: Bool = false,
         observabilityScope: ObservabilityScope
     ) async -> [(PackageReference, PackageStateChange)] {
@@ -887,6 +902,53 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async throws -> AbsolutePath {
         switch requirement {
+        case .multipleMajorVersions(let versions):
+            // todo bp
+            print("Versions available for package \(package.identity): \(versions.map(\.description).joined(separator: ", "))")
+            let container = try await packageContainerProvider.getContainer(
+                for: package,
+                updateStrategy: ContainerUpdateStrategy.never,
+                observabilityScope: observabilityScope
+            )
+
+            var repos: [AbsolutePath] = []
+
+            if let container = container as? SourceControlPackageContainer {
+                // todo bp get available versions, consolidate all nodes.
+                // todo: should oNLY  ever match the version specifier in the identity to the version needed here?
+                for version in versions {
+                    guard let tag = await container.getTag(for: version) else {
+                        throw try await InternalError(
+                            "unable to get tag for \(package) \(version); available versions \(container.versionsDescending())"
+                        )
+                    }
+
+                    let revision = try container.getRevision(forTag: tag)
+                    try container.checkIntegrity(version: version, revision: revision)
+
+                    // TODO BP: need a way to group all the nodes representing major versions together,
+                    // nest them underneath a directory in checkouts/ with the same base name of the original
+                    // package id.
+                    let repo = try await self.checkoutRepository(
+                        package: package,
+                        at: .version(version, revision: revision),
+                        isMultipleMajor: true,
+                        observabilityScope: observabilityScope
+                    )
+                    repos.append(repo)
+                }
+            } else {
+                throw InternalError("MULTI MAJOR for \(package.identity) of type \(package.kind)")
+            }
+
+            if let repo = repos.first {
+//                await self.state.add(dependency: dependency)
+//                try await self.state.save()
+                return repo
+            } else {
+                throw InternalError("No file found for multi majors -- this error is placeholder")
+            }
+
         case .version(let version):
             let container = try await packageContainerProvider.getContainer(
                 for: package,
@@ -908,6 +970,7 @@ extension Workspace {
                 return try await self.checkoutRepository(
                     package: package,
                     at: .version(version, revision: revision),
+                    isMultipleMajor: false,
                     observabilityScope: observabilityScope
                 )
             } else if let _ = container as? RegistryPackageContainer {
@@ -934,6 +997,7 @@ extension Workspace {
             return try await self.checkoutRepository(
                 package: package,
                 at: .revision(revision),
+                isMultipleMajor: false,
                 observabilityScope: observabilityScope
             )
 
@@ -941,6 +1005,7 @@ extension Workspace {
             return try await self.checkoutRepository(
                 package: package,
                 at: .branch(name: branch, revision: revision),
+                isMultipleMajor: false,
                 observabilityScope: observabilityScope
             )
 
@@ -1080,6 +1145,8 @@ extension Workspace {
 
             case unversioned
 
+            case multipleMajorVersions([Version])
+
             public var description: String {
                 switch self {
                 case .version(let version):
@@ -1088,6 +1155,8 @@ extension Workspace {
                     return "requirement(\(revision) \(branch ?? ""))"
                 case .unversioned:
                     return "requirement(unversioned)"
+                case .multipleMajorVersions(let versions):
+                    return "requirement(\(versions.map(\.description).joined(separator: ", ")))"
                 }
             }
 
@@ -1099,6 +1168,8 @@ extension Workspace {
                     return "\(revision) \(branch ?? "")"
                 case .unversioned:
                     return "unversioned"
+                case .multipleMajorVersions(let versions):
+                    return "\(versions.map(\.description).joined(separator: ", "))"
                 }
             }
         }
@@ -1150,7 +1221,7 @@ extension Workspace {
     /// Computes states of the packages based on last stored state.
     fileprivate func computePackageStateChanges(
         root: PackageGraphRoot,
-        resolvedDependencies: [DependencyResolverBinding],
+        resolvedDependencies: PubGrubDependencyResolver.ResolutionResult,
         updateBranches: Bool,
         observabilityScope: ObservabilityScope
     ) async throws -> [(PackageReference, PackageStateChange)] {
@@ -1159,7 +1230,7 @@ extension Workspace {
         var packageStateChanges: [PackageIdentity: (PackageReference, PackageStateChange)] = [:]
 
         // Set the states from resolved dependencies results.
-        for binding in resolvedDependencies {
+        for binding in resolvedDependencies.bindings {
             // Get the existing managed dependency for this package ref, if any.
 
             // first find by identity only since edit location may be different by design
@@ -1258,13 +1329,28 @@ extension Workspace {
 
             case .version(let version):
                 let stateChange: PackageStateChange
+                let majorVersions = resolvedDependencies.multipleMajorVersionPackages[binding.package.identityWithoutMajor()]
+                let majorVersionForIdentity = resolvedDependencies.majorVersionForIdentity(binding.package)
                 switch currentDependency?.state {
                 case .sourceControlCheckout(.version(version, _)), .registryDownload(version, _), .custom(version, _):
                     stateChange = .unchanged
                 case .edited, .fileSystem, .sourceControlCheckout, .registryDownload, .custom:
-                    stateChange = .updated(.init(requirement: .version(version), products: binding.products))
+                    if let majorVersionForIdentity {
+                        stateChange = .updated(.init(requirement: .multipleMajorVersions([majorVersionForIdentity]), products: binding.products))
+                    } else if let majorVersions {
+                        stateChange = .updated(.init(requirement: .multipleMajorVersions(majorVersions.map({ $0 })), products: binding.products))
+                    } else {
+                        stateChange = .updated(.init(requirement: .version(version), products: binding.products))
+                    }
                 case nil:
-                    stateChange = .added(.init(requirement: .version(version), products: binding.products))
+                    // todo bp this is being run across every identity of major versions (dep, dep@1, dep@2 etc.)
+                    if let majorVersionForIdentity {
+                        stateChange = .added(.init(requirement: .multipleMajorVersions([majorVersionForIdentity]), products: binding.products))
+                    } else if let majorVersions {
+                        stateChange = .added(.init(requirement: .multipleMajorVersions(majorVersions.map({ $0 })), products: binding.products))
+                    } else {
+                        stateChange = .added(.init(requirement: .version(version), products: binding.products))
+                    }
                 }
                 packageStateChanges[binding.package.identity] = (binding.package, stateChange)
             }
@@ -1442,18 +1528,34 @@ extension Workspace {
         resolver: PubGrubDependencyResolver,
         constraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
-    ) async -> [DependencyResolverBinding] {
+    ) async -> PubGrubDependencyResolver.ResolutionResult {
         os_signpost(.begin, name: SignpostName.pubgrub)
         let result = await resolver.solve(constraints: constraints)
         os_signpost(.end, name: SignpostName.pubgrub)
 
         // Take an action based on the result.
         switch result {
-        case .success(let bindings):
-            return bindings
+//        case .success(let bindings):
+//            return bindings
+        case .success(let resolutionResult):
+            // Detect which packages are slated for multiple major versions:
+            if !resolutionResult.multipleMajorVersionPackages.isEmpty {
+                var multipleMajorAssignments: [PackageReference: [DependencyResolverBinding]] = [:]
+                // Organize the assignments accordingly;
+                for (pkg, versions) in resolutionResult.multipleMajorVersionPackages {
+                    let assignmentsForPkg = resolutionResult.bindings.filter({ $0.package.identity.description.hasPrefix(pkg.identity.description) })
+                    multipleMajorAssignments[pkg, default: []].append(contentsOf: assignmentsForPkg)
+                }
+                print("Multiple major assignments:")
+                for (pkg, binding) in multipleMajorAssignments {
+                    print("\(pkg.identity): \(binding.map({ "\($0.package.identity)-->\($0.boundVersion.description)" }).joined(separator: ", "))")
+                }
+            }
+
+            return resolutionResult
         case .failure(let error):
             observabilityScope.emit(error)
-            return []
+            return .init()
         }
     }
 

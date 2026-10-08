@@ -272,6 +272,52 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         }
     }
 
+    public var supportedMajorVersions: [Int] {
+        switch self {
+        case .sourceControl(let settings):
+            switch settings.requirement {
+            case .exact(let version):
+                return [version.major]
+            case .range(let range):
+                var versions: [Int] = []
+                for version in range.lowerBound.major..<range.upperBound.major {
+                    versions.append(version)
+                }
+                return versions
+            case .branch, .revision:
+                return []
+            }
+        case .registry, .fileSystem:
+            return []
+        }
+    }
+
+    public var maxSupportedMajorVersion: Int? {
+        switch self {
+        case .sourceControl:
+            if let major = self.supportedMajorVersions.max() {
+                return major
+            }
+            return nil
+        case .registry, .fileSystem:
+            return nil
+        }
+    }
+
+    public var majorVersionIdentity: PackageIdentity {
+        switch self {
+        case .sourceControl:
+            let majorVersion = self.maxSupportedMajorVersion
+            if let majorVersion {
+                return .plain("\(self.identity)@\(majorVersion)")
+            } else {
+                return self.identity
+            }
+        case .registry, .fileSystem:
+            return self.identity
+        }
+    }
+
     public func filtered(by productFilter: ProductFilter) -> Self {
         switch self {
         case .fileSystem(let settings):

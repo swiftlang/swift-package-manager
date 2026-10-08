@@ -93,6 +93,26 @@ extension VersionSetSpecifier {
 }
 
 extension VersionSetSpecifier {
+    /// The major version that every version allowed by this set belongs to, or `nil` if the set is
+    /// unbounded, empty, or spans more than one major version.
+    var singleMajorVersion: Int? {
+        switch self {
+        case .any, .empty:
+            return nil
+        case .exact(let version):
+            return version.major
+        case .range(let range):
+            return range.singleMajorVersion
+        case .ranges(let ranges):
+            guard let first = ranges.first?.singleMajorVersion else {
+                return nil
+            }
+            return ranges.allSatisfy { $0.singleMajorVersion == first } ? first : nil
+        }
+    }
+}
+
+extension VersionSetSpecifier {
     public static func union(from range: Swift.Range<Version>) -> VersionSetSpecifier {
         return .union(from: [range])
     }
@@ -536,6 +556,25 @@ fileprivate extension Range where Bound == Version {
 
     func isHigherThan(_ other: Range<Bound>) -> Bool {
         return other.isLowerThan(self)
+    }
+
+    /// The major version this range is confined to, or `nil` if it spans more than one major version.
+    var singleMajorVersion: Int? {
+        let lowerMajor = self.lowerBound.major
+
+        // The upper bound is exclusive. If it lands exactly on a major version boundary (e.g. `2.0.0`),
+        // that major isn't actually included in the range, so the highest included major is one less.
+        let upperBound = self.upperBound
+        let highestIncludedMajor = (upperBound.minor == 0 && upperBound.patch == 0 && upperBound.prereleaseIdentifiers.isEmpty)
+            ? upperBound.major - 1
+            : upperBound.major
+
+        guard lowerMajor <= highestIncludedMajor else {
+            // Empty range.
+            return nil
+        }
+
+        return lowerMajor == highestIncludedMajor ? lowerMajor : nil
     }
 
     var supportsPrereleases: Bool {

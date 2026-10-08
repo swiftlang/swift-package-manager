@@ -51,6 +51,13 @@ public struct PubGrubDependencyResolver {
         /// already-decided package's traits arrives.
         public var decisionsToRepair: Set<DependencyResolutionNode> = []
 
+        /// Packages for which the resolver has observed two positive requirements pinned to
+        /// different, individually-single major versions (e.g. one dependent wants 1.x, another
+        /// wants 2.x) - detected inline in `derive`, the instant the conflicting term arrives.
+        /// For now this is purely observational; see `Term.intersect(withRequirement:andPolarity:)`
+        /// for how the solver avoids failing resolution over it.
+        public private(set) var multipleMajorVersionPackages: [PackageReference: Set<Int>] = [:]
+
         /// The current best guess for a solution satisfying all requirements.
         public private(set) var solution: PartialSolution
 
@@ -134,17 +141,45 @@ public struct PubGrubDependencyResolver {
         }
 
         func decide(_ node: DependencyResolutionNode, at version: Version) {
+            // Determine if this node is a part of the multiple major versions set, and
+            // if it should be treated as such.
             let term = Term(node, .exact(version))
+
+            if let versions = self.multipleMajorVersionPackages[term.node.package] {
+                // do something.
+                print("Must decide amongst major versions: \(term.node.package.identity)")
+                print("Available versions: \(versions.map(\.description).joined(separator: ", "))")
+            }
+
             self.lock.withLock {
-                assert(term.isValidDecision(for: self.solution))
+                assert(term.isValidDecision(
+                    for: self.solution,
+                    flaggedMultipleMajorVersionPackages: self.multipleMajorVersionPackages
+                ))
                 self.solution.decide(node, at: version)
             }
         }
 
         func derive(_ term: Term, cause: Incompatibility) {
             self.lock.withLock {
+                self.flagIfMultipleMajorVersions(existing: self.solution._positive[term.node], incoming: term)
                 self.solution.derive(term, cause: cause)
             }
+        }
+
+        /// If `incoming` and the positive term already on record for its node (if any) are each
+        /// confined to a single, but different, major version, records both majors as having been
+        /// requested simultaneously for that package. Must be called while holding `self.lock`.
+        private func flagIfMultipleMajorVersions(existing: Term?, incoming: Term) {
+            guard let existing, existing.isPositive, incoming.isPositive,
+                  let existingMajor = existing.requirement.singleMajorVersion,
+                  let incomingMajor = incoming.requirement.singleMajorVersion,
+                  existingMajor != incomingMajor
+            else {
+                return
+            }
+
+            self.multipleMajorVersionPackages[incoming.node.package, default: []].formUnion([existingMajor, incomingMajor])
         }
 
         func backtrack(toDecisionLevel: Int) {
@@ -226,8 +261,40 @@ public struct PubGrubDependencyResolver {
         self.delegate = delegate
     }
 
+    public struct ResolutionResult {
+        public var bindings: [DependencyResolverBinding]
+        public var multipleMajorVersionPackages: [PackageReference: Set<Version>]
+
+        public init(bindings: [DependencyResolverBinding], multipleMajorVersionPackages: [PackageReference: Set<Version>]) {
+            self.bindings = bindings
+            self.multipleMajorVersionPackages = multipleMajorVersionPackages
+        }
+
+        public init() {
+            self.bindings = []
+            self.multipleMajorVersionPackages = [:]
+        }
+
+        public func majorVersionForIdentity(_ pkg: PackageReference) -> Version? {
+            let baseIdentity = pkg.identityWithoutMajor()
+            guard let versions = self.multipleMajorVersionPackages[pkg.identityWithoutMajor()] else {
+                return nil
+            }
+
+            for version in versions {
+                let possibleMatch = baseIdentity.scoped(toMajor: version.major)
+                if possibleMatch == pkg {
+                    return version
+                }
+            }
+
+            return nil
+        }
+    }
+
     /// Execute the resolution algorithm to find a valid assignment of versions.
-    public func solve(constraints: [Constraint]) async -> Result<[DependencyResolverBinding], Error> {
+//    public func solve(constraints: [Constraint]) async -> Result<[DependencyResolverBinding], Error> {
+    public func solve(constraints: [Constraint]) async -> Result<ResolutionResult, Error> {
         // the graph resolution root
         let root: DependencyResolutionNode
         if constraints.count == 1, let constraint = constraints.first, constraint.package.kind.isRoot {
@@ -245,9 +312,22 @@ public struct PubGrubDependencyResolver {
         }
 
         do {
-            // strips state
-            let bindings = try await self.solve(root: root, constraints: constraints).bindings
-            return .success(bindings)
+            let (bindings, state) = try await self.solve(root: root, constraints: constraints)
+            // TODO bp: amend the multiple major version number mapping to now also store the exact
+            // version for which this has resolved to.
+
+            // also note that the package identity here has been changed with the appended package version
+            // so we must search against the same root package id
+            let resolvedMajorVersions = bindings.filter({ state.multipleMajorVersionPackages[$0.package.identityWithoutMajor()] != nil }).reduce(into: [PackageReference: Set<Version>]()) { multiMajors, binding in
+                if case let .version(version) = binding.boundVersion {
+                    multiMajors[binding.package.identityWithoutMajor(), default: []].insert(version)
+                }
+            }
+
+            let result = ResolutionResult(bindings: bindings, multipleMajorVersionPackages: resolvedMajorVersions)
+
+//            return .success(bindings)
+            return .success(result)
         } catch {
             // If version solving failing, build the user-facing diagnostic.
             if let pubGrubError = error as? PubGrubError, let rootCause = pubGrubError.rootCause, let incompatibilities = pubGrubError.incompatibilities {
@@ -577,10 +657,12 @@ public struct PubGrubDependencyResolver {
     /// After this method returns `solution` is either populated with a list of
     /// final version assignments or an error is thrown.
     private func run(state: State) async throws {
-        var next: DependencyResolutionNode? = state.root
+        var next: [DependencyResolutionNode] = [state.root]
 
-        while let nxt = next {
-            try self.propagate(state: state, node: nxt)
+        while !next.isEmpty {
+            for nxt in next {
+                try self.propagate(state: state, node: nxt)
+            }
 
             // initiate prefetch of known packages that will be used to make the decision on the next step
             self.provider.prefetch(containers: state.solution.undecided.map(\.node.package))
@@ -588,7 +670,7 @@ public struct PubGrubDependencyResolver {
             // Ensure that decisions that need repairing are prioritized.
             if let repairNode = state.decisionsToRepair.popFirst(),
                let version = state.solution.decisions[repairNode] {
-                next = repairNode
+                next = [repairNode]
                 // Update incompatibilities for this node.
                 let container = try self.provider.getCachedContainer(for: repairNode.package)
                 let incompatibilities = try await container.incompatibilites(
@@ -603,7 +685,7 @@ public struct PubGrubDependencyResolver {
                 }
             } else {
                 // If decision making determines that no more decisions are to be
-                // made, it returns nil to signal that version solving is done.
+                // made, it returns an empty array to signal that version solving is done.
                 next = try await self.makeDecision(state: state)
             }
         }
@@ -695,7 +777,10 @@ public struct PubGrubDependencyResolver {
             var previousSatisfierLevel = 0
 
             for term in incompatibility.terms {
-                let satisfier = try state.solution.satisfier(for: term)
+                let satisfier = try state.solution.satisfier(
+                    for: term,
+                    flaggedMultipleMajorVersionPackages: state.multipleMajorVersionPackages
+                )
 
                 if let _mostRecentSatisfier = mostRecentSatisfier {
                     let mostRecentSatisfierIdx = state.solution.assignments.firstIndex(of: _mostRecentSatisfier)!
@@ -717,7 +802,13 @@ public struct PubGrubDependencyResolver {
                 if mostRecentTerm == term {
                     difference = mostRecentSatisfier?.term.difference(with: term)
                     if let difference {
-                        previousSatisfierLevel = max(previousSatisfierLevel, try state.solution.satisfier(for: difference.inverse).decisionLevel)
+                        previousSatisfierLevel = max(
+                            previousSatisfierLevel,
+                            try state.solution.satisfier(
+                                for: difference.inverse,
+                                flaggedMultipleMajorVersionPackages: state.multipleMajorVersionPackages
+                            ).decisionLevel
+                        )
                     }
                 }
             }
@@ -807,11 +898,12 @@ public struct PubGrubDependencyResolver {
 
     internal func makeDecision(
         state: State
-    ) async throws -> DependencyResolutionNode? {
+    ) async throws -> [DependencyResolutionNode] {
         // If there are no more undecided terms, version solving is complete.
         let undecided = state.solution.undecided
         guard !undecided.isEmpty else {
-            return nil
+//            return nil
+            return []
         }
 
         // Prefer packages with least number of versions that fit the current requirements so we
@@ -819,7 +911,7 @@ public struct PubGrubDependencyResolver {
         let start = DispatchTime.now()
         let counts = try await self.computeCounts(for: undecided)
         // forced unwraps safe since we are testing for count and errors above
-        let pkgTerm = undecided.min {
+        var pkgTerm = undecided.min {
             // Prefer packages that don't allow pre-release versions
             // to allow propagation logic to find dependencies that
             // limit the range before making any decisions. This means
@@ -835,42 +927,73 @@ public struct PubGrubDependencyResolver {
         let container = try self.provider.getCachedContainer(for: pkgTerm.node.package)
 
         // Get the best available version for this package.
-        guard let version = try await container.getBestAvailableVersion(for: pkgTerm) else {
-            state.addIncompatibility(try Incompatibility(pkgTerm, root: state.root, cause: .noAvailableVersion), at: .decisionMaking)
-            return pkgTerm.node
-        }
-
-        // Add all of this version's dependencies as incompatibilities.
-        let depIncompatibilities = try await container.incompatibilites(
-            at: version,
-            node: pkgTerm.node,
-            overriddenPackages: state.overriddenPackages,
-            root: state.root,
-            enabledTraits: state.enabledTraits(for: pkgTerm.node)
-        )
-
-        var haveConflict = false
-        for incompatibility in depIncompatibilities {
-            // Add the incompatibility to our partial solution.
-            state.addIncompatibility(incompatibility, at: .decisionMaking)
-
-            // Check if this incompatibility will satisfy the solution.
-            haveConflict = haveConflict || incompatibility.terms.allSatisfy {
-                // We only need to check if the terms other than this package
-                // are satisfied because we _know_ that the terms matching
-                // this package will be satisfied if we make this version
-                // as a decision.
-                $0.node == pkgTerm.node || state.solution.satisfies($0)
+        // Determine which "term" to use, depending on whether this package
+        // is flagged for multiple major versions
+        var pkgTerms: [Term] = []
+        if let versions = state.multipleMajorVersionPackages[pkgTerm.node.package], !versions.isEmpty {
+            for ver in versions {
+                pkgTerms.append(pkgTerm.scoped(toMajor: ver))
             }
         }
 
-        // Decide this version if there was no conflict with its dependencies.
-        if !haveConflict {
-            self.delegate?.didResolve(term: pkgTerm, version: version, duration: start.distance(to: .now()))
-            state.decide(pkgTerm.node, at: version)
+        if !pkgTerms.isEmpty {
+            var nodes: [DependencyResolutionNode] = []
+            for term in pkgTerms {
+                nodes.append(try await makeDecisionForTerm(term))
+            }
+
+            // Retire the plain (unscoped) node too, so it doesn't stick around in `undecided`
+            // forever and cause `makeDecision` to keep re-entering this branch for it. Use
+            // whichever major actually got decided, if any - some majors may have hit a conflict
+            // above and been left undecided.
+            if let decidedVersion = nodes.lazy.compactMap({ state.solution.decisions[$0] }).first {
+                state.decide(pkgTerm.node, at: decidedVersion)
+                nodes.append(pkgTerm.node)
+            }
+
+            return nodes
+        } else {
+            return [try await makeDecisionForTerm(pkgTerm)]
         }
 
-        return pkgTerm.node
+        func makeDecisionForTerm(_ term: Term) async throws -> DependencyResolutionNode {
+            guard let version = try await container.getBestAvailableVersion(for: term, flaggedMultipleMajorVersions: state.multipleMajorVersionPackages) else {
+                state.addIncompatibility(try Incompatibility(term, root: state.root, cause: .noAvailableVersion), at: .decisionMaking)
+                return term.node
+            }
+
+            // Add all of this version's dependencies as incompatibilities.
+            let depIncompatibilities = try await container.incompatibilites(
+                at: version,
+                node: term.node,
+                overriddenPackages: state.overriddenPackages,
+                root: state.root,
+                enabledTraits: state.enabledTraits(for: term.node)
+            )
+
+            var haveConflict = false
+            for incompatibility in depIncompatibilities {
+                // Add the incompatibility to our partial solution.
+                state.addIncompatibility(incompatibility, at: .decisionMaking)
+
+                // Check if this incompatibility will satisfy the solution.
+                haveConflict = haveConflict || incompatibility.terms.allSatisfy {
+                    // We only need to check if the terms other than this package
+                    // are satisfied because we _know_ that the terms matching
+                    // this package will be satisfied if we make this version
+                    // as a decision.
+                    $0.node == term.node || state.solution.satisfies($0)
+                }
+            }
+
+            // Decide this version if there was no conflict with its dependencies.
+            if !haveConflict {
+                self.delegate?.didResolve(term: term, version: version, duration: start.distance(to: .now()))
+                state.decide(term.node, at: version)
+            }
+
+            return term.node
+        }
     }
 }
 
@@ -952,5 +1075,45 @@ private extension PackageRequirement {
         case .revision:
             true
         }
+    }
+}
+
+extension PackageReference {
+    public func scoped(toMajor major: Int) -> PackageReference {
+        PackageReference(identity: .plain("\(self.identity)@\(major)"), kind: self.kind, name: self.deprecatedName)
+    }
+
+    public func identityWithoutMajor() -> PackageReference {
+        if let genericId = self.identity.description.components(separatedBy: "@").first
+        {
+            let packageId = PackageIdentity.plain(genericId)
+            return PackageReference(identity: packageId, kind: self.kind, name: self.deprecatedName)
+        }
+
+        return self
+    }
+}
+
+extension DependencyResolutionNode {
+    func scoped(toMajor major: Int) -> DependencyResolutionNode {
+        switch self {
+        case .empty:
+            return .empty(package: self.package.scoped(toMajor: major))
+        case .product(let product, _, let enabledTraits):
+            return .product(product, package: self.package.scoped(toMajor: major), enabledTraits: enabledTraits)
+        case .root(_, let enabledTraits):
+            return .root(package: self.package.scoped(toMajor: major), enabledTraits: enabledTraits)
+        }
+    }
+}
+
+extension Term {
+    func scoped(toMajor major: Int) -> Term {
+        // `self.requirement` may be the wide union `Term.intersect`'s multiple-major-version
+        // fallback produced (e.g. `{1.x, 2.x}`) rather than a clean per-major range. Since that
+        // union is exactly the union of the original per-major ranges, intersecting it against
+        // "all of major `major`" recovers just this major's slice losslessly.
+        let scopedRequirement = self.requirement.intersection(.range(Version(major, 0, 0)..<Version(major + 1, 0, 0)))
+        return Term(node: self.node.scoped(toMajor: major), requirement: scopedRequirement, isPositive: self.isPositive)
     }
 }

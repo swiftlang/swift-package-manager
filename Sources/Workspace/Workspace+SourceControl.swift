@@ -39,6 +39,7 @@ extension Workspace {
     func checkoutRepository(
         package: PackageReference,
         at checkoutState: CheckoutState,
+        isMultipleMajor: Bool,
         observabilityScope: ObservabilityScope
     ) async throws -> AbsolutePath {
         let repository = try package.makeRepositorySpecifier()
@@ -60,6 +61,7 @@ extension Workspace {
                 package: package,
                 repository: repository,
                 at: checkoutState,
+                isMultipleMajor: isMultipleMajor,
                 observabilityScope: observabilityScope
             )
         }
@@ -69,12 +71,14 @@ extension Workspace {
         package: PackageReference,
         repository: SourceControl.RepositorySpecifier,
         at checkoutState: CheckoutState,
+        isMultipleMajor: Bool,
         observabilityScope: ObservabilityScope
     ) async throws -> AbsolutePath {
         // first fetch the repository
         let checkoutPath = try await self.fetchRepository(
             package: package,
             at: checkoutState.revision,
+            isMultipleMajor: isMultipleMajor,
             observabilityScope: observabilityScope
         )
 
@@ -100,6 +104,7 @@ extension Workspace {
             debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies",
             metadata: package.diagnosticsMetadata
         )
+        print("Checkout of \(package.identity) @ version \(checkoutState.description)")
         try await self.state.add(
             dependency: .sourceControlCheckout(
                 packageRef: package,
@@ -107,6 +112,9 @@ extension Workspace {
                 subpath: checkoutPath.relative(to: self.location.repositoriesCheckoutsDirectory)
             )
         )
+        if isMultipleMajor {
+            await self.state.addMultiMajor(identity: package.identity)
+        }
         try await self.state.save()
 
         // Inform the delegate that we're done.
@@ -134,18 +142,21 @@ extension Workspace {
             return try await self.checkoutRepository(
                 package: package,
                 at: .version(version, revision: .init(identifier: revision!)), // nil checked above
+                isMultipleMajor: false,
                 observabilityScope: observabilityScope
             )
         case .branch(let branch, revision: let revision):
             return try await self.checkoutRepository(
                 package: package,
                 at: .branch(name: branch, revision: .init(identifier: revision)),
+                isMultipleMajor: false,
                 observabilityScope: observabilityScope
             )
         case .revision(let revision):
             return try await self.checkoutRepository(
                 package: package,
                 at: .revision(.init(identifier: revision)),
+                isMultipleMajor: false,
                 observabilityScope: observabilityScope
             )
         default:
@@ -163,6 +174,7 @@ extension Workspace {
     private func fetchRepository(
         package: PackageReference,
         at revision: Revision,
+        isMultipleMajor: Bool,
         observabilityScope: ObservabilityScope
     ) async throws -> AbsolutePath {
         let repository = try package.makeRepositorySpecifier()
@@ -202,14 +214,19 @@ extension Workspace {
 
         // If not, we need to get the repository from the checkouts.
         let handle = try await self.repositoryManager.lookup(
-            package: package.identity,
+            package: package.identityWithoutMajor().identity,
             repository: repository,
             updateStrategy: .never,
             observabilityScope: observabilityScope
         )
 
+        // TODO bp amend the name here; detect if multi major, create new parent directory
+        // with the basename, child directories represent different major version checkouts
         // Clone the repository into the checkouts.
-        let checkoutPath = self.location.repositoriesCheckoutsDirectory.appending(component: repository.basename)
+        let baseRepositoryName = self.location.repositoriesCheckoutsDirectory.appending(component: repository.basename)
+        let checkoutPath = isMultipleMajor ? baseRepositoryName.appending(package.identity.description) : baseRepositoryName
+
+        print("Is package \(package) multi major? \(isMultipleMajor)")
 
         // Remove any existing content at that path.
         try self.fileSystem.chmod(.userWritable, path: checkoutPath, options: [.recursive, .onlyFiles])

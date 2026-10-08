@@ -91,19 +91,20 @@ extension ModulesGraph {
                     GraphLoadingNode,
                     PackageIdentity
                 >? in
-                    return try manifestMap[dependency.identity].map { manifest, _ in
+                    print("node successor with dependency identity: \(dependency.majorVersionIdentity)")
+                    return try manifestMap[dependency.majorVersionIdentity].map { manifest, _ in
                         // We are going to check the conditionally enabled traits here and enable them if
                         // required. This checks the current node and then enables the conditional
                         // dependencies of the dependency node.
 
                         return try KeyedPair(
                             GraphLoadingNode(
-                                identity: dependency.identity,
+                                identity: dependency.majorVersionIdentity,
                                 manifest: manifest,
                                 productFilter: dependency.productFilter,
                                 enabledTraits: enabledTraitsMap[manifest]
                             ),
-                            key: dependency.identity
+                            key: dependency.majorVersionIdentity
                         )
                     }
                 }
