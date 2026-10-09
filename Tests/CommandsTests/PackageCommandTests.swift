@@ -6613,6 +6613,59 @@ struct PackageCommandTests {
         }
 
         @Test(
+            .tags(
+                .Feature.Command.Package.CommandPlugin,
+            ),
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func commandPluginOutputWithoutTrailingNewlineIsPrinted(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await testWithTemporaryDirectory { tmpPath in
+                let packageDir = tmpPath.appending(components: "MyPackage")
+                try localFileSystem.writeFileContents(
+                    packageDir.appending(components: "Package.swift"),
+                    string:
+                        """
+                        // swift-tools-version: 5.9
+                        import PackageDescription
+                        let package = Package(
+                            name: "MyPackage",
+                            targets: [
+                                .plugin(name: "MyPlugin", capability: .command(intent: .custom(verb: "mycmd", description: "Help description"))),
+                            ]
+                        )
+                        """
+                )
+                try localFileSystem.writeFileContents(
+                    packageDir.appending(components: "Plugins", "MyPlugin", "plugin.swift"),
+                    string:
+                        """
+                        import Foundation
+                        import PackagePlugin
+
+                        @main
+                        struct MyCommandPlugin: CommandPlugin {
+                            func performCommand(context: PluginContext, arguments: [String]) throws {
+                                FileHandle.standardError.write(Data("first line\\n".utf8))
+                                FileHandle.standardError.write(Data("no trailing newline".utf8))
+                            }
+                        }
+                        """
+                )
+
+                let (stdout, _) = try await execute(
+                    ["plugin", "mycmd"],
+                    packagePath: packageDir,
+                    configuration: .debug,
+                    buildSystem: buildSystem,
+                )
+                #expect(stdout.contains("first line"))
+                #expect(stdout.contains("no trailing newline"))
+            }
+        }
+
+        @Test(
             .requiresSwiftConcurrencySupport,
             .tags(
                 .Feature.Command.Package.CommandPlugin,

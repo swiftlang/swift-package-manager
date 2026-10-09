@@ -54,6 +54,12 @@ final class PluginDelegate: PluginInvocationDelegate {
         }
     }
 
+    func flushOutput() {
+        guard !lineBufferedOutput.isEmpty else { return }
+        print(String(decoding: lineBufferedOutput, as: UTF8.self))
+        lineBufferedOutput = Data()
+    }
+
     func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
         swiftCommandState.observabilityScope.emit(diagnostic)
     }
