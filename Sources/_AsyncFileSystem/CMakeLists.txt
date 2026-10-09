@@ -27,5 +27,10 @@ install(TARGETS _AsyncFileSystem
   ARCHIVE DESTINATION lib
   LIBRARY DESTINATION lib
   RUNTIME DESTINATION bin)
+if(MSVC)
+  install(FILES $<TARGET_FILE_DIR:_AsyncFileSystem>/$<TARGET_FILE_BASE_NAME:_AsyncFileSystem>.pdb
+    DESTINATION bin
+    OPTIONAL)
+endif()
 
 set_property(GLOBAL APPEND PROPERTY SwiftPM_EXPORTS _AsyncFileSystem)
