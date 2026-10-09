@@ -4574,6 +4574,67 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         }
     }
 
+    func testUpcomingFeaturesPropagatedToGeneratedTestTargets() async throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Pkg/Sources/TestA/foo.swift",
+            "/Pkg/Sources/TestB/bar.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                try Manifest.createRootManifest(
+                    displayName: "Pkg",
+                    path: "/Pkg",
+                    targets: [
+                        TargetDescription(
+                            name: "TestA",
+                            type: .test,
+                            settings: [
+                                .init(tool: .swift, kind: .enableUpcomingFeature("InferSendableFromCaptures")),
+                                .init(tool: .swift, kind: .enableExperimentalFeature("VariadicGenerics")),
+                            ]
+                        ),
+                        TargetDescription(name: "TestB", type: .test),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        XCTAssertNoDiagnostics(observability.diagnostics)
+
+        // Linux: both a discovery target and a synthesized entry-point are generated.
+        let result = try await BuildPlanResult(plan: mockBuildPlan(
+            triple: .x86_64Linux,
+            graph: graph,
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ))
+
+        // TestA's own flags are present.
+        let testA = try result.moduleBuildDescription(for: "TestA").swift().compileArguments()
+        XCTAssertMatch(testA, [.anySequence, "-enable-upcoming-feature", "InferSendableFromCaptures", .anySequence])
+        XCTAssertMatch(testA, [.anySequence, "-enable-experimental-feature", "VariadicGenerics", .anySequence])
+
+        // TestB must NOT inherit TestA's flags.
+        let testB = try result.moduleBuildDescription(for: "TestB").swift().compileArguments()
+        XCTAssertNoMatch(testB, [.anySequence, "-enable-upcoming-feature", "InferSendableFromCaptures", .anySequence])
+        XCTAssertNoMatch(testB, [.anySequence, "-enable-experimental-feature", "VariadicGenerics", .anySequence])
+
+        // The discovery target imports every test module, so it must be compiled with
+        // any upcoming/experimental features those modules declare, otherwise the Swift
+        // compiler cannot reconcile the module interfaces at the import site.
+        let discovery = try result.moduleBuildDescription(for: "PkgPackageDiscoveredTests").swift().compileArguments()
+        XCTAssertMatch(discovery, [.anySequence, "-enable-upcoming-feature", "InferSendableFromCaptures", .anySequence])
+        XCTAssertMatch(discovery, [.anySequence, "-enable-experimental-feature", "VariadicGenerics", .anySequence])
+
+        // The synthesized entry-point target has the same import requirement.
+        let entryPoint = try result.moduleBuildDescription(for: "PkgPackageTests").swift().compileArguments()
+        XCTAssertMatch(entryPoint, [.anySequence, "-enable-upcoming-feature", "InferSendableFromCaptures", .anySequence])
+        XCTAssertMatch(entryPoint, [.anySequence, "-enable-experimental-feature", "VariadicGenerics", .anySequence])
+    }
+
     func testWarningLevelSettings() async throws {
         let Pkg: AbsolutePath = "/Pkg"
 
