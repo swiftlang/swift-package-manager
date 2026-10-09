@@ -378,7 +378,7 @@ final class PluginDelegate: PluginInvocationDelegate {
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: buildSystem,
             // If no traits are defined enable all for dumping the symbol graph.
-            enableAllTraits: swiftCommandState.traitConfiguration == .default,
+            traitConfiguration: swiftCommandState.traitConfiguration == .default ? .enableAllTraits : nil,
             cacheBuildManifest: false
         )
 
