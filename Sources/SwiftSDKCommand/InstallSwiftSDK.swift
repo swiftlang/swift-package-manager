@@ -59,7 +59,7 @@ struct InstallSwiftSDK: SwiftSDKSubcommand {
 
         let store = SwiftSDKBundleStore(
             swiftSDKsDirectory: swiftSDKsDirectory,
-            hostToolchainBinDir: hostToolchain.swiftCompilerPath.parentDirectory,
+            hostToolchainBinDir: hostToolchain.resolvedSwiftCompilerBinDir,
             fileSystem: self.fileSystem,
             observabilityScope: observabilityScope,
             outputHandler: { print($0.description) },
