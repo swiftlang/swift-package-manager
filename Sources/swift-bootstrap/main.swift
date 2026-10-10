@@ -66,6 +66,10 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
     @Option(name: .shortAndLong, help: "Build with configuration.")
     public var configuration: BuildConfiguration = .debug
 
+    /// The number of jobs for `llbuild` to start (aka the number of `schedulerLanes`).
+    @Option(name: .shortAndLong, help: "The number of jobs to spawn in parallel during the build process.")
+    public var jobs: UInt32 = UInt32(ProcessInfo.processInfo.activeProcessorCount)
+
     @Option(name: .customLong("Xcc", withSingleDash: true),
             parsing: .unconditionalSingleValue,
             help: "Pass flag through to all C compiler invocations.")
@@ -212,6 +216,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                     buildSystem: self.buildSystem,
                     configuration: self.configuration,
                     architectures: self.architectures,
+                    jobs: 1,
                     buildFlags: self.buildFlags,
                     manifestBuildFlags: self.manifestFlags,
                     useIntegratedSwiftDriver: self.useIntegratedSwiftDriver,
@@ -225,6 +230,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                     buildSystem: self.buildSystem,
                     configuration: self.configuration,
                     architectures: self.architectures,
+                    jobs: 1,
                     buildFlags: self.buildFlags,
                     manifestBuildFlags: self.manifestFlags,
                     useIntegratedSwiftDriver: self.useIntegratedSwiftDriver,
@@ -241,6 +247,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 buildSystem: self.buildSystem,
                 configuration: self.configuration,
                 architectures: self.architectures,
+                jobs: self.jobs,
                 buildFlags: self.buildFlags,
                 manifestBuildFlags: self.manifestFlags,
                 useIntegratedSwiftDriver: self.useIntegratedSwiftDriver,
@@ -284,6 +291,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             buildSystem: BuildSystemProvider.Kind,
             configuration: BuildConfiguration,
             architectures: [String],
+            jobs: UInt32,
             buildFlags: BuildFlags,
             manifestBuildFlags: [String],
             useIntegratedSwiftDriver: Bool,
@@ -296,6 +304,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 buildSystem: buildSystem,
                 configuration: configuration,
                 architectures: architectures,
+                jobs: jobs,
                 buildFlags: buildFlags,
                 manifestBuildFlags: manifestBuildFlags,
                 useIntegratedSwiftDriver: useIntegratedSwiftDriver,
@@ -312,6 +321,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             buildSystem: BuildSystemProvider.Kind,
             configuration: BuildConfiguration,
             architectures: [String],
+            jobs: UInt32,
             buildFlags: BuildFlags,
             manifestBuildFlags: [String],
             useIntegratedSwiftDriver: Bool,
@@ -332,6 +342,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 flags: buildFlags,
                 buildSystemKind: buildSystem,
                 architectures: architectures,
+                workers: jobs,
                 driverParameters: .init(
                     explicitTargetDependencyImportCheckingMode: explicitTargetDependencyImportCheck == .error ? .error : .none,
                     useIntegratedSwiftDriver: useIntegratedSwiftDriver,
@@ -356,6 +367,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
             buildSystem: BuildSystemProvider.Kind,
             configuration: BuildConfiguration,
             architectures: [String],
+            jobs: UInt32,
             buildFlags: BuildFlags,
             manifestBuildFlags: [String],
             useIntegratedSwiftDriver: Bool,
@@ -369,6 +381,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 buildSystem: buildSystem,
                 configuration: configuration,
                 architectures: architectures,
+                jobs: jobs,
                 buildFlags: buildFlags,
                 manifestBuildFlags: manifestBuildFlags,
                 useIntegratedSwiftDriver: useIntegratedSwiftDriver,
