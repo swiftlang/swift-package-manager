@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 @_implementationOnly import Foundation
+import PackageShared
 
 /// The basic building block of a Swift package.
 ///
@@ -39,6 +40,8 @@ public final class Target {
         case plugin
         /// A target that provides a Swift macro.
         case `macro`
+        /// A target who's source is external to the package.
+        case external
     }
 
     /// The different types of a target's dependency on another entity.
@@ -67,6 +70,14 @@ public final class Target {
         case byNameItem(name: String, condition: TargetDependencyCondition?)
     }
 
+    /// The external location for the target
+    public enum Location: Sendable {
+        /// The target location is at a path relative to the location of the package.
+        case path(String)
+        /// The target contents are to be retrieved from a remote archive
+        case remoteArchive(url: String, checksum: String)
+    }
+
     /// The name of the target.
     public var name: String
 
@@ -88,6 +99,10 @@ public final class Target {
     /// are invalid.
     public var path: String?
 
+    /// The location of the source for the target. This source is not managed as part
+    /// of the package but is passed on to build tool plugins for their commands to process.
+    public var location: Location?
+
     /// The URL of a binary target.
     ///
     /// The URL points to an archive file that contains the referenced binary
@@ -95,7 +110,28 @@ public final class Target {
     ///
     /// Binary targets are only available on Apple platforms.
     @available(_PackageDescription, introduced: 5.3)
-    public var url: String?
+    public var url: String? {
+        get {
+            if case let .remoteArchive(url, _) = location {
+                return url
+            } else {
+                return nil
+            }
+        }
+        set {
+            if let newValue {
+                switch location {
+                case let .remoteArchive(_, checksum):
+                    location = .remoteArchive(url: newValue, checksum: checksum)
+                default:
+                    location = .remoteArchive(url: newValue, checksum: "")
+                }
+
+            } else {
+                location = nil
+            }
+        }
+    }
 
     /// The source files in this target.
     ///
@@ -212,7 +248,28 @@ public final class Target {
     ///
     /// For more information, see [Distributing binary frameworks as Swift packages](https://developer.apple.com/documentation/xcode/distributing-binary-frameworks-as-swift-packages).
     @available(_PackageDescription, introduced: 5.3)
-    public var checksum: String?
+    public var checksum: String? {
+        get {
+            if case let .remoteArchive(_, checksum) = location {
+                return checksum
+            } else {
+                return nil
+            }
+        }
+        set {
+            if let newValue {
+                switch location {
+                case let .remoteArchive(url, _):
+                    location = .remoteArchive(url: url, checksum: newValue)
+                default:
+                    location = .remoteArchive(url: "", checksum: newValue)
+                }
+
+            } else {
+                location = nil
+            }
+        }
+    }
 
     /// The uses of package plug-ins by the target.
     @available(_PackageDescription, introduced: 5.5)
@@ -235,7 +292,7 @@ public final class Target {
         name: String,
         dependencies: [Dependency],
         path: String?,
-        url: String? = nil,
+        location: Location? = nil,
         exclude: [String],
         sources: [String]?,
         resources: [Resource]? = nil,
@@ -249,13 +306,12 @@ public final class Target {
         cxxSettings: [CXXSetting]? = nil,
         swiftSettings: [SwiftSetting]? = nil,
         linkerSettings: [LinkerSetting]? = nil,
-        checksum: String? = nil,
         plugins: [PluginUsage]? = nil
     ) {
         self.name = name
         self.dependencies = dependencies
+        self.location = location
         self.path = path
-        self.url = url
         self.publicHeadersPath = publicHeadersPath
         self.sources = sources
         self.resources = resources
@@ -269,7 +325,6 @@ public final class Target {
         self.cxxSettings = cxxSettings
         self.swiftSettings = swiftSettings
         self.linkerSettings = linkerSettings
-        self.checksum = checksum
         self.plugins = plugins
 
         switch type {
@@ -331,6 +386,16 @@ public final class Target {
             precondition(
                 url == nil &&
                 resources == nil &&
+                pkgConfig == nil &&
+                providers == nil &&
+                pluginCapability == nil
+            )
+        case .external:
+            // TODO: anything else?
+            precondition(
+                path == nil &&
+                location != nil &&
+                url == nil &&
                 pkgConfig == nil &&
                 providers == nil &&
                 pluginCapability == nil
@@ -1128,13 +1193,13 @@ public final class Target {
             name: name,
             dependencies: [],
             path: nil,
-            url: url,
+            location: .remoteArchive(url: url, checksum: checksum),
             exclude: [],
             sources: nil,
             publicHeadersPath: nil,
             type: .binary,
             packageAccess: false,
-            checksum: checksum)
+        )
     }
 
     /// Creates a binary target that references an artifact on disk.
@@ -1161,7 +1226,36 @@ public final class Target {
             type: .binary,
             packageAccess: false)
     }
-    
+
+    @available(_PackageDescription, introduced: 6.5)
+    public static func externalTarget(
+        name: String,
+        dependencies: [Dependency] = [],
+        location: Location? = nil,
+        cSettings: [CSetting]? = nil,
+        cxxSettings: [CXXSetting]? = nil,
+        swiftSettings: [SwiftSetting]? = nil,
+        linkerSettings: [LinkerSetting]? = nil,
+        plugins: [PluginUsage]? = nil
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: dependencies,
+            path: nil,
+            location: location,
+            exclude: [],
+            sources: nil,
+            publicHeadersPath: nil,
+            type: .external,
+            packageAccess: true,
+            cSettings: cSettings,
+            cxxSettings: cxxSettings,
+            swiftSettings: swiftSettings,
+            linkerSettings: linkerSettings,
+            plugins: plugins
+        )
+    }
+
     /// Defines a new package plugin target.
     ///
     /// A plugin target provides custom build commands to SwiftPM (and to

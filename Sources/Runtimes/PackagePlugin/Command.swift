@@ -11,6 +11,25 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+import PackageShared
+
+/// A build product produced by a Command to be shared with downstream Commands.
+public struct BuildProduct {
+    /// The output file to be added as a build product
+    public var outputFile: URL
+
+    /// An optional subdirectory in the products directory this file will be copied to.
+    public var productSubdir: String?
+
+    /// Optionally, the platforms this product file is built for. If nil, it can be used on any platform.
+    public var platforms: [Platform]?
+
+    public init(_ outputFile: URL, productSubdir: String? = nil, platforms: [Platform]? = nil) {
+        self.outputFile = outputFile
+        self.productSubdir = productSubdir
+        self.platforms = platforms
+    }
+}
 
 /// A command to run during the build.
 ///
@@ -44,14 +63,22 @@ public enum Command {
     ///     was generated as if in its source directory; other files are treated
     ///     as resources as if explicitly listed in `Package.swift` using
     ///     `.process(...)`.
-    @available(_PackageDescription, introduced: 6.0)
+    ///   - buildProducts: A list of files that serve as build products to be shared
+    ///     with downstream commands.
+    ///   - alwaysOutOfDate: When the command has no output files, whether to run
+    ///     the command on all builds when set to true, or just once when set to false.
+    ///   - platforms: An optional list of platforms that this command will run on.
+    @available(_PackageDescription, introduced: 6.5)
     case buildCommand(
         displayName: String?,
         executable: URL,
         arguments: [String],
         environment: [String: String] = [:],
         inputFiles: [URL] = [],
-        outputFiles: [URL] = []
+        outputFiles: [URL] = [],
+        buildProducts: [BuildProduct] = [],
+        alwaysOutOfDate: Bool = false,
+        platforms: [Platform]? = nil
     )
 
     /// Returns a command that runs unconditionally before every build.
@@ -89,6 +116,60 @@ public enum Command {
 }
 
 extension Command {
+    /// Returns a command that runs when any of its output files are needed by
+    /// the build and are out-of-date.
+    ///
+    /// An output file is out-of-date if it doesn't exist, or if any input files
+    /// have changed since the command was last run.
+    ///
+    /// - Note: the paths in the list of output files may depend on the list of
+    ///   input file paths, but **must not** depend on reading the contents of
+    ///   any input files. Use a `prebuildCommand`if the functionality of your plugin
+    ///   requires you to read the contents of an input file.
+    ///
+    /// - parameters:
+    ///   - displayName: An optional string to show in build logs and other
+    ///     status areas.
+    ///   - executable: The absolute path to the executable to invoke.
+    ///   - arguments: The command-line arguments for the executable.
+    ///   - environment: Any environment variable assignments visible to the
+    ///     executable.
+    ///   - inputFiles: A list of files on which the contents of output files may depend.
+    ///     Any paths passed as `arguments` should typically be passed here as
+    ///     well.
+    ///   - outputFiles: A list of files to be generated or updated by the executable.
+    ///     Any files recognizable by their extension as source files
+    ///     (for example, `.swift`) are compiled into the target for which this command
+    ///     was generated as if in its source directory; other files are treated
+    ///     as resources as if explicitly listed in `Package.swift` using
+    ///     `.process(...)`.
+    ///   - buildProducts: A list of files that serve as build products to be shared
+    ///     with downstream commands.
+    ///   - alwaysOutOfDate: When the command has no output files, whether to run
+    ///     the command on all builds when set to true, or just once when set to false.
+    ///   - platforms: An optional list of platforms that this build product will be produced for.
+    @available(_PackageDescription, introduced: 6.0, obsoleted: 6.5)
+    public static func buildCommand(
+        displayName: String?,
+        executable: URL,
+        arguments: [String],
+        environment: [String: String] = [:],
+        inputFiles: [URL] = [],
+        outputFiles: [URL] = [],
+    ) -> Command {
+        self.buildCommand(
+            displayName: displayName,
+            executable: executable,
+            arguments: arguments,
+            environment: environment,
+            inputFiles: inputFiles,
+            outputFiles: outputFiles,
+            buildProducts: [],
+            alwaysOutOfDate: false,
+            platforms: nil
+        )
+    }
+
     /// Returns a command that runs when any of its output files are needed by
     /// the build and are out-of-date.
     ///
@@ -181,7 +262,10 @@ extension Command {
             arguments: arguments.map(\.description),
             environment: environment.mapValues { $0.description },
             inputFiles: inputFiles.map { URL(fileURLWithPath: $0.stringValue) },
-            outputFiles: outputFiles.map { URL(fileURLWithPath: $0.stringValue) }
+            outputFiles: outputFiles.map { URL(fileURLWithPath: $0.stringValue) },
+            buildProducts: [],
+            alwaysOutOfDate: false,
+            platforms: []
         )
     }
 

@@ -318,8 +318,10 @@ internal struct PluginContextDeserializer {
             toolsVersion: toolsVersion,
             dependencies: dependencies,
             products: products,
-            targets: targets)
-        
+            targets: targets,
+            enabledTraits: wirePackage.enabledTraits
+        )
+
         packagesById[id] = package
         return package
     }

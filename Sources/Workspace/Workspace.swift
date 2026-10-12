@@ -1251,7 +1251,7 @@ extension Workspace {
                             } else {
                                 throw StringError("\(artifactPath) does not contain binary artifact")
                             }
-                        } else if let urlString = target.url {
+                        } else if case let .remoteArchive(urlString, _) = target.location {
                             // Apply mirroring to the URL
                             let mappedURLString = self.identityResolver.mappedLocation(for: urlString)
                             guard let url = URL(string: mappedURLString) else {

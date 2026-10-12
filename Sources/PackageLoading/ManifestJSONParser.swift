@@ -197,11 +197,21 @@ enum ManifestJSONParser {
 
         let pluginUsages = target.pluginUsages?.map { TargetDescription.PluginUsage.init($0) }
 
+        let location: TargetDescription.Location?
+        switch target.location {
+        case .path(let path):
+            location = .path(path)
+        case .remoteArchive(let url, let checksum):
+            location = .remoteArchive(url: url, checksum: checksum)
+        case .none:
+            location = nil
+        }
+
         return try TargetDescription(
             name: target.name,
             dependencies: dependencies,
             path: target.path,
-            url: target.url,
+            location: location,
             exclude: target.exclude,
             sources: target.sources,
             resources: try Self.parseResources(target.resources),
@@ -212,7 +222,6 @@ enum ManifestJSONParser {
             providers: providers,
             pluginCapability: pluginCapability,
             settings: try Self.parseBuildSettings(target),
-            checksum: target.checksum,
             pluginUsages: pluginUsages
         )
     }
@@ -566,6 +575,8 @@ extension TargetDescription.TargetKind {
             self = .plugin
         case .macro:
             self = .macro
+        case .external:
+            self = .external
         }
     }
 }

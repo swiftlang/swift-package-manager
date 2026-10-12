@@ -284,7 +284,7 @@ extension Workspace {
                             name: target.name,
                             dependencies: modifiedDependencies,
                             path: target.path,
-                            url: target.url,
+                            location: target.location,
                             exclude: target.exclude,
                             sources: target.sources,
                             resources: target.resources,
@@ -295,7 +295,6 @@ extension Workspace {
                             providers: target.providers,
                             pluginCapability: target.pluginCapability,
                             settings: target.settings,
-                            checksum: target.checksum,
                             pluginUsages: target.pluginUsages
                         )
                     )

@@ -205,7 +205,7 @@ extension Plugin {
             for command in generatedCommands {
                 switch command {
 
-                case .buildCommand(let displayName, let executable, let arguments, let environment, let inputFiles, let outputFiles):
+                case .buildCommand(let displayName, let executable, let arguments, let environment, let inputFiles, let outputFiles, let buildProducts, let alwaysOutOfDate, let platforms):
                     let command = PluginToHostMessage.CommandConfiguration(
                         displayName: displayName,
                         executable: executable,
@@ -287,17 +287,17 @@ extension Plugin {
             for command in record.generatedCommands {
                 switch command {
 
-                case let .buildCommand(name, exec, args, env, inputs, outputs):
+                case .buildCommand(let displayName, let executable, let arguments, let environment, let inputFiles, let outputFiles, let buildProducts, let alwaysOutOfDate, let platforms):
                     let command = PluginToHostMessage.CommandConfiguration(
-                        displayName: name,
-                        executable: exec,
-                        arguments: args,
-                        environment: env,
+                        displayName: displayName,
+                        executable: executable,
+                        arguments: arguments,
+                        environment: environment,
                         workingDirectory: pluginWorkDirectory)
                     let message = PluginToHostMessage.defineBuildCommand(
                         configuration: command,
-                        inputFiles: inputs,
-                        outputFiles: outputs)
+                        inputFiles: inputFiles,
+                        outputFiles: outputFiles)
                     try pluginHostConnection.sendMessage(message)
                     
                 case let .prebuildCommand(name, exec, args, env, outdir):

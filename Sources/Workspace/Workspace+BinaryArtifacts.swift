@@ -123,7 +123,7 @@ extension Workspace {
                                 )
                             )
                         }
-                    } else if let urlString = target.url, let checksum = target.checksum {
+                    } else if case let .remoteArchive(urlString, checksum) = target.location {
                         // Apply mirroring to the URL
                         let mappedURLString = identityResolver.mappedLocation(for: urlString)
                         guard let url = URL(string: mappedURLString) else {
