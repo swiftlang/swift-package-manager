@@ -1197,9 +1197,9 @@ struct BuildCommandTestCases {
                 let (stdout, stderr) = try await execute(
                     [
                         "--verbose",
-                        "--enable-experimental-build-caching",
-                        "--enable-experimental-build-cache-diagnostic-remarks",
-                        "--experimental-build-cache-path", casPath.pathString,
+                        "--enable-build-caching",
+                        "--enable-build-cache-diagnostic-remarks",
+                        "--build-cache-path", casPath.pathString,
                     ],
                     packagePath: packageRoot,
                     configuration: config,
@@ -1223,7 +1223,7 @@ struct BuildCommandTestCases {
 
             let (cleanStdout, _) = try await executeSwiftPackage(
                 packageRoot,
-                extraArgs: ["--experimental-build-cache-path", casPath.pathString, "experimental-build-cache", "clean"],
+                extraArgs: ["--build-cache-path", casPath.pathString, "build-cache", "clean"],
                 buildSystem: buildSystem,
             )
             #expect(cleanStdout.contains("Cleaned build cache"))
@@ -1300,10 +1300,10 @@ struct BuildCommandTestCases {
                 let (stdout, stderr) = try await execute(
                     [
                         "--verbose",
-                        "--enable-experimental-build-caching",
-                        "--enable-experimental-build-cache-prefix-mapping",
-                        "--enable-experimental-build-cache-diagnostic-remarks",
-                        "--experimental-build-cache-path", casPath.pathString,
+                        "--enable-build-caching",
+                        "--enable-build-cache-prefix-mapping",
+                        "--enable-build-cache-diagnostic-remarks",
+                        "--build-cache-path", casPath.pathString,
                     ],
                     packagePath: packageRoot,
                     configuration: config,
@@ -1362,14 +1362,14 @@ struct BuildCommandTestCases {
             // Before any build, there is no cache to report on.
             let (infoBefore, _) = try await executeSwiftPackage(
                 packageRoot,
-                extraArgs: ["--experimental-build-cache-path", casPath.pathString, "experimental-build-cache", "info"],
+                extraArgs: ["--build-cache-path", casPath.pathString, "build-cache", "info"],
                 buildSystem: buildSystem,
             )
             #expect(infoBefore.contains("No build cache found"))
 
             // Populate the cache with a cached build.
             try await execute(
-                ["--enable-experimental-build-caching", "--experimental-build-cache-path", casPath.pathString],
+                ["--enable-build-caching", "--build-cache-path", casPath.pathString],
                 packagePath: packageRoot,
                 configuration: config,
                 buildSystem: buildSystem,
@@ -1379,7 +1379,7 @@ struct BuildCommandTestCases {
             // from the underlying CAS.
             let (infoAfter, _) = try await executeSwiftPackage(
                 packageRoot,
-                extraArgs: ["--experimental-build-cache-path", casPath.pathString, "experimental-build-cache", "info"],
+                extraArgs: ["--build-cache-path", casPath.pathString, "build-cache", "info"],
                 buildSystem: buildSystem,
             )
             #expect(infoAfter.contains("path: \(casPath.pathString)"))

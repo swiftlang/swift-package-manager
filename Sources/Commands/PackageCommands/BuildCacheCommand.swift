@@ -23,7 +23,7 @@ import Workspace
 extension SwiftPackageCommand {
     struct BuildCache: ParsableCommand {
         static let configuration = CommandConfiguration(
-            commandName: "experimental-build-cache",
+            commandName: "build-cache",
             abstract: "Configure the build cache.",
             subcommands: [Configure.self, ResetConfiguration.self, GetConfiguration.self, Info.self, Clean.self],
             helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
