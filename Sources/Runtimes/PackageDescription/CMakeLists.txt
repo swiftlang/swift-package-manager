@@ -10,6 +10,7 @@ add_library(PackageDescription
   BuildSettings.swift
   Context.swift
   ContextModel.swift
+  CrossModuleOptimization.swift
   LanguageStandardSettings.swift
   OptimizationLevel.swift
   PackageDescription.swift

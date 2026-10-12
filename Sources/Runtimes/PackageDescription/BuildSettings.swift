@@ -814,6 +814,30 @@ public struct SwiftSetting: Sendable {
         return SwiftSetting(
             name: "optimizationLevel", value: level.value, condition: condition)
     }
+
+    /// Sets the cross-module optimization mode used by the Swift compiler.
+    ///
+    /// Cross-module optimization allows the compiler to perform more cross-module inlining and optimization.
+    ///
+    /// ```swift
+    /// swiftSettings: [
+    ///     .crossModuleOptimization(.aggressive, .when(configuration: .release)),
+    /// ]
+    /// ```
+    ///
+    /// - Since: First available in PackageDescription 999.
+    ///
+    /// - Parameters:
+    ///   - mode: The cross-module optimization mode to use.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func crossModuleOptimization(
+      _ mode: CrossModuleOptimization,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "crossModuleOptimization", value: [mode.value], condition: condition)
+    }
 }
 
 /// A linker build setting.

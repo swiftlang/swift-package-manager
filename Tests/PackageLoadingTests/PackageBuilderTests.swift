@@ -3864,6 +3864,44 @@ struct PackageBuilderTests {
     }
 
     @Test
+    func crossModuleOptimization() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/a.swift"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .vNext,
+            targets: [
+                try TargetDescription(
+                    name: "A",
+                    settings: [
+                        .init(tool: .swift, kind: .crossModuleOptimization(.disabled)),
+                        .init(tool: .swift, kind: .crossModuleOptimization(.aggressive), condition: .init(config: "release")),
+                    ]
+                ),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("A") { package in
+                let debugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(debugScope.evaluate(.SWIFT_CROSS_MODULE_OPTIMIZATION) == ["disabled"])
+                #expect(debugScope.evaluate(.OTHER_SWIFT_FLAGS) == [])
+
+                let releaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                #expect(releaseScope.evaluate(.SWIFT_CROSS_MODULE_OPTIMIZATION) == ["disabled", "aggressive"])
+            }
+        }
+    }
+
+    @Test
     func testArtifactBundleAsNormalTargetError() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo.artifactbundle/info.json",

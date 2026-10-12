@@ -918,6 +918,81 @@ struct PIFBuilderTests {
     }
 
     @Test
+    func crossModuleOptimization() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(
+            emptyFiles: [
+                "/MyPkg/Sources/A/A.swift",
+                "/MyPkg/Sources/B/B.swift",
+                "/MyPkg/Sources/C/C.swift",
+            ]
+        )
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "MyPkg",
+                    path: "/MyPkg",
+                    toolsVersion: .vNext,
+                    targets: [
+                        .init(
+                            name: "A",
+                            settings: [
+                                .init(tool: .swift, kind: .crossModuleOptimization(.disabled)),
+                                .init(tool: .swift, kind: .crossModuleOptimization(.aggressive), condition: .init(config: "release")),
+                            ]
+                        ),
+                        .init(
+                            name: "B",
+                            settings: [
+                                .init(tool: .swift, kind: .crossModuleOptimization(.aggressive)),
+                                .init(tool: .swift, kind: .crossModuleOptimization(.default), condition: .init(config: "debug")),
+                            ]
+                        ),
+                        .init(name: "C"),
+                    ]
+                )
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root,
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "MyPkg")
+
+        let a = try project.target(named: "A")
+        let aDebugSettings = try a.buildConfig(named: .debug).settings
+        #expect(aDebugSettings[.SWIFT_CROSS_MODULE_OPTIMIZATION] == "NO")
+        let aReleaseSettings = try a.buildConfig(named: .release).settings
+        #expect(aReleaseSettings[.SWIFT_CROSS_MODULE_OPTIMIZATION] == "YES")
+
+        let b = try project.target(named: "B")
+        let bDebugSettings = try b.buildConfig(named: .debug).settings
+        #expect(bDebugSettings[.SWIFT_CROSS_MODULE_OPTIMIZATION] == "compiler-default")
+        let bReleaseSettings = try b.buildConfig(named: .release).settings
+        #expect(bReleaseSettings[.SWIFT_CROSS_MODULE_OPTIMIZATION] == "YES")
+
+        let c = try project.target(named: "C")
+        let cReleaseSettings = try c.buildConfig(named: .release).settings
+        #expect(cReleaseSettings[.SWIFT_CROSS_MODULE_OPTIMIZATION] == nil)
+    }
+
+    @Test
     func binaryFrameworkProductWithStubTargetSynthesizesDisambiguatedDynamicVariant() async throws {
         let observability = ObservabilitySystem.makeForTesting()
 

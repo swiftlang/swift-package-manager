@@ -48,6 +48,7 @@ import struct PackageModel.SupportedPlatform
 import struct PackageModel.SwiftLanguageVersion
 import class PackageModel.SwiftModule
 import class PackageModel.SystemLibraryModule
+import enum PackageModel.TargetBuildSettingDescription
 import struct PackageModel.ToolsVersion
 import struct PackageModel.TraitCondition
 
@@ -364,7 +365,7 @@ extension PackageModel.BuildSettings.Declaration {
         case .SWIFT_ACTIVE_COMPILATION_CONDITIONS, .OTHER_SWIFT_FLAGS:
             true
 
-        case .SWIFT_VERSION, .SWIFT_OPTIMIZATION_LEVEL:
+        case .SWIFT_VERSION, .SWIFT_OPTIMIZATION_LEVEL, .SWIFT_CROSS_MODULE_OPTIMIZATION:
             false
 
         case .SWIFT_OBJC_BRIDGING_HEADER, .SWIFT_BRIDGING_HEADER_IS_INTERNAL:
@@ -777,6 +778,17 @@ extension PackageGraph.ResolvedModule {
                     singleValueSetting = declaration == .C_OPTIMIZATION_LEVEL ? .CLANG_C_OPTIMIZATION_LEVEL : .CLANG_CXX_OPTIMIZATION_LEVEL
                     multipleValueSetting = nil
                     values = settingAssignment.values.map { String($0.dropFirst("-O".count)) }
+                case .SWIFT_CROSS_MODULE_OPTIMIZATION:
+                    singleValueSetting = .SWIFT_CROSS_MODULE_OPTIMIZATION
+                    multipleValueSetting = nil
+                    values = settingAssignment.values.compactMap { value in
+                        switch TargetBuildSettingDescription.CrossModuleOptimization(rawValue: value) {
+                        case .default: "compiler-default"
+                        case .disabled: "NO"
+                        case .aggressive: "YES"
+                        case nil: nil
+                        }
+                    }
                 default:
                     if declaration.allowsMultipleValues {
                         singleValueSetting = nil

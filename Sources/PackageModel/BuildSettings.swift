@@ -22,6 +22,7 @@ public enum BuildSettings {
         public static let SWIFT_OBJC_BRIDGING_HEADER: Declaration = .init("SWIFT_OBJC_BRIDGING_HEADER")
         public static let SWIFT_BRIDGING_HEADER_IS_INTERNAL: Declaration = .init("SWIFT_BRIDGING_HEADER_IS_INTERNAL")
         public static let SWIFT_OPTIMIZATION_LEVEL: Declaration = .init("SWIFT_OPTIMIZATION_LEVEL")
+        public static let SWIFT_CROSS_MODULE_OPTIMIZATION: Declaration = .init("SWIFT_CROSS_MODULE_OPTIMIZATION")
 
         // C family.
         public static let GCC_PREPROCESSOR_DEFINITIONS: Declaration = .init("GCC_PREPROCESSOR_DEFINITIONS")

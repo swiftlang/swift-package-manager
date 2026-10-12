@@ -37,6 +37,10 @@ private struct NativeBuildSystemUnsupportedSetting {
             declarations: [.SWIFT_OPTIMIZATION_LEVEL, .C_OPTIMIZATION_LEVEL, .CXX_OPTIMIZATION_LEVEL],
             description: "the 'optimizationLevel' build setting is"
         ),
+        .init(
+            declarations: [.SWIFT_CROSS_MODULE_OPTIMIZATION],
+            description: "the 'crossModuleOptimization' build setting is"
+        ),
     ]
 }
 

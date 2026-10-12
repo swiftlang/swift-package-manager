@@ -749,6 +749,12 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .crossModuleOptimization(let mode):
+            params.append(SourceCodeFragment(enum: mode.rawValue))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
         }
     }
 
@@ -1241,6 +1247,8 @@ extension TargetBuildSettingDescription.Kind {
             return "bridgingHeader"
         case .optimizationLevel:
             return "optimizationLevel"
+        case .crossModuleOptimization:
+            return "crossModuleOptimization"
         }
     }
 }

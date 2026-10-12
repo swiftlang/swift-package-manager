@@ -1445,6 +1445,17 @@ public final class PackageBuilder {
                 case .linker:
                     throw InternalError("linker does not support optimizationLevel")
                 }
+
+            case .crossModuleOptimization(let mode):
+                switch setting.tool {
+                case .c, .cxx, .linker:
+                    throw InternalError("only Swift supports crossModuleOptimization")
+
+                case .swift:
+                    decl = .SWIFT_CROSS_MODULE_OPTIMIZATION
+                }
+
+                values = [mode.rawValue]
             }
 
             // Create an assignment for this setting.

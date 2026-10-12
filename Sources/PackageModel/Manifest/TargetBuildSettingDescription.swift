@@ -49,6 +49,12 @@ public enum TargetBuildSettingDescription {
         case custom(String)
     }
 
+    public enum CrossModuleOptimization: String, Codable, Hashable, Sendable {
+        case `default`
+        case disabled
+        case aggressive
+    }
+
     /// The kind of the build setting, with associate configuration
     public enum Kind: Codable, Hashable, Sendable {
         case headerSearchPath(String)
@@ -77,6 +83,8 @@ public enum TargetBuildSettingDescription {
 
         case optimizationLevel(OptimizationLevel)
 
+        case crossModuleOptimization(CrossModuleOptimization)
+
         public var isUnsafeFlags: Bool {
             switch self {
             case .unsafeFlags(let flags):
@@ -85,7 +93,7 @@ public enum TargetBuildSettingDescription {
             case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
                  .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode,
                  .treatAllWarnings, .treatWarning, .enableWarning, .disableWarning, .defaultIsolation,
-                 .bridgingHeader, .optimizationLevel:
+                 .bridgingHeader, .optimizationLevel, .crossModuleOptimization:
                 return false
             }
         }
