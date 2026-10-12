@@ -41,6 +41,10 @@ private struct NativeBuildSystemUnsupportedSetting {
             declarations: [.SWIFT_CROSS_MODULE_OPTIMIZATION],
             description: "the 'crossModuleOptimization' build setting is"
         ),
+        .init(
+            declarations: [.SWIFT_COMPILATION_MODE],
+            description: "the 'compilationMode' build setting is"
+        ),
     ]
 }
 

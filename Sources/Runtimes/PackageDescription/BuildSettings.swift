@@ -838,6 +838,30 @@ public struct SwiftSetting: Sendable {
         return SwiftSetting(
             name: "crossModuleOptimization", value: [mode.value], condition: condition)
     }
+
+    /// Sets the compilation mode used by the Swift compiler.
+    ///
+    /// Use this setting to override the selected build configuration's default compilation mode.
+    ///
+    /// ```swift
+    /// swiftSettings: [
+    ///     .compilationMode(.incremental, .when(configuration: .release)),
+    /// ]
+    /// ```
+    ///
+    /// - Since: First available in PackageDescription 999.
+    ///
+    /// - Parameters:
+    ///   - mode: The compilation mode to use.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func compilationMode(
+      _ mode: CompilationMode,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "compilationMode", value: [mode.value], condition: condition)
+    }
 }
 
 /// A linker build setting.

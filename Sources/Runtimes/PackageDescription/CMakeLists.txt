@@ -8,6 +8,7 @@
 
 add_library(PackageDescription
   BuildSettings.swift
+  CompilationMode.swift
   Context.swift
   ContextModel.swift
   CrossModuleOptimization.swift

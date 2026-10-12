@@ -1456,6 +1456,17 @@ public final class PackageBuilder {
                 }
 
                 values = [mode.rawValue]
+
+            case .compilationMode(let mode):
+                switch setting.tool {
+                case .c, .cxx, .linker:
+                    throw InternalError("only Swift supports compilationMode")
+
+                case .swift:
+                    decl = .SWIFT_COMPILATION_MODE
+                }
+
+                values = [mode.rawValue]
             }
 
             // Create an assignment for this setting.

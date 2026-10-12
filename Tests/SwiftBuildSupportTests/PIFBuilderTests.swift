@@ -993,6 +993,65 @@ struct PIFBuilderTests {
     }
 
     @Test
+    func compilationMode() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(
+            emptyFiles: [
+                "/MyPkg/Sources/A/A.swift",
+                "/MyPkg/Sources/B/B.swift",
+            ]
+        )
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "MyPkg",
+                    path: "/MyPkg",
+                    toolsVersion: .vNext,
+                    targets: [
+                        .init(
+                            name: "A",
+                            settings: [
+                                .init(tool: .swift, kind: .compilationMode(.wholeModule)),
+                                .init(tool: .swift, kind: .compilationMode(.incremental), condition: .init(config: "release")),
+                            ]
+                        ),
+                        .init(name: "B"),
+                    ]
+                )
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root,
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "MyPkg")
+
+        let a = try project.target(named: "A")
+        #expect(try a.buildConfig(named: .debug).settings[.SWIFT_COMPILATION_MODE] == "wholemodule")
+        #expect(try a.buildConfig(named: .release).settings[.SWIFT_COMPILATION_MODE] == "singlefile")
+
+        let b = try project.target(named: "B")
+        #expect(try b.buildConfig(named: .debug).settings[.SWIFT_COMPILATION_MODE] == nil)
+        #expect(try b.buildConfig(named: .release).settings[.SWIFT_COMPILATION_MODE] == nil)
+    }
+
+    @Test
     func binaryFrameworkProductWithStubTargetSynthesizesDisambiguatedDynamicVariant() async throws {
         let observability = ObservabilitySystem.makeForTesting()
 

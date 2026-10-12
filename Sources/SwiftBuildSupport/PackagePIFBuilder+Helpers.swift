@@ -365,7 +365,7 @@ extension PackageModel.BuildSettings.Declaration {
         case .SWIFT_ACTIVE_COMPILATION_CONDITIONS, .OTHER_SWIFT_FLAGS:
             true
 
-        case .SWIFT_VERSION, .SWIFT_OPTIMIZATION_LEVEL, .SWIFT_CROSS_MODULE_OPTIMIZATION:
+        case .SWIFT_VERSION, .SWIFT_OPTIMIZATION_LEVEL, .SWIFT_CROSS_MODULE_OPTIMIZATION, .SWIFT_COMPILATION_MODE:
             false
 
         case .SWIFT_OBJC_BRIDGING_HEADER, .SWIFT_BRIDGING_HEADER_IS_INTERNAL:
@@ -786,6 +786,16 @@ extension PackageGraph.ResolvedModule {
                         case .default: "compiler-default"
                         case .disabled: "NO"
                         case .aggressive: "YES"
+                        case nil: nil
+                        }
+                    }
+                case .SWIFT_COMPILATION_MODE:
+                    singleValueSetting = .SWIFT_COMPILATION_MODE
+                    multipleValueSetting = nil
+                    values = settingAssignment.values.compactMap { value in
+                        switch TargetBuildSettingDescription.CompilationMode(rawValue: value) {
+                        case .incremental: "singlefile"
+                        case .wholeModule: "wholemodule"
                         case nil: nil
                         }
                     }

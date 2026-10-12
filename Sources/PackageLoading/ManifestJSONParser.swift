@@ -831,6 +831,13 @@ extension TargetBuildSettingDescription.Kind {
                 throw InternalError("invalid build settings value")
             }
             return .crossModuleOptimization(mode)
+
+        case "compilationMode":
+            guard let rawValue = values.first,
+                  let mode = TargetBuildSettingDescription.CompilationMode(rawValue: rawValue) else {
+                throw InternalError("invalid build settings value")
+            }
+            return .compilationMode(mode)
         default:
             throw InternalError("invalid build setting \(name)")
         }
