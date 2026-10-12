@@ -566,14 +566,14 @@ public final class SwiftCommandState {
             // they're being captured in an event trace file.
             if !options.logging.verbose && !options.logging.veryVerbose && options.build.traceEventsFilePath == nil {
                 observabilityScope.emit(
-                    warning: "'--experimental-task-backtraces' requires '--verbose', '--very-verbose', or '--experimental-trace-events-file'"
+                    warning: "'--enable-task-backtraces' requires '--verbose', '--very-verbose', or '--trace-events-file'"
                 )
             }
 
             // Task backtraces are only supported by the swiftbuild build system
             if options.build.buildSystem != .swiftbuild {
                 observabilityScope.emit(
-                    warning: "'--experimental-task-backtraces' is only supported when using '--build-system swiftbuild'"
+                    warning: "'--enable-task-backtraces' is only supported when using '--build-system swiftbuild'"
                 )
             }
         }
@@ -581,7 +581,7 @@ public final class SwiftCommandState {
         if options.build.traceEventsFilePath != nil {
             if options.build.buildSystem != .swiftbuild {
                 observabilityScope.emit(
-                    warning: "'--experimental-trace-events-file' is only supported when using '--build-system swiftbuild'"
+                    warning: "'--trace-events-file' is only supported when using '--build-system swiftbuild'"
                 )
             }
         }
