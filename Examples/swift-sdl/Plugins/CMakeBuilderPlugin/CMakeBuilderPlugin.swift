@@ -29,16 +29,12 @@ struct CMakeBuilderPlugin: BuildToolPlugin {
             environment["DEVELOPER_DIR"] = developerDir
         }
 
-        var arguments = [
+        let arguments = [
             "--output-dir", buildDir.path,
             "--sysroot", "$(SYSROOT)",
             "--triple", "$(TRIPLE)",
             target.directoryURL.path,
         ]
-
-        if context.package.enabledTraits?.contains("SDL_static") ?? false {
-            arguments.append("--static")
-        }
 
         return [
             .buildCommand(
@@ -47,11 +43,27 @@ struct CMakeBuilderPlugin: BuildToolPlugin {
                 arguments: arguments,
                 environment: environment,
                 buildProducts: [
-                    .init(buildDir.appending(path: "libSDL3.a"), platforms: [.macOS, .android]),
-                    .init(buildDir.appending(path: "SDL3-static.lib"), platforms: [.windows]),
-                    .init(buildDir.appending(path: "SDL3.jar"), platforms: [.android]),
+                    .init(buildDir.appending(path: "libSDL3.dylib"), .when(platforms: [.macOS])),
+                    .init(buildDir.appending(path: "libSDL3.so"), .when(platforms: [.android])),
+                    .init(buildDir.appending(path: "SDL3.lib"), .when(platforms: [.windows])),
+                    .init(buildDir.appending(path: "SDL3.dll"), .when(platforms: [.windows])),
+                    .init(buildDir.appending(path: "SDL3.jar"), .when(platforms: [.android])),
                 ],
-                alwaysOutOfDate: true
+                alwaysOutOfDate: true,
+                .when(traits: ["SDL_shared"])
+            ),
+            .buildCommand(
+                displayName: "CMake Build",
+                executable: builder.url,
+                arguments: arguments + ["--static"],
+                environment: environment,
+                buildProducts: [
+                    .init(buildDir.appending(path: "libSDL3.a"), .when(platforms: [.macOS, .android])),
+                    .init(buildDir.appending(path: "SDL3-static.lib"), .when(platforms: [.windows])),
+                    .init(buildDir.appending(path: "SDL3.jar"), .when(platforms: [.android])),
+                ],
+                alwaysOutOfDate: true,
+                .when(traits: ["SDL_static"])
             ),
         ]
     }

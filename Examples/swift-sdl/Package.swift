@@ -29,8 +29,8 @@ let package = Package(
     ],
     traits: [
         "SDL_static",
-        "SDL_dynamic",
-        .default(enabledTraits: ["SDL_dynamic"])
+        "SDL_shared",
+        .default(enabledTraits: ["SDL_shared"])
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.6.1"),
