@@ -329,14 +329,10 @@ extension Workspace {
                 )
                 request.options.authorizationProvider =
                 self.authorizationProvider?.httpAuthorizationHeader(for:)
-                request.options.retryStrategy = .exponentialBackoff(
-                    maxAttempts: 3,
-                    baseDelay: .milliseconds(50)
-                )
                 request.options.validResponseCodes = [200]
 
                 do {
-                    _ = try await self.httpClient.execute(request) { _, _ in
+                    _ = try await self.httpClient.execute(request, observabilityScope: observabilityScope) { _, _ in
                         // TODO: send to delegate
                     }
                 } catch {
@@ -443,10 +439,6 @@ extension Workspace {
                         )
                         request.options.authorizationProvider =
                         self.authorizationProvider?.httpAuthorizationHeader(for:)
-                        request.options.retryStrategy = .exponentialBackoff(
-                            maxAttempts: 3,
-                            baseDelay: .milliseconds(50)
-                        )
                         request.options.validResponseCodes = [200]
 
                         self.delegate?.willDownloadPrebuilt(
@@ -455,7 +447,7 @@ extension Workspace {
                             fromCache: false
                         )
                         do {
-                            _ = try await self.httpClient.execute(request) {
+                            _ = try await self.httpClient.execute(request, observabilityScope: observabilityScope) {
                                 bytesDownloaded,
                                 totalBytesToDownload in
                                 self.delegate?.downloadingPrebuilt(

@@ -148,30 +148,18 @@ public actor HTTPClient {
         }
 
         let task = Task {
-            let response = try await self.withPerHostGate(for: request.url) {
-                try await self.tokenBucket.withToken {
-                    try Task.checkCancellation()
-
-                    return try await self.implementation(request) { received, expected in
-                        if let max = request.options.maximumResponseSizeInBytes {
-                            guard received < max else {
-                                // It's a responsibility of the underlying client implementation to cancel the request
-                                // when this closure throws an error
-                                throw HTTPClientError.responseTooLarge(received)
-                            }
-                        }
-
-                        try progress?(received, expected)
-                    }
-                }
+            let outcome: Result<Response, Error>
+            do {
+                outcome = .success(try await self.perform(request, progress))
+            } catch {
+                outcome = .failure(error)
             }
 
-            self.recordErrorIfNecessary(response: response, request: request)
+            self.recordErrorIfNecessary(outcome: outcome, request: request)
 
             // handle retry strategy
-            if let retryDelay = self.calculateRetry(
-                response: response,
-                request: request,
+            if let retryDelay = request.options.retryStrategy?.retryDelay(
+                after: outcome,
                 requestNumber: requestNumber
             ), let retryDelayInNanoseconds = retryDelay.nanoseconds() {
                 try Task.checkCancellation()
@@ -186,6 +174,7 @@ public actor HTTPClient {
                     progress
                 )
             }
+            let response = try outcome.get()
             // check for valid response codes
             if let validResponseCodes = request.options.validResponseCodes,
             !validResponseCodes.contains(response.statusCode)
@@ -202,25 +191,28 @@ public actor HTTPClient {
         return try await task.value
     }
 
-    private func calculateRetry(response: Response, request: Request, requestNumber: Int) -> SendableTimeInterval? {
-        guard let strategy = request.options.retryStrategy, response.statusCode >= 500 else {
-            return nil
-        }
+    private func perform(_ request: Request, _ progress: ProgressHandler?) async throws -> Response {
+        try await self.withPerHostGate(for: request.url) {
+            try await self.tokenBucket.withToken {
+                try Task.checkCancellation()
 
-        switch strategy {
-        case .exponentialBackoff(let maxAttempts, let delay):
-            guard requestNumber < maxAttempts - 1 else {
-                return nil
+                return try await self.implementation(request) { received, expected in
+                    if let max = request.options.maximumResponseSizeInBytes {
+                        guard received < max else {
+                            // It's a responsibility of the underlying client implementation to cancel the request
+                            // when this closure throws an error
+                            throw HTTPClientError.responseTooLarge(received)
+                        }
+                    }
+
+                    try progress?(received, expected)
+                }
             }
-            let exponential = Int(min(pow(2.0, Double(requestNumber)), Double(Int.max)))
-            let delayMilli = exponential.multipliedReportingOverflow(by: delay.milliseconds() ?? 0).partialValue
-            let jitterMilli = Int.random(in: 1 ... 10)
-            return .milliseconds(delayMilli + jitterMilli)
         }
     }
 
-    private func recordErrorIfNecessary(response: Response, request: Request) {
-        guard let strategy = request.options.circuitBreakerStrategy, response.statusCode >= 500 else {
+    private func recordErrorIfNecessary(outcome: Result<Response, Error>, request: Request) {
+        guard let strategy = request.options.circuitBreakerStrategy, outcome.isHostError else {
             return
         }
 

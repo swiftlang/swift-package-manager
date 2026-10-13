@@ -386,7 +386,6 @@ struct JSONPackageCollectionProvider: PackageCollectionProvider {
         let client = LegacyHTTPClient()
         // TODO: make these defaults configurable?
         client.configuration.requestTimeout = .seconds(5)
-        client.configuration.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(50))
         client.configuration.circuitBreakerStrategy = .hostErrors(maxErrors: 50, age: .seconds(30))
         return client
     }
