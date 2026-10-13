@@ -319,6 +319,7 @@ def main() -> None:
                 dispaly_event_stream_json_file_contents()
                 if event_stream_path.exists():
                     os.remove(event_stream_path)
+                raise
 
 
         if is_on_darwin() and not args.skip_bootstrap:
