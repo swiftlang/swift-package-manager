@@ -981,6 +981,97 @@ struct SwiftBuildSystemTests {
     }
 
     @Test
+    func alternateLinkerIsDerivedFromXclangLinkerFuseLd() {
+        let flags = ["-Xclang-linker", "-fuse-ld=lld"].constructBuildFlags(source: .toolset)
+        #expect(SwiftBuildSupport.SwiftBuildSystem.alternateLinker(from: flags) == "lld")
+    }
+
+    @Test
+    func alternateLinkerFindsPairAmongOtherFlagsAndLastPairWins() {
+        let flags = [
+            "-Xfrontend", "-disable-stack-protector",
+            "-Xclang-linker", "-fuse-ld=gold",
+            "-Xclang-linker", "-nostdlib",
+            "-Xclang-linker", "-fuse-ld=lld",
+        ].constructBuildFlags(source: .commandLineOptions)
+        #expect(SwiftBuildSupport.SwiftBuildSystem.alternateLinker(from: flags) == "lld")
+    }
+
+    @Test(arguments: [
+        // Bare -fuse-ld= without the -Xclang-linker prefix.
+        ["-fuse-ld=lld"],
+        // Unrelated -Xclang-linker option.
+        ["-Xclang-linker", "-nostdlib"],
+        // -fuse-ld= not directly preceded by -Xclang-linker.
+        ["-Xclang-linker", "-nostdlib", "-fuse-ld=lld"],
+        // Empty name.
+        ["-Xclang-linker", "-fuse-ld="],
+        // Path: left to the toolset's linker.path.
+        ["-Xclang-linker", "-fuse-ld=/usr/bin/ld.lld"],
+        // Dangling -Xclang-linker.
+        ["-fuse-ld=lld", "-Xclang-linker"],
+        // Compiler (not linker) pass-through.
+        ["-Xcc", "-fuse-ld=lld"],
+    ])
+    func alternateLinkerIgnoresUnsupportedSpellings(rawFlags: [String]) {
+        let flags = rawFlags.constructBuildFlags(source: .toolset)
+        #expect(SwiftBuildSupport.SwiftBuildSystem.alternateLinker(from: flags) == nil)
+    }
+
+    @Test
+    func toolsetFuseLdSetsDestinationOnlyAlternateLinker() async throws {
+        let flags = BuildFlags(
+            swiftCompilerFlags: ["-Xclang-linker", "-fuse-ld=lld"].constructBuildFlags(source: .toolset)
+        )
+
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: mockBuildParameters(
+                destination: .host,
+                toolchain: try UserToolchain.default,
+                flags: flags,
+                buildSystemKind: .swiftbuild,
+            ),
+        ) { swiftBuild, service, session, observabilityScope, buildParameters in
+            let buildSettings = try await swiftBuild.makeBuildParameters(
+                service: service,
+                session: session,
+                symbolGraphOptions: nil,
+                setToolchainSetting: false,
+                shouldDisableSandbox: false,
+            )
+
+            let table = try #require(buildSettings.overrides.synthesized).table
+            #expect(table["ALTERNATE_LINKER[__destination_platform=YES]"] == "lld")
+            // Must not apply to host (macro plugin) builds.
+            #expect(table["ALTERNATE_LINKER"] == nil)
+        }
+    }
+
+    @Test
+    func noLinkerFlagsLeavesAlternateLinkerUnset() async throws {
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: mockBuildParameters(
+                destination: .host,
+                toolchain: try UserToolchain.default,
+                buildSystemKind: .swiftbuild,
+            ),
+        ) { swiftBuild, service, session, observabilityScope, buildParameters in
+            let buildSettings = try await swiftBuild.makeBuildParameters(
+                service: service,
+                session: session,
+                symbolGraphOptions: nil,
+                setToolchainSetting: false,
+                shouldDisableSandbox: false,
+            )
+
+            let table = try #require(buildSettings.overrides.synthesized).table
+            #expect(!table.keys.contains { $0.hasPrefix("ALTERNATE_LINKER") })
+        }
+    }
+
+    @Test
     func sdkRootOverrideIsSetInRunDestination() async throws {
         let sdkRoot = AbsolutePath("/fake/sdk/root")
         try await withInstantiatedSwiftBuildSystem(

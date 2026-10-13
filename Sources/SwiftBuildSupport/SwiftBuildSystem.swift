@@ -1302,7 +1302,29 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         }
         settings["OTHER_LDFLAGS"] = (settings["OTHER_LDFLAGS"] ?? "$(inherited)") + " $(OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_$(LINKER_DRIVER))"
 
+        // Toolsets commonly pick the linker with '-Xclang-linker -fuse-ld=<name>', which only reaches swiftc link steps.
+        // Promote it to ALTERNATE_LINKER so clang-driven links select the same linker. Destination-only, so host builds are unaffected.
+        if let alternateLinker = Self.alternateLinker(from: buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags) {
+            settings["ALTERNATE_LINKER[__destination_platform=YES]"] = alternateLinker
+        }
+
         return settings
+    }
+
+    /// Returns `<name>` from the last `-Xclang-linker -fuse-ld=<name>` pair in `flags`, if any.
+    /// Bare `-fuse-ld=`, empty names, and paths (which belong in the toolset's `linker.path`) are ignored.
+    static func alternateLinker(from flags: [BuildFlag]) -> String? {
+        var result: String?
+        var previous: String?
+        for flag in flags {
+            defer { previous = flag.value }
+            guard previous == "-Xclang-linker", flag.value.hasPrefix("-fuse-ld=") else { continue }
+            let name = String(flag.value.dropFirst("-fuse-ld=".count))
+            if !name.isEmpty && !name.contains("/") {
+                result = name
+            }
+        }
+        return result
     }
 
     private static func extractLastModuleCachePath(from flags: inout [BuildFlag]) -> String? {
