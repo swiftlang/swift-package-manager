@@ -1076,6 +1076,25 @@ extension PackageReference {
     }
 }
 
+extension PackageIdentity {
+    public func withoutMajor() -> PackageIdentity {
+        if let genericId = self.description.components(separatedBy: "@").first
+        {
+            return PackageIdentity.plain(genericId)
+        }
+
+        return self
+    }
+
+    public func getMajor() -> String {
+        let parts = self.description.components(separatedBy: "@")
+        if parts.count == 2 {
+            return parts[1]
+        }
+        return ""
+    }
+}
+
 extension DependencyResolutionNode {
     func scoped(toMajor major: Int) -> DependencyResolutionNode {
         switch self {

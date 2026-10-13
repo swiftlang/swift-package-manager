@@ -12,6 +12,9 @@
 
 import PackageModel
 import Basics
+import Foundation
+
+
 
 // This is a helper class that tracks module aliases in a package dependency graph
 // and handles overriding upstream aliases where aliases themselves conflict.
@@ -26,24 +29,90 @@ struct ModuleAliasTracker {
     var childToParentID = [PackageIdentity: PackageIdentity]()
     var appliedAliases = Set<String>()
 
-    init() {}
+    // Multiple majors supplementary maps
+    private let manifestsByPackage: [PackageIdentity: Manifest]
+    private let bucketsByBase: [PackageIdentity: [Int: PackageIdentity]]
+    private var productToPackage: [String: PackageIdentity] = [:]
+
+    init(packages: [PackageIdentity: Package]) {
+        self.manifestsByPackage = packages.mapValues(\.manifest)
+        var buckets = [PackageIdentity: [Int: PackageIdentity]]()
+        for id in packages.keys {
+            if let major = Int(id.getMajor()) {
+                buckets[id.withoutMajor(), default: [:]][major] = id
+            }
+        }
+        self.bucketsByBase = buckets
+    }
+
+    /// The package a consumer's product reference actually links to.
+    private func resolvedPackage(for ref: Module.ProductReference, consumer: PackageIdentity) -> PackageIdentity? {
+        // Same rule the linker's productDependencyMap uses: match on the consumer's declared name.
+        let name = (ref.package ?? ref.name).lowercased()
+        guard let dependency = manifestsByPackage[consumer]?.dependencies.first(where: {
+            $0.nameForModuleDependencyResolutionOnly.lowercased() == name
+        }) else { return nil }
+
+        // Not multi-major: the dependency resolves to its ordinary identity.
+        guard let buckets = bucketsByBase[dependency.identity] else { return dependency.identity }
+
+        // Multi-major: highest major that BOTH the declaration allows and actually resolved.
+        let declared = Set(dependency.supportedMajorVersions)
+        return buckets.filter { declared.contains($0.key) }.max(by: { $0.key < $1.key })?.value
+    }
+
+    func productID(for ref: Module.ProductReference, consumer: PackageIdentity) -> String {
+        guard let package = resolvedPackage(for: ref, consumer: consumer),
+              package != package.withoutMajor()          // only rewrite scoped buckets
+        else { return ref.identity }                      // otherwise behave exactly as today
+        return package.description.lowercased() + "_" + ref.name   // matches Product.identity
+    }
+
+    private func scopedPackage(for ref: Module.ProductReference, consumer: PackageIdentity) -> PackageIdentity? {
+        guard let p = resolvedPackage(for: ref, consumer: consumer), p != p.withoutMajor() else { return nil }
+        return p
+    }
+
     mutating func addModuleAliases(modules: [Module], package: PackageIdentity) throws {
         let moduleDependencies = modules.flatMap(\.dependencies)
         for dep in moduleDependencies {
             if case let .product(productRef, _) = dep,
                let productPkg = productRef.package {
-                let productPkgID = PackageIdentity.plain(productPkg)
+                let productPkgID = scopedPackage(for: productRef, consumer: package) ?? PackageIdentity.plain(productPkg)
                 // Track dependency package ID chain
                 addPackageIDChain(parent: package, child: productPkgID)
                 if let aliasList = productRef.moduleAliases {
                     // Track aliases for this product
                     try addAliases(aliasList,
-                                   productID: productRef.identity,
+//                                   productID: productRef.identity,
+                                   productID: productID(for: productRef, consumer: package),
                                    productName: productRef.name,
                                    originPackage: productPkgID,
                                    consumingPackage: package)
                 }
             }
+        }
+    }
+
+    mutating func addMultiMajorAliases(modules: [Module], products: [Product], package: PackageIdentity) throws {
+        let major = package.getMajor()
+
+        for product in products {
+            // rename modules
+            let productModules = product.modules + product.modules.flatMap(\.recursiveDependentModules)
+            var aliases: [String: String] = [:]
+            for module in productModules {
+                aliases[module.name] = "\(module.name)_v\(major)"
+            }
+            print("Adding multi major aliases: ")
+            print("\(aliases)")
+            try addAliases(
+                aliases,
+                productID: product.identity,
+                productName: product.name,
+                originPackage: package,
+                consumingPackage: package
+            )
         }
     }
 
@@ -89,7 +158,11 @@ struct ModuleAliasTracker {
         allModuleDeps.append(contentsOf: moduleDeps)
         for dep in allModuleDeps {
             if case let .product(depRef, _) = dep {
-                parentToChildProducts[product.identity, default: []].append(depRef.identity)
+                let resolvedDepRef = productID(for: depRef, consumer: package)
+                print("adding parent to child product: \(depRef.identity)")
+                print("the resolved dependency ref identity: \(resolvedDepRef)")
+                print("dependency with appropriate version id: \(dep)")
+                parentToChildProducts[product.identity, default: []].append(resolvedDepRef)
             }
         }
 
@@ -98,6 +171,7 @@ struct ModuleAliasTracker {
         idToProductToAllModules[package, default: [:]][product.identity] = allModulesInProduct
         productToDirectModules[product.identity] = product.modules
         productToAllModules[product.identity] = allModulesInProduct
+        productToPackage[product.identity] = package
     }
 
     func validateAndApplyAliases(product: Product,
@@ -149,6 +223,7 @@ struct ModuleAliasTracker {
         observabilityScope: ObservabilityScope,
         aliasBuffer: inout [String: ModuleAliasModel]
     ) {
+        print("propagating for \(productID)")
         let productAliases = aliasMap[productID] ?? []
         for aliasModel in productAliases {
             // Alias buffer is used to carry down aliases defined upstream
@@ -184,6 +259,8 @@ struct ModuleAliasTracker {
                         }
                     }
                     aliasBuffer.removeValue(forKey: relevantModule.name)
+                } else {
+                    print("****Unable to find alias for: \(relevantModule.name)")
                 }
             }
         }
@@ -211,7 +288,8 @@ struct ModuleAliasTracker {
         if let curDirectModules = productToDirectModules[productID] {
             let depModules = curDirectModules.map{$0.recursiveDependentModules}.flatMap{$0}
             let depModuleAliases = toDictionary(depModules.compactMap{$0.moduleAliases})
-            let depChildModules = dependencyProductModules(of: depModules)
+            guard let consumer = productToPackage[productID] else { return }
+            let depChildModules = dependencyProductModules(of: depModules, consumer: consumer)
             let depChildAliases = toDictionary(depChildModules.compactMap{$0.moduleAliases})
             let depChildPrechainAliases = toDictionary(depChildModules.compactMap{$0.prechainModuleAliases})
             chainModuleAliases(modules: depModules,
@@ -224,7 +302,7 @@ struct ModuleAliasTracker {
 
             let relevantModules = depModules + curDirectModules
             let moduleAliases = toDictionary(relevantModules.compactMap{$0.moduleAliases})
-            let depProductModules = dependencyProductModules(of: relevantModules)
+            let depProductModules = dependencyProductModules(of: relevantModules, consumer: consumer)
             var depProductAliases = [String: [String]]()
             let depProductPrechainAliases = toDictionary(depProductModules.compactMap{$0.prechainModuleAliases})
 
@@ -415,8 +493,19 @@ struct ModuleAliasTracker {
         return dict
     }
 
-    private func dependencyProductModules(of modules: [Module]) -> [Module] {
-        let result = modules.map{$0.dependencies.compactMap{$0.product?.identity}}.flatMap{$0}.compactMap{productToAllModules[$0]}.flatMap{$0}
+    private func dependencyProductModules(of modules: [Module], consumer: PackageIdentity) -> [Module] {
+        var result: [Module] = []
+        for module in modules {
+            let current = module.dependencies.compactMap({
+                if let product = $0.product {
+                    return productID(for: product, consumer: consumer)
+                }
+                return nil
+            }).compactMap({ productToAllModules[$0]})
+                .flatMap({ $0 })
+            result.append(contentsOf: current)
+        }
+//        let result = modules.map{$0.dependencies.compactMap{$0.product?.identity}}.flatMap{$0}.compactMap{productToAllModules[$0]}.flatMap{$0}
         return result
     }
 }

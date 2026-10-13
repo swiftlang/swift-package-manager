@@ -401,6 +401,7 @@ private func createResolvedPackages(
             return nil
         }
         let isAllowedToVendUnsafeProducts = unsafeAllowedPackages.contains { $0.identity == package.identity }
+        let isMultipleMajorVersionPackage = node.identity != node.identity.withoutMajor() // hacky check
 
         let allowedToOverride = root.manifests.values.contains(node.manifest)
         return ResolvedPackageBuilder(
@@ -410,7 +411,8 @@ private func createResolvedPackages(
             isAllowedToVendUnsafeProducts: isAllowedToVendUnsafeProducts,
             allowedToOverride: allowedToOverride,
             platformVersionProvider: platformVersionProvider,
-            prebuilts: prebuilts[package.identity]
+            prebuilts: prebuilts[package.identity],
+            isMultipleMajorVersionPackage: isMultipleMajorVersionPackage
         )
     }
 
@@ -444,17 +446,17 @@ private func createResolvedPackages(
             for: packageBuilder.productFilter,
             packageBuilder.enabledTraits
         ).forEach { dependency in
-            let dependencyPackageRef = dependency.packageRef
+            let dependencyPackageRef = dependency.majorVersionPackageRef
 
             // Otherwise, look it up by its identity.
-            if let resolvedPackage = packagesByIdentity[dependency.identity] {
+            if let resolvedPackage = packagesByIdentity[dependency.majorVersionIdentity] {
                 // check if this resolved package already listed in the dependencies
                 // this means that the dependencies share the same identity
                 // FIXME: this works but the way we find out about this is based on a side effect, need to improve it
                 guard dependencies[resolvedPackage.package.identity] == nil else {
                     let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
                         package: package.identity.description,
-                        identity: dependency.identity,
+                        identity: dependency.majorVersionIdentity,
                         dependencyLocation: dependencyPackageRef.canonicalLocation.description,
                         otherDependencyLocation: resolvedPackage.package.manifest.canonicalPackageLocation.description
                     )
@@ -481,7 +483,7 @@ private func createResolvedPackages(
                     packageObservabilityScope
                         .emit(
                             debug: (
-                                "Conflicting identity for \(dependency.identity): " +
+                                "Conflicting identity for \(dependency.majorVersionIdentity): " +
                                 "chains of dependencies for \(dependencyPackageRef.locationString): " +
                                 "\(String(describing: dependenciesPaths))"
                             )
@@ -489,14 +491,14 @@ private func createResolvedPackages(
                     packageObservabilityScope
                         .emit(
                             debug: (
-                                "Conflicting identity for \(dependency.identity): " +
+                                "Conflicting identity for \(dependency.majorVersionIdentity): " +
                                 "chains of dependencies for \(resolvedPackage.package.manifest.packageLocation): " +
                                 "\(String(describing: otherDependenciesPaths))"
                             )
                         )
                     let error = PackageGraphError.dependencyAlreadySatisfiedByIdentifier(
                         package: package.identity.description,
-                        identity: dependency.identity,
+                        identity: dependency.majorVersionIdentity,
                         dependencyLocation: dependencyPackageRef.canonicalLocation.description,
                         otherDependencyLocation: resolvedPackage.package.manifest.canonicalPackageLocation.description,
                         dependencyPath: (dependenciesPaths.first ?? []).map(\.description),
@@ -531,6 +533,7 @@ private func createResolvedPackages(
                 // checks if two dependencies have the same explicit name which can cause module based dependency
                 // package lookup issue
                 if let explicitDependencyName = dependency.explicitNameForModuleDependencyResolutionOnly {
+                    // todo bp need to update these accessors as well?
                     if let previouslyResolvedPackage =
                         dependenciesByNameForModuleDependencyResolution[explicitDependencyName]
                     {
@@ -547,13 +550,13 @@ private func createResolvedPackages(
                 // checks if two dependencies have the same implicit (identity based) name which can cause module based
                 // dependency package lookup issue
                 if let previouslyResolvedPackage =
-                    dependenciesByNameForModuleDependencyResolution[dependency.identity.description]
+                    dependenciesByNameForModuleDependencyResolution[dependency.majorVersionIdentity.description]
                 {
                     let error = PackageGraphError.dependencyAlreadySatisfiedByName(
                         package: package.identity.description,
                         dependencyLocation: dependencyPackageRef.locationString,
                         otherDependencyURL: previouslyResolvedPackage.package.manifest.packageLocation,
-                        name: dependency.identity.description
+                        name: dependency.majorVersionIdentity.description
                     )
                     return packageObservabilityScope.emit(error)
                 }
@@ -1339,7 +1342,7 @@ private func resolveModuleAliases(
     observabilityScope: ObservabilityScope
 ) throws -> Bool {
     // If there are no module aliases specified, return early
-    let hasAliases = packageBuilders.contains { $0.package.modules.contains {
+    var hasAliases = packageBuilders.contains { $0.package.modules.contains {
         $0.dependencies.contains { dep in
             if case .product(let prodRef, _) = dep {
                 return prodRef.moduleAliases != nil
@@ -1349,13 +1352,27 @@ private func resolveModuleAliases(
     }
     }
 
+    // assure there are multi majors that need aliasing
+    if !hasAliases {
+        hasAliases = packageBuilders.contains(where: { $0.isMultipleMajorVersionPackage })
+    }
+
     guard hasAliases else { return false }
-    var aliasTracker = ModuleAliasTracker()
+
+    let multipleMajorPackagesToAlias = packageBuilders.filter({ $0.isMultipleMajorVersionPackage })
+
+    var aliasTracker = ModuleAliasTracker(packages: packageBuilders.reduce(into: [PackageIdentity: Package](), { partialResult, builder in
+        partialResult[builder.package.identity] = builder.package
+    }))
     for packageBuilder in packageBuilders {
         try aliasTracker.addModuleAliases(
             modules: packageBuilder.package.modules,
             package: packageBuilder.package.identity
         )
+    }
+
+    for pkg in multipleMajorPackagesToAlias {
+        try aliasTracker.addMultiMajorAliases(modules: pkg.package.modules, products: pkg.package.products, package: pkg.package.identity)
     }
 
     // Track modules that need module aliases for each package
@@ -1618,6 +1635,8 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
 
     let platformVersionProvider: PlatformVersionProvider
 
+    let isMultipleMajorVersionPackage: Bool
+
     init(
         _ package: Package,
         productFilter: ProductFilter,
@@ -1625,7 +1644,8 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         isAllowedToVendUnsafeProducts: Bool,
         allowedToOverride: Bool,
         platformVersionProvider: PlatformVersionProvider,
-        prebuilts: [String: PrebuiltLibrary]?
+        prebuilts: [String: PrebuiltLibrary]?,
+        isMultipleMajorVersionPackage: Bool
     ) {
         self.package = package
         self.productFilter = productFilter
@@ -1634,6 +1654,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
         self.allowedToOverride = allowedToOverride
         self.platformVersionProvider = platformVersionProvider
         self.prebuilts = prebuilts
+        self.isMultipleMajorVersionPackage = isMultipleMajorVersionPackage
     }
 
     override func constructImpl() throws -> ResolvedPackage {
