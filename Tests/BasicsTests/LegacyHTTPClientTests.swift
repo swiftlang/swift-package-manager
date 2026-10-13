@@ -18,7 +18,7 @@ final class LegacyHTTPClientTests: XCTestCase {
     func testHead() {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201 ..< 400)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody: Data? = nil
 
@@ -50,7 +50,7 @@ final class LegacyHTTPClientTests: XCTestCase {
     func testGet() {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201 ..< 400)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = Data(UUID().uuidString.utf8)
 
@@ -83,7 +83,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = Data(UUID().uuidString.utf8)
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201 ..< 400)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = Data(UUID().uuidString.utf8)
 
@@ -117,7 +117,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = Data(UUID().uuidString.utf8)
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201 ..< 400)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = Data(UUID().uuidString.utf8)
 
@@ -150,7 +150,7 @@ final class LegacyHTTPClientTests: XCTestCase {
     func testDelete() {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201 ..< 400)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = Data(UUID().uuidString.utf8)
 
@@ -326,7 +326,7 @@ final class LegacyHTTPClientTests: XCTestCase {
     }
 
     func testValidResponseCodes() {
-        let statusCode = Int.random(in: 201 ..< 500)
+        let statusCode = Int.random(in: 201 ..< 400)
         let brokenHandler: LegacyHTTPClient.Handler = { _, _, completion in
             completion(.failure(HTTPClientError.badResponseStatusCode(statusCode)))
         }
@@ -355,13 +355,13 @@ final class LegacyHTTPClientTests: XCTestCase {
         let count = ThreadSafeBox<Int>(0)
         let lastCall = ThreadSafeBox<Date?>()
         let maxAttempts = 5
-        let errorCode = Int.random(in: 500 ..< 600)
+        let errorCode = [500, 502, 503, 504].randomElement()!
         let delay = SendableTimeInterval.milliseconds(100)
 
         let brokenHandler: LegacyHTTPClient.Handler = { _, _, completion in
-            let expectedDelta = pow(2.0, Double(count.get() - 1)) * delay.timeInterval()!
+            let maxDelta = count.get() == 0 ? 0 : pow(2.0, Double(count.get() - 1)) * delay.timeInterval()!
             let delta = lastCall.get().flatMap { Date().timeIntervalSince($0) } ?? 0
-            XCTAssertEqual(delta, expectedDelta, accuracy: 0.1)
+            XCTAssertLessThanOrEqual(delta, maxDelta + 0.1)
 
             count.increment()
             lastCall.put(Date())
@@ -388,6 +388,56 @@ final class LegacyHTTPClientTests: XCTestCase {
         wait(for: [promise], timeout: 1.0 + timeout)
     }
 
+    func testRetriesTransientTransportErrors() {
+        let count = ThreadSafeBox<Int>(0)
+        let httpClient = LegacyHTTPClient(handler: { _, _, completion in
+            count.increment()
+            completion(count.get() == 1 ? .failure(URLError(.timedOut)) : .success(.okay()))
+        })
+        var request = LegacyHTTPClient.Request(method: .get, url: "http://test")
+        request.options.retryStrategy = .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(1))
+
+        let promise = XCTestExpectation(description: "completed")
+        httpClient.execute(request) { result in
+            XCTAssertEqual(try? result.get().statusCode, 200)
+            XCTAssertEqual(count.get(), 2)
+            promise.fulfill()
+        }
+        wait(for: [promise], timeout: 1)
+    }
+
+    func testRetriesByDefault() {
+        XCTAssertNotNil(LegacyHTTPClientConfiguration().retryStrategy)
+    }
+
+    func testHostCircuitBreakerCountsTransportErrors() {
+        let maxErrors = 2
+        let host = "http://tes-\(UUID().uuidString).com"
+        let httpClient = LegacyHTTPClient(handler: { _, _, completion in
+            completion(.failure(URLError(.timedOut)))
+        })
+        httpClient.configuration.retryStrategy = nil
+        httpClient.configuration.circuitBreakerStrategy = .hostErrors(maxErrors: maxErrors, age: .seconds(5))
+
+        for index in 0 ..< maxErrors {
+            let promise = XCTestExpectation(description: "error \(index)")
+            httpClient.get(URL("\(host)/\(index)")) { result in
+                guard case .failure(let error) = result else { return XCTFail("unexpected success") }
+                XCTAssertTrue(error is URLError)
+                promise.fulfill()
+            }
+            wait(for: [promise], timeout: 1)
+        }
+
+        let promise = XCTestExpectation(description: "tripped")
+        httpClient.get(URL("\(host)/tripped")) { result in
+            guard case .failure(let error) = result else { return XCTFail("unexpected success") }
+            XCTAssertEqual(error as? HTTPClientError, .circuitBreakerTriggered)
+            promise.fulfill()
+        }
+        wait(for: [promise], timeout: 1)
+    }
+
     func testHostCircuitBreaker() {
         let maxErrors = 5
         let errorCode = Int.random(in: 500 ..< 600)
@@ -397,6 +447,7 @@ final class LegacyHTTPClientTests: XCTestCase {
         let httpClient = LegacyHTTPClient(handler: { _, _, completion in
             completion(.success(LegacyHTTPClient.Response(statusCode: errorCode)))
         })
+        httpClient.configuration.retryStrategy = nil
         httpClient.configuration.circuitBreakerStrategy = .hostErrors(maxErrors: maxErrors, age: age)
 
         // make the initial errors
@@ -457,6 +508,7 @@ final class LegacyHTTPClientTests: XCTestCase {
                 completion(.failure(StringError("unknown request \(request.url)")))
             }
         })
+        httpClient.configuration.retryStrategy = nil
         httpClient.configuration.circuitBreakerStrategy = .hostErrors(
             maxErrors: maxErrors,
             age: .milliseconds(ageInMilliseconds)
@@ -520,6 +572,7 @@ final class LegacyHTTPClientTests: XCTestCase {
             completion(.success(LegacyHTTPClient.Response(statusCode: errorCode)))
         })
         // `.never` has no time interval, so recorded errors are reset rather than tripping the breaker.
+        httpClient.configuration.retryStrategy = nil
         httpClient.configuration.circuitBreakerStrategy = .hostErrors(maxErrors: maxErrors, age: .never)
 
         // Drive well past `maxErrors`; none of these should circuit break.

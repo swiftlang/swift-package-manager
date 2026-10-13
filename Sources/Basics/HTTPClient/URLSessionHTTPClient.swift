@@ -326,7 +326,7 @@ private final class DownloadTaskManager: NSObject, URLSessionDownloadDelegate {
 
         do {
             if let error {
-                throw HTTPClientError.downloadError(error.interpolationDescription)
+                throw error
             } else if let error = task.fileOperationError {
                 throw error
             } else if let response = downloadTask.response as? HTTPURLResponse {
