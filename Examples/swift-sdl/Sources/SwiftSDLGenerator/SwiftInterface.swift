@@ -36,7 +36,7 @@ extension SwiftSDLGenerator {
         let executable: Executable = .name("xcrun")
         synthArgs = ["swift-synthesize-interface"] + synthArgs
         #else
-        let executable: Executable = .path(toolchain.appending("usr/bin/swift-synthesize-interface"))
+        let executable: Executable = .name("swift-synthesize-interface")
         #endif
 
         if sdk.string != "none" {

@@ -21,8 +21,6 @@ struct CMakeBuilderPlugin: BuildToolPlugin {
         let builder = try context.tool(named: "CMakeBuilder")
 
         let buildDir = context.pluginWorkDirectoryURL.appending(path: "$(BUILD_SUBDIR)")
-        let libSDL3 = buildDir.appending(path: "$(LIB_PREFIX)SDL3$(STATIC_LIB_EXTENSION)")
-        let SDL3jar = buildDir.appending(path: "SDL3.jar")
 
         var environment = ["HOME": ProcessInfo.processInfo.environment["HOME"]!]
         if let developerDir = ProcessInfo.processInfo.environment["DEVELOPER_DIR"] {
@@ -31,8 +29,8 @@ struct CMakeBuilderPlugin: BuildToolPlugin {
 
         let arguments = [
             "--output-dir", buildDir.path,
-            "--sysroot", "$(SYSROOT)",
             "--triple", "$(TRIPLE)",
+            "--sysroot", "$(SYSROOT)",
             target.directoryURL.path,
         ]
 

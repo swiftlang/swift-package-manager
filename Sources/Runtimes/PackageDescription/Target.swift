@@ -1219,7 +1219,25 @@ public final class Target {
         return Target(
             name: name,
             dependencies: [],
-            path: path,
+            path: nil,
+            location: .path(path),
+            exclude: [],
+            sources: nil,
+            publicHeadersPath: nil,
+            type: .binary,
+            packageAccess: false)
+    }
+
+    @available(_PackageDescription, introduced: 6.5)
+    public static func binaryTarget(
+        name: String,
+        location: Location
+    ) -> Target {
+        return Target(
+            name: name,
+            dependencies: [],
+            path: nil,
+            location: location,
             exclude: [],
             sources: nil,
             publicHeadersPath: nil,
