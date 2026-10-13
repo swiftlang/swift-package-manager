@@ -30,6 +30,7 @@ import PackageGraph
 import PackageModel
 
 import SPMBuildCore
+import Synchronization
 import TSCUtility
 
 import func TSCLibc.exit
@@ -1750,14 +1751,11 @@ final class TestRunner {
         let testObservabilityScope = self.observabilityScope.makeChildScope(description: "running test at \(path)")
 
         do {
-            let outputHandler: @Sendable ([UInt8]) -> Void = { (bytes: [UInt8]) in
-                if let output = String(bytes: bytes, encoding: .utf8) {
-                    outputHandler(output)
-                }
-            }
+            let stdoutDecoder = Mutex(UTF8StreamDecoder())
+            let stderrDecoder = Mutex(UTF8StreamDecoder())
             let outputRedirection = AsyncProcess.OutputRedirection.stream(
-                stdout: outputHandler,
-                stderr: outputHandler
+                stdout: { bytes in outputHandler(stdoutDecoder.withLock { $0.decode(bytes) }) },
+                stderr: { bytes in outputHandler(stderrDecoder.withLock { $0.decode(bytes) }) }
             )
             let arguments = try args(forTestAt: path)
             let process = AsyncProcess(arguments: arguments, environment: self.testEnv, outputRedirection: outputRedirection)
@@ -1767,6 +1765,8 @@ final class TestRunner {
             defer { self.cancellator.deregister(terminationKey) }
             try process.launch()
             let result = try process.waitUntilExit()
+            outputHandler(stdoutDecoder.withLock { $0.flush() })
+            outputHandler(stderrDecoder.withLock { $0.flush() })
             switch result.exitStatus {
             case .terminated(code: 0):
                 return .success
