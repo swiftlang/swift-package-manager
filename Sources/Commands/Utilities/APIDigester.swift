@@ -116,7 +116,10 @@ struct APIDigesterBaselineDumper {
         // Create the workspace for this package.
         let workspace = try Workspace(
             forRootPackage: baselinePackageRoot,
-            cancellator: swiftCommandState.cancellator
+            authorizationProvider: try swiftCommandState.getAuthorizationProvider(),
+            registryAuthorizationProvider: try swiftCommandState.getRegistryAuthorizationProvider(),
+            cancellator: swiftCommandState.cancellator,
+            customHostToolchain: try swiftCommandState.getHostToolchain()
         )
 
         let graph = try await workspace.loadPackageGraph(
