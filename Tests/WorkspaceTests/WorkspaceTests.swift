@@ -14474,6 +14474,85 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testTransitiveResolutionFromRegistryWithPluginUsages() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "FooProduct", package: "foo"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_6
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Bar",
+                    identity: "org.bar",
+                    alternativeURLs: ["https://git/org/Bar"],
+                    targets: [
+                        MockTarget(name: "BarTarget"),
+                        MockTarget(name: "BarPlugin", type: .plugin, pluginCapability: .buildTool),
+                    ],
+                    products: [
+                        MockProduct(name: "Bar", modules: ["BarTarget"]),
+                        MockProduct(name: "BarPlugin", modules: ["BarPlugin"], type: .plugin),
+                    ],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    alternativeURLs: ["https://git/org/foo"],
+                    targets: [
+                        MockTarget(
+                            name: "FooTarget",
+                            pluginUsages: [.plugin(name: "BarPlugin", package: "Bar")]
+                        ),
+                    ],
+                    products: [
+                        MockProduct(name: "FooProduct", modules: ["FooTarget"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/Bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0", "1.1.0", "1.2.0"]
+                ),
+            ]
+        )
+
+        workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+
+        try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "org.bar", "org.foo", "Root")
+                result.check(modules: "FooTarget", "BarTarget", "BarPlugin", "RootTarget")
+                result.checkTarget("RootTarget") { result in
+                    result.check(dependencies: "FooProduct")
+                }
+            }
+        }
+
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .registryDownload("1.2.0"))
+            result.check(dependency: "org.bar", at: .registryDownload("1.1.0"))
+        }
+    }
+
     // no dups
     func testResolutionMixedRegistryAndSourceControl1() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")

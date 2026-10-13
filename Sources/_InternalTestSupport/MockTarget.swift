@@ -27,6 +27,7 @@ public struct MockTarget {
     public let settings: [TargetBuildSettingDescription.Setting]
     public let type: Type
     public let pluginCapability: TargetDescription.PluginCapability?
+    public let pluginUsages: [TargetDescription.PluginUsage]?
 
     public init(
         name: String,
@@ -37,12 +38,14 @@ public struct MockTarget {
         url: String? = nil,
         packageAccess: Bool = true,
         settings: [TargetBuildSettingDescription.Setting] = [],
-        checksum: String? = nil
+        checksum: String? = nil,
+        pluginUsages: [TargetDescription.PluginUsage]? = nil
     ) throws {
         self.name = name
         self.dependencies = dependencies
         self.type = type
         self.pluginCapability = pluginCapability
+        self.pluginUsages = pluginUsages
         self.path = path
         self.url = url
         self.packageAccess = packageAccess
@@ -62,7 +65,8 @@ public struct MockTarget {
                 publicHeadersPath: nil,
                 type: .regular,
                 packageAccess: packageAccess,
-                settings: self.settings
+                settings: self.settings,
+                pluginUsages: self.pluginUsages
             )
         case .test:
             return try TargetDescription(

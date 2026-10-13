@@ -279,6 +279,22 @@ extension Workspace {
                         modifiedDependencies.append(modifiedDependency)
                     }
 
+                    let modifiedPluginUsages = target.pluginUsages?.map { pluginUsage in
+                        switch pluginUsage {
+                        case .plugin(name: let name, package: let packageName):
+                            if let packageName,
+                               let modifiedPackageName =
+                               targetDependencyPackageNameTransformations[packageName.lowercased()]
+                            {
+                                return TargetDescription.PluginUsage.plugin(
+                                    name: name,
+                                    package: modifiedPackageName
+                                )
+                            }
+                            return pluginUsage
+                        }
+                    }
+
                     try modifiedTargets.append(
                         TargetDescription(
                             name: target.name,
@@ -296,7 +312,7 @@ extension Workspace {
                             pluginCapability: target.pluginCapability,
                             settings: target.settings,
                             checksum: target.checksum,
-                            pluginUsages: target.pluginUsages
+                            pluginUsages: modifiedPluginUsages
                         )
                     )
                 }
