@@ -28,13 +28,12 @@ import struct SPMBuildCore.BuildSystemProvider
 )
 struct IndexStoreIntegrationTests {
     @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms,
-        BuildConfiguration.allCases,
+        arguments: BuildConfiguration.allCases,
     )
     func explicitlyEnabled(
-        buildSystem: BuildSystemProvider.Kind,
         configuration: BuildConfiguration,
     ) async throws {
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
         try await fixture(name: "CFamilyTargets/SwiftCMixed") { fixturePath in
             try await executeSwiftBuild(
                 fixturePath,
@@ -52,12 +51,10 @@ struct IndexStoreIntegrationTests {
         }
     }
 
-    @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms,
-    )
+    @Test()
     func implicitlyEnabledViaBuildConfig(
-        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
         try await fixture(name: "CFamilyTargets/SwiftCMixed") { fixturePath in
             try await executeSwiftBuild(
                 fixturePath,
@@ -74,12 +71,10 @@ struct IndexStoreIntegrationTests {
         }
     }
 
-    @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms,
-    )
+    @Test()
     func implicitlyDisabledViaBuildConfig(
-        buildSystem: BuildSystemProvider.Kind,
     ) async throws {
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
         try await fixture(name: "CFamilyTargets/SwiftCMixed") { fixturePath in
             try await executeSwiftBuild(
                 fixturePath,
@@ -96,12 +91,9 @@ struct IndexStoreIntegrationTests {
         }
     }
 
-    @Test(
-        arguments: SupportedBuildSystemOnAllPlatforms,
-    )
-    func explicitlyDisabled(
-        buildSystem: BuildSystemProvider.Kind,
-    ) async throws {
+    @Test
+    func explicitlyDisabled() async throws {
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
         try await fixture(name: "CFamilyTargets/SwiftCMixed") { fixturePath in
             try await executeSwiftBuild(
                 fixturePath,

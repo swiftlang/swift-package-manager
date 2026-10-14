@@ -849,7 +849,7 @@ struct PluginTests {
     @Test(
         .tags(
             .Feature.Command.Package.Plugin,
-        )
+        ),
     )
     func testPluginAPIsForMixedLanguageTargets() async throws {
         try await fixture(name: "Miscellaneous/Plugins/MixedTargetPluginAPIs") { fixturePath in
