@@ -3798,6 +3798,148 @@ struct PackageBuilderTests {
     }
 
     @Test
+    func optimizationLevel() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/a.swift",
+            "/Sources/B/b.c",
+            "/Sources/B/c.cpp",
+            "/Sources/B/include/b.h"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .vNext,
+            targets: [
+                try TargetDescription(
+                    name: "A",
+                    settings: [
+                        .init(tool: .swift, kind: .optimizationLevel(.size)),
+                        .init(tool: .swift, kind: .optimizationLevel(.custom("-Ounchecked")), condition: .init(config: "release")),
+                    ]
+                ),
+                try TargetDescription(
+                    name: "B",
+                    settings: [
+                        .init(tool: .c, kind: .optimizationLevel(.none)),
+                        .init(tool: .c, kind: .optimizationLevel(.custom("-Oz")), condition: .init(config: "release")),
+                        .init(tool: .cxx, kind: .optimizationLevel(.speed)),
+                    ]
+                ),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("A") { package in
+                let debugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(debugScope.evaluate(.SWIFT_OPTIMIZATION_LEVEL) == ["-Osize"])
+                #expect(debugScope.evaluate(.OTHER_SWIFT_FLAGS) == [])
+
+                let releaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                #expect(releaseScope.evaluate(.SWIFT_OPTIMIZATION_LEVEL) == ["-Osize", "-Ounchecked"])
+            }
+
+            try package.checkModule("B") { package in
+                let debugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(debugScope.evaluate(.C_OPTIMIZATION_LEVEL) == ["-O0"])
+                #expect(debugScope.evaluate(.CXX_OPTIMIZATION_LEVEL) == ["-O2"])
+                #expect(debugScope.evaluate(.OTHER_CFLAGS) == [])
+
+                let releaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                #expect(releaseScope.evaluate(.C_OPTIMIZATION_LEVEL) == ["-O0", "-Oz"])
+                #expect(releaseScope.evaluate(.CXX_OPTIMIZATION_LEVEL) == ["-O2"])
+            }
+        }
+    }
+
+    @Test
+    func crossModuleOptimization() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/a.swift"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .vNext,
+            targets: [
+                try TargetDescription(
+                    name: "A",
+                    settings: [
+                        .init(tool: .swift, kind: .crossModuleOptimization(.disabled)),
+                        .init(tool: .swift, kind: .crossModuleOptimization(.aggressive), condition: .init(config: "release")),
+                    ]
+                ),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("A") { package in
+                let debugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(debugScope.evaluate(.SWIFT_CROSS_MODULE_OPTIMIZATION) == ["disabled"])
+                #expect(debugScope.evaluate(.OTHER_SWIFT_FLAGS) == [])
+
+                let releaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                #expect(releaseScope.evaluate(.SWIFT_CROSS_MODULE_OPTIMIZATION) == ["disabled", "aggressive"])
+            }
+        }
+    }
+
+    @Test
+    func compilationMode() throws {
+        let fs = InMemoryFileSystem(emptyFiles:
+            "/Sources/A/a.swift"
+        )
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .vNext,
+            targets: [
+                try TargetDescription(
+                    name: "A",
+                    settings: [
+                        .init(tool: .swift, kind: .compilationMode(.wholeModule)),
+                        .init(tool: .swift, kind: .compilationMode(.incremental), condition: .init(config: "release")),
+                    ]
+                ),
+            ]
+        )
+
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("A") { package in
+                let debugScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .debug)
+                )
+                #expect(debugScope.evaluate(.SWIFT_COMPILATION_MODE) == ["wholeModule"])
+                #expect(debugScope.evaluate(.OTHER_SWIFT_FLAGS) == [])
+
+                let releaseScope = BuildSettings.Scope(
+                    package.target.buildSettings,
+                    environment: BuildEnvironment(platform: .macOS, configuration: .release)
+                )
+                #expect(releaseScope.evaluate(.SWIFT_COMPILATION_MODE) == ["wholeModule", "incremental"])
+            }
+        }
+    }
+
+    @Test
     func testArtifactBundleAsNormalTargetError() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo.artifactbundle/info.json",

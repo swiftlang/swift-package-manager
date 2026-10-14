@@ -805,6 +805,39 @@ extension TargetBuildSettingDescription.Kind {
             }
 
             return .defaultIsolation(isolation)
+
+        case "optimizationLevel":
+            switch values {
+            case ["none"]:
+                return .optimizationLevel(.none)
+            case ["speed"]:
+                return .optimizationLevel(.speed)
+            case ["size"]:
+                return .optimizationLevel(.size)
+            case _ where values.count == 2 && values[0] == "custom":
+                let flag = values[1]
+                guard flag.hasPrefix("-O") else {
+                    let error = "invalid custom optimization level '\(flag)'; expected a value of the form '-O<level>'"
+                    throw ManifestParseError.runtimeManifestErrors([error])
+                }
+                return .optimizationLevel(.custom(flag))
+            default:
+                throw InternalError("invalid build settings value")
+            }
+
+        case "crossModuleOptimization":
+            guard let rawValue = values.first,
+                  let mode = TargetBuildSettingDescription.CrossModuleOptimization(rawValue: rawValue) else {
+                throw InternalError("invalid build settings value")
+            }
+            return .crossModuleOptimization(mode)
+
+        case "compilationMode":
+            guard let rawValue = values.first,
+                  let mode = TargetBuildSettingDescription.CompilationMode(rawValue: rawValue) else {
+                throw InternalError("invalid build settings value")
+            }
+            return .compilationMode(mode)
         default:
             throw InternalError("invalid build setting \(name)")
         }

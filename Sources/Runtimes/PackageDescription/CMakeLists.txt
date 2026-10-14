@@ -8,9 +8,12 @@
 
 add_library(PackageDescription
   BuildSettings.swift
+  CompilationMode.swift
   Context.swift
   ContextModel.swift
+  CrossModuleOptimization.swift
   LanguageStandardSettings.swift
+  OptimizationLevel.swift
   PackageDescription.swift
   PackageDescriptionSerialization.swift
   PackageDescriptionSerializationConversion.swift

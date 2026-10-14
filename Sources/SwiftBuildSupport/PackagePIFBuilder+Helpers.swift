@@ -48,6 +48,7 @@ import struct PackageModel.SupportedPlatform
 import struct PackageModel.SwiftLanguageVersion
 import class PackageModel.SwiftModule
 import class PackageModel.SystemLibraryModule
+import enum PackageModel.TargetBuildSettingDescription
 import struct PackageModel.ToolsVersion
 import struct PackageModel.TraitCondition
 
@@ -364,7 +365,7 @@ extension PackageModel.BuildSettings.Declaration {
         case .SWIFT_ACTIVE_COMPILATION_CONDITIONS, .OTHER_SWIFT_FLAGS:
             true
 
-        case .SWIFT_VERSION:
+        case .SWIFT_VERSION, .SWIFT_OPTIMIZATION_LEVEL, .SWIFT_CROSS_MODULE_OPTIMIZATION, .SWIFT_COMPILATION_MODE:
             false
 
         case .SWIFT_OBJC_BRIDGING_HEADER, .SWIFT_BRIDGING_HEADER_IS_INTERNAL:
@@ -373,6 +374,9 @@ extension PackageModel.BuildSettings.Declaration {
         // C family.
         case .GCC_PREPROCESSOR_DEFINITIONS, .HEADER_SEARCH_PATHS, .OTHER_CFLAGS, .OTHER_CPLUSPLUSFLAGS:
             true
+
+        case .C_OPTIMIZATION_LEVEL, .CXX_OPTIMIZATION_LEVEL:
+            false
 
         // Linker.
         case .OTHER_LDFLAGS, .LINK_LIBRARIES, .LINK_FRAMEWORKS:
@@ -768,6 +772,32 @@ extension PackageGraph.ResolvedModule {
                         values = WarningControlFlags.filterClangWarningControlFlags(settingAssignment.values)
                     } else {
                         values = settingAssignment.values
+                    }
+                case .C_OPTIMIZATION_LEVEL, .CXX_OPTIMIZATION_LEVEL:
+                    // Swift Build's per-language optimization levels take the level without the `-O` prefix.
+                    singleValueSetting = declaration == .C_OPTIMIZATION_LEVEL ? .CLANG_C_OPTIMIZATION_LEVEL : .CLANG_CXX_OPTIMIZATION_LEVEL
+                    multipleValueSetting = nil
+                    values = settingAssignment.values.map { String($0.dropFirst("-O".count)) }
+                case .SWIFT_CROSS_MODULE_OPTIMIZATION:
+                    singleValueSetting = .SWIFT_CROSS_MODULE_OPTIMIZATION
+                    multipleValueSetting = nil
+                    values = settingAssignment.values.compactMap { value in
+                        switch TargetBuildSettingDescription.CrossModuleOptimization(rawValue: value) {
+                        case .default: "compiler-default"
+                        case .disabled: "NO"
+                        case .aggressive: "YES"
+                        case nil: nil
+                        }
+                    }
+                case .SWIFT_COMPILATION_MODE:
+                    singleValueSetting = .SWIFT_COMPILATION_MODE
+                    multipleValueSetting = nil
+                    values = settingAssignment.values.compactMap { value in
+                        switch TargetBuildSettingDescription.CompilationMode(rawValue: value) {
+                        case .incremental: "singlefile"
+                        case .wholeModule: "wholemodule"
+                        case nil: nil
+                        }
                     }
                 default:
                     if declaration.allowsMultipleValues {
@@ -1372,6 +1402,8 @@ extension ProjectModel.BuildSettings.SingleValueSetting {
             self = .SWIFT_OBJC_BRIDGING_HEADER
         case .SWIFT_BRIDGING_HEADER_IS_INTERNAL:
             self = .SWIFT_BRIDGING_HEADER_IS_INTERNAL
+        case .SWIFT_OPTIMIZATION_LEVEL:
+            self = .SWIFT_OPTIMIZATION_LEVEL
         default:
             return nil
         }

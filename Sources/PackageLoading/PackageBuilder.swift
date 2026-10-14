@@ -1419,6 +1419,54 @@ public final class PackageBuilder {
                 }
 
                 values = ["-default-isolation", isolation.rawValue]
+
+            case .optimizationLevel(let level):
+                switch setting.tool {
+                case .c, .cxx:
+                    decl = setting.tool == .c ? .C_OPTIMIZATION_LEVEL : .CXX_OPTIMIZATION_LEVEL
+                    let flag = switch level {
+                    case .none: "-O0"
+                    case .speed: "-O2"
+                    case .size: "-Os"
+                    case .custom(let flag): flag
+                    }
+                    values = [flag]
+
+                case .swift:
+                    decl = .SWIFT_OPTIMIZATION_LEVEL
+                    let flag = switch level {
+                    case .none: "-Onone"
+                    case .speed: "-O"
+                    case .size: "-Osize"
+                    case .custom(let flag): flag
+                    }
+                    values = [flag]
+
+                case .linker:
+                    throw InternalError("linker does not support optimizationLevel")
+                }
+
+            case .crossModuleOptimization(let mode):
+                switch setting.tool {
+                case .c, .cxx, .linker:
+                    throw InternalError("only Swift supports crossModuleOptimization")
+
+                case .swift:
+                    decl = .SWIFT_CROSS_MODULE_OPTIMIZATION
+                }
+
+                values = [mode.rawValue]
+
+            case .compilationMode(let mode):
+                switch setting.tool {
+                case .c, .cxx, .linker:
+                    throw InternalError("only Swift supports compilationMode")
+
+                case .swift:
+                    decl = .SWIFT_COMPILATION_MODE
+                }
+
+                values = [mode.rawValue]
             }
 
             // Create an assignment for this setting.

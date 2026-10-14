@@ -8,6 +8,9 @@
 - ``unsafeFlags(_:_:)``
 - ``treatAllWarnings(as:_:)``
 - ``treatWarning(_:as:_:)``
+- ``optimizationLevel(_:_:)``
+- ``crossModuleOptimization(_:_:)``
+- ``compilationMode(_:_:)``
 
 ### Configuring Swift Language Mode
 

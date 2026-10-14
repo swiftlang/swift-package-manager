@@ -289,6 +289,30 @@ public struct CSetting: Sendable {
         return CSetting(
             name: "disableWarning", value: [name], condition: condition)
     }
+
+    /// Sets the optimization level used by the C compiler.
+    ///
+    /// Use this setting to override the selected build configuration's default optimization level.
+    ///
+    /// ```swift
+    /// cSettings: [
+    ///     .optimizationLevel(.size, .when(configuration: .release)),
+    /// ]
+    /// ```
+    ///
+    /// - Since: First available in PackageDescription 999.
+    ///
+    /// - Parameters:
+    ///   - level: The optimization level to use.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.5)
+    public static func optimizationLevel(
+      _ level: OptimizationLevel,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CSetting {
+        return CSetting(
+            name: "optimizationLevel", value: level.value, condition: condition)
+    }
 }
 
 /// A CXX-language build setting.
@@ -444,6 +468,30 @@ public struct CXXSetting: Sendable {
     ) -> CXXSetting {
         return CXXSetting(
             name: "disableWarning", value: [name], condition: condition)
+    }
+
+    /// Sets the optimization level used by the C++ compiler.
+    ///
+    /// Use this setting to override the selected build configuration's default optimization level.
+    ///
+    /// ```swift
+    /// cxxSettings: [
+    ///     .optimizationLevel(.size, .when(configuration: .release)),
+    /// ]
+    /// ```
+    ///
+    /// - Since: First available in PackageDescription 999.
+    ///
+    /// - Parameters:
+    ///   - level: The optimization level to use.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.5)
+    public static func optimizationLevel(
+      _ level: OptimizationLevel,
+      _ condition: BuildSettingCondition? = nil
+    ) -> CXXSetting {
+        return CXXSetting(
+            name: "optimizationLevel", value: level.value, condition: condition)
     }
 }
 
@@ -741,6 +789,78 @@ public struct SwiftSetting: Sendable {
             }
         return SwiftSetting(
             name: "defaultIsolation", value: [isolationString], condition: condition)
+    }
+
+    /// Sets the optimization level used by the Swift compiler.
+    ///
+    /// Use this setting to override the selected build configuration's default optimization level.
+    ///
+    /// ```swift
+    /// swiftSettings: [
+    ///     .optimizationLevel(.size, .when(configuration: .release)),
+    /// ]
+    /// ```
+    ///
+    /// - Since: First available in PackageDescription 999.
+    ///
+    /// - Parameters:
+    ///   - level: The optimization level to use.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func optimizationLevel(
+      _ level: OptimizationLevel,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "optimizationLevel", value: level.value, condition: condition)
+    }
+
+    /// Sets the cross-module optimization mode used by the Swift compiler.
+    ///
+    /// Cross-module optimization allows the compiler to perform more cross-module inlining and optimization.
+    ///
+    /// ```swift
+    /// swiftSettings: [
+    ///     .crossModuleOptimization(.aggressive, .when(configuration: .release)),
+    /// ]
+    /// ```
+    ///
+    /// - Since: First available in PackageDescription 999.
+    ///
+    /// - Parameters:
+    ///   - mode: The cross-module optimization mode to use.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func crossModuleOptimization(
+      _ mode: CrossModuleOptimization,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "crossModuleOptimization", value: [mode.value], condition: condition)
+    }
+
+    /// Sets the compilation mode used by the Swift compiler.
+    ///
+    /// Use this setting to override the selected build configuration's default compilation mode.
+    ///
+    /// ```swift
+    /// swiftSettings: [
+    ///     .compilationMode(.incremental, .when(configuration: .release)),
+    /// ]
+    /// ```
+    ///
+    /// - Since: First available in PackageDescription 999.
+    ///
+    /// - Parameters:
+    ///   - mode: The compilation mode to use.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func compilationMode(
+      _ mode: CompilationMode,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+            name: "compilationMode", value: [mode.value], condition: condition)
     }
 }
 

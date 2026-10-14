@@ -7,3 +7,4 @@
 - ``define(_:to:_:)``
 - ``headerSearchPath(_:_:)``
 - ``unsafeFlags(_:_:)``
+- ``optimizationLevel(_:_:)``
