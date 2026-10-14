@@ -139,8 +139,11 @@ private struct BasicTests {
             Tag.Feature.Command.Build,
             Tag.Feature.PackageType.Executable,
         ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
     )
-    func testSwiftPackageInitExec() async throws {
+    func testSwiftPackageInitExec(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
         try await withTemporaryDirectory { tempDir in
             // Create a new package with an executable target.
             let packagePath = tempDir.appending(component: "Project")
@@ -167,9 +170,24 @@ private struct BasicTests {
                 .stdout
             #expect(toolOutput.lowercased().contains("hello, world!"))
 
+            let errors = filterSwiftPMOutput(
+                content: packageOutput.stdout,
+                filterLevel: .error,
+            )
+            let warnings = filterSwiftPMOutput(
+                content: packageOutput.stdout,
+                filterLevel: .warning,
+            )
+
             // Check there were no compile errors or warnings.
-            #expect(packageOutput.stdout.contains("error") == false, "stdout: \(packageOutput.stdout)")
-            #expect(packageOutput.stdout.contains("warning") == false, "stdout: \(packageOutput.stdout)")
+            #expect(
+                errors.isEmpty,
+                "stdout: \(packageOutput.stdout)",
+            )
+            #expect(
+                warnings.isEmpty,
+                "stdout: \(packageOutput.stdout)",
+            )
         }
     }
 
