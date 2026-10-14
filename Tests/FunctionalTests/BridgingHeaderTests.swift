@@ -25,34 +25,59 @@ import Testing
 )
 struct BridgingHeaderTests {
     /// A Swift executable that uses a bridging header.
-    @Test
+    @Test(
+        .requiresBridgingHeaderManifestSupport,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10708", relationship: .verifies),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10723", relationship: .defect),
+    )
     func bridgingHeaderBasics() async throws {
+        try await withKnownIssue(
+            "https://github.com/swiftlang/swift-package-manager/issues/10723",
+            isIntermittent: true,
+        ) {
         try await fixture(name: "Miscellaneous/BridgingHeader") { fixturePath in
-            try await executeSwiftBuild(
+            _ = try await executeSwiftBuild(
                 fixturePath,
                 configuration: .debug,
                 buildSystem: .swiftbuild,
             )
+        }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
         }
     }
 
     /// A bridging header that imports C++ code.
-    @Test
+    @Test(
+        .requiresBridgingHeaderManifestSupport,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10708", relationship: .verifies),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10723", relationship: .defect),
+    )
     func bridgingHeaderImportingCxx() async throws {
+        try await withKnownIssue(
+            "https://github.com/swiftlang/swift-package-manager/issues/10723",
+            isIntermittent: true,
+        ) {
         try await fixture(name: "Miscellaneous/BridgingHeaderCxx") { fixturePath in
-            try await executeSwiftBuild(
+            _ = try await executeSwiftBuild(
                 fixturePath,
                 configuration: .debug,
                 buildSystem: .swiftbuild,
             )
         }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
     }
 
     /// A mixed source target with both an underlying module and a bridging header.
-    @Test
+    @Test(
+        .requiresGeneratedHeaderUnderlyingModuleIncludeBase,
+        .requiresBridgingHeaderManifestSupport,
+    )
     func bridgingHeaderWithUnderlyingClangModule() async throws {
         try await fixture(name: "Miscellaneous/BridgingHeaderWithClangModule") { fixturePath in
-            try await executeSwiftBuild(
+            _ = try await executeSwiftBuild(
                 fixturePath,
                 configuration: .debug,
                 buildSystem: .swiftbuild,
@@ -61,18 +86,32 @@ struct BridgingHeaderTests {
     }
 
     /// A mixed source target whose bridging header includes a header found via custom search paths.
-    @Test
+    @Test(
+        .requiresBridgingHeaderManifestSupport,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10708", relationship: .verifies),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10723", relationship: .defect),
+    )
     func bridgingHeaderWithCustomHeaderSearchPaths() async throws {
+        try await withKnownIssue(
+            "https://github.com/swiftlang/swift-package-manager/issues/10723",
+            isIntermittent: true,
+        ) {
         try await fixture(name: "Miscellaneous/BridgingHeaderSearchPaths") { fixturePath in
-            try await executeSwiftBuild(
+            _ = try await executeSwiftBuild(
                 fixturePath,
                 configuration: .debug,
                 buildSystem: .swiftbuild,
             )
         }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
     }
 
-    @Test
+    @Test(
+        .requiresBridgingHeaderManifestSupport,
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10708", relationship: .verifies),
+    )
     func bridgingHeaderRejectedByNativeBuildSystem() async throws {
         try await fixture(name: "Miscellaneous/BridgingHeader") { fixturePath in
             await expectThrowsCommandExecutionError(

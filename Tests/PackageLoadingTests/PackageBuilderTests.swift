@@ -2835,7 +2835,7 @@ struct PackageBuilderTests {
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
-                #expect(scope.evaluate(.SWIFT_OBJC_BRIDGING_HEADER) == ["/Sources/exe/Bridging.h"])
+                #expect(scope.evaluate(.SWIFT_OBJC_BRIDGING_HEADER) == [AbsolutePath("/Sources/exe/Bridging.h").pathString])
                 #expect(scope.evaluate(.SWIFT_BRIDGING_HEADER_IS_INTERNAL) == ["NO"])
             }
 
@@ -2844,7 +2844,7 @@ struct PackageBuilderTests {
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
-                #expect(macOSScope.evaluate(.SWIFT_OBJC_BRIDGING_HEADER) == ["/Sources/lib/Shims.h"])
+                #expect(macOSScope.evaluate(.SWIFT_OBJC_BRIDGING_HEADER) == [AbsolutePath("/Sources/lib/Shims.h").pathString])
                 #expect(macOSScope.evaluate(.SWIFT_BRIDGING_HEADER_IS_INTERNAL) == ["YES"])
 
                 let linuxScope = BuildSettings.Scope(
