@@ -19,7 +19,8 @@ import TSCBasic
 /// A utility to compute the source/resource files of a target.
 public struct TargetSourcesBuilder {
     /// The package identity.
-    public let packageIdentity: PackageIdentity
+//    public let packageIdentity: PackageIdentity
+    public let packageIdentity: PURL
 
     /// The package kind.
     public let packageKind: PackageReference.Kind
@@ -91,7 +92,7 @@ public struct TargetSourcesBuilder {
         self.fileSystem = fileSystem
 
         let childObservabilityScope = observabilityScope.makeChildScope(description: "TargetSourcesBuilder") {
-            var metadata = ObservabilityMetadata.packageMetadata(identity: packageIdentity, kind: packageKind)
+            var metadata = ObservabilityMetadata.packageMetadata(identity: .from(identity: packageIdentity), kind: packageKind)
             metadata.moduleName = target.name
             return metadata
         }

@@ -93,7 +93,8 @@ public struct PackageReference {
     }
 
     /// The identity of the package.
-    public let identity: PackageIdentity
+//    public let identity: PackageIdentity
+    public let identity: PURL
 
     /// The name of the package, if available.
     // soft deprecated 11/21
@@ -119,7 +120,7 @@ public struct PackageReference {
 
     /// Create a package reference given its identity and kind.
     public init(identity: PackageIdentity, kind: Kind, name: String? = nil) {
-        self.identity = identity
+        self.identity = .from(identity: identity)
         self.kind = kind
         switch kind {
         case .root(let path):
@@ -138,7 +139,7 @@ public struct PackageReference {
 
     /// Create a new package reference object with the given name.
     public func withName(_ newName: String) -> PackageReference {
-        return PackageReference(identity: self.identity, kind: self.kind, name: newName)
+        return PackageReference(identity: self.identity.packageIdentity, kind: self.kind, name: newName)
     }
 
     public static func root(identity: PackageIdentity, path: AbsolutePath) -> PackageReference {
