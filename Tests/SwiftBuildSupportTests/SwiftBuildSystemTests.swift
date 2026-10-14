@@ -1005,6 +1005,34 @@ struct SwiftBuildSystemTests {
         }
     }
 
+    @Test
+    func sdkRootOverrideIsIgnoredForBareMetalRunDestination() async throws {
+        let sdkRoot = AbsolutePath("/fake/sdk/root")
+        let triple = try Triple("armv7em-none-none-eabi")
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: mockBuildParameters(
+                destination: .target,
+                toolchain: try UserToolchain.default,
+                buildSystemKind: .swiftbuild,
+                triple: triple,
+                sdkRootOverride: sdkRoot,
+            ),
+        ) { swiftBuild, service, session, observabilityScope, buildParameters in
+            let buildSettings = try await swiftBuild.makeBuildParameters(
+                service: service,
+                session: session,
+                symbolGraphOptions: nil,
+                setToolchainSetting: false,
+                shouldDisableSandbox: false,
+            )
+
+            let runDestination = try #require(buildSettings.activeRunDestination)
+            let buildTargetInfo = try await session.buildTargetInfo(triple: triple.tripleString)
+            #expect(runDestination.sdk == buildTargetInfo.sdkName)
+        }
+    }
+
     @Suite
     struct AdHocEntitlementsTests {
         private static let getTaskAllowKey = "com.apple.security.get-task-allow"

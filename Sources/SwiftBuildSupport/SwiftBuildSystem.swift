@@ -892,10 +892,14 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         } else {
             let buildTargetInfo = try await session.buildTargetInfo(triple: buildParameters.triple.tripleString)
 
+            // none-os triples need to ignore SDKROOT overrides for compatibility reasons, as an SDK implies the
+            // corresponding platform.
+            let sdkRootOverride = buildParameters.triple.os == .noneOS ? nil : buildParameters.sdkRootOverride
+
             return SwiftBuild.SWBRunDestinationInfo(
                 buildTarget: .toolchainSDK(
                     platform: buildTargetInfo.platformName,
-                    sdk: buildParameters.sdkRootOverride?.pathString ?? buildTargetInfo.sdkName,
+                    sdk: sdkRootOverride?.pathString ?? buildTargetInfo.sdkName,
                     sdkVariant: buildTargetInfo.sdkVariant
                 ),
                 targetArchitecture: buildParameters.triple.archName,
