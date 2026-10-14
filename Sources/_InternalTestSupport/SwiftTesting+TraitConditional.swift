@@ -27,7 +27,7 @@ extension Trait where Self == Testing.ConditionTrait {
     }
 
     /// Skip test if the host operating system matches the running OS.
-    public static func skipHostOS(_ os: OperatingSystem, _ comment: Comment? = nil) -> Self {
+    public static func skipHostOS(_ os: OperatingSystem, because comment: Comment? = nil) -> Self {
         disabled(comment ?? "This test cannot run on a \(os) host OS.") {
             ProcessInfo.hostOperatingSystem == os
         }

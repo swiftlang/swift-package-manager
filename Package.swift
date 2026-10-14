@@ -806,6 +806,7 @@ let package = Package(
             name: "_InternalTestSupport",
             dependencies: [
                 "Basics",
+                "CoreCommands",
                 "DriverSupport",
                 "PackageFingerprint",
                 "PackageGraph",
