@@ -246,6 +246,7 @@ struct TestCommandTests {
         .tags(
             .Feature.TargetType.Executable,
         ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10683", relationship: .defect),
         .SWBINTTODO("Test currently fails due to 'error: build failed'"),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
@@ -268,10 +269,17 @@ struct TestCommandTests {
                     return
                 }
 
-                #expect(
-                    stderr.contains("was not compiled for testing") || stderr.contains("ignore swiftmodule built without '-enable-testing'"),
-                    "got stdout: \(stdout), stderr: \(stderr)",
-                )
+                withKnownIssue(
+                    "because https://github.com/swiftlang/swift-package-manager/issues/10683",
+                    isIntermittent: true
+                ) {
+                    #expect(
+                        stderr.contains("was not compiled for testing") || stderr.contains("ignore swiftmodule built without '-enable-testing'"),
+                        "got stdout: \(stdout), stderr: \(stderr)",
+                    )
+                } when: {
+                    buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .macOS
+                }
             }
     }
 
@@ -1708,7 +1716,7 @@ struct TestCommandTests {
         .tags(
             .Feature.TargetType.Executable,
         ),
-        .skipHostOS(.macOS),  // because this was guarded with `#if !canImport(Darwin)`
+        .skipHostOS(.macOS, because: "This was guarded with `#if !canImport(Darwin)`"),
         .SWBINTTODO("This is a PIF builder missing GUID problem. Further investigation is needed."),
         .IssueWindowsPathNoEntry,
         arguments: SupportedBuildSystemOnAllPlatforms,
@@ -1737,7 +1745,7 @@ struct TestCommandTests {
          .tags(
             .Feature.TargetType.Executable,
         ),
-        .skipHostOS(.macOS),  // because this was guarded with `#if !canImport(Darwin)`
+        .skipHostOS(.macOS, because: "This was guarded with `#if !canImport(Darwin)`"),
         .SWBINTTODO("This is a PIF builder missing GUID problem. Further investigation is needed."),
         .IssueWindowsPathNoEntry,
         arguments: SupportedBuildSystemOnAllPlatforms,
@@ -2169,10 +2177,14 @@ struct TestCommandTests {
                     )
                 }
             } when: {
+                #if compiler(>=6.4)
+                false
+                #else
                 // Windows lldb ships without python310.dll on PATH, so it crashes
                 // with access violation when the failbreak `command script import`
                 // runs, and swift-test exits abnormally before producing any output.
                 ProcessInfo.hostOperatingSystem == .windows
+                #endif
             }
         }
 
@@ -2213,10 +2225,14 @@ struct TestCommandTests {
                     )
                 }
             } when: {
+                #if compiler(>=6.4)
+                false
+                #else
                 // Windows lldb ships without python310.dll on PATH, so it crashes
                 // with access violation when the failbreak `command script import`
                 // runs, and swift-test exits abnormally before producing any output.
                 ProcessInfo.hostOperatingSystem == .windows
+                #endif
             }
         }
 
@@ -2246,7 +2262,14 @@ struct TestCommandTests {
                     )
                 }
             } when: {
+                #if compiler(>=6.4)
+                false
+                #else
+                // Windows lldb ships without python310.dll on PATH, so it crashes
+                // with access violation when the failbreak `command script import`
+                // runs, and swift-test exits abnormally before producing any output.
                 ProcessInfo.hostOperatingSystem == .windows
+                #endif
             }
         }
 
@@ -2276,7 +2299,11 @@ struct TestCommandTests {
                     )
                 }
             } when: {
+                #if compiler(>=6.4)
+                false
+                #else
                 ProcessInfo.hostOperatingSystem == .windows
+                #endif
             }
         }
 
@@ -2332,10 +2359,14 @@ struct TestCommandTests {
                     #endif
                 }
             } when: {
+                #if compiler(>=6.4)
+                false
+                #else
                 // Windows lldb ships without python310.dll on PATH, so it crashes
                 // with access violation when the failbreak `command script import`
                 // runs, and swift-test exits abnormally before producing any output.
                 ProcessInfo.hostOperatingSystem == .windows
+                #endif
             }
         }
 
@@ -2377,10 +2408,14 @@ struct TestCommandTests {
                     }
                 }
             } when: {
+                #if compiler(>=6.4)
+                false
+                #else
                 // Windows lldb ships without python310.dll on PATH, so it crashes
                 // with access violation when the failbreak `command script import`
                 // runs, and swift-test exits abnormally before producing any output.
                 ProcessInfo.hostOperatingSystem == .windows
+                #endif
             }
         }
 
@@ -2415,10 +2450,14 @@ struct TestCommandTests {
                     )
                 }
             } when: {
+                #if compiler(>=6.4)
+                false
+                #else
                 // Windows lldb ships without python310.dll on PATH, so it crashes
                 // with access violation when the failbreak `command script import`
                 // runs, and swift-test exits abnormally before producing any output.
                 ProcessInfo.hostOperatingSystem == .windows
+                #endif
             }
         }
 
@@ -2453,14 +2492,21 @@ struct TestCommandTests {
                     )
                 }
             } when: {
+                #if compiler(>=6.4)
+                false
+                #else
                 // Windows lldb ships without python310.dll on PATH, so it crashes
                 // with access violation when the failbreak `command script import`
                 // runs, and swift-test exits abnormally before producing any output.
                 ProcessInfo.hostOperatingSystem == .windows
+                #endif
             }
         }
 
-        @Test(arguments: SupportedBuildSystemOnAllPlatforms, ["XCTestCalculatorTests/testAdditionPasses", "calculatorAdditionPasses()"])
+        @Test(
+            .issue("https://github.com/swiftlang/swift-package-manager/issues/10684", relationship: .defect),
+            arguments: SupportedBuildSystemOnAllPlatforms, ["XCTestCalculatorTests/testAdditionPasses", "calculatorAdditionPasses()"],
+        )
         func lldbRunExecutesTestsSuccessfully(buildSystem: BuildSystemProvider.Kind, test: String) async throws {
             try await fixture(name: "Miscellaneous/TestDebugging") { fixturePath in
                 let (stdout, stderr) = try await executeSwiftTest(
@@ -2485,10 +2531,17 @@ struct TestCommandTests {
                     "Expected LLDB to launch the process, got stdout: \(stdout), stderr: \(stderr)"
                 )
 
+                withKnownIssue(
+                    "because https://github.com/swiftlang/swift-package-manager/issues/10684",
+                    isIntermittent: true,
+                ) {
                 #expect(
                     stdout.contains("exited with status = 0"),
                     "Expected process to exit with status 0, got stdout: \(stdout), stderr: \(stderr)"
                 )
+                } when: {
+                    ProcessInfo.hostOperatingSystem == .macOS
+                }
             }
         }
 

@@ -720,6 +720,7 @@ struct MiscellaneousTestCase {
     @Test(
         .skipHostOS(.linux),
         .skipHostOS(.android),
+        .skipHostOS(.windows, because: "https://github.com/swiftlang/swift-package-manager/issues/10686"),
         .tags(
             .Feature.Command.Test,
             .Feature.Command.Run,
@@ -1589,7 +1590,7 @@ struct MiscellaneousTestCase {
         .tags(
             .Feature.Command.Build,
         ),
-        .skipHostOS(.windows, "libFuzzer is not included in the Windows distribution"),
+        .skipHostOS(.windows, because: "libFuzzer is not included in the Windows distribution"),
     )
     func libFuzzerSupport() async throws {
         try await withKnownIssue(isIntermittent: true) {
@@ -1613,7 +1614,8 @@ struct MiscellaneousTestCase {
     @Test(
         .tags(
             .Feature.Command.Run,
-        )
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10687",relationship: .defect),
     )
     func diamondLinkagePromotesAutomaticLibraryToDynamic() async throws {
         try await fixture(name: "Miscellaneous/DynamicLibraryDiamond") { fixturePath in
@@ -1622,7 +1624,14 @@ struct MiscellaneousTestCase {
                 "Exec",
                 buildSystem: .swiftbuild,
             )
+            withKnownIssue(
+                "https://github.com/swiftlang/swift-package-manager/issues/10687",
+                isIntermittent: true,
+            ) {
             #expect(stdout.contains("first=1 second=2"))
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
         }
     }
 }
