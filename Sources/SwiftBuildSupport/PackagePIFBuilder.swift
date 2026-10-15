@@ -741,6 +741,9 @@ public final class PackagePIFBuilder {
     struct EmbedResourcesResult {
         let bundleName: String?
         let shouldGenerateBundleAccessor: Bool
+        /// Whether the bundle accessor is needed only on Apple platforms, because the only bundled resources are
+        /// privacy manifests.
+        var bundleAccessorIsApplePlatformsOnly: Bool = false
         let shouldGenerateEmbedInCodeAccessor: Bool
     }
 
