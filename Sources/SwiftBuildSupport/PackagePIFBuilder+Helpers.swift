@@ -301,6 +301,38 @@ extension PackageModel.Platform {
     }
 }
 
+extension ProjectModel.BuildSettings.Platform {
+    /// The Apple platforms.
+    static let applePlatforms: [Self] = [.macOS, .macCatalyst, .driverKit, .iOS, .watchOS, .tvOS, .xrOS]
+
+    /// Platform filters that match the Apple platforms.
+    static var applePlatformFilters: Set<ProjectModel.PlatformFilter> {
+        Set(applePlatforms.flatMap { $0.toPlatformFilter() })
+    }
+}
+
+extension PackagePIFBuilder.Resource {
+    /// Whether the resource is a privacy manifest, which only applies to Apple platforms.
+    var isPrivacyManifest: Bool {
+        self.path.pathExtension == "xcprivacy"
+    }
+}
+
+extension ProjectModel.BuildSettings {
+    /// Enables the generated `Bundle.module` accessor, either on all platforms or only on Apple platforms.
+    ///
+    /// The accessor imports Foundation, so enabling it where it isn't needed links the full Foundation.
+    mutating func enableResourceAccessors(applePlatformsOnly: Bool) {
+        if applePlatformsOnly {
+            for platform in ProjectModel.BuildSettings.Platform.applePlatforms {
+                self[.GENERATE_RESOURCE_ACCESSORS, platform] = "YES"
+            }
+        } else {
+            self[.GENERATE_RESOURCE_ACCESSORS] = "YES"
+        }
+    }
+}
+
 extension Sequence<PackageModel.PackageCondition> {
     func toPlatformFilter(toolsVersion: ToolsVersion) -> Set<ProjectModel.PlatformFilter> {
         let pifPlatforms = self.flatMap { packageCondition -> [ProjectModel.BuildSettings.Platform] in

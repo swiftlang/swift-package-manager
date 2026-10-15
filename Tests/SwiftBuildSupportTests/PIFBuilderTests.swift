@@ -659,6 +659,60 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test
+    func privacyManifestsAreLimitedToApplePlatforms() async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/PrivacyManifest") { pif, _, _ in
+            let project = try pif.workspace.project(named: "PrivacyManifest")
+            let applePlatforms: [ProjectModel.BuildSettings.Platform] = [
+                .macOS,
+                .macCatalyst,
+                .driverKit,
+                .iOS,
+                .watchOS,
+                .tvOS,
+                .xrOS,
+            ]
+            let applePlatformFilters = Set(applePlatforms.flatMap { $0.toPlatformFilter() })
+
+            func resourceFilters(forModule name: String) throws -> [Set<ProjectModel.PlatformFilter>] {
+                guard case .target(let target) = try project.target(id: "PACKAGE-RESOURCE:\(name)") else {
+                    throw StringError("Resource bundle target for \(name) is not a standard target")
+                }
+                return target.buildPhases.flatMap { phase -> [Set<ProjectModel.PlatformFilter>] in
+                    guard case .copyBundleResources(let resources) = phase else { return [] }
+                    return resources.files.map(\.platformFilters)
+                }
+            }
+
+            // A target whose only resource is a privacy manifest gets the manifest and the bundle accessor only on
+            // Apple platforms, so other platforms don't link the full Foundation through the accessor.
+            let privacyOnlySettings = try project
+                .target(id: "PACKAGE-TARGET:PrivacyManifestOnly")
+                .buildConfig(named: .release)
+                .settings
+            #expect(privacyOnlySettings[.GENERATE_RESOURCE_ACCESSORS] == nil)
+            for platform in ProjectModel.BuildSettings.Platform.allCases where platform != ._iOSDevice {
+                let expected: String? = applePlatforms.contains(platform) ? "YES" : nil
+                #expect(
+                    privacyOnlySettings[.GENERATE_RESOURCE_ACCESSORS, platform] == expected,
+                    "for platform \(platform)"
+                )
+            }
+            #expect(try resourceFilters(forModule: "PrivacyManifestOnly") == [applePlatformFilters])
+
+            // Any other resource still needs the accessor on all platforms.
+            let mixedSettings = try project
+                .target(id: "PACKAGE-TARGET:PrivacyManifestAndData")
+                .buildConfig(named: .release)
+                .settings
+            #expect(mixedSettings[.GENERATE_RESOURCE_ACCESSORS] == "YES")
+            #expect(try resourceFilters(forModule: "PrivacyManifestAndData").sorted { $0.count < $1.count } == [
+                [],
+                applePlatformFilters,
+            ])
+        }
+    }
+
     @Test func packageWithInternal() async throws {
         try await withGeneratedPIF(fromFixture: "PIFBuilder/PackageWithSDKSpecialization") { pif, observabilitySystem, fixturePath in
             let errors: [Diagnostic] = observabilitySystem.diagnostics.filter { $0.severity == .error }
