@@ -845,6 +845,75 @@ struct PIFBuilderTests {
     }
 
     @Test
+    func dynamicVariantWritesModuleMapImpartedByPrimaryTarget() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(
+            emptyFiles: [
+                "/MyPkg/Sources/MyLib/MyLib.swift",
+            ]
+        )
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "MyPkg",
+                    path: "/MyPkg",
+                    toolsVersion: .v6_2,
+                    products: [
+                        .init(name: "MyLibDynamic", type: .library(.dynamic), targets: ["MyLib"]),
+                    ],
+                    targets: [
+                        .init(name: "MyLib"),
+                    ]
+                )
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root,
+                addLocalRpaths: .always,
+                shouldCreateDylibForDynamicProducts: false
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "MyPkg")
+
+        func target(isDynamicVariant: Bool) throws -> ProjectModel.BaseTarget {
+            try #require(
+                project.underlying.targets.first {
+                    $0.common.name == "MyLib" && $0.common.id.value.hasSuffix("-dynamic") == isDynamicVariant
+                }
+            )
+        }
+
+        let primary = try target(isDynamicVariant: false)
+        let dynamicVariant = try target(isDynamicVariant: true)
+
+        for configuration in BuildConfiguration.allCases {
+            let imparted = try #require(primary.buildConfig(named: configuration).impartedBuildProperties.settings[.OTHER_CFLAGS])
+            let impartedModuleMaps = imparted.filter { $0.hasPrefix("-fmodule-map-file=") }
+                .map { String($0.dropFirst("-fmodule-map-file=".count)) }
+            let writtenModuleMap = try #require(dynamicVariant.buildConfig(named: configuration).settings[.MODULEMAP_PATH])
+            #expect(
+                impartedModuleMaps == [writtenModuleMap],
+                "\(configuration): primary target imparts \(impartedModuleMaps) but dynamic variant writes \(writtenModuleMap)"
+            )
+        }
+    }
+
+    @Test
     func binaryFrameworkProductWithStubTargetSynthesizesDisambiguatedDynamicVariant() async throws {
         let observability = ObservabilitySystem.makeForTesting()
 

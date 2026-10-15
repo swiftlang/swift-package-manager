@@ -268,7 +268,8 @@ extension PackagePIFProjectBuilder {
 
         // Ensure the generated module map of the testable variant of an executable/macro does not conflict with the
         // primary copy.
-        let moduleMapFileName = "\(sourceModule.name)\(targetSuffix.uniqueDescription(forName: sourceModule.name)).modulemap"
+        let moduleMapSuffix: TargetSuffix? = targetSuffix == .testable ? targetSuffix : nil
+        let moduleMapFileName = "\(sourceModule.name)\(moduleMapSuffix.uniqueDescription(forName: sourceModule.name)).modulemap"
         let generatedModuleMapPath = try RelativePath(
             validating: "$(GENERATED_MODULEMAP_DIR)/\(moduleMapFileName)"
         ).pathString
