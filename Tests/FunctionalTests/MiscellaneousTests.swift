@@ -1626,6 +1626,22 @@ struct MiscellaneousTestCase {
             #expect(stdout.contains("first=1 second=2"))
         }
     }
+
+    @Test(
+        .tags(
+            .Feature.Command.Run,
+        )
+    )
+    func diamondLinkageDynamicVariantModuleMapIsFoundByClangClients() async throws {
+        try await fixture(name: "Miscellaneous/DynamicLibraryDiamondClang") { fixturePath in
+            let (stdout, _) = try await executeSwiftRun(
+                fixturePath.appending("Exec"),
+                "Exec",
+                buildSystem: .swiftbuild,
+            )
+            #expect(stdout.contains("first=1 second=2"))
+        }
+    }
 }
 
 @Suite
