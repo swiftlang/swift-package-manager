@@ -3186,6 +3186,8 @@ final class PubGrubBacktrackTests: XCTestCase {
 }
 
 final class PubGrubMixedExactRangeRegressionTests: XCTestCase {
+    private struct Timeout: Error {}
+
     /// A term must satisfy itself. This is the comparison that exhausts the
     /// assignment loop in `PartialSolution.satisfier(for:)` and used to throw
     /// `InternalError("term ¬libb[everything] {1.2.0, 1.3.0..<1.5.0} not satisfied")`.
@@ -3296,6 +3298,123 @@ final class PubGrubMixedExactRangeRegressionTests: XCTestCase {
         let result = await resolver.solve(constraints: dependencies)
 
         XCTAssertNotNil(result.errorMsg)
+    }
+
+    /// Same shape as above plus a second (pinned) package "c" that also
+    /// constrains "b". Resolution must terminate; it used to repeat the same
+    /// decision cycle indefinitely.
+    func testConflictAcrossErasWithSecondConstrainerTerminates() async throws {
+        try builder.serve("a", at: "1.2.0", with: [
+            "a": ["b": (.versionSet(.exact("1.2.0")), .specific(["b"]))],
+        ])
+        try builder.serve("a", at: "1.3.0", with: [
+            "a": ["b": (.versionSet(.range("1.3.0"..<"1.4.0")), .specific(["b"]))],
+        ])
+        try builder.serve("a", at: "1.4.0", with: [
+            "a": ["b": (.versionSet(.range("1.4.0"..<"1.5.0")), .specific(["b"]))],
+        ])
+        try builder.serve("b", at: "1.0.0")
+        try builder.serve("c", at: "1.0.0", with: [
+            "c": ["b": (.versionSet(.range("1.0.0"..<"1.3.0")), .specific(["b"]))],
+        ])
+
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(.range("1.2.0"..<"2.0.0")), .specific(["a"])),
+            "c": (.versionSet(.range("1.0.0"..<"2.0.0")), .specific(["c"])),
+        ])
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
+            "b": (.version("1.0.0"), .specific(["b"])),
+            "c": (.version("1.0.0"), .specific(["c"])),
+        ])
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
+
+        // Propagation polls cancellation, so the task group can drain after
+        // the watchdog fires even if this decision cycle regresses to a spin.
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                let result = await resolver.solve(constraints: dependencies)
+                XCTAssertNotNil(result.errorMsg)
+            }
+            group.addTask {
+                try await Task.sleep(for: .seconds(30))
+                throw Timeout()
+            }
+            defer { group.cancelAll() }
+            _ = try await group.next()
+        }
+    }
+
+    func testResolverHonorsCancellation() async throws {
+        let resolver = builder.create()
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(.exact("1.0.0")), .specific(["a"])),
+        ])
+        let task = Task {
+            do {
+                try await Task.sleep(for: .seconds(60))
+            } catch {
+                // Continue with the cancellation flag set so resolution itself
+                // is what observes cancellation.
+            }
+            return await resolver.solve(constraints: dependencies)
+        }
+        task.cancel()
+
+        guard case .failure(let error) = await task.value else {
+            return XCTFail("expected cancellation to stop resolution")
+        }
+        XCTAssertTrue(error is _Concurrency.CancellationError, "unexpected error: \(error)")
+    }
+
+    func testPropagationHonorsCancellation() async {
+        let resolver = builder.create()
+        let state = PubGrubDependencyResolver.State(root: rootNode)
+        let task = Task {
+            do {
+                try await Task.sleep(for: .seconds(60))
+            } catch {
+                // Continue with the cancellation flag set so propagation itself
+                // is what observes cancellation.
+            }
+            return Result {
+                try resolver.propagate(state: state, node: rootNode)
+            }
+        }
+        task.cancel()
+
+        guard case .failure(let error) = await task.value else {
+            return XCTFail("expected cancellation to stop propagation")
+        }
+        XCTAssertTrue(error is _Concurrency.CancellationError, "unexpected error: \(error)")
+    }
+
+    func testConflictResolutionHonorsCancellation() async throws {
+        let resolver = builder.create()
+        let state = PubGrubDependencyResolver.State(root: rootNode)
+        // A single positive term on a non-root package is not a complete
+        // failure, so the conflict-resolution loop body is entered.
+        let conflict = try Incompatibility(Term("a@1.0.0"), root: rootNode)
+        // Satisfy the conflict with a decision so that, without the
+        // cancellation check, the loop returns normally instead of
+        // hitting an internal error.
+        state.decide(try XCTUnwrap(conflict.terms.first).node, at: v1)
+        let task = Task {
+            do {
+                try await Task.sleep(for: .seconds(60))
+            } catch {
+                // Continue with the cancellation flag set so conflict
+                // resolution itself is what observes cancellation.
+            }
+            return Result {
+                try resolver.resolve(state: state, conflict: conflict)
+            }
+        }
+        task.cancel()
+
+        guard case .failure(let error) = await task.value else {
+            return XCTFail("expected cancellation to stop conflict resolution")
+        }
+        XCTAssertTrue(error is _Concurrency.CancellationError, "unexpected error: \(error)")
     }
 }
 
