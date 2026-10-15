@@ -26,57 +26,187 @@ public enum VersionSetSpecifier: Hashable {
     /// The exact version that is required.
     case exact(Version)
 
-    /// A range of disjoint versions (sorted).
+    /// A sorted list of normalized version ranges.
+    ///
+    /// Ranges can overlap in version ordering when they differ in whether
+    /// prerelease versions are admitted.
     case ranges([Range<Version>])
 }
 
 extension VersionSetSpecifier: Equatable {
     public static func ==(lhs: VersionSetSpecifier, rhs: VersionSetSpecifier) -> Bool {
         switch (lhs, rhs) {
-        // Basic cases.
         case (.any, .any):
             return true
-        case (.empty, .empty):
-            return true
-        case (let .range(lhsRange), let .range(rhsRange)):
-            return lhsRange == rhsRange
-        case (let .exact(lhsExact), let .exact(rhsExact)):
-            return lhsExact == rhsExact
-        case (let .ranges(lhsRanges), let .ranges(rhsRanges)):
-            return lhsRanges == rhsRanges
-
-        // Empty is equivalent to an empty list of ranges or if the list contains one range where the lower bound equals the upper bound.
-        case (.empty, let .ranges(ranges)):
-            fallthrough
-        case (let .ranges(ranges), .empty):
-            return ranges.isEmpty || (ranges.count == 1 && ranges[0].lowerBound == ranges[0].upperBound)
-
-        // Empty is equivalent to a range where the lower bound equals the upper bound.
-        case (.empty, let .range(range)):
-            fallthrough
-        case (let .range(range), .empty):
-            return range.upperBound == range.lowerBound
-
-        // Exact is equal to a range that spans a single patch.
-        case (let .exact(exact), let .range(range)):
-            fallthrough
-        case (let .range(range), let .exact(exact)):
-            return range.lowerBound == exact && range.upperBound == exact.nextPatch()
-
-        // Exact is also equal to a list of ranges with one entry that spans a single patch.
-        case (let .exact(exact), let .ranges(ranges)):
-            fallthrough
-        case (let .ranges(ranges), let .exact(exact)):
-            return ranges.count == 1 && ranges[0].lowerBound == exact && ranges[0].upperBound == exact.nextPatch()
-
-        // A range is equal to a list of ranges with that one range.
-        case (let .range(range), let .ranges(ranges)):
-            fallthrough
-        case (let .ranges(ranges), let .range(range)):
-            return ranges.count == 1 && ranges[0] == range
-
-        default:
+        case (.any, _), (_, .any):
             return false
+        default:
+            return lhs.semanticSignature == rhs.semanticSignature
+        }
+    }
+}
+
+extension VersionSetSpecifier {
+    public func hash(into hasher: inout Hasher) {
+        switch self {
+        case .any:
+            hasher.combine(0 as UInt8)
+        default:
+            hasher.combine(1 as UInt8)
+            hasher.combine(self.semanticSignature)
+        }
+    }
+}
+
+fileprivate struct FiniteVersionSet: Hashable {
+    let releases: [Range<Version>]
+    let prereleases: [Range<Version>]
+
+    // `Version.==` compares numeric prerelease identifiers by value, so
+    // `1.0.0-0`, `1.0.0-00` and `1.0.0--0` are equal, while
+    // `Version.hash(into:)` hashes their spelling. Hash the bounds in a way
+    // that agrees with the synthesized `==`.
+    func hash(into hasher: inout Hasher) {
+        for ranges in [self.releases, self.prereleases] {
+            hasher.combine(ranges.count)
+            for range in ranges {
+                Self.hash(range.lowerBound, into: &hasher)
+                Self.hash(range.upperBound, into: &hasher)
+            }
+        }
+    }
+
+    private static func hash(_ version: Version, into hasher: inout Hasher) {
+        hasher.combine(version.major)
+        hasher.combine(version.minor)
+        hasher.combine(version.patch)
+        // `Version.==` also stops at the first pair of differently spelled,
+        // numerically equal identifiers and ignores what follows, so
+        // `1.0.0-0.alpha == 1.0.0-00.beta`. Only the identifiers up to and
+        // including the first numeric one, hashed by value, are therefore
+        // common to every pair of equal versions; versions that differ only
+        // after it, such as `1.0.0-beta.1.2` and `1.0.0-beta.1.3`, collide.
+        for identifier in version.prereleaseIdentifiers {
+            if let number = Int(identifier) {
+                hasher.combine(0 as UInt8)
+                hasher.combine(number)
+                return
+            }
+            hasher.combine(1 as UInt8)
+            hasher.combine(identifier)
+        }
+        hasher.combine(2 as UInt8)
+    }
+}
+
+fileprivate extension VersionSetSpecifier {
+    var ranges: [Range<Version>] {
+        switch self {
+        case .any:
+            preconditionFailure("the universal set cannot be represented as finite ranges")
+        case .empty:
+            return []
+        case .exact(let version):
+            return [version.exactRange]
+        case .range(let range):
+            return [range]
+        case .ranges(let ranges):
+            return ranges
+        }
+    }
+
+    var normalizedRanges: [Range<Version>] {
+        Self.normalize(self.ranges)
+    }
+
+    var semanticSignature: FiniteVersionSet {
+        FiniteVersionSet(
+            releases: Self.normalizedProjections(self.ranges, using: \.releaseProjection),
+            prereleases: Self.normalizedProjections(self.ranges, using: \.prereleaseProjection)
+        )
+    }
+
+    static func normalize(_ ranges: [Range<Version>]) -> [Range<Version>] {
+        let ranges = ranges
+            .filter { $0.releaseProjection != nil || $0.prereleaseProjection != nil }
+            .sorted(by: Self.areInIncreasingOrder)
+
+        // Sort once and merge adjacent components with a stack. Equality and
+        // hashing compare normalized projections, so there is no need for a
+        // repeated all-pairs scan to remove semantically redundant overlaps.
+        var result: [Range<Version>] = []
+        for range in ranges {
+            var candidate = range
+            while let previous = result.last,
+                  let merged = Self.mergeIfEquivalent(previous, candidate) {
+                result.removeLast()
+                candidate = merged
+            }
+            result.append(candidate)
+        }
+        return result
+    }
+
+    static func areInIncreasingOrder(_ lhs: Range<Version>, _ rhs: Range<Version>) -> Bool {
+        if lhs.lowerBound == rhs.lowerBound {
+            return lhs.upperBound < rhs.upperBound
+        }
+        return lhs.lowerBound < rhs.lowerBound
+    }
+
+    static func mergeIfEquivalent(_ lhs: Range<Version>, _ rhs: Range<Version>) -> Range<Version>? {
+        guard lhs.lowerBound <= rhs.upperBound, rhs.lowerBound <= lhs.upperBound else {
+            return nil
+        }
+
+        let merged = min(lhs.lowerBound, rhs.lowerBound)..<max(lhs.upperBound, rhs.upperBound)
+        // `Range.contains(version:)` has separate admission rules for release
+        // and prerelease versions. An ordinally contiguous merge is safe only
+        // when it preserves both projections.
+        guard
+            Self.normalizedProjections([lhs, rhs], using: \.releaseProjection)
+                == Self.normalizedProjections([merged], using: \.releaseProjection),
+            Self.normalizedProjections([lhs, rhs], using: \.prereleaseProjection)
+                == Self.normalizedProjections([merged], using: \.prereleaseProjection)
+        else {
+            return nil
+        }
+        return merged
+    }
+
+    static func normalizedProjections(
+        _ ranges: [Range<Version>],
+        using projection: (Range<Version>) -> Range<Version>?
+    ) -> [Range<Version>] {
+        let ranges = ranges.compactMap(projection).sorted(by: Self.areInIncreasingOrder)
+        var result: [Range<Version>] = []
+        for range in ranges {
+            // The `max..<max` point (see `Version.exactRange`) touches every
+            // range that ends at `max` without being contained in it, so it is
+            // only merged with itself.
+            if let last = result.last, range.lowerBound <= last.upperBound,
+               !range.isMaximumReleasePoint || last.isMaximumReleasePoint {
+                result[result.count - 1] = last.lowerBound..<max(last.upperBound, range.upperBound)
+            } else {
+                result.append(range)
+            }
+        }
+        return result
+    }
+
+    static func from(_ ranges: [Range<Version>]) -> VersionSetSpecifier {
+        let ranges = Self.normalize(ranges)
+        switch ranges.count {
+        case 0:
+            return .empty
+        case 1:
+            let range = ranges[0]
+            if range.isExact {
+                return .exact(range.lowerBound)
+            }
+            return .range(range)
+        default:
+            return .ranges(ranges)
         }
     }
 }
@@ -84,10 +214,18 @@ extension VersionSetSpecifier: Equatable {
 extension VersionSetSpecifier {
     var isExact: Bool {
         switch self {
-        case .any, .empty, .range, .ranges:
+        case .any:
             return false
-        case .exact:
-            return true
+        default:
+            let signature = self.semanticSignature
+            if signature.prereleases.isEmpty,
+               signature.releases.count == 1,
+               signature.releases[0].isExact {
+                return true
+            }
+            return signature.releases.isEmpty
+                && signature.prereleases.count == 1
+                && signature.prereleases[0].isExact
         }
     }
 }
@@ -98,81 +236,15 @@ extension VersionSetSpecifier {
     }
 
     public static func union(from ranges: [Swift.Range<Version>]) -> VersionSetSpecifier {
-        switch ranges.count {
-        case 0:
-            return .empty
-        case 1:
-            let range = ranges[0]
-            // FIXME: Can we avoid this? testConflict1 goes into a loop if we don't do this.
-            if range.lowerBound.nextPatch() == range.upperBound {
-                return .exact(range.lowerBound)
-            }
-            return .range(range)
-        default:
-            let ranges = ranges.sorted(by: { $0.lowerBound < $1.lowerBound })
-
-            var result: [Range<Version>] = []
-            for range in ranges {
-                // We can merge if next range starts immediately after this one or if they overlap.
-                if let last = result.last, last.upperBound == range.lowerBound || range.overlaps(last) || last.lowerBound.nextPatch() == range.lowerBound {
-                    let newResult: Range<Version>
-
-                    if range.lowerBound == range.upperBound {
-                        // 1.0.0..<1.0.1 U 1.0.1..<1.0.1 is 1.0.0..<1.0.2
-                        let version = range.lowerBound
-                        if last.upperBound == version {
-                            newResult = last.lowerBound ..< version.nextPatch()
-                        } else {
-                            continue
-                        }
-                    } else {
-                        let lower = min(last.lowerBound, range.lowerBound)
-                        let upper = max(last.upperBound, range.upperBound)
-                        newResult = lower ..< upper
-                    }
-
-                    result[result.count - 1] = newResult
-                } else {
-                    result.append(range)
-                }
-            }
-
-            if result.count == 1 {
-                return .range(result[0])
-            }
-            return .ranges(result)
-        }
+        Self.from(ranges)
     }
 
     public func union(_ rhs: VersionSetSpecifier) -> VersionSetSpecifier {
         switch (self, rhs) {
         case (_, .any), (.any, _):
             return .any
-        case (.empty, _):
-            return rhs
-        case (_, .empty):
-            return self
-        case (.exact(let v1), .exact(let v2)):
-            if v1 == v2 {
-                return self
-            }
-            return VersionSetSpecifier.union(from: [v1..<v1, v2..<v2])
-
-        case (.range(let v2), .exact(let v1)),
-             (.exact(let v1), .range(let v2)):
-            return VersionSetSpecifier.union(from: [v1..<v1, v2])
-
-        case (.ranges(let ranges), .exact(let exact)), (.exact(let exact), .ranges(let ranges)):
-            return VersionSetSpecifier.union(from: [exact..<exact] + ranges)
-
-        case (.range(let lhs), .range(let rhs)):
-            return VersionSetSpecifier.union(from: [lhs, rhs])
-
-        case (.ranges(let ranges), .range(let range)), (.range(let range), .ranges(let ranges)):
-            return VersionSetSpecifier.union(from: [range] + ranges)
-
-        case (.ranges(let r1), .ranges(let r2)):
-            return VersionSetSpecifier.union(from: r1 + r2)
+        default:
+            return Self.from(self.normalizedRanges + rhs.normalizedRanges)
         }
     }
 }
@@ -185,66 +257,62 @@ extension VersionSetSpecifier {
             return rhs
         case (_, .any):
             return self
-        case (.empty, _):
-            return .empty
-        case (_, .empty):
-            return .empty
-        case (.range(let lhs), .range(let rhs)):
-            if let result = VersionSetSpecifier.intersection(lhs, rhs) {
-                return .range(result)
+        default:
+            let lhsRanges = self.normalizedRanges
+            let rhsRanges = rhs.normalizedRanges
+            var result: [Range<Version>] = []
+            for lhsRange in lhsRanges {
+                for rhsRange in rhsRanges {
+                    result.append(contentsOf: Self.intersection(lhsRange, rhsRange))
+                }
             }
-            return .empty
-        case (.exact(let v), _):
-            if rhs.contains(v) {
-                return self
-            }
-            return .empty
-        case (_, .exact(let v)):
-            if contains(v) {
-                return rhs
-            }
-            return .empty
-
-        case (.ranges(let ranges), .range(let range)), (.range(let range), .ranges(let ranges)):
-            return .intersection(ranges, [range])
-        case (.ranges(let lhs), .ranges(let rhs)):
-             return .intersection(lhs, rhs)
+            return Self.from(result)
         }
     }
 
-    fileprivate static func intersection(_ lhs: Range<Version>, _ rhs: Range<Version>) -> Range<Version>? {
-        let start = Swift.max(lhs.lowerBound, rhs.lowerBound)
-        let end = Swift.min(lhs.upperBound, rhs.upperBound)
-        if start < end {
-            return start..<end
+    /// Intersect two ranges ordinally, on their raw bounds.
+    ///
+    /// Prerelease admission is a property of the bounds, not an independent
+    /// dimension: `Range.contains(version:)` admits prereleases across the whole
+    /// range as soon as *either* bound carries prerelease identifiers. Taking
+    /// `max(lowerBound)..<min(upperBound)` therefore propagates an explicit
+    /// prerelease opt-in from either operand into the result whenever that
+    /// prerelease bound is the one that survives the clamping.
+    ///
+    /// Release membership of the result is exact, but prerelease membership is
+    /// only an ordinal approximation that can err either way: it can admit
+    /// prereleases that one operand rejects, and it can drop prereleases that
+    /// both operands admit when neither surviving bound carries prerelease
+    /// identifiers (`1.0.0-alpha..<2.0.0 ∩ 1.5.0..<3.0.0-beta` is
+    /// `1.5.0..<2.0.0`, which drops `1.6.0-alpha`).
+    ///
+    /// That propagation is deliberate — it is how a release-only requirement
+    /// such as `1.0.0..<2.0.0` coming from a transitive dependency still allows
+    /// the prereleases that the root package opted into with `1.0.0-latest`.
+    /// Intersecting the release and prerelease projections separately instead
+    /// would make any release-only operand veto prereleases and break that
+    /// inference.
+    private static func intersection(
+        _ lhs: Range<Version>,
+        _ rhs: Range<Version>
+    ) -> [Range<Version>] {
+        // An exact requirement denotes one specific version, so it is
+        // intersected by membership rather than by clamping bounds. This is
+        // what stops the inference above from manufacturing a match for an
+        // exact prerelease against a release-only range: pinning
+        // `1.0.6-prerelease-1` is not enough to opt a plain `1.0.4..<2.0.0`
+        // dependency into prereleases.
+        if lhs.isExact {
+            return rhs.contains(version: lhs.lowerBound) ? [lhs] : []
         }
-        return nil
-    }
-
-    fileprivate static func intersection(_ lhs: [Range<Version>], _ rhs: [Range<Version>]) -> VersionSetSpecifier {
-        var lhsItr = lhs.makeIterator()
-        var rhsItr = rhs.makeIterator()
-
-        var currentLhs = lhsItr.next()
-        var currentRhs = rhsItr.next()
-
-        var result: [Range<Version>] = []
-
-        while let lhs = currentLhs, let rhs = currentRhs {
-            if let current = VersionSetSpecifier.intersection(lhs, rhs) {
-                result.append(current)
-            }
-
-            // Move the one with lower upper bound so large ranges have a chance to match multiple
-            // small ranges they contain.
-            if lhs.upperBound < rhs.upperBound {
-                currentLhs = lhsItr.next()
-            } else {
-                currentRhs = rhsItr.next()
-            }
+        if rhs.isExact {
+            return lhs.contains(version: rhs.lowerBound) ? [rhs] : []
         }
 
-        return .union(from: result)
+        let lowerBound = max(lhs.lowerBound, rhs.lowerBound)
+        let upperBound = min(lhs.upperBound, rhs.upperBound)
+        guard lowerBound < upperBound else { return [] }
+        return [lowerBound..<upperBound]
     }
 }
 
@@ -255,196 +323,86 @@ extension VersionSetSpecifier {
             return .empty
         case (.any, _):
             fatalError("\(#file):\(#line) - Illegal call of \(#function) on left hand side value of `.any`")
-        case (.empty, _):
-            return .empty
-        case (_, .empty):
-            return self
-        case (.exact(let v1), .exact(let v2)):
-            if v1 == v2 {
-                return .empty
+        default:
+            var result = self.normalizedRanges
+            for excluded in rhs.normalizedRanges {
+                result = result.flatMap { Self.subtract(excluded, from: $0) }
             }
-            return self
+            return Self.from(result)
+        }
+    }
 
-        case (.exact(let lhs), .range(let rhs)):
-            if rhs.contains(version: lhs) {
-                return .empty
+    private static func subtract(
+        _ rhs: Range<Version>,
+        from lhs: Range<Version>
+    ) -> [Range<Version>] {
+        if lhs.isExact {
+            return rhs.contains(version: lhs.lowerBound) ? [] : [lhs]
+        }
+        if rhs.isExact {
+            let version = rhs.lowerBound
+            guard lhs.contains(version: version) else {
+                return [lhs]
             }
-            return .exact(lhs)
-        case (.range(let lhs), .exact(let rhs)):
-            if !lhs.contains(version: rhs) {
-                return .range(lhs)
-            }
-
-            if lhs.lowerBound == rhs {
-                // Return empty if the range is empty. This means upper and lower bounds are equal since the range is half-open and there are no negative results here.
-                if lhs.lowerBound == lhs.upperBound {
-                    return .empty
-                }
-                // If there is exactly one patch between lower and upper bound, the range represent the lower bound as an exact version. So the range is empty in this case as well.
-                if lhs.lowerBound.nextPatch() == lhs.upperBound {
-                    return .empty
-                }
-                return .range(rhs.nextPatch()..<lhs.upperBound)
-            }
-
-            return .union(from: [lhs.lowerBound..<rhs, rhs.nextPatch()..<lhs.upperBound])
-
-        case (.ranges(let ranges), .exact(let exact)):
-            var result = [Range<Version>]()
-
-            for range in ranges {
-                // FIXME: is this worth merging with the logic in (range, exact) case above?
-                if !range.contains(version: exact) {
-                    result.append(range)
-                } else if range.lowerBound == exact {
-                    if range.lowerBound == range.upperBound {
-                        continue
-                    }
-
-                    if exact.nextPatch() < range.upperBound {
-                        result.append(exact.nextPatch()..<range.upperBound)
-                    }
-                } else {
-                    result += [range.lowerBound..<exact]
-                    if exact.nextPatch() < range.upperBound {
-                        result += [exact.nextPatch()..<range.upperBound]
-                    }
-                }
-            }
-            return .union(from: result)
-
-        case (.exact(let exact), .ranges(let ranges)):
-            for range in ranges {
-                if range.contains(version: exact) {
-                    return .empty
-                }
-            }
-            return self
-
-        case (.range(let lhs), .range(let rhs)):
-            if lhs == rhs { return .empty }
-            if !lhs.overlaps(rhs) { return .range(lhs) }
-
-            var result = [Range<Version>]()
-            if lhs.lowerBound < rhs.lowerBound {
-                result.append(lhs.lowerBound..<rhs.lowerBound)
-            }
-
-            if rhs.upperBound < lhs.upperBound {
-                result.append(rhs.upperBound..<lhs.upperBound)
-            }
-            return .union(from: result)
-
-        case (.range(let inputRange), .ranges(let ranges)):
-            var result = [Range<Version>]()
-            var lhs = inputRange
-            for range in ranges {
-                // Skip the ranges that don't overlap with the current lhs range.
-                // FIXME: We can exit the loop early when the range goes above lhs.
-                if !range.overlaps(lhs) { continue }
-
-                let diff = VersionSetSpecifier.range(lhs).difference(.range(range))
-                switch diff {
-                case .empty:
-                    return .empty
-                case .any:
-                    fatalError("unexpected any result")
-                case .exact(let v):
-                    lhs = v..<v.nextPatch()
-                case .range(let r):
-                    lhs = r
-                case .ranges(let rs):
-                    // If the difference end up being a disjoint set, append the first one to
-                    // our result and continue reducing the second set.
-                    precondition(rs.count == 2, "expected 2 elements in ranges \(rs)")
-                    result.append(rs[0])
-                    lhs = rs[1]
-                }
-            }
-            return .union(from: result + [lhs])
-
-        case (.ranges(_), .range(let r)):
-            return self.difference(.ranges([r]))
-
-        case (.ranges(let lhs), .ranges(let rhs)):
-            // Based on the difference method in https://github.com/dart-lang/pub_semver/blob/master/lib/src/version_union.dart     //ignore-unacceptable-language
-            var lhsItr = lhs.makeIterator()
-            var rhsItr = rhs.makeIterator()
-
-            var currentLHS = lhsItr.next()!
-            var currentRHS = rhsItr.next()!
 
             var result: [Range<Version>] = []
-
-            func moveRHS() -> Bool {
-                if let value = rhsItr.next() {
-                    currentRHS = value
-                    return true
-                }
-
-                // RHS is done so add remaining on LHS ranges to the final result.
-                result.append(currentLHS)
-                while let value = lhsItr.next() {
-                    result.append(value)
-                }
-                return false
+            // Keep the representable prereleases around a removed release.
+            // What a positive union of the public Range-based cases cannot
+            // express is keeping *all* prereleases that share the removed
+            // release's core without the release itself, so those are
+            // dropped; a subset such as `1.0.0-alpha..<1.0.0-beta` would be
+            // representable on its own.
+            let removesReleaseFromPrereleaseRange = lhs.supportsPrereleases && !version.supportsPrerelease
+            let upperBound = removesReleaseFromPrereleaseRange
+                ? version.prereleaseFloor
+                : version
+            if lhs.lowerBound < upperBound {
+                result.append(lhs.lowerBound..<upperBound)
             }
-
-            func moveLHS(addCurrentLHS: Bool = true) -> Bool {
-                if addCurrentLHS {
-                    result.append(currentLHS)
-                }
-
-                if let value = lhsItr.next() {
-                    currentLHS = value
-                    return true
-                }
-                return false
+            let successor = version.exactRange.upperBound
+            let lowerBound = removesReleaseFromPrereleaseRange
+                ? successor.prereleaseFloor
+                : successor
+            if lowerBound < lhs.upperBound {
+                result.append(lowerBound..<lhs.upperBound)
             }
-
-            outer: while true {
-                if currentRHS.isLowerThan(currentLHS) {
-                    if !moveRHS() { break outer }
-                    continue
-                }
-
-                if currentRHS.isHigherThan(currentLHS) {
-                    if !moveLHS() { break outer }
-                    continue
-                }
-
-                var diff = VersionSetSpecifier.range(currentLHS).difference(.range(currentRHS))
-                // Transform exact to a range so it is handled in the range case below.
-                if case .exact(let v) = diff {
-                    diff = .range(v..<v.nextPatch())
-                }
-
-                switch diff {
-                case .empty:
-                    if !moveLHS(addCurrentLHS: false) { break outer }
-                case .any, .exact:
-                    fatalError("Unexpected result \(diff)")
-                case .range(let r):
-                    currentLHS = r
-                    // Move the one with lower upper bound so large ranges have a chance to match multiple
-                    // small ranges they contain.
-                    if currentLHS.upperBound < currentRHS.upperBound {
-                        if !moveRHS() { break outer }
-                    } else {
-                        if !moveLHS() { break outer }
-                    }
-                case .ranges(let rs):
-                    // If the difference end up being a disjoint set, append the first one to
-                    // our result and continue reducing the second set.
-                    precondition(rs.count == 2, "expected 2 elements in ranges \(rs)")
-                    result.append(rs[0])
-                    currentLHS = rs[1]
-                    if !moveRHS() { break outer }
-                }
-            }
-
-            return .union(from: result)
+            return result
         }
+
+        // A release-only `lhs` admits no prereleases, so only the releases of
+        // `rhs` can be removed from it. Splitting on the raw bounds of `rhs`
+        // would hand a prerelease bound to a remaining piece, which
+        // `Range.contains(version:)` then reads as an opt-in to prereleases
+        // that `lhs` never admitted.
+        let excluded: Range<Version>
+        if lhs.supportsPrereleases {
+            excluded = rhs
+        } else if let releases = rhs.releaseProjection {
+            excluded = releases
+        } else {
+            return [lhs]
+        }
+
+        guard lhs.lowerBound < excluded.upperBound, excluded.lowerBound < lhs.upperBound else {
+            return [lhs]
+        }
+        // Below a release upper bound, `lhs` admits no prerelease of that
+        // release's core, so an overlap that starts at one removes nothing.
+        // Splitting there anyway would end the remaining piece on that
+        // prerelease and admit the prereleases of the core below it.
+        if !lhs.upperBound.supportsPrerelease,
+           excluded.lowerBound.withoutPrerelease == lhs.upperBound.withoutPrerelease {
+            return [lhs]
+        }
+
+        var result: [Range<Version>] = []
+        if lhs.lowerBound < excluded.lowerBound {
+            result.append(lhs.lowerBound..<excluded.lowerBound)
+        }
+        if excluded.upperBound < lhs.upperBound {
+            result.append(excluded.upperBound..<lhs.upperBound)
+        }
+        return result
     }
 }
 
@@ -455,13 +413,15 @@ extension VersionSetSpecifier {
         case .empty:
             return false
         case .range(let range):
-            return range.contains(version: version)
+            return !range.isSemanticallyEmpty && range.contains(version: version)
         case .ranges(let ranges):
-            return ranges.contains(where: { $0.contains(version: version) })
+            return ranges.contains {
+                !$0.isSemanticallyEmpty && $0.contains(version: version)
+            }
         case .any:
             return true
-        case .exact(let v):
-            return v == version
+        case .exact(let exact):
+            return exact == version
         }
     }
 }
@@ -474,9 +434,9 @@ extension VersionSetSpecifier {
         case .exact(let version):
             version.supportsPrerelease
         case .range(let range):
-            range.supportsPrereleases
+            !range.isSemanticallyEmpty && range.supportsPrereleases
         case .ranges(let ranges):
-            ranges.contains(where: \.supportsPrereleases)
+            ranges.contains { !$0.isSemanticallyEmpty && $0.supportsPrereleases }
         }
     }
 
@@ -486,56 +446,131 @@ extension VersionSetSpecifier {
         }
 
         return switch self {
-        case .empty, .any:
-            self
-        case .range(let range):
-            .range(range.withoutPrerelease)
-        case .ranges(let ranges):
-            .ranges(ranges.map { $0.withoutPrerelease })
-        case .exact(let version):
-            .exact(version.withoutPrerelease)
+        case .any:
+            .any
+        default:
+            Self.from(self.normalizedRanges.map { range in
+                if range.isExact {
+                    return range.lowerBound.withoutPrerelease.exactRange
+                }
+                return range.withoutPrerelease
+            })
         }
     }
 }
 
 extension VersionSetSpecifier: CustomStringConvertible {
     public var description: String {
+        self.description(boundDescription: \.description)
+    }
+
+    /// `description` with range bounds as diagnostics print them; see
+    /// `Version.diagnosticDescription`.
+    var diagnosticDescription: String {
+        self.description(boundDescription: \.diagnosticDescription)
+    }
+
+    private func description(boundDescription: (Version) -> String) -> String {
         switch self {
         case .any:
             return "any"
-        case .empty:
-            return "empty"
-        case .ranges(let ranges):
-            return "{" + ranges.map{
-                if $0.lowerBound == $0.upperBound {
-                    return $0.lowerBound.description
-                }
-                return $0.lowerBound.description + "..<" + $0.upperBound.description
-            }.joined(separator: ", ") + "}"
-        case .range(let range):
-            var upperBound = range.upperBound
-            // Patch the version range representation. This shouldn't be
-            // required once we have custom version range structure.
-            if upperBound.minor == .max && upperBound.patch == .max {
+        default:
+            let ranges = self.normalizedRanges.map {
+                Self.description(of: $0, patchesUpperBound: self.isRange, boundDescription: boundDescription)
+            }
+            switch ranges.count {
+            case 0:
+                return "empty"
+            case 1:
+                return ranges[0]
+            default:
+                return "{" + ranges.joined(separator: ", ") + "}"
+            }
+        }
+    }
+
+    private var isRange: Bool {
+        if case .range = self {
+            return true
+        }
+        return false
+    }
+
+    private static func description(
+        of range: Range<Version>,
+        patchesUpperBound: Bool,
+        boundDescription: (Version) -> String
+    ) -> String {
+        if range.isExact {
+            return range.lowerBound.description
+        }
+
+        var upperBound = range.upperBound
+        // Patch the version range representation. This shouldn't be
+        // required once we have custom version range structure.
+        if patchesUpperBound {
+            if upperBound.major != .max && upperBound.minor == .max && upperBound.patch == .max {
                 upperBound = Version(upperBound.major + 1, 0, 0)
             }
             if upperBound.minor != .max && upperBound.patch == .max {
                 upperBound = Version(upperBound.major, upperBound.minor + 1, 0)
             }
-            return range.lowerBound.description + "..<" + upperBound.description
-        case .exact(let version):
-            return version.description
         }
+        return boundDescription(range.lowerBound) + "..<" + boundDescription(upperBound)
+    }
+}
+
+extension Range where Bound == Version {
+    /// Whether this is `exactRange` of its lower bound, i.e. the range that
+    /// `VersionSetSpecifier.exact(lowerBound)` stands for.
+    var isExact: Bool {
+        // The identifiers are compared by spelling as well: `Version.==`
+        // stops at the first pair of differently spelled but numerically
+        // equal identifiers, so it would also accept an upper bound that
+        // continues past such a pair and bounds more than one version.
+        let exactRange = self.lowerBound.exactRange
+        return self.upperBound == exactRange.upperBound
+            && self.upperBound.prereleaseIdentifiers == exactRange.upperBound.prereleaseIdentifiers
     }
 }
 
 fileprivate extension Range where Bound == Version {
-    func isLowerThan(_ other: Range<Bound>) -> Bool {
-        return self.lowerBound < other.lowerBound && self.upperBound < other.upperBound
+    var isSemanticallyEmpty: Bool {
+        self.releaseProjection == nil && self.prereleaseProjection == nil
     }
 
-    func isHigherThan(_ other: Range<Bound>) -> Bool {
-        return other.isLowerThan(self)
+    /// Whether this is `max..<max`, the encoding of
+    /// `.exact(Version.maximumRelease)`; see `Version.exactRange`.
+    var isMaximumReleasePoint: Bool {
+        self.lowerBound == .maximumRelease && self.upperBound == .maximumRelease
+    }
+
+    var releaseProjection: Range<Version>? {
+        // Checked on the raw bounds: an exact prerelease of the maximum
+        // version must not project onto the maximum release.
+        if self.isMaximumReleasePoint {
+            return self
+        }
+        let lowerBound = self.lowerBound.withoutPrerelease
+        let upperBound = self.upperBound.withoutPrerelease
+        guard lowerBound < upperBound else {
+            return nil
+        }
+        return lowerBound..<upperBound
+    }
+
+    var prereleaseProjection: Range<Version>? {
+        guard self.supportsPrereleases else {
+            return nil
+        }
+
+        let upperBound = self.upperBound.supportsPrerelease
+            ? self.upperBound
+            : self.upperBound.prereleaseFloor
+        guard self.lowerBound < upperBound else {
+            return nil
+        }
+        return self.lowerBound..<upperBound
     }
 
     var supportsPrereleases: Bool {
@@ -543,11 +578,7 @@ fileprivate extension Range where Bound == Version {
     }
 
     var withoutPrerelease: Range<Version> {
-        if !supportsPrereleases {
-            return self
-        }
-
-        return Range(uncheckedBounds: (
+        Range(uncheckedBounds: (
             lower: self.lowerBound.withoutPrerelease,
             upper: self.upperBound.withoutPrerelease
         ))
@@ -557,6 +588,17 @@ fileprivate extension Range where Bound == Version {
 fileprivate extension Version {
     var supportsPrerelease: Bool {
         !self.prereleaseIdentifiers.isEmpty
+    }
+
+    /// The smallest prerelease of this version's core, which lies below every
+    /// other prerelease of it.
+    var prereleaseFloor: Version {
+        Version(
+            self.major,
+            self.minor,
+            self.patch,
+            prereleaseIdentifiers: [Version.minimumPrereleaseIdentifier]
+        )
     }
 
     var withoutPrerelease: Version {

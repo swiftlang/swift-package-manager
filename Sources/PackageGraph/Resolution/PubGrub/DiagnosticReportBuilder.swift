@@ -207,13 +207,13 @@ struct DiagnosticReportBuilder {
             assert(incompatibility.terms.count == 1)
             let term = incompatibility.terms.first!
             assert(term.isPositive)
-            return "no versions of \(term.node.nameForDiagnostics) match the requirement \(term.requirement)"
+            return "no versions of \(term.node.nameForDiagnostics) match the requirement \(term.requirement.diagnosticDescription)"
         case .root:
             // FIXME: This will never happen I think.
             assert(incompatibility.terms.count == 1)
             let term = incompatibility.terms.first!
             assert(term.isPositive)
-            return "\(term.node.nameForDiagnostics) is \(term.requirement)"
+            return "\(term.node.nameForDiagnostics) is \(term.requirement.diagnosticDescription)"
         case .conflict where incompatibility.terms.count == 1 && incompatibility.terms.first?.node == self.rootNode:
             return "dependencies could not be resolved"
         case .conflict:
@@ -324,25 +324,25 @@ struct DiagnosticReportBuilder {
         case .range(let range):
             // container expected to be cached at this point
             guard normalizeRange, let container = try? provider.getCachedContainer(for: term.node.package) else {
-                return "\(name) \(range.description)"
+                return "\(name) \(range.diagnosticDescription)"
             }
 
             switch try await container.computeBounds(for: range) {
             case (true, true):
-                return "\(name) \(range.description)"
+                return "\(name) \(range.diagnosticDescription)"
             case (false, false):
                 return name
             case (true, false):
-                return "\(name) >= \(range.lowerBound)"
+                return "\(name) >= \(range.lowerBound.diagnosticDescription)"
             case (false, true):
-                return "\(name) < \(range.upperBound)"
+                return "\(name) < \(range.upperBound.diagnosticDescription)"
             }
         case .ranges(let ranges):
             let ranges = "{" + ranges.map {
-                if $0.lowerBound == $0.upperBound {
+                if $0.isExact {
                     return $0.lowerBound.description
                 }
-                return $0.lowerBound.description + "..<" + $0.upperBound.description
+                return $0.diagnosticDescription
             }.joined(separator: ", ") + "}"
             return "\(name) \(ranges)"
         }
@@ -374,5 +374,12 @@ struct DiagnosticReportBuilder {
 extension DependencyResolutionNode {
     fileprivate var nameForDiagnostics: String {
         "'\(self.package.identity)'"
+    }
+}
+
+extension Range where Bound == Version {
+    /// This range as diagnostics print it; see `Version.diagnosticDescription`.
+    fileprivate var diagnosticDescription: String {
+        self.lowerBound.diagnosticDescription + "..<" + self.upperBound.diagnosticDescription
     }
 }
