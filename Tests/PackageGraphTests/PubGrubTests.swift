@@ -2801,6 +2801,48 @@ final class PubGrubBacktrackTests: XCTestCase {
         ])
     }
 
+    /// Resolution used to loop forever here: each rejected `q` version pulls in a different, adjacent exact
+    /// version of `p` (1.0.0 and 1.0.1), and `{1.0.0} U {1.0.1}` was being collapsed to an empty version set.
+    /// The partial solution then never recorded either `p` version as excluded, so unit propagation kept
+    /// re-deriving the same terms.
+    ///
+    /// root -> d 2.0.0..<3.0.0
+    /// root -> q 1.0.0..<3.0.0
+    /// q 2.0.0 -> p ==1.0.1 -> d 1.5.0..<2.0.0 (conflicts with root's `d`)
+    /// q 1.1.0 -> p ==1.0.0 -> d 1.0.0..<2.0.0 (conflicts with root's `d`)
+    /// q 1.0.0 has no dependencies, so it is the only solution.
+    func testBacktrackAdjacentExactVersionsDoesNotLoop() async throws {
+        try builder.serve("d", at: v2)
+
+        try builder.serve("p", at: "1.0.0", with: [
+            "p": ["d": (.versionSet(v1Range), .specific(["d"]))],
+        ])
+        try builder.serve("p", at: "1.0.1", with: [
+            "p": ["d": (.versionSet(v1_5Range), .specific(["d"]))],
+        ])
+
+        try builder.serve("q", at: v1)
+        try builder.serve("q", at: v1_1, with: [
+            "q": ["p": (.versionSet(.exact("1.0.0")), .specific(["p"]))],
+        ])
+        try builder.serve("q", at: v2, with: [
+            "q": ["p": (.versionSet(.exact("1.0.1")), .specific(["p"]))],
+        ])
+
+        let resolver = builder.create()
+        let dependencies = try builder.create(dependencies: [
+            "d": (.versionSet(v2Range), .specific(["d"])),
+            "q": (.versionSet(v1to3Range), .specific(["q"])),
+        ])
+
+        let result = await resolver.solve(constraints: dependencies)
+
+        AssertResult(result, [
+            ("d", .version(v2)),
+            ("q", .version(v1)),
+        ])
+    }
+
     func testBacktrack2() async throws {
         try builder.serve("a", at: v1)
         try builder.serve("a", at: "2.0.0", with: [

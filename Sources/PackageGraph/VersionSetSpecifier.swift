@@ -114,11 +114,15 @@ extension VersionSetSpecifier {
             var result: [Range<Version>] = []
             for range in ranges {
                 // We can merge if next range starts immediately after this one or if they overlap.
+                // For ranges such as 1.0.0..<1.0.0, treat them as the empty set.
+                if range.isEmpty {
+                    continue
+                }
                 if let last = result.last, last.upperBound == range.lowerBound || range.overlaps(last) || last.lowerBound.nextPatch() == range.lowerBound {
                     let newResult: Range<Version>
 
-                    if range.lowerBound == range.upperBound {
-                        // 1.0.0..<1.0.1 U 1.0.1..<1.0.1 is 1.0.0..<1.0.2
+                    if range.lowerBound.nextPatch() == range.upperBound {
+                        // 1.0.0..<1.0.1 U 1.0.1..<1.0.2 is 1.0.0..<1.0.2
                         let version = range.lowerBound
                         if last.upperBound == version {
                             newResult = last.lowerBound ..< version.nextPatch()
@@ -156,14 +160,14 @@ extension VersionSetSpecifier {
             if v1 == v2 {
                 return self
             }
-            return VersionSetSpecifier.union(from: [v1..<v1, v2..<v2])
+            return VersionSetSpecifier.union(from: [v1..<v1.nextPatch(), v2..<v2.nextPatch()])
 
         case (.range(let v2), .exact(let v1)),
              (.exact(let v1), .range(let v2)):
-            return VersionSetSpecifier.union(from: [v1..<v1, v2])
+            return VersionSetSpecifier.union(from: [v1..<v1.nextPatch(), v2])
 
         case (.ranges(let ranges), .exact(let exact)), (.exact(let exact), .ranges(let ranges)):
-            return VersionSetSpecifier.union(from: [exact..<exact] + ranges)
+            return VersionSetSpecifier.union(from: [exact..<exact.nextPatch()] + ranges)
 
         case (.range(let lhs), .range(let rhs)):
             return VersionSetSpecifier.union(from: [lhs, rhs])
