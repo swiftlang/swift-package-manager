@@ -8,6 +8,7 @@ Swift Package Manager includes a build system that can build for macOS and Linux
 
 The [SourceKit-LSP](https://github.com/swiftlang/sourcekit-lsp) project leverages libSwiftPM and provides [Language Server Protocol](https://langserver.org/) implementation for editors that support LSP.
 
+
 ---
 
 ## Table of Contents
