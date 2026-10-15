@@ -12,7 +12,7 @@ Overview of package manager commands here...
 
 <!-- reference content for the CLI commands `swift package ...` -->
 
-## Topics 
+## Topics
 
 ### Creating packages
 - <doc:PackageInit>
@@ -39,6 +39,7 @@ Overview of package manager commands here...
 
 ### Inspecting packages
 - <doc:PackageDescribe>
+- <doc:PackageReport>
 - <doc:PackageShowDependencies>
 - <doc:PackageShowExecutables>
 - <doc:PackageShowTraits>
