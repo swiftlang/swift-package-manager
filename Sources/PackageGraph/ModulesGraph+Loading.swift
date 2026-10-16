@@ -913,8 +913,8 @@ private func handlePrebuilts(packageBuilders: [ResolvedPackageBuilder], root: Pa
     }
 
     // First decorate the platform constraints from products in the root packages
-    for packageBuilder in packageBuilders where root.isExporting(packageBuilder.package.identity) {
-        for productBuilder in packageBuilder.products {
+    for packageBuilder in packageBuilders {
+        for productBuilder in packageBuilder.products where root.isExporting(packageBuilder.package.identity, product: productBuilder.product.name) {
             for moduleBuilder in productBuilder.moduleBuilders {
                 func markExternal(_ depModule: ResolvedModuleBuilder) {
                     guard depModule.platformConstraint != .all else {
