@@ -399,10 +399,8 @@ public final class ClangModuleBuildDescription {
         // On Linux/Android swift-corelibs-foundation depends on dispatch library which is
         // currently shipped with the Swift toolchain.
         if (triple.isLinux() || triple.isAndroid()) && self.package.id == .plain("swift-corelibs-foundation") {
-            let swiftCompilerPath = self.buildParameters.toolchain.swiftCompilerPath
-            let toolchainResourcesPath = swiftCompilerPath.parentDirectory
-                                                          .parentDirectory
-                                                          .appending(components: ["lib", "swift"])
+            let toolchainResourcesPath = try self.buildParameters.toolchain.toolchainLibDir
+                .appending("swift")
             args += ["-I", toolchainResourcesPath.pathString]
         }
 
