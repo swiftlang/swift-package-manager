@@ -121,6 +121,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         #endif
         let execFilePath = self.cacheDir.appending(component: execName + execSuffix)
         let diagFilePath = self.cacheDir.appending(component: execName + ".dia")
+        let outputFileMapPath = self.cacheDir.appending(component: execName + "-output-file-map.json")
         observabilityScope?.emit(debug: "Compiling plugin to executable at \(execFilePath)")
 
         // Construct the command line for compiling the plugin script(s).
@@ -220,8 +221,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         // Enable concurrent compilation.
         commandLine += ["-j\(workers)"]
 
-        // Ask the compiler to create a diagnostics file (we'll put it next to the executable).
-        commandLine += ["-Xfrontend", "-serialize-diagnostics-path", "-Xfrontend", diagFilePath.pathString]
+        // Ask the compiler to create a diagnostics file for each source file. A single
+        // serialized diagnostics path would be overwritten by the compiler's parallel frontend
+        // invocations when compiling a plugin with multiple source files.
+        commandLine += ["-serialize-diagnostics", "-output-file-map", outputFileMapPath.pathString]
 
         // Add all the source files that comprise the plugin scripts.
         commandLine += sourceFiles.map { $0.pathString }
@@ -236,6 +239,29 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             commandLine.append("-v")
         }
         return (commandLine, execName, execFilePath, diagFilePath)
+    }
+
+    private func diagnosticsFilePaths(for sourceFiles: [Basics.AbsolutePath], execName: String) -> [Basics.AbsolutePath] {
+        if sourceFiles.count == 1 {
+            return [self.cacheDir.appending(component: execName + ".dia")]
+        }
+        return sourceFiles.enumerated().map { index, sourceFile in
+            self.cacheDir.appending(component: "\(execName)-\(index)-\(sourceFile.basename).dia")
+        }
+    }
+
+    private func writeOutputFileMap(
+        sourceFiles: [Basics.AbsolutePath],
+        diagnosticsFiles: [Basics.AbsolutePath],
+        outputFileMapPath: Basics.AbsolutePath,
+        fileSystem: FileSystem
+    ) throws {
+        var outputFileMap: [String: [String: String]] = [:]
+        for (sourceFile, diagnosticsPath) in zip(sourceFiles, diagnosticsFiles) {
+            outputFileMap[sourceFile.pathString] = ["diagnostics": diagnosticsPath.pathString]
+        }
+        let data = try JSONSerialization.data(withJSONObject: outputFileMap, options: [.prettyPrinted, .sortedKeys])
+        try fileSystem.writeFileContents(outputFileMapPath, string: String(decoding: data, as: UTF8.self))
     }
 
     /// Starts compiling a plugin script asynchronously and when done, calls the completion handler on the callback queue with the results (including the path of the compiled plugin executable and with any emitted diagnostics, etc).  Existing compilation results that are still valid are reused, if possible.  This function itself returns immediately after starting the compile.  Note that the completion handler only receives a `.failure` result if the compiler couldn't be invoked at all; a non-zero exit code from the compiler still returns `.success` with a full compilation result that notes the error in the diagnostics (in other words, a `.failure` result only means "failure to invoke the compiler").
@@ -256,6 +282,9 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             workers: workers,
             observabilityScope: observabilityScope
         )
+
+        let diagnosticsFiles = self.diagnosticsFilePaths(for: sourceFiles, execName: execName)
+        let outputFileMapPath = self.cacheDir.appending(component: execName + "-output-file-map.json")
 
         // Pass through the compilation environment.
         let environment = toolchain.swiftCompilerEnvironment
@@ -354,7 +383,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 succeeded: compilationState.succeeded,
                 commandLine: commandLine,
                 executableFile: execFilePath,
-                diagnosticsFile: diagFilePath,
+                diagnosticsFiles: diagnosticsFiles,
                 compilerOutput: compilationState.output,
                 cached: true)
             delegate.skippedCompilingPlugin(cachedResult: result)
@@ -371,6 +400,16 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
             try fileSystem.removeFileTree(execFilePath)
             try fileSystem.removeFileTree(diagFilePath)
             try fileSystem.removeFileTree(stateFilePath)
+            for path in diagnosticsFiles {
+                try fileSystem.removeFileTree(path)
+            }
+            // Write the output file map since we are about to compile.
+            try self.writeOutputFileMap(
+                sourceFiles: sourceFiles,
+                diagnosticsFiles: diagnosticsFiles,
+                outputFileMapPath: outputFileMapPath,
+                fileSystem: fileSystem
+            )
         }
         catch {
             observabilityScope.emit(debug: "Couldn't clean up before invoking compiler", underlyingError: error)
@@ -413,7 +452,7 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                     succeeded: compilationState.succeeded,
                     commandLine: commandLine,
                     executableFile: execFilePath,
-                    diagnosticsFile: diagFilePath,
+                    diagnosticsFiles: diagnosticsFiles,
                     compilerOutput: compilerOutput,
                     cached: false)
 
