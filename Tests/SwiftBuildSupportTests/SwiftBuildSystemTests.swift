@@ -9,6 +9,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 import Testing
 
@@ -165,9 +166,13 @@ struct SwiftBuildSystemTests {
 
             #expect(replArguments.contains("-Xcc"))
             #expect(!replArguments.contains("-fmodule-map-file="))
-            #expect(replArguments.contains {
-                $0.hasSuffix("/FlatInclude.modulemap") && $0.hasPrefix("-fmodule-map-file=")
-            })
+            let moduleMapPathRegex = try! Regex(#"-fmodule-map-file=.*(/|\\)FlatInclude.modulemap"#)
+            #expect(
+                replArguments.contains {
+                    $0.contains(moduleMapPathRegex)
+                },
+                "replArguments does not contain expected arguments.  REPL arguments: \(replArguments)",
+            )
         }
     }
 
@@ -240,7 +245,7 @@ struct SwiftBuildSystemTests {
     @Test
     func userSwiftExecOverrideIsAlwaysHonoured() async throws {
         let base = try UserToolchain.default
-        let overrideCompiler = base.swiftCompilerPath.parentDirectory.appending("swift")
+        let overrideCompiler = base.swiftCompilerPath.parentDirectory.appending(executableName("swift"))
         var environment = Environment.current
         environment["SWIFT_EXEC"] = overrideCompiler.pathString
         let overridden = try UserToolchain(swiftSDK: base.swiftSDK, environment: environment)

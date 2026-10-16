@@ -39,7 +39,7 @@ func testWithTemporaryDirectory(
 struct VFSTests {
     @Test(
         .issue("https://github.com/swiftlang/swift-package-manager/issues/9310", relationship: .defect),
-        .skipHostOS(.windows, "Test currently fails with: you don't have permissions."),
+        .skipHostOS(.windows, because: "Test currently fails with: you don't have permissions."),
         .tags(
             .TestSize.medium,
             .Platform.FileSystem,

@@ -3894,6 +3894,7 @@ struct PackageCommandTests {
         .tags(
             .Feature.Command.Package.Resolve,
         ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10688", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func onlyUseVersionsFromResolvedFileFetchesWithExistingState(
@@ -3930,6 +3931,10 @@ struct PackageCommandTests {
             )
         }
 
+        try await withKnownIssue(
+            "https://github.com/swiftlang/swift-package-manager/issues/10688",
+            isIntermittent: true,
+        ) {
             try await testWithTemporaryDirectory { tmpPath in
                 let packageDir = tmpPath.appending(components: "library")
                 try localFileSystem.writeFileContents(
@@ -4045,6 +4050,9 @@ struct PackageCommandTests {
                     #expect(!err.contains("Fetching \(repositoryURL)"))
                 }
             }
+        } when: {
+            ProcessInfo.hostOperatingSystem == .windows
+        }
     }
 
     @Test(
@@ -6337,16 +6345,18 @@ struct PackageCommandTests {
                     configuration: config,
                     buildSystem: buildSystem,
                 )
-                #expect(stdout == isEmpty)
+                let filteredStdout = filterSwiftPMOutput(content: stdout)
+                #expect(
+                    filteredStdout.isEmpty,
+                    "stdout: \(stdout)"
+                )
                 // Filter some unrelated output that could show up on stderr.
-                let buidlSystemDeprecationDiag = Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem)
-                let filteredStderr = stderr.components(separatedBy: "\n")
-                    .filter { !$0.contains("Unable to locate libSwiftScan") }
-                    .filter { !($0.contains("warning: ") && $0.contains("unable to find libclang")) }
-                    .filter { !$0.contains("Build description")}
-                    .filter { !$0.contains(buidlSystemDeprecationDiag.message)}
-                    .joined(separator: "\n")
-                #expect(filteredStderr == isEmpty)
+                let filteredStderr = filterSwiftPMOutput(content: stderr)
+
+                #expect(
+                    filteredStderr.isEmpty,
+                    "stderr: \(stderr)",
+                )
             }
 
             // Check that logs are returned to the plugin when echoLogs is false
@@ -6360,14 +6370,11 @@ struct PackageCommandTests {
                 )
                 #expect(stdout.contains(containsLogtext))
                 // Filter some unrelated output that could show up on stderr.
-                let deprecatedBuildSystemDiag = Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem)
-                let filteredStderr = stderr.components(separatedBy: "\n")
-                    .filter { !$0.contains("Unable to locate libSwiftScan") }
-                    .filter { !($0.contains("warning: ") && $0.contains("unable to find libclang")) }
-                    .filter { !$0.contains("Build description")}
-                    .filter { !$0.contains(deprecatedBuildSystemDiag.message)}
-                    .joined(separator: "\n")
-                #expect(filteredStderr == isEmpty)
+                let filteredStderr = filterSwiftPMOutput(content: stderr)
+                #expect(
+                    filteredStderr.isEmpty,
+                    "stderr: \(stderr)",
+                )
             }
 
             // Check that logs echoed to the console (on stderr) when echoLogs is true

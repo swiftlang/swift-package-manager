@@ -1367,7 +1367,10 @@ struct PIFBuilderTests {
         }
     }
 
-    @Test(.skipHostOS(.linux, "linux does not support C-family test targets"), arguments: BuildConfiguration.allCases)
+    @Test(
+        .skipHostOS(.linux, because: "linux does not support C-family test targets"),
+        arguments: BuildConfiguration.allCases,
+    )
     func testProductsPassModuleNameToClang(configuration: BuildConfiguration) async throws {
         let observability = ObservabilitySystem.makeForTesting()
 

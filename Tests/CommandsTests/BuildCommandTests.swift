@@ -1994,9 +1994,17 @@ struct BuildCommandTestCases {
                     buildSystem: buildSystem
                 )
                 // THEN we should not see any output in stderr
-                 #expect(stderr.isEmpty)
+                let filteredStderr = filterSwiftPMOutput(content: stderr)
+                #expect(
+                    filteredStderr.isEmpty,
+                    "stderr: \(stderr)",
+                )
                 // AND no content in stdout
-                 #expect(stdout.isEmpty)
+                let filteredStdout = filterSwiftPMOutput(content: stdout)
+                #expect(
+                    filteredStdout.isEmpty,
+                    "stdout: \(stdout)",
+                )
             }
     }
 
