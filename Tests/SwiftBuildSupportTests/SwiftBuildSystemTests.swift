@@ -171,6 +171,27 @@ struct SwiftBuildSystemTests {
         }
     }
 
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10553", relationship: .verifies),
+    )
+    func replIncludesLibrarySearchPath() async throws {
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "CFamilyTargets/ModuleMapGenerationCases",
+            createREPLProduct: true,
+        ) { swiftBuild, _, _, _, _ in
+            let result = try await swiftBuild.build(
+                subset: .allExcludingTests,
+                buildOutputs: [.replArguments],
+            )
+            let replArguments = try #require(result.replArguments)
+
+            #expect(!replArguments.contains("-L"))
+            #expect(replArguments.contains {
+                $0.hasPrefix("-L") && $0.contains("Products")
+            })
+        }
+    }
+
     @Suite(
         .tags(
             .FunctionalArea.Sanitizer,
