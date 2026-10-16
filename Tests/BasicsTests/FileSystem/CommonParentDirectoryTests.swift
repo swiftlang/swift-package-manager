@@ -144,6 +144,24 @@ struct CommonParentDirectoryTests {
 
         #expect(result == AbsolutePath.root, "Empty array should return root directory")
     }
+
+    @Test(
+        .requireHostOS(.windows),
+        arguments: [
+            (id: "drive_root_siblings", paths: [#"C:\swift-syntax"#, #"C:\llbuild"#], expected: #"C:\"#),
+            (id: "drive_root_and_child", paths: [#"C:\"#, #"C:\swiftpm"#], expected: #"C:\"#),
+            (id: "drive_nested_common", paths: [#"C:\a\b\c"#, #"C:\a\b\d"#], expected: #"C:\a\b"#),
+            (id: "drive_single_path", paths: [#"C:\a\b"#], expected: #"C:\a\b"#),
+            (id: "different_drives", paths: [#"C:\a"#, #"D:\a"#], expected: #"C:\"#),
+        ] as [(String, [String], String)]
+    )
+    func testGetCommonParentDirectoryWindowsDriveRoots(id: String, paths: [String], expected: String) throws {
+        let absolutePaths = try paths.map { try AbsolutePath(validating: $0) }
+        let result = try getCommonParentDirectory(paths: absolutePaths)
+        let expectedPath = try AbsolutePath(validating: expected)
+
+        #expect(result == expectedPath, "Test case '\(id)': Expected common parent \(expected) but got \(result.pathString)")
+    }
 }
 
 fileprivate extension String {
