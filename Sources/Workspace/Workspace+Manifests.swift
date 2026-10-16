@@ -249,7 +249,11 @@ extension Workspace {
             _ = try transitiveClosure(inputNodes) { node in
                 return try node.manifest.dependenciesRequired(for: node.productFilter, node.enabledTraits)
                     .compactMap { dependency in
-                        let package = dependency.packageRef
+                        let package = if let majorVersion = dependency.maxSupportedMajorVersion {
+                            dependency.packageRef.scoped(toMajor: majorVersion)
+                        } else {
+                            dependency.packageRef
+                        }
 
                         // Check if traits are guarding the dependency from being enabled.
                         // Also check whether we've enabled pruning unused dependencies.
@@ -368,7 +372,10 @@ extension Workspace {
                 "\(availableIdentities.map(\.identity)) | \(requiredIdentities.map(\.identity))"
             )
             // These are the missing package identities.
-            let missingIdentities = requiredIdentities.subtracting(availableIdentities)
+            var missingIdentities = requiredIdentities.subtracting(availableIdentities)
+//            missingIdentities = await missingIdentities.filter({
+//                await workspace.state.isMultiMajor(identity: $0.identity)
+//            })
 
             return (requiredIdentities, missingIdentities, unusedIdentities)
         }
@@ -627,8 +634,15 @@ extension Workspace {
                 for: node.item.productFilter,
                 node.item.enabledTraits
             )
-            let dependenciesToLoad = dependenciesRequired.map(\.packageRef)
-                .filter { !loadedManifests.keys.contains($0.identity) }
+            let dependenciesToLoad = dependenciesRequired//.map(\.packageRef)
+                .filter { !loadedManifests.keys.contains($0.majorVersionIdentity) }
+                .map({
+                    if let major = $0.maxSupportedMajorVersion {
+                        return $0.packageRef.scoped(toMajor: major)
+                    } else {
+                        return $0.packageRef
+                    }
+                })
             try await prepopulateManagedDependencies(dependenciesToLoad)
             let dependenciesManifests = try await self.loadManagedManifests(
                 for: dependenciesToLoad,
@@ -636,7 +650,11 @@ extension Workspace {
             )
             dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
             return try dependenciesRequired.compactMap { dependency in
-                return try loadedManifests[dependency.identity].flatMap { manifest in
+                print("iterating over required dependencies: \(dependency.packageRef)")
+                print("dependency identity: \(dependency.identity)")
+                var useMajorVersionIdentity: Bool = dependency.identity != dependency.majorVersionIdentity
+
+                return try loadedManifests[useMajorVersionIdentity ? dependency.majorVersionIdentity : dependency.identity].flatMap { manifest in
                     // we also compare the location as this function may attempt to load
                     // dependencies that have the same identity but from a different location
                     // which is an error case we diagnose an report about in the GraphLoading part which
@@ -644,12 +662,12 @@ extension Workspace {
                     return manifest.canonicalPackageLocation == dependency.packageRef.canonicalLocation ?
                         try KeyedPair(
                             GraphLoadingNode(
-                                identity: dependency.identity,
+                                identity: useMajorVersionIdentity ? dependency.majorVersionIdentity : dependency.identity,
                                 manifest: manifest,
                                 productFilter: dependency.productFilter,
                                 enabledTraits: self.enabledTraitsMap[dependency.identity]
                             ),
-                            key: dependency.identity
+                            key: useMajorVersionIdentity ? dependency.majorVersionIdentity : dependency.identity
                         ) :
                         nil
                 }
@@ -724,6 +742,7 @@ extension Workspace {
             dependencies.append((node.manifest, dependency, node.productFilter, fileSystem ?? self.fileSystem))
         }
 
+        // todo bp mulimajor manifests are seemingly missing from dependencies.
         return DependencyManifests(
             root: root,
             dependencies: dependencies,
@@ -769,6 +788,8 @@ extension Workspace {
         guard let managedDependency = await self.state.dependencies[comparingLocation: package] else {
             return nil
         }
+
+        let isMultiMajor = await self.state.isMultiMajor(identity: managedDependency.packageRef.identity)
 
         // Get the path of the package.
         let packagePath = self.path(to: managedDependency)
@@ -935,6 +956,9 @@ extension Workspace {
 
         // Make a copy of dependencies as we might mutate them in the for loop.
         let allDependencies = await Array(self.state.dependencies)
+        let multiMajorsMap = await Array(self.state.dependencies.filter({
+            $0.packageRef != $0.packageRef.identityWithoutMajor()
+        })).map(\.packageRef.identity)
         for dependency in allDependencies {
             await observabilityScope.makeChildScope(
                 description: "copying managed dependencies",
@@ -946,12 +970,15 @@ extension Workspace {
                     return
                 }
 
+                print("Unable to find dependency path for dep: \(dependency.packageRef.identity); path: \(dependencyPath)")
+
                 switch dependency.state {
                 case .sourceControlCheckout(let checkoutState):
                     // If some checkout dependency has been removed, retrieve it again.
                     _ = try await self.checkoutRepository(
                         package: dependency.packageRef,
                         at: checkoutState,
+                        isMultipleMajor: state.dependencies.isMultiMajor(dependency.packageRef.identity), // todo bp check if correct
                         observabilityScope: observabilityScope
                     )
                     observabilityScope

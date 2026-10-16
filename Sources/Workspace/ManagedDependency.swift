@@ -183,6 +183,7 @@ extension Workspace {
     /// A collection of managed dependencies.
     public struct ManagedDependencies {
         private var dependencies: [PackageIdentity: ManagedDependency]
+        private var multipleMajorVersions: Set<PackageIdentity> = []
 
         init() {
             self.dependencies = [:]
@@ -203,6 +204,11 @@ extension Workspace {
                 }
                 self.dependencies[dependency.packageRef.identity] = dependency
             }
+        }
+
+        init(_ dependencies: [PackageIdentity: ManagedDependency], _ multiMajors: Set<PackageIdentity>) {
+            self.dependencies = dependencies
+            self.multipleMajorVersions = multiMajors
         }
 
         public subscript(identity: PackageIdentity) -> ManagedDependency? {
@@ -229,6 +235,16 @@ extension Workspace {
             var dependencies = dependencies
             dependencies[identity] = nil
             return ManagedDependencies(dependencies)
+        }
+
+        public func addMultipleMajorDependency(_ id: PackageIdentity) -> Self {
+            var multipleMajors = multipleMajorVersions
+            multipleMajors.insert(id)
+            return ManagedDependencies(self.dependencies, multipleMajors)
+        }
+
+        public func isMultiMajor(_ id: PackageIdentity) -> Bool {
+            self.multipleMajorVersions.contains(id)
         }
     }
 }

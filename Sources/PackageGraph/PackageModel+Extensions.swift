@@ -31,6 +31,17 @@ extension PackageDependency {
         }
         return PackageReference(identity: self.identity, kind: packageKind)
     }
+
+    public var majorVersionPackageRef: PackageReference {
+        switch self {
+        case .sourceControl:
+            let id = self.majorVersionIdentity
+            return PackageReference(identity: id, kind: self.packageRef.kind)
+        case .registry, .fileSystem:
+            return self.packageRef
+        }
+    }
+
 }
 
 extension Manifest {
