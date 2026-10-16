@@ -372,6 +372,124 @@ package func embeddedCxxInteropPackageGraph() throws -> MockPackageGraph {
     return (graph, fs, observability.topScope)
 }
 
+package func pluginWithExecutableDepGraph() throws -> MockPackageGraph {
+    let fs = InMemoryFileSystem(emptyFiles:
+        "/my-app/Sources/MyApp/source.swift",
+        "/my-app/Sources/MyMacros/source.swift",
+        "/my-app/Plugins/MyBuildPlugin/source.swift",
+        "/my-app/Sources/MyTool/source.swift",
+        "/my-app/Tests/MyAppTests/source.swift",
+        "/my-app/Tests/MyPluginUserTests/source.swift",
+        "/swift-syntax/Sources/SwiftSyntax/source.swift",
+        "/swift-syntax/Sources/SwiftCompilerPlugin/source.swift",
+        "/swift-syntax/Sources/SwiftCompilerPluginMessageHandling/source.swift"
+    )
+
+    let observability = ObservabilitySystem.makeForTesting()
+    let graph = try loadModulesGraph(
+        fileSystem: fs,
+        manifests: [
+            Manifest.createRootManifest(
+                displayName: "my-app",
+                path: "/my-app",
+                dependencies: [
+                    .localSourceControl(
+                        path: "/swift-syntax",
+                        requirement: .upToNextMajor(from: "1.0.0")
+                    )
+                ],
+                products: [
+                    ProductDescription(
+                        name: "MyApp",
+                        type: .library(.automatic),
+                        targets: ["MyApp"]
+                    ),
+                    ProductDescription(
+                        name: "MyBuildPlugin",
+                        type: .plugin,
+                        targets: ["MyBuildPlugin"]
+                    ),
+                ],
+                targets: [
+                    TargetDescription(
+                        name: "MyApp",
+                        dependencies: [.target(name: "MyMacros")]
+                    ),
+                    TargetDescription(
+                        name: "MyMacros",
+                        dependencies: [.product(name: "SwiftCompilerPlugin", package: "swift-syntax")],
+                        type: .macro
+                    ),
+                    TargetDescription(
+                        name: "MyBuildPlugin",
+                        dependencies: [.target(name: "MyTool")],
+                        type: .plugin,
+                        pluginCapability: .buildTool
+                    ),
+                    TargetDescription(
+                        name: "MyTool",
+                        dependencies: [.product(name: "SwiftSyntax", package: "swift-syntax")],
+                        type: .executable
+                    ),
+                    TargetDescription(
+                        name: "MyAppTests",
+                        dependencies: [.target(name: "MyApp")],
+                        type: .test
+                    ),
+                    TargetDescription(
+                        name: "MyPluginUserTests",
+                        dependencies: [.target(name: "MyApp")],
+                        type: .test
+                    ),
+                ],
+                traits: []
+            ),
+            Manifest.createFileSystemManifest(
+                displayName: "swift-syntax",
+                path: "/swift-syntax",
+                products: [
+                    ProductDescription(
+                        name: "SwiftSyntax",
+                        type: .library(.automatic),
+                        targets: ["SwiftSyntax"]
+                    ),
+                    ProductDescription(
+                        name: "SwiftCompilerPlugin",
+                        type: .library(.automatic),
+                        targets: ["SwiftCompilerPlugin"]
+                    ),
+                    ProductDescription(
+                        name: "SwiftCompilerPluginMessageHandling",
+                        type: .library(.automatic),
+                        targets: ["SwiftCompilerPluginMessageHandling"]
+                    ),
+                ],
+                targets: [
+                    TargetDescription(name: "SwiftSyntax", dependencies: []),
+                    TargetDescription(
+                        name: "SwiftCompilerPlugin",
+                        dependencies: [
+                            .target(name: "SwiftCompilerPluginMessageHandling"),
+                            .target(name: "SwiftSyntax"),
+                        ]
+                    ),
+                    TargetDescription(
+                        name: "SwiftCompilerPluginMessageHandling",
+                        dependencies: [.target(name: "SwiftSyntax")]
+                    ),
+                ],
+                traits: []
+            ),
+        ],
+        observabilityScope: observability.topScope,
+        traitConfiguration: .default,
+        enabledTraitsMap: .init()
+    )
+
+    XCTAssertNoDiagnostics(observability.diagnostics)
+    return (graph, fs, observability.topScope)
+}
+
 package func toolsExplicitLibrariesGraph(linkage: ProductType.LibraryType) throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(emptyFiles:
         "/swift-mmio/Sources/MMIOMacros/source.swift",
