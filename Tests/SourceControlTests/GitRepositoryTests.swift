@@ -286,13 +286,55 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertEqual(funnyNamesRoot.contents.map{ $0.name }, ["README.txt", "funny-names", "subdir"])
             guard funnyNamesRoot.contents.count == 3 else { return XCTFail() }
 
-            // FIXME: This isn't yet supported.
             let funnyNamesSubdirEntry = funnyNamesRoot.contents[1]
             XCTAssertEqual(funnyNamesSubdirEntry.type, .tree)
-            if let _ = try? repo.readTree(location: funnyNamesSubdirEntry.location) {
-                XCTFail("unexpected success reading tree with funny names")
+            let funnyNamesTree = try repo.readTree(location: funnyNamesSubdirEntry.location)
+            XCTAssertEqual(funnyNamesTree.contents.map(\.name), [
+                "a\u{08}", "a\tb", "a\nb", "a\u{12}b", "a b", "a\"b", "a$b",
+            ])
+        }
+    }
+
+    func testTreeNamesWithGitQuotePathSettings() throws {
+        try XCTSkipOnWindows(because: "The file names in this test are not portable to Windows")
+
+        try testWithTemporaryDirectory { path in
+            let names = [
+                "中文.swift", "日本語.txt", "café.md", "🧪.json", "مرحبا.txt",
+                "\"leading-quote.swift", "a\\b.swift",
+            ]
+            let expectedNames = Set(names + ["file.swift"])
+            for quotePath in ["true", "false"] {
+                let repositoryPath = path.appending("repo-\(quotePath)")
+                try makeDirectories(repositoryPath)
+                initGitRepo(repositoryPath)
+
+                for name in names {
+                    try localFileSystem.writeFileContents(repositoryPath.appending(name), string: name)
+                }
+
+                let repository = GitRepository(path: repositoryPath)
+                try repository.stageEverything()
+                try repository.commit(message: "Add special file names")
+                try repository.tag(name: "special-names")
+                try AsyncProcess.checkNonZeroExit(
+                    args: Git.tool, "-C", repositoryPath.pathString, "config", "core.quotepath", quotePath,
+                    environment: .init(Git.environmentBlock)
+                )
+
+                let commit = try repository.readCommit(hash: repository.resolveHash(treeish: "main"))
+                let treeByHash = try repository.readTree(hash: commit.tree)
+                let treeByTag = try repository.readTree(tag: "special-names")
+                XCTAssertEqual(Set(treeByHash.contents.map(\.name)), expectedNames)
+                XCTAssertEqual(Set(treeByTag.contents.map(\.name)), expectedNames)
+
+                let view = try repository.openFileView(revision: repository.resolveRevision(tag: "special-names"))
+                XCTAssertEqual(Set(try view.getDirectoryContents(.root)), expectedNames)
+                for name in names {
+                    XCTAssertEqual(try view.readFileContents(AbsolutePath("/" + name)), name)
+                }
             }
-       }
+        }
     }
 
     func testSubmoduleRead() throws {

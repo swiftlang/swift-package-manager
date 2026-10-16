@@ -1179,6 +1179,7 @@ public final class GitRepository: Repository, WorkingCheckout {
             try self.cachedTrees.memoize(hashString) {
                 let output = try callGit(
                     "ls-tree",
+                    "-z",
                     hashString,
                     failureMessage: "Couldn’t read '\(hashString)'"
                 )
@@ -1193,6 +1194,7 @@ public final class GitRepository: Repository, WorkingCheckout {
             try self.cachedTrees.memoize(tag) {
                 let output = try callGit(
                     "ls-tree",
+                    "-z",
                     tag,
                     failureMessage: "Couldn’t read '\(tag)'"
                 )
@@ -1204,18 +1206,20 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     private func parseTree(_ text: String) throws -> [Tree.Entry] {
         var entries = [Tree.Entry]()
-        for line in text.components(separatedBy: "\n") {
-            // Ignore empty lines.
-            if line == "" { continue }
+        // With -z, Git returns raw file names and separates tree entries with NUL.
+        // File names can contain newlines, tabs, and characters that Git otherwise quotes.
+        for entry in text.components(separatedBy: "\0") {
+            // Ignore the empty component after the final NUL.
+            if entry == "" { continue }
 
-            // Each line in the response should match:
+            // Each entry in the response should match:
             //
             //   `mode type hash\tname`
             //
             // where `mode` is the 6-byte octal file mode, `type` is a 4-byte or 6-byte
             // type ("blob", "tree", "commit"), `hash` is the hash, and the remainder of
-            // the line is the file name.
-            let bytes = ByteString(encodingAsUTF8: line)
+            // the entry is the file name.
+            let bytes = ByteString(encodingAsUTF8: entry)
             let expectedBytesCount = 6 + 1 + 4 + 1 + 40 + 1
             guard bytes.count > expectedBytesCount,
                   bytes.contents[6] == UInt8(ascii: " "),
@@ -1224,7 +1228,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                   bytes.contents[secondSpace] == UInt8(ascii: " "),
                   bytes.contents[secondSpace + 1 + 40] == UInt8(ascii: "\t")
             else {
-                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(text)'")
+                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(entry)' in '\(text)'")
             }
 
             // Compute the mode.
@@ -1235,12 +1239,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                   let hash = Hash(asciiBytes: bytes.contents[(secondSpace + 1) ..< (secondSpace + 1 + 40)]),
                   let name = ByteString(bytes.contents[(secondSpace + 1 + 40 + 1) ..< bytes.count]).validDescription
             else {
-                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(text)'")
-            }
-
-            // FIXME: We do not handle de-quoting of names, currently.
-            if name.hasPrefix("\"") {
-                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(text)'")
+                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(entry)' in '\(text)'")
             }
 
             entries.append(Tree.Entry(location: .hash(hash), type: type, name: name))
