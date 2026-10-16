@@ -207,6 +207,9 @@ struct ModuleAliasingFixtureTests {
                 "XUtils.swiftmodule",
             ]
             expectFileExists(at: buildPath.appending(components: executableName("App")))
+            // Bpkg declares Utils as an explicitly static library product.
+            let archiveName = ProcessInfo.hostOperatingSystem == .windows ? "Utils.lib" : "libUtils.a"
+            expectFileExists(at: buildPath.appending(archiveName))
             for file in expectedModules {
                 switch buildSystem {
                 case .native:
