@@ -381,13 +381,11 @@ struct ResourcesTests{
                     buildSystem: buildSystem,
                 )
                 // Filter some unrelated output that could show up on stderr.
-                let buidlSystemDeprecationDiag = Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem)
-                let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains("[logging]") }
-                                                                        .filter { !$0.contains("Unable to locate libSwiftScan") }
-                                                                        .filter {
-                                                                            !$0.contains(Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem).message)
-                                                                        }.joined(separator: "\n")
-                #expect(filteredStderr == "", "unexpectedly received error output: \(stderr)")
+                let filteredStderr = filterSwiftPMOutput(content:stderr)
+                #expect(
+                    filteredStderr.isEmpty,
+                    "unexpectedly received stderr output: \(stderr)",
+                )
 
                 let builtProductsDir = try await getBinPath(
                     packageDir,
@@ -411,7 +409,7 @@ struct ResourcesTests{
                 #endif
                 let resourcePath = builtProductsDir.appending(components: [potentialResourceBundleName] + additionalComponents +  ["resources", "best.txt"])
                 try requireFileExists(at: resourcePath, "resource file wasn't copied by the build")
-                let contents = try String(contentsOfFile: resourcePath.pathString)
+                let contents = try String(contentsOfFile: resourcePath.pathString, encoding: .utf8)
                 #expect(contents == "best", "unexpected resource contents: \(contents)")
             }
     }
