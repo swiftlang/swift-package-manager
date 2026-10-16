@@ -164,6 +164,7 @@ enum Serialization {
     enum TargetDependency: Codable {
         struct Condition: Codable {
             let platforms: [Platform]?
+            let config: BuildConfiguration?
             let traits: [String]?
         }
 
