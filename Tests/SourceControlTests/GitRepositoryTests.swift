@@ -969,6 +969,47 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    func testArchiveIncludesSubmodules() async throws {
+        try XCTSkipOnWindows(because: "Archiving submodules requires the 'zip' and 'unzip' tools")
+        try await testWithTemporaryDirectory { path in
+            // Create repos: foo and bar, foo will have bar as a submodule.
+            let fooPath = path.appending("foo-original")
+            let barPath = path.appending("bar-original")
+            for repoPath in [fooPath, barPath] {
+                try makeDirectories(repoPath)
+                initGitRepo(repoPath)
+            }
+            try localFileSystem.writeFileContents(fooPath.appending("main.swift"), bytes: "main")
+            try localFileSystem.writeFileContents(barPath.appending("lib.c"), bytes: "submodule")
+
+            let foo = GitRepository(path: fooPath)
+            let bar = GitRepository(path: barPath)
+            try bar.stageEverything()
+            try bar.commit()
+            try foo.stageEverything()
+            try foo.commit()
+
+            try await AsyncProcess.checkNonZeroExit(
+                args: Git.tool, "-C", fooPath.pathString, "submodule", "add", barPath.pathString, "bar",
+                environment: .init(Git.environmentBlock)
+            )
+            try foo.stageEverything()
+            try foo.commit()
+
+            // Archive foo and check that the submodule contents are included.
+            // `git archive` on its own records submodules as empty directories.
+            let archivePath = path.appending("foo.zip")
+            try foo.archive(to: archivePath)
+
+            let listing = try await AsyncProcess.checkNonZeroExit(
+                args: "unzip", "-l", archivePath.pathString,
+                environment: .init(Git.environmentBlock)
+            )
+            XCTAssertTrue(listing.contains("foo/main.swift"), "archive is missing the main repository sources")
+            XCTAssertTrue(listing.contains("foo/bar/lib.c"), "archive is missing the submodule sources")
+        }
+    }
+
     func testAlternativeObjectStoreValidation() async throws {
         try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
         try await testWithTemporaryDirectory { path in
