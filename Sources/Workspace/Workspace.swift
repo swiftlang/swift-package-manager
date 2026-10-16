@@ -924,10 +924,14 @@ extension Workspace {
         // Remove all but protected paths.
         let contentsToRemove = Set(contents).subtracting(protectedAssets)
         for name in contentsToRemove {
-            try? self.fileSystem.removeFileTree(AbsolutePath(
+            guard let path = try? AbsolutePath(
                 validating: name,
                 relativeTo: self.location.scratchDirectory
-            ))
+            ) else {
+                continue
+            }
+            try? self.fileSystem.chmod(.userWritable, path: path, options: [.recursive, .onlyFiles])
+            try? self.fileSystem.removeFileTree(path)
         }
     }
 
