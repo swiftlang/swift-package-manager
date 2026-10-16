@@ -42,6 +42,8 @@ The Swift Package Manager lets you share your code as a package, depend on and u
 - <doc:CreatingCLanguageTargets>
 - <doc:CreatingMixedLanguageTargets>
 - <doc:ModuleMaps>
+- <doc:CreatingArtifactBundles>
+- <doc:ArtifactBundleReference>
 - <doc:ModuleAliasing>
 
 ### Sharing Packages
