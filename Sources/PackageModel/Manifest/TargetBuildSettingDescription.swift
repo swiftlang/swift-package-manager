@@ -68,6 +68,7 @@ public enum TargetBuildSettingDescription {
 
         case bridgingHeader(String, BridgingHeaderVisibility)
 
+        case defaults
         public var isUnsafeFlags: Bool {
             switch self {
             case .unsafeFlags(let flags):
@@ -76,7 +77,7 @@ public enum TargetBuildSettingDescription {
             case .headerSearchPath, .define, .linkedLibrary, .linkedFramework, .interoperabilityMode,
                  .enableUpcomingFeature, .enableExperimentalFeature, .strictMemorySafety, .swiftLanguageMode,
                  .treatAllWarnings, .treatWarning, .enableWarning, .disableWarning, .defaultIsolation,
-                 .bridgingHeader:
+                 .bridgingHeader, .defaults:
                 return false
             }
         }

@@ -311,7 +311,8 @@ final class TraitLoadingTests: PackageDescriptionLoadingTests {
                         kind: .define("DEFINE3"),
                         condition: .init(traits: ["Trait1", "Trait2"])
                     ),
-                ]
+                ],
+                explicitSettings: .init(swift: true, c: false, cxx: false, linker: false)
             )
         )
     }
