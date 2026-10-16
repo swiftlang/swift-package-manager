@@ -596,6 +596,10 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
 
     private func waitForBuildSystemUpdates(request: WorkspaceWaitForBuildSystemUpdatesRequest) async -> VoidResponse {
         await packageLoadingQueue.async {}.valuePropagatingCancellation
+        // Drain messages from the underlying build server before we consider ourselves done waiting for
+        // build system updates.
+        await underlyingBuildServerMessageHandler.messageHandlingQueue.async(metadata: .stateChange) {}
+            .valuePropagatingCancellation
         return VoidResponse()
     }
 
