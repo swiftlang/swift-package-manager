@@ -26,6 +26,10 @@ struct ModuleAliasTracker {
     var childToParentID = [PackageIdentity: PackageIdentity]()
     var appliedAliases = Set<String>()
 
+    // Dedup the product graph traversal to avoid revisiting product dependencies exponentially.
+    private var propagateEmptyEntryResult = [String: [String: ModuleAliasModel]]()
+    private var mergeVisited = Set<String>()
+
     init() {}
     mutating func addModuleAliases(modules: [Module], package: PackageIdentity) throws {
         let moduleDependencies = modules.flatMap(\.dependencies)
@@ -115,6 +119,9 @@ struct ModuleAliasTracker {
     }
 
     mutating func propagateAliases(observabilityScope: ObservabilityScope) {
+        self.propagateEmptyEntryResult.removeAll()
+        self.mergeVisited.removeAll()
+
         // First get the root package ID
         var pkgID = childToParentID.first?.key
         var rootPkg = pkgID
@@ -149,6 +156,11 @@ struct ModuleAliasTracker {
         observabilityScope: ObservabilityScope,
         aliasBuffer: inout [String: ModuleAliasModel]
     ) {
+        let entryWasEmpty = aliasBuffer.isEmpty
+        if entryWasEmpty, let cached = self.propagateEmptyEntryResult[productID] {
+            aliasBuffer = cached
+            return
+        }
         let productAliases = aliasMap[productID] ?? []
         for aliasModel in productAliases {
             // Alias buffer is used to carry down aliases defined upstream
@@ -189,6 +201,9 @@ struct ModuleAliasTracker {
         }
 
         guard let children = parentToChildProducts[productID] else {
+            if entryWasEmpty {
+                self.propagateEmptyEntryResult[productID] = aliasBuffer
+            }
             return
         }
         for childID in children {
@@ -196,10 +211,17 @@ struct ModuleAliasTracker {
                       observabilityScope: observabilityScope,
                       aliasBuffer: &aliasBuffer)
         }
+        if entryWasEmpty {
+            self.propagateEmptyEntryResult[productID] = aliasBuffer
+        }
     }
 
-    // Merge all the upstream aliases and override them if necessary
-    mutating func merge(productID: String, observabilityScope: ObservabilityScope) {
+    // Merge all the upstream aliases and override them if necessary.
+    // Private because correctness relies on `mergeVisited` being reset by `propagateAliases`
+    private mutating func merge(productID: String, observabilityScope: ObservabilityScope) {
+        if !self.mergeVisited.insert(productID).inserted {
+            return
+        }
         guard let children = parentToChildProducts[productID] else {
             return
         }
@@ -424,7 +446,7 @@ struct ModuleAliasTracker {
 // Used to keep track of module alias info for each package
 private class ModuleAliasModel {
     let name: String
-    var alias: String
+    let alias: String
     let originPackage: PackageIdentity
     let consumingPackage: PackageIdentity
     let productName: String
