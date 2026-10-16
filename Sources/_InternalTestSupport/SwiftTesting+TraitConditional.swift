@@ -218,6 +218,26 @@ extension Trait where Self == Testing.ConditionTrait {
         }
     }
 
+    /// Skip the test unless the host is macOS and all of the given Apple platform SDKs (by `xcrun` SDK name,
+    /// e.g. `xros` or `driverkit`) are installed in the selected Xcode.
+    public static func requiresAppleSDKs(_ sdkNames: String...) -> Self {
+        enabled("Requires the \(sdkNames.joined(separator: ", ")) SDK(s), which are not installed") {
+            #if os(macOS)
+            for sdkName in sdkNames {
+                let result = try await AsyncProcess.popen(
+                    arguments: ["/usr/bin/xcrun", "--sdk", sdkName, "--show-sdk-path"]
+                )
+                guard case .terminated(code: 0) = result.exitStatus else {
+                    return false
+                }
+            }
+            return true
+            #else
+            return false
+            #endif
+        }
+    }
+
     // SKip the test if the Android Swift SDK is not installed
     public static var requiresAndroidSwiftSDK: Self {
         enabled("Android Swift SDK is not installed") {
