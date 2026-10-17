@@ -292,6 +292,10 @@ struct PackagePIFProjectBuilder {
         let resources = module.resources.map { PackagePIFBuilder.Resource($0) } + generatedResources
         let shouldGenerateBundleAccessor = resources.anySatisfy { $0.rule != .embedInCode }
         let shouldGenerateEmbedInCodeAccessor = resources.anySatisfy { $0.rule == .embedInCode }
+        // Privacy manifests only apply to Apple platforms. If they are the only bundled resources, other platforms
+        // need neither the files nor the bundle accessor, which would link the full Foundation.
+        let bundleAccessorIsApplePlatformsOnly = shouldGenerateBundleAccessor
+            && resources.allSatisfy { $0.rule == .embedInCode || $0.isPrivacyManifest }
 
         for resource in resources {
             let resourcePath = resource.path
@@ -342,11 +346,14 @@ struct PackagePIFProjectBuilder {
                 case .embedInCode:
                     swiftBuildResourceRule = .embedInCode
                 }
+                let platformFilters = resource.isPrivacyManifest
+                    ? ProjectModel.BuildSettings.Platform.applePlatformFilters
+                    : []
                 self.project[keyPath: targetForResourcesKeyPath].addResourceFile { id in
                     BuildFile(
                         id: id,
                         fileRef: ref,
-                        platformFilters: [],
+                        platformFilters: platformFilters,
                         resourceRule: swiftBuildResourceRule
                     )
                 }
@@ -383,6 +390,7 @@ struct PackagePIFProjectBuilder {
         return PackagePIFBuilder.EmbedResourcesResult(
             bundleName: resourceBundleTargetName,
             shouldGenerateBundleAccessor: shouldGenerateBundleAccessor,
+            bundleAccessorIsApplePlatformsOnly: bundleAccessorIsApplePlatformsOnly,
             shouldGenerateEmbedInCodeAccessor: shouldGenerateEmbedInCodeAccessor
         )
     }
