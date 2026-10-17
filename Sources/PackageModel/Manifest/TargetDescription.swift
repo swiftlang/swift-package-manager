@@ -24,6 +24,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         case binary
         case plugin
         case `macro`
+        case external
     }
 
     /// Represents a target's dependency on another entity.
@@ -97,6 +98,11 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         }
     }
 
+    public enum Location: Encodable, Hashable, Sendable {
+        case path(String)
+        case remoteArchive(url: String, checksum: String)
+    }
+
     /// The name of the target.
     public let name: String
 
@@ -107,8 +113,8 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
     /// The custom path of the target.
     public let path: String?
 
-    /// The url of the binary target artifact.
-    public let url: String?
+    /// The external location for the source
+    public let location: Location?
 
     /// The custom sources of the target.
     public let sources: [String]?
@@ -183,9 +189,6 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
     /// The target-specific build settings declared in this target.
     public let settings: [TargetBuildSettingDescription.Setting]
 
-    /// The binary target checksum.
-    public let checksum: String?
-
     /// The usages of package plugins by the target.
     public let pluginUsages: [PluginUsage]?
 
@@ -198,7 +201,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         name: String,
         dependencies: [Dependency] = [],
         path: String? = nil,
-        url: String? = nil,
+        location: Location? = nil,
         exclude: [String] = [],
         sources: [String]? = nil,
         resources: [Resource] = [],
@@ -209,17 +212,16 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         providers: [SystemPackageProviderDescription]? = nil,
         pluginCapability: PluginCapability? = nil,
         settings: [TargetBuildSettingDescription.Setting] = [],
-        checksum: String? = nil,
         pluginUsages: [PluginUsage]? = nil
     ) throws {
         let targetType = String(describing: type)
         switch type {
         case .regular, .executable, .test:
-            if url != nil { throw Error.disallowedPropertyInTarget(
+            if case let .remoteArchive(url, _) = location { throw Error.disallowedPropertyInTarget(
                 targetName: name,
                 targetType: targetType,
                 propertyName: "url",
-                value: url ?? "<nil>"
+                value: url
             ) }
             if pkgConfig != nil { throw Error.disallowedPropertyInTarget(
                 targetName: name,
@@ -238,12 +240,6 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 targetType: targetType,
                 propertyName: "pluginCapability",
                 value: String(describing: pluginCapability!)
-            ) }
-            if checksum != nil { throw Error.disallowedPropertyInTarget(
-                targetName: name,
-                targetType: targetType,
-                propertyName: "checksum",
-                value: checksum ?? "<nil>"
             ) }
         case .system:
             if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(
@@ -288,11 +284,11 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 propertyName: "settings",
                 value: String(describing: settings)
             ) }
-            if checksum != nil { throw Error.disallowedPropertyInTarget(
+            if case let .remoteArchive(_, checksum) = location { throw Error.disallowedPropertyInTarget(
                 targetName: name,
                 targetType: targetType,
                 propertyName: "checksum",
-                value: checksum ?? "<nil>"
+                value: checksum
             ) }
             if pluginUsages != nil { throw Error.disallowedPropertyInTarget(
                 targetName: name,
@@ -301,7 +297,7 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 value: String(describing: pluginUsages!)
             ) }
         case .binary:
-            if path == nil && url == nil { throw Error.binaryTargetRequiresEitherPathOrURL(targetName: name) }
+            if case .remoteArchive(_, _) = location, path != nil { throw Error.binaryTargetRequiresEitherPathOrURL(targetName: name) }
             if !dependencies.isEmpty { throw Error.disallowedPropertyInTarget(
                 targetName: name,
                 targetType: targetType,
@@ -364,11 +360,11 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
             ) }
         case .plugin:
             if pluginCapability == nil { throw Error.pluginTargetRequiresPluginCapability(targetName: name) }
-            if url != nil { throw Error.disallowedPropertyInTarget(
+            if case let .remoteArchive(url, _) = location { throw Error.disallowedPropertyInTarget(
                 targetName: name,
                 targetType: targetType,
                 propertyName: "url",
-                value: url ?? "<nil>"
+                value: url
             ) }
             if !resources.isEmpty { throw Error.disallowedPropertyInTarget(
                 targetName: name,
@@ -407,11 +403,11 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 value: String(describing: pluginUsages!)
             ) }
         case .macro:
-            if url != nil { throw Error.disallowedPropertyInTarget(
+            if case let .remoteArchive(url, _) = location { throw Error.disallowedPropertyInTarget(
                 targetName: name,
                 targetType: targetType,
                 propertyName: "url",
-                value: url ?? "<nil>"
+                value: url
             ) }
             if !resources.isEmpty { throw Error.disallowedPropertyInTarget(
                 targetName: name,
@@ -437,12 +433,15 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
                 propertyName: "pluginCapability",
                 value: String(describing: pluginCapability!)
             ) }
+        case .external:
+            // TODO:
+            break
         }
 
         self.name = name
         self.dependencies = dependencies
         self.path = path
-        self.url = url
+        self.location = location
         self.publicHeadersPath = publicHeadersPath
         self.sources = sources
         self.exclude = exclude
@@ -453,7 +452,6 @@ public struct TargetDescription: Hashable, Encodable, Sendable {
         self.providers = providers
         self.pluginCapability = pluginCapability
         self.settings = settings
-        self.checksum = checksum
         self.pluginUsages = pluginUsages
     }
 }

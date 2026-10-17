@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import PackageShared
+
 extension Serialization.BuildConfiguration {
     init(_ configuration: PackageDescription.BuildConfiguration) {
         self.config = configuration.config
@@ -191,7 +193,7 @@ extension Serialization.PackageDependency.Trait.Condition {
 }
 
 extension Serialization.Platform {
-    init(_ platform: PackageDescription.Platform) {
+    init(_ platform: PackageShared.Platform) {
         self.name = platform.name
     }
 }
@@ -238,6 +240,7 @@ extension Serialization.TargetType {
         case .binary: self = .binary
         case .plugin: self = .plugin
         case .macro: self = .macro
+        case .external: self = .external
         }
     }
 }
@@ -296,12 +299,25 @@ extension Serialization.PluginUsage {
     }
 }
 
+extension Serialization.Location? {
+    init(_ location: PackageDescription.Target.Location?) {
+        switch location {
+        case .path(let path):
+            self = .path(path)
+        case .remoteArchive(let url, let checksum):
+            self = .remoteArchive(url: url, checksum: checksum)
+        case .none:
+            self = nil
+        }
+    }
+}
+
 extension Serialization.Target {
     init(_ target: PackageDescription.Target) {
         self.name = target.name
         self.packageAccess = target.packageAccess
         self.path = target.path
-        self.url = target.url
+        self.location = .init(target.location)
         self.sources = target.sources
         self.resources = target.resources?.map { .init($0) }
         self.exclude = target.exclude
@@ -315,7 +331,6 @@ extension Serialization.Target {
         self.cxxSettings = target.cxxSettings?.map { .init($0) }
         self.swiftSettings = target.swiftSettings?.map { .init($0) }
         self.linkerSettings = target.linkerSettings?.map { .init($0) }
-        self.checksum = target.checksum
         self.pluginUsages = target.plugins?.map { .init($0) }
     }
 }

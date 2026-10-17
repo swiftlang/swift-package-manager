@@ -11,6 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
+import PackageShared
+
+public typealias Platform = PackageShared.Platform
 
 /// The build configuration, such as debug or release.
 public struct BuildConfiguration: Sendable {
@@ -122,14 +125,28 @@ public struct BuildSettingCondition: Sendable {
     }
 }
 
-/// The underlying build setting data.
-struct BuildSettingData {
+/// Whether a given setting is used to build the target, imparted to downstream targets, or both
+public enum BuildSettingUsage: Sendable {
+    /// Used only to build the target.
+    case `private`
 
+    /// Used to build the target and imparted to downstream targets.
+    case `public`
+
+    /// Only imparted to downstream targets.
+    case interface
+}
+
+/// The underlying build setting data.
+struct BuildSettingData: Sendable {
     /// The name of the build setting.
     let name: String
 
     /// The value of the build setting.
     let value: [String]
+
+    /// Whether tghe setting is used to build the target, imparted to downstream targets, or both
+    let usage: BuildSettingUsage
 
     /// A condition that restricts the application of the build setting.
     let condition: BuildSettingCondition?
@@ -140,8 +157,8 @@ public struct CSetting: Sendable {
     /// The abstract build setting data.
     let data: BuildSettingData
 
-    private init(name: String, value: [String], condition: BuildSettingCondition?) {
-        self.data = BuildSettingData(name: name, value: value, condition: condition)
+    private init(name: String, value: [String], usage: BuildSettingUsage = .private, condition: BuildSettingCondition?) {
+        self.data = BuildSettingData(name: name, value: value, usage: usage, condition: condition)
     }
 
     /// Provides a header search path relative to the target's directory.
@@ -158,8 +175,8 @@ public struct CSetting: Sendable {
     ///   - path: The path of the directory that contains the headers. The path is relative to the target's directory.
     ///   - condition: A condition that restricts the use of the build setting.
     @available(_PackageDescription, introduced: 5.0)
-    public static func headerSearchPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> CSetting {
-        return CSetting(name: "headerSearchPath", value: [path], condition: condition)
+    public static func headerSearchPath(_ path: String, usage: BuildSettingUsage = .private, _ condition: BuildSettingCondition? = nil) -> CSetting {
+        return CSetting(name: "headerSearchPath", value: [path], usage: usage, condition: condition)
     }
 
     /// Defines a value for a macro.
@@ -174,12 +191,12 @@ public struct CSetting: Sendable {
     ///   - condition: A condition that restricts the use of the build
     /// setting.
     @available(_PackageDescription, introduced: 5.0)
-    public static func define(_ name: String, to value: String? = nil, _ condition: BuildSettingCondition? = nil) -> CSetting {
+    public static func define(_ name: String, to value: String? = nil, usage: BuildSettingUsage = .private, _ condition: BuildSettingCondition? = nil) -> CSetting {
         var settingValue = name
         if let value {
             settingValue += "=" + value
         }
-        return CSetting(name: "define", value: [settingValue], condition: condition)
+        return CSetting(name: "define", value: [settingValue], usage: usage, condition: condition)
     }
 
     /// Sets unsafe flags to pass arbitrary command-line flags to the
@@ -296,8 +313,8 @@ public struct CXXSetting: Sendable {
     /// The data store for the CXX build setting.
     let data: BuildSettingData
 
-    private init(name: String, value: [String], condition: BuildSettingCondition?) {
-        self.data = BuildSettingData(name: name, value: value, condition: condition)
+    private init(name: String, value: [String], usage: BuildSettingUsage = .private, condition: BuildSettingCondition?) {
+        self.data = BuildSettingData(name: name, value: value, usage: usage, condition: condition)
     }
 
     /// Provides a header search path relative to the target's directory.
@@ -452,8 +469,8 @@ public struct SwiftSetting: Sendable {
     /// The data store for the Swift build setting.
     let data: BuildSettingData
 
-    private init(name: String, value: [String], condition: BuildSettingCondition?) {
-        self.data = BuildSettingData(name: name, value: value, condition: condition)
+    private init(name: String, value: [String], usage: BuildSettingUsage = .private, condition: BuildSettingCondition?) {
+        self.data = BuildSettingData(name: name, value: value, usage: usage, condition: condition)
     }
 
     /// Defines a compilation condition.
@@ -749,8 +766,8 @@ public struct LinkerSetting: Sendable {
     /// The data store for the Linker setting.
     let data: BuildSettingData
 
-    private init(name: String, value: [String], condition: BuildSettingCondition?) {
-        self.data = BuildSettingData(name: name, value: value, condition: condition)
+    private init(name: String, value: [String], usage: BuildSettingUsage = .private, condition: BuildSettingCondition?) {
+        self.data = BuildSettingData(name: name, value: value, usage: usage, condition: condition)
     }
 
     /// Declares linkage to a system library.
@@ -766,7 +783,7 @@ public struct LinkerSetting: Sendable {
     /// setting.
     @available(_PackageDescription, introduced: 5.0)
     public static func linkedLibrary(_ library: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
-        return LinkerSetting(name: "linkedLibrary", value: [library], condition: condition)
+        return LinkerSetting(name: "linkedLibrary", value: [library], usage: .public, condition: condition)
     }
 
     /// Declares linkage to a system framework.
@@ -782,7 +799,7 @@ public struct LinkerSetting: Sendable {
     /// setting.
     @available(_PackageDescription, introduced: 5.0)
     public static func linkedFramework(_ framework: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
-        return LinkerSetting(name: "linkedFramework", value: [framework], condition: condition)
+        return LinkerSetting(name: "linkedFramework", value: [framework], usage: .public, condition: condition)
     }
 
     /// Sets unsafe flags to pass arbitrary command-line flags to the

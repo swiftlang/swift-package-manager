@@ -173,6 +173,9 @@ public struct TargetSourcesBuilder {
 
     /// Run the builder to produce the sources of the target.
     public func run() throws -> (sources: Sources, resources: [Resource], headers: [Basics.AbsolutePath], ignored: [Basics.AbsolutePath], others: [Basics.AbsolutePath]) {
+        if target.type == .external {
+            return (Sources(paths: [], root: targetPath), [], [], [], [])
+        }
         let contents = self.computeContents()
         var pathToRule: [Basics.AbsolutePath: FileRuleDescription.Rule] = [:]
 

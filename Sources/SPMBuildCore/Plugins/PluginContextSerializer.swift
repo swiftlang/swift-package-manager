@@ -306,7 +306,9 @@ internal struct PluginContextSerializer {
                 patch: package.manifest.toolsVersion.patch),
             dependencies: dependencies,
             productIds: try package.products.compactMap{ try serialize(product: $0) },
-            targetIds: try package.modules.compactMap{ try serialize(target: $0) }))
+            targetIds: try package.modules.compactMap{ try serialize(target: $0) },
+            enabledTraits: package.enabledTraits
+        ))
         packagesToWireIDs[package.id] = id
         return id
     }

@@ -192,12 +192,7 @@ public struct ManifestValidator {
                     ))
                     continue
                 }
-            } else if target.isRemote {
-                guard let url = target.url else {
-                    diagnostics.append(.invalidBinaryLocation(targetName: target.name))
-                    continue
-                }
-
+            } else if case let .remoteArchive(url, _) = target.location {
                 guard let url = url.spm_chuzzle(), !url.isEmpty else {
                     diagnostics.append(.invalidBinaryURL(url: url, targetName: target.name))
                     continue
@@ -403,7 +398,6 @@ extension Basics.Diagnostic {
 }
 
 extension TargetDescription {
-    fileprivate var isRemote: Bool { url != nil }
     fileprivate var isLocal: Bool { path != nil }
 }
 
