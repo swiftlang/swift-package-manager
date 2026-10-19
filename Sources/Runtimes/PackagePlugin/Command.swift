@@ -11,6 +11,88 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+import PackageShared
+
+public typealias Platform = PackageShared.Platform
+
+public enum CommandArgument: ExpressibleByStringLiteral {
+    case literal(String)
+    case configuration
+    case triple
+    case sdkroot
+    case sysroot
+    case clangResourceDirectory
+    case swiftResourceDirectory
+    case buildSubDirectory
+
+    public init(stringLiteral value: StringLiteralType) {
+        self = .literal(value)
+    }
+}
+
+extension CommandArgument: CustomStringConvertible {
+    public var description: String {
+        return switch self {
+        case .literal(let value):
+            value
+        case .configuration:
+            "$(CONFIGURATION)"
+        case .triple:
+            "$(TRIPLE)"
+        case .sdkroot:
+            "$(SDKROOT)"
+        case .sysroot:
+            "$(SYSROOT)"
+        case .clangResourceDirectory:
+            "$(CLANG_RESOURCE_DIR)"
+        case .swiftResourceDirectory:
+            "$(SWIFT_RESOURCE_DIR)"
+        case .buildSubDirectory:
+            "$(BUILD_SUBDIR)"
+        }
+    }
+}
+
+public extension Path {
+    // These are absolute paths when resolved
+    static var sdkroot: Self { .init(CommandArgument.sdkroot.description) }
+    static var sysroot: Self { .init(CommandArgument.sysroot.description) }
+    static var clangResourceDirectory: Self { .init(CommandArgument.clangResourceDirectory.description) }
+    static var swiftResourceDirectory: Self { .init(CommandArgument.swiftResourceDirectory.description) }
+}
+
+public struct CommandConditions {
+    public var platforms: [Platform]?
+    public var traits: Set<String>?
+}
+
+extension CommandConditions {
+    public static func when(platforms: [Platform], traits: Set<String>? = nil) -> Self {
+        .init(platforms: platforms, traits: traits)
+    }
+
+    public static func when(traits: Set<String>? = nil) -> Self {
+        .init(platforms: nil, traits: traits)
+    }
+}
+
+/// A build product produced by a Command to be shared with downstream Commands.
+public struct BuildProduct {
+    /// The output file to be added as a build product
+    public var outputFile: URL
+
+    /// An optional subdirectory in the products directory this file will be copied to.
+    public var productSubdir: String?
+
+    /// Optionally, conditions on which this build product is produced.
+    public var conditions: CommandConditions?
+
+    public init(_ outputFile: URL, productSubdir: String? = nil, _ conditions: CommandConditions? = nil) {
+        self.outputFile = outputFile
+        self.productSubdir = productSubdir
+        self.conditions = conditions
+    }
+}
 
 /// A command to run during the build.
 ///
@@ -44,14 +126,22 @@ public enum Command {
     ///     was generated as if in its source directory; other files are treated
     ///     as resources as if explicitly listed in `Package.swift` using
     ///     `.process(...)`.
-    @available(_PackageDescription, introduced: 6.0)
+    ///   - buildProducts: A list of files that serve as build products to be shared
+    ///     with downstream commands.
+    ///   - alwaysOutOfDate: When the command has no output files, whether to run
+    ///     the command on all builds when set to true, or just once when set to false.
+    ///   - conditions: Which platforms the command supports.
+    @available(_PackageDescription, introduced: 6.5)
     case buildCommand(
         displayName: String?,
         executable: URL,
         arguments: [String],
         environment: [String: String] = [:],
         inputFiles: [URL] = [],
-        outputFiles: [URL] = []
+        outputFiles: [URL] = [],
+        buildProducts: [BuildProduct] = [],
+        alwaysOutOfDate: Bool = false,
+        conditions: CommandConditions?
     )
 
     /// Returns a command that runs unconditionally before every build.
@@ -97,6 +187,117 @@ extension Command {
     ///
     /// - Note: the paths in the list of output files may depend on the list of
     ///   input file paths, but **must not** depend on reading the contents of
+    ///   any input files. Use a `prebuildCommand`if the functionality of your plugin
+    ///   requires you to read the contents of an input file.
+    ///
+    /// - parameters:
+    ///   - displayName: An optional string to show in build logs and other
+    ///     status areas.
+    ///   - executable: The absolute path to the executable to invoke.
+    ///   - arguments: The command-line arguments for the executable.
+    ///   - environment: Any environment variable assignments visible to the
+    ///     executable.
+    ///   - inputFiles: A list of files on which the contents of output files may depend.
+    ///     Any paths passed as `arguments` should typically be passed here as
+    ///     well.
+    ///   - outputFiles: A list of files to be generated or updated by the executable.
+    ///     Any files recognizable by their extension as source files
+    ///     (for example, `.swift`) are compiled into the target for which this command
+    ///     was generated as if in its source directory; other files are treated
+    ///     as resources as if explicitly listed in `Package.swift` using
+    ///     `.process(...)`.
+    ///   - buildProducts: A list of files that serve as build products to be shared
+    ///     with downstream commands.
+    ///   - alwaysOutOfDate: When the command has no output files, whether to run
+    ///     the command on all builds when set to true, or just once when set to false.
+    ///   - conditions: Which platforms the command supports.
+    @available(_PackageDescription, introduced: 6.5)
+    public static func buildCommand(
+        displayName: String?,
+        executable: URL,
+        arguments: [String],
+        environment: [String: String] = [:],
+        inputFiles: [URL] = [],
+        outputFiles: [URL] = [],
+        buildProducts: [BuildProduct] = [],
+        alwaysOutOfDate: Bool = false,
+        _ conditions: CommandConditions? = nil
+    ) -> Self {
+        .buildCommand(
+            displayName: displayName,
+            executable: executable,
+            arguments: arguments,
+            environment: environment,
+            inputFiles: inputFiles,
+            outputFiles: outputFiles,
+            buildProducts: buildProducts,
+            alwaysOutOfDate: alwaysOutOfDate,
+            conditions: conditions
+        )
+    }
+
+    /// Returns a command that runs when any of its output files are needed by
+    /// the build and are out-of-date.
+    ///
+    /// An output file is out-of-date if it doesn't exist, or if any input files
+    /// have changed since the command was last run.
+    ///
+    /// - Note: the paths in the list of output files may depend on the list of
+    ///   input file paths, but **must not** depend on reading the contents of
+    ///   any input files. Use a `prebuildCommand`if the functionality of your plugin
+    ///   requires you to read the contents of an input file.
+    ///
+    /// - parameters:
+    ///   - displayName: An optional string to show in build logs and other
+    ///     status areas.
+    ///   - executable: The absolute path to the executable to invoke.
+    ///   - arguments: The command-line arguments for the executable.
+    ///   - environment: Any environment variable assignments visible to the
+    ///     executable.
+    ///   - inputFiles: A list of files on which the contents of output files may depend.
+    ///     Any paths passed as `arguments` should typically be passed here as
+    ///     well.
+    ///   - outputFiles: A list of files to be generated or updated by the executable.
+    ///     Any files recognizable by their extension as source files
+    ///     (for example, `.swift`) are compiled into the target for which this command
+    ///     was generated as if in its source directory; other files are treated
+    ///     as resources as if explicitly listed in `Package.swift` using
+    ///     `.process(...)`.
+    ///   - buildProducts: A list of files that serve as build products to be shared
+    ///     with downstream commands.
+    ///   - alwaysOutOfDate: When the command has no output files, whether to run
+    ///     the command on all builds when set to true, or just once when set to false.
+    ///   - platforms: An optional list of platforms that this build product will be produced for.
+    @available(_PackageDescription, introduced: 6.0, obsoleted: 6.5)
+    public static func buildCommand(
+        displayName: String?,
+        executable: URL,
+        arguments: [String],
+        environment: [String: String] = [:],
+        inputFiles: [URL] = [],
+        outputFiles: [URL] = [],
+    ) -> Command {
+        self.buildCommand(
+            displayName: displayName,
+            executable: executable,
+            arguments: arguments,
+            environment: environment,
+            inputFiles: inputFiles,
+            outputFiles: outputFiles,
+            buildProducts: [],
+            alwaysOutOfDate: false,
+            conditions: nil
+        )
+    }
+
+    /// Returns a command that runs when any of its output files are needed by
+    /// the build and are out-of-date.
+    ///
+    /// An output file is out-of-date if it doesn't exist, or if any input files
+    /// have changed since the command was last run.
+    ///
+    /// - Note: the paths in the list of output files may depend on the list of
+    ///   input file paths, but **must not** depend on reading the contents of
     ///   any input files. Such cases must be handled using a `prebuildCommand`.
     ///
     /// - parameters:
@@ -134,7 +335,7 @@ extension Command {
             arguments: arguments.map(\.description),
             environment: environment.mapValues { $0.description },
             inputFiles: inputFiles.map { URL(fileURLWithPath: $0.stringValue) },
-            outputFiles: outputFiles.map { URL(fileURLWithPath: $0.stringValue) }
+            outputFiles: outputFiles.map { URL(fileURLWithPath: $0.stringValue) },
         )
     }
 
@@ -181,7 +382,10 @@ extension Command {
             arguments: arguments.map(\.description),
             environment: environment.mapValues { $0.description },
             inputFiles: inputFiles.map { URL(fileURLWithPath: $0.stringValue) },
-            outputFiles: outputFiles.map { URL(fileURLWithPath: $0.stringValue) }
+            outputFiles: outputFiles.map { URL(fileURLWithPath: $0.stringValue) },
+            buildProducts: [],
+            alwaysOutOfDate: false,
+            conditions: nil
         )
     }
 

@@ -380,8 +380,14 @@ fileprivate extension SourceCodeFragment {
             params.append(SourceCodeFragment(key: "path", string: path))
         }
 
-        if let url = target.url {
+        switch target.location {
+        case .remoteArchive(let url, let checksum):
             params.append(SourceCodeFragment(key: "url", string: url))
+            params.append(SourceCodeFragment(key: "checksum", string: checksum))
+        case .path(let path):
+            params.append(SourceCodeFragment(key: "locationPath", string: path))
+        case .none:
+            break
         }
 
         if !target.exclude.isEmpty {
@@ -434,10 +440,6 @@ fileprivate extension SourceCodeFragment {
             params.append(SourceCodeFragment(key: "linkerSettings", subnodes: nodes))
         }
 
-        if let checksum = target.checksum {
-            params.append(SourceCodeFragment(key: "checksum", string: checksum))
-        }
-        
         switch target.type {
         case .regular:
             self.init(enum: "target", subnodes: params, multiline: true)
@@ -453,6 +455,8 @@ fileprivate extension SourceCodeFragment {
             self.init(enum: "plugin", subnodes: params, multiline: true)
         case .macro:
             self.init(enum: "macro", subnodes: params, multiline: true)
+        case .external:
+            self.init(enum: "external", subnodes: params, multiline: true)
         }
     }
 

@@ -77,6 +77,7 @@ enum HostToPluginMessage: Codable {
                 let dependencies: [Dependency]
                 let productIds: [Product.Id]
                 let targetIds: [Target.Id]
+                let enabledTraits: Set<String>?
 
                 enum Origin: Codable {
                     case root

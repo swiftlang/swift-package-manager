@@ -189,7 +189,7 @@ let package = Package(
         .library(
             name: "PackageDescription",
             type: .dynamic,
-            targets: ["PackageDescription", "CompilerPluginSupport"]
+            targets: ["PackageDescription", "CompilerPluginSupport", "PackageShared"]
         ),
         .library(
             name: "AppleProductTypes",
@@ -200,7 +200,7 @@ let package = Package(
         .library(
             name: "PackagePlugin",
             type: .dynamic,
-            targets: ["PackagePlugin"]
+            targets: ["PackagePlugin", "PackageShared"]
         ),
         .library(
             name: "PackageCollectionsModel",
@@ -769,6 +769,9 @@ let package = Package(
         // library; the bootstrap scripts build the deployable version.
         .target(
             name: "PackageDescription",
+            dependencies: [
+                "PackageShared"
+            ],
             path: "Sources/Runtimes/PackageDescription",
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
@@ -784,6 +787,9 @@ let package = Package(
         // bootstrap scripts build the deployable version.
         .target(
             name: "PackagePlugin",
+            dependencies: [
+                "PackageShared"
+            ],
             path: "Sources/Runtimes/PackagePlugin",
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures + [
@@ -791,6 +797,15 @@ let package = Package(
                 .unsafeFlags(["-enable-library-evolution"]),
             ],
             linkerSettings: packageLibraryLinkSettings
+        ),
+
+        .target(
+            name: "PackageShared",
+            path: "Sources/Runtimes/PackageShared",
+            swiftSettings: commonExperimentalFeatures + [
+                .unsafeFlags(["-package-description-version", "999.0"]),
+                .unsafeFlags(["-enable-library-evolution"]),
+            ],
         ),
 
         // MARK: Support for Swift macros, should eventually move to a plugin-based solution

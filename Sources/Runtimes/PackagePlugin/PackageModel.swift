@@ -58,6 +58,9 @@ public struct Package {
     ///
     /// The targets are specified in the same order as the package manifest.
     public let targets: [Target]
+
+    @available(_PackageDescription, introduced: 6.5)
+    public let enabledTraits: Set<String>?
 }
 
 /// The origin of a package.

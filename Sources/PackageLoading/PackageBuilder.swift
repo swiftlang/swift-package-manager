@@ -574,6 +574,8 @@ public final class PackageBuilder {
                     throw ModuleError.artifactNotFound(moduleName: target.name, expectedArtifactName: target.name)
                 }
                 return artifact.path
+            } else if target.type == .external, target.path == nil, case let .path(path) = target.location {
+                return try packagePath.appending(RelativePath(validating: path))
             } else if let subpath = target.path { // If there is a custom path defined, use that.
                 if subpath == "" || subpath == "." {
                     return self.packagePath
@@ -621,6 +623,7 @@ public final class PackageBuilder {
             }
 
             // Otherwise, if the path "exists" then the case in manifest differs from the case on the file system.
+            // Custom targets may not have a path. TODO: make path optional?
             if self.fileSystem.isDirectory(path) {
                 self.observabilityScope.emit(.targetNameHasIncorrectCase(target: target.name))
                 return path
@@ -981,7 +984,8 @@ public final class PackageBuilder {
         // The name of the bundle, if one is being generated.
         let potentialBundleName = self.manifest.displayName + "_" + potentialModule.name
 
-        if sources.relativePaths.isEmpty && resources.isEmpty && headers.isEmpty {
+        if sources.relativePaths.isEmpty && resources.isEmpty && headers.isEmpty && manifestTarget.type != .external {
+            // TODO: take into account plugin generated sources
             return nil
         }
         try self.validateSourcesOverlapping(forTarget: potentialModule.name, sources: sources.paths)
