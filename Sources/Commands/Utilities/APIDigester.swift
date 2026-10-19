@@ -31,6 +31,9 @@ import enum TSCUtility.Diagnostics
 import struct TSCUtility.SerializedDiagnostics
 import var TSCUtility.verbosity
 
+import SwiftParser
+import SwiftSyntax
+
 /// Helper for emitting a JSON API baseline for a module.
 struct APIDigesterBaselineDumper {
 
@@ -245,7 +248,7 @@ public struct SwiftAPIDigester {
             args.append(contentsOf: ["-breakage-allowlist-path", breakageAllowlistPath.pathString])
         }
 
-        return try? withTemporaryFile(deleteOnClose: false) { file in
+        var comparisonResult = try withTemporaryFile(deleteOnClose: false) { file -> ComparisonResult? in
             args.append(contentsOf: ["-serialize-diagnostics-path", file.path.pathString])
             try runTool(args)
             let contents = try self.fileSystem.readFileContents(file.path)
@@ -254,12 +257,161 @@ public struct SwiftAPIDigester {
             }
             let serializedDiagnostics = try SerializedDiagnostics(bytes: contents)
             let apiDigesterCategory = "api-digester-breaking-change"
-            let apiBreakingChanges = serializedDiagnostics.diagnostics.filter { $0.category == apiDigesterCategory }
-            let otherDiagnostics = serializedDiagnostics.diagnostics.filter { $0.category != apiDigesterCategory }
+            let apiBreakingChanges = serializedDiagnostics.diagnostics
+                .filter { $0.category == apiDigesterCategory }
+                .map(BreakingChange.init)
+            let otherDiagnostics = serializedDiagnostics.diagnostics
+                .filter { $0.category != apiDigesterCategory }
             return ComparisonResult(moduleName: module,
                                     apiBreakingChanges: apiBreakingChanges,
                                     otherDiagnostics: otherDiagnostics)
         }
+
+        // Check for removed @_exported imports
+        let baselineExportedImports = Self.extractExportedImports(from: baselinePath, fileSystem: self.fileSystem)
+        if !baselineExportedImports.isEmpty {
+            let currentExportedImports = self.extractCurrentExportedImports(for: module, buildPlan: buildPlan)
+            let removedExportedImports = baselineExportedImports.subtracting(currentExportedImports)
+            if !removedExportedImports.isEmpty {
+                let allowlist = Self.parseAllowlist(at: breakageAllowlistPath, fileSystem: self.fileSystem)
+                var breakingChanges = comparisonResult?.apiBreakingChanges ?? []
+                for dep in removedExportedImports.sorted() {
+                    let changeText = "API breakage: @_exported import \(dep) has been removed"
+                    if !Self.isAllowlisted(changeText, allowlist: allowlist) {
+                        breakingChanges.append(BreakingChange(text: changeText))
+                    }
+                }
+                if var res = comparisonResult {
+                    res.apiBreakingChanges = breakingChanges
+                    comparisonResult = res
+                } else if !breakingChanges.isEmpty {
+                    comparisonResult = ComparisonResult(
+                        moduleName: module,
+                        apiBreakingChanges: breakingChanges,
+                        otherDiagnostics: []
+                    )
+                }
+            }
+        }
+
+        return comparisonResult
+    }
+
+    private func extractCurrentExportedImports(
+        for module: String,
+        buildPlan: SPMBuildCore.BuildPlan
+    ) -> Set<String> {
+        if let dumped = try? withTemporaryFile(deleteOnClose: true, { file -> Set<String> in
+            let path = try AbsolutePath(validating: file.path.pathString)
+            var args = ["-dump-sdk", "-compiler-style-diags"]
+            args += try buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
+            args += ["-module", module, "-o", path.pathString]
+            try runTool(args)
+            return Self.extractExportedImports(from: path, fileSystem: self.fileSystem)
+        }) {
+            return dumped
+        }
+
+        for moduleDescription in buildPlan.buildModules {
+            if moduleDescription.module.c99name == module,
+               let swiftModule = moduleDescription.module.underlying as? SwiftModule {
+                return Self.extractExportedImportsFromSources(
+                    sources: swiftModule.sources.paths,
+                    fileSystem: self.fileSystem
+                )
+            }
+        }
+        return []
+    }
+
+    public static func parseAllowlist(at path: AbsolutePath?, fileSystem: FileSystem) -> [String]? {
+        guard let path,
+              fileSystem.exists(path),
+              let contents = try? fileSystem.readFileContents(path) else {
+            return nil
+        }
+        var lines: [String] = []
+        contents.withData { data in
+            guard let string = String(data: data, encoding: .utf8) else { return }
+            for line in string.components(separatedBy: .newlines) {
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                if !trimmed.isEmpty && !trimmed.hasPrefix("//") && !trimmed.hasPrefix("#") {
+                    lines.append(trimmed)
+                }
+            }
+        }
+        return lines
+    }
+
+    public static func isAllowlisted(_ breakageText: String, allowlist: [String]?) -> Bool {
+        guard let allowlist else { return false }
+        for line in allowlist {
+            if breakageText.contains(line) || line.contains(breakageText) {
+                return true
+            }
+        }
+        return false
+    }
+
+    public static func extractExportedImports(
+        from path: AbsolutePath,
+        fileSystem: FileSystem
+    ) -> Set<String> {
+        guard fileSystem.exists(path),
+              let contents = try? fileSystem.readFileContents(path) else {
+            return []
+        }
+        var exportedImports = Set<String>()
+        contents.withData { data in
+            guard let json = try? JSONSerialization.jsonObject(with: data, options: []) as? [String: Any],
+                  let abiRoot = json["ABIRoot"] as? [String: Any],
+                  let children = abiRoot["children"] as? [Any] else {
+                return
+            }
+            for child in children {
+                guard let childDict = child as? [String: Any],
+                      childDict["kind"] as? String == "Import",
+                      let name = childDict["name"] as? String,
+                      let declAttributes = childDict["declAttributes"] as? [String],
+                      declAttributes.contains("Exported") else {
+                    continue
+                }
+                exportedImports.insert(name)
+            }
+        }
+        return exportedImports
+    }
+
+    public static func extractExportedImportsFromSources(
+        sources: [AbsolutePath],
+        fileSystem: FileSystem
+    ) -> Set<String> {
+        var exportedImports = Set<String>()
+        for sourcePath in sources {
+            guard sourcePath.extension == "swift",
+                  let contents = try? fileSystem.readFileContents(sourcePath) else {
+                continue
+            }
+            contents.withData { data in
+                guard let sourceText = String(data: data, encoding: .utf8) else { return }
+                guard sourceText.contains("_exported") else { return }
+                let sourceFile = Parser.parse(source: sourceText)
+                for statement in sourceFile.statements {
+                    if let importDecl = statement.item.as(ImportDeclSyntax.self) {
+                        let isExported = importDecl.attributes.contains { attr in
+                            if case .attribute(let a) = attr {
+                                return a.attributeName.trimmedDescription == "_exported"
+                            }
+                            return false
+                        }
+                        if isExported, let firstComponent = importDecl.path.first {
+                            exportedImports.insert(firstComponent.name.text)
+                        }
+                    }
+                }
+            }
+        }
+        return exportedImports
     }
 
     @discardableResult private func runTool(_ args: [String]) throws -> AsyncProcessResult {
@@ -293,12 +445,26 @@ extension SwiftAPIDigester {
 }
 
 extension SwiftAPIDigester {
+    /// A breaking change detected when comparing against an API baseline.
+    public struct BreakingChange: Sendable, Equatable {
+        /// The description of the breaking change.
+        public var text: String
+
+        public init(text: String) {
+            self.text = text
+        }
+
+        public init(diagnostic: SerializedDiagnostics.Diagnostic) {
+            self.text = diagnostic.text
+        }
+    }
+
     /// The result of comparing a module's API to a provided baseline.
     public struct ComparisonResult {
         /// The name of the module being diffed.
         var moduleName: String
         /// Breaking changes made to the API since the baseline was generated.
-        var apiBreakingChanges: [SerializedDiagnostics.Diagnostic]
+        var apiBreakingChanges: [BreakingChange]
         /// Other diagnostics emitted while comparing the current API to the baseline.
         var otherDiagnostics: [SerializedDiagnostics.Diagnostic]
 
@@ -308,6 +474,7 @@ extension SwiftAPIDigester {
         }
     }
 }
+
 
 extension BuildParameters {
     /// The directory containing artifacts for API diffing operations.
@@ -335,3 +502,4 @@ extension SerializedDiagnostics.SourceLocation {
 }
 
 extension SerializedDiagnostics.SourceLocation: @retroactive DiagnosticLocation {}
+

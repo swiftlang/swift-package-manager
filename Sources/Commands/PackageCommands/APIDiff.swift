@@ -221,7 +221,7 @@ struct APIDiff: AsyncSwiftCommand {
             guard let targetName, !diagnosticPaths.isEmpty else {
                 continue
             }
-            var apiBreakingChanges: [SerializedDiagnostics.Diagnostic] = []
+            var apiBreakingChanges: [SwiftAPIDigester.BreakingChange] = []
             var otherDiagnostics: [SerializedDiagnostics.Diagnostic] = []
             for path in diagnosticPaths {
                 let contents = try swiftCommandState.fileSystem.readFileContents(path)
@@ -230,7 +230,7 @@ struct APIDiff: AsyncSwiftCommand {
                 }
                 let serializedDiagnostics = try SerializedDiagnostics(bytes: contents)
                 let apiDigesterCategory = "api-digester-breaking-change"
-                apiBreakingChanges.append(contentsOf: serializedDiagnostics.diagnostics.filter { $0.category == apiDigesterCategory })
+                apiBreakingChanges.append(contentsOf: serializedDiagnostics.diagnostics.filter { $0.category == apiDigesterCategory }.map(SwiftAPIDigester.BreakingChange.init))
                 otherDiagnostics.append(contentsOf: serializedDiagnostics.diagnostics.filter { $0.category != apiDigesterCategory })
             }
             let result = SwiftAPIDigester.ComparisonResult(
@@ -239,6 +239,59 @@ struct APIDiff: AsyncSwiftCommand {
                 otherDiagnostics: otherDiagnostics
             )
             comparisonResults.append(result)
+        }
+
+        for module in modulesWithBaselines {
+            if !comparisonResults.contains(where: { $0.moduleName == module }) {
+                comparisonResults.append(SwiftAPIDigester.ComparisonResult(
+                    moduleName: module,
+                    apiBreakingChanges: [],
+                    otherDiagnostics: []
+                ))
+            }
+        }
+
+        // Check for removed @_exported imports in integrated digester mode
+        let allowlist = SwiftAPIDigester.parseAllowlist(at: breakageAllowlistPath, fileSystem: swiftCommandState.fileSystem)
+        let packageGraph = try await swiftCommandState.loadPackageGraph()
+
+        for index in comparisonResults.indices {
+            let targetName = comparisonResults[index].moduleName
+            var candidatePaths = [
+                baselineDir.appending("\(targetName).json"),
+                baselineDir.appending(components: targetName, "\(targetName).json")
+            ]
+            for sub in ["ABI", "API"] {
+                let dir = baselineDir.appending(components: targetName, sub)
+                if let entries = try? swiftCommandState.fileSystem.getDirectoryContents(dir) {
+                    for entry in entries where entry.hasSuffix(".json") {
+                        candidatePaths.append(dir.appending(component: entry))
+                    }
+                }
+            }
+            guard let baselineFile = candidatePaths.first(where: { swiftCommandState.fileSystem.exists($0) }) else {
+                continue
+            }
+            let baselineExportedImports = SwiftAPIDigester.extractExportedImports(from: baselineFile, fileSystem: swiftCommandState.fileSystem)
+            guard !baselineExportedImports.isEmpty else {
+                continue
+            }
+
+            var currentExportedImports = Set<String>()
+            if let module = packageGraph.module(for: targetName)?.underlying as? SwiftModule {
+                currentExportedImports = SwiftAPIDigester.extractExportedImportsFromSources(
+                    sources: module.sources.paths,
+                    fileSystem: swiftCommandState.fileSystem
+                )
+            }
+
+            let removedExportedImports = baselineExportedImports.subtracting(currentExportedImports)
+            for dep in removedExportedImports.sorted() {
+                let changeText = "API breakage: @_exported import \(dep) has been removed"
+                if !SwiftAPIDigester.isAllowlisted(changeText, allowlist: allowlist) {
+                    comparisonResults[index].apiBreakingChanges.append(SwiftAPIDigester.BreakingChange(text: changeText))
+                }
+            }
         }
 
         var detectedBreakingChange = false

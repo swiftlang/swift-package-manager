@@ -106,6 +106,48 @@ struct APIDiffTests {
         .tags(
             .Feature.Command.Package.DiagnoseApiBreakingChanges,
         ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10670", relationship: .defect),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testDiagnoseExportedImportRemoval(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
+            let packageRoot = fixturePath.appending("ExportedImportDep")
+            // Overwrite Lib.swift to remove @_exported import Dep
+            try localFileSystem.writeFileContents(
+                packageRoot.appending(components: "Sources", "Lib", "Lib.swift"),
+                string: """
+                import Dep
+
+                public func libFunc() -> Int {
+                    return depFunc()
+                }
+                """
+            )
+            await expectThrowsCommandExecutionError(try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
+                #expect(error.stdout.contains("1 breaking change detected in Lib"))
+                #expect(error.stdout.contains("💔 API breakage: @_exported import Dep has been removed"))
+            }
+
+            // Verify breakage allowlist works for @_exported import removal
+            let allowlistPath = packageRoot.appending("allowlist.txt")
+            try localFileSystem.writeFileContents(
+                allowlistPath,
+                string: "API breakage: @_exported import Dep has been removed\n"
+            )
+            let (stdout, _) = try await execute(
+                ["diagnose-api-breaking-changes", "1.2.3", "--breakage-allowlist-path", allowlistPath.pathString],
+                packagePath: packageRoot,
+                buildSystem: buildSystem
+            )
+            #expect(stdout.contains("No breaking changes detected in Lib"))
+        }
+    }
+
+    @Test(
+        .requiresAPIDigester,
+        .tags(
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
