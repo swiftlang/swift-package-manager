@@ -15,6 +15,52 @@ import PackageShared
 
 public typealias Platform = PackageShared.Platform
 
+public enum CommandArgument: ExpressibleByStringLiteral {
+    case literal(String)
+    case configuration
+    case triple
+    case sdkroot
+    case sysroot
+    case clangResourceDirectory
+    case swiftResourceDirectory
+    case buildSubDirectory
+
+    public init(stringLiteral value: StringLiteralType) {
+        self = .literal(value)
+    }
+}
+
+extension CommandArgument: CustomStringConvertible {
+    public var description: String {
+        return switch self {
+        case .literal(let value):
+            value
+        case .configuration:
+            "$(CONFIGURATION)"
+        case .triple:
+            "$(TRIPLE)"
+        case .sdkroot:
+            "$(SDKROOT)"
+        case .sysroot:
+            "$(SYSROOT)"
+        case .clangResourceDirectory:
+            "$(CLANG_RESOURCE_DIR)"
+        case .swiftResourceDirectory:
+            "$(SWIFT_RESOURCE_DIR)"
+        case .buildSubDirectory:
+            "$(BUILD_SUBDIR)"
+        }
+    }
+}
+
+public extension Path {
+    // These are absolute paths when resolved
+    static var sdkroot: Self { .init(CommandArgument.sdkroot.description) }
+    static var sysroot: Self { .init(CommandArgument.sysroot.description) }
+    static var clangResourceDirectory: Self { .init(CommandArgument.clangResourceDirectory.description) }
+    static var swiftResourceDirectory: Self { .init(CommandArgument.swiftResourceDirectory.description) }
+}
+
 public struct CommandConditions {
     public var platforms: [Platform]?
     public var traits: Set<String>?
