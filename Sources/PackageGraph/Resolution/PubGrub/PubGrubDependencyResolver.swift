@@ -127,12 +127,6 @@ public struct PubGrubDependencyResolver {
             // if it should be treated as such.
             let term = Term(node, .exact(version))
 
-            if let versions = self.multipleMajorVersionPackages[term.node.package] {
-                // do something.
-                print("Must decide amongst major versions: \(term.node.package.identity)")
-                print("Available versions: \(versions.map(\.description).joined(separator: ", "))")
-            }
-
             self.lock.withLock {
                 assert(term.isValidDecision(
                     for: self.solution,
@@ -161,7 +155,11 @@ public struct PubGrubDependencyResolver {
                 return
             }
 
+            let alreadyFlagged = self.multipleMajorVersionPackages[incoming.node.package]?.isSuperset(of: [existingMajor, incomingMajor]) ?? false
             self.multipleMajorVersionPackages[incoming.node.package, default: []].formUnion([existingMajor, incomingMajor])
+            if !alreadyFlagged {
+                print("[MultiMajor][1-Resolution] flagged '\(incoming.node.package.identity)': majors \(self.multipleMajorVersionPackages[incoming.node.package]!.sorted()) were requested at the same time")
+            }
         }
 
         func backtrack(toDecisionLevel: Int) {
@@ -972,6 +970,9 @@ public struct PubGrubDependencyResolver {
             if !haveConflict {
                 self.delegate?.didResolve(term: term, version: version, duration: start.distance(to: .now()))
                 state.decide(term.node, at: version)
+                if term.node.package.identity != term.node.package.identity.withoutMajor() {
+                    print("[MultiMajor][1-Resolution] decided '\(term.node.package.identity)' -> \(version)")
+                }
             }
 
             return term.node

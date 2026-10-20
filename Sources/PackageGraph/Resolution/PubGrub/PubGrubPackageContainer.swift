@@ -86,12 +86,6 @@ final class PubGrubPackageContainer {
         assert(term.isPositive, "Expected term to be positive")
         let versionSet = term.requirement
 
-        if let versions = flaggedMultipleMajorVersions[term.node.package], !versions.isEmpty {
-            // do something.
-            print("Multiple major versions contendor: \(term.node.package.identity)")
-            print("Available versions: \(versions.map(\.description).joined(separator: ", "))")
-        }
-
         // TODO bp; check if the package for this term is flagged for multiple major versions.
 
         // Restrict the selection to the pinned version if is allowed by the current requirements.

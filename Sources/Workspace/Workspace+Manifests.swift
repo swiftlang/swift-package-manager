@@ -644,8 +644,6 @@ extension Workspace {
             )
             dependenciesManifests.forEach { loadedManifests[$0.key] = $0.value }
             return try dependenciesRequired.compactMap { dependency in
-                print("iterating over required dependencies: \(dependency.packageRef)")
-                print("dependency identity: \(dependency.identity)")
                 var useMajorVersionIdentity: Bool = dependency.identity != dependency.majorVersionIdentity
 
                 return try loadedManifests[useMajorVersionIdentity ? dependency.majorVersionIdentity : dependency.identity].flatMap { manifest in

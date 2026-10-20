@@ -79,6 +79,9 @@ struct ModuleAliasTracker {
             if case let .product(productRef, _) = dep,
                let productPkg = productRef.package {
                 let productPkgID = scopedPackage(for: productRef, consumer: package) ?? PackageIdentity.plain(productPkg)
+                if productPkgID != productPkgID.withoutMajor(), (bucketsByBase[productPkgID.withoutMajor()]?.count ?? 0) > 1 {
+                    print("[MultiMajor][4-Aliasing] '\(package)' product ref '\(productRef.identity)' -> '\(productID(for: productRef, consumer: package))'")
+                }
                 // Track dependency package ID chain
                 addPackageIDChain(parent: package, child: productPkgID)
                 if let aliasList = productRef.moduleAliases {
@@ -104,8 +107,7 @@ struct ModuleAliasTracker {
             for module in productModules {
                 aliases[module.name] = "\(module.name)_v\(major)"
             }
-            print("Adding multi major aliases: ")
-            print("\(aliases)")
+            print("[MultiMajor][4-Aliasing] '\(package)' product '\(product.name)': \(aliases.sorted(by: { $0.key < $1.key }).map { "\($0.key) -> \($0.value)" }.joined(separator: ", "))")
             try addAliases(
                 aliases,
                 productID: product.identity,
@@ -159,9 +161,6 @@ struct ModuleAliasTracker {
         for dep in allModuleDeps {
             if case let .product(depRef, _) = dep {
                 let resolvedDepRef = productID(for: depRef, consumer: package)
-                print("adding parent to child product: \(depRef.identity)")
-                print("the resolved dependency ref identity: \(resolvedDepRef)")
-                print("dependency with appropriate version id: \(dep)")
                 parentToChildProducts[product.identity, default: []].append(resolvedDepRef)
             }
         }
@@ -184,7 +183,10 @@ struct ModuleAliasTracker {
                 let aliasesMsg = moduleWithAlias.moduleAliases?.map{"'\($0.key)' as '\($0.value)'"}.joined(separator: ", ") ?? ""
                 observabilityScope.emit(warning: "target '\(moduleWithAlias.name)' for product '\(product.name)' from package '\(package.description)' has module aliases: [\(aliasesMsg)] but may contain non-Swift sources; there might be a conflict among non-Swift symbols")
             }
-            moduleWithAlias.applyAlias()
+            let originalName = moduleWithAlias.name
+            if moduleWithAlias.applyAlias(), package != package.withoutMajor() {
+                print("[MultiMajor][4-Aliasing] renamed module '\(originalName)' -> '\(moduleWithAlias.name)' in '\(package)'")
+            }
         }
     }
 
@@ -223,7 +225,6 @@ struct ModuleAliasTracker {
         observabilityScope: ObservabilityScope,
         aliasBuffer: inout [String: ModuleAliasModel]
     ) {
-        print("propagating for \(productID)")
         let productAliases = aliasMap[productID] ?? []
         for aliasModel in productAliases {
             // Alias buffer is used to carry down aliases defined upstream
@@ -259,8 +260,6 @@ struct ModuleAliasTracker {
                         }
                     }
                     aliasBuffer.removeValue(forKey: relevantModule.name)
-                } else {
-                    print("****Unable to find alias for: \(relevantModule.name)")
                 }
             }
         }

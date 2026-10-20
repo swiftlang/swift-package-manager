@@ -104,7 +104,6 @@ extension Workspace {
             debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies",
             metadata: package.diagnosticsMetadata
         )
-        print("Checkout of \(package.identity) @ version \(checkoutState.description)")
         try await self.state.add(
             dependency: .sourceControlCheckout(
                 packageRef: package,
@@ -226,7 +225,9 @@ extension Workspace {
         let baseRepositoryName = self.location.repositoriesCheckoutsDirectory.appending(component: repository.basename)
         let checkoutPath = isMultipleMajor ? baseRepositoryName.appending(package.identity.description) : baseRepositoryName
 
-        print("Is package \(package) multi major? \(isMultipleMajor)")
+        if isMultipleMajor {
+            print("[MultiMajor][2-Checkouts] '\(package.identity)' -> \(checkoutPath)")
+        }
 
         // Remove any existing content at that path.
         try self.fileSystem.chmod(.userWritable, path: checkoutPath, options: [.recursive, .onlyFiles])

@@ -904,7 +904,7 @@ extension Workspace {
         switch requirement {
         case .multipleMajorVersions(let versions):
             // todo bp
-            print("Versions available for package \(package.identity): \(versions.map(\.description).joined(separator: ", "))")
+            print("[MultiMajor][2-Checkouts] checking out '\(package.identity)' at \(versions.sorted().map(\.description).joined(separator: ", "))")
             let container = try await packageContainerProvider.getContainer(
                 for: package,
                 updateStrategy: ContainerUpdateStrategy.never,
@@ -1546,9 +1546,8 @@ extension Workspace {
                     let assignmentsForPkg = resolutionResult.bindings.filter({ $0.package.identity.description.hasPrefix(pkg.identity.description) })
                     multipleMajorAssignments[pkg, default: []].append(contentsOf: assignmentsForPkg)
                 }
-                print("Multiple major assignments:")
                 for (pkg, binding) in multipleMajorAssignments {
-                    print("\(pkg.identity): \(binding.map({ "\($0.package.identity)-->\($0.boundVersion.description)" }).joined(separator: ", "))")
+                    print("[MultiMajor][1-Resolution] '\(pkg.identity)' resolved to: \(binding.map({ "\($0.package.identity) -> \($0.boundVersion.description)" }).joined(separator: ", "))")
                 }
             }
 

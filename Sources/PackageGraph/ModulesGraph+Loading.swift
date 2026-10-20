@@ -91,7 +91,6 @@ extension ModulesGraph {
                     GraphLoadingNode,
                     PackageIdentity
                 >? in
-                    print("node successor with dependency identity: \(dependency.majorVersionIdentity)")
                     return try manifestMap[dependency.majorVersionIdentity].map { manifest, _ in
                         // We are going to check the conditionally enabled traits here and enable them if
                         // required. This checks the current node and then enables the conditional
@@ -450,6 +449,12 @@ private func createResolvedPackages(
 
             // Otherwise, look it up by its identity.
             if let resolvedPackage = packagesByIdentity[dependency.majorVersionIdentity] {
+                let otherBuckets = packagesByIdentity.keys.filter {
+                    $0 != dependency.majorVersionIdentity && $0.withoutMajor() == dependency.majorVersionIdentity.withoutMajor()
+                }
+                if !otherBuckets.isEmpty {
+                    print("[MultiMajor][3-Graph] '\(package.identity)' -> '\(dependency.majorVersionIdentity)' (other buckets: \(otherBuckets.map(\.description).sorted().joined(separator: ", ")))")
+                }
                 // check if this resolved package already listed in the dependencies
                 // this means that the dependencies share the same identity
                 // FIXME: this works but the way we find out about this is based on a side effect, need to improve it
