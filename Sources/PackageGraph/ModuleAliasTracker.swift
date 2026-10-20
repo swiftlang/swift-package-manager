@@ -84,13 +84,10 @@ struct ModuleAliasTracker {
         var crossPackageChildProducts: Set<String> = []
         /// All modules reachable by recursively following `crossPackageChildProducts`,
         /// i.e. each child product's own `intraPackageModules` plus its own
-        /// cross-package closure. Not meant to be queried directly; use `reachableModulesByName`
-        /// for lookups. Populated once every product in the graph is known; empty until then.
+        /// cross-package closure. Populated once every product in the graph is known; empty until then.
         var crossPackageReachableModules: [PackageIdentity: IdentifiableSet<ReachableModule>] = [:]
         /// The same modules as `crossPackageReachableModules`, grouped by literal module name
-        /// instead of by package — the query-facing counterpart: lets a name-based lookup
-        /// (e.g. "what's reachable named X") go straight to the relevant candidates instead
-        /// of scanning every reachable module.
+        /// instead of by package.
         var reachableModulesByName: [String: [ReachableModule]] = [:]
         /// All products that transitively depend on this one, i.e. the mirror image of
         /// `crossPackageReachableModules`. Populated by `computeAllDependentProducts()`
@@ -748,6 +745,7 @@ struct ModuleAliasTracker {
                 }
             }
         }
+
         // Apply all aliases — this is what actually renames each canonical module and
         // updates every module's moduleAliases dict to its physically-compiled name.
         for moduleAlias in self.moduleAliases {
