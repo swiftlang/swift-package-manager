@@ -1025,6 +1025,12 @@ public final class PackageBuilder {
             }
         }
 
+        for setting in manifestTarget.settings {
+            if case let .enableTestableImport(enable) = setting.kind, enable, setting.condition?.config == "release" {
+                self.observabilityScope.emit(warning: "'\(potentialModule.name)' should not enable `@testable import` when building in release mode")
+            }
+        }
+
         // Create and return the right kind of target depending on what kind of sources we found.
         if sources.hasSwiftSources {
             var clangModuleInfo: ClangModuleInfo? = nil
@@ -1419,6 +1425,10 @@ public final class PackageBuilder {
                 }
 
                 values = ["-default-isolation", isolation.rawValue]
+
+            case .enableTestableImport(let enable):
+                decl = .ENABLE_TESTABILITY
+                values = enable ? ["YES"] : ["NO"]
             }
 
             // Create an assignment for this setting.
