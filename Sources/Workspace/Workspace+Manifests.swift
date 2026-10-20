@@ -542,6 +542,12 @@ extension Workspace {
             )
         }
 
+        // Root manifests aren't reloaded here, so nothing else re-registers their traits. The filtering
+        // below needs the root's resolved traits to tell a trait-guarded dependency from a live one.
+        for manifest in root.manifests.values {
+            try await self.updateEnabledTraits(for: manifest, observabilityScope: observabilityScope)
+        }
+
         // Load root dependencies manifests (in parallel)
         let rootDependencies = root.dependencies.map(\.packageRef)
         try await prepopulateManagedDependencies(rootDependencies)
@@ -682,6 +688,10 @@ extension Workspace {
         for (_, manifest) in allManifests {
             try await updateEnabledTraits(for: manifest, observabilityScope: observabilityScope)
         }
+
+        // Now that every parent has registered its edges, each package's enabled traits are final
+        // and can be reported on.
+        self.reportTraitFallbacks(for: allManifests.values, observabilityScope: observabilityScope)
 
         let dependencyManifests = allNodes.filter { !$0.value.manifest.packageKind.isRoot }
 

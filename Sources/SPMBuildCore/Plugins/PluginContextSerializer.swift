@@ -36,6 +36,7 @@ internal struct PluginContextSerializer {
     var productsToWireIDs: [ResolvedProduct.ID: WireInput.Product.Id] = [:]
     var packages: [WireInput.Package] = []
     var packagesToWireIDs: [ResolvedPackage.ID: WireInput.Package.Id] = [:]
+    var packagesBeingSerialized: Set<ResolvedPackage.ID> = []
 
     var xcodeTargets: [WireInput.XcodeTarget] = []
     var xcodeTargetsToIds: [XcodeProjectRepresentation.Target: WireInput.XcodeTarget.Id] = [:]
@@ -103,13 +104,27 @@ internal struct PluginContextSerializer {
         let targetInfo: WireInput.Target.TargetInfo
         switch target.underlying {
         case let target as SwiftModule:
-            targetInfo = .swiftSourceModuleInfo(
-                moduleName: target.c99name,
-                kind: try .init(target.type),
-                sourceFiles: targetFiles,
-                compilationConditions: scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS),
-                linkedLibraries: scope.evaluate(.LINK_LIBRARIES),
-                linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS))
+            if target.isMixedLanguage {
+                let publicHeadersDir = target.clangModuleInfo?.includeDir
+                targetInfo = .mixedSourceModuleInfo(
+                    moduleName: target.c99name,
+                    kind: try .init(target.type),
+                    sourceFiles: targetFiles,
+                    compilationConditions: scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS),
+                    preprocessorDefinitions: scope.evaluate(.GCC_PREPROCESSOR_DEFINITIONS),
+                    headerSearchPaths: scope.evaluate(.HEADER_SEARCH_PATHS),
+                    publicHeadersDirId: try publicHeadersDir.map { try serialize(path: $0) },
+                    linkedLibraries: scope.evaluate(.LINK_LIBRARIES),
+                    linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS))
+            } else {
+                targetInfo = .swiftSourceModuleInfo(
+                    moduleName: target.c99name,
+                    kind: try .init(target.type),
+                    sourceFiles: targetFiles,
+                    compilationConditions: scope.evaluate(.SWIFT_ACTIVE_COMPILATION_CONDITIONS),
+                    linkedLibraries: scope.evaluate(.LINK_LIBRARIES),
+                    linkedFrameworks: scope.evaluate(.LINK_FRAMEWORKS))
+            }
 
         case let target as ClangModule:
             targetInfo = .clangSourceModuleInfo(
@@ -248,6 +263,14 @@ internal struct PluginContextSerializer {
     mutating func serialize(package: ResolvedPackage) throws -> WireInput.Package.Id {
         // If we've already seen the package, just return the wire ID we already assigned to it.
         if let id = packagesToWireIDs[package.id] { return id }
+
+        // Package-level dependency cycles are permitted in the module graph (tools-version >= 6.0,
+        // as long as there's no module cycle), but would otherwise recurse here indefinitely since
+        // `packagesToWireIDs` is only populated once a package's dependencies finish serializing.
+        guard packagesBeingSerialized.insert(package.id).inserted else {
+            throw StringError("cyclic dependency between packages involving '\(package.identity)'; cannot construct plugin input")
+        }
+        defer { packagesBeingSerialized.remove(package.id) }
 
         // Determine how we should represent the origin of the package to the plugin.
         func origin(for package: ResolvedPackage) throws -> WireInput.Package.Origin {

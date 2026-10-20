@@ -26,6 +26,7 @@ import class Basics.ThreadSafeArrayStore
 
 import enum PackageModel.BuildConfiguration
 import enum PackageModel.BuildSettings
+import struct PackageModel.ClangModuleInfo
 import class PackageModel.ClangModule
 import struct PackageModel.ConfigurationCondition
 import class PackageModel.Manifest
@@ -366,6 +367,9 @@ extension PackageModel.BuildSettings.Declaration {
         case .SWIFT_VERSION:
             false
 
+        case .SWIFT_OBJC_BRIDGING_HEADER, .SWIFT_BRIDGING_HEADER_IS_INTERNAL:
+            false
+
         // C family.
         case .GCC_PREPROCESSOR_DEFINITIONS, .HEADER_SEARCH_PATHS, .OTHER_CFLAGS, .OTHER_CPLUSPLUSFLAGS:
             true
@@ -492,16 +496,22 @@ extension PackageGraph.ResolvedModule {
         try! AbsolutePath(validating: self.sources.root.pathString)
     }
 
-    /// Absolute paths to each of the header files  (*only* applies to C-language modules).
-    var headerFileAbsolutePaths: [AbsolutePath] {
-        guard let clangTarget = self.underlying as? ClangModule else { return [] }
-        return clangTarget.headers
+    private var clangModuleInfo: ClangModuleInfo? {
+        if let clangModule = self.underlying as? ClangModule {
+            return clangModule.clangModuleInfo
+        }
+        return (self.underlying as? SwiftModule)?.clangModuleInfo
     }
 
-    /// Relative path of the `include` directory (*only* applies to C-language modules).
+    /// Absolute paths to each of the header files.
+    var headerFileAbsolutePaths: [AbsolutePath] {
+        self.clangModuleInfo?.headers ?? []
+    }
+
+    /// Relative path of the `include` directory (applies to C-language and mixed-language modules).
     var includeDirRelativePath: RelativePath? {
-        guard let clangModule = self.underlying as? ClangModule else { return nil }
-        let relativePath = clangModule.includeDir.relative(to: self.sources.root).pathString
+        guard let includeDir = self.clangModuleInfo?.includeDir else { return nil }
+        let relativePath = includeDir.relative(to: self.sources.root).pathString
         return try! RelativePath(validating: relativePath)
     }
 
@@ -511,28 +521,30 @@ extension PackageGraph.ResolvedModule {
         return self.sourceDirAbsolutePath.appending(includeDirRelativePath)
     }
 
-    /// Module map type (*only* applies to C-language modules).
+    /// Module map type.
     var moduleMapType: ModuleMapType? {
-        guard let clangModule = self.underlying as? ClangModule else { return nil }
-        return clangModule.moduleMapType
+        self.clangModuleInfo?.moduleMapType
     }
 
-    /// The C language standard for which the module is configured (*only* applies to C-language modules).
+    /// The C language standard for which the module is configured.
     var cLanguageStandard: String? {
-        guard let clangModule = self.underlying as? ClangModule else { return nil }
-        return clangModule.cLanguageStandard
+        self.clangModuleInfo?.cLanguageStandard
     }
 
-    /// The C++ language standard for which the module is configured (*only* applies to C-language modules).
+    /// The C++ language standard for which the module is configured.
     var cxxLanguageStandard: String? {
-        guard let clangTarget = self.underlying as? ClangModule else { return nil }
-        return clangTarget.cxxLanguageStandard
+        self.clangModuleInfo?.cxxLanguageStandard
     }
 
-    /// Whether or not this module contains C++ sources (*only* applies to C-language modules).
+    /// Whether or not this module contains C++ sources.
     var isCxx: Bool {
-        guard let clangTarget = self.underlying as? ClangModule else { return false }
-        return clangTarget.isCXX
+        if let clangModule = self.underlying as? ClangModule {
+            return clangModule.isCXX
+        }
+        if let swiftModule = self.underlying as? SwiftModule {
+            return swiftModule.containsCXX
+        }
+        return false
     }
 
     /// The list of swift versions declared by the manifest.
@@ -544,6 +556,11 @@ extension PackageGraph.ResolvedModule {
     /// Is this a Swift module?
     var usesSwift: Bool {
         self.declaredSwiftVersions != nil
+    }
+
+    /// Whether this module mixes Swift and C-family sources.
+    var isMixedLanguageModule: Bool {
+        (self.underlying as? SwiftModule)?.isMixedLanguage ?? false
     }
 
     /// Swift language version for which the module is configured.
@@ -618,10 +635,10 @@ extension PackageGraph.ResolvedModule {
         var targetMultipleValueSettings: [BuildConfiguration: MultipleValueSettingsByPlatform] = [:]
 
         /// Target-specific single-value build settings that should be imparted to client targets (packages and projects).
-        var impartedSingleValueSettings: SingleValueSettingsByPlatform = [:]
+        var impartedSingleValueSettings: [BuildConfiguration: SingleValueSettingsByPlatform] = [:]
 
         /// Target-specific multiple-value build settings that should be imparted to client targets (packages and projects).
-        var impartedMultipleValueSettings: MultipleValueSettingsByPlatform = [:]
+        var impartedMultipleValueSettings: [BuildConfiguration: MultipleValueSettingsByPlatform] = [:]
 
         // MARK: - Convenience Methods
 
@@ -667,10 +684,10 @@ extension PackageGraph.ResolvedModule {
             }
         }
 
-        /// Apply imparted settings to a ProjectModel.BuildSettings instance
-        func applyImparted(to buildSettings: inout ProjectModel.BuildSettings) {
+        /// Apply the imparted settings of one build configuration to a ProjectModel.BuildSettings instance
+        func applyImparted(to buildSettings: inout ProjectModel.BuildSettings, for configuration: BuildConfiguration) {
             // Apply imparted single value settings for all platforms
-            for (platform, singleValues) in impartedSingleValueSettings {
+            for (platform, singleValues) in impartedSingleValueSettings[configuration] ?? [:] {
                 for (setting, value) in singleValues {
                     if let platform = platform {
                         buildSettings[setting, platform] = value
@@ -681,7 +698,7 @@ extension PackageGraph.ResolvedModule {
             }
 
             // Apply imparted multiple value settings for all platforms
-            for (platform, multipleValues) in impartedMultipleValueSettings {
+            for (platform, multipleValues) in impartedMultipleValueSettings[configuration] ?? [:] {
                 for (setting, values) in multipleValues {
                     if let platform = platform {
                         let existingValues = buildSettings[setting, platform] ?? ["$(inherited)"]
@@ -778,16 +795,16 @@ extension PackageGraph.ResolvedModule {
                         pifPlatform = nil
                     }
 
-                    // Handle imparted settings for OTHER_LDFLAGS and prebuilts include paths (always multiple values)
-                    // TODO: Do we realy need to impart OTHER_LDFLAGS?
-                    // TODO: Doing that for the PREBUILT_LIBRARIES was causing duplicate library warnings.
-                    if let multipleValueSetting = multipleValueSetting,
-                        declaration != .PREBUILT_LIBRARIES,
-                        (multipleValueSetting == .OTHER_LDFLAGS || declaration == .PREBUILT_INCLUDE_PATHS) {
-                        allSettings.impartedMultipleValueSettings[pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
-                    }
-
                     for configuration in configurations {
+                        // Handle imparted settings for OTHER_LDFLAGS and prebuilts include paths (always multiple values)
+                        // TODO: Do we realy need to impart OTHER_LDFLAGS?
+                        // TODO: Doing that for the PREBUILT_LIBRARIES was causing duplicate library warnings.
+                        if let multipleValueSetting = multipleValueSetting,
+                            declaration != .PREBUILT_LIBRARIES,
+                            (multipleValueSetting == .OTHER_LDFLAGS || declaration == .PREBUILT_INCLUDE_PATHS) {
+                            allSettings.impartedMultipleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
+                        }
+
                         if let multipleValueSetting = multipleValueSetting {
                             // Handle multiple value settings
                             allSettings.targetMultipleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
@@ -970,8 +987,16 @@ extension PackageGraph.ResolvedProduct {
 }
 
 extension PackageGraph.ResolvedModule {
-    func recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: Set<ResolvedModule.ID>, with block: (ResolvedModule.Dependency) -> Void) {
-        [self].recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: includeDependenciesOfMacros, with: block)
+    func recursivelyTraverseTransitiveLinkageDependencies(
+        includeDependenciesOfMacros: Set<ResolvedModule.ID>,
+        toolsVersion: ToolsVersion,
+        with block: (ResolvedModule.Dependency, Set<ProjectModel.PlatformFilter>) -> Void
+    ) {
+        [self].recursivelyTraverseTransitiveLinkageDependencies(
+            includeDependenciesOfMacros: includeDependenciesOfMacros,
+            toolsVersion: toolsVersion,
+            with: block
+        )
     }
 
     func addParseAsLibrarySettings(to settings: inout BuildSettings, toolsVersion: ToolsVersion, fileSystem: FileSystem) {
@@ -996,12 +1021,80 @@ extension PackageGraph.ResolvedModule {
     }
 }
 
+private enum PIFDependencyKey: Hashable {
+    case module(PackageGraph.ResolvedModule.ID)
+    case product(PackageGraph.ResolvedProduct.ID)
+}
+
+private enum PIFPlatformReachability: Equatable {
+    case unconditionallyReachable
+    case conditionallyReachable(Set<ProjectModel.PlatformFilter>)
+    case unreachable
+
+    init(filters: Set<ProjectModel.PlatformFilter>) {
+        self = filters.isEmpty ? .unconditionallyReachable : .conditionallyReachable(filters)
+    }
+
+    var platformFilters: Set<ProjectModel.PlatformFilter> {
+        switch self {
+        case .unconditionallyReachable, .unreachable: []
+        case .conditionallyReachable(let filters): filters
+        }
+    }
+
+    func intersection(_ other: Self) -> Self {
+        switch (self, other) {
+        case (.unreachable, _), (_, .unreachable):
+            return .unreachable
+        case (.unconditionallyReachable, let rhs):
+            return rhs
+        case (let lhs, .unconditionallyReachable):
+            return lhs
+        case (.conditionallyReachable(let lhs), .conditionallyReachable(let rhs)):
+            let intersection = lhs.intersection(rhs)
+            return intersection.isEmpty ? .unreachable : .conditionallyReachable(intersection)
+        }
+    }
+
+    func union(_ other: Self) -> Self {
+        switch (self, other) {
+        case (.unconditionallyReachable, _), (_, .unconditionallyReachable):
+            return .unconditionallyReachable
+        case (.unreachable, let rhs):
+            return rhs
+        case (let lhs, .unreachable):
+            return lhs
+        case (.conditionallyReachable(let lhs), .conditionallyReachable(let rhs)):
+            return .conditionallyReachable(lhs.union(rhs))
+        }
+    }
+}
+
 extension Collection<PackageGraph.ResolvedModule> {
     /// Recursively applies a block to each of the linkage dependencies of the given module, in topological sort order.
-    /// Each module or product dependency is visited only once.
-    func recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: Set<ResolvedModule.ID>, with block: (ResolvedModule.Dependency) -> Void) {
+    func recursivelyTraverseTransitiveLinkageDependencies(
+        includeDependenciesOfMacros: Set<ResolvedModule.ID>,
+        toolsVersion: ToolsVersion,
+        with block: (ResolvedModule.Dependency, Set<ProjectModel.PlatformFilter>) -> Void
+    ) {
+        // Do not traverse into *macro* or *plugin* dependencies unless explicitly requested.
+        // Macros run at compile time and their dependencies should not be linked into the client, unless a client includes their testable variant.
+        // Plugins run at build time and their dependencies should not be linked into the client.
+        func stopsTraversal(_ moduleDependency: ResolvedModule) -> Bool {
+            switch moduleDependency.type {
+            case .macro:
+                !includeDependenciesOfMacros.contains(moduleDependency.id)
+            case .plugin:
+                true
+            default:
+                false
+            }
+        }
+
+        // First determine the set of transitive linkage dependencies.
         var moduleIDsSeen: Set<ResolvedModule.ID> = []
         var productIDsSeen: Set<ResolvedProduct.ID> = []
+        var visitOrder: [(dependency: ResolvedModule.Dependency, key: PIFDependencyKey)] = []
 
         func visitDependency(_ dependency: ResolvedModule.Dependency) {
             switch dependency {
@@ -1009,42 +1102,86 @@ extension Collection<PackageGraph.ResolvedModule> {
                 let (unseenModule, _) = moduleIDsSeen.insert(moduleDependency.id)
                 guard unseenModule else { return }
 
-                // Do not traverse into *macro* or *plugin* dependencies unless explicitly requested.
-                // Macros run at compile time and their dependencies should not be linked into the client, unless a client includes their testable variant.
-                // Plugins run at build time and their dependencies should not be linked into the client.
-                let stopTraversal: Bool
-                switch moduleDependency.type {
-                case .macro:
-                    stopTraversal = !includeDependenciesOfMacros.contains(moduleDependency.id)
-                case .plugin:
-                    stopTraversal = true
-                default:
-                    stopTraversal = false
-                }
-
-                if !stopTraversal {
+                if !stopsTraversal(moduleDependency) {
                     for dependency in moduleDependency.dependencies {
                         visitDependency(dependency)
                     }
                 }
-                block(dependency)
+                visitOrder.append((dependency, .module(moduleDependency.id)))
 
             case .product(let productDependency, let conditions):
                 let (unseenProduct, _) = productIDsSeen.insert(productDependency.id)
                 guard unseenProduct && !productDependency.isBinaryOnlyExecutableProduct else { return }
-                block(dependency)
+                visitOrder.append((dependency, .product(productDependency.id)))
 
                 // We need to visit any binary modules to be able to add direct references to them to any client targets.
                 // This is needed so that XCFramework processing always happens *prior* to building any client targets.
                 for moduleDependency in productDependency.modules where moduleDependency.isBinary {
                     if moduleIDsSeen.contains(moduleDependency.id) { continue }
-                    block(.module(moduleDependency, conditions: conditions))
+                    visitOrder.append((
+                        .module(moduleDependency, conditions: conditions),
+                        .module(moduleDependency.id)
+                    ))
                 }
             }
         }
 
         for dependency in self.flatMap(\.dependencies) {
             visitDependency(dependency)
+        }
+
+        // Next, determine the set of platform filters for the new dependency edges introduced when the transitive dependencies
+        // are flattened.
+        var reachability: [PIFDependencyKey: PIFPlatformReachability] = [:]
+        var worklist: [(dependency: ResolvedModule.Dependency, reachability: PIFPlatformReachability)] = []
+
+        func widenReachability(
+            of dependency: ResolvedModule.Dependency,
+            reachedVia incoming: PIFPlatformReachability
+        ) {
+            // Determine how the dependency is reachable via the current edge. Intersect this with
+            // the reachability along the current path we're traversing.
+            let edge = PIFPlatformReachability(
+                filters: dependency.conditions.toPlatformFilter(toolsVersion: toolsVersion)
+            )
+            let reached = incoming.intersection(edge)
+
+            let key: PIFDependencyKey = switch dependency {
+            case .module(let moduleDependency, _): .module(moduleDependency.id)
+            case .product(let productDependency, _): .product(productDependency.id)
+            }
+
+            // We may reach a dependency via multiple paths, in which case we should union the reachability along each.
+            let widened = reachability[key]?.union(reached) ?? reached
+            guard widened != reachability[key], widened != .unreachable else { return }
+            reachability[key] = widened
+
+            // Add transitive dependencies to the worklist.
+            worklist.append((dependency, widened))
+        }
+
+        for dependency in self.flatMap(\.dependencies) {
+            widenReachability(of: dependency, reachedVia: .unconditionallyReachable)
+        }
+        while let (dependency, reachedVia) = worklist.popLast() {
+            switch dependency {
+            case .module(let moduleDependency, _):
+                guard !stopsTraversal(moduleDependency) else { continue }
+                for dependency in moduleDependency.dependencies {
+                    widenReachability(of: dependency, reachedVia: reachedVia)
+                }
+
+            case .product(let productDependency, _):
+                guard !productDependency.isBinaryOnlyExecutableProduct else { continue }
+                for moduleDependency in productDependency.modules where moduleDependency.isBinary {
+                    widenReachability(of: .module(moduleDependency, conditions: []), reachedVia: reachedVia)
+                }
+            }
+        }
+
+        for (dependency, key) in visitOrder {
+            guard let reached = reachability[key] else { continue }
+            block(dependency, reached.platformFilters)
         }
     }
 }
@@ -1184,6 +1321,13 @@ extension ProjectModel.BuildSettings {
 
         // Are we building a framework?
         if !createDylibForDynamicProducts {
+            // Disambiguate the framework's name for automatic library products so the built.
+            // We deliberately scope this to automatic products to match the
+            // previous PIF builder behavior
+            if let product, product.type == .library(.automatic) {
+                self[.PRODUCT_NAME] = PackagePIFBuilder.computePackageProductFrameworkName(productName: productName)
+            }
+
             // Apply delegate overrides for *executable name* and *bundle identifier prefix* on frameworks.
             // This can be used by SwiftPM clients to disambiguate framework names and bundle IDs, if necessary.
             if let product {
@@ -1224,6 +1368,10 @@ extension ProjectModel.BuildSettings.SingleValueSetting {
         switch declaration {
         case .SWIFT_VERSION:
             self = .SWIFT_VERSION
+        case .SWIFT_OBJC_BRIDGING_HEADER:
+            self = .SWIFT_OBJC_BRIDGING_HEADER
+        case .SWIFT_BRIDGING_HEADER_IS_INTERNAL:
+            self = .SWIFT_BRIDGING_HEADER_IS_INTERNAL
         default:
             return nil
         }

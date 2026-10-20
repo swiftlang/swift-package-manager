@@ -25,6 +25,10 @@ import TSCclibc // for SPM_posix_spawn_file_actions_addchdir_np_supported
 import Workspace
 import Testing
 
+#if canImport(Android)
+import Android
+#endif
+
 import enum TSCBasic.JSON
 import struct Basics.AsyncProcessResult
 
@@ -1488,28 +1492,57 @@ struct PackageRegistryCommandTests {
         #expect(actualString == "\(registryUrl)/\(data.expectedComponent)")
     }
 
+    enum ExpectedValidationError {
+        case insecureHTTP
+        case invalidURL
+
+        func matches(_ error: any Error, url: URL) -> Bool {
+            switch self {
+            case .insecureHTTP:
+                guard case PackageRegistryCommand.ValidationError.insecureHTTP(let thrownURL) = error else {
+                    return false
+                }
+                return thrownURL == url
+            case .invalidURL:
+                guard case PackageRegistryCommand.ValidationError.invalidURL(let thrownURL) = error else {
+                    return false
+                }
+                return thrownURL == url
+            }
+        }
+    }
+
+    struct RegistryURLValidationData {
+        let url: String
+        let allowHTTP: Bool
+        let expectedError: ExpectedValidationError?
+    }
+
     @Test(
         .tags(
             .TestSize.small,
         ),
+        arguments: [
+            RegistryURLValidationData(url: "https://packages.example.com", allowHTTP: false, expectedError: nil),
+            RegistryURLValidationData(url: "https://packages.example.com", allowHTTP: true, expectedError: nil),
+            RegistryURLValidationData(url: "http://packages.example.com", allowHTTP: true, expectedError: nil),
+            RegistryURLValidationData(url: "http://packages.example.com", allowHTTP: false, expectedError: .insecureHTTP),
+            RegistryURLValidationData(url: "ssh://packages.example.com", allowHTTP: false, expectedError: .invalidURL),
+            RegistryURLValidationData(url: "ftp://packages.example.com", allowHTTP: true, expectedError: .invalidURL),
+        ]
     )
-    func validateRegistryURL() throws {
+    func validateRegistryURL(data: RegistryURLValidationData) throws {
+        let url = try #require(URL(string: data.url), "Failed to instantiate registry URL")
 
-        try URL(string: "https://packages.example.com")!.validateRegistryURL()
-        try URL(string: "https://packages.example.com")!.validateRegistryURL(allowHTTP: true)
+        guard let expectedError = data.expectedError else {
+            try url.validateRegistryURL(allowHTTP: data.allowHTTP)
+            return
+        }
 
-        // Invalid
-        #expect(throws: (any Error).self) {
-            try URL(string: "http://packages.example.com")!.validateRegistryURL()
-        }
-        #expect(throws: (any Error).self) {
-            try URL(string: "http://packages.example.com")!.validateRegistryURL(allowHTTP: false)
-        }
-        #expect(throws: (any Error).self) {
-            try URL(string: "ssh://packages.example.com")!.validateRegistryURL()
-        }
-        #expect(throws: (any Error).self) {
-            try URL(string: "ftp://packages.example.com")!.validateRegistryURL(allowHTTP: true)
+        #expect {
+            try url.validateRegistryURL(allowHTTP: data.allowHTTP)
+        } throws: { error in
+            expectedError.matches(error, url: url)
         }
     }
 
@@ -1570,5 +1603,52 @@ struct PackageRegistryCommandTests {
             verifierConfiguration: verifierConfiguration,
             observabilityScope: observabilityScope
         )
+    }
+}
+
+@Suite struct PackageRegistrySearchTests {
+    @Test func helpListsSearchSubcommand() async throws {
+        let stdout = try await SwiftPM.Registry.execute(["--help"]).stdout
+        #expect(stdout.contains("search"), "expected 'search' subcommand in help output, got: \(stdout)")
+    }
+
+    @Test func searchHelpReferencesQualifiers() async throws {
+        let stdout = try await SwiftPM.Registry.execute(["search", "--help"]).stdout
+        #expect(stdout.contains("--limit"))
+        #expect(stdout.contains("--offset"))
+        #expect(stdout.contains("--registry"))
+        #expect(stdout.contains("--json"))
+    }
+
+    @Test func interleavingRoundRobinsAcrossRegistries() {
+        let registryA = Registry(url: URL("https://a.example.com"), supportsAvailability: true)
+        let registryB = Registry(url: URL("https://b.example.com"), supportsAvailability: true)
+        let resultsA = RegistryClient.SearchResults(
+            results: [
+                .init(identity: "a.one"),
+                .init(identity: "a.two"),
+                .init(identity: "a.three"),
+            ],
+            total: 3,
+            offset: 0,
+            limit: 20
+        )
+        let resultsB = RegistryClient.SearchResults(
+            results: [
+                .init(identity: "b.one"),
+                .init(identity: "b.two"),
+            ],
+            total: 2,
+            offset: 0,
+            limit: 20
+        )
+
+        let interleaved = PackageRegistryCommand.Search.interleavePairs([
+            (registryA, resultsA),
+            (registryB, resultsB),
+        ])
+
+        #expect(interleaved.map(\.result.identity) == ["a.one", "b.one", "a.two", "b.two", "a.three"])
+        #expect(interleaved.map(\.registry.url.host) == ["a.example.com", "b.example.com", "a.example.com", "b.example.com", "a.example.com"])
     }
 }

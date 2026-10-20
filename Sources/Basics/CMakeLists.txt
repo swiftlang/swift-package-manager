@@ -21,6 +21,7 @@ add_library(Basics
   Concurrency/ConcurrencyHelpers.swift
   Concurrency/NSLock+Extensions.swift
   Concurrency/SendableBox.swift
+  Concurrency/SerialEventQueue.swift
   Concurrency/ThreadSafeArrayStore.swift
   Concurrency/ThreadSafeBox.swift
   Concurrency/ThreadSafeKeyValueStore.swift

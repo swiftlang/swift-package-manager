@@ -26,7 +26,7 @@ struct TaskBacktraceTests {
         try await fixture(name: "Miscellaneous/Simple") { fixturePath in
             let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
-                extraArgs: ["--experimental-task-backtraces", "--verbose"],
+                extraArgs: ["--enable-task-backtraces", "--verbose"],
                 buildSystem: .swiftbuild
             )
             #expect(stdout.contains("Build complete!"))
@@ -41,7 +41,7 @@ struct TaskBacktraceTests {
 
             let (incrementalStdout, incrementalStderr) = try await executeSwiftBuild(
                 fixturePath,
-                extraArgs: ["--experimental-task-backtraces", "--verbose"],
+                extraArgs: ["--enable-task-backtraces", "--verbose"],
                 buildSystem: .swiftbuild
             )
             // Add a basic check that we produce backtrace output. The specifc formatting is tested by Swift Build.
@@ -62,36 +62,44 @@ struct TaskBacktraceTests {
     }
 
     @Test(
-        .tags(.TestSize.large, .Feature.TaskBacktraces)
+        .tags(.TestSize.large, .Feature.TaskBacktraces),
+        arguments: ["--enable-task-backtraces", "--experimental-task-backtraces"]
     )
-    func taskBacktracesWarnsWithoutVerboseOutput() async throws {
+    func taskBacktracesWarnsWithoutVerboseOutput(taskBacktracesFlag: String) async throws {
         try await fixture(name: "Miscellaneous/Simple") { fixturePath in
             let (_, stderr) = try await executeSwiftBuild(
                 fixturePath,
-                extraArgs: ["--experimental-task-backtraces"],
+                extraArgs: [taskBacktracesFlag],
                 buildSystem: .swiftbuild,
                 throwIfCommandFails: false
             )
-            #expect(stderr.contains("'--experimental-task-backtraces' requires '--verbose', '--very-verbose', or '--experimental-trace-events-file'"))
+            #expect(stderr.contains("'--enable-task-backtraces' requires '--verbose', '--very-verbose', or '--trace-events-file'"))
         }
     }
 
     @Test(
-        .tags(.TestSize.large, .Feature.TaskBacktraces)
+        .tags(.TestSize.large, .Feature.TaskBacktraces),
+        arguments: [
+            ("--enable-task-backtraces", "--trace-events-file"),
+            ("--experimental-task-backtraces", "--experimental-trace-events-file"),
+        ]
     )
-    func taskBacktracesDoesNotWarnWhenTraceEventsFileProvided() async throws {
+    func taskBacktracesDoesNotWarnWhenTraceEventsFileProvided(
+        taskBacktracesFlag: String,
+        traceEventsFileFlag: String
+    ) async throws {
         try await fixture(name: "Miscellaneous/Simple") { fixturePath in
             let traceFile = fixturePath.appending("trace.json")
             let (_, stderr) = try await executeSwiftBuild(
                 fixturePath,
                 extraArgs: [
-                    "--experimental-task-backtraces",
-                    "--experimental-trace-events-file", traceFile.pathString,
+                    taskBacktracesFlag,
+                    traceEventsFileFlag, traceFile.pathString,
                 ],
                 buildSystem: .swiftbuild,
                 throwIfCommandFails: false
             )
-            #expect(!stderr.contains("'--experimental-task-backtraces' requires"))
+            #expect(!stderr.contains("'--enable-task-backtraces' requires"))
         }
     }
 
@@ -102,11 +110,11 @@ struct TaskBacktraceTests {
         try await fixture(name: "Miscellaneous/Simple") { fixturePath in
             let (_, stderr) = try await executeSwiftBuild(
                 fixturePath,
-                extraArgs: ["--experimental-task-backtraces", "--verbose"],
+                extraArgs: ["--enable-task-backtraces", "--verbose"],
                 buildSystem: .native,
                 throwIfCommandFails: false
             )
-            #expect(stderr.contains("'--experimental-task-backtraces' is only supported when using '--build-system swiftbuild'"))
+            #expect(stderr.contains("'--enable-task-backtraces' is only supported when using '--build-system swiftbuild'"))
         }
     }
 }

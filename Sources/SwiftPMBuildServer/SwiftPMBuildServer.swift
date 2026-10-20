@@ -140,6 +140,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
     private var headersByTargetGUID: [String: Set<Basics.AbsolutePath>] = [:]
     private var doccCatalogsByTargetGUID: [String: Set<Basics.AbsolutePath>] = [:]
     private var buildToolPluginInputsByTargetGUID: [String: Set<Basics.AbsolutePath>] = [:]
+    private var pifGenerationInputs: PIFGenerationInputs
 
     private struct PluginInfo {
         var name: String
@@ -155,6 +156,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         self.packageRoot = packageRoot
         self.buildSystem = buildSystem
         self.workspace = workspace
+        self.pifGenerationInputs = PIFGenerationInputs.fallbackInputs(packageRoot: packageRoot)
         self.defaultScratchDirectory = Workspace.DefaultLocations.scratchDirectory(forRootPackage: packageRoot)
         self.connectionToClient = connectionToClient
         self.exitHandler = exitHandler
@@ -607,21 +609,21 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
         return false
     }
 
-    /// An event is relevant if it modifies a file that matches one of the file rules used by the SwiftPM workspace.
+    /// An event is relevant if it touches a file or directory which is a PIF input.
     private func fileEventShouldTriggerPackageReload(event: FileEvent) -> Bool {
-        guard let fileURL = event.uri.fileURL else {
+        guard let fileURL = event.uri.fileURL, let filePath = try? fileURL.filePath else {
             return false
         }
         if isInScratchDirectory(fileURL) {
             return false
         }
+
+        let candidatePaths = [filePath, (try? resolveSymlinks(filePath))].compactMap { $0 }
         switch event.type {
         case .created, .deleted:
-            // This is overly conservative, we may want to consider restricting it to file types which will be built.
-            // However, the possibility of a plugin which might process an arbitrary file type makes this difficult.
-            return true
+            return candidatePaths.contains { pifGenerationInputs.creationOrDeletionAffectsPIF($0) }
         case .changed:
-            return fileURL.lastPathComponent == "Package.swift" || fileURL.lastPathComponent == "Package.resolved" ||  fileURL.lastPathComponent.wholeMatch(of: versionSpecificManifestRegex) != nil
+            return candidatePaths.contains { pifGenerationInputs.modificationAffectsPIF($0) }
         default:
             logToClient(.warning, "received unknown file event type: '\(event.type)'")
             return false
@@ -629,7 +631,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
     }
 
     public func scheduleRegeneratingBuildDescription() {
-        packageLoadingQueue.async { [buildSystem] in
+        packageLoadingQueue.async { [buildSystem, packageRoot] in
             let reloadingTaskID = TaskId(id: "package-reloading")
             do {
                 self.connectionToClient.send(
@@ -640,6 +642,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
                 )
                 let result = try await buildSystem.generatePIFAndAccompanyingMetadata(preserveStructure: false)
                 try localFileSystem.writeIfChanged(path: buildSystem.buildParameters.pifManifest, string: result.pif)
+                self.pifGenerationInputs = result.inputs
                 await self.rebuildHeaderMapping(pifAccompanyingMetadata: result.accompanyingMetadata)
                 await self.rebuildBuildToolPluginInputsMapping(pifAccompanyingMetadata: result.accompanyingMetadata)
                 await self.rebuildDocCCatalogMapping(pifAccompanyingMetadata: result.accompanyingMetadata)
@@ -652,6 +655,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
                     TaskFinishNotification(taskId: reloadingTaskID, status: .ok)
                 )
             } catch {
+                self.pifGenerationInputs = PIFGenerationInputs.fallbackInputs(packageRoot: packageRoot)
                 self.logToClient(.warning, "error regenerating build description: \(error)")
                 self.connectionToClient.send(
                     TaskFinishNotification(taskId: reloadingTaskID, status: .error)

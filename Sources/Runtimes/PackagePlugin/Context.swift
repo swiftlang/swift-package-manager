@@ -52,19 +52,35 @@ public struct PluginContext {
     @available(_PackageDescription, introduced: 6.0)
     public let pluginWorkDirectoryURL: URL
 
-    /// Looks up and returns the path of a named command line executable.
-    /// 
-    /// The executable must be provided by an executable target or binary
-    /// target on which the package plugin target depends. This function throws
-    /// an error if the tool cannot be found. The lookup is case sensitive.
+    /// Finds a command-line executable available to the plugin.
+    ///
+    /// The plugin host first looks for a matching tool provided by a direct
+    /// dependency of the plugin target. Use the target name for an executable
+    /// target dependency, the product name for an executable product dependency,
+    /// or the executable artifact name from the artifact bundle metadata for a
+    /// binary target dependency.
+    ///
+    /// If no declared dependency provides a matching tool, ``tool(named:)``
+    /// searches additional directories supplied by the plugin host, in the order
+    /// provided. The host determines which directories, if any, it supplies.
+    /// Declare every required tool as a plugin dependency to make the plugin
+    /// portable between Swift Package Manager, IDEs, and other hosts.
+    ///
+    /// Tool names are case sensitive.
+    ///
     /// - Parameter name: The name of the executable to find.
+    /// - Returns: Information about the matching host executable.
+    /// - Throws: ``PluginContextError/toolNotSupportedOnTargetPlatform(name:)``
+    ///   if a declared binary tool has no variant for the platform on which the
+    ///   plugin runs, or ``PluginContextError/toolNotFound(name:)`` if no
+    ///   matching tool is available.
     public func tool(named name: String) throws -> Tool {
         if let tool = self.accessibleTools[name] {
             // For PluginAccessibleTool.builtTool, the triples value is not saved, thus
             // the value is always nil; this is intentional since if we are able to
-            // build the tool, it is by definition supporting the target platform.
+            // build the tool, it is by definition supporting the host platform.
             // For PluginAccessibleTool.vendedTool, only supported triples are saved,
-            // so empty triples means the tool is not supported on the target platform.
+            // so empty triples means the tool is not supported on the host platform.
             if let triples = tool.triples, triples.isEmpty {
                 throw PluginContextError.toolNotSupportedOnTargetPlatform(name: name)
             }
@@ -86,18 +102,18 @@ public struct PluginContext {
         throw PluginContextError.toolNotFound(name: name)
     }
 
-    /// A map from tool names to their paths and triples.
+    /// A map of the tools provided by the plugin target's direct dependencies.
     ///
-    /// This is not directly available to the plugin, but is used by  ``tool(named:)``.
+    /// This is not directly available to the plugin, but is used by ``tool(named:)``.
     let accessibleTools: [String: (path: URL, triples: [String]?)]
 
-    /// The paths of directories in which to search for tools that aren't in
-    /// the `toolNamesToPaths` map.
+    /// Host-provided paths in which to search for tools that aren't in
+    /// `accessibleTools`.
     @available(_PackageDescription, deprecated: 6.0, renamed: "toolSearchDirectoryURLs")
     let toolSearchDirectories: [Path]
 
-    /// The paths of directories in which to search for tools that aren't in
-    /// the `toolNamesToPaths` map.
+    /// Host-provided URLs in which to search for tools that aren't in
+    /// `accessibleTools`.
     @available(_PackageDescription, introduced: 6.0)
     let toolSearchDirectoryURLs: [URL]
 

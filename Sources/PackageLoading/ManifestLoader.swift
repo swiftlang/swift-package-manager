@@ -206,7 +206,11 @@ extension ManifestLoaderProtocol {
             fileSystem: fileSystem,
             currentToolsVersion: currentToolsVersion
         )
-        let manifestToolsVersion = try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
+        let manifestToolsVersion = try ToolsVersionParser.parse(
+            manifestPath: manifestPath,
+            fileSystem: fileSystem,
+            packageIdentity: packageIdentity
+        )
         // validate the manifest tools-version against the toolchain tools-version
         try manifestToolsVersion.validateToolsVersion(
             currentToolsVersion,
@@ -361,6 +365,14 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             ))
         }
 
+        let defaultSwiftSettings = parsedManifest.defaultSwiftSettings ?? []
+        let defaultCSettings = parsedManifest.defaultCSettings ?? []
+        let defaultCXXSettings = parsedManifest.defaultCXXSettings ?? []
+        let defaultLinkerSettings = parsedManifest.defaultLinkerSettings ?? []
+
+        let defaultSettings: [TargetBuildSettingDescription.Setting] =
+            defaultSwiftSettings + defaultCSettings + defaultCXXSettings + defaultLinkerSettings
+
         let manifest = Manifest(
             displayName: parsedManifest.name,
             packageIdentity: packageIdentity,
@@ -368,6 +380,7 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             packageKind: packageKind,
             packageLocation: packageLocation,
             defaultLocalization: parsedManifest.defaultLocalization,
+            defaultSettings: defaultSettings,
             platforms: parsedManifest.platforms,
             version: packageVersion?.version,
             revision: packageVersion?.revision,
@@ -383,6 +396,10 @@ public final class ManifestLoader: ManifestLoaderProtocol {
             traits: parsedManifest.traits,
             pruneDependencies: self.pruneDependencies
         )
+
+        for identity in manifest.duplicateDependencyIdentities {
+            observabilityScope.emit(.duplicatePackageDependency(identity: identity))
+        }
 
         // Inform the delegate.
         delegateQueue.async { [delegate = self.delegate] in
@@ -721,10 +738,19 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
         if runtimePath.extension == "framework" {
+            let parent = runtimePath.parentDirectory
             cmd += [
-                "-F", runtimePath.parentDirectory.pathString,
-                "-Xlinker", "-rpath", "-Xlinker", runtimePath.parentDirectory.pathString,
+                "-F", parent.pathString,
+                "-Xlinker", "-rpath", "-Xlinker", parent.pathString,
             ]
+
+            // Make sure we can find the swiftmodule
+            if parent.basename == "PackageFrameworks" {
+                // Need to look up one more
+                cmd += ["-I", parent.parentDirectory.pathString]
+            } else {
+                cmd += ["-I", parent.pathString]
+            }
 
             // Explicitly link `AppleProductTypes` since auto-linking won't work here.
 #if ENABLE_APPLE_PRODUCT_TYPES
@@ -853,11 +879,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
                 let gitInformation: ContextModel.GitInformation?
                 do {
                     let repo = GitRepository(path: manifestPath.parentDirectory)
-                    // These Git operations might block, consider making them async if performance is critical
-                    gitInformation = ContextModel.GitInformation(
-                        currentTag: repo.getCurrentTag(),
-                        currentCommit: try repo.getCurrentRevision().identifier,
-                        hasUncommittedChanges: repo.hasUncommittedChanges()
+                    async let tag = repo.getCurrentTag()
+                    async let commit = try repo.getCurrentRevision().identifier
+                    async let uncommitted = repo.hasUncommittedChanges()
+                    gitInformation = try await ContextModel.GitInformation(
+                        currentTag: tag,
+                        currentCommit: commit,
+                        hasUncommittedChanges: uncommitted
                     )
                 } catch {
                     // Ignore errors getting git info
@@ -957,7 +985,13 @@ public final class ManifestLoader: ManifestLoaderProtocol {
         // if runtimePath is set to "PackageFrameworks" that means we could be developing SwiftPM in Xcode
         // which produces a framework for dynamic package products.
         if modulesPath.extension == "framework" {
-            cmd += ["-I", modulesPath.parentDirectory.parentDirectory.pathString]
+            let parent = modulesPath.parentDirectory
+            cmd += ["-F", parent.pathString]
+            if parent.basename == "PackageFrameworks" {
+                cmd += ["-I", parent.parentDirectory.pathString]
+            } else {
+                cmd += ["-I", parent.pathString]
+            }
         } else {
             cmd += ["-I", modulesPath.pathString]
         }

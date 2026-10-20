@@ -18,7 +18,7 @@ import Foundation
 /// Validator methods that check the correctness of traits and their support as defined in the manifest.
 extension Manifest {
     /// Struct that contains information about a package's identity, as well as its name.
-    public struct PackageIdentifier: Hashable, CustomStringConvertible, Comparable, ExpressibleByStringLiteral {
+    public struct PackageIdentifier: Hashable, CustomStringConvertible, Comparable, ExpressibleByStringLiteral, Sendable {
         public var identity: String
         public var name: String?
 
@@ -87,38 +87,40 @@ extension Manifest {
         }
     }
 
+    /// The reason this manifest cannot honour `explicitlyEnabledTraits` because it declares no traits at all,
+    /// or `nil` if that is not the problem.
+    ///
+    /// This is exposed separately from `validateEnabledTraits` because callers disagree on how severe it is.
+    /// A request naming traits this package no longer declares is not something the requesting package can
+    /// fix, so `Workspace` downgrades that case to a warning; see `Workspace.validateEnabledTraits(_:for:observabilityScope:)`.
+    public func unsupportedTraitsError(_ explicitlyEnabledTraits: EnabledTraits) -> TraitError? {
+        guard !self.supportsTraits, explicitlyEnabledTraits != ["default"] else {
+            return nil
+        }
+
+        return .traitsNotSupported(
+            package: .init(self),
+            explicitlyEnabledTraits: explicitlyEnabledTraits
+        )
+    }
+
     /// Validates a set of traits that is intended to be enabled for the manifest; if there are any discrepencies in the
     /// set of enabled traits and whether the manifest defines these traits (or if it defines any traits at all), then an
     /// error indicating the issue will be thrown.
     public func validateEnabledTraits(_ explicitlyEnabledTraits: EnabledTraits) throws {
-        guard supportsTraits else {
-            if explicitlyEnabledTraits != ["default"] {
-                throw TraitError.traitsNotSupported(
-                    package: .init(self),
-                    explicitlyEnabledTraits: explicitlyEnabledTraits
-                )
-            }
+        if let error = self.unsupportedTraitsError(explicitlyEnabledTraits) {
+            throw error
+        }
 
+        // A manifest that declares no traits has nothing left to check: the only set it can be asked for
+        // is `["default"]`, which `unsupportedTraitsError` has already let through.
+        guard self.supportsTraits else {
             return
         }
 
-        let enabledTraits = explicitlyEnabledTraits
-
         // Validate each trait to assure it's defined in the current package.
-        for trait in enabledTraits {
+        for trait in explicitlyEnabledTraits {
            try validateTrait(trait)
-        }
-
-        let areDefaultsEnabled = enabledTraits.contains("default")
-
-        // Ensure that disabling default traits is disallowed for packages that don't define any traits.
-        if !areDefaultsEnabled && !self.supportsTraits {
-            // We throw an error when default traits are disabled for a package without any traits
-            // This allows packages to initially move new API behind traits once.
-            throw TraitError.traitsNotSupported(
-                package: .init(self),
-                explicitlyEnabledTraits: enabledTraits
-            )
         }
     }
 
@@ -189,7 +191,7 @@ extension Manifest {
                 enabledTraits = EnabledTraits(defaultTraits, setBy: .default)
             }
         case .disableAllTraits:
-            return []
+            enabledTraits = EnabledTraits([], setBy: .traitConfiguration)
         case .enabledTraits(let explicitlyEnabledTraits):
             enabledTraits = EnabledTraits(explicitlyEnabledTraits, setBy: .traitConfiguration)
         }

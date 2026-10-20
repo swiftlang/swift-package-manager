@@ -74,6 +74,103 @@ final class TargetSourcesBuilderTests: XCTestCase {
         XCTAssertNoDiagnostics(observability.diagnostics)
     }
 
+    #if !os(Windows)
+    func testSelfReferentialSymlinkDoesNotExplodeTheWalk() throws {
+        // A symlink pointing back into the package must not make the walk re-traverse the whole tree
+        // at every level of the cycle.
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let root = tmpPath.appending("Pkg")
+            let nested = root.appending(components: "IntegrationTests", "Sub")
+            try fs.createDirectory(nested, recursive: true)
+            try fs.writeFileContents(root.appending("Foo.swift"), bytes: "")
+            try fs.writeFileContents(nested.appending("Helper.h"), bytes: "")
+            try fs.createSymbolicLink(nested.appending("pkg-root"), pointingAt: root, relative: false)
+
+            let target = try TargetDescription(
+                name: "Foo", path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .regular
+            )
+            let observability = ObservabilitySystem.makeForTesting()
+            let builder = TargetSourcesBuilder(
+                packageIdentity: .plain("test"), packageKind: .root(root), packagePath: root,
+                target: target, path: root, toolsVersion: .v5_6,
+                fileSystem: fs, observabilityScope: observability.topScope
+            )
+
+            let contents = builder.computeContents()
+
+            XCTAssertEqual(Set(contents).count, contents.count, "walk produced duplicate paths (symlink cycle not broken)")
+            XCTAssertTrue(contents.contains(root.appending("Foo.swift")))
+            XCTAssertTrue(contents.contains(nested.appending("Helper.h")))
+            XCTAssertFalse(contents.contains { $0.pathString.contains("pkg-root") }, "descended through the self-referential symlink")
+            XCTAssertLessThan(contents.count, 10, "symlink cycle blew up the walk: \(contents.count) entries")
+        }
+    }
+
+    func testSymlinkToDistinctDirectoryIsStillFollowed() throws {
+        // Cycle detection must not stop the walk from following a symlink to a distinct directory.
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let root = tmpPath.appending("Pkg")
+            try fs.createDirectory(root, recursive: true)
+            try fs.writeFileContents(root.appending("Main.swift"), bytes: "")
+            let external = tmpPath.appending("External")
+            try fs.createDirectory(external, recursive: true)
+            try fs.writeFileContents(external.appending("Shared.swift"), bytes: "")
+            try fs.createSymbolicLink(root.appending("Linked"), pointingAt: external, relative: false)
+
+            let target = try TargetDescription(
+                name: "Foo", path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .regular
+            )
+            let observability = ObservabilitySystem.makeForTesting()
+            let builder = TargetSourcesBuilder(
+                packageIdentity: .plain("test"), packageKind: .root(root), packagePath: root,
+                target: target, path: root, toolsVersion: .v5_6,
+                fileSystem: fs, observabilityScope: observability.topScope
+            )
+
+            let contents = builder.computeContents()
+
+            XCTAssertTrue(contents.contains(root.appending("Main.swift")))
+            XCTAssertTrue(contents.contains { $0.pathString.hasSuffix("Linked/Shared.swift") },
+                          "a symlink to a distinct directory should still be followed")
+        }
+    }
+
+    func testMutuallyReferentialSymlinksDoNotExplodeTheWalk() throws {
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let root = tmpPath.appending("Pkg")
+            let a = root.appending("A")
+            let b = root.appending("B")
+            try fs.createDirectory(a, recursive: true)
+            try fs.createDirectory(b, recursive: true)
+            try fs.writeFileContents(a.appending("AFile.swift"), bytes: "")
+            try fs.writeFileContents(b.appending("BFile.swift"), bytes: "")
+            try fs.createSymbolicLink(a.appending("toB"), pointingAt: b, relative: false)
+            try fs.createSymbolicLink(b.appending("toA"), pointingAt: a, relative: false)
+
+            let target = try TargetDescription(
+                name: "Foo", path: nil, exclude: [], sources: nil, publicHeadersPath: nil, type: .regular
+            )
+            let observability = ObservabilitySystem.makeForTesting()
+            let builder = TargetSourcesBuilder(
+                packageIdentity: .plain("test"), packageKind: .root(root), packagePath: root,
+                target: target, path: root, toolsVersion: .v5_6,
+                fileSystem: fs, observabilityScope: observability.topScope
+            )
+
+            let contents = builder.computeContents()
+
+            // A cycle would collect each file once per level; dedup collects it exactly once.
+            XCTAssertEqual(Set(contents).count, contents.count, "walk produced duplicate paths")
+            XCTAssertEqual(contents.filter { $0.basename == "AFile.swift" }.count, 1)
+            XCTAssertEqual(contents.filter { $0.basename == "BFile.swift" }.count, 1)
+        }
+    }
+    #endif
+
+
     func testDirectoryWithExt_5_3() throws {
         let target = try TargetDescription(
             name: "Foo",
@@ -1012,7 +1109,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
             target: target,
             path: .root,
             defaultLocalization: nil,
-            additionalFileRules: FileRuleDescription.swiftBuildFileTypes,
+            additionalFileRules: FileRuleDescription.swiftBuildFileTypes(targetTriple: .arm64MacOS),
             toolsVersion: .v6_0,
             fileSystem: fs,
             observabilityScope: observability.topScope
@@ -1026,6 +1123,84 @@ final class TargetSourcesBuilderTests: XCTestCase {
         XCTAssertEqual(outputs.others, [])
 
         XCTAssertNoDiagnostics(observability.diagnostics)
+    }
+
+    func testUndeclaredPrivacyManifestIsOnlyCopiedWhenTargetingDarwin() throws {
+        let triples: [Triple] = [.arm64MacOS, .arm64iOS, .x86_64Linux, .arm64Android, .x86_64Windows, .wasi]
+
+        for triple in triples {
+            let observability = ObservabilitySystem.makeForTesting()
+            let outputs = try self.buildPrivacyManifestTarget(
+                declaresPrivacyManifestResource: false,
+                targetTriple: triple,
+                observabilityScope: observability.topScope
+            )
+
+            // A privacy manifest is only consumed on Apple platform, copying it elsewhere would generate a resource bundle accessor
+            // that imports Foundation.
+            let expectedResources: [Resource] = triple.isDarwin()
+                ? try [.init(rule: .copy, path: .init(validating: "/PrivacyInfo.xcprivacy"))]
+                : []
+            let expectedIgnored: [AbsolutePath] = triple.isDarwin() ? [] : ["/PrivacyInfo.xcprivacy"]
+
+            XCTAssertEqual(outputs.resources, expectedResources, "unexpected resources for \(triple)")
+            XCTAssertEqual(outputs.ignored, expectedIgnored, "unexpected ignored files for \(triple)")
+            XCTAssertNoDiagnostics(observability.diagnostics)
+        }
+    }
+
+    func testExplicitlyDeclaredPrivacyManifestIsCopiedWhenNotTargetingDarwin() throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let outputs = try self.buildPrivacyManifestTarget(
+            declaresPrivacyManifestResource: true,
+            targetTriple: .x86_64Linux,
+            observabilityScope: observability.topScope
+        )
+
+        XCTAssertEqual(outputs.resources, try [
+            .init(rule: .copy, path: .init(validating: "/PrivacyInfo.xcprivacy")),
+        ])
+        XCTAssertEqual(outputs.ignored, [])
+        XCTAssertNoDiagnostics(observability.diagnostics)
+    }
+
+    private func buildPrivacyManifestTarget(
+        declaresPrivacyManifestResource: Bool,
+        targetTriple: Triple,
+        observabilityScope: ObservabilityScope
+    ) throws -> (sources: Sources, resources: [Resource], headers: [AbsolutePath], ignored: [AbsolutePath], others: [AbsolutePath]) {
+        let target = try TargetDescription(
+            name: "Foo",
+            path: nil,
+            exclude: [],
+            sources: ["File.swift"],
+            resources: declaresPrivacyManifestResource ? [.init(rule: .copy, path: "PrivacyInfo.xcprivacy")] : [],
+            publicHeadersPath: nil,
+            type: .regular
+        )
+
+        let fs = InMemoryFileSystem()
+        fs.createEmptyFiles(at: AbsolutePath.root, files: [
+            "/File.swift",
+            "/PrivacyInfo.xcprivacy",
+        ])
+
+        let builder = TargetSourcesBuilder(
+            packageIdentity: .plain("test"),
+            packageKind: .root(.root),
+            packagePath: .root,
+            target: target,
+            path: .root,
+            defaultLocalization: nil,
+            additionalFileRules: FileRuleDescription.swiftBuildFileTypes(targetTriple: targetTriple),
+            toolsVersion: .v6_0,
+            fileSystem: fs,
+            observabilityScope: observabilityScope
+        )
+
+        let outputs = try builder.run()
+        XCTAssertEqual(outputs.sources.paths, ["/File.swift"])
+        return outputs
     }
 
     func testResourcesAreSorted() throws {

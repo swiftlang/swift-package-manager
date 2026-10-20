@@ -9,6 +9,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 import Basics
 import CoreCommands
@@ -24,6 +25,8 @@ import WinSDK
 import Darwin
 #elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Android)
+import Android
 #endif
 
 import struct TSCBasic.FileSystemError
@@ -327,10 +330,18 @@ enum TestingSupport {
         #else
         // Add path to swift-testing override if there is one
         if let swiftTestingPath = toolchain.swiftTestingPath {
+            let isFramework = swiftTestingPath.basename == "Frameworks"
             env.appendPath(
-                key: (swiftTestingPath.extension == "framework") ? "DYLD_FRAMEWORK_PATH" : "DYLD_LIBRARY_PATH",
+                key: isFramework ? "DYLD_FRAMEWORK_PATH" : "DYLD_LIBRARY_PATH",
                 value: swiftTestingPath.pathString,
             )
+            if isFramework {
+                // If it's a framework, we'll also need to include the path to _TestingInterop, which is
+                // in /usr/lib relative to the Frameworks directory containing Swift Testing.
+                let librariesPath = swiftTestingPath.parentDirectory
+                    .appending("usr").appending("lib")
+                env.appendPath( key: "DYLD_LIBRARY_PATH", value: librariesPath.pathString)
+            }
         }
 
         // Add the sdk platform path if we have it.

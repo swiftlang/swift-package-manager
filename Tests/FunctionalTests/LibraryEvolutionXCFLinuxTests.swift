@@ -35,6 +35,8 @@ private struct SwiftPMTests {
                 let arch = "aarch64"
                 #elseif arch(x86_64)
                 let arch = "x86_64"
+                #else
+                preconditionFailure("Unsupported platform or host arch for test")
                 #endif
 
                 let platform = "linux"

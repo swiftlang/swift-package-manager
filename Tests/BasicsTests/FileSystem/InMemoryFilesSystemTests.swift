@@ -121,6 +121,39 @@ struct InMemoryFileSystemTests {
         }
     }
 
+    @Suite(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    struct CopyTests {
+        @Test
+        func deepCopyPreservesTheExecutableBit() async throws {
+            let fs = InMemoryFileSystem()
+            let pathUnderTest = AbsolutePath("/tool")
+            try fs.writeFileContents(pathUnderTest, bytes: testFileContent)
+            try fs.updatePermissions(pathUnderTest, isExecutable: true)
+
+            let copied = fs.copy()
+
+            #expect(
+                copied.isExecutableFile(pathUnderTest),
+                "Path \(pathUnderTest.pathString) is not executable in the copy when it should be")
+        }
+
+        @Test
+        func deepCopyPreservesFileContents() async throws {
+            let fs = InMemoryFileSystem()
+            let pathUnderTest = AbsolutePath("/nested/myFile.zip")
+            try fs.createDirectory(pathUnderTest.parentDirectory, recursive: true)
+            try fs.writeFileContents(pathUnderTest, bytes: testFileContent)
+
+            let copied = fs.copy()
+
+            #expect(try copied.readFileContents(pathUnderTest) == testFileContent)
+        }
+    }
+
     struct writeFileContentsTests {
 
         @Test

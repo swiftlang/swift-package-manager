@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -52,6 +52,12 @@ final class PluginDelegate: PluginInvocationDelegate {
             print(String(decoding: lineData, as: UTF8.self))
             lineBufferedOutput = lineBufferedOutput.suffix(from: newlineIdx.advanced(by: 1))
         }
+    }
+
+    func flushOutput() {
+        guard !lineBufferedOutput.isEmpty else { return }
+        print(String(decoding: lineBufferedOutput, as: UTF8.self))
+        lineBufferedOutput = Data()
     }
 
     func pluginEmittedDiagnostic(_ diagnostic: Basics.Diagnostic) {
@@ -377,7 +383,8 @@ final class PluginDelegate: PluginInvocationDelegate {
         // Create a build system for building the target., skipping the the cache because we need the build plan.
         let buildSystem = try await swiftCommandState.createBuildSystem(
             explicitBuildSystem: buildSystem,
-            enableAllTraits: true,
+            // If no traits are defined enable all for dumping the symbol graph.
+            enableAllTraits: swiftCommandState.traitConfiguration == .default,
             cacheBuildManifest: false
         )
 

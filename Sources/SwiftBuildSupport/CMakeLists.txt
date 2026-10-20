@@ -7,6 +7,7 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(SwiftBuildSupport
+  BuildCacheConfiguration+SettingsOverrides.swift
   BuildSystem.swift
   TraceEventsWriter.swift
   Diagnostics+Extensions.swift
@@ -20,9 +21,11 @@ add_library(SwiftBuildSupport
   PackagePIFProjectBuilder+Products.swift
   PIF.swift
   PIFBuilder.swift
+  PIFGenerationInputs.swift
   PluginConfiguration.swift
   SwiftBuildSystem.swift
-  SwiftBuildSystemMessageHandler.swift)
+  SwiftBuildSystemMessageHandler.swift
+  Utils.swift)
 target_link_libraries(SwiftBuildSupport PUBLIC
   Basics
   Build

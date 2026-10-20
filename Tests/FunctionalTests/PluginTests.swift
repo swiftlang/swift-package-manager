@@ -847,6 +847,34 @@ struct PluginTests {
     }
 
     @Test(
+        .tags(
+            .Feature.Command.Package.Plugin,
+        )
+    )
+    func testPluginAPIsForMixedLanguageTargets() async throws {
+        try await fixture(name: "Miscellaneous/Plugins/MixedTargetPluginAPIs") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                extraArgs: ["dump-targets"],
+                buildSystem: .swiftbuild,
+            )
+
+            #expect(stdout.contains("SwiftOnly.type = swift"))
+            #expect(stdout.contains("SwiftOnly.publicHeaders = none"))
+            #expect(stdout.contains("SwiftOnly.headerSearchPaths = []"))
+
+            #expect(stdout.contains("ClangOnly.type = clang"))
+            #expect(stdout.contains("ClangOnly.publicHeaders = include"))
+
+            #expect(stdout.contains("Mixed.type = mixed"))
+            #expect(stdout.contains("Mixed.publicHeaders = include"))
+            #expect(stdout.contains(#"Mixed.swiftDefinitions = ["SWIFT_DEFINITION"]"#))
+            #expect(stdout.contains(#"Mixed.clangDefinitions = ["PREPROCESSOR_MACRO"]"#))
+            #expect(stdout.contains(#"Mixed.headerSearchPaths = ["extra_headers"]"#))
+        }
+    }
+
+    @Test(
         .requiresSwiftConcurrencySupport,
     )
     func testPluginUsageDoesntAffectTestTargetMappings() async throws {

@@ -151,6 +151,8 @@ extension Triple {
         if isDarwin() {
             let stringWithoutVersion = tripleString(forPlatformVersion: "")
             return try Triple(stringWithoutVersion)
+        } else if isFreeBSD() {
+            return try Triple(unversionedTripleString())
         } else {
             return self
         }

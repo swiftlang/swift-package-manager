@@ -67,7 +67,7 @@ public class MockRegistry {
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: .strict,
             authorizationProvider: .none,
-            customHTTPClient: HTTPClient(implementation: self.httpHandler),
+            customHTTPClient: HTTPClient(configuration: .init(retryStrategy: nil), implementation: self.httpHandler),
             customArchiverProvider: { fileSystem in MockRegistryArchiver(fileSystem: fileSystem) },
             delegate: .none,
             checksumAlgorithm: checksumAlgorithm

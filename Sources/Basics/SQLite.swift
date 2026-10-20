@@ -12,6 +12,7 @@
 
 import TSCBasic
 import Foundation
+import Synchronization
 
 #if SWIFT_PACKAGE && (os(Windows) || os(Android))
 #if USE_IMPL_ONLY_IMPORTS
@@ -28,15 +29,18 @@ import SPMSQLite3
 #endif
 
 /// A minimal SQLite wrapper.
-package final class SQLite {
+package final class SQLite: Sendable {
     /// The location of the database.
     package let location: Location
 
     /// The configuration for the database.
     package let configuration: Configuration
 
-    /// Pointer to the database.
-    let db: OpaquePointer
+    /// Pointer to the database, or `nil` once the database has been closed.
+    ///
+    /// Guarded so that the pointer cannot be freed by ``close()`` while another thread is handing
+    /// it to SQLite. See rdar://181557882.
+    private let db: Mutex<OpaquePointer?>
 
     /// Create or open the database at the given path.
     ///
@@ -61,7 +65,7 @@ package final class SQLite {
         guard let db = handle else {
             throw StringError("Unable to open database at \(self.location)")
         }
-        self.db = db
+        self.db = Mutex(db)
         try Self.checkError({ sqlite3_extended_result_codes(db, 1) }, description: "Unable to configure database")
         try Self.checkError(
             { sqlite3_busy_timeout(db, self.configuration.busyTimeoutMilliseconds) },
@@ -79,24 +83,27 @@ package final class SQLite {
 
     /// Prepare the given query.
     package func prepare(query: String) throws -> PreparedStatement {
-        try PreparedStatement(db: self.db, query: query)
+        try self.withDB { try PreparedStatement(db: $0, query: query) }
     }
 
     /// Directly execute the given query.
     ///
     /// Note: Use withCString for string arguments.
+    /// Note: `callback` is invoked while the database is locked, so it must not call back into
+    /// this database.
     package func exec(query queryString: String, args: [CVarArg] = [], _ callback: SQLiteExecCallback? = nil) throws {
         let query = withVaList(args) { ptr in
             sqlite3_vmprintf(queryString, ptr)
         }
+        defer { sqlite3_free(query) }
 
         let wcb = callback.map { CallbackWrapper($0) }
         let callbackCtx = wcb.map { Unmanaged.passUnretained($0).toOpaque() }
 
         var err: UnsafeMutablePointer<Int8>?
-        try Self.checkError { sqlite3_exec(db, query, sqlite_callback, callbackCtx, &err) }
-
-        sqlite3_free(query)
+        try self.withDB { db in
+            try Self.checkError { sqlite3_exec(db, query, sqlite_callback, callbackCtx, &err) }
+        }
 
         if let err {
             let errorString = String(cString: err)
@@ -105,8 +112,29 @@ package final class SQLite {
         }
     }
 
+    /// Close the database, releasing the underlying connection.
+    ///
+    /// Closing an already closed database is a no-op. Closing fails while prepared statements
+    /// created from this database are still alive, in which case the connection stays usable and
+    /// the close can be retried.
     package func close() throws {
-        try Self.checkError { sqlite3_close(db) }
+        try self.db.withLock { db in
+            guard let handle = db else {
+                return
+            }
+            try Self.checkError { sqlite3_close(handle) }
+            db = nil
+        }
+    }
+
+    /// Run `body` with the database connection, guaranteeing it is not closed for the duration.
+    private func withDB<T>(_ body: (OpaquePointer) throws -> T) throws -> T {
+        try self.db.withLock { db in
+            guard let handle = db else {
+                throw StringError("database is closed")
+            }
+            return try body(handle)
+        }
     }
 
     package typealias SQLiteExecCallback = ([Column]) -> Void
@@ -309,10 +337,6 @@ package final class SQLite {
         case databaseFull
     }
 }
-
-// Explicitly mark this class as non-Sendable
-@available(*, unavailable)
-extension SQLite: Sendable {}
 
 private func sqlite_callback(
     _ ctx: UnsafeMutableRawPointer?,

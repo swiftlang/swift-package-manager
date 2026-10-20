@@ -24,6 +24,7 @@ import _InternalTestSupport
 import XCTest
 
 import ArgumentParser
+import Foundation
 import class TSCBasic.BufferedOutputByteStream
 import protocol TSCBasic.OutputByteStream
 import enum TSCBasic.SystemError
@@ -93,6 +94,139 @@ struct SwiftCommandStateTestSuites {
             contents == "\(buildData.buildSystem)",
             "Actual is not as expected",
         )
+    }
+
+    private static func makeSDKRootOverrideState(
+        arguments: [String],
+        environment: Environment,
+    ) throws -> (state: SwiftCommandState, output: BufferedOutputByteStream) {
+        let fs = InMemoryFileSystem(emptyFiles: ["/Pkg/Sources/exe/main.swift"])
+        let outputStream = BufferedOutputByteStream()
+        let state = try SwiftCommandState.makeMockState(
+            outputStream: outputStream,
+            options: GlobalOptions.parse(arguments),
+            fileSystem: fs,
+            environment: environment,
+        )
+        return (state, outputStream)
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func sdkRootOverrideDefaultsToUnset() throws {
+        let (state, output) = try Self.makeSDKRootOverrideState(arguments: [], environment: [:])
+
+        #expect(state.computeSDKRootOverride() == nil)
+
+        state.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+        #expect(!output.bytes.validDescription!.contains("warning:"))
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func sdkRootOverrideComesFromSDKOption() throws {
+        let (state, _) = try Self.makeSDKRootOverrideState(
+            arguments: ["--sdk", "/fake/sdk"],
+            environment: [:],
+        )
+
+        #expect(state.computeSDKRootOverride() == AbsolutePath("/fake/sdk"))
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func sdkRootOverrideComesFromSDKROOTEnvironmentVariable() throws {
+        let (state, _) = try Self.makeSDKRootOverrideState(
+            arguments: [],
+            environment: ["SDKROOT": "/fake/env/sdk"],
+        )
+
+        #expect(state.computeSDKRootOverride() == AbsolutePath("/fake/env/sdk"))
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func sdkOptionTakesPrecedenceOverSDKROOTEnvironmentVariable() throws {
+        let (state, _) = try Self.makeSDKRootOverrideState(
+            arguments: ["--sdk", "/fake/sdk"],
+            environment: ["SDKROOT": "/fake/env/sdk"],
+        )
+
+        #expect(state.computeSDKRootOverride() == AbsolutePath("/fake/sdk"))
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func swiftSDKSuppressesSDKOptionWithWarning() throws {
+        let (state, output) = try Self.makeSDKRootOverrideState(
+            arguments: ["--sdk", "/fake/sdk", "--swift-sdk", "my-swift-sdk"],
+            environment: [:],
+        )
+
+        #expect(state.computeSDKRootOverride() == nil)
+
+        state.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+        let contents = try #require(output.bytes.validDescription)
+        #expect(
+            contents.contains(
+                "warning: ignoring the SDK '/fake/sdk' specified using '--sdk' because the Swift SDK 'my-swift-sdk' was selected with '--swift-sdk'"
+            ),
+        )
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+    )
+    func swiftSDKSuppressesSDKROOTEnvironmentVariableWithWarning() throws {
+        let (state, output) = try Self.makeSDKRootOverrideState(
+            arguments: ["--swift-sdk", "my-swift-sdk"],
+            environment: ["SDKROOT": "/fake/env/sdk"],
+        )
+
+        #expect(state.computeSDKRootOverride() == nil)
+
+        state.waitForObservabilityEvents(timeout: .now() + .seconds(1))
+        let contents = try #require(output.bytes.validDescription)
+        #expect(
+            contents.contains(
+                "warning: ignoring the SDK '/fake/env/sdk' specified using the 'SDKROOT' environment variable because the Swift SDK 'my-swift-sdk' was selected with '--swift-sdk'"
+            ),
+        )
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+        .enabled(if: ProcessInfo.hostOperatingSystem == .macOS),
+    )
+    func excludeFromBackupMarksDirectoryAsExcluded() async throws {
+        try await withTemporaryDirectory { tmpDir in
+            let scratchDirectory = tmpDir.appending(".build")
+            try localFileSystem.createDirectory(scratchDirectory, recursive: true)
+
+            #expect(excludeFromBackups(directory: scratchDirectory))
+
+            let resourceValues = try scratchDirectory.asURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
+            #expect(resourceValues.isExcludedFromBackup == true)
+        }
     }
 }
 
@@ -618,39 +752,4 @@ final class SwiftCommandStateTests: XCTestCase {
         }
     }
 
-}
-
-extension SwiftCommandState {
-    static func makeMockState(
-        outputStream: OutputByteStream = stderrStream,
-        options: GlobalOptions,
-        createPackagePath: Bool = false,
-        fileSystem: any FileSystem = localFileSystem,
-        environment: Environment = .current
-    ) throws -> SwiftCommandState {
-        return try SwiftCommandState(
-            outputStream: outputStream,
-            options: options,
-            toolWorkspaceConfiguration: .init(shouldInstallSignalHandlers: false),
-            workspaceDelegateProvider: {
-                CommandWorkspaceDelegate(
-                    observabilityScope: $0,
-                    outputHandler: $1,
-                    progressHandler: $2,
-                    inputHandler: $3
-                )
-            },
-            workspaceLoaderProvider: {
-                XcodeWorkspaceLoader(
-                    fileSystem: $0,
-                    observabilityScope: $1
-                )
-            },
-            createPackagePath: createPackagePath,
-            hostTriple: .arm64Linux,
-            targetInfo: UserToolchain.mockTargetInfo,
-            fileSystem: fileSystem,
-            environment: environment
-        )
-    }
 }

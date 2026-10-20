@@ -36,43 +36,41 @@ final fileprivate class NotificationCollectingMessageHandler: MessageHandler, @u
 }
 
 fileprivate func withSwiftPMBSP(packagePath: AbsolutePath, extraBSPArgs: [String] = [], body: (Connection, NotificationCollectingMessageHandler) async throws -> Void) async throws {
-    await withKnownIssue("Tests occasionally fail to load build description in CI", isIntermittent: true) {
-        let inPipe = Pipe()
-        let outPipe = Pipe()
-        let connection = JSONRPCConnection(
-            name: "bsp-connection",
-            protocol: MessageRegistry.bspProtocol,
-            receiveFD: inPipe.fileHandleForReading,
-            sendFD: outPipe.fileHandleForWriting
-        )
-        defer {
-            connection.close()
-        }
-        let bspProcess = Process()
-        bspProcess.standardOutputPipe = inPipe
-        bspProcess.standardInput = outPipe
-        let execPath = SwiftPM.xctestBinaryPath(for: "swift-package").pathString
-        bspProcess.executableURL = URL(filePath: execPath)
-        bspProcess.arguments = ["--package-path", packagePath.pathString] + ["experimental-build-server", "--build-system", "swiftbuild"] + extraBSPArgs
-        async let terminationPromise: Void = try await bspProcess.run()
-        let notificationCollector = NotificationCollectingMessageHandler()
-        connection.start(receiveHandler: notificationCollector)
-        _ = try await connection.send(
-            InitializeBuildRequest(
-                displayName: "test-bsp-client",
-                version: "1.0.0",
-                bspVersion: "2.2.0",
-                rootUri: URI(URL(filePath: packagePath.pathString)),
-                capabilities: .init(languageIds: [.swift, .c, .objective_c, .cpp, .objective_cpp])
-            )
-        )
-        connection.send(OnBuildInitializedNotification())
-        _ = try await connection.send(WorkspaceWaitForBuildSystemUpdatesRequest())
-        try await body(connection, notificationCollector)
-        _ = try await connection.send(BuildShutdownRequest())
-        connection.send(OnBuildExitNotification())
-        try await terminationPromise
+    let inPipe = Pipe()
+    let outPipe = Pipe()
+    let connection = JSONRPCConnection(
+        name: "bsp-connection",
+        protocol: MessageRegistry.bspProtocol,
+        receiveFD: inPipe.fileHandleForReading,
+        sendFD: outPipe.fileHandleForWriting
+    )
+    defer {
+        connection.close()
     }
+    let bspProcess = Process()
+    bspProcess.standardOutputPipe = inPipe
+    bspProcess.standardInput = outPipe
+    let execPath = SwiftPM.xctestBinaryPath(for: "swift-package").pathString
+    bspProcess.executableURL = URL(filePath: execPath)
+    bspProcess.arguments = ["--package-path", packagePath.pathString] + ["experimental-build-server", "--build-system", "swiftbuild"] + extraBSPArgs
+    async let terminationPromise: Void = try await bspProcess.run()
+    let notificationCollector = NotificationCollectingMessageHandler()
+    connection.start(receiveHandler: notificationCollector)
+    _ = try await connection.send(
+        InitializeBuildRequest(
+            displayName: "test-bsp-client",
+            version: "1.0.0",
+            bspVersion: "2.2.0",
+            rootUri: URI(URL(filePath: packagePath.pathString)),
+            capabilities: .init(languageIds: [.swift, .c, .objective_c, .cpp, .objective_cpp])
+        )
+    )
+    connection.send(OnBuildInitializedNotification())
+    _ = try await connection.send(WorkspaceWaitForBuildSystemUpdatesRequest())
+    try await body(connection, notificationCollector)
+    _ = try await connection.send(BuildShutdownRequest())
+    connection.send(OnBuildExitNotification())
+    try await terminationPromise
 }
 
 fileprivate func withSwiftPMBSP(fixtureName: String, extraBSPArgs: [String] = [], body: (Connection, NotificationCollectingMessageHandler, AbsolutePath) async throws -> Void) async throws {
@@ -85,7 +83,7 @@ fileprivate func withSwiftPMBSP(fixtureName: String, extraBSPArgs: [String] = []
 }
 
 @Suite(
-    .disabled(if: ProcessInfo.hostOperatingSystem == .windows, "This hangs intermittently on Windows in CI using the native build system")
+    .disabled("test is flaky in nightly toolchain builds"), .issue("https://github.com/swiftlang/swift-package-manager/issues/10514", relationship: .defect)
 )
 struct SwiftPMBuildServerTests {
     @Test
@@ -100,7 +98,7 @@ struct SwiftPMBuildServerTests {
         try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple") { connection, _, _ in
             let response = try await connection.send(WorkspaceBuildTargetsRequest())
             #expect(response.targets.count == 3)
-            #expect(response.targets.map(\.displayName).sorted() == ["Foo", "Foo-product", "Package Manifest"])
+            #expect(response.targets.map(\.displayName).sorted() == ["Foo", "Foo", "Package Manifest"])
         }
     }
 
@@ -113,7 +111,7 @@ struct SwiftPMBuildServerTests {
             #expect(!myLib.tags.contains(.dependency))
             #expect(!myLib.tags.contains(.test))
 
-            let myLibTests = try #require(response.targets.first(where: { $0.displayName == "MyLibTests-product" }))
+            let myLibTests = try #require(response.targets.first(where: { $0.displayName == "MyLibTests" }))
             #expect(!myLibTests.tags.contains(.dependency))
             #expect(myLibTests.tags.contains(.test))
 
@@ -128,9 +126,9 @@ struct SwiftPMBuildServerTests {
         try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple") { connection, _, _ in
             let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
             #expect(targetResponse.targets.count == 3)
-            #expect(targetResponse.targets.map(\.displayName).sorted() == ["Foo", "Foo-product", "Package Manifest"])
+            #expect(targetResponse.targets.map(\.displayName).sorted() == ["Foo", "Foo", "Package Manifest"])
 
-            let fooID = try #require(targetResponse.targets.first(where: { $0.displayName == "Foo" })).id
+            let fooID = try #require(targetResponse.targets.first(where: { $0.displayName == "Foo" && !$0.id.uri.stringValue.contains("product")  })).id
             let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [fooID]))
             let item = try #require(sourcesResponse.items.only?.sources.only)
             #expect(item.kind == .file)
@@ -139,13 +137,59 @@ struct SwiftPMBuildServerTests {
     }
 
     @Test
+    func sourcesItemsWithUnresolvedDependency() async throws {
+        try await testWithTemporaryDirectory { tmpDir in
+            let packagePath = tmpDir.appending("MyPackage")
+            try localFileSystem.createDirectory(packagePath.appending(components: "Sources", "MyLib"), recursive: true)
+            try localFileSystem.writeFileContents(
+                packagePath.appending("Package.swift"),
+                string: """
+                    // swift-tools-version: 6.0
+                    import PackageDescription
+                    let package = Package(
+                        name: "MyPackage",
+                        dependencies: [
+                            .package(url: "https://github.com/swiftlang/swift-testing.git", branch: "main"),
+                        ],
+                        targets: [
+                            .target(
+                                name: "MyLib",
+                                dependencies: [.product(name: "Testing", package: "swift-testing")]
+                            ),
+                        ]
+                    )
+                    """
+            )
+            try localFileSystem.writeFileContents(
+                packagePath.appending(components: "Sources", "MyLib", "MyLib.swift"),
+                string: "public func foo() {}\n"
+            )
+
+            try await withSwiftPMBSP(packagePath: packagePath, extraBSPArgs: ["--force-resolved-versions"]) {
+                connection,
+                _ in
+                let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
+                guard let myLib = targetResponse.targets.first(where: { $0.displayName == "MyLib" }) else {
+                    return
+                }
+                // Even though the dependencies failed to resolve, we should still be able to list sources.
+                let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [myLib.id]))
+                #expect(sourcesResponse.items.flatMap(\.sources).compactMap { $0.uri.fileURL?.lastPathComponent } == ["MyLib.swift"])
+            }
+
+            // Ensure we actually skipped dependency resolution.
+            #expect(!localFileSystem.exists(packagePath.appending("Package.resolved")))
+        }
+    }
+
+    @Test
     func compilerArgsBasics() async throws {
         try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple") { connection, _, _ in
             let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
             #expect(targetResponse.targets.count == 3)
-            #expect(targetResponse.targets.map(\.displayName).sorted() == ["Foo", "Foo-product", "Package Manifest"])
+            #expect(targetResponse.targets.map(\.displayName).sorted() == ["Foo", "Foo", "Package Manifest"])
 
-            let fooID = try #require(targetResponse.targets.first(where: { $0.displayName == "Foo" })).id
+            let fooID = try #require(targetResponse.targets.first(where: { $0.displayName == "Foo" && !$0.id.uri.stringValue.contains("product") })).id
             let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [fooID]))
             let item = try #require(sourcesResponse.items.only?.sources.only)
             #expect(item.kind == .file)
@@ -164,9 +208,9 @@ struct SwiftPMBuildServerTests {
         try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple") { connection, _, fixturePath in
             let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
             #expect(targetResponse.targets.count == 3)
-            #expect(targetResponse.targets.map(\.displayName).sorted() == ["Foo", "Foo-product", "Package Manifest"])
+            #expect(targetResponse.targets.map(\.displayName).sorted() == ["Foo", "Foo", "Package Manifest"])
 
-            let fooID = try #require(targetResponse.targets.first(where: { $0.displayName == "Foo" })).id
+            let fooID = try #require(targetResponse.targets.first(where: { $0.displayName == "Foo" && !$0.id.uri.stringValue.contains("product") })).id
             let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [fooID]))
             let sourcesItem = try #require(sourcesResponse.items.only)
             #expect(sourcesItem.sources.count == 1)
@@ -255,6 +299,53 @@ struct SwiftPMBuildServerTests {
     }
 
     @Test
+    func onlyFileEventsAffectingPIFInputsTriggerPackageReload() async throws {
+        try await withSwiftPMBSP(fixtureName: "Miscellaneous/LibraryWithTestAndDep") { connection, notificationCollector, fixturePath in
+            func packageReloadCount() -> Int {
+                notificationCollector.notifications(of: TaskStartNotification.self)
+                    .filter { $0.taskId.id == "package-reloading" }
+                    .count
+            }
+
+            func sendFileEvent(_ path: AbsolutePath, type: FileChangeType) async throws {
+                connection.send(OnWatchedFilesDidChangeNotification(changes: [
+                    .init(uri: .init(.init(filePath: path.pathString)), type: type)
+                ]))
+                _ = try await connection.send(WorkspaceWaitForBuildSystemUpdatesRequest())
+            }
+
+            #expect(packageReloadCount() == 1)
+
+            let unrelatedFile = fixturePath.appending(component: "notes.txt")
+            try localFileSystem.writeFileContents(unrelatedFile, string: "hello")
+            try await sendFileEvent(unrelatedFile, type: .created)
+            #expect(packageReloadCount() == 1)
+
+            try localFileSystem.removeFileTree(unrelatedFile)
+            try await sendFileEvent(unrelatedFile, type: .deleted)
+            #expect(packageReloadCount() == 1)
+
+            try await sendFileEvent(fixturePath.appending(components: "Sources", "MyLib", "MyLib.swift"), type: .changed)
+            #expect(packageReloadCount() == 1)
+
+            let newSource = fixturePath.appending(components: "Sources", "MyLib", "Extra.swift")
+            try localFileSystem.writeFileContents(newSource, string: "public let extra = 1\n")
+            try await sendFileEvent(newSource, type: .created)
+            #expect(packageReloadCount() == 2)
+
+            let newDepSource = fixturePath.appending(components: "MyDep", "Sources", "MyDep", "Extra.swift")
+            try localFileSystem.writeFileContents(newDepSource, string: "public let extra = 1\n")
+            try await sendFileEvent(newDepSource, type: .created)
+            #expect(packageReloadCount() == 3)
+
+            let versionSpecificManifest = fixturePath.appending(component: "Package@swift-6.0.swift")
+            try localFileSystem.copy(from: fixturePath.appending(component: "Package.swift"), to: versionSpecificManifest)
+            try await sendFileEvent(versionSpecificManifest, type: .created)
+            #expect(packageReloadCount() == 4)
+        }
+    }
+
+    @Test
     func underlyingBuildServerNotificationsAreForwarded() async throws {
         try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple") { connection, notificationCollector, fixturePath in
             let initialChangeCount = notificationCollector.notifications(of: OnBuildTargetDidChangeNotification.self).count
@@ -280,9 +371,9 @@ struct SwiftPMBuildServerTests {
 
             let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
             #expect(targetResponse.targets.count == 3)
-            #expect(targetResponse.targets.map(\.displayName).sorted() == ["Foo", "Foo-product", "Package Manifest"])
+            #expect(targetResponse.targets.map(\.displayName).sorted() == ["Foo", "Foo", "Package Manifest"])
 
-            let fooID = try #require(targetResponse.targets.first(where: { $0.displayName == "Foo" })).id
+            let fooID = try #require(targetResponse.targets.first(where: { $0.displayName == "Foo" && !$0.id.uri.stringValue.contains("product") })).id
             let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [fooID]))
             let item = try #require(sourcesResponse.items.only?.sources.only)
             #expect(item.kind == .file)
@@ -329,7 +420,7 @@ struct SwiftPMBuildServerTests {
         try await withSwiftPMBSP(fixtureName: "Miscellaneous/VersionSpecificManifest") { connection, _, _ in
             let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
             #expect(targetResponse.targets.count == 3)
-            #expect(targetResponse.targets.map(\.displayName).sorted() == ["Foo", "Foo-product", "Package Manifest"])
+            #expect(targetResponse.targets.map(\.displayName).sorted() == ["Foo", "Foo", "Package Manifest"])
 
             let manifestTarget = try #require(targetResponse.targets.first(where: { $0.displayName == "Package Manifest" }))
             #expect(manifestTarget.tags.contains(.notBuildable))
@@ -348,7 +439,7 @@ struct SwiftPMBuildServerTests {
     func extraSwiftcArgs() async throws {
         try await withSwiftPMBSP(fixtureName: "Miscellaneous/Simple", extraBSPArgs: ["-Xswiftc", "-DFoo", "-Xcc", "-DBar"]) { connection, _, _ in
             let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
-            let fooID = try #require(targetResponse.targets.first(where: { $0.displayName == "Foo" })).id
+            let fooID = try #require(targetResponse.targets.first(where: { $0.displayName == "Foo" && !$0.id.uri.stringValue.contains("product") })).id
             let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [fooID]))
             let item = try #require(sourcesResponse.items.only?.sources.only)
 
@@ -513,7 +604,7 @@ struct SwiftPMBuildServerTests {
     func skipResolvingPackagePathsPreservesSymlinkedSourcePaths() async throws {
         func testSourcePath(_ connection: Connection) async throws -> AbsolutePath {
             let targetResponse = try await connection.send(WorkspaceBuildTargetsRequest())
-            let fooID = try #require(targetResponse.targets.first(where: { $0.displayName == "Foo" })).id
+            let fooID = try #require(targetResponse.targets.first(where: { $0.displayName == "Foo" && !$0.id.uri.stringValue.contains("product") })).id
             let sourcesResponse = try await connection.send(BuildTargetSourcesRequest(targets: [fooID]))
             let item = try #require(sourcesResponse.items.only?.sources.only)
             let fileURL = try #require(item.uri.fileURL)

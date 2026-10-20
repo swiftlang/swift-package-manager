@@ -20,9 +20,6 @@ import PackageRegistry
 
 import struct TSCBasic.ByteString
 
-import protocol TSCUtility.SimplePersistanceProtocol
-import class TSCUtility.SimplePersistence
-
 // MARK: - Location
 
 extension Workspace {
@@ -113,6 +110,16 @@ extension Workspace {
         /// Path to the shared registries configuration.
         public var sharedRegistriesConfigurationFile: AbsolutePath? {
             self.sharedConfigurationDirectory.map { DefaultLocations.registriesConfigurationFile(at: $0) }
+        }
+
+        /// Path to the local build cache configuration.
+        public var localBuildCacheConfigurationFile: AbsolutePath {
+            DefaultLocations.buildCacheConfigurationFile(at: self.localConfigurationDirectory)
+        }
+
+        /// Path to the shared build cache configuration.
+        public var sharedBuildCacheConfigurationFile: AbsolutePath? {
+            self.sharedConfigurationDirectory.map { DefaultLocations.buildCacheConfigurationFile(at: $0) }
         }
 
         // security locations
@@ -245,6 +252,14 @@ extension Workspace {
             path.appending("registries.json")
         }
 
+        public static func buildCacheConfigurationFile(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
+            self.buildCacheConfigurationFile(at: self.configurationDirectory(forRootPackage: rootPath))
+        }
+
+        public static func buildCacheConfigurationFile(at path: AbsolutePath) -> AbsolutePath {
+            path.appending("build-cache-config.json")
+        }
+
         public static func manifestsDirectory(at path: AbsolutePath) -> AbsolutePath {
             path.appending("manifests")
         }
@@ -368,15 +383,17 @@ extension Workspace.Configuration {
 
         public func makeRegistryAuthorizationProvider(
             fileSystem: FileSystem,
-            observabilityScope: ObservabilityScope
+            observabilityScope: ObservabilityScope,
+            registryURLs: () throws -> [URL]
         ) throws -> AuthorizationProvider? {
             let env = Environment.current
             if let token = ConfigurableEnvVar.SWIFTPM_REGISTRY_TOKEN.value(from: env), !token.isEmpty {
-                return EnvironmentAuthorizationProvider(kind: .registry)
+                // registryURLs can be read from disk and so we call the closure only when needed.
+                return try EnvironmentAuthorizationProvider(kind: .registry(origins: registryURLs()))
             }
             if let login = ConfigurableEnvVar.SWIFTPM_REGISTRY_LOGIN.value(from: env), !login.isEmpty,
                let password = ConfigurableEnvVar.SWIFTPM_REGISTRY_PASSWORD.value(from: env), !password.isEmpty {
-                return EnvironmentAuthorizationProvider(kind: .registry)
+                return try EnvironmentAuthorizationProvider(kind: .registry(origins: registryURLs()))
             } else if let login = ConfigurableEnvVar.SWIFTPM_REGISTRY_LOGIN.value(from: env), !login.isEmpty {
                 observabilityScope.emit(
                     warning: "SWIFTPM_REGISTRY_LOGIN is set but SWIFTPM_REGISTRY_PASSWORD is not; both are required for login/password authentication"
@@ -469,7 +486,7 @@ extension Workspace.Configuration {
 
 extension Workspace.Configuration {
     public struct Mirrors {
-        private let localMirrors: MirrorsStorage
+        private let localMirrors: MirrorsStorage?
         private let sharedMirrors: MirrorsStorage?
         private let fileSystem: FileSystem
 
@@ -511,10 +528,16 @@ extension Workspace.Configuration {
         ///   - sharedMirrorsFile: Path to the shared mirrors configuration file, defaults to the standard location.
         public init(
             fileSystem: FileSystem,
-            localMirrorsFile: AbsolutePath,
+            localMirrorsFile: AbsolutePath?,
             sharedMirrorsFile: AbsolutePath?
         ) throws {
-            self.localMirrors = .init(path: localMirrorsFile, fileSystem: fileSystem, deleteWhenEmpty: true)
+            // At least one of local or shared is required
+            if localMirrorsFile == nil, sharedMirrorsFile == nil {
+                throw StringError("No mirrors configuration provided")
+            }
+
+            self.localMirrors = localMirrorsFile
+                .map { .init(path: $0, fileSystem: fileSystem, deleteWhenEmpty: true) }
             self.sharedMirrors = sharedMirrorsFile
                 .map { .init(path: $0, fileSystem: fileSystem, deleteWhenEmpty: false) }
             self.fileSystem = fileSystem
@@ -525,7 +548,10 @@ extension Workspace.Configuration {
 
         @discardableResult
         public func applyLocal(handler: (inout DependencyMirrors) throws -> Void) throws -> DependencyMirrors {
-            try self.localMirrors.apply(handler: handler)
+            guard let localMirrors else {
+                throw StringError("local mirrors not configured")
+            }
+            try localMirrors.apply(handler: handler)
             try self.computeMirrors()
             return self.mirrors
         }
@@ -533,7 +559,7 @@ extension Workspace.Configuration {
         @discardableResult
         public func applyShared(handler: (inout DependencyMirrors) throws -> Void) throws -> DependencyMirrors {
             guard let sharedMirrors else {
-                throw InternalError("shared mirrors not configured")
+                throw StringError("shared mirrors not configured")
             }
             try sharedMirrors.apply(handler: handler)
             try self.computeMirrors()
@@ -547,8 +573,7 @@ extension Workspace.Configuration {
                 self._mirrors.removeAll()
 
                 // prefer local mirrors to shared ones
-                let local = try self.localMirrors.get()
-                if !local.isEmpty {
+                if let local = try self.localMirrors?.get(), !local.isEmpty {
                     try self._mirrors.append(contentsOf: local)
                     return
                 }
@@ -655,6 +680,200 @@ extension Workspace.Configuration {
             struct Mirror: Codable {
                 var original: String
                 var mirror: String
+            }
+        }
+    }
+}
+
+// MARK: - Build cache
+
+extension Workspace.Configuration {
+    /// Manages the local and shared build cache configuration, merging
+    /// them so that values set locally take precedence over shared ones.
+    public final class BuildCache {
+        private let localCache: BuildCacheStorage?
+        private let sharedCache: BuildCacheStorage?
+        private let fileSystem: FileSystem
+
+        private var _configuration: BuildCacheConfiguration
+        private let lock = NSLock()
+
+        /// The effective, merged build cache configuration.
+        public var configuration: BuildCacheConfiguration {
+            self.lock.withLock {
+                self._configuration
+            }
+        }
+
+        /// Initialize the workspace build cache configuration.
+        ///
+        /// - Parameters:
+        ///   - fileSystem: The file system to use.
+        ///   - localBuildCacheFile: Path to the workspace build cache configuration file.
+        ///   - sharedBuildCacheFile: Path to the shared build cache configuration file, if any.
+        public init(
+            fileSystem: FileSystem,
+            localBuildCacheFile: AbsolutePath?,
+            sharedBuildCacheFile: AbsolutePath?
+        ) throws {
+            self.localCache = localBuildCacheFile.map { .init(path: $0, fileSystem: fileSystem) }
+            self.sharedCache = sharedBuildCacheFile.map { .init(path: $0, fileSystem: fileSystem) }
+            self.fileSystem = fileSystem
+            self._configuration = .none
+            try self.compute()
+        }
+
+        @discardableResult
+        public func updateLocal(
+            handler: (inout BuildCacheConfiguration) throws -> Void
+        ) throws -> BuildCacheConfiguration {
+            guard let localCache else {
+                throw InternalError("local build cache configuration unexpectedly missing")
+            }
+            try localCache.update(handler: handler)
+            try self.compute()
+            return self.configuration
+        }
+
+        @discardableResult
+        public func updateShared(
+            handler: (inout BuildCacheConfiguration) throws -> Void
+        ) throws -> BuildCacheConfiguration {
+            guard let sharedCache else {
+                throw InternalError("shared build cache configuration not configured")
+            }
+            try sharedCache.update(handler: handler)
+            try self.compute()
+            return self.configuration
+        }
+
+        // mutating the state we hold; access should be done using a lock
+        private func compute() throws {
+            try self.lock.withLock {
+                let shared = try self.sharedCache?.load() ?? .none
+                let local = try self.localCache?.load() ?? .none
+                self._configuration = local.merging(over: shared)
+            }
+        }
+    }
+}
+
+extension Workspace.Configuration {
+    struct BuildCacheStorage {
+        private let path: AbsolutePath
+        private let fileSystem: FileSystem
+
+        init(path: AbsolutePath, fileSystem: FileSystem) {
+            self.path = path
+            self.fileSystem = fileSystem
+        }
+
+        func load() throws -> BuildCacheConfiguration {
+            guard self.fileSystem.exists(self.path) else {
+                return .none
+            }
+            return try self.fileSystem.withLock(on: self.path.parentDirectory, type: .shared) {
+                try Self.load(self.path, fileSystem: self.fileSystem)
+            }
+        }
+
+        @discardableResult
+        func update(
+            handler: (inout BuildCacheConfiguration) throws -> Void
+        ) throws -> BuildCacheConfiguration {
+            if !self.fileSystem.exists(self.path.parentDirectory) {
+                try self.fileSystem.createDirectory(self.path.parentDirectory, recursive: true)
+            }
+            return try self.fileSystem.withLock(on: self.path.parentDirectory, type: .exclusive) {
+                let configuration = try Self.load(self.path, fileSystem: self.fileSystem)
+                var updatedConfiguration = configuration
+                try handler(&updatedConfiguration)
+                if updatedConfiguration != configuration {
+                    try Self.save(updatedConfiguration, to: self.path, fileSystem: self.fileSystem)
+                }
+                return updatedConfiguration
+            }
+        }
+
+        private static func load(
+            _ path: AbsolutePath,
+            fileSystem: FileSystem
+        ) throws -> BuildCacheConfiguration {
+            guard fileSystem.exists(path) else {
+                return .none
+            }
+            let decoder = JSONDecoder.makeWithDefaults()
+            let stored = try decoder.decode(path: path, fileSystem: fileSystem, as: StoredBuildCacheConfiguration.self)
+            return try stored.asConfiguration()
+        }
+
+        private static func save(
+            _ configuration: BuildCacheConfiguration,
+            to path: AbsolutePath,
+            fileSystem: FileSystem
+        ) throws {
+            // Remove the file entirely when there is nothing left to persist.
+            if configuration.isEmpty {
+                if fileSystem.exists(path) {
+                    try fileSystem.removeFileTree(path)
+                }
+                return
+            }
+
+            let encoder = JSONEncoder.makeWithDefaults()
+            let data = try encoder.encode(StoredBuildCacheConfiguration(configuration))
+            if !fileSystem.exists(path.parentDirectory) {
+                try fileSystem.createDirectory(path.parentDirectory, recursive: true)
+            }
+            try fileSystem.writeFileContents(path, data: data)
+        }
+
+        /// On-disk representation of ``BuildCacheConfiguration``.
+        private struct StoredBuildCacheConfiguration: Codable {
+            let version: Int
+            let enabled: Bool?
+            let casPath: String?
+            let sizeLimit: String?
+            let sizePercent: Int?
+            let diagnosticRemarks: Bool?
+            let remoteServicePath: String?
+            let pluginPath: String?
+            let prefixMapping: Bool?
+
+            init(_ configuration: BuildCacheConfiguration) {
+                self.version = 1
+                self.enabled = configuration.enabled
+                self.casPath = configuration.casPath?.pathString
+                switch configuration.sizeLimit {
+                case .size(let value):
+                    self.sizeLimit = value
+                    self.sizePercent = nil
+                case .percent(let value):
+                    self.sizePercent = value
+                    self.sizeLimit = nil
+                case .none:
+                    self.sizeLimit = nil
+                    self.sizePercent = nil
+                }
+                self.diagnosticRemarks = configuration.enableDiagnosticRemarks
+                self.remoteServicePath = configuration.remoteServicePath?.pathString
+                self.pluginPath = configuration.pluginPath?.pathString
+                self.prefixMapping = configuration.enablePrefixMapping
+            }
+
+            func asConfiguration() throws -> BuildCacheConfiguration {
+                let casPath = try self.casPath.map { try AbsolutePath(validating: $0) }
+                let remoteServicePath = try self.remoteServicePath.map { try AbsolutePath(validating: $0) }
+                let pluginPath = try self.pluginPath.map { try AbsolutePath(validating: $0) }
+                return .init(
+                    enabled: self.enabled,
+                    casPath: casPath,
+                    sizeLimit: try .make(size: self.sizeLimit, percent: self.sizePercent),
+                    enableDiagnosticRemarks: self.diagnosticRemarks,
+                    remoteServicePath: remoteServicePath,
+                    pluginPath: pluginPath,
+                    enablePrefixMapping: self.prefixMapping
+                )
             }
         }
     }

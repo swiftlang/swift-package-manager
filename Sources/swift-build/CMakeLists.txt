@@ -8,6 +8,10 @@
 
 add_executable(swift-build
     Entrypoint.swift)
+# TODO: Remove this once the minimum CMake version is 4.4.
+set_target_properties(swift-build PROPERTIES
+  Swift_MODULE_NAME swift_build)
+
 target_link_libraries(swift-build PRIVATE
     Commands)
 

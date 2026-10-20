@@ -17,6 +17,39 @@ import TSCBasic
 @available(*, deprecated, renamed: "ClangModule")
 public typealias ClangTarget = ClangModule
 
+/// The C/C++/Objective-C module info for a ClangTarget or mixed-source SwiftTarget
+public struct ClangModuleInfo: Equatable, Codable {
+    /// The public headers ("include") directory, or `nil` if the target has no public C headers.
+    public var includeDir: Basics.AbsolutePath?
+
+    /// The module map type, which determines whether the target vends a custom module map,
+    /// a generated module map, or no module map at all.
+    public var moduleMapType: ModuleMapType
+
+    /// The headers present in the target (both public and non-public).
+    public var headers: [Basics.AbsolutePath]
+
+    /// The C language standard flag.
+    public var cLanguageStandard: String?
+
+    /// The C++ language standard flag.
+    public var cxxLanguageStandard: String?
+
+    public init(
+        includeDir: Basics.AbsolutePath?,
+        moduleMapType: ModuleMapType,
+        headers: [Basics.AbsolutePath] = [],
+        cLanguageStandard: String? = nil,
+        cxxLanguageStandard: String? = nil
+    ) {
+        self.includeDir = includeDir
+        self.moduleMapType = moduleMapType
+        self.headers = headers
+        self.cLanguageStandard = cLanguageStandard
+        self.cxxLanguageStandard = cxxLanguageStandard
+    }
+}
+
 public final class ClangModule: Module {
     /// Description of the module type used in `swift package describe` output. Preserved for backwards compatibility.
     public override class var typeDescription: String { "ClangTarget" }
@@ -24,25 +57,16 @@ public final class ClangModule: Module {
     /// The default public include directory component.
     public static let defaultPublicHeadersComponent = "include"
 
-    /// The path to include directory.
-    public let includeDir: Basics.AbsolutePath
+    public let clangModuleInfo: ClangModuleInfo
 
-    /// The target's module map type, which determines whether this target vends a custom module map, a generated module map, or no module map at all.
-    public let moduleMapType: ModuleMapType
-
-    /// The headers present in the target.
-    ///
-    /// Note that this contains both public and non-public headers.
-    public let headers: [Basics.AbsolutePath]
+    public var includeDir: Basics.AbsolutePath { self.clangModuleInfo.includeDir! }
+    public var moduleMapType: ModuleMapType { self.clangModuleInfo.moduleMapType }
+    public var headers: [Basics.AbsolutePath] { self.clangModuleInfo.headers }
+    public var cLanguageStandard: String? { self.clangModuleInfo.cLanguageStandard }
+    public var cxxLanguageStandard: String? { self.clangModuleInfo.cxxLanguageStandard }
 
     /// True if this is a C++ target.
     public let isCXX: Bool
-
-    /// The C language standard flag.
-    public let cLanguageStandard: String?
-
-    /// The C++ language standard flag.
-    public let cxxLanguageStandard: String?
 
     public init(
         name: String,
@@ -68,11 +92,13 @@ public final class ClangModule: Module {
             throw StringError("\(includeDir) should be contained in the source root \(sources.root)")
         }
         self.isCXX = sources.containsCXXFiles
-        self.cLanguageStandard = cLanguageStandard
-        self.cxxLanguageStandard = cxxLanguageStandard
-        self.includeDir = includeDir
-        self.moduleMapType = moduleMapType
-        self.headers = headers
+        self.clangModuleInfo = ClangModuleInfo(
+            includeDir: includeDir,
+            moduleMapType: moduleMapType,
+            headers: headers,
+            cLanguageStandard: cLanguageStandard,
+            cxxLanguageStandard: cxxLanguageStandard
+        )
         super.init(
             name: name,
             potentialBundleName: potentialBundleName,

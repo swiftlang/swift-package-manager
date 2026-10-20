@@ -2,7 +2,7 @@
 //
 // This source file is part of the Swift open source project
 //
-// Copyright (c) 2014-2022 Apple Inc. and the Swift project authors
+// Copyright (c) 2014-2026 Apple Inc. and the Swift project authors
 // Licensed under Apache License v2.0 with Runtime Library Exception
 //
 // See http://swift.org/LICENSE.txt for license information
@@ -62,8 +62,8 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
         //
         // We turn build manifest caching off because we need the build plan.
         let buildSystem = try await swiftCommandState.createBuildSystem(
-            // We are enabling all traits for dumping the symbol graph.
-            enableAllTraits: true,
+            // If no traits are defined enable all for dumping the symbol graph.
+            enableAllTraits: swiftCommandState.traitConfiguration == .default,
             cacheBuildManifest: false
         )
         let buildResult = try await buildSystem.build(subset: .allExcludingTests, buildOutputs: [.symbolGraph(

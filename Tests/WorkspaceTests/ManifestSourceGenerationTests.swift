@@ -9,6 +9,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 import Basics
 import PackageGraph
@@ -242,8 +243,10 @@ final class ManifestSourceGenerationTests: XCTestCase {
 
             #if os(Windows)
             let absolutePath = "c:/a/b/c"
+            let namedAbsolutePath = "c:/a/b/d"
             #else
             let absolutePath = "/a/b/c"
+            let namedAbsolutePath = "/a/b/d"
             #endif
 
             let package = Package(
@@ -257,7 +260,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 dependencies: [
                     // Dependencies declare other packages that this package depends on.
                     .package(path: absolutePath),
-                    .package(name: "abc", path: absolutePath),
+                    .package(name: "abc", path: namedAbsolutePath),
                 ],
                 targets: [
                     // Targets are the basic building blocks of a package. A target can define a module or a test suite.
@@ -521,7 +524,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
             """
         try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_9)
     }
-    
+
     func testCustomProductSourceGeneration() throws {
         // Create a manifest containing a product for which we'd like to do custom source fragment generation.
         let packageDir = AbsolutePath("/tmp/MyLibrary")

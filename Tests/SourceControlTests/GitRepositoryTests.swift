@@ -286,13 +286,55 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertEqual(funnyNamesRoot.contents.map{ $0.name }, ["README.txt", "funny-names", "subdir"])
             guard funnyNamesRoot.contents.count == 3 else { return XCTFail() }
 
-            // FIXME: This isn't yet supported.
             let funnyNamesSubdirEntry = funnyNamesRoot.contents[1]
             XCTAssertEqual(funnyNamesSubdirEntry.type, .tree)
-            if let _ = try? repo.readTree(location: funnyNamesSubdirEntry.location) {
-                XCTFail("unexpected success reading tree with funny names")
+            let funnyNamesTree = try repo.readTree(location: funnyNamesSubdirEntry.location)
+            XCTAssertEqual(funnyNamesTree.contents.map(\.name), [
+                "a\u{08}", "a\tb", "a\nb", "a\u{12}b", "a b", "a\"b", "a$b",
+            ])
+        }
+    }
+
+    func testTreeNamesWithGitQuotePathSettings() throws {
+        try XCTSkipOnWindows(because: "The file names in this test are not portable to Windows")
+
+        try testWithTemporaryDirectory { path in
+            let names = [
+                "中文.swift", "日本語.txt", "café.md", "🧪.json", "مرحبا.txt",
+                "\"leading-quote.swift", "a\\b.swift",
+            ]
+            let expectedNames = Set(names + ["file.swift"])
+            for quotePath in ["true", "false"] {
+                let repositoryPath = path.appending("repo-\(quotePath)")
+                try makeDirectories(repositoryPath)
+                initGitRepo(repositoryPath)
+
+                for name in names {
+                    try localFileSystem.writeFileContents(repositoryPath.appending(name), string: name)
+                }
+
+                let repository = GitRepository(path: repositoryPath)
+                try repository.stageEverything()
+                try repository.commit(message: "Add special file names")
+                try repository.tag(name: "special-names")
+                try AsyncProcess.checkNonZeroExit(
+                    args: Git.tool, "-C", repositoryPath.pathString, "config", "core.quotepath", quotePath,
+                    environment: .init(Git.environmentBlock)
+                )
+
+                let commit = try repository.readCommit(hash: repository.resolveHash(treeish: "main"))
+                let treeByHash = try repository.readTree(hash: commit.tree)
+                let treeByTag = try repository.readTree(tag: "special-names")
+                XCTAssertEqual(Set(treeByHash.contents.map(\.name)), expectedNames)
+                XCTAssertEqual(Set(treeByTag.contents.map(\.name)), expectedNames)
+
+                let view = try repository.openFileView(revision: repository.resolveRevision(tag: "special-names"))
+                XCTAssertEqual(Set(try view.getDirectoryContents(.root)), expectedNames)
+                for name in names {
+                    XCTAssertEqual(try view.readFileContents(AbsolutePath("/" + name)), name)
+                }
             }
-       }
+        }
     }
 
     func testSubmoduleRead() throws {
@@ -455,7 +497,7 @@ class GitRepositoryTests: XCTestCase {
             let testRepoPath = path.appending("test-repo")
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "initial")
-            let initialRevision = try GitRepository(path: testRepoPath).getCurrentRevision()
+            let initialRevision = try await GitRepository(path: testRepoPath).getCurrentRevision()
 
             // Add a couple files and a directory.
             try localFileSystem.writeFileContents(testRepoPath.appending("test.txt"), bytes: "Hi")
@@ -463,7 +505,7 @@ class GitRepositoryTests: XCTestCase {
             try testRepo.stage(file: "test.txt")
             try testRepo.commit()
             try testRepo.tag(name: "test-tag")
-            let currentRevision = try GitRepository(path: testRepoPath).getCurrentRevision()
+            let currentRevision = try await GitRepository(path: testRepoPath).getCurrentRevision()
 
             // Fetch the repository using the provider.
             let testClonePath = path.appending("clone")
@@ -503,7 +545,8 @@ class GitRepositoryTests: XCTestCase {
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "1.2.3")
             let repo = GitRepository(path: testRepoPath)
-            XCTAssertEqual(try repo.getTags(), ["1.2.3"])
+            let tags1 = try await repo.getTags()
+            XCTAssertEqual(tags1, ["1.2.3"])
 
             // Clone it somewhere.
             let testClonePath = path.appending("clone")
@@ -556,7 +599,7 @@ class GitRepositoryTests: XCTestCase {
             try localFileSystem.writeFileContents(originPath.appending("feature.txt"), bytes: "feature")
             try origin.stage(file: "feature.txt")
             try origin.commit()
-            let featureTip = try origin.getCurrentRevision()
+            let featureTip = try await origin.getCurrentRevision()
             try await AsyncProcess.checkNonZeroExit(args: Git.tool, "-C", originPath.pathString, "checkout", defaultBranch)
 
             // Fetch into the cache as a bare mirror, exactly as SwiftPM does.
@@ -670,8 +713,10 @@ class GitRepositoryTests: XCTestCase {
 
             // The resolution cache fast-path validates the bare cache repository via
             // `isValidDirectory`; both variants must also keep working under `explicit`.
-            XCTAssertTrue(try provider.isValidDirectory(bareRepoPath))
-            XCTAssertTrue(try provider.isValidDirectory(bareRepoPath, for: repoSpec))
+            let isValidBareRepo = try provider.isValidDirectory(bareRepoPath)
+            XCTAssertTrue(isValidBareRepo)
+            let isValidBareRepoForSpec = try provider.isValidDirectory(bareRepoPath, for: repoSpec)
+            XCTAssertTrue(isValidBareRepoForSpec)
         }
     }
 
@@ -743,7 +788,7 @@ class GitRepositoryTests: XCTestCase {
             initGitRepo(testRepoPath)
 
             let repo = GitRepository(path: testRepoPath)
-            var currentRevision = try repo.getCurrentRevision()
+            var currentRevision = try await repo.getCurrentRevision()
             // This is the default branch of a new repo.
             XCTAssertTrue(repo.exists(revision: Revision(identifier: "main")))
             // Check a non existent revision.
@@ -751,16 +796,18 @@ class GitRepositoryTests: XCTestCase {
             // Checkout a new branch using command line.
             try await AsyncProcess.checkNonZeroExit(args: Git.tool, "-C", testRepoPath.pathString, "checkout", "-b", "TestBranch1")
             XCTAssertTrue(repo.exists(revision: Revision(identifier: "TestBranch1")))
-            XCTAssertEqual(try repo.getCurrentRevision(), currentRevision)
+            let revAfterBranch1 = try await repo.getCurrentRevision()
+            XCTAssertEqual(revAfterBranch1, currentRevision)
 
             // Make sure we're on the new branch right now.
             XCTAssertEqual(try repo.currentBranch(), "TestBranch1")
 
             // Checkout new branch using our API.
-            currentRevision = try repo.getCurrentRevision()
+            currentRevision = try await repo.getCurrentRevision()
             try repo.checkout(newBranch: "TestBranch2")
             XCTAssert(repo.exists(revision: Revision(identifier: "TestBranch2")))
-            XCTAssertEqual(try repo.getCurrentRevision(), currentRevision)
+            let revAfterBranch2 = try await repo.getCurrentRevision()
+            XCTAssertEqual(revAfterBranch2, currentRevision)
             XCTAssertEqual(try repo.currentBranch(), "TestBranch2")
         }
     }
@@ -924,8 +971,8 @@ class GitRepositoryTests: XCTestCase {
             try foo.tag(name: "1.0.1")
 
             // Update our bare and working repos.
-            try fooRepo.fetch()
-            try fooWorkingRepo.fetch()
+            try await fooRepo.fetch()
+            try await fooWorkingRepo.fetch()
             // Checkout the tag with submodule and expect submodules files to be present.
             try fooWorkingRepo.checkout(tag: "1.0.1")
             XCTAssertFileExists(fooWorkingPath.appending(components: "bar", "hello.txt"))
@@ -950,8 +997,8 @@ class GitRepositoryTests: XCTestCase {
             try foo.commit()
             try foo.tag(name: "1.0.2")
 
-            try fooRepo.fetch()
-            try fooWorkingRepo.fetch()
+            try await fooRepo.fetch()
+            try await fooWorkingRepo.fetch()
             // We should see the new file we added in the submodule.
             try fooWorkingRepo.checkout(tag: "1.0.2")
             XCTAssertFileExists(fooWorkingPath.appending(components: "bar", "hello.txt"))
@@ -972,7 +1019,8 @@ class GitRepositoryTests: XCTestCase {
             try makeDirectories(testRepoPath)
             initGitRepo(testRepoPath, tag: "1.2.3")
             let repo = GitRepository(path: testRepoPath)
-            XCTAssertEqual(try repo.getTags(), ["1.2.3"])
+            let tagsA = try await repo.getTags()
+            XCTAssertEqual(tagsA, ["1.2.3"])
 
             // Clone it somewhere.
             let testClonePath = path.appending("clone")
@@ -1507,10 +1555,67 @@ class GitRepositoryTests: XCTestCase {
             let gitWorkingCopy = try XCTUnwrap(workingCopy as? GitRepository)
 
             try gitWorkingCopy.checkout(tag: "before-lfs")
-            XCTAssertFalse(try gitWorkingCopy.hasLFSTrackedFiles())
+            let hasLFS1 = try await gitWorkingCopy.hasLFSTrackedFiles()
+            XCTAssertFalse(hasLFS1)
 
             try gitWorkingCopy.checkout(tag: "after-lfs")
-            XCTAssertTrue(try gitWorkingCopy.hasLFSTrackedFiles())
+            let hasLFS2 = try await gitWorkingCopy.hasLFSTrackedFiles()
+            XCTAssertTrue(hasLFS2)
+        }
+    }
+
+    /// Sync and async git operations share one lock, so exercising both concurrently on the
+    /// same instance must serialize on the working tree without deadlocking. A double acquire
+    /// of the non-reentrant lock (e.g. a wrong `WithoutLock` split) would not complete.
+    func testConcurrentSyncAndAsyncGitOperations() async throws {
+        try await testWithTemporaryDirectory { path in
+            let repoPath = path.appending("repo")
+            try makeDirectories(repoPath)
+            initGitRepo(repoPath, tag: "1.0.0")
+
+            let provider = GitRepositoryProvider()
+            let repoSpec = RepositorySpecifier(path: repoPath)
+            let clonePath = path.appending("clone")
+            try await provider.fetch(repository: repoSpec, to: clonePath)
+            let checkoutPath = path.appending("checkout")
+            let workingCopy = try await provider.createWorkingCopy(
+                repository: repoSpec,
+                sourcePath: clonePath,
+                at: checkoutPath,
+                editable: false
+            )
+            let repo = try XCTUnwrap(workingCopy as? GitRepository)
+            try repo.checkout(tag: "1.0.0")
+
+            try await withThrowingTaskGroup(of: Void.self) { group in
+                for _ in 0..<20 {
+                    group.addTask {
+                        _ = try await repo.getTags()
+                        _ = try await repo.getCurrentRevision()
+                        _ = try await repo.hasUncommittedChanges()
+                        _ = try await repo.hasLFSTrackedFiles()
+                        _ = try await repo.getCurrentTag()
+                        try await repo.fetch()
+                    }
+                    group.addTask {
+                        try await Task.detachNewThread {
+                            Result {
+                                _ = try repo.getTags()
+                                _ = try repo.getCurrentRevision()
+                                _ = repo.hasUncommittedChanges()
+                                _ = try repo.hasLFSTrackedFiles()
+                                _ = repo.getCurrentTag()
+                                try repo.fetch()
+                                try repo.checkout(tag: "1.0.0")
+                            }
+                        }.get()
+                    }
+                }
+                try await group.waitForAll()
+            }
+
+            let tags = try await repo.getTags()
+            XCTAssertEqual(tags, ["1.0.0"])
         }
     }
 

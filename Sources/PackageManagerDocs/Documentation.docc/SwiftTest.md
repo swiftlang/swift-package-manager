@@ -51,11 +51,15 @@ test [--package-path=<package-path>]
   [--attachments-path=<attachments-path>]
   [--parallel|no-parallel] [--num-workers=<num-workers>]
   [--list-tests]
-  [--show-codecov-path|show-code-coverage-path|show-coverage-path]
+  [--show-coverage-path=[<mode>]]
+  [--show-codecov-path|show-code-coverage-path]
   [--specifier=<specifier>] [--filter=<filter>...]
   [--skip=<skip>...] [--xunit-output=<xunit-output>]
   [--enable-testable-imports|disable-testable-imports]
+  [--enable-coverage|disable-coverage]
   [--enable-code-coverage|disable-code-coverage]
+  [--coverage-format=<format>...]
+  [-Xcov=<Xcov>...]
   [--debugger]
   [--traits=<traits>] [--enable-all-traits]
   [--disable-default-traits] [--version] [--help]
@@ -330,9 +334,14 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 *Lists test methods in specifier format.*
 
 
-- term **--show-codecov-path|show-code-coverage-path|show-coverage-path**:
+- term **--show-coverage-path=[\<mode\>]**:
 
-*Print the path of the exported code coverage JSON file.*
+*Print the path of the exported code coverage files. The mode specifies how to display the paths of the selected code coverage file formats. Values: `json`, `text`. Default when passed as a flag: `text`.*
+
+
+- term **--show-codecov-path|show-code-coverage-path**:
+
+*Print the path of the exported code coverage files. (deprecated. use `--show-coverage-path [<mode>]` instead)*
 
 
 - term **--specifier=\<specifier\>**:
@@ -360,7 +369,22 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 
 - term **--enable-code-coverage|disable-code-coverage**:
 
+*Enable code coverage. (deprecated. use '--enable-coverage/--disable-coverage' instead)*
+
+
+- term **--enable-coverage|disable-coverage**:
+
 *Enable code coverage.*
+
+
+- term **--coverage-format=\<format\>**:
+
+*Format of the code coverage output. Can be specified multiple times. (default: `json`) Values: `json` (produces a JSON coverage report by executing `llvm-cov export`), `html` (produces an HTML report by executing `llvm-cov show`).*
+
+
+- term **-Xcov=\<Xcov\>**:
+
+*Pass flag, with optional format specification, through to the underlying coverage report tool. Syntax: `[<coverage-format>=]<value>`. Can be specified multiple times.*
 
 
 - term **--debugger**:

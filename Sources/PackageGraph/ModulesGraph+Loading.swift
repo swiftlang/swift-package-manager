@@ -150,6 +150,10 @@ extension ModulesGraph {
             //
             // FIXME: Lift this out of the manifest.
             let packagePath = manifest.path.parentDirectory
+            // Use the file system associated with this package, if there is one. A package provided by a
+            // custom container may be backed by its own file system, and its sources can only be
+            // discovered through it rather than through the one backing the rest of the graph.
+            let packageFileSystem = manifestMap[node.identity]?.fs ?? fileSystem
             nodeObservabilityScope.trap {
                 // Create a package from the manifest and sources.
 
@@ -170,7 +174,7 @@ extension ModulesGraph {
                     shouldCreateMultipleTestProducts: shouldCreateMultipleTestProducts,
                     testEntryPointPath: testEntryPointPath,
                     createREPLProduct: manifest.packageKind.isRoot ? createREPLProduct : false,
-                    fileSystem: fileSystem,
+                    fileSystem: packageFileSystem,
                     observabilityScope: nodeObservabilityScope,
                     enabledTraits: enabledTraits
                 )
@@ -205,6 +209,7 @@ extension ModulesGraph {
             platformRegistry: customPlatformsRegistry ?? .default,
             platformVersionProvider: platformVersionProvider,
             fileSystem: fileSystem,
+            packageFileSystems: manifestMap.reduce(into: [:]) { $0[$1.key] = $1.value.fs },
             observabilityScope: observabilityScope,
             productsFilter: productsFilter,
             modulesFilter: modulesFilter
@@ -383,6 +388,8 @@ private func createResolvedPackages(
     platformRegistry: PlatformRegistry,
     platformVersionProvider: PlatformVersionProvider,
     fileSystem: FileSystem,
+    /// The file systems of the packages that provide one of their own, keyed by package identity.
+    packageFileSystems: [PackageIdentity: FileSystem],
     observabilityScope: ObservabilityScope,
     productsFilter: ((Product) -> Bool)?,
     modulesFilter: ((Module) -> Bool)?
@@ -635,10 +642,15 @@ private func createResolvedPackages(
         }
 
         // add registry metadata if available
-        if fileSystem.exists(package.path.appending(component: RegistryReleaseMetadataStorage.fileName)) {
+        //
+        // A package's own file system is the one that has to be consulted here: asking the graph-wide
+        // file system about a path belonging to a package that provides its own would describe some
+        // unrelated file, or none at all.
+        let packageFileSystem = packageFileSystems[package.identity] ?? fileSystem
+        if packageFileSystem.exists(package.path.appending(component: RegistryReleaseMetadataStorage.fileName)) {
             packageBuilder.registryMetadata = try RegistryReleaseMetadataStorage.load(
                 from: package.path.appending(component: RegistryReleaseMetadataStorage.fileName),
-                fileSystem: fileSystem
+                fileSystem: packageFileSystem
             )
         }
     }

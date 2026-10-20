@@ -1,0 +1,94 @@
+#!/bin/zsh
+# ===----------------------------------------------------------------------===##
+#
+# This source file is part of the Swift open source project
+#
+# Copyright (c) 2026 Apple Inc. and the Swift project authors
+# Licensed under Apache License v2.0 with Runtime Library Exception
+#
+# See http://swift.org/LICENSE.txt for license information
+# See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+#
+# ===----------------------------------------------------------------------===##
+
+name=$(basename *.xcworkspace .xcworkspace)
+src=$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain
+dest=~/Library/Developer/Toolchains/${name}.xctoolchain
+#derivedData=~/Library/Developer/Xcode/DerivedData/${name}-*/Build/Products/Debug
+derivedData=~/Library/Developer/Xcode/DerivedData/${name}-*/Build/Intermediates.noindex/InstallIntermediates/macosx/Products/Debug
+
+if [ -z "$derivedData" ]; then
+   echo run from the directory containing the xcworkspace
+   exit 1
+fi
+
+if [ ! -d $src ]; then
+   echo Source toolchain not found: $src
+   exit 1
+fi
+
+if [ ! -d $derivedData ]; then
+   echo Derived data not found: $derivedData
+   exit 1
+fi
+
+echo Creating $name.xctoolchain
+
+rm -fr $dest
+ditto $src $dest
+chmod -R -N $dest
+
+ditto $src/../../../SharedFrameworks/llbuild.framework $dest/usr/lib/swift/pm/llbuild/llbuild.framework
+
+for bin in swift-package swift-build swift-test sourcekit-lsp; do
+    ln -sf $derivedData/$bin $dest/usr/bin
+done
+
+rm -fr $dest/usr/lib/swift/pm/ManifestAPI/*
+ln -sf $derivedData/CompilerPluginSupport.swiftmodule $dest/usr/lib/swift/pm/ManifestAPI
+ln -sf $derivedData/PackageDescription.swiftmodule $dest/usr/lib/swift/pm/ManifestAPI
+ln -sf $derivedData/PackageDescription.framework $dest/usr/lib/swift/pm/ManifestAPI
+
+rm -fr $dest/usr/lib/swift/pm/PluginAPI/*
+ln -sf $derivedData/PackagePlugin.swiftmodule $dest/usr/lib/swift/pm/PluginAPI
+ln -sf $derivedData/PackagePlugin.framework $dest/usr/lib/swift/pm/PluginAPI
+
+rm $dest/ToolchainInfo.plist
+cat >$dest/Info.plist <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+        <key>Aliases</key>
+        <array>
+                <string>swift</string>
+        </array>
+        <key>CFBundleIdentifier</key>
+        <string>$name</string>
+        <key>CompatibilityVersion</key>
+        <integer>2</integer>
+        <key>CreatedDate</key>
+        <date>2026-06-16T03:23:00Z</date>
+        <key>DisplayName</key>
+        <string>Swift Development Snapshot 2026-06-15 (a)</string>
+        <key>OverrideBuildSettings</key>
+        <dict>
+                <key>OTHER_SWIFT_FLAGS</key>
+                <string>\$(inherited) -plugin-path \$(TOOLCHAIN_DIR)/usr/lib/swift/host/plugins</string>
+                <key>SWIFT_DEVELOPMENT_TOOLCHAIN</key>
+                <string>YES</string>
+                <key>SWIFT_USE_DEVELOPMENT_TOOLCHAIN_RUNTIME</key>
+                <string>YES</string>
+        </dict>
+        <key>ReportProblemURL</key>
+        <string>https://bugs.swift.org/</string>
+        <key>ShortDisplayName</key>
+        <string>Swift Development Snapshot</string>
+        <key>Version</key>
+        <string>6.4.20260615101</string>
+</dict>
+</plist>
+EOF
+
+TOOLCHAINS=$name swift --version
+TOOLCHAINS=$name swift build --version

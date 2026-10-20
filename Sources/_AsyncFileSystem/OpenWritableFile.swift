@@ -11,8 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 internal import class Dispatch.DispatchQueue
+
+#if canImport(System)
+internal import struct System.FileDescriptor
+internal import struct System.FilePath
+#else
 internal import struct SystemPackage.FileDescriptor
 internal import struct SystemPackage.FilePath
+#endif
 
 /// A write-only thread-safe handle to an open file.
 package actor OpenWritableFile: WritableStream {

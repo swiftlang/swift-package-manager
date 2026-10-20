@@ -304,6 +304,69 @@ final class PubGrubTests: XCTestCase {
         ])
     }
 
+    /// Reproduces the mismatch that used to make `addIncompatibility` perpetually flag an
+    /// already-decided package for repair: `d` is reached by one edge that explicitly names a real
+    /// trait (`Trait1`, e.g. from `a`'s manifest naming it directly) and, separately, by an edge
+    /// that only ever requests the implicit `default` trait (e.g. from a manifest dependency with
+    /// no `traits:` at all).
+    func testResolverAddIncompatibilityDoesNotRepairDecisionForImplicitDefaultTraitEdge() async throws {
+        let dRef: PackageReference = "d"
+        let namedTraitNode = DependencyResolutionNode.product(
+            "d", package: dRef,
+            enabledTraits: EnabledTraits(["Trait1"], setBy: .package("a"))
+        )
+        // No `enabledTraits:` provided - this is the literal, unresolved `["default"]` value that a
+        // manifest dependency with no `traits:` at all produces.
+        let implicitDefaultNode = DependencyResolutionNode.product("d", package: dRef)
+
+        let state = PubGrubDependencyResolver.State(root: rootNode)
+
+        // `a` explicitly names `Trait1` on `d`, and `d` gets decided on the strength of that edge.
+        state.addIncompatibility(try Incompatibility(Term(namedTraitNode, .exact(v1)), root: rootNode), at: .topLevel)
+        state.decide(namedTraitNode, at: v1)
+        XCTAssertTrue(state.decisionsToRepair.isEmpty)
+
+        // Some other, unrelated edge to `d` (e.g. a transitively-discovered manifest dependency with
+        // no `traits:`) gets processed - repeatedly, as would happen if that edge's owning package
+        // were re-decided across backtracking. Nothing about `d`'s actual trait requirements ever
+        // changes, so this must never flag `d`'s decision for repair.
+        for _ in 0 ..< 25 {
+            state.addIncompatibility(try Incompatibility(Term(implicitDefaultNode, .exact(v1)), root: rootNode), at: .topLevel)
+        }
+
+        XCTAssertTrue(
+            state.decisionsToRepair.isEmpty,
+            "d's already-made decision was incorrectly flagged for repair by an implicit-default edge that never changed anything."
+        )
+    }
+
+    /// Check for the fix above: a *genuinely new* named trait request for an already-decided
+    /// package must still flag it for repair - the fix should stop false positives without silencing
+    /// real ones.
+    func testResolverAddIncompatibilityStillRepairsDecisionForGenuinelyNewTrait() async throws {
+        let dRef: PackageReference = "d"
+        let namedTraitNode = DependencyResolutionNode.product(
+            "d", package: dRef,
+            enabledTraits: EnabledTraits(["Trait1"], setBy: .package("a"))
+        )
+        let secondNamedTraitNode = DependencyResolutionNode.product(
+            "d", package: dRef,
+            enabledTraits: EnabledTraits(["Trait2"], setBy: .package("b"))
+        )
+
+        let state = PubGrubDependencyResolver.State(root: rootNode)
+
+        state.addIncompatibility(try Incompatibility(Term(namedTraitNode, .exact(v1)), root: rootNode), at: .topLevel)
+        state.decide(namedTraitNode, at: v1)
+        XCTAssertTrue(state.decisionsToRepair.isEmpty)
+
+        // `b` explicitly names a *different* real trait on `d` - this genuinely widens what's
+        // enabled and must still trigger a repair.
+        state.addIncompatibility(try Incompatibility(Term(secondNamedTraitNode, .exact(v1)), root: rootNode), at: .topLevel)
+
+        XCTAssertEqual(state.decisionsToRepair, [namedTraitNode])
+    }
+
     func testUpdatePackageIdentifierAfterResolution() async throws {
         let fooURL = SourceControlURL("https://example.com/foo")
         let fooRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: fooURL), url: fooURL)
@@ -3557,6 +3620,151 @@ extension PackageReference {
 
 extension Term: ExpressibleByStringLiteral {}
 extension PackageReference: ExpressibleByStringLiteral {}
+
+// MARK: - ContainerProvider warmCache tests
+
+final class ContainerProviderWarmCacheTests: XCTestCase {
+
+    private func makeRef(_ name: String) -> PackageReference {
+        PackageReference.remoteSourceControl(
+            identity: PackageIdentity.plain(name),
+            url: SourceControlURL("https://example.com/\(name)")
+        )
+    }
+
+    private func makeContainer(_ ref: PackageReference) -> MockContainer {
+        MockContainer(package: ref, dependenciesByVersion: [v1: ["": []]])
+    }
+
+    /// A provider that counts getContainer calls per package.
+    private class CountingProvider: PackageContainerProvider {
+        let inner: MockProvider
+        let fetchCounts = ThreadSafeKeyValueStore<PackageIdentity, Int>()
+
+        init(containers: [MockContainer]) {
+            self.inner = MockProvider(containers: containers)
+        }
+
+        func getContainer(
+            for package: PackageReference,
+            updateStrategy: ContainerUpdateStrategy,
+            observabilityScope: ObservabilityScope
+        ) async throws -> PackageContainer {
+            let count = fetchCounts[package.identity] ?? 0
+            fetchCounts[package.identity] = count + 1
+            return try await inner.getContainer(for: package, updateStrategy: updateStrategy, observabilityScope: observabilityScope)
+        }
+    }
+
+    /// Prefetched containers are served from warmCache without calling the underlying provider.
+    func testWarmCacheServesGetContainer() async throws {
+        let ref = makeRef("foo")
+        let container = makeContainer(ref)
+        let provider = CountingProvider(containers: [container])
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let cp = ContainerProvider(
+            provider: provider,
+            skipUpdate: false,
+            resolvedPackages: [:],
+            prefetchedContainers: [ref: container],
+            observabilityScope: observability.topScope
+        )
+
+        let expectation = XCTestExpectation(description: "getContainer completes")
+        cp.getContainer(for: ref) { result in
+            XCTAssertNotNil(try? result.get())
+            expectation.fulfill()
+        }
+        await fulfillment(of: [expectation], timeout: 2)
+        XCTAssertNil(provider.fetchCounts[ref.identity], "underlying provider should not be called for warm-cached container")
+    }
+
+    /// promoteWarmContainers excludes overridden packages.
+    func testPromoteExcludesOverriddenPackages() async throws {
+        let fooRef = makeRef("foo")
+        let barRef = makeRef("bar")
+        let fooContainer = makeContainer(fooRef)
+        let barContainer = makeContainer(barRef)
+        let provider = CountingProvider(containers: [fooContainer, barContainer])
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let cp = ContainerProvider(
+            provider: provider,
+            skipUpdate: false,
+            resolvedPackages: [:],
+            prefetchedContainers: [fooRef: fooContainer, barRef: barContainer],
+            observabilityScope: observability.topScope
+        )
+
+        // Promote, excluding bar as overridden.
+        cp.promoteWarmContainers(excluding: [barRef])
+
+        // foo should be served from cache (promoted).
+        let fooExpectation = XCTestExpectation(description: "foo getContainer")
+        var fooHit = false
+        cp.getContainer(for: fooRef) { _ in fooHit = true; fooExpectation.fulfill() }
+        await fulfillment(of: [fooExpectation], timeout: 2)
+        XCTAssertTrue(fooHit)
+        XCTAssertNil(provider.fetchCounts[fooRef.identity], "foo should come from cache, not provider")
+
+        // bar was overridden — should NOT be in cache, must hit provider.
+        let barExpectation = XCTestExpectation(description: "bar getContainer")
+        cp.getContainer(for: barRef) { _ in barExpectation.fulfill() }
+        await fulfillment(of: [barExpectation], timeout: 2)
+        XCTAssertEqual(provider.fetchCounts[barRef.identity], 1, "bar should be fetched from provider since it was excluded")
+    }
+
+    /// promoteWarmContainers filters by identity, not full PackageReference equality.
+    func testPromoteFiltersByIdentity() async throws {
+        let ref = makeRef("foo")
+        let container = makeContainer(ref)
+        let provider = CountingProvider(containers: [container])
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let cp = ContainerProvider(
+            provider: provider,
+            skipUpdate: false,
+            resolvedPackages: [:],
+            prefetchedContainers: [ref: container],
+            observabilityScope: observability.topScope
+        )
+
+        // Override ref has same identity but different URL.
+        let overrideRef = PackageReference.remoteSourceControl(
+            identity: PackageIdentity.plain("foo"),
+            url: SourceControlURL("https://other.com/foo")
+        )
+        cp.promoteWarmContainers(excluding: [overrideRef])
+
+        // foo should be filtered because identity matches, despite URL difference.
+        // Requesting it must hit the provider.
+        let expectation = XCTestExpectation(description: "foo getContainer")
+        cp.getContainer(for: ref) { _ in expectation.fulfill() }
+        await fulfillment(of: [expectation], timeout: 2)
+        XCTAssertEqual(provider.fetchCounts[ref.identity], 1, "foo should be fetched from provider since identity-matched override excluded it")
+    }
+
+    /// prefetch() skips packages already in warmCache.
+    func testPrefetchSkipsWarmCachedPackages() {
+        let ref = makeRef("foo")
+        let container = makeContainer(ref)
+        let provider = CountingProvider(containers: [container])
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let cp = ContainerProvider(
+            provider: provider,
+            skipUpdate: false,
+            resolvedPackages: [:],
+            prefetchedContainers: [ref: container],
+            observabilityScope: observability.topScope
+        )
+
+        cp.prefetch(containers: [ref])
+
+        XCTAssertNil(provider.fetchCounts[ref.identity], "prefetch should skip packages already in warmCache")
+    }
+}
 
 extension Result where Success == [DependencyResolverBinding] {
     var errorMsg: String? {

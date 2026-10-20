@@ -279,6 +279,11 @@ public final class SwiftModuleBuildDescription {
             throw StringError("\(target.name): mixed language source files in Swift targets are not supported by the native build system.")
         }
 
+        // Bridging headers are only supported by the Swift Build backend.
+        if !buildParameters.createScope(for: target).evaluate(.SWIFT_OBJC_BRIDGING_HEADER).isEmpty {
+            throw StringError("\(target.name): bridging headers are not supported when using the native build system.")
+        }
+
         guard let swiftTarget = target.underlying as? SwiftModule else {
             throw InternalError("underlying target type mismatch \(target)")
         }

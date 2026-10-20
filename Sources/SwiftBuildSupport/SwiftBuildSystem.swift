@@ -148,6 +148,39 @@ func withSession(
     }
 }
 
+package func queryBuildCacheInfo(
+    casPath: Basics.AbsolutePath,
+    pluginPath: Basics.AbsolutePath?,
+    remoteServicePath: Basics.AbsolutePath?,
+    toolchain: Toolchain,
+    packageManagerResourcesDirectory: Basics.AbsolutePath?
+) async throws -> SWBBuildCacheInfo {
+    let usingXcodeDeveloperDirectory = (try? toolchainDeveloperPathInfo(toolchain: toolchain))?.isEmbeddedInXcode ?? false
+    let pluginEnabled = pluginPath != nil || usingXcodeDeveloperDirectory
+
+    return try await withService(connectionMode: .inProcessStatic(swiftbuildServiceEntryPoint)) { service in
+        let (session, _) = try await createSession(
+            service: service,
+            name: "swiftpm-build-cache-info",
+            toolchain: toolchain,
+            packageManagerResourcesDirectory: packageManagerResourcesDirectory
+        )
+        do {
+            let info = try await session.buildCacheInfo(
+                casPath: casPath.pathString,
+                pluginPath: pluginPath?.pathString,
+                remoteServicePath: remoteServicePath?.pathString,
+                pluginEnabled: pluginEnabled
+            )
+            try await session.close()
+            return info
+        } catch {
+            try? await session.close()
+            throw error
+        }
+    }
+}
+
 package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperationDelegate, SWBIndexingDelegate, Sendable {
     private let shouldEnableDebuggingEntitlement: Bool
 
@@ -166,38 +199,11 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
         }
 
         if identity == "-" {
-            let getTaskAllowEntitlementKey: String
-            let applicationIdentifierEntitlementKey: String
-
-            if provisioningSourceData.sdkRoot.contains("macos") || provisioningSourceData.sdkRoot
-                .contains("simulator")
-            {
-                getTaskAllowEntitlementKey = "com.apple.security.get-task-allow"
-                applicationIdentifierEntitlementKey = "com.apple.application-identifier"
-            } else {
-                getTaskAllowEntitlementKey = "get-task-allow"
-                applicationIdentifierEntitlementKey = "application-identifier"
-            }
-
-            let signedEntitlements = provisioningSourceData
-                .entitlementsDestination == "Signature" ? provisioningSourceData.productTypeEntitlements.merging(
-                    [applicationIdentifierEntitlementKey: .plString(provisioningSourceData.bundleIdentifier)],
-                    uniquingKeysWith: { _, new in new }
-                ).merging(provisioningSourceData.projectEntitlements ?? [:], uniquingKeysWith: { _, new in new })
-                : [:]
-
-            let simulatedEntitlements = provisioningSourceData.entitlementsDestination == "__entitlements"
-                ? provisioningSourceData.productTypeEntitlements.merging(
-                    ["application-identifier": .plString(provisioningSourceData.bundleIdentifier)],
-                    uniquingKeysWith: { _, new in new }
-                ).merging(provisioningSourceData.projectEntitlements ?? [:], uniquingKeysWith: { _, new in new })
-                : [:]
-
-            var additionalEntitlements: [String: SWBPropertyListItem] = [:]
-
-            if shouldEnableDebuggingEntitlement {
-                additionalEntitlements[getTaskAllowEntitlementKey] = .plBool(true)
-            }
+            let (signedEntitlements, simulatedEntitlements) = Self.adHocSignedEntitlements(
+                sdkRoot: provisioningSourceData.sdkRoot,
+                entitlementsDestination: provisioningSourceData.entitlementsDestination,
+                shouldEnableDebuggingEntitlement: self.shouldEnableDebuggingEntitlement
+            )
 
             return SWBProvisioningTaskInputs(
                 identityHash: "-",
@@ -206,10 +212,7 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
                 profileUUID: nil,
                 profilePath: nil,
                 designatedRequirements: nil,
-                signedEntitlements: signedEntitlements.merging(
-                    additionalEntitlements,
-                    uniquingKeysWith: { _, new in new }
-                ),
+                signedEntitlements: signedEntitlements,
                 simulatedEntitlements: simulatedEntitlements,
                 appIdentifierPrefix: nil,
                 teamIdentifierPrefix: nil,
@@ -230,6 +233,27 @@ package final class SwiftBuildSystemPlanningOperationDelegate: SWBPlanningOperat
                 ]
             )
         }
+    }
+
+    package static func adHocSignedEntitlements(
+        sdkRoot: String,
+        entitlementsDestination: String,
+        shouldEnableDebuggingEntitlement: Bool
+    ) -> (signed: [String: SWBPropertyListItem], simulated: [String: SWBPropertyListItem]) {
+        let getTaskAllowEntitlementKey = if sdkRoot.contains("macos") || sdkRoot.contains("simulator") {
+            "com.apple.security.get-task-allow"
+        } else {
+            "get-task-allow"
+        }
+
+        var entitlements: [String: SWBPropertyListItem] = [:]
+        if shouldEnableDebuggingEntitlement {
+            entitlements[getTaskAllowEntitlementKey] = .plBool(true)
+        }
+
+        let signed = entitlementsDestination == "Signature" ? entitlements : [:]
+        let simulated = entitlementsDestination == "__entitlements" ? entitlements : [:]
+        return (signed, simulated)
     }
 
     public func executeExternalTool(
@@ -663,7 +687,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
             do {
                 try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchain: self.buildParameters.toolchain, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
-                    self.outputStream.send("Building for \(self.buildParameters.configuration == .debug ? "debugging" : "production")...\n")
+                    self.outputStream.send("Building for \(self.buildParameters.configuration.buildFor)...\n")
 
                     // Load the workspace, and set the system information to the default
                     do {
@@ -868,10 +892,14 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         } else {
             let buildTargetInfo = try await session.buildTargetInfo(triple: buildParameters.triple.tripleString)
 
+            // none-os triples need to ignore SDKROOT overrides for compatibility reasons, as an SDK implies the
+            // corresponding platform.
+            let sdkRootOverride = buildParameters.triple.os == .noneOS ? nil : buildParameters.sdkRootOverride
+
             return SwiftBuild.SWBRunDestinationInfo(
                 buildTarget: .toolchainSDK(
                     platform: buildTargetInfo.platformName,
-                    sdk: buildParameters.sdkRootOverride?.pathString ?? buildTargetInfo.sdkName,
+                    sdk: sdkRootOverride?.pathString ?? buildTargetInfo.sdkName,
                     sdkVariant: buildTargetInfo.sdkVariant
                 ),
                 targetArchitecture: buildParameters.triple.archName,
@@ -901,18 +929,18 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         var settings: [String: String] = [:]
 
         if setToolchainSetting {
-            // If the SwiftPM toolchain corresponds to a toolchain registered with the lower level build system, add it to the toolchain stack.
-            // Otherwise, apply overrides for each component of the SwiftPM toolchain.
-            let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString)
-            if toolchainID == nil {
-                // FIXME: This list of overrides is incomplete.
-                // An error with determining the override should not be fatal here.
-                settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathStringWithPosixSlashes
-                // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
-                // native build system.
-                settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathStringWithPosixSlashes
-            }
+            // Set the effective compilers unconditionally so a local toolchain / SWIFT_EXEC override is honoured.
+            //
+            // FIXME: This list of overrides is incomplete.
+            // An error with determining the override should not be fatal here.
+            settings["CC"] = try? buildParameters.toolchain.getClangCompiler().pathStringWithPosixSlashes
+            // Always specify the path of the effective Swift compiler, which was determined in the same way as for the
+            // native build system.
+            settings["SWIFT_EXEC"] = buildParameters.toolchain.swiftCompilerPath.pathStringWithPosixSlashes
 
+            // If the SwiftPM toolchain also corresponds to a toolchain registered with the lower level build system,
+            // add it to the toolchain stack so component lookup stays aligned with the pinned compiler.
+            let toolchainID = try await session.lookupToolchain(at: buildParameters.toolchain.toolchainDir.pathString)
             let overrideToolchains = [buildParameters.toolchain.metalToolchainId, toolchainID?.rawValue].compactMap { $0 }
             if !overrideToolchains.isEmpty {
                 settings["TOOLCHAINS"] = (overrideToolchains + ["$(inherited)"]).joined(separator: " ")
@@ -1002,11 +1030,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         // FIXME: "none" triples get a placeholder SDK/platform and don't support any specific triple by default. Unlike most platforms, where the vendor and environment is implied as a function of the arch and "platform", bare metal operates in terms of triples directly. We need to replace this bringup convenience with a more idiomatic mechanism, perhaps in the build request.
         if buildParameters.triple.os == .noneOS {
-            settings["ARCHS"] = buildParameters.triple.archName
-            settings["VALID_ARCHS"] = buildParameters.triple.archName
-            settings["LLVM_TARGET_TRIPLE_VENDOR"] = buildParameters.triple.vendorName
+            settings["ARCHS[__destination_platform=YES]"] = buildParameters.triple.archName
+            settings["VALID_ARCHS[__destination_platform=YES]"] = buildParameters.triple.archName
+            settings["LLVM_TARGET_TRIPLE_VENDOR[__destination_platform=YES]"] = buildParameters.triple.vendorName
             if !buildParameters.triple.environmentName.isEmpty {
-                settings["LLVM_TARGET_TRIPLE_SUFFIX"] = "-" + buildParameters.triple.environmentName
+                settings["LLVM_TARGET_TRIPLE_SUFFIX[__destination_platform=YES]"] = "-" + buildParameters.triple.environmentName
             }
         }
 
@@ -1075,12 +1103,18 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 settings[setting.enableVariableName] = "YES"
                 settings[setting.pathVariable] = try await self.indexStore(for: self.buildParameters).pathStringWithPosixSlashes
             }
+            // When indexing is explicitly enabled, set COMPILER_INDEX_STORE_ENABLE explicitly to allow index-while-building
+            // with optimizations enabled.
+            settings["COMPILER_INDEX_STORE_ENABLE"] = "YES"
         case .off:
             for setting in indexStoreSettingNames {
                 settings[setting.enableVariableName] = "NO"
             }
         case .auto:
-            // The settings are handles in the PIF builder
+            // The enablement settings are handled in the PIF builder
+            for setting in indexStoreSettingNames {
+                settings[setting.pathVariable] = try await self.indexStore(for: self.buildParameters).pathStringWithPosixSlashes
+            }
             break
         }
 
@@ -1094,6 +1128,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         try settings.merge(Self.constructTestingSettingsOverrides(from: buildParameters.testingParameters), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructAPIDigesterSettingsOverrides(from: buildParameters.apiDigesterMode), uniquingKeysWith: reportConflict)
         try settings.merge(Self.constructOutputSettingsOverrides(from: buildParameters.outputParameters), uniquingKeysWith: reportConflict)
+        let usingXcodeDeveloperDirectory = (try? toolchainDeveloperPathInfo(toolchain: buildParameters.toolchain))?.isEmbeddedInXcode ?? false
+        try settings.merge(buildParameters.buildCaching.constructBuildCacheSettingsOverrides(usingXcodeDeveloperDirectory: usingXcodeDeveloperDirectory), uniquingKeysWith: reportConflict)
 
         if buildParameters.driverParameters.codesizeProfileEnabled {
             // dSYM generation is required to attribute code size to source locations
@@ -1153,6 +1189,17 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         let ddPathPrefix = derivedDataPath.pathString
         #endif
 
+        let indexEnableDataStore: Bool
+        let indexDataStoreFolderPath: String?
+        switch buildParameters.indexStoreMode {
+        case .off:
+            indexEnableDataStore = false
+            indexDataStoreFolderPath = nil
+        case .on, .auto:
+            indexEnableDataStore = true
+            indexDataStoreFolderPath = try await self.indexStore(for: buildParameters).pathStringWithPosixSlashes
+        }
+
         let arenaInfo = SWBArenaInfo(
             derivedDataPath: ddPathPrefix,
             buildProductsPath: ddPathPrefix + "/Products",
@@ -1161,8 +1208,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
             indexRegularBuildProductsPath: nil,
             indexRegularBuildIntermediatesPath: nil,
             indexPCHPath: ddPathPrefix,
-            indexDataStoreFolderPath: ddPathPrefix,
-            indexEnableDataStore: request.parameters.arenaInfo?.indexEnableDataStore ?? false
+            indexDataStoreFolderPath: indexDataStoreFolderPath,
+            indexEnableDataStore: request.parameters.arenaInfo?.indexEnableDataStore ?? indexEnableDataStore
         )
 
         request.parameters.arenaInfo = arenaInfo
@@ -1177,18 +1224,25 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
     private static func constructExtraToolFlagsSettingsOverrides(from buildParameters: BuildParameters, verbosityFlags: [String]) -> [String: String] {
         var settings: [String: String] = [:]
-        var swiftCompilerFlags = buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags
+        var swiftCompilerFlags = WarningControlFlags.filterSwiftWarningControlFlags(buildParameters.toolchain.extraFlags.swiftCompilerFlags + buildParameters.flags.swiftCompilerFlags, value: \.value)
         swiftCompilerFlags += buildParameters.toolchain.extraFlags.cCompilerFlags.asSwiftcCCompilerFlags()
         // User arguments (from -Xcc) should follow generated arguments to allow user overrides
         swiftCompilerFlags += buildParameters.flags.cCompilerFlags.asSwiftcCCompilerFlags()
-        // We strip warning control flags (-warnings-as-errors) from the user supplied swift compiler flags.
-        // Per-package toggling of this flag is handled with  SWIFT_TREAT_WARNINGS_AS_ERRORS in the PIF.
-        swiftCompilerFlags = swiftCompilerFlags.filter { !WarningControlFlags.containsWarningsAsErrors([$0.value]) }
+        // We filter out the warning control flags from the user supplied swift compiler flags. If we don't, these global
+        // flags would be inherited by dependent targets, which are compiled with -suppress-warnings, and the
+        // driver rejects that combination (errors with "conflicting options '-Wwarning' and '-suppress-warnings'").
+        // Applying these flags to local targets is handled for individual packages in the PIF.
         // TODO: Pass -Xcxx flags to swiftc (#6491)
         // Uncomment when downstream support arrives.
         // swiftCompilerFlags += buildParameters.toolchain.extraFlags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
         // // User arguments (from -Xcxx) should follow generated arguments to allow user overrides
         // swiftCompilerFlags += buildParameters.flags.cxxCompilerFlags.rawFlags.asSwiftcCXXCompilerFlags()
+
+        // Filter out module cache path flags and override the build setting independently.
+        if let moduleCachePath = Self.extractLastModuleCachePath(from: &swiftCompilerFlags) {
+            settings["MODULE_CACHE_DIR"] = moduleCachePath
+        }
+
         let compilerAndLinkerFlags = [
             "OTHER_CFLAGS": buildParameters.toolchain.extraFlags.cCompilerFlags + buildParameters.flags.cCompilerFlags,
             "OTHER_CPLUSPLUSFLAGS": buildParameters.toolchain.extraFlags.cxxCompilerFlags + buildParameters.flags.cxxCompilerFlags,
@@ -1253,6 +1307,30 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         settings["OTHER_LDFLAGS"] = (settings["OTHER_LDFLAGS"] ?? "$(inherited)") + " $(OTHER_LDFLAGS_SWIFTC_LINKER_DRIVER_$(LINKER_DRIVER))"
 
         return settings
+    }
+
+    private static func extractLastModuleCachePath(from flags: inout [BuildFlag]) -> String? {
+        var remaining: [BuildFlag] = []
+        remaining.reserveCapacity(flags.count)
+        var moduleCachePath: String? = nil
+
+        var index = flags.startIndex
+        while index < flags.endIndex {
+            let flag = flags[index]
+            let nextIndex = flags.index(after: index)
+            if flag.source == .commandLineOptions, flag.value == "-module-cache-path", nextIndex < flags.endIndex {
+                moduleCachePath = flags[nextIndex].value
+                index = flags.index(after: nextIndex)
+                continue
+            }
+            remaining.append(flag)
+            index = nextIndex
+        }
+
+        if moduleCachePath != nil {
+            flags = remaining
+        }
+        return moduleCachePath
     }
 
     private static func constructDebuggingSettingsOverrides(from parameters: BuildParameters.Debugging, for configuration: BuildConfiguration) -> [String: String] {
@@ -1333,7 +1411,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         // Coverage settings
         settings["CLANG_COVERAGE_MAPPING"] = parameters.enableCodeCoverage ? "YES" : "NO"
-
         if let testability = parameters.explicitlyEnabledTestability {
             settings["ENABLE_TESTABILITY"] = testability ? "YES" : "NO"
         }
@@ -1398,8 +1475,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     additionalFileRules: additionalFileRules,
                     addLocalRpaths: self.buildParameters.linkingParameters.shouldDisableLocalRpath ? .never : .always,
                     materializeStaticArchiveProductsForRootPackages: materializeStaticArchiveProductsForRootPackages,
-                    createDynamicVariantsForLibraryProducts: false,
-                    hostBuildProductsPath: try await self.buildProductsPath(for: self.hostBuildParameters)
+                    createDynamicVariantsForLibraryProducts: true,
+                    hostBuildProductsPath: try await self.buildProductsPath(for: self.hostBuildParameters),
+                    hostTriple: self.hostBuildParameters.triple
                 ),
                 fileSystem: self.fileSystem,
                 observabilityScope: self.observabilityScope,
@@ -1463,31 +1541,6 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 }
 
 // MARK: - Helpers
-
-extension String {
-    /// Escape the usual shell related things, such as quoting, but also handle Windows
-    /// back-slashes.
-    fileprivate func shellEscaped() -> String {
-        #if os(Windows)
-        return self.spm_shellEscaped().replacingOccurrences(of: "\\", with: "/")
-        #else
-        return self.spm_shellEscaped()
-        #endif
-    }
-}
-
-extension Basics.AbsolutePath {
-    /// Returns a string representation of the path which uses POSIX slashes even on Windows.
-    ///
-    /// This is necessary for some cases where tools may treat the `\` character as part of an escape sequence rather than a path separator even on Windows. Use sparingly.
-    public var pathStringWithPosixSlashes: String {
-        #if os(Windows)
-        pathString.replacingOccurrences(of: "\\", with: "/")
-        #else
-        pathString
-        #endif
-    }
-}
 
 fileprivate extension [BuildFlag] {
     var rawFlagsForSwiftBuild: [String] {

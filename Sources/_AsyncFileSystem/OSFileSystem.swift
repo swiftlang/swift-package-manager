@@ -11,7 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-@preconcurrency package import SystemPackage
+
+#if canImport(System)
+package import System
+#else
+package import SystemPackage
+#endif
 
 public actor OSFileSystem: AsyncFileSystem {
   public static let defaultChunkSize = 512 * 1024
@@ -63,7 +68,7 @@ public actor OSFileSystem: AsyncFileSystem {
     }
   }
 
-  package func exists(_ path: SystemPackage.FilePath) async -> Bool {
+  package func exists(_ path: FilePath) async -> Bool {
     FileManager.default.fileExists(atPath: path.string)
   }
 }

@@ -10,77 +10,70 @@
 //
 //===----------------------------------------------------------------------===//
 
-import class Foundation.NSLock
+import Synchronization
 
 /// Thread-safe array like structure
-public final class ThreadSafeArrayStore<Value> {
-    private var underlying: [Value]
-    private let lock = NSLock()
+public final class ThreadSafeArrayStore<Value: Sendable> {
+    private let underlying: Mutex<[Value]>
 
     public init(_ seed: [Value] = []) {
-        self.underlying = seed
+        self.underlying = Mutex(seed)
     }
 
     public subscript(index: Int) -> Value? {
-        self.lock.withLock {
-            self.underlying[index]
+        self.underlying.withLock {
+            $0[index]
         }
     }
 
     public func get() -> [Value] {
-        self.lock.withLock {
-            self.underlying
-        }
+        self.underlying.withLock { $0 }
     }
 
     @discardableResult
     public func clear() -> [Value] {
-        self.lock.withLock {
-            let underlying = self.underlying
-            self.underlying.removeAll()
-            return underlying
+        self.underlying.withLock { underlying in
+            let existing = underlying
+            underlying.removeAll()
+            return existing
         }
     }
 
     @discardableResult
     public func append(_ item: Value) -> Int {
-        self.lock.withLock {
-            self.underlying.append(item)
-            return self.underlying.count
+        self.underlying.withLock {
+            $0.append(item)
+            return $0.count
         }
     }
 
     @discardableResult
     public func append(contentsOf items: [Value]) -> Int {
-        self.lock.withLock {
-            self.underlying.append(contentsOf: items)
-            return self.underlying.count
+        self.underlying.withLock {
+            $0.append(contentsOf: items)
+            return $0.count
         }
     }
 
     public var count: Int {
-        self.lock.withLock {
-            self.underlying.count
-        }
+        self.underlying.withLock { $0.count }
     }
 
     public var isEmpty: Bool {
-        self.lock.withLock {
-            self.underlying.isEmpty
+        self.underlying.withLock { $0.isEmpty }
+    }
+
+    public func map<NewValue: Sendable>(_ transform: (Value) -> NewValue) -> [NewValue] {
+        self.underlying.withLock {
+            $0.map(transform)
         }
     }
 
-    public func map<NewValue>(_ transform: (Value) -> NewValue) -> [NewValue] {
-        self.lock.withLock {
-            self.underlying.map(transform)
-        }
-    }
-
-    public func compactMap<NewValue>(_ transform: (Value) throws -> NewValue?) rethrows -> [NewValue] {
-        try self.lock.withLock {
-            try self.underlying.compactMap(transform)
+    public func compactMap<NewValue: Sendable>(_ transform: (Value) throws -> NewValue?) rethrows -> [NewValue] {
+        try self.underlying.withLock {
+            try $0.compactMap(transform)
         }
     }
 }
 
-extension ThreadSafeArrayStore: @unchecked Sendable where Value: Sendable {}
+extension ThreadSafeArrayStore: Sendable {}

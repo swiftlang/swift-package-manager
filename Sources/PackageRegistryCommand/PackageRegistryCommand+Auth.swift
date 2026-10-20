@@ -159,7 +159,9 @@ extension PackageRegistryCommand {
             // Make sure the credentials store is available before proceeding.
             let authorizationProvider: AuthorizationProvider?
             do {
-                authorizationProvider = try swiftCommandState.getRegistryAuthorizationProvider()
+                authorizationProvider = try swiftCommandState.getRegistryAuthorizationProvider(
+                    additionalRegistryURLs: [self.registryURL].compactMap { $0 }
+                )
             } catch {
                 throw ValidationError.invalidCredentialStore(error)
             }
@@ -351,7 +353,9 @@ extension PackageRegistryCommand {
             try registryURL.validateRegistryURL()
 
             // You need to be able to read/write credentials.
-            guard let authorizationProvider = try swiftCommandState.getRegistryAuthorizationProvider() else {
+            guard let authorizationProvider = try swiftCommandState.getRegistryAuthorizationProvider(
+                additionalRegistryURLs: [registryURL]
+            ) else {
                 throw ValidationError.unknownCredentialStore
             }
 

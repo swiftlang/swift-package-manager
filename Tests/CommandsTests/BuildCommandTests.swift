@@ -1058,18 +1058,10 @@ struct BuildCommandTestCases {
         let configuration =  data.config
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let result = try await execute([], packagePath: fixturePath, configuration: configuration, buildSystem: buildSystem, throwIfCommandFails: false)
-            let expectedString: String
-            switch configuration {
-                case .debug:
-                    expectedString = "debugging"
-                case .release:
-                    expectedString = "production"
-
-            }
             switch buildSystem {
                 case .native, .swiftbuild:
                     #expect(
-                        result.stdout.contains("Building for \(expectedString)"),
+                        result.stdout.contains("Building for \(configuration.buildFor)"),
                         "expect log not emitted.  got stdout: '\(result.stdout)'\n\nstderr '\(result.stderr)'",
                     )
                 case .xcode:
@@ -1149,6 +1141,250 @@ struct BuildCommandTestCases {
             #expect(defaultOutput.contains("-I/cfakepath"))
             #expect(defaultOutput.contains("-I/cxxfakepath"))
             #expect(defaultOutput.contains("-I/swiftfakepath"))
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.CommandLineArguments.BuildSystem,
+        ),
+    )
+    func buildCacheBasics() async throws {
+        let config = BuildConfiguration.debug
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
+        let fs = localFileSystem
+
+        try await testWithTemporaryDirectory { tmpDir in
+            let packageRoot = tmpDir.appending("CacheApp")
+            let casPath = tmpDir.appending("build-cache")
+
+            try fs.createDirectory(packageRoot.appending(components: "Sources", "CApp", "include"), recursive: true)
+            try fs.createDirectory(packageRoot.appending(components: "Sources", "App"), recursive: true)
+            try fs.writeFileContents(
+                packageRoot.appending("Package.swift"),
+                string: """
+                // swift-tools-version:5.9
+                import PackageDescription
+                let package = Package(
+                    name: "CacheApp",
+                    targets: [
+                        .executableTarget(name: "App", dependencies: ["CApp"]),
+                        .target(name: "CApp"),
+                    ]
+                )
+                """
+            )
+            try fs.writeFileContents(
+                packageRoot.appending(components: "Sources", "CApp", "add.c"),
+                string: """
+                #include "add.h"
+                int add(int a, int b) { return a + b; }
+                """
+            )
+            try fs.writeFileContents(
+                packageRoot.appending(components: "Sources", "CApp", "include", "add.h"),
+                string: "int add(int a, int b);\n"
+            )
+            try fs.writeFileContents(
+                packageRoot.appending(components: "Sources", "App", "main.swift"),
+                string: """
+                import CApp
+                print(add(2, 3))
+                """
+            )
+
+            func buildWithCaching() async throws -> String {
+                let (stdout, stderr) = try await execute(
+                    [
+                        "--verbose",
+                        "--enable-build-caching",
+                        "--enable-build-cache-diagnostic-remarks",
+                        "--build-cache-path", casPath.pathString,
+                    ],
+                    packagePath: packageRoot,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                return stdout + stderr
+            }
+
+            // First build: the cache is empty
+            let coldOutput = try await buildWithCaching()
+
+            #expect(coldOutput.contains("cache miss"))
+            #expect(coldOutput.contains("(0%)"))
+
+            try await executeSwiftPackage(packageRoot, extraArgs: ["clean"], buildSystem: buildSystem)
+
+            // Second build: the cache is popilated
+            let warmOutput = try await buildWithCaching()
+            #expect(warmOutput.contains("cache hit"))
+            #expect(warmOutput.contains("(100%)"))
+
+            let (cleanStdout, _) = try await executeSwiftPackage(
+                packageRoot,
+                extraArgs: ["--build-cache-path", casPath.pathString, "build-cache", "clean"],
+                buildSystem: buildSystem,
+            )
+            #expect(cleanStdout.contains("Cleaned build cache"))
+            #expect(!localFileSystem.exists(casPath))
+
+            // Third Build: After clearing, there should be no cache hits
+            try await executeSwiftPackage(packageRoot, extraArgs: ["clean"], buildSystem: buildSystem)
+            let coldAgainOutput = try await buildWithCaching()
+            #expect(coldAgainOutput.contains("cache miss"))
+            #expect(coldAgainOutput.contains("(0%)"))
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.CommandLineArguments.BuildSystem,
+        ),
+    )
+    func buildCachePrefixMapping() async throws {
+        let config = BuildConfiguration.debug
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
+        let fs = localFileSystem
+
+        func writePackage(at packageRoot: AbsolutePath) throws {
+            try fs.createDirectory(packageRoot.appending(components: "Sources", "CApp", "include"), recursive: true)
+            try fs.createDirectory(packageRoot.appending(components: "Sources", "App"), recursive: true)
+            try fs.writeFileContents(
+                packageRoot.appending("Package.swift"),
+                string: """
+                // swift-tools-version:5.9
+                import PackageDescription
+                let package = Package(
+                    name: "CacheApp",
+                    targets: [
+                        .executableTarget(name: "App", dependencies: ["CApp"]),
+                        .target(name: "CApp"),
+                    ]
+                )
+                """
+            )
+            try fs.writeFileContents(
+                packageRoot.appending(components: "Sources", "CApp", "add.c"),
+                string: """
+                #include "add.h"
+                int add(int a, int b) { return a + b; }
+                """
+            )
+            try fs.writeFileContents(
+                packageRoot.appending(components: "Sources", "CApp", "include", "add.h"),
+                string: "int add(int a, int b);\n"
+            )
+            try fs.writeFileContents(
+                packageRoot.appending(components: "Sources", "App", "main.swift"),
+                string: """
+                import CApp
+                print(add(2, 3))
+                """
+            )
+        }
+
+        try await testWithTemporaryDirectory { tmpDir in
+            // Build the same package at two distinct absolute paths, sharing a
+            // single build cache. With prefix mapping enabled, the source
+            // location differences are canonicalized so that cache entries
+            // populated by building the first copy are reused by the second.
+            let casPath = tmpDir.appending("build-cache")
+            let firstPackage = tmpDir.appending(components: "first", "CacheApp")
+            let secondPackage = tmpDir.appending(components: "second", "CacheApp")
+
+            try writePackage(at: firstPackage)
+            try writePackage(at: secondPackage)
+
+            func buildWithPrefixMapping(at packageRoot: AbsolutePath) async throws -> String {
+                let (stdout, stderr) = try await execute(
+                    [
+                        "--verbose",
+                        "--enable-build-caching",
+                        "--enable-build-cache-prefix-mapping",
+                        "--enable-build-cache-diagnostic-remarks",
+                        "--build-cache-path", casPath.pathString,
+                    ],
+                    packagePath: packageRoot,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                return stdout + stderr
+            }
+
+            // First build at the first path: the cache is empty.
+            let firstOutput = try await buildWithPrefixMapping(at: firstPackage)
+            #expect(firstOutput.contains("cache miss"))
+            #expect(firstOutput.contains("(0%)"))
+
+            // Second build at a different path: prefix mapping canonicalizes the
+            // build location (including the compiler working directory) so every
+            // compilation reuses the entries populated by the first build. Without
+            // prefix mapping the embedded absolute paths would differ and yield no
+            // hits (0%).
+            let secondOutput = try await buildWithPrefixMapping(at: secondPackage)
+            #expect(secondOutput.contains("cache hit"))
+            #expect(secondOutput.contains("(100%)"))
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.CommandLineArguments.BuildSystem,
+        ),
+    )
+    func buildCacheInfo() async throws {
+        let config = BuildConfiguration.debug
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
+        let fs = localFileSystem
+
+        try await testWithTemporaryDirectory { tmpDir in
+            let packageRoot = tmpDir.appending("CacheApp")
+            let casPath = tmpDir.appending("build-cache")
+
+            try fs.createDirectory(packageRoot.appending(components: "Sources", "App"), recursive: true)
+            try fs.writeFileContents(
+                packageRoot.appending("Package.swift"),
+                string: """
+                // swift-tools-version:5.9
+                import PackageDescription
+                let package = Package(
+                    name: "CacheApp",
+                    targets: [.executableTarget(name: "App")]
+                )
+                """
+            )
+            try fs.writeFileContents(
+                packageRoot.appending(components: "Sources", "App", "main.swift"),
+                string: "print(1)\n"
+            )
+
+            // Before any build, there is no cache to report on.
+            let (infoBefore, _) = try await executeSwiftPackage(
+                packageRoot,
+                extraArgs: ["--build-cache-path", casPath.pathString, "build-cache", "info"],
+                buildSystem: buildSystem,
+            )
+            #expect(infoBefore.contains("No build cache found"))
+
+            // Populate the cache with a cached build.
+            try await execute(
+                ["--enable-build-caching", "--build-cache-path", casPath.pathString],
+                packagePath: packageRoot,
+                configuration: config,
+                buildSystem: buildSystem,
+            )
+
+            // Now the cache should report its path and a non-zero size queried
+            // from the underlying CAS.
+            let (infoAfter, _) = try await executeSwiftPackage(
+                packageRoot,
+                extraArgs: ["--build-cache-path", casPath.pathString, "build-cache", "info"],
+                buildSystem: buildSystem,
+            )
+            #expect(infoAfter.contains("path: \(casPath.pathString)"))
+            #expect(infoAfter.contains("size:"))
+            #expect(!infoAfter.contains("unavailable"))
         }
     }
 
@@ -1530,6 +1766,49 @@ struct BuildCommandTestCases {
                 buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
             }
             #endif
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.CodeCoverage,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms, [
+            (
+                argument: "--disable-code-coverage",
+                shouldEmitWarning: true,
+            ),
+            (
+                argument: "--enable-code-coverage",
+                shouldEmitWarning: true,
+            ),
+            (
+                argument: "--enable-coverage",
+                shouldEmitWarning: false,
+            ),
+        ]
+    )
+    func deprecationWarningIsEmitted(
+        buildSystem: BuildSystemProvider.Kind,
+        testData: (argument: String, shouldEmitWarning: Bool),
+    ) async throws {
+        let configuration = BuildConfiguration.debug
+        try await fixture(name: "ValidLayouts/SingleModule/ExecutableNew") { fixturePath in
+            let (out, err)  = try await executeSwiftBuild(
+                fixturePath,
+                configuration: configuration,
+                extraArgs: [
+                    "--show-bin-path", // we don't care about the buildgit
+                    testData.argument,
+                ],
+                buildSystem: buildSystem,
+            )
+
+            let diagnosticMessage = "\(Basics.Diagnostic.deprecatedEnableDisableCoverage.severity): \(Basics.Diagnostic.deprecatedEnableDisableCoverage.message)"
+            #expect(
+                err.contains(diagnosticMessage) == testData.shouldEmitWarning,
+                "expected diagnostic message >>> \(diagnosticMessage)\n\nstdout: \(out)\n\nstderr: \(err)"
+            )
         }
     }
 

@@ -1026,14 +1026,20 @@ public final class UserToolchain: Toolchain {
             // this is the normal case when using the toolchain
             let librariesPath = applicationPath.parentDirectory.appending(components: "lib", "swift", "pm")
             if fileSystem.exists(librariesPath) {
+                // Check if we have frameworks there and hook them up
+                let manifestFrameworksPath = librariesPath.appending(components: "ManifestAPI", "PackageDescription.framework")
+                let pluginFrameworksPath = librariesPath.appending(components: "PluginAPI", "PackagePlugin.framework")
+                if fileSystem.exists(manifestFrameworksPath), fileSystem.exists(pluginFrameworksPath) {
+                    return .init(
+                        manifestLibraryPath: manifestFrameworksPath,
+                        pluginLibraryPath: pluginFrameworksPath
+                    )
+                }
                 return .init(root: librariesPath)
             }
 
             // this tests if we are debugging / testing SwiftPM with Xcode
-            let manifestFrameworksPath = applicationPath.appending(
-                components: "PackageFrameworks",
-                "PackageDescription.framework"
-            )
+            let manifestFrameworksPath = applicationPath.appending(components: "PackageFrameworks", "PackageDescription.framework")
             let pluginFrameworksPath = applicationPath.appending(components: "PackageFrameworks", "PackagePlugin.framework")
             if fileSystem.exists(manifestFrameworksPath), fileSystem.exists(pluginFrameworksPath) {
                 return .init(
@@ -1042,8 +1048,18 @@ public final class UserToolchain: Toolchain {
                 )
             }
 
+            // The frameworks may also appear at the root of the applicationPath
+            let manifestFrameworksRootPath = applicationPath.appending("PackageDescription.framework")
+            let pluginFrameworksRootPath = applicationPath.appending("PackagePlugin.framework")
+            if fileSystem.exists(manifestFrameworksRootPath), fileSystem.exists(pluginFrameworksRootPath) {
+                return .init(
+                    manifestLibraryPath: manifestFrameworksRootPath,
+                    pluginLibraryPath: pluginFrameworksRootPath
+                )
+            }
+
             // this tests if we are debugging / testing SwiftPM with SwiftPM
-            if localFileSystem.exists(applicationPath.appending("swift-package")) {
+            if localFileSystem.exists(applicationPath.appending("swift-package\(hostExecutableSuffix)")) {
                 // Newer versions of SwiftPM will emit modules to a "Modules" subdirectory, but we're also staying compatible with older versions for development.
                 let modulesPath: AbsolutePath
                 if localFileSystem.exists(applicationPath.appending("Modules")) {
@@ -1368,10 +1384,15 @@ public final class UserToolchain: Toolchain {
         configuration.swiftPMLibrariesLocation
     }
 
+    /// The path to XCTest.
+    ///
+    /// - Important: On Darwin, this path is to the `xctest` command-line executable.
+    ///   On Windows, it is to the directory containing `XCTest.dll`.
     public var xctestPath: AbsolutePath? {
         configuration.xctestPath
     }
 
+    /// The path to the directory containing the Swift Testing framework or library.
     public var swiftTestingPath: AbsolutePath? {
         configuration.swiftTestingPath
     }

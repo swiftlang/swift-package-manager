@@ -13,12 +13,13 @@
 import Basics
 import _Concurrency
 import Dispatch
-import class Foundation.NSLock
+import Foundation
 import PackageFingerprint
 import PackageGraph
 import PackageLoading
 import PackageModel
 import SourceControl
+import Synchronization
 
 import struct TSCBasic.RegEx
 
@@ -68,12 +69,19 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private let observabilityScope: ObservabilityScope
 
     /// The cached dependency information.
-    private var dependenciesCache = [String: [ProductFilter: (Manifest, [Constraint])]]()
+    /// Keyed by `enabledTraits` in addition to identifier and product filter.
+    private var dependenciesCache = [String: [ProductFilter: CachedDependency]]()
     private var dependenciesCacheLock = NSLock()
 
-    private var knownVersionsCache = ThreadSafeBox<[Version: String]?>()
+    private struct CachedDependency {
+        let manifest: Manifest
+        let constraints: [Constraint]
+        let enabledTraits: EnabledTraits
+    }
+
+    private var knownVersionsCache = AsyncThrowingValueMemoizer<[Version: String]>()
     private var manifestsCache = ThrowingAsyncKeyValueMemoizer<String, Manifest>()
-    private var toolsVersionsCache = ThreadSafeKeyValueStore<Version, ToolsVersion>()
+    private var toolsVersionsCache = ThrowingAsyncKeyValueMemoizer<Version, ToolsVersion>()
     private var identityLookupCache: Workspace.IdentityLookupCache
 
     /// This is used to remember if tools version of a particular version is
@@ -113,9 +121,15 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     }
 
     // Compute the map of known versions.
-    private func knownVersions() throws -> [Version: String] {
-        try self.knownVersionsCache.memoize {
-            let knownVersionsWithDuplicates = Git.convertTagsToVersionMap(tags: try repository.getTags(), toolsVersion: self.currentToolsVersion)
+    private func knownVersions() async throws -> [Version: String] {
+        try await self.knownVersionsCache.memoize {
+            let tags: [String]
+            if let gitRepo = self.repository as? GitRepository {
+                tags = try await gitRepo.getTags()
+            } else {
+                tags = try self.repository.getTags()
+            }
+            let knownVersionsWithDuplicates = Git.convertTagsToVersionMap(tags: tags, toolsVersion: self.currentToolsVersion)
 
             return knownVersionsWithDuplicates.mapValues { tags -> String in
                 if tags.count > 1 {
@@ -142,8 +156,8 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         }
     }
 
-    public func versionsAscending() throws -> [Version] {
-        [Version](try self.knownVersions().keys).sorted()
+    public func versionsAscending() async throws -> [Version] {
+        [Version](try await self.knownVersions().keys).sorted()
     }
 
     /// The available version list (in reverse order).
@@ -162,8 +176,8 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         return appropriateVersions
     }
 
-    public func getTag(for version: Version) -> String? {
-        return try? self.knownVersions()[version]
+    public func getTag(for version: Version) async -> String? {
+        return try? await self.knownVersions()[version]
     }
 
     func checkIntegrity(version: Version, revision: Revision) throws {
@@ -239,31 +253,30 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
     /// Returns the tools version of the given version of the package.
     public func toolsVersion(for version: Version) async throws -> ToolsVersion {
-        try await self.withObjectStoreRecovery {
-            try self.readToolsVersion(for: version)
-        }
-    }
-
-    private func readToolsVersion(for version: Version) throws -> ToolsVersion {
-        try self.toolsVersionsCache.memoize(version) {
-            guard let tag = try self.knownVersions()[version] else {
-                throw StringError("unknown tag \(version)")
+        try await self.toolsVersionsCache.memoize(version) {
+            try await self.withObjectStoreRecovery {
+                guard let tag = try await self.knownVersions()[version] else {
+                    throw StringError("unknown tag \(version)")
+                }
+                let fileSystem = try self.repository.openFileView(tag: tag)
+                let manifestPath = try ManifestLoader.findManifest(packagePath: .root, fileSystem: fileSystem, currentToolsVersion: self.currentToolsVersion)
+                return try ToolsVersionParser.parse(
+                    manifestPath: manifestPath,
+                    fileSystem: fileSystem,
+                    packageIdentity: self.package.identity
+                )
             }
-            let fileSystem = try repository.openFileView(tag: tag)
-            // find the manifest path and parse it's tools-version
-            let manifestPath = try ManifestLoader.findManifest(packagePath: .root, fileSystem: fileSystem, currentToolsVersion: self.currentToolsVersion)
-            return try ToolsVersionParser.parse(manifestPath: manifestPath, fileSystem: fileSystem)
         }
     }
 
     public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) async throws -> [Constraint] {
         do {
-            return try await self.getCachedDependencies(forIdentifier: version.description, productFilter: productFilter) {
-                guard let tag = try self.knownVersions()[version] else {
+            return try await self.getCachedDependencies(forIdentifier: version.description, productFilter: productFilter, enabledTraits: enabledTraits) {
+                guard let tag = try await self.knownVersions()[version] else {
                     throw StringError("unknown tag \(version)")
                 }
                 return try await self.loadDependencies(tag: tag, version: version, productFilter: productFilter, enabledTraits: enabledTraits)
-            }.1
+            }.constraints
         } catch {
             throw GetDependenciesError(
                 repository: self.repositorySpecifier,
@@ -276,11 +289,11 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
 
     public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) async throws -> [Constraint] {
         do {
-            return try await self.getCachedDependencies(forIdentifier: revision, productFilter: productFilter) {
+            return try await self.getCachedDependencies(forIdentifier: revision, productFilter: productFilter, enabledTraits: enabledTraits) {
                 // resolve the revision identifier and return its dependencies.
                 let revision = try repository.resolveRevision(identifier: revision)
                 return try await self.loadDependencies(at: revision, productFilter: productFilter, enabledTraits: enabledTraits)
-            }.1
+            }.constraints
         } catch {
             // Examine the error to see if we can come up with a more informative and actionable error message.  We know that the revision is expected to be a branch name or a hash (tags are handled through a different code path).
             if let error = error as? GitRepositoryError, error.description.contains("Needed a single revision") {
@@ -321,9 +334,10 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     private func getCachedDependencies(
         forIdentifier identifier: String,
         productFilter: ProductFilter,
-        getDependencies: () async throws -> (Manifest, [Constraint])
-    ) async throws -> (Manifest, [Constraint]) {
-        if let result = (self.dependenciesCacheLock.withLock { self.dependenciesCache[identifier, default: [:]][productFilter] }) {
+        enabledTraits: EnabledTraits,
+        getDependencies: () async throws -> CachedDependency
+    ) async throws -> CachedDependency {
+        if let result = (self.dependenciesCacheLock.withLock { self.dependenciesCache[identifier, default: [:]][productFilter] }), result.enabledTraits == enabledTraits {
             return result
         }
         let result = try await getDependencies()
@@ -339,9 +353,9 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         version: Version? = nil,
         productFilter: ProductFilter,
         enabledTraits: EnabledTraits
-    ) async throws -> (Manifest, [Constraint]) {
+    ) async throws -> CachedDependency {
         let manifest = try await self.loadManifest(tag: tag, version: version)
-        return (manifest, try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits))
+        return .init(manifest: manifest, constraints: try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits), enabledTraits: enabledTraits)
     }
 
     /// Returns dependencies of a container at the given revision.
@@ -350,9 +364,9 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         version: Version? = nil,
         productFilter: ProductFilter,
         enabledTraits: EnabledTraits
-    ) async throws -> (Manifest, [Constraint]) {
+    ) async throws -> CachedDependency {
         let manifest = try await self.loadManifest(at: revision, version: version)
-        return (manifest, try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits))
+        return .init(manifest: manifest, constraints: try manifest.dependencyConstraints(productFilter: productFilter, enabledTraits), enabledTraits: enabledTraits)
     }
 
     public func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) throws -> [Constraint] {
@@ -365,7 +379,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         var version: Version?
         switch boundVersion {
         case .version(let v):
-            guard let tag = try self.knownVersions()[v] else {
+            guard let tag = try await self.knownVersions()[v] else {
                 throw StringError("unknown tag \(v)")
             }
             version = v
@@ -386,7 +400,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
         var version: Version?
         switch boundVersion {
         case .version(let v):
-            guard let tag = try self.knownVersions()[v] else {
+            guard let tag = try await self.knownVersions()[v] else {
                 throw StringError("unknown tag \(v)")
             }
             version = v

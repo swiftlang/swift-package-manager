@@ -112,22 +112,24 @@ extension Toolchain {
     public var toolchainDir: AbsolutePath {
         get throws {
             let compilerPath = try resolveSymlinks(swiftCompilerPath)
-            let os = ProcessInfo.hostOperatingSystem
-            switch os {
-            case .windows, .macOS, .linux, .android:
-                return compilerPath
-                    .parentDirectory // bin
-                    .parentDirectory // usr
-                    .parentDirectory // <toolchain>
-            case .freebsd, .openbsd:
-                return compilerPath
-                    .parentDirectory // bin
-                    .parentDirectory // local
-                    .parentDirectory // usr
-                    .parentDirectory // <toolchain>
-            case .unknown:
-                throw UnknownToolchainLayout(os: os)
+            let realSwiftPath = compilerPath.parentDirectory
+
+            let hasUsrBin = realSwiftPath.components.contains(["usr", "bin"])
+            let hasUsrLocalBin = realSwiftPath.components.contains(["usr", "local", "bin"])
+
+            let path: AbsolutePath
+            switch (hasUsrBin, hasUsrLocalBin) {
+            case (true, false):
+                path = realSwiftPath.parentDirectory.parentDirectory
+            case (false, true):
+                path = realSwiftPath.parentDirectory.parentDirectory.parentDirectory
+            case (false, false):
+                throw UnknownToolchainLayout(path: realSwiftPath)
+            case (true, true):
+                preconditionFailure()
             }
+
+            return path
         }
     }
 
@@ -164,8 +166,8 @@ extension Toolchain {
 }
 
 struct UnknownToolchainLayout: Error, CustomStringConvertible {
-    let os: OperatingSystem
+    let path: AbsolutePath
     var description: String {
-        "Unknown toolchain layout for host operating system: \(os)"
+        "Unexpected toolchain layout for Swift installation path: \(path)"
     }
 }

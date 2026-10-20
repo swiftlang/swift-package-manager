@@ -188,6 +188,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    toolchain: try UserToolchain.default,
                     buildSystemKind: .swiftbuild,
                     sanitizers: [sanitizer],
                 ),
@@ -218,6 +219,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    toolchain: try UserToolchain.default,
                     buildSystemKind: .swiftbuild,
                     sanitizers: [sanitizer],
                 ),
@@ -232,6 +234,36 @@ struct SwiftBuildSystemTests {
                     )
                 }
             }
+        }
+    }
+
+    @Test
+    func userSwiftExecOverrideIsAlwaysHonoured() async throws {
+        let base = try UserToolchain.default
+        let overrideCompiler = base.swiftCompilerPath.parentDirectory.appending("swift")
+        var environment = Environment.current
+        environment["SWIFT_EXEC"] = overrideCompiler.pathString
+        let overridden = try UserToolchain(swiftSDK: base.swiftSDK, environment: environment)
+        try #require(overridden.swiftCompilerPath == overrideCompiler)
+        try #require(overrideCompiler != base.swiftCompilerPath)
+
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: mockBuildParameters(
+                destination: .host,
+                toolchain: overridden,
+                buildSystemKind: .swiftbuild,
+            ),
+        ) { swiftBuild, service, session, _, _ in
+            let buildSettings: SWBBuildParameters = try await swiftBuild.makeBuildParameters(
+                service: service,
+                session: session,
+                symbolGraphOptions: nil,
+                shouldDisableSandbox: false,
+            )
+
+            let synthesized = try #require(buildSettings.overrides.synthesized)
+            #expect(synthesized.table["SWIFT_EXEC"] == overrideCompiler.pathStringWithPosixSlashes)
         }
     }
 
@@ -251,6 +283,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    toolchain: try UserToolchain.default,
                     buildSystemKind: .swiftbuild,
                     shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
                     triple: triple,
@@ -295,6 +328,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    toolchain: try UserToolchain.default,
                     buildSystemKind: .swiftbuild,
                     shouldLinkStaticSwiftStdlib: shouldLinkStaticSwiftStdlib,
                     triple: nonDarwinTriple,
@@ -324,7 +358,6 @@ struct SwiftBuildSystemTests {
 
     @Test(
         arguments: BuildParameters.IndexStoreMode.allCases,
-        // arguments: [BuildParameters.IndexStoreMode.on],
     )
     func indexModeSettingSetCorrectBuildRequest(
         indexStoreSettingUT: BuildParameters.IndexStoreMode
@@ -353,13 +386,17 @@ struct SwiftBuildSystemTests {
                 case .auto: nil
             }
             let expectedPathValue: AbsolutePath? = switch indexStoreSettingUT {
-                case .on: try await swiftBuild.indexStore(for: buildParameters)
+                case .on, .auto: try await swiftBuild.indexStore(for: buildParameters)
                 case .off: nil
-                case .auto: nil
+            }
+            let expectedCompilerIndexStoreValue: String? = switch indexStoreSettingUT {
+                case .on: "YES"
+                case .off, .auto: nil
             }
 
             #expect(synthesizedArgs.table["SWIFT_INDEX_STORE_ENABLE"] == expectedSettingValue)
             #expect(synthesizedArgs.table["CLANG_INDEX_STORE_ENABLE"] == expectedSettingValue)
+            #expect(synthesizedArgs.table["COMPILER_INDEX_STORE_ENABLE"] == expectedCompilerIndexStoreValue)
             if let expectedPathValue {
                 let swiftPath = try #require(
                     synthesizedArgs.table["SWIFT_INDEX_STORE_PATH"],
@@ -375,6 +412,19 @@ struct SwiftBuildSystemTests {
                 #expect(synthesizedArgs.table["SWIFT_INDEX_STORE_PATH"] == nil)
                 #expect(synthesizedArgs.table["CLANG_INDEX_STORE_PATH"] == nil)
             }
+
+            let buildRequest = try await swiftBuild.makeBuildRequest(
+                service: service,
+                session: session,
+                configuredTargets: [],
+                derivedDataPath: buildParameters.dataPath,
+                symbolGraphOptions: nil,
+                setToolchainSetting: false,
+                shouldDisableSandbox: false,
+            )
+            let arenaInfo = try #require(buildRequest.parameters.arenaInfo)
+            #expect(arenaInfo.indexEnableDataStore == (indexStoreSettingUT != .off))
+            #expect(arenaInfo.indexDataStoreFolderPath == expectedPathValue?.pathString)
         }
     }
 
@@ -394,6 +444,7 @@ struct SwiftBuildSystemTests {
             fromFixture: "PIFBuilder/Simple",
             buildParameters: mockBuildParameters(
                 destination: .host,
+                toolchain: try UserToolchain.default,
                 buildSystemKind: .swiftbuild,
                 stripProducts: stripProductsSettingUT,
             ),
@@ -431,6 +482,7 @@ struct SwiftBuildSystemTests {
             fromFixture: "PIFBuilder/Simple",
             buildParameters: mockBuildParameters(
                 destination: .host,
+                toolchain: try UserToolchain.default,
                 buildSystemKind: .swiftbuild,
                 linkerDeadStrip: linkerDeadStripUT,
             ),
@@ -471,6 +523,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    toolchain: try UserToolchain.default,
                     buildSystemKind: .swiftbuild,
                     numberOfWorkers: expectedNumberOfWorkers,
                 ),
@@ -491,12 +544,46 @@ struct SwiftBuildSystemTests {
     }
 
     @Test
+    func bareMetalTripleOverridesAreDestinationOnly() async throws {
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: mockBuildParameters(
+                destination: .target,
+                toolchain: try UserToolchain.default,
+                buildSystemKind: .swiftbuild,
+                triple: try Triple("armv7em-none-none-eabi")
+            )
+        ) { swiftBuild, service, session, _, _ in
+            let parameters = try await swiftBuild.makeBuildParameters(
+                service: service,
+                session: session,
+                symbolGraphOptions: nil,
+                setToolchainSetting: false,
+                shouldDisableSandbox: false
+            )
+            let settings = try #require(parameters.overrides.synthesized).table
+
+            // The same build request also builds host tools, which must keep their host triple.
+            for (key, value) in [
+                "ARCHS": "armv7em",
+                "VALID_ARCHS": "armv7em",
+                "LLVM_TARGET_TRIPLE_VENDOR": "none",
+                "LLVM_TARGET_TRIPLE_SUFFIX": "-eabi",
+            ] {
+                #expect(settings[key] == nil, "Bare-metal overrides must not apply to host tools")
+                #expect(settings["\(key)[__destination_platform=YES]"] == value)
+            }
+        }
+    }
+
+    @Test
     func cFlagsAppliedToSwiftInBuildRequest() async throws {
         try await withTemporaryDirectory { tempDir in
             try await withInstantiatedSwiftBuildSystem(
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    toolchain: try UserToolchain.default,
                     flags: .init(cCompilerFlags: [BuildFlag(value: "-DFoo", source: .commandLineOptions)]),
                     buildSystemKind: .swiftbuild
                 ),
@@ -513,6 +600,42 @@ struct SwiftBuildSystemTests {
 
                 #expect(buildRequest.parameters.overrides.synthesized?.table["OTHER_CFLAGS"]?.contains("-DFoo") == true)
                 #expect(buildRequest.parameters.overrides.synthesized?.table["OTHER_SWIFT_FLAGS"]?.contains("-Xcc -DFoo") == true)
+            }
+        }
+    }
+
+    @Test
+    func moduleCachePathCLIOverride() async throws {
+        try await withTemporaryDirectory { tempDir in
+            let moduleCachePath = tempDir.appending("shared-module-cache").pathString
+            try await withInstantiatedSwiftBuildSystem(
+                fromFixture: "PIFBuilder/Simple",
+                buildParameters: mockBuildParameters(
+                    destination: .host,
+                    toolchain: try UserToolchain.default,
+                    flags: .init(swiftCompilerFlags: [
+                        BuildFlag(value: "-module-cache-path", source: .commandLineOptions),
+                        BuildFlag(value: moduleCachePath, source: .commandLineOptions),
+                        BuildFlag(value: "-DFoo", source: .commandLineOptions),
+                    ]),
+                    buildSystemKind: .swiftbuild
+                ),
+            ) { swiftBuild, service, session, observabilityScope, buildParameters in
+                let buildRequest = try await swiftBuild.makeBuildRequest(
+                    service: service,
+                    session: session,
+                    configuredTargets: [],
+                    derivedDataPath: tempDir,
+                    symbolGraphOptions: nil,
+                    setToolchainSetting: false,
+                    shouldDisableSandbox: false,
+                )
+
+                let overrides = buildRequest.parameters.overrides.synthesized?.table
+                #expect(overrides?["MODULE_CACHE_DIR"] == moduleCachePath)
+                let otherSwiftFlags = try #require(overrides?["OTHER_SWIFT_FLAGS"])
+                #expect(!otherSwiftFlags.contains("-module-cache-path"))
+                #expect(otherSwiftFlags.contains("-DFoo"))
             }
         }
     }
@@ -541,6 +664,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    toolchain: try UserToolchain.default,
                     buildSystemKind: .swiftbuild,
                     triple: .x86_64MacOS,
                     shouldEnableDebuggingEntitlement: shouldEnableDebuggingEntitlement
@@ -579,6 +703,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    toolchain: try UserToolchain.default,
                     buildSystemKind: .swiftbuild,
                     debugInfoFormat: debugInfoFormat
                 ),
@@ -603,6 +728,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    toolchain: try UserToolchain.default,
                     buildSystemKind: .swiftbuild,
                     triple: .windows,
                     debugInfoFormat: .codeview
@@ -635,6 +761,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    toolchain: try UserToolchain.default,
                     buildSystemKind: .swiftbuild,
                     omitFramePointers: omitFramePointers
                 ),
@@ -659,6 +786,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    toolchain: try UserToolchain.default,
                     buildSystemKind: .swiftbuild,
                     omitFramePointers: nil
                 ),
@@ -692,6 +820,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    toolchain: try UserToolchain.default,
                     buildSystemKind: .swiftbuild,
                     debugInfoFormat: .dwarf,
                     shouldEnableDebuggingEntitlement: true,
@@ -750,6 +879,7 @@ struct SwiftBuildSystemTests {
                 fromFixture: "PIFBuilder/Simple",
                 buildParameters: mockBuildParameters(
                     destination: .host,
+                    toolchain: try UserToolchain.default,
                     flags: flags,
                     buildSystemKind: .swiftbuild,
                     debugInfoFormat: .dwarf,
@@ -827,6 +957,7 @@ struct SwiftBuildSystemTests {
             fromFixture: "PIFBuilder/Simple",
             buildParameters: mockBuildParameters(
                 destination: .host,
+                toolchain: try UserToolchain.default,
                 flags: flags,
                 buildSystemKind: .swiftbuild,
             ),
@@ -856,6 +987,7 @@ struct SwiftBuildSystemTests {
             fromFixture: "PIFBuilder/Simple",
             buildParameters: mockBuildParameters(
                 destination: .host,
+                toolchain: try UserToolchain.default,
                 buildSystemKind: .swiftbuild,
                 sdkRootOverride: sdkRoot,
             ),
@@ -871,5 +1003,188 @@ struct SwiftBuildSystemTests {
             let runDestination = try #require(buildSettings.activeRunDestination)
             #expect(runDestination.sdk == sdkRoot.pathString)
         }
+    }
+
+    @Test
+    func sdkRootOverrideIsIgnoredForBareMetalRunDestination() async throws {
+        let sdkRoot = AbsolutePath("/fake/sdk/root")
+        let triple = try Triple("armv7em-none-none-eabi")
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: mockBuildParameters(
+                destination: .target,
+                toolchain: try UserToolchain.default,
+                buildSystemKind: .swiftbuild,
+                triple: triple,
+                sdkRootOverride: sdkRoot,
+            ),
+        ) { swiftBuild, service, session, observabilityScope, buildParameters in
+            let buildSettings = try await swiftBuild.makeBuildParameters(
+                service: service,
+                session: session,
+                symbolGraphOptions: nil,
+                setToolchainSetting: false,
+                shouldDisableSandbox: false,
+            )
+
+            let runDestination = try #require(buildSettings.activeRunDestination)
+            let buildTargetInfo = try await session.buildTargetInfo(triple: triple.tripleString)
+            #expect(runDestination.sdk == buildTargetInfo.sdkName)
+        }
+    }
+
+    @Suite
+    struct AdHocEntitlementsTests {
+        private static let getTaskAllowKey = "com.apple.security.get-task-allow"
+        private static let applicationIdentifierKeys = [
+            "com.apple.application-identifier",
+            "application-identifier",
+        ]
+
+        @Test
+        func macOSSignatureAppliesOnlyGetTaskAllow() throws {
+            let (signed, simulated) = SwiftBuildSystemPlanningOperationDelegate.adHocSignedEntitlements(
+                sdkRoot: "macosx.sdk",
+                entitlementsDestination: "Signature",
+                shouldEnableDebuggingEntitlement: true
+            )
+
+            #expect(signed == [Self.getTaskAllowKey: .plBool(true)])
+            #expect(simulated.isEmpty)
+            for key in Self.applicationIdentifierKeys {
+                #expect(signed[key] == nil, "ad-hoc signature must not inject \(key)")
+            }
+        }
+
+        @Test
+        func macOSWithoutDebuggingEntitlementSignsNothing() throws {
+            let (signed, simulated) = SwiftBuildSystemPlanningOperationDelegate.adHocSignedEntitlements(
+                sdkRoot: "macosx.sdk",
+                entitlementsDestination: "Signature",
+                shouldEnableDebuggingEntitlement: false
+            )
+
+            #expect(signed.isEmpty)
+            #expect(simulated.isEmpty)
+        }
+
+        @Test
+        func simulatorAppliesGetTaskAllowToSimulatedEntitlements() throws {
+            let (signed, simulated) = SwiftBuildSystemPlanningOperationDelegate.adHocSignedEntitlements(
+                sdkRoot: "iphonesimulator.sdk",
+                entitlementsDestination: "__entitlements",
+                shouldEnableDebuggingEntitlement: true
+            )
+
+            #expect(signed.isEmpty)
+            #expect(simulated == [Self.getTaskAllowKey: .plBool(true)])
+            for key in Self.applicationIdentifierKeys {
+                #expect(simulated[key] == nil, "ad-hoc simulated entitlements must not inject \(key)")
+            }
+        }
+
+        @Test
+        func nonDarwinUsesUnprefixedGetTaskAllowKey() throws {
+            let (signed, _) = SwiftBuildSystemPlanningOperationDelegate.adHocSignedEntitlements(
+                sdkRoot: "linux",
+                entitlementsDestination: "Signature",
+                shouldEnableDebuggingEntitlement: true
+            )
+
+            #expect(signed == ["get-task-allow": .plBool(true)])
+        }
+    }
+}
+
+
+@Suite(
+    .tags(
+        .TestSize.small,
+    ),
+)
+struct BuildCacheSettingsTests {
+    @Test
+    func emptyConfigurationProducesNoSettings() {
+        #expect(BuildCacheConfiguration.none.constructBuildCacheSettingsOverrides(usingXcodeDeveloperDirectory: false).isEmpty)
+    }
+
+    @Test
+    func enablingCachingAlsoEnablesExplicitModulesAndPrefixMapping() {
+        let result = BuildCacheConfiguration(enabled: true)
+            .constructBuildCacheSettingsOverrides(usingXcodeDeveloperDirectory: false)
+        #expect(result["SWIFT_ENABLE_COMPILE_CACHE"] == "YES")
+        #expect(result["CLANG_ENABLE_COMPILE_CACHE"] == "YES")
+        // Build caching requires explicit modules, so they are turned on implicitly.
+        #expect(result["SWIFT_ENABLE_EXPLICIT_MODULES"] == "YES")
+        #expect(result["CLANG_ENABLE_EXPLICIT_MODULES"] == "YES")
+        // With no explicit preference, prefix mapping follows the caching state.
+        #expect(result["CLANG_ENABLE_PREFIX_MAPPING"] == "YES")
+        #expect(result["SWIFT_ENABLE_PREFIX_MAPPING"] == "YES")
+        #expect(result["CLANG_ENABLE_PROJECT_PREFIX_MAPPING"] == "YES")
+        #expect(result["SWIFT_ENABLE_PROJECT_PREFIX_MAPPING"] == "YES")
+        // No plugin path and not an Xcode developer directory, so the plugin isn't enabled.
+        #expect(result["COMPILATION_CACHE_ENABLE_PLUGIN"] == nil)
+    }
+
+    @Test
+    func disablingCachingSetsNoOverrides() throws {
+        let result = BuildCacheConfiguration(
+            enabled: false,
+            casPath: try AbsolutePath(validating: "/tmp/cache"),
+            sizeLimit: .size("10G"),
+            enableDiagnosticRemarks: true,
+            enablePrefixMapping: true
+        ).constructBuildCacheSettingsOverrides(usingXcodeDeveloperDirectory: true)
+        #expect(result.isEmpty)
+    }
+
+    @Test(arguments: [true, false])
+    func explicitPrefixMappingOverridesCachingDefault(prefixMapping: Bool) {
+        let expected = prefixMapping ? "YES" : "NO"
+        let result = BuildCacheConfiguration(enabled: true, enablePrefixMapping: prefixMapping)
+            .constructBuildCacheSettingsOverrides(usingXcodeDeveloperDirectory: false)
+        #expect(result["CLANG_ENABLE_PREFIX_MAPPING"] == expected)
+        #expect(result["SWIFT_ENABLE_PREFIX_MAPPING"] == expected)
+        #expect(result["CLANG_ENABLE_PROJECT_PREFIX_MAPPING"] == expected)
+        #expect(result["SWIFT_ENABLE_PROJECT_PREFIX_MAPPING"] == expected)
+    }
+
+    @Test
+    func absoluteSizeLimitMapsToLimitSize() {
+        let result = BuildCacheConfiguration(enabled: true, sizeLimit: .size("10G"))
+            .constructBuildCacheSettingsOverrides(usingXcodeDeveloperDirectory: false)
+        #expect(result["COMPILATION_CACHE_LIMIT_SIZE"] == "10G")
+        #expect(result["COMPILATION_CACHE_LIMIT_PERCENT"] == nil)
+    }
+
+    @Test
+    func percentSizeLimitMapsToLimitPercent() {
+        let result = BuildCacheConfiguration(enabled: true, sizeLimit: .percent(50))
+            .constructBuildCacheSettingsOverrides(usingXcodeDeveloperDirectory: false)
+        #expect(result["COMPILATION_CACHE_LIMIT_PERCENT"] == "50")
+        #expect(result["COMPILATION_CACHE_LIMIT_SIZE"] == nil)
+    }
+
+    @Test(arguments: [true, false])
+    func diagnosticRemarksMapToSetting(diagnosticRemarks: Bool) {
+        let result = BuildCacheConfiguration(enabled: true, enableDiagnosticRemarks: diagnosticRemarks)
+            .constructBuildCacheSettingsOverrides(usingXcodeDeveloperDirectory: false)
+        #expect(result["COMPILATION_CACHE_ENABLE_DIAGNOSTIC_REMARKS"] == (diagnosticRemarks ? "YES" : "NO"))
+    }
+
+    @Test
+    func pluginPathEnablesPlugin() throws {
+        let result = BuildCacheConfiguration(enabled: true, pluginPath: try AbsolutePath(validating: "/tmp/plugin"))
+            .constructBuildCacheSettingsOverrides(usingXcodeDeveloperDirectory: false)
+        #expect(result["COMPILATION_CACHE_PLUGIN_PATH"] == "/tmp/plugin")
+        #expect(result["COMPILATION_CACHE_ENABLE_PLUGIN"] == "YES")
+    }
+
+    @Test
+    func xcodeDeveloperDirectoryEnablesPlugin() {
+        let result = BuildCacheConfiguration(enabled: true)
+            .constructBuildCacheSettingsOverrides(usingXcodeDeveloperDirectory: true)
+        #expect(result["COMPILATION_CACHE_ENABLE_PLUGIN"] == "YES")
+        #expect(result["COMPILATION_CACHE_PLUGIN_PATH"] == nil)
     }
 }

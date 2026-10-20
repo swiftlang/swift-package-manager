@@ -55,14 +55,13 @@ private struct GitShellHelper {
             environment: environment,
             outputRedirection: outputRedirection
         )
-        let result: AsyncProcessResult
         do {
             guard let terminationKey = self.cancellator.register(process) else {
                 throw CancellationError() // terminating
             }
             defer { self.cancellator.deregister(terminationKey) }
             try process.launch()
-            result = try process.waitUntilExit()
+            let result = try process.waitUntilExit()
             guard result.exitStatus == .terminated(code: 0) else {
                 throw GitShellError(result: result)
             }
@@ -410,7 +409,7 @@ public struct GitRepositoryProvider: RepositoryProvider, Cancellable {
             // Set the original remote to the new clone.
             try clone.setURL(remote: origin, url: repository.location.gitURL)
             // FIXME: This is unfortunate that we have to fetch to update remote's data.
-            try clone.fetch()
+            try await clone.fetch()
         } else {
             // Clone using a shared object store with the canonical copy.
             //
@@ -737,6 +736,16 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     // MARK: Repository Interface
 
+    /// Runs blocking git work on a dedicated thread, off the concurrency pool.
+    private func runOnDedicatedThread<T: Sendable>(
+        _ name: String,
+        _ body: @Sendable @escaping () throws -> T
+    ) async throws -> T {
+        try await Task.detachNewThread(name: name) {
+            Result(catching: body)
+        }.get()
+    }
+
     /// Returns the tags present in repository.
     public func getTags() throws -> [String] {
         // Get the contents using `ls-tree`.
@@ -749,6 +758,12 @@ public final class GitRepository: Repository, WorkingCheckout {
                 )
                 return tagList.split(whereSeparator: { $0.isNewline }).map(String.init)
             }
+        }
+    }
+
+    public func getTags() async throws -> [String] {
+        try await runOnDedicatedThread("git-getTags") {
+            try self.getTags()
         }
     }
 
@@ -781,6 +796,12 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
     }
 
+    public func fetch(progress: FetchProgress.Handler? = nil) async throws {
+        try await runOnDedicatedThread("git-fetch") {
+            try self.fetch(progress: progress)
+        }
+    }
+
     public func hasUncommittedChanges() -> Bool {
         // Only a working repository can have changes.
         guard self.isWorkingRepo else { return false }
@@ -789,6 +810,12 @@ public final class GitRepository: Repository, WorkingCheckout {
                 return false
             }
             return !result.isEmpty
+        }
+    }
+
+    public func hasUncommittedChanges() async throws -> Bool {
+        try await runOnDedicatedThread("git-hasUncommittedChanges") {
+            self.hasUncommittedChanges()
         }
     }
 
@@ -826,6 +853,12 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
     }
 
+    public func getCurrentRevision() async throws -> Revision {
+        try await runOnDedicatedThread("git-getCurrentRevision") {
+            try self.getCurrentRevision()
+        }
+    }
+
     public func getCurrentTag() -> String? {
         self.lock.withLock {
             try? callGit(
@@ -834,6 +867,12 @@ public final class GitRepository: Repository, WorkingCheckout {
                 "--tags",
                 failureMessage: "Couldn’t get current tag"
             )
+        }
+    }
+
+    public func getCurrentTag() async throws -> String? {
+        try await runOnDedicatedThread("git-getCurrentTag") {
+            self.getCurrentTag()
         }
     }
 
@@ -896,6 +935,12 @@ public final class GitRepository: Repository, WorkingCheckout {
     /// Checks if the repository uses Git LFS by examining .gitattributes
     /// - Returns: true if the repository has LFS-tracked files
     func hasLFSTrackedFiles() throws -> Bool {
+        try self.lock.withLock {
+            try self.hasLFSTrackedFilesWithoutLock()
+        }
+    }
+
+    private func hasLFSTrackedFilesWithoutLock() throws -> Bool {
         try self.cachedHasLFS.memoize {
             do {
                 let output = try callGit(
@@ -917,6 +962,12 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
     }
 
+    func hasLFSTrackedFiles() async throws -> Bool {
+        try await runOnDedicatedThread("git-hasLFS") {
+            try self.hasLFSTrackedFiles()
+        }
+    }
+
     /// Clears the cached LFS detection result
     func clearLFSCache() {
         cachedHasLFS.clear()
@@ -930,7 +981,7 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     private func fetchLFSIfNecessaryWithoutLock() throws {
         guard !self.isWorkingRepo else { return }
-        guard try self.hasLFSTrackedFiles() else { return }
+        guard try self.hasLFSTrackedFilesWithoutLock() else { return }
         _ = try self.git.fetchLFS(at: self.path)
     }
 
@@ -946,7 +997,8 @@ public final class GitRepository: Repository, WorkingCheckout {
     private func pullLFSIfNecessary() throws {
         guard self.isWorkingRepo else { return }
 
-        if try self.hasLFSTrackedFiles() {
+        // Callers already hold `self.lock`
+        if try self.hasLFSTrackedFilesWithoutLock() {
             do {
                 try self.git.pullLFS(at: self.path)
             } catch let error as GitLFSError {
@@ -1127,6 +1179,7 @@ public final class GitRepository: Repository, WorkingCheckout {
             try self.cachedTrees.memoize(hashString) {
                 let output = try callGit(
                     "ls-tree",
+                    "-z",
                     hashString,
                     failureMessage: "Couldn’t read '\(hashString)'"
                 )
@@ -1141,6 +1194,7 @@ public final class GitRepository: Repository, WorkingCheckout {
             try self.cachedTrees.memoize(tag) {
                 let output = try callGit(
                     "ls-tree",
+                    "-z",
                     tag,
                     failureMessage: "Couldn’t read '\(tag)'"
                 )
@@ -1152,18 +1206,20 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     private func parseTree(_ text: String) throws -> [Tree.Entry] {
         var entries = [Tree.Entry]()
-        for line in text.components(separatedBy: "\n") {
-            // Ignore empty lines.
-            if line == "" { continue }
+        // With -z, Git returns raw file names and separates tree entries with NUL.
+        // File names can contain newlines, tabs, and characters that Git otherwise quotes.
+        for entry in text.components(separatedBy: "\0") {
+            // Ignore the empty component after the final NUL.
+            if entry == "" { continue }
 
-            // Each line in the response should match:
+            // Each entry in the response should match:
             //
             //   `mode type hash\tname`
             //
             // where `mode` is the 6-byte octal file mode, `type` is a 4-byte or 6-byte
             // type ("blob", "tree", "commit"), `hash` is the hash, and the remainder of
-            // the line is the file name.
-            let bytes = ByteString(encodingAsUTF8: line)
+            // the entry is the file name.
+            let bytes = ByteString(encodingAsUTF8: entry)
             let expectedBytesCount = 6 + 1 + 4 + 1 + 40 + 1
             guard bytes.count > expectedBytesCount,
                   bytes.contents[6] == UInt8(ascii: " "),
@@ -1172,7 +1228,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                   bytes.contents[secondSpace] == UInt8(ascii: " "),
                   bytes.contents[secondSpace + 1 + 40] == UInt8(ascii: "\t")
             else {
-                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(text)'")
+                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(entry)' in '\(text)'")
             }
 
             // Compute the mode.
@@ -1183,12 +1239,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                   let hash = Hash(asciiBytes: bytes.contents[(secondSpace + 1) ..< (secondSpace + 1 + 40)]),
                   let name = ByteString(bytes.contents[(secondSpace + 1 + 40 + 1) ..< bytes.count]).validDescription
             else {
-                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(text)'")
-            }
-
-            // FIXME: We do not handle de-quoting of names, currently.
-            if name.hasPrefix("\"") {
-                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(text)'")
+                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(entry)' in '\(text)'")
             }
 
             entries.append(Tree.Entry(location: .hash(hash), type: type, name: name))

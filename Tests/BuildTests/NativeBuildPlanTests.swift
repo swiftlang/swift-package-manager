@@ -37,7 +37,7 @@ struct NativeBuildPlanTests {
                 Manifest.createRootManifest(
                     displayName: "Pkg",
                     path: "/Pkg",
-                    toolsVersion: #require(ToolsVersion(string: "6.4.0", experimentalFeatures: [.experimentalMultiLang])),
+                    toolsVersion: #require(ToolsVersion(string: "6.5.0")),
                     targets: [
                         TargetDescription(name: "lib"),
                     ]

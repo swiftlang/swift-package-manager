@@ -21,4 +21,13 @@ public enum BuildConfiguration: String, CaseIterable, Encodable, Sendable {
             case .release: return "release"
         }
     }
+
+    package var buildFor: String {
+        switch self {
+        case .debug:
+            return "debugging"
+        case .release:
+            return "production"
+        }
+    }
 }

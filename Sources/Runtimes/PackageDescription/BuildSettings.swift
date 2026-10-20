@@ -289,6 +289,20 @@ public struct CSetting: Sendable {
         return CSetting(
             name: "disableWarning", value: [name], condition: condition)
     }
+
+    /// Apply default settings.
+    ///
+    /// - Since: First available in PackageDescription 6.5.
+    ///
+    /// This setting is a placeholder that will be substituted with any value set by `defaultCSettings`.
+    @available(_PackageDescription, introduced: 6.5)
+    public static var defaults: CSetting {
+        return CSetting(
+            name: "defaults",
+            value: ["placeholder"],
+            condition: nil
+        )
+    }
 }
 
 /// A CXX-language build setting.
@@ -444,6 +458,20 @@ public struct CXXSetting: Sendable {
     ) -> CXXSetting {
         return CXXSetting(
             name: "disableWarning", value: [name], condition: condition)
+    }
+
+    /// Apply default settings.
+    ///
+    /// - Since: First available in PackageDescription 6.5.
+    ///
+    /// This setting is a placeholder that will be substituted with any value set by `defaultCXXSettings`.
+    @available(_PackageDescription, introduced: 6.5)
+    public static var defaults: CXXSetting {
+        return CXXSetting(
+            name: "defaults",
+            value: ["placeholder"],
+            condition: nil
+        )
     }
 }
 
@@ -606,6 +634,34 @@ public struct SwiftSetting: Sendable {
           name: "interoperabilityMode", value: [mode.rawValue], condition: condition)
     }
 
+    /// The visibility of a bridging header's imported declarations.
+    @available(_PackageDescription, introduced: 6.5)
+    public enum BridgingHeaderVisibility: String {
+        /// Declarations imported via the bridging header may appear in the target's public API.
+        case `public`
+        /// Declarations imported via the bridging header may only be used internally.
+        case `internal`
+    }
+
+    /// Configures a bridging header for the target's Swift sources.
+    ///
+    /// A bridging header allows Swift code to import non-modular C/C++/Objective-C code.
+    ///
+    /// - Parameters:
+    ///   - path: The path of the bridging header, relative to the target's sources directory.
+    ///   - visibility: Whether declarations imported via the bridging header may appear in the
+    /// target's public API. Library targets may only use `.internal` visibility.
+    ///   - condition: A condition that restricts the application of the build setting.
+    @available(_PackageDescription, introduced: 6.5)
+    public static func bridgingHeader(
+      _ path: String,
+      visibility: BridgingHeaderVisibility,
+      _ condition: BuildSettingCondition? = nil
+    ) -> SwiftSetting {
+        return SwiftSetting(
+          name: "bridgingHeader", value: [path, visibility.rawValue], condition: condition)
+    }
+
     /// Defines a `-swift-version` to pass  to the
     /// corresponding build tool.
     ///
@@ -714,6 +770,20 @@ public struct SwiftSetting: Sendable {
         return SwiftSetting(
             name: "defaultIsolation", value: [isolationString], condition: condition)
     }
+
+    /// Apply default settings.
+    ///
+    /// - Since: First available in PackageDescription 6.5.
+    ///
+    /// This setting is a placeholder that will be substituted with any value set by `defaultSwiftSettings`.
+    @available(_PackageDescription, introduced: 6.5)
+    public static var defaults: SwiftSetting {
+        return SwiftSetting(
+            name: "defaults",
+            value: ["placeholder"],
+            condition: nil
+        )
+    }
 }
 
 /// A linker build setting.
@@ -777,5 +847,19 @@ public struct LinkerSetting: Sendable {
     @available(_PackageDescription, introduced: 5.0)
     public static func unsafeFlags(_ flags: [String], _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
         return LinkerSetting(name: "unsafeFlags", value: flags, condition: condition)
+    }
+
+    /// Apply default settings.
+    ///
+    /// - Since: First available in PackageDescription 6.5.
+    ///
+    /// This setting is a placeholder that will be substituted with any value set by `defaultLinkerSettings`.
+    @available(_PackageDescription, introduced: 6.5)
+    public static var defaults: LinkerSetting {
+        return LinkerSetting(
+            name: "defaults",
+            value: ["placeholder"],
+            condition: nil
+        )
     }
 }

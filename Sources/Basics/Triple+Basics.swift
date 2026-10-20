@@ -84,6 +84,14 @@ extension Triple {
             """
     }
 
+    public func unversionedTripleString() -> String {
+        return """
+            \(self.archName)-\
+            \(self.vendorName)-\
+            \(self.osNameUnversioned)
+            """
+    }
+
     public var tripleString: String {
         self.triple
     }

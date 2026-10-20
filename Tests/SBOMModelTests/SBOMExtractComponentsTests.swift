@@ -294,7 +294,7 @@ struct SBOMExtractComponentsTests {
         let rootPackage = try #require(graph.rootPackages.first)
         let rootPackageID = rootPackage.identity.description
 
-        let actualRevision = try spmRepo.getCurrentRevision().identifier
+        let actualRevision = try await spmRepo.getCurrentRevision().identifier
 
         let rootComponents = components.filter { component in
             component.id.value == rootPackageID || component.id.value.hasPrefix("\(rootPackageID):")

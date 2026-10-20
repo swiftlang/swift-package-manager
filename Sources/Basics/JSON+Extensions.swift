@@ -64,7 +64,31 @@ extension JSONEncoder {
 extension JSONDecoder {
     public func decode<T: Decodable>(path: AbsolutePath, fileSystem: FileSystem, as kind: T.Type) throws -> T {
         let data: Data = try fileSystem.readFileContents(path)
-        return try self.decode(kind, from: data)
+        do {
+            return try self.decode(kind, from: data)
+        } catch {
+            // The underlying error describes what is wrong with the contents, but not where those
+            // contents came from, which is usually the more useful half of the diagnosis.
+            throw FileDecodingError(path: path, underlyingError: error)
+        }
+    }
+}
+
+/// An error describing why the contents of a file could not be decoded.
+public struct FileDecodingError: Error, CustomStringConvertible {
+    /// The path of the file whose contents could not be decoded.
+    public let path: AbsolutePath
+
+    /// The error encountered while decoding the contents of the file.
+    public let underlyingError: Error
+
+    public init(path: AbsolutePath, underlyingError: Error) {
+        self.path = path
+        self.underlyingError = underlyingError
+    }
+
+    public var description: String {
+        "could not decode contents of '\(self.path)': \(self.underlyingError.interpolationDescription)"
     }
 }
 

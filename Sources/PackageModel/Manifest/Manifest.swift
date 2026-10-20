@@ -74,6 +74,9 @@ public final class Manifest: Sendable {
     /// The declared package dependencies.
     public let dependencies: [PackageDependency]
 
+    /// The defaults to be used when resolving settings for all targets.
+    public let defaultSettings: [TargetBuildSettingDescription.Setting]?
+
     /// The targets declared in the manifest.
     public let targets: [TargetDescription]
 
@@ -105,7 +108,14 @@ public final class Manifest: Sendable {
     private let _requiredTargets = ThreadSafeKeyValueStore<ProductFilter, [TargetDescription]>()
 
     /// Dependencies required for building particular product filters.
-    private let _requiredDependencies = ThreadSafeKeyValueStore<ProductFilter, [PackageDependency]>()
+    /// Keyed by both `ProductFilter` and `EnabledTraits` since which dependencies are required
+    /// can depend on which traits are enabled (trait-guarded dependencies).
+    private let _requiredDependencies = ThreadSafeKeyValueStore<RequiredDependenciesCacheKey, [PackageDependency]>()
+
+    private struct RequiredDependenciesCacheKey: Hashable, Sendable {
+        let productFilter: ProductFilter
+        let enabledTraits: EnabledTraits
+    }
 
     public let pruneDependencies: Bool
 
@@ -116,6 +126,7 @@ public final class Manifest: Sendable {
         packageKind: PackageReference.Kind,
         packageLocation: String,
         defaultLocalization: String?,
+        defaultSettings: [TargetBuildSettingDescription.Setting]? = nil,
         platforms: [PlatformDescription],
         version: TSCUtility.Version?,
         revision: String?,
@@ -137,6 +148,7 @@ public final class Manifest: Sendable {
         self.packageKind = packageKind
         self.packageLocation = packageLocation
         self.defaultLocalization = defaultLocalization
+        self.defaultSettings = defaultSettings
         self.platforms = platforms
         self.version = version
         self.revision = revision
@@ -223,7 +235,7 @@ public final class Manifest: Sendable {
             return deps
         }
 
-        if let dependencies = self._requiredDependencies[.nothing] {
+        if let dependencies = self._requiredDependencies[.init(productFilter: .nothing, enabledTraits: enabledTraits)] {
             let deps = dependencies.filter {
                 var result = false
                 for guardedTargetDeps in traitGuardedDeps[$0.identity.description] ?? [] {
@@ -283,7 +295,8 @@ public final class Manifest: Sendable {
             return dependencies
         }
         #else
-
+        // use .nothing as productFilter for cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false.
+        let requiredDependenciesCacheKey = RequiredDependenciesCacheKey(productFilter: .nothing, enabledTraits: enabledTraits)
         guard self.toolsVersion >= .v5_2 && !self.packageKind.isRoot else {
             var dependencies = self.dependencies
                 dependencies = try dependencies.filter({
@@ -293,8 +306,7 @@ public final class Manifest: Sendable {
             return dependencies
         }
 
-        // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
-        if var dependencies = self._requiredDependencies[.nothing] {
+        if var dependencies = self._requiredDependencies[requiredDependenciesCacheKey] {
                 dependencies = try dependencies.filter({
                     return try self.isPackageDependencyUsed($0, enabledTraits: enabledTraits)
                 })
@@ -321,8 +333,7 @@ public final class Manifest: Sendable {
             }
 
             let dependencies = self.dependencies.filter { requiredDependencies.contains($0.identity) }
-            // using .nothing as cache key while ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION is false
-            self._requiredDependencies[.nothing] = dependencies
+            self._requiredDependencies[requiredDependenciesCacheKey] = dependencies
             return dependencies
         }
         #endif
@@ -633,7 +644,7 @@ extension Manifest: Encodable {
         case name, path, url, version, targetMap, toolsVersion,
              pkgConfig, providers, cLanguageStandard, cxxLanguageStandard, swiftLanguageVersions,
              dependencies, products, targets, traits, platforms, packageKind, revision,
-             defaultLocalization
+             defaultLocalization, defaultSettings
     }
 
     /// Coding user info key for dump-package command.
@@ -656,6 +667,7 @@ extension Manifest: Encodable {
 
         try container.encode(self.toolsVersion, forKey: .toolsVersion)
         try container.encode(self.defaultLocalization, forKey: .defaultLocalization)
+        try container.encode(self.defaultSettings, forKey: .defaultSettings)
         try container.encode(self.pkgConfig, forKey: .pkgConfig)
         try container.encode(self.providers, forKey: .providers)
         try container.encode(self.cLanguageStandard, forKey: .cLanguageStandard)

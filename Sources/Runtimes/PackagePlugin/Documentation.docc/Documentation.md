@@ -1,5 +1,9 @@
 # ``PackagePlugin``
 
+@Metadata {
+    @TitleHeading("Tool")
+}
+
 Create plugins that extend the Swift Package Manager.
 
 <!-- swift package --disable-sandbox preview-documentation --target PackagePlugin -->

@@ -58,19 +58,16 @@ if(SwiftPM_ENABLE_RUNTIME)
   # This is unnecessary with the split runtime build, but is left here to
   # minimize disruption.
   set_target_properties(CompilerPluginSupport PROPERTIES
-    Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/pm/ManifestAPI
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/ManifestAPI
     ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/ManifestAPI
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/ManifestAPI
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/ManifestAPI)
   set_target_properties(PackageDescription PROPERTIES
-    Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/pm/ManifestAPI
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/ManifestAPI
     ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/ManifestAPI
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/ManifestAPI
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/ManifestAPI)
   set_target_properties(PackagePlugin PROPERTIES
-    Swift_MODULE_DIRECTORY ${CMAKE_BINARY_DIR}/pm/PluginAPI
     OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/PluginAPI
     ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/PluginAPI
     LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/pm/PluginAPI

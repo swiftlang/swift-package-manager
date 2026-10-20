@@ -14,8 +14,9 @@ import _Concurrency
 import ArgumentParser
 import Basics
 import Dispatch
-import class Foundation.NSLock
 import class Foundation.ProcessInfo
+import struct Foundation.URL
+import struct Foundation.URLResourceValues
 import PackageFingerprint
 import PackageGraph
 import PackageLoading
@@ -96,7 +97,6 @@ public protocol _SwiftCommand {
     var toolWorkspaceConfiguration: ToolWorkspaceConfiguration { get }
     var workspaceDelegateProvider: WorkspaceDelegateProvider { get }
     var workspaceLoaderProvider: WorkspaceLoaderProvider { get }
-    func buildSystemProvider(_ swiftCommandState: SwiftCommandState) throws -> BuildSystemProvider
 
     // If a packagePath is specificed, this indicates that the command allows
     // creating the directory if it doesn't exist.
@@ -140,7 +140,6 @@ extension SwiftCommand {
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
         swiftCommandState.setNeedsLocking()
 
-        swiftCommandState.buildSystemProvider = try buildSystemProvider(swiftCommandState)
         var toolError: Error? = .none
         do {
             try self.run(swiftCommandState)
@@ -181,12 +180,31 @@ package func createCacheDirFile(
             #.   http://www.brynosaurus.com/cachedir/
             """
         try fileSystem.createDirectory(path.parentDirectory, recursive: true)
+        _ = excludeFromBackups(directory: directory)
         try fileSystem.writeFileContents(path, string: contents)
         return path
     } catch {
         // Don't error out if we fail to create the CACHEDIR.TAG file, as this is not critical to the functioning of the tool.
         return nil
     }
+}
+
+/// Marks a directory as excluded from backups, for example for Time Machine.
+package func excludeFromBackups(directory: AbsolutePath) -> Bool {
+    #if os(macOS)
+    do {
+        var url = directory.asURL
+        var resourceValues = URLResourceValues()
+        resourceValues.isExcludedFromBackup = true
+        try url.setResourceValues(resourceValues)
+        return true
+    } catch {
+        // Don't error out if we fail to create the file, as this is not critical to the functioning of the tool.
+        return false
+    }
+    #else
+    return false
+    #endif
 }
 
 package func createBuildSystemFile(
@@ -240,7 +258,6 @@ extension AsyncSwiftCommand {
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
         swiftCommandState.setNeedsLocking()
 
-        swiftCommandState.buildSystemProvider = try buildSystemProvider(swiftCommandState)
         var toolError: Error? = .none
         do {
             try await self.run(swiftCommandState)
@@ -359,8 +376,6 @@ public final class SwiftCommandState {
 
     private let toolWorkspaceConfiguration: ToolWorkspaceConfiguration
 
-    fileprivate var buildSystemProvider: BuildSystemProvider?
-
     private let environment: Environment
 
     private let hostTriple: Basics.Triple?
@@ -397,7 +412,7 @@ public final class SwiftCommandState {
     }
 
     // marked internal for testing
-    init(
+    package init(
         outputStream: OutputByteStream,
         options: GlobalOptions,
         toolWorkspaceConfiguration: ToolWorkspaceConfiguration,
@@ -551,14 +566,14 @@ public final class SwiftCommandState {
             // they're being captured in an event trace file.
             if !options.logging.verbose && !options.logging.veryVerbose && options.build.traceEventsFilePath == nil {
                 observabilityScope.emit(
-                    warning: "'--experimental-task-backtraces' requires '--verbose', '--very-verbose', or '--experimental-trace-events-file'"
+                    warning: "'--enable-task-backtraces' requires '--verbose', '--very-verbose', or '--trace-events-file'"
                 )
             }
 
             // Task backtraces are only supported by the swiftbuild build system
             if options.build.buildSystem != .swiftbuild {
                 observabilityScope.emit(
-                    warning: "'--experimental-task-backtraces' is only supported when using '--build-system swiftbuild'"
+                    warning: "'--enable-task-backtraces' is only supported when using '--build-system swiftbuild'"
                 )
             }
         }
@@ -566,13 +581,13 @@ public final class SwiftCommandState {
         if options.build.traceEventsFilePath != nil {
             if options.build.buildSystem != .swiftbuild {
                 observabilityScope.emit(
-                    warning: "'--experimental-trace-events-file' is only supported when using '--build-system swiftbuild'"
+                    warning: "'--trace-events-file' is only supported when using '--build-system swiftbuild'"
                 )
             }
         }
     }
 
-    func waitForObservabilityEvents(timeout: DispatchTime) {
+    package func waitForObservabilityEvents(timeout: DispatchTime) {
         self.observabilityHandler.wait(timeout: timeout)
     }
 
@@ -601,6 +616,8 @@ public final class SwiftCommandState {
             self.observabilityHandler.progress,
             self.observabilityHandler.prompt
         )
+
+        let targetTriple = try self.getTargetToolchain().targetTriple
         let workspace = try Workspace(
             fileSystem: self.fileSystem,
             location: .init(
@@ -620,7 +637,7 @@ public final class SwiftCommandState {
                 prefetchBasedOnResolvedFile: options.resolver.shouldEnableResolverPrefetching,
                 shouldCreateMultipleTestProducts: toolWorkspaceConfiguration.wantsMultipleTestProducts || options.build.buildSystem.shouldCreateMultipleTestProducts,
                 createREPLProduct: toolWorkspaceConfiguration.wantsREPLProduct,
-                additionalFileRules: options.build.buildSystem.additionalFileRules,
+                additionalFileRules: options.build.buildSystem.additionalFileRules(targetTriple: targetTriple),
                 sharedDependenciesCacheEnabled: self.options.caching.useDependenciesCache,
                 fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,
                 signingEntityCheckingMode: self.options.security.signingEntityCheckingMode,
@@ -783,6 +800,41 @@ public final class SwiftCommandState {
         }
     }
 
+    /// The default on-disk location for the build cache, used when caching
+    /// is enabled but no explicit cache path is configured.
+    public var defaultBuildCacheDirectory: AbsolutePath {
+        self.sharedCacheDirectory.appending("build-cache")
+    }
+
+    /// Resolve the effective build cache configuration by merging, in
+    /// decreasing order of precedence: command-line flags, the local (per
+    /// package) configuration, and the shared (global) configuration.
+    public func resolveBuildCacheConfiguration() throws -> BuildCacheConfiguration {
+        try self._buildCacheConfiguration.get()
+    }
+
+    private lazy var _buildCacheConfiguration: Result<BuildCacheConfiguration, Swift.Error> = Result(catching: {
+        let cliConfiguration = try self.options.buildCaching.resolved()
+
+        let localBuildCacheFile = (try? self.getLocalConfigurationDirectory())
+            .map { Workspace.DefaultLocations.buildCacheConfigurationFile(at: $0) }
+
+        let configuration = try Workspace.Configuration.BuildCache(
+            fileSystem: self.fileSystem,
+            localBuildCacheFile: localBuildCacheFile,
+            sharedBuildCacheFile: Workspace.DefaultLocations
+                .buildCacheConfigurationFile(at: self.sharedConfigurationDirectory)
+        )
+
+        var resolved = cliConfiguration.merging(over: configuration.configuration)
+
+        if resolved.enabled == true, resolved.casPath == nil {
+            resolved.casPath = self.defaultBuildCacheDirectory
+        }
+
+        return resolved
+    })
+
     public func getAuthorizationProvider() throws -> AuthorizationProvider? {
         var authorization = Workspace.Configuration.Authorization.default
         if !self.options.security.netrc {
@@ -803,7 +855,9 @@ public final class SwiftCommandState {
         )
     }
 
-    public func getRegistryAuthorizationProvider() throws -> AuthorizationProvider? {
+    public func getRegistryAuthorizationProvider(
+        additionalRegistryURLs: [URL] = []
+    ) throws -> AuthorizationProvider? {
         var authorization = Workspace.Configuration.Authorization.default
         if let configuredPath = options.security.netrcFilePath {
             authorization.netrc = .custom(configuredPath)
@@ -818,8 +872,21 @@ public final class SwiftCommandState {
 
         return try authorization.makeRegistryAuthorizationProvider(
             fileSystem: self.fileSystem,
-            observabilityScope: self.observabilityScope
+            observabilityScope: self.observabilityScope,
+            registryURLs: { try self.configuredRegistryURLs() + additionalRegistryURLs }
         )
+    }
+
+    private func configuredRegistryURLs() throws -> [URL] {
+        let registries = try Workspace.Configuration.Registries(
+            fileSystem: self.fileSystem,
+            localRegistriesFile: Workspace.DefaultLocations
+                .registriesConfigurationFile(at: self.getLocalConfigurationDirectory()),
+            sharedRegistriesFile: Workspace.DefaultLocations
+                .registriesConfigurationFile(at: self.sharedConfigurationDirectory)
+        ).configuration
+
+        return registries.registryURLs + [self.options.resolver.defaultRegistryURL].compactMap { $0 }
     }
 
     /// Resolve the dependencies.
@@ -863,11 +930,13 @@ public final class SwiftCommandState {
     /// - Parameters:
     ///   - explicitProduct: The product specified on the command line to a “swift run” or “swift build” command. This
     /// allows executables from dependencies to be run directly without having to hook them up to any particular target.
+    ///   - exitOnError: Whether loading errors should cause this method to throw a failure exit code. Defaults to `true`.
     @discardableResult
     package func loadPackageGraph(
         explicitProduct: String? = nil,
         enableAllTraits: Bool = false,
-        testEntryPointPath: AbsolutePath? = nil
+        testEntryPointPath: AbsolutePath? = nil,
+        exitOnError: Bool = true
     ) async throws -> ModulesGraph {
         do {
             let workspace = try getActiveWorkspace(enableAllTraits: enableAllTraits)
@@ -889,7 +958,7 @@ public final class SwiftCommandState {
 
             // Throw if there were errors when loading the graph.
             // The actual errors will be printed before exiting.
-            guard !packageGraphObservabilityScope.errorsReported else {
+            guard !exitOnError || !packageGraphObservabilityScope.errorsReported else {
                 throw ExitCode.failure
             }
             return graph
@@ -992,9 +1061,7 @@ public final class SwiftCommandState {
             self.observabilityScope.emit(warning: "`--use-integrated-swift-driver` option is deprecated as the feature is not fully functional.")
         }
 
-        guard let buildSystemProvider else {
-            fatalError("build system provider not initialized")
-        }
+        let buildSystemProvider = self.defaultBuildSystemProvider
         var productsParameters = try productsBuildParameters ?? self.productsBuildParameters
         productsParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
         let buildSystem = try await buildSystemProvider.createBuildSystem(
@@ -1021,6 +1088,23 @@ public final class SwiftCommandState {
     when building on macOS.
     """
 
+    package func computeSDKRootOverride() -> AbsolutePath? {
+        let sdkRootOverride = self.options.build.customCompileSDK
+            ?? self.environment["SDKROOT"].flatMap { try? AbsolutePath(validating: $0) }
+        guard let sdkRootOverride else {
+            return nil
+        }
+        if let swiftSDKSelector = self.options.build.swiftSDKSelector {
+            let source = self.options.build.customCompileSDK != nil
+                ? "'--sdk'"
+                : "the 'SDKROOT' environment variable"
+            self.observabilityScope.emit(warning: "ignoring the SDK '\(sdkRootOverride)' specified using \(source) because the Swift SDK '\(swiftSDKSelector)' was selected with '--swift-sdk'")
+            return nil
+        } else {
+            return sdkRootOverride
+        }
+    }
+
     private func _buildParams(
         toolchain: UserToolchain,
         destination: BuildParameters.Destination,
@@ -1043,13 +1127,25 @@ public final class SwiftCommandState {
             case (true, true): .noLazy
             }
 
+        let buildCaching = try self.resolveBuildCacheConfiguration()
+        // Build caching is only honored by the swiftbuild build system. Warn
+        // once (for the target destination) if it is requested with another one.
+        if destination == .target,
+           self.options.build.buildSystem != .swiftbuild,
+           !buildCaching.isEmpty
+        {
+            self.observabilityScope.emit(
+                warning: "build caching is only supported by the 'swiftbuild' build system and will be ignored"
+            )
+        }
+
         return try BuildParameters(
             destination: destination,
             dataPath: dataPath,
             configuration: self.options.build.configuration ?? self.preferredBuildConfiguration,
             toolchain: toolchain,
             triple: triple,
-            sdkRootOverride: self.options.build.customCompileSDK ?? self.environment["SDKROOT"].flatMap({ try? AbsolutePath(validating: $0) }),
+            sdkRootOverride: self.computeSDKRootOverride(),
             flags: options.build.buildFlags,
             buildSystemKind: options.build.buildSystem,
             pkgConfigDirectories: options.locations.pkgConfigDirectories,
@@ -1108,6 +1204,7 @@ public final class SwiftCommandState {
             ),
             stripProducts: self.options.build.stripProducts,
             shouldPreserveSymlinks: options.locations.skipResolvingPackagePaths,
+            buildCaching: buildCaching,
         )
     }
 
@@ -1345,12 +1442,12 @@ extension BuildSystemProvider.Kind {
         }
     }
 
-    fileprivate var additionalFileRules: [FileRuleDescription] {
+    fileprivate func additionalFileRules(targetTriple: Triple) -> [FileRuleDescription] {
         switch self {
         case .xcode:
             FileRuleDescription.xcbuildFileTypes
         case .swiftbuild:
-            FileRuleDescription.swiftBuildFileTypes
+            FileRuleDescription.swiftBuildFileTypes(targetTriple: targetTriple)
         case .native:
             FileRuleDescription.swiftpmFileTypes
         }

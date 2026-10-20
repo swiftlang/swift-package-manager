@@ -14,11 +14,10 @@ import _Concurrency
 import Dispatch
 import struct Foundation.Data
 import struct Foundation.Date
-import class Foundation.NSLock
 import class Foundation.OperationQueue
-import func Foundation.pow
 import struct Foundation.URL
 import struct Foundation.UUID
+import Synchronization
 
 // MARK: - LegacyHTTPClient
 
@@ -49,8 +48,7 @@ public final class LegacyHTTPClient: Cancellable {
     private var outstandingRequests = ThreadSafeKeyValueStore<UUID, OutstandingRequest>()
 
     // static to share across instances of the http client
-    private static let hostsErrorsLock = NSLock()
-    private static var hostsErrors = [String: [Date]]()
+    private static let hostsErrors = Mutex<[String: [Date]]>([:])
 
     public init(configuration: LegacyHTTPClientConfiguration = .init(), handler: Handler? = nil) {
         self.configuration = configuration
@@ -206,36 +204,35 @@ public final class LegacyHTTPClient: Cancellable {
                     try progress?(received, expected)
                 },
                 { result in
+                    // record host errors for circuit breaker
+                    self.recordErrorIfNecessary(outcome: result, request: request)
+                    // handle retry strategy
+                    if let retryDelay = request.options.retryStrategy?.retryDelay(
+                        after: result,
+                        requestNumber: requestNumber
+                    ) {
+                        observabilityScope?.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
+                        // free concurrency control semaphore and outstanding request,
+                        // since we re-submitting the request with the original completion handler
+                        // using the wrapped completion handler may lead to starving the max concurrent requests
+                        self.concurrencySemaphore.signal()
+                        self.outstandingRequests[requestKey] = nil
+                        // TODO: dedicated retry queue?
+                        return self.configuration.callbackQueue.asyncAfter(deadline: .now() + retryDelay) {
+                            self._execute(
+                                request: request,
+                                requestNumber: requestNumber + 1,
+                                observabilityScope: observabilityScope,
+                                progress: progress,
+                                completion: originalCompletion
+                            )
+                        }
+                    }
                     // handle result
                     switch result {
                     case .failure(let error):
                         completion(.failure(error))
                     case .success(let response):
-                        // record host errors for circuit breaker
-                        self.recordErrorIfNecessary(response: response, request: request)
-                        // handle retry strategy
-                        if let retryDelay = self.shouldRetry(
-                            response: response,
-                            request: request,
-                            requestNumber: requestNumber
-                        ) {
-                            observabilityScope?.emit(warning: "\(request.url) failed, retrying in \(retryDelay)")
-                            // free concurrency control semaphore and outstanding request,
-                            // since we re-submitting the request with the original completion handler
-                            // using the wrapped completion handler may lead to starving the max concurrent requests
-                            self.concurrencySemaphore.signal()
-                            self.outstandingRequests[requestKey] = nil
-                            // TODO: dedicated retry queue?
-                            return self.configuration.callbackQueue.asyncAfter(deadline: .now() + retryDelay) {
-                                self._execute(
-                                    request: request,
-                                    requestNumber: requestNumber + 1,
-                                    observabilityScope: observabilityScope,
-                                    progress: progress,
-                                    completion: originalCompletion
-                                )
-                            }
-                        }
                         // check for valid response codes
                         if let validResponseCodes = request.options.validResponseCodes,
                            !validResponseCodes.contains(response.statusCode)
@@ -249,25 +246,8 @@ public final class LegacyHTTPClient: Cancellable {
         }
     }
 
-    private func shouldRetry(response: Response, request: Request, requestNumber: Int) -> DispatchTimeInterval? {
-        guard let strategy = request.options.retryStrategy, response.statusCode >= 500 else {
-            return .none
-        }
-
-        switch strategy {
-        case .exponentialBackoff(let maxAttempts, let delay):
-            guard requestNumber < maxAttempts - 1 else {
-                return .none
-            }
-            let exponential = Int(min(pow(2.0, Double(requestNumber)), Double(Int.max)))
-            let delayMilli = exponential.multipliedReportingOverflow(by: delay.milliseconds() ?? 0).partialValue
-            let jitterMilli = Int.random(in: 1 ... 10)
-            return .milliseconds(delayMilli + jitterMilli)
-        }
-    }
-
-    private func recordErrorIfNecessary(response: Response, request: Request) {
-        guard let strategy = request.options.circuitBreakerStrategy, response.statusCode >= 500 else {
+    private func recordErrorIfNecessary(outcome: Result<Response, Error>, request: Request) {
+        guard let strategy = request.options.circuitBreakerStrategy, outcome.isHostError else {
             return
         }
 
@@ -276,11 +256,11 @@ public final class LegacyHTTPClient: Cancellable {
             guard let host = request.url.host else {
                 return
             }
-            Self.hostsErrorsLock.withLock {
+            Self.hostsErrors.withLock { hostsErrors in
                 // Avoid copy-on-write: remove entry from dictionary before mutating
-                var errors = Self.hostsErrors.removeValue(forKey: host) ?? []
+                var errors = hostsErrors.removeValue(forKey: host) ?? []
                 errors.append(Date())
-                Self.hostsErrors[host] = errors
+                hostsErrors[host] = errors
             }
         }
     }
@@ -292,17 +272,20 @@ public final class LegacyHTTPClient: Cancellable {
 
         switch strategy {
         case .hostErrors(let maxErrors, let age):
-            if let host = request.url.host, let errors = (Self.hostsErrorsLock.withLock { Self.hostsErrors[host] }) {
-                if errors.count >= maxErrors, let lastError = errors.last, let age = age.timeInterval() {
-                    return Date().timeIntervalSince(lastError) <= age
-                } else if errors.count >= maxErrors {
-                    // reset aged errors
-                    Self.hostsErrorsLock.withLock {
-                        Self.hostsErrors[host] = nil
-                    }
-                }
+            guard let host = request.url.host else {
+                return false
             }
-            return false
+            return Self.hostsErrors.withLock { hostsErrors in
+                guard let errors = hostsErrors[host], errors.count >= maxErrors else {
+                    return false
+                }
+                if let lastError = errors.last, let age = age.timeInterval() {
+                    return Date().timeIntervalSince(lastError) <= age
+                }
+                // reset aged errors
+                hostsErrors[host] = nil
+                return false
+            }
         }
     }
 }
@@ -420,7 +403,7 @@ public struct LegacyHTTPClientConfiguration {
         self.requestHeaders = .none
         self.requestTimeout = .none
         self.authorizationProvider = .none
-        self.retryStrategy = .none
+        self.retryStrategy = .default
         self.circuitBreakerStrategy = .none
         self.maxConcurrentRequests = .none
         self.callbackQueue = .sharedConcurrent

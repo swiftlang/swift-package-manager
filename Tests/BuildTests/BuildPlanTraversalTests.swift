@@ -282,7 +282,7 @@ struct BuildPlanTraversalTests {
         #expect(dependencies.count == 9)
 
         struct ModuleResult: Hashable {
-            let module: ResolvedModule
+            let module: ResolvedModule.ID
             let destination: Dest
         }
 
@@ -291,7 +291,7 @@ struct BuildPlanTraversalTests {
             if case .module(let module, let description) = dependency {
                 #expect(description != nil)
                 #expect(description!.destination == .host)
-                #expect(uniqueModules.insert(.init(module: module, destination: description!.destination))
+                #expect(uniqueModules.insert(.init(module: module.id, destination: description!.destination))
                     .inserted)
             }
         }

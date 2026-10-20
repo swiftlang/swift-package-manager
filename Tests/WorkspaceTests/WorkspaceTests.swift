@@ -8066,7 +8066,7 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient { request, _ in
+        let httpClient = HTTPClient(configuration: .init(retryStrategy: .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(1)))) { request, _ in
             guard case .download(let fileSystem, let destination) = request.kind else {
                 throw StringError("invalid request \(request.kind)")
             }
@@ -8126,6 +8126,12 @@ final class WorkspaceTests: XCTestCase {
 
         await workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
+                for _ in 0 ..< 2 {
+                    result.checkUnordered(
+                        diagnostic: .contains("https://a.com/a1.zip failed, retrying in"),
+                        severity: .warning
+                    )
+                }
                 result.checkUnordered(
                     diagnostic: .contains(
                         "failed downloading 'https://a.com/a1.zip' which is required by binary target 'A1': badResponseStatusCode(500)"
@@ -10482,7 +10488,7 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         // returns a dummy files for the requested artifact
-        let httpClient = HTTPClient { _, _ in
+        let httpClient = HTTPClient(configuration: .init(retryStrategy: .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(1)))) { _, _ in
             .serverError()
         }
 
@@ -10509,6 +10515,12 @@ final class WorkspaceTests: XCTestCase {
 
         await workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
+                for _ in 0 ..< 2 {
+                    result.check(
+                        diagnostic: .contains("https://a.com/a.artifactbundleindex failed, retrying in"),
+                        severity: .warning
+                    )
+                }
                 result.check(
                     diagnostic: .contains(
                         "failed retrieving 'https://a.com/a.artifactbundleindex': badResponseStatusCode(500)"
@@ -16241,6 +16253,104 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testCustomPackageContainerProviderWithMultipleTargets() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        // The contents of a package provided by a custom container live in the file system vended by that
+        // container, and not in the one backing the rest of the workspace.
+        let customFS = InMemoryFileSystem()
+        // write a manifest
+        try customFS.writeFileContents(.root.appending(component: Manifest.filename), bytes: "")
+        try ToolsVersionSpecificationWriter.rewriteSpecification(
+            manifestDirectory: .root,
+            toolsVersion: .current,
+            fileSystem: customFS
+        )
+        // Write the sources of more than one target. A package with a single target may claim the whole
+        // predefined sources directory, so several targets are needed in order for each of them to have
+        // to be located individually.
+        let sourcesDir = AbsolutePath("/Sources")
+        for target in ["Baz", "Qux"] {
+            let targetDir = sourcesDir.appending(target)
+            try customFS.createDirectory(targetDir, recursive: true)
+            try customFS.writeFileContents(targetDir.appending("file.swift"), bytes: "")
+        }
+
+        let bazURL = SourceControlURL("https://example.com/baz")
+        let bazPackageReference = PackageReference(
+            identity: PackageIdentity(url: bazURL),
+            kind: .remoteSourceControl(bazURL)
+        )
+        let bazContainer = MockPackageContainer(
+            package: bazPackageReference,
+            dependencies: ["1.0.0": []],
+            fileSystem: customFS,
+            customRetrievalPath: .root
+        )
+
+        let fooPath = sandbox.appending("Foo")
+        let fooPackageReference = PackageReference(identity: PackageIdentity(path: fooPath), kind: .root(fooPath))
+        let fooContainer = MockPackageContainer(package: fooPackageReference)
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Foo",
+                    targets: [
+                        MockTarget(name: "Foo", dependencies: [.product(name: "Baz", package: "baz")]),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: bazURL, requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Baz",
+                    url: bazURL.absoluteString,
+                    targets: [
+                        MockTarget(name: "Baz", dependencies: ["Qux"]),
+                        MockTarget(name: "Qux"),
+                    ],
+                    products: [
+                        MockProduct(name: "Baz", modules: ["Baz"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ],
+            customPackageContainerProvider: MockPackageContainerProvider(containers: [fooContainer, bazContainer])
+        )
+
+        // Remove the sources from the workspace's own file system, so that they are only reachable
+        // through the file system vended by the custom container. The mock workspace materializes the
+        // contents of every package it is given, but a package provided by a custom container is not
+        // expected to be present on the file system backing the workspace.
+        try fs.removeFileTree(sourcesDir)
+
+        let deps: [MockDependency] = [
+            .sourceControl(url: bazURL, requirement: .exact("1.0.0")),
+        ]
+        try await workspace.checkPackageGraph(roots: ["Foo"], deps: deps) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Foo")
+                result.check(packages: "Baz", "Foo")
+                result.check(modules: "Baz", "Foo", "Qux")
+                result.checkTarget("Foo") { result in result.check(dependencies: "Baz") }
+                result.checkTarget("Baz") { result in result.check(dependencies: "Qux") }
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "baz", at: .custom(Version(1, 0, 0), .root))
+        }
+    }
+
     func testRegistryMissingConfigurationErrors() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
@@ -16694,7 +16804,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: .regex(
-                        "failed extracting '.*[\\\\/]registry[\\\\/]downloads[\\\\/]org[\\\\/]foo[\\\\/]1.0.0.zip' to '.*[\\\\/]registry[\\\\/]downloads[\\\\/]org[\\\\/]foo[\\\\/]1.0.0': boom"
+                        "failed extracting '.*[\\\\/]registry[\\\\/]downloads[\\\\/][^\\\\/]+[\\\\/]org[\\\\/]foo[\\\\/]1.0.0.zip' to '.*[\\\\/]registry[\\\\/]downloads[\\\\/][^\\\\/]+[\\\\/]org[\\\\/]foo[\\\\/]1.0.0': boom"
                     ),
                     severity: .error
                 )
@@ -16749,7 +16859,9 @@ final class WorkspaceTests: XCTestCase {
         // for mock manifest loader to work with an actual registry download
         // we populate the mock manifest with a pointer to the correct download location
         let defaultLocations = try Workspace.Location(forRootPackage: sandbox, fileSystem: fs)
-        let packagePath = defaultLocations.registryDownloadDirectory.appending(components: ["org", "foo", "1.5.1"])
+        let packagePath = defaultLocations.registryDownloadDirectory
+            .appending(component: Registry(url: registryURL, supportsAvailability: false).storageKey)
+            .appending(components: ["org", "foo", "1.5.1"])
         workspace.manifestLoader.manifests[.init(url: "org.foo", version: "1.5.1")] =
             try Manifest.createManifest(
                 displayName: "Foo",
@@ -17739,7 +17851,7 @@ final class WorkspaceTests: XCTestCase {
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: signingEntityCheckingMode,
             authorizationProvider: authorizationProvider,
-            customHTTPClient: HTTPClient(configuration: .init(), implementation: { request, progress in
+            customHTTPClient: HTTPClient(configuration: .init(retryStrategy: nil), implementation: { request, progress in
                 switch request.url.path {
                 // request to get package releases
                 case "/\(identity.scope)/\(identity.name)":

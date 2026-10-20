@@ -14,18 +14,18 @@ import Basics
 import CoreCommands
 import Dispatch
 import class Foundation.ByteCountFormatter
-import class Foundation.NSLock
 import struct Foundation.URL
 import OrderedCollections
 import PackageGraph
 import PackageModel
 import SPMBuildCore
+import Synchronization
 import Workspace
 
 import protocol TSCBasic.OutputByteStream
 import struct TSCUtility.Version
 
-final class CommandWorkspaceDelegate: WorkspaceDelegate {
+package final class CommandWorkspaceDelegate: WorkspaceDelegate {
     private struct DownloadProgress {
         let bytesDownloaded: Int64
         let totalBytesToDownload: Int64
@@ -37,12 +37,10 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     }
 
     /// The progress of binary downloads.
-    private var binaryDownloadProgress = OrderedCollections.OrderedDictionary<String, DownloadProgress>()
-    private let binaryDownloadProgressLock = NSLock()
+    private let binaryDownloadProgress = Mutex(OrderedCollections.OrderedDictionary<String, DownloadProgress>())
 
     /// The progress of package  fetch operations.
-    private var fetchProgress = OrderedCollections.OrderedDictionary<PackageIdentity, FetchProgress>()
-    private let fetchProgressLock = NSLock()
+    private let fetchProgress = Mutex(OrderedCollections.OrderedDictionary<PackageIdentity, FetchProgress>())
 
     private let observabilityScope: ObservabilityScope
 
@@ -50,7 +48,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     private let progressHandler: (Int64, Int64, String?) -> Void
     private let inputHandler: (String, (String?) -> Void) -> Void
 
-    init(
+    package init(
         observabilityScope: ObservabilityScope,
         outputHandler: @escaping (String, OutputCondition) -> Void,
         progressHandler: @escaping (Int64, Int64, String?) -> Void,
@@ -62,81 +60,81 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         self.inputHandler = inputHandler
     }
 
-    func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {
+    package func willFetchPackage(package: PackageIdentity, packageLocation: String?, fetchDetails: PackageFetchDetails) {
         self.outputHandler("Fetching \(packageLocation ?? package.description)\(fetchDetails.fromCache ? " from cache" : "")", .always)
     }
 
-    func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
+    package func didFetchPackage(package: PackageIdentity, packageLocation: String?, result: Result<PackageFetchDetails, Error>, duration: DispatchTimeInterval) {
         guard case .success(let fetchDetails) = result, !self.observabilityScope.errorsReported else {
             return
         }
 
-        self.fetchProgressLock.withLock {
-            let progress = self.fetchProgress.values.reduce(0) { $0 + $1.progress }
-            let total = self.fetchProgress.values.reduce(0) { $0 + $1.total }
+        self.fetchProgress.withLock { fetchProgress in
+            let progress = fetchProgress.values.reduce(0) { $0 + $1.progress }
+            let total = fetchProgress.values.reduce(0) { $0 + $1.total }
 
-            if progress == total && !self.fetchProgress.isEmpty {
-                self.fetchProgress.removeAll()
+            if progress == total && !fetchProgress.isEmpty {
+                fetchProgress.removeAll()
             } else {
-                self.fetchProgress[package] = nil
+                fetchProgress[package] = nil
             }
         }
 
         self.outputHandler("Fetched \(packageLocation ?? package.description)\(fetchDetails.fromCache ? " from cache" : "") (\(duration.descriptionInSeconds))", .always)
     }
 
-    func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
-        let (step, total, packages) = self.fetchProgressLock.withLock { () -> (Int64, Int64, String) in
-            self.fetchProgress[package] = FetchProgress(
+    package func fetchingPackage(package: PackageIdentity, packageLocation: String?, progress: Int64, total: Int64?) {
+        let (step, total, packages) = self.fetchProgress.withLock { fetchProgress -> (Int64, Int64, String) in
+            fetchProgress[package] = FetchProgress(
                 progress: progress,
                 total: total ?? progress
             )
 
-            let progress = self.fetchProgress.values.reduce(0) { $0 + $1.progress }
-            let total = self.fetchProgress.values.reduce(0) { $0 + $1.total }
-            let packages = self.fetchProgress.keys.map { $0.description }.joined(separator: ", ")
+            let progress = fetchProgress.values.reduce(0) { $0 + $1.progress }
+            let total = fetchProgress.values.reduce(0) { $0 + $1.total }
+            let packages = fetchProgress.keys.map { $0.description }.joined(separator: ", ")
             return (progress, total, packages)
         }
         self.progressHandler(step, total, "Fetching \(packages)")
     }
 
-    func willUpdateRepository(package: PackageIdentity, repository url: String) {
+    package func willUpdateRepository(package: PackageIdentity, repository url: String) {
         self.outputHandler("Updating \(url)", .always)
     }
 
-    func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
+    package func didUpdateRepository(package: PackageIdentity, repository url: String, duration: DispatchTimeInterval) {
         self.outputHandler("Updated \(url) (\(duration.descriptionInSeconds))", .always)
     }
 
-    func dependenciesUpToDate() {
+    package func dependenciesUpToDate() {
         self.outputHandler("Everything is already up-to-date", .always)
     }
 
-    func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
+    package func willCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath) {
         self.outputHandler("Creating working copy for \(url)", .always)
     }
 
-    func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath, duration: DispatchTimeInterval) {
+    package func didCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath, duration: DispatchTimeInterval) {
         self.outputHandler("Working copy of \(url) resolved at \(revision)", .always)
     }
 
-    func removing(package: PackageIdentity, packageLocation: String?) {
+    package func removing(package: PackageIdentity, packageLocation: String?) {
         self.outputHandler("Removing \(packageLocation ?? package.description)", .always)
     }
 
-    func willResolveDependencies(reason: WorkspaceResolveReason) {
+    package func willResolveDependencies(reason: WorkspaceResolveReason) {
         self.outputHandler(Workspace.format(workspaceResolveReason: reason), .onlyWhenVerbose)
     }
 
-    func willComputeVersion(package: PackageIdentity, location: String) {
+    package func willComputeVersion(package: PackageIdentity, location: String) {
         self.outputHandler("Computing version for \(location)", .always)
     }
 
-    func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval) {
+    package func didComputeVersion(package: PackageIdentity, location: String, version: String, duration: DispatchTimeInterval) {
         self.outputHandler("Computed \(location) at \(version) (\(duration.descriptionInSeconds))", .always)
     }
 
-    func willDownloadBinaryArtifact(from url: String, fromCache: Bool) {
+    package func willDownloadBinaryArtifact(from url: String, fromCache: Bool) {
         if fromCache {
             self.outputHandler("Fetching binary artifact \(url) from cache", .always)
         } else {
@@ -144,19 +142,19 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func didDownloadBinaryArtifact(from url: String, result: Result<(path: AbsolutePath, fromCache: Bool), Error>, duration: DispatchTimeInterval) {
+    package func didDownloadBinaryArtifact(from url: String, result: Result<(path: AbsolutePath, fromCache: Bool), Error>, duration: DispatchTimeInterval) {
         guard case .success(let fetchDetails) = result, !self.observabilityScope.errorsReported else {
             return
         }
 
-        self.binaryDownloadProgressLock.withLock {
-            let progress = self.binaryDownloadProgress.values.reduce(0) { $0 + $1.bytesDownloaded }
-            let total = self.binaryDownloadProgress.values.reduce(0) { $0 + $1.totalBytesToDownload }
+        self.binaryDownloadProgress.withLock { binaryDownloadProgress in
+            let progress = binaryDownloadProgress.values.reduce(0) { $0 + $1.bytesDownloaded }
+            let total = binaryDownloadProgress.values.reduce(0) { $0 + $1.totalBytesToDownload }
 
-            if progress == total && !self.binaryDownloadProgress.isEmpty {
-                self.binaryDownloadProgress.removeAll()
+            if progress == total && !binaryDownloadProgress.isEmpty {
+                binaryDownloadProgress.removeAll()
             } else {
-                self.binaryDownloadProgress[url] = nil
+                binaryDownloadProgress[url] = nil
             }
         }
 
@@ -167,28 +165,29 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
-        let (step, total, text) = self.binaryDownloadProgressLock.withLock { () -> (Int64, Int64, String) in
-            self.binaryDownloadProgress[url] = DownloadProgress(
-                bytesDownloaded: bytesDownloaded,
-                totalBytesToDownload: totalBytesToDownload ?? bytesDownloaded
-            )
+    package func downloadingBinaryArtifact(from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+        let (step, total, text) = self.binaryDownloadProgress
+            .withLock { binaryDownloadProgress -> (Int64, Int64, String) in
+                binaryDownloadProgress[url] = DownloadProgress(
+                    bytesDownloaded: bytesDownloaded,
+                    totalBytesToDownload: totalBytesToDownload ?? bytesDownloaded
+                )
 
-            let stepBytes = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded })
-            let totalBytes = self.binaryDownloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload })
-            let artifacts = self.binaryDownloadProgress.keys.joined(separator: ", ")
+                let stepBytes = binaryDownloadProgress.values.reduce(0, { $0 + $1.bytesDownloaded })
+                let totalBytes = binaryDownloadProgress.values.reduce(0, { $0 + $1.totalBytesToDownload })
+                let artifacts = binaryDownloadProgress.keys.joined(separator: ", ")
 
-            let formattedStep = ByteCountFormatter.string(fromByteCount: stepBytes, countStyle: .file)
-            let formattedTotal = ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)
-            let percentage = totalBytes > 0 ? (stepBytes * 100) / totalBytes : 0
-            return (percentage, 100, "Downloading \(artifacts) (\(formattedStep) / \(formattedTotal))")
-        }
+                let formattedStep = ByteCountFormatter.string(fromByteCount: stepBytes, countStyle: .file)
+                let formattedTotal = ByteCountFormatter.string(fromByteCount: totalBytes, countStyle: .file)
+                let percentage = totalBytes > 0 ? (stepBytes * 100) / totalBytes : 0
+                return (percentage, 100, "Downloading \(artifacts) (\(formattedStep) / \(formattedTotal))")
+            }
 
         self.progressHandler(step, total, text)
     }
 
     /// The workspace has started downloading a binary artifact.
-    func willDownloadPrebuilt(package: PackageIdentity, from url: String, fromCache: Bool) {
+    package func willDownloadPrebuilt(package: PackageIdentity, from url: String, fromCache: Bool) {
         if fromCache {
             self.outputHandler("Fetching package prebuilt \(url) from cache", .always)
         } else {
@@ -197,7 +196,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     }
 
     /// The workspace has finished downloading a binary artifact.
-    func didDownloadPrebuilt(
+    package func didDownloadPrebuilt(
         package: PackageIdentity,
         from url: String,
         result: Result<(path: AbsolutePath, fromCache: Bool), Error>,
@@ -215,18 +214,18 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
     }
 
     /// The workspace is downloading a binary artifact.
-    func downloadingPrebuilt(package: PackageIdentity, from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
+    package func downloadingPrebuilt(package: PackageIdentity, from url: String, bytesDownloaded: Int64, totalBytesToDownload: Int64?) {
 
     }
 
     /// The workspace finished downloading all binary artifacts.
-    func didDownloadAllPrebuilts() {
+    package func didDownloadAllPrebuilts() {
 
     }
 
     // registry signature handlers
 
-    func onUnsignedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+    package func onUnsignedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
         self.inputHandler("\(package) \(version) from \(registryURL) is unsigned. okay to proceed? (yes/no) ") { response in
             switch response?.lowercased() {
             case "yes":
@@ -240,7 +239,7 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         }
     }
 
-    func onUntrustedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
+    package func onUntrustedRegistryPackage(registryURL: URL, package: PackageModel.PackageIdentity, version: TSCUtility.Version, completion: (Bool) -> Void) {
         self.inputHandler("\(package) \(version) from \(registryURL) is signed with an untrusted certificate. okay to proceed? (yes/no) ") { response in
             switch response?.lowercased() {
             case "yes":
@@ -274,36 +273,36 @@ final class CommandWorkspaceDelegate: WorkspaceDelegate {
         os_signpost(.end, name: SignpostName.resolvingDependencies)
     }
 
-    func willLoadGraph() {
+    package func willLoadGraph() {
         self.observabilityScope.emit(debug: "Loading and validating graph")
         os_signpost(.begin, name: SignpostName.loadingGraph)
     }
 
-    func didLoadGraph(duration: DispatchTimeInterval) {
+    package func didLoadGraph(duration: DispatchTimeInterval) {
         self.observabilityScope.emit(debug: "Graph loaded in (\(duration.descriptionInSeconds))")
         os_signpost(.end, name: SignpostName.loadingGraph)
     }
 
-    func didCompileManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+    package func didCompileManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
         self.observabilityScope.emit(debug: "Compiled manifest for '\(packageIdentity)' (from '\(packageLocation)') in \(duration.descriptionInSeconds)")
     }
 
-    func didEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
+    package func didEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String, duration: DispatchTimeInterval) {
         self.observabilityScope.emit(debug: "Evaluated manifest for '\(packageIdentity)' (from '\(packageLocation)') in \(duration.descriptionInSeconds)")
     }
 
-    func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic], duration: DispatchTimeInterval) {
+    package func didLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind, manifest: Manifest?, diagnostics: [Basics.Diagnostic], duration: DispatchTimeInterval) {
         self.observabilityScope.emit(debug: "Loaded manifest for '\(packageIdentity)' (from '\(url)') in \(duration.descriptionInSeconds)")
     }
 
     // noop
-    func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {}
-    func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath, duration: DispatchTimeInterval) {}
-    func resolvedFileChanged() {}
-    func didDownloadAllBinaryArtifacts() {}
-    func willCompileManifest(packageIdentity: PackageIdentity, packageLocation: String) {}
-    func willEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String) {}
-    func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
+    package func willCheckOut(package: PackageIdentity, repository url: String, revision: String, at path: AbsolutePath) {}
+    package func didCreateWorkingCopy(package: PackageIdentity, repository url: String, at path: AbsolutePath, duration: DispatchTimeInterval) {}
+    package func resolvedFileChanged() {}
+    package func didDownloadAllBinaryArtifacts() {}
+    package func willCompileManifest(packageIdentity: PackageIdentity, packageLocation: String) {}
+    package func willEvaluateManifest(packageIdentity: PackageIdentity, packageLocation: String) {}
+    package func willLoadManifest(packageIdentity: PackageIdentity, packagePath: AbsolutePath, url: String, version: Version?, packageKind: PackageReference.Kind) {}
 }
 
 public extension _SwiftCommand {

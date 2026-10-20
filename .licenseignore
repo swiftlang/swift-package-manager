@@ -3,6 +3,7 @@
 **/*.png
 **/*.xcworkspacedata
 **/Package.swift
+.github/scripts/prebuild.sh
 .dir-locals.el
 .editorconfig
 .swift-version
@@ -27,3 +28,4 @@ Utilities/bootstrap
 Utilities/build-using-self
 Utilities/new-bootstrap
 Utilities/test-toolchain
+Utilities/mk-toolchain/mk-toolchain

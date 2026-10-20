@@ -9,6 +9,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 @testable import Basics
 @testable import Build
@@ -7795,7 +7796,7 @@ class BuildPlanSwiftBuildTests: BuildPlanTestCase {
         let result = try BuildPlanResult(plan: plan)
         let productDescription = try result.buildProduct(for: "exe")
         let linkArgs = try productDescription.linkArguments()
-        
+
         XCTAssertTrue(linkArgs.contains("/include:SomeSymbol"), "Should contain exact linker flag")
     }
 }
