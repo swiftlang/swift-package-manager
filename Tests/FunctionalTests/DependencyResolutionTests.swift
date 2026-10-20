@@ -183,7 +183,7 @@ struct DependencyResolutionTests {
                     configuration: configuration,
                     buildSystem: buildSystem,
                 )
-                let executablePath = binPath.appending(components: "Dealer")
+                let executablePath = binPath.appending(components: executableName("Dealer"))
                 expectFileExists(at: executablePath)
                 let output = try await AsyncProcess.checkNonZeroExit(args: executablePath.pathString)
                     .withSwiftLineEnding
