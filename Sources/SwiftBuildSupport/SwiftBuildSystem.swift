@@ -1258,7 +1258,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 switch $0.source {
                 case .commandLineOptions:
                     // Flags specified by the user. These are generally the only ones that should be passed on. Match the native build system behavior of passing them to all compiles.
-                    return true
+                    // Linker flags are the exception: they commonly name output files (for example
+                    // `-Xlinker -map <path>`), which every link would claim, including the links of host
+                    // tools such as macros. The native build system does not pass them to host tools
+                    // either, so apply them to the destination only.
+                    return settingName != "OTHER_LDFLAGS"
                 case .plugin:
                     // Flags specified by a command plugin. Ideally these would match the behavior of flags passed on the command line, but for compatibility with the native build system we treat these as destination-only flags.
                     return false
@@ -1292,7 +1296,10 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 case .plugin:
                     // See comment in the switch above.
                     return true
-                case .commandLineOptions, .debugging, .toolset, .defaultSwiftTestingSearchPath, .defaultWindowsSettings, .swiftSDK, nil:
+                case .commandLineOptions:
+                    // Linker flags from the command line apply to the destination only (see the switch above).
+                    return settingName == "OTHER_LDFLAGS"
+                case .debugging, .toolset, .defaultSwiftTestingSearchPath, .defaultWindowsSettings, .swiftSDK, nil:
                     // Already included or excluded appropriately by the switch above.
                     return false
                 }

@@ -1188,3 +1188,43 @@ struct BuildCacheSettingsTests {
         #expect(result["COMPILATION_CACHE_PLUGIN_PATH"] == nil)
     }
 }
+
+extension SwiftBuildSystemTests {
+    @Test
+    func commandLineLinkerFlagsApplyOnlyToTheDestination() async throws {
+        let linkerFlags = [
+            BuildFlag(value: "-map", source: .commandLineOptions),
+            BuildFlag(value: "/tmp/Application.map", source: .commandLineOptions),
+        ]
+        let cFlags = [BuildFlag(value: "-DCOMMAND_LINE_FLAG", source: .commandLineOptions)]
+        try await withInstantiatedSwiftBuildSystem(
+            fromFixture: "PIFBuilder/Simple",
+            buildParameters: mockBuildParameters(
+                destination: .host,
+                toolchain: try UserToolchain.default,
+                flags: BuildFlags(cCompilerFlags: cFlags, linkerFlags: linkerFlags),
+                buildSystemKind: .swiftbuild,
+            ),
+        ) { swiftBuild, service, session, _, _ in
+            let buildSettings: SWBBuildParameters = try await swiftBuild.makeBuildParameters(
+                service: service,
+                session: session,
+                symbolGraphOptions: nil,
+                setToolchainSetting: false, // Set this to false as SwiftBuild checks the toolchain path
+                shouldDisableSandbox: false,
+            )
+            let table = try #require(buildSettings.overrides.synthesized).table
+
+            // Command-line linker flags can name outputs (for example -map), so they must reach the
+            // destination only, not host tools such as macros.
+            let globalLinkerFlags = try #require(table["OTHER_LDFLAGS"])
+            let destinationLinkerFlags = try #require(table["OTHER_LDFLAGS[__destination_platform=YES]"])
+            #expect(!globalLinkerFlags.contains("/tmp/Application.map"))
+            #expect(destinationLinkerFlags.contains("/tmp/Application.map"))
+
+            // Other command-line flags keep applying to every target.
+            let globalCFlags = try #require(table["OTHER_CFLAGS"])
+            #expect(globalCFlags.contains("-DCOMMAND_LINE_FLAG"))
+        }
+    }
+}
