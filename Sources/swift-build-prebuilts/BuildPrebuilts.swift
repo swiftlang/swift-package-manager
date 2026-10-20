@@ -20,10 +20,16 @@ import ArgumentParser
 import Basics
 import Foundation
 import PackageModel
+import Subprocess
 import struct TSCBasic.ByteString
 import let TSCBasic.stdoutStream
 import struct TSCBasic.SHA256
 import Workspace
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 @main
 struct BuildPrebuilts: AsyncParsableCommand {
@@ -319,23 +325,20 @@ func shell(_ command: String, cwd: AbsolutePath) async throws {
 #else
     let arguments = ["/bin/bash", "-c", command]
 #endif
-    let process = AsyncProcess(
-        arguments: arguments,
-        outputRedirection: .none
-    )
     print("Running:", command)
-    try process.launch()
-    let result = try await process.waitUntilExit()
-    switch result.exitStatus {
-    case .terminated(code: let code):
+    let result = try await Subprocess.run(
+        .path(FilePath(arguments[0])),
+        arguments: Subprocess.Arguments(Array(arguments.dropFirst())),
+        output: .fileDescriptor(.standardOutput, closeAfterSpawningProcess: false),
+        error: .fileDescriptor(.standardError, closeAfterSpawningProcess: false)
+    )
+    switch result.terminationStatus {
+    case .exited(let code):
         if code != 0 {
             throw StringError("Command exited with code \(code): \(command)")
         }
-#if os(Windows)
-    case .abnormal(exception: let exception):
-        throw StringError("Command threw exception \(exception): \(command)")
-#else
-    case .signalled(signal: let signal):
+#if !os(Windows)
+    case .signaled(let signal):
         throw StringError("Command exited on signal \(signal): \(command)")
 #endif
     }

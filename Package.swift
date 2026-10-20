@@ -761,6 +761,7 @@ let package = Package(
             dependencies: [
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 "Basics",
+                .product(name: "Subprocess", package: "swift-subprocess"),
                 "Workspace",
             ],
             exclude: [
@@ -1077,6 +1078,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
             name: "dummy-swiftc",
             dependencies: [
                 "Basics",
+                .product(name: "Subprocess", package: "swift-subprocess"),
             ]
         ),
         .testTarget(

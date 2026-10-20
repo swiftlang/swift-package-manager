@@ -21,7 +21,6 @@ import PackageGraph
 import protocol TSCBasic.OutputByteStream
 import class TSCBasic.BufferedOutputByteStream
 import struct TSCBasic.ByteString
-import struct Basics.AsyncProcessResult
 import Subprocess
 #if canImport(System)
 import System
@@ -473,15 +472,18 @@ final class PluginDelegate: PluginInvocationDelegate {
             try swiftCommandState.fileSystem.removeFileTree(outputDir)
 
             // Run the symbol graph extractor on the target.
-            let result = try symbolGraphExtractor.extractSymbolGraph(
+            let result = try await symbolGraphExtractor.extractSymbolGraph(
                 for: description,
-                outputRedirection: .collect,
                 outputDirectory: outputDir,
                 verboseOutput: self.swiftCommandState.logLevel <= .info
             )
 
-            guard result.exitStatus == .terminated(code: 0) else {
-                throw AsyncProcessResult.Error.nonZeroExit(result)
+            guard result.exitedSuccessfully else {
+                throw StringError("""
+                symbol graph extraction failed with a nonzero exit code: \
+                \(result.arguments.map { $0.spm_shellEscaped() }.joined(separator: " "))
+                \(result.output)
+                """)
             }
 
             // Return the results to the plugin.
