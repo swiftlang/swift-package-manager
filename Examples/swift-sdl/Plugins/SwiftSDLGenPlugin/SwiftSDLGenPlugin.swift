@@ -25,10 +25,10 @@ struct SwiftSDLGenPlugin: BuildToolPlugin {
         let bindingsFile = workDir.appending(path: "SwiftSDL3.swift")
         let apinotesFile = workDir.appending(path: "SwiftSDL3.apinotes")
 
-        var sdlHeaderPath: [String] = []
+        var sdlHeaderPath: [CommandArgument] = []
         for dependency in target.dependencies {
             if case let .target(depTarget) = dependency, depTarget.name == "SDL" {
-                sdlHeaderPath += ["--header-path", depTarget.directoryURL.appending(path: "include").path]
+                sdlHeaderPath += ["--header-path", .url(depTarget.directoryURL.appending(path: "include"))]
             }
         }
 
@@ -42,15 +42,14 @@ struct SwiftSDLGenPlugin: BuildToolPlugin {
                 displayName: "SDL API Generator",
                 executable: generator.url,
                 arguments: [
-                    "--triple", "$(TRIPLE)",
-                    "--toolchain", "$(TOOLCHAIN)",
-                    "--sdk", "$(SDKROOT)",
-                    "--clang-resource-dir", "$(CLANG_RESOURCE_DIR)",
-                    "--swift-resource-dir", "$(SWIFT_RESOURCE_DIR)",
-                    "--modulemap-file", moduleMap.path,
-                    "--header-file", headerFile.path,
-                    "--bindings-file", bindingsFile.path,
-                    "--apinotes-file", apinotesFile.path,
+                    "--triple", .triple,
+                    "--sdk", .sdkroot,
+                    "--clang-resource-dir", .clangResourceDirectory,
+                    "--swift-resource-dir", .swiftResourceDirectory,
+                    "--modulemap-file", .url(moduleMap),
+                    "--header-file", .url(headerFile),
+                    "--bindings-file", .url(bindingsFile),
+                    "--apinotes-file", .url(apinotesFile),
                 ] + sdlHeaderPath,
                 environment: environment,
                 outputFiles: [

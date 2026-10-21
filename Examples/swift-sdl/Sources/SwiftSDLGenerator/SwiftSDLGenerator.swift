@@ -42,9 +42,6 @@ struct SwiftSDLGenerator: AsyncParsableCommand {
     @Option(help: "The triple")
     var triple: Triple
 
-    @Option(help: "toolchain")
-    var toolchain: FilePath
-
     @Option(help: "swift resource dir")
     var swiftResourceDir: FilePath
 

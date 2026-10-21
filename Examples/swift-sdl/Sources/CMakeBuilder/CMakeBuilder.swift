@@ -202,6 +202,10 @@ struct Triple: ExpressibleByArgument, CustomStringConvertible {
 
     public init?(argument: String) {
         let components = argument.split(separator: "-")
+        if components.count < 4 {
+            FileHandle.standardError.write(("argument: " + argument + "\n").data(using: .utf8)!)
+            fatalError("components too short")
+        }
         self.arch = components[0]
         self.vendor = components[1]
         self.os = components[2]

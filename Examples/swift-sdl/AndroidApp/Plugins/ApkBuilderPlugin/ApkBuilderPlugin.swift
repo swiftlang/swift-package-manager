@@ -24,7 +24,7 @@ struct ApkBuilderPlugin: BuildToolPlugin {
 
         let builder = try context.tool(named: "ApkBuilder")
 
-        let outputDir = context.pluginWorkDirectoryURL.appending(path: "$(BUILD_SUBDIR)")
+        let buildDir = context.pluginBuildDirectory
 
         let javaFiles = sourceTarget.sourceFiles(withSuffix: ".java").map { $0.url }
         let manifestFile = sourceTarget.sourceFiles.first(where: { $0.url.lastPathComponent == "AndroidManifest.xml"})!

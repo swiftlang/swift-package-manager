@@ -19,19 +19,18 @@ struct CMakeBuilderPlugin: BuildToolPlugin {
         target: Target
     ) async throws -> [Command] {
         let builder = try context.tool(named: "CMakeBuilder")
-
-        let buildDir = context.pluginWorkDirectoryURL.appending(path: "$(BUILD_SUBDIR)")
+        let buildDir = context.pluginBuildDirectory
 
         var environment = ["HOME": ProcessInfo.processInfo.environment["HOME"]!]
         if let developerDir = ProcessInfo.processInfo.environment["DEVELOPER_DIR"] {
             environment["DEVELOPER_DIR"] = developerDir
         }
 
-        let arguments = [
-            "--output-dir", buildDir.path,
-            "--triple", "$(TRIPLE)",
-            "--sysroot", "$(SYSROOT)",
-            target.directoryURL.path,
+        let arguments: [CommandArgument] = [
+            "--output-dir", .url(buildDir),
+            "--triple", .triple,
+            "--sysroot", .sysroot,
+            .url(target.directoryURL),
         ]
 
         return [

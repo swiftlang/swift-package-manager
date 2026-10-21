@@ -16,7 +16,8 @@ import PackageShared
 public typealias Platform = PackageShared.Platform
 
 public enum CommandArgument: ExpressibleByStringLiteral {
-    case literal(String)
+    case string(String)
+    case url(URL)
     case configuration
     case triple
     case sdkroot
@@ -26,15 +27,17 @@ public enum CommandArgument: ExpressibleByStringLiteral {
     case buildSubDirectory
 
     public init(stringLiteral value: StringLiteralType) {
-        self = .literal(value)
+        self = .string(value)
     }
 }
 
 extension CommandArgument: CustomStringConvertible {
     public var description: String {
         return switch self {
-        case .literal(let value):
+        case .string(let value):
             value
+        case .url(let url):
+            url.path(percentEncoded: false)
         case .configuration:
             "$(CONFIGURATION)"
         case .triple:
@@ -53,12 +56,18 @@ extension CommandArgument: CustomStringConvertible {
     }
 }
 
-public extension Path {
+extension URL {
     // These are absolute paths when resolved
-    static var sdkroot: Self { .init(CommandArgument.sdkroot.description) }
-    static var sysroot: Self { .init(CommandArgument.sysroot.description) }
-    static var clangResourceDirectory: Self { .init(CommandArgument.clangResourceDirectory.description) }
-    static var swiftResourceDirectory: Self { .init(CommandArgument.swiftResourceDirectory.description) }
+    public static var sdkroot: Self { .init(string: "file:///\(CommandArgument.sdkroot.description)")! }
+    public static var sysroot: Self { .init(string: "file:///\(CommandArgument.sysroot.description)")! }
+    public static var clangResourceDirectory: Self { .init(string: "file:///\(CommandArgument.clangResourceDirectory.description)")! }
+    public static var swiftResourceDirectory: Self { .init(string: "file:///\(CommandArgument.swiftResourceDirectory.description)")! }
+}
+
+extension PluginContext {
+    public var pluginBuildDirectory: URL {
+        pluginWorkDirectoryURL.appending(path: "$(BUILD_SUBDIR)")
+    }
 }
 
 public struct CommandConditions {
@@ -135,7 +144,7 @@ public enum Command {
     case buildCommand(
         displayName: String?,
         executable: URL,
-        arguments: [String],
+        arguments: [CommandArgument],
         environment: [String: String] = [:],
         inputFiles: [URL] = [],
         outputFiles: [URL] = [],
@@ -215,7 +224,7 @@ extension Command {
     public static func buildCommand(
         displayName: String?,
         executable: URL,
-        arguments: [String],
+        arguments: [CommandArgument],
         environment: [String: String] = [:],
         inputFiles: [URL] = [],
         outputFiles: [URL] = [],
@@ -280,7 +289,7 @@ extension Command {
         self.buildCommand(
             displayName: displayName,
             executable: executable,
-            arguments: arguments,
+            arguments: arguments.map { .string($0) },
             environment: environment,
             inputFiles: inputFiles,
             outputFiles: outputFiles,
@@ -332,7 +341,7 @@ extension Command {
         self.buildCommand(
             displayName: displayName,
             executable: URL(fileURLWithPath: executable.stringValue),
-            arguments: arguments.map(\.description),
+            arguments: arguments.map { .string($0.description) },
             environment: environment.mapValues { $0.description },
             inputFiles: inputFiles.map { URL(fileURLWithPath: $0.stringValue) },
             outputFiles: outputFiles.map { URL(fileURLWithPath: $0.stringValue) },
@@ -379,7 +388,7 @@ extension Command {
         self.buildCommand(
             displayName: displayName,
             executable: URL(fileURLWithPath: executable.stringValue),
-            arguments: arguments.map(\.description),
+            arguments: arguments.map { .string($0.description) },
             environment: environment.mapValues { $0.description },
             inputFiles: inputFiles.map { URL(fileURLWithPath: $0.stringValue) },
             outputFiles: outputFiles.map { URL(fileURLWithPath: $0.stringValue) },

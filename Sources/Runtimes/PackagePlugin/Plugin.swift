@@ -209,7 +209,7 @@ extension Plugin {
                     let command = PluginToHostMessage.CommandConfiguration(
                         displayName: displayName,
                         executable: executable,
-                        arguments: arguments,
+                        arguments: arguments.map(\.description),
                         environment: environment,
                         workingDirectory: pluginWorkDirectory
                     )
@@ -291,7 +291,7 @@ extension Plugin {
                     let command = PluginToHostMessage.CommandConfiguration(
                         displayName: displayName,
                         executable: executable,
-                        arguments: arguments,
+                        arguments: arguments.map(\.description),
                         environment: environment,
                         workingDirectory: pluginWorkDirectory)
                     let message = PluginToHostMessage.defineBuildCommand(
