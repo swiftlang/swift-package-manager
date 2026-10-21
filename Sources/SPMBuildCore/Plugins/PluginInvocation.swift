@@ -578,9 +578,6 @@ extension ModulesGraph {
             if !files.moduleMaps.isEmpty {
                 observabilityScope.emit(warning: "Module map generation not supported in prebuilt commands: \(target.name)")
             }
-            if !files.apiNotes.isEmpty {
-                observabilityScope.emit(warning: "API note generation not supported in prebuilt commands: \(target.name)")
-            }
             generatedFiles.add(GeneratedFiles(sources: files.sources, resources: files.resources))
         }
 

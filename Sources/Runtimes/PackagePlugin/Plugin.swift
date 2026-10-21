@@ -208,6 +208,14 @@ extension Plugin {
                 switch command {
 
                 case .buildCommand(let displayName, let executable, let arguments, let environment, let inputFiles, let outputFiles, let productFiles, let alwaysOutOfDate, let conditions):
+                    // If traits are specified, ensure they're enabled
+                    if let traits = conditions?.traits,
+                       let enabled = context.package.enabledTraits,
+                       traits.subtracting(enabled).isEmpty
+                    {
+                        continue
+                    }
+
                     let command = PluginToHostMessage.CommandConfiguration(
                         displayName: displayName,
                         executable: executable,
@@ -219,12 +227,18 @@ extension Plugin {
                         configuration: command,
                         inputFiles: inputFiles,
                         outputFiles: outputFiles,
-                        productFiles: productFiles.map {
-                            .init(
-                                outputFile: $0.outputFile,
-                                productSubdir: $0.productSubdir,
-                                platforms: $0.conditions?.platforms?.map { .init(name: $0.name) }
-                            )
+                        productFiles: productFiles.compactMap {
+                            if let traits = $0.conditions?.traits,
+                               let enabled = context.package.enabledTraits,
+                               traits.subtracting(enabled).isEmpty {
+                                return nil
+                            } else {
+                                return .init(
+                                    outputFile: $0.outputFile,
+                                    productSubdir: $0.productSubdir,
+                                    platforms: $0.conditions?.platforms?.map { .init(name: $0.name) }
+                                )
+                            }
                         },
                         alwaysOutOfDate: alwaysOutOfDate,
                         platforms: conditions?.platforms?.map { .init(name: $0.name) }

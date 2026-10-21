@@ -32,7 +32,7 @@ extension SwiftSDLGenerator {
             "-target", triple.description,
         ]
 
-        #if os(macos)
+        #if os(macOS)
         let executable: Executable = .name("xcrun")
         synthArgs = ["swift-synthesize-interface"] + synthArgs
         #else

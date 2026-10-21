@@ -102,7 +102,7 @@ public struct ToolsVersion: Equatable, Hashable, Codable, Sendable {
 
     /// Helpers for experimental
     public var experimentalCGen: Bool {
-        self >= .v6_3 && experimentalFeatures?.contains(.experimentalCGen) == true
+        return self >= .v6_3 && experimentalFeatures?.contains(.experimentalCGen) == true
     }
 
     /// Create an instance of tools version from a given string.

@@ -329,7 +329,7 @@ public struct TargetSourcesBuilder {
     /// Returns the `Resource` file associated with a file and a particular rule, if there is one.
     private static func resource(for path: Basics.AbsolutePath, with rule: FileRuleDescription.Rule, defaultLocalization: String?, targetName: String, targetPath: Basics.AbsolutePath, observabilityScope: ObservabilityScope) -> Resource? {
         switch rule {
-        case .compile, .header, .none, .modulemap, .apinotes, .ignored:
+        case .compile, .header, .none, .modulemap, .ignored:
             return nil
         case .processResource:
             let implicitLocalization: String? = {
@@ -583,7 +583,7 @@ public struct TargetSourcesBuilder {
 
             switch rule {
             case .compile:
-                if absPath.extension == "swift" {
+                if absPath.extension == "swift" || toolsVersion >= .v6_5 {
                     files.sources.append(absPath)
                 } else if toolsVersion.experimentalCGen {
                     if module is ClangModule {
@@ -601,7 +601,9 @@ public struct TargetSourcesBuilder {
                     // If this is reached, `TargetSourcesBuilder` already emitted a diagnostic, so we can ignore this case here.
                 }
             case .header:
-                if toolsVersion.experimentalCGen {
+                if toolsVersion >= .v6_5 {
+                    files.headers.append(absPath)
+                } else if toolsVersion.experimentalCGen {
                     if module is ClangModule {
                         files.headers.append(absPath)
                     } else {
@@ -611,7 +613,9 @@ public struct TargetSourcesBuilder {
                     observabilityScope.emit(warning: "C header file generation not enabled: \(absPath)")
                 }
             case .modulemap:
-                if toolsVersion.experimentalCGen {
+                if toolsVersion >= .v6_5 {
+                    files.moduleMaps.append(absPath)
+                } else if toolsVersion.experimentalCGen {
                     if module is ClangModule {
                         files.moduleMaps.append(absPath)
                     } else {
@@ -619,16 +623,6 @@ public struct TargetSourcesBuilder {
                     }
                 } else {
                     observabilityScope.emit(warning: "Module map generation not enabled: \(absPath)")
-                }
-            case .apinotes:
-                if toolsVersion.experimentalCGen {
-                    if module is ClangModule {
-                        files.apiNotes.append(absPath)
-                    } else {
-                        observabilityScope.emit(warning: "Only C modules support plugin generated API notes files: \(absPath)")
-                    }
-                } else {
-                    observabilityScope.emit(warning: "API notes generation not enabled: \(absPath)")
                 }
             case .ignored, .none:
                 break
@@ -644,20 +638,17 @@ public struct GeneratedFiles {
     public var sources: [Basics.AbsolutePath]
     public var headers: [Basics.AbsolutePath]
     public var moduleMaps: [Basics.AbsolutePath]
-    public var apiNotes: [Basics.AbsolutePath]
     public var resources: [Basics.AbsolutePath: Resource]
 
     public init(
         sources: [Basics.AbsolutePath] = [],
         headers: [Basics.AbsolutePath] = [],
         moduleMaps: [Basics.AbsolutePath] = [],
-        apiNotes: [Basics.AbsolutePath] = [],
         resources: [Basics.AbsolutePath: Resource] = [:])
     {
         self.sources = sources
         self.headers = headers
         self.moduleMaps = moduleMaps
-        self.apiNotes = apiNotes
         self.resources = resources
     }
 
@@ -665,7 +656,6 @@ public struct GeneratedFiles {
         sources.append(contentsOf: other.sources)
         headers.append(contentsOf: other.headers)
         moduleMaps.append(contentsOf: other.moduleMaps)
-        apiNotes.append(contentsOf: other.apiNotes)
         resources.merge(other.resources, uniquingKeysWith: { winner, _ in winner })
     }
 
@@ -699,9 +689,6 @@ public struct FileRuleDescription: Sendable {
 
         /// A header file.
         case header
-
-        /// An apinotes file, needs to be located in same directory as module map
-        case apinotes
 
         /// Indicates that the file should be treated as ignored, without causing an unhandled-file warning.
         case ignored
@@ -778,7 +765,7 @@ public struct FileRuleDescription: Sendable {
     /// the rule for detecting apinotes files.
     public static let apinotes: FileRuleDescription = {
         .init(
-            rule: .apinotes,
+            rule: .ignored,
             toolsVersion: .minimumRequired,
             fileTypes: ["apinotes"]
         )
