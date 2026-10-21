@@ -11,6 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+import PackageShared
+
 #if os(Windows)
 @_implementationOnly import ucrt
 @_implementationOnly import WinSDK
@@ -205,7 +207,7 @@ extension Plugin {
             for command in generatedCommands {
                 switch command {
 
-                case .buildCommand(let displayName, let executable, let arguments, let environment, let inputFiles, let outputFiles, let buildProducts, let alwaysOutOfDate, let platforms):
+                case .buildCommand(let displayName, let executable, let arguments, let environment, let inputFiles, let outputFiles, let productFiles, let alwaysOutOfDate, let conditions):
                     let command = PluginToHostMessage.CommandConfiguration(
                         displayName: displayName,
                         executable: executable,
@@ -216,7 +218,16 @@ extension Plugin {
                     let message = PluginToHostMessage.defineBuildCommand(
                         configuration: command,
                         inputFiles: inputFiles,
-                        outputFiles: outputFiles
+                        outputFiles: outputFiles,
+                        productFiles: productFiles.map {
+                            .init(
+                                outputFile: $0.outputFile,
+                                productSubdir: $0.productSubdir,
+                                platforms: $0.conditions?.platforms?.map { .init(name: $0.name) }
+                            )
+                        },
+                        alwaysOutOfDate: alwaysOutOfDate,
+                        platforms: conditions?.platforms?.map { .init(name: $0.name) }
                     )
                     try pluginHostConnection.sendMessage(message)
 
@@ -287,7 +298,7 @@ extension Plugin {
             for command in record.generatedCommands {
                 switch command {
 
-                case .buildCommand(let displayName, let executable, let arguments, let environment, let inputFiles, let outputFiles, let buildProducts, let alwaysOutOfDate, let platforms):
+                case .buildCommand(let displayName, let executable, let arguments, let environment, let inputFiles, let outputFiles, let productFiles, let alwaysOutOfDate, let conditions):
                     let command = PluginToHostMessage.CommandConfiguration(
                         displayName: displayName,
                         executable: executable,
@@ -297,7 +308,17 @@ extension Plugin {
                     let message = PluginToHostMessage.defineBuildCommand(
                         configuration: command,
                         inputFiles: inputFiles,
-                        outputFiles: outputFiles)
+                        outputFiles: outputFiles,
+                        productFiles: productFiles.map {
+                            .init(
+                                outputFile: $0.outputFile,
+                                productSubdir: $0.productSubdir,
+                                platforms: $0.conditions?.platforms?.map { .init(name: $0.name) }
+                            )
+                        },
+                        alwaysOutOfDate: alwaysOutOfDate,
+                        platforms: conditions?.platforms?.map { .init(name: $0.name) }
+                    )
                     try pluginHostConnection.sendMessage(message)
                     
                 case let .prebuildCommand(name, exec, args, env, outdir):

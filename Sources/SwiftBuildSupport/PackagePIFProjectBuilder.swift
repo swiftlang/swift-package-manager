@@ -516,23 +516,83 @@ struct PackagePIFProjectBuilder {
         _ command: PackagePIFBuilder.CustomBuildCommand,
         to targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>
     ) {
-        var commandLine = [command.executable] + command.arguments
+        self.project[keyPath: targetKeyPath].customTasks.append(
+            makeBuildToolCommand(command)
+        )
+    }
+
+    /// Adds a single plugin-created build command to a PIF aggregate target.
+    mutating func addBuildToolCommand(
+        _ command: PackagePIFBuilder.CustomBuildCommand,
+        to targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.AggregateTarget>
+    ) {
+        self.project[keyPath: targetKeyPath].customTasks.append(
+            makeBuildToolCommand(command)
+        )
+    }
+
+    private func makeBuildToolCommand(
+        _ command: PackagePIFBuilder.CustomBuildCommand,
+    ) -> ProjectModel.CustomTask {
+        var commandLine = [command.executable] + command.arguments.map { resolveBuildToolVariables($0) }
         if let sandbox = command.sandboxProfile, !pifBuilder.delegate.isPluginExecutionSandboxingDisabled {
             commandLine = try! sandbox.apply(to: commandLine, fileSystem: self.pifBuilder.fileSystem)
         }
 
-        self.project[keyPath: targetKeyPath].customTasks.append(
-            ProjectModel.CustomTask(
-                commandLine: commandLine,
-                environment: command.environment.map { Pair($0, $1) }.sorted(by: <),
-                workingDirectory: command.workingDir?.pathString,
-                executionDescription: command.displayName ?? "Performing build tool plugin command",
-                inputFilePaths: [command.executable] + command.inputPaths.map(\.pathString),
-                outputFilePaths: command.outputPaths,
-                enableSandboxing: false,
-                preparesForIndexing: true
-            )
+        let workingDir: String?
+        if let dir = command.workingDir {
+            workingDir = resolveBuildToolVariables(dir.pathString)
+        } else {
+            workingDir = nil
+        }
+
+        let inputPaths = command.inputPaths.map(\.pathString)
+            .map {
+                resolveBuildToolVariables($0)
+            }
+
+        let outputPaths = (command.outputPaths + command.buildProducts.map(\.outputFile.pathString))
+            .map {
+                resolveBuildToolVariables($0)
+            }
+
+        return ProjectModel.CustomTask(
+            commandLine: commandLine,
+            environment: command.environment.map { Pair($0, resolveBuildToolVariables($1)) }.sorted(by: <),
+            workingDirectory: workingDir,
+            executionDescription: command.displayName ?? "Performing build tool plugin command",
+            inputFilePaths: inputPaths,
+            outputFilePaths: outputPaths,
+            enableSandboxing: false,
+            preparesForIndexing: true,
+            alwaysOutOfDate: command.alwaysOutOfDate,
+            platformFilters: command.platformFilters
         )
+    }
+
+    /// Replaces every occurrence of `$(variableName)` in `input` with the value of that name in
+    /// `variables`, or with an empty string if the name isn't present in the dictionary.
+    func resolveBuildToolVariables(_ input: String) -> String {
+        let variables = [
+            "BUILD_SUBDIR": "$(CONFIGURATION)$(EFFECTIVE_PLATFORM_NAME)",
+            "CONFIGURATION": "$(CONFIGURATION)",
+            "TRIPLE": "$(TARGET_TRIPLES)",
+            "SDKROOT": "$(SDKROOT:default=none)",
+            "SYSROOT": "$(SYSROOT:default=none)",
+            "CLANG_RESOURCE_DIR": "$(CLANG_RESOURCE_DIR:default=none)",
+            "SWIFT_RESOURCE_DIR": "$(SWIFT_RESOURCE_DIR:default=none)"
+        ]
+
+        // Remove the hack to fit these things in to URLs.
+        // It causes these paths to crash SwiftBuild on Windows, e.g. \C:\
+        let input = input.hasPrefix("\\$(") ? String(input.dropFirst()) : input
+
+        // A variable reference is '$(' followed by a name, terminated by the first ')'.
+        let variableReference = #/\$\(([^)]*)\)/#
+
+        return input.replacing(variableReference) { match in
+            variables[String(match.output.1)] ?? ""
+        }
     }
 
     /// Processes the paths of plugin-generated files for a particular package target,
