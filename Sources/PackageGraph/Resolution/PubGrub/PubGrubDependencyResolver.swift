@@ -580,6 +580,7 @@ public struct PubGrubDependencyResolver {
         var next: DependencyResolutionNode? = state.root
 
         while let nxt = next {
+            try Task.checkCancellation()
             try self.propagate(state: state, node: nxt)
 
             // initiate prefetch of known packages that will be used to make the decision on the next step
@@ -617,6 +618,7 @@ public struct PubGrubDependencyResolver {
         var changed: OrderedCollections.OrderedSet<DependencyResolutionNode> = [node]
 
         while !changed.isEmpty {
+            try Task.checkCancellation()
             let package = changed.removeFirst()
             loop: for incompatibility in state.positiveIncompatibilities(for: package)?.reversed() ?? [] {
                 let result = self.propagate(state: state, incompatibility: incompatibility)
@@ -689,6 +691,7 @@ public struct PubGrubDependencyResolver {
         var iterations = 0
 
         while !isCompleteFailure(incompatibility, root: state.root) {
+            try Task.checkCancellation()
             var mostRecentTerm: Term?
             var mostRecentSatisfier: Assignment?
             var difference: Term?

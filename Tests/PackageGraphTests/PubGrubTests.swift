@@ -2013,6 +2013,22 @@ final class PubGrubDiagnosticsTests: XCTestCase {
             """)
     }
 
+    func testResolutionNonExistentMixedExactAndRangeVersions() async throws {
+        try builder.serve("package", at: "2.0.0")
+
+        let resolver = builder.create()
+        let requirement = VersionSetSpecifier.exact("1.2.0")
+            .union(.range("1.3.0"..<"1.5.0"))
+        let dependencies = try builder.create(dependencies: [
+            "package": (.versionSet(requirement), .specific(["package"])),
+        ])
+        let result = await resolver.solve(constraints: dependencies)
+
+        XCTAssertEqual(result.errorMsg, """
+            Dependencies could not be resolved because no versions of 'package' match the requirement {1.2.0, 1.3.0..<1.5.0} and root depends on 'package' {1.2.0, 1.3.0..<1.5.0}.
+            """)
+    }
+
     func testResolutionNonExistentBetaVersion() async throws {
         try builder.serve("package", at: "0.0.1")
 
@@ -3166,6 +3182,239 @@ final class PubGrubBacktrackTests: XCTestCase {
             ("a", .version("1.0.0")),
             ("b", .version("1.9.9-prerelease-20240702"))
         ])
+    }
+}
+
+final class PubGrubMixedExactRangeRegressionTests: XCTestCase {
+    private struct Timeout: Error {}
+
+    /// A term must satisfy itself. This is the comparison that exhausts the
+    /// assignment loop in `PartialSolution.satisfier(for:)` and used to throw
+    /// `InternalError("term ¬libb[everything] {1.2.0, 1.3.0..<1.5.0} not satisfied")`.
+    func testNegativeTermWithMixedRequirementSatisfiesItself() throws {
+        let node = DependencyResolutionNode.product("b", package: try builder.reference(for: "b"))
+        // Conflict resolution builds this union when requirements from an
+        // exact-requirement era and a range-requirement era of the same
+        // dependency are merged (`Term.intersect` unions negative terms).
+        let mixed = VersionSetSpecifier.exact("1.2.0").union(.range("1.3.0"..<"1.5.0"))
+        let term = Term(not: node, mixed)
+
+        XCTAssertEqual(term.relation(with: term), .subset)
+        XCTAssertTrue(term.satisfies(term))
+    }
+
+    func testTermsSharingOnlyAnExactVersionIntersectForEveryPolarity() throws {
+        let node = DependencyResolutionNode.product("b", package: try builder.reference(for: "b"))
+        let lhs = VersionSetSpecifier.exact("1.2.0").union(.range("1.3.0"..<"1.5.0"))
+        let rhs = VersionSetSpecifier.exact("1.2.0").union(.range("1.6.0"..<"1.7.0"))
+
+        let positiveLHS = Term(node, lhs)
+        let positiveRHS = Term(node, rhs)
+        let negativeLHS = Term(not: node, lhs)
+        let negativeRHS = Term(not: node, rhs)
+
+        XCTAssertEqual(positiveLHS.relation(with: positiveRHS), .overlap)
+        XCTAssertEqual(negativeLHS.relation(with: positiveRHS), .overlap)
+        XCTAssertEqual(positiveLHS.relation(with: negativeRHS), .overlap)
+        XCTAssertEqual(negativeLHS.relation(with: negativeRHS), .overlap)
+
+        XCTAssertEqual(positiveLHS.intersect(with: positiveRHS)?.requirement, .exact("1.2.0"))
+        XCTAssertEqual(
+            positiveLHS.intersect(with: negativeRHS)?.requirement,
+            .range("1.3.0"..<"1.5.0")
+        )
+        XCTAssertEqual(
+            negativeLHS.intersect(with: positiveRHS)?.requirement,
+            .range("1.6.0"..<"1.7.0")
+        )
+        XCTAssertEqual(negativeLHS.intersect(with: negativeRHS)?.isPositive, false)
+    }
+
+    func testExactnessUsesCanonicalRepresentation() {
+        XCTAssertTrue(VersionSetSpecifier.exact("1.2.0").isExact)
+        XCTAssertTrue(VersionSetSpecifier.range("1.2.0"..<"1.2.1").isExact)
+        XCTAssertTrue(VersionSetSpecifier.ranges(["1.2.0"..<"1.2.1"]).isExact)
+        let afterBeta = Version(1, 2, 0, prereleaseIdentifiers: ["beta", String(Int.min)])
+        XCTAssertTrue(VersionSetSpecifier.range("1.2.0-beta"..<afterBeta).isExact)
+        XCTAssertFalse(VersionSetSpecifier.range("1.2.0-beta"..<"1.2.0-beta.0").isExact)
+        XCTAssertFalse(VersionSetSpecifier.range("1.2.0"..<"1.2.0").isExact)
+        XCTAssertFalse(
+            VersionSetSpecifier.exact("1.2.0")
+                .union(.range("1.3.0"..<"1.5.0"))
+                .isExact
+        )
+    }
+
+    /// Conflict resolution across versions of "a" that require "b" as an exact
+    /// version and versions that require "b" as a range unions those
+    /// requirements into a mixed exact+range set. Resolution must terminate
+    /// with a proper unresolvable diagnostic; it used to throw
+    /// `InternalError("term ¬b[everything] {1.2.0, 1.3.0..<1.5.0} not satisfied")`.
+    ///
+    /// This is the resolver-level shape of a partial `swift package update a`
+    /// with a stale Package.resolved: the workspace's precomputation provider
+    /// exposes pinned packages only at their pinned version, which is emulated
+    /// here by serving "b" only at the (stale) pinned version.
+    func testConflictAcrossExactAndRangeRequirementErasDoesNotThrowInternalError() async throws {
+        // Old era: exact requirements on the shared dependency.
+        try builder.serve("a", at: "1.0.0", with: [
+            "a": ["b": (.versionSet(.exact("1.0.0")), .specific(["b"]))],
+        ])
+        try builder.serve("a", at: "1.1.0", with: [
+            "a": ["b": (.versionSet(.exact("1.1.0")), .specific(["b"]))],
+        ])
+        try builder.serve("a", at: "1.2.0", with: [
+            "a": ["b": (.versionSet(.exact("1.2.0")), .specific(["b"]))],
+        ])
+        // New era: range requirements on the shared dependency.
+        try builder.serve("a", at: "1.3.0", with: [
+            "a": ["b": (.versionSet(.range("1.3.0"..<"1.4.0")), .specific(["b"]))],
+        ])
+        try builder.serve("a", at: "1.4.0", with: [
+            "a": ["b": (.versionSet(.range("1.4.0"..<"1.5.0")), .specific(["b"]))],
+        ])
+        // Only the pinned versions of "b", "d" and "e" are visible, so no
+        // version of "a" in the root requirement is satisfiable.
+        try builder.serve("b", at: "1.0.0", with: [
+            "b": ["e": (.versionSet(.range("1.0.0"..<"1.1.0")), .specific(["e"]))],
+        ])
+        try builder.serve("d", at: "1.0.0", with: [
+            "d": ["e": (.versionSet(.range("1.0.0"..<"1.1.0")), .specific(["e"]))],
+        ])
+        try builder.serve("e", at: "1.0.0")
+
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(.range("1.2.0"..<"2.0.0")), .specific(["a"])),
+            "d": (.versionSet(.range("1.0.0"..<"2.0.0")), .specific(["d"])),
+        ])
+
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
+            "b": (.version("1.0.0"), .specific(["b"])),
+            "d": (.version("1.0.0"), .specific(["d"])),
+            "e": (.version("1.0.0"), .specific(["e"])),
+        ])
+
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
+        let result = await resolver.solve(constraints: dependencies)
+
+        XCTAssertNotNil(result.errorMsg)
+    }
+
+    /// Same shape as above plus a second (pinned) package "c" that also
+    /// constrains "b". Resolution must terminate; it used to repeat the same
+    /// decision cycle indefinitely.
+    func testConflictAcrossErasWithSecondConstrainerTerminates() async throws {
+        try builder.serve("a", at: "1.2.0", with: [
+            "a": ["b": (.versionSet(.exact("1.2.0")), .specific(["b"]))],
+        ])
+        try builder.serve("a", at: "1.3.0", with: [
+            "a": ["b": (.versionSet(.range("1.3.0"..<"1.4.0")), .specific(["b"]))],
+        ])
+        try builder.serve("a", at: "1.4.0", with: [
+            "a": ["b": (.versionSet(.range("1.4.0"..<"1.5.0")), .specific(["b"]))],
+        ])
+        try builder.serve("b", at: "1.0.0")
+        try builder.serve("c", at: "1.0.0", with: [
+            "c": ["b": (.versionSet(.range("1.0.0"..<"1.3.0")), .specific(["b"]))],
+        ])
+
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(.range("1.2.0"..<"2.0.0")), .specific(["a"])),
+            "c": (.versionSet(.range("1.0.0"..<"2.0.0")), .specific(["c"])),
+        ])
+        let resolvedPackagesStore = try builder.create(resolvedPackages: [
+            "b": (.version("1.0.0"), .specific(["b"])),
+            "c": (.version("1.0.0"), .specific(["c"])),
+        ])
+        let resolver = builder.create(resolvedPackages: resolvedPackagesStore.resolvedPackages)
+
+        // Propagation polls cancellation, so the task group can drain after
+        // the watchdog fires even if this decision cycle regresses to a spin.
+        try await withThrowingTaskGroup(of: Void.self) { group in
+            group.addTask {
+                let result = await resolver.solve(constraints: dependencies)
+                XCTAssertNotNil(result.errorMsg)
+            }
+            group.addTask {
+                try await Task.sleep(for: .seconds(30))
+                throw Timeout()
+            }
+            defer { group.cancelAll() }
+            _ = try await group.next()
+        }
+    }
+
+    func testResolverHonorsCancellation() async throws {
+        let resolver = builder.create()
+        let dependencies = try builder.create(dependencies: [
+            "a": (.versionSet(.exact("1.0.0")), .specific(["a"])),
+        ])
+        let task = Task {
+            do {
+                try await Task.sleep(for: .seconds(60))
+            } catch {
+                // Continue with the cancellation flag set so resolution itself
+                // is what observes cancellation.
+            }
+            return await resolver.solve(constraints: dependencies)
+        }
+        task.cancel()
+
+        guard case .failure(let error) = await task.value else {
+            return XCTFail("expected cancellation to stop resolution")
+        }
+        XCTAssertTrue(error is _Concurrency.CancellationError, "unexpected error: \(error)")
+    }
+
+    func testPropagationHonorsCancellation() async {
+        let resolver = builder.create()
+        let state = PubGrubDependencyResolver.State(root: rootNode)
+        let task = Task {
+            do {
+                try await Task.sleep(for: .seconds(60))
+            } catch {
+                // Continue with the cancellation flag set so propagation itself
+                // is what observes cancellation.
+            }
+            return Result {
+                try resolver.propagate(state: state, node: rootNode)
+            }
+        }
+        task.cancel()
+
+        guard case .failure(let error) = await task.value else {
+            return XCTFail("expected cancellation to stop propagation")
+        }
+        XCTAssertTrue(error is _Concurrency.CancellationError, "unexpected error: \(error)")
+    }
+
+    func testConflictResolutionHonorsCancellation() async throws {
+        let resolver = builder.create()
+        let state = PubGrubDependencyResolver.State(root: rootNode)
+        // A single positive term on a non-root package is not a complete
+        // failure, so the conflict-resolution loop body is entered.
+        let conflict = try Incompatibility(Term("a@1.0.0"), root: rootNode)
+        // Satisfy the conflict with a decision so that, without the
+        // cancellation check, the loop returns normally instead of
+        // hitting an internal error.
+        state.decide(try XCTUnwrap(conflict.terms.first).node, at: v1)
+        let task = Task {
+            do {
+                try await Task.sleep(for: .seconds(60))
+            } catch {
+                // Continue with the cancellation flag set so conflict
+                // resolution itself is what observes cancellation.
+            }
+            return Result {
+                try resolver.resolve(state: state, conflict: conflict)
+            }
+        }
+        task.cancel()
+
+        guard case .failure(let error) = await task.value else {
+            return XCTFail("expected cancellation to stop conflict resolution")
+        }
+        XCTAssertTrue(error is _Concurrency.CancellationError, "unexpected error: \(error)")
     }
 }
 
