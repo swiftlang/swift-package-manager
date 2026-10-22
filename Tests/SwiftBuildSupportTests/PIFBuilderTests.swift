@@ -2486,6 +2486,58 @@ struct PIFBuilderTests {
         )
     }
 
+    @Test func aggregateProjectDisablesDeprecatedArchDiagnostics() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/RootExe/main.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    platforms: [PlatformDescription(name: "macos", version: "15.0")],
+                    toolsVersion: .v5_9,
+                    targets: [
+                        TargetDescription(name: "RootExe", type: .executable),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always,
+                pluginScriptRunner: NoOpPluginScriptRunner()
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+
+        let errors = observability.diagnostics.filter { $0.severity == .error }
+        #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+        let aggregate = try pif.workspace.project(named: "Aggregate")
+        for configuration in BuildConfiguration.allCases {
+            let settings = try aggregate.buildConfig(named: configuration).settings
+            #expect(settings[single: "__DIAGNOSE_DEPRECATED_ARCHS"] == "NO")
+        }
+
+        let rootProject = try pif.workspace.project(named: "Root")
+        for configuration in BuildConfiguration.allCases {
+            let settings = try rootProject.buildConfig(named: configuration).settings
+            #expect(settings[single: "__DIAGNOSE_DEPRECATED_ARCHS"] == nil)
+        }
+    }
+
     @Test func hostBuildToolExcludedFromAggregates() async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let fs = InMemoryFileSystem(emptyFiles: [
