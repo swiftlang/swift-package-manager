@@ -741,6 +741,58 @@ struct PackageRegistryCommandTests {
     @Test(
         .tags(
             .TestSize.large,
+        ),
+        .requiresWorkingDirectorySupport,
+        arguments: [nil, "LICENSE", "LICENSE.md", "licence.txt", "COPYING"],
+    )
+    func archivingWarnsWhenLicenseIsMissing(licenseFilename: String?) async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        try await withTemporaryDirectory { temporaryDirectory in
+            let packageDirectory = temporaryDirectory.appending("MyPackage")
+            try localFileSystem.createDirectory(packageDirectory)
+
+            let initPackage = try InitPackage(
+                name: "MyPackage",
+                packageType: .library,
+                destinationPath: packageDirectory,
+                fileSystem: localFileSystem
+            )
+            try initPackage.writePackageStructure()
+            if let licenseFilename {
+                try localFileSystem.writeFileContents(
+                    packageDirectory.appending(component: licenseFilename),
+                    bytes: "MIT"
+                )
+            }
+            initGitRepo(packageDirectory)
+
+            _ = try await PackageArchiver.archive(
+                packageIdentity: .plain("org.package"),
+                packageVersion: "1.0.0",
+                packageDirectory: packageDirectory,
+                workingDirectory: temporaryDirectory.appending(component: UUID().uuidString),
+                workingFilesToCopy: [],
+                cancellator: .none,
+                observabilityScope: observability.topScope
+            )
+        }
+
+        guard licenseFilename == nil else {
+            expectNoDiagnostics(observability.diagnostics)
+            return
+        }
+        try expectDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: "no license file (LICENSE, LICENCE or COPYING) found at the root of the package",
+                severity: .warning
+            )
+        }
+    }
+
+    @Test(
+        .tags(
+            .TestSize.large,
             .Feature.Command.PackageRegistry.Publish,
         ),
         .requiresWorkingDirectorySupport,
