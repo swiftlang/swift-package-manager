@@ -123,8 +123,12 @@ private struct GitShellHelper {
     ///   historical LFS objects have been deleted or pruned from the server (a common
     ///   practice for large repositories to save storage). By omitting `--all`, we only
     ///   fetch objects needed for the default ref, which is sufficient for checkout.
+    ///
+    /// - Parameter ref: When provided, fetch LFS objects for this specific ref instead of
+    ///   the default HEAD. Pass the tag name or revision SHA when checking out a non-HEAD
+    ///   revision so LFS objects for that revision are available in the bare mirror.
     @discardableResult
-    func fetchLFS(at path: AbsolutePath) throws -> String {
+    func fetchLFS(at path: AbsolutePath, ref: String? = nil) throws -> String {
         guard !self.shouldSkipLFSOperations() else {
             return ""
         }
@@ -135,7 +139,11 @@ private struct GitShellHelper {
             // DO NOT add --all here. See documentation above for why.
             // Address the bare repository explicitly via `--git-dir` (rather than discovery
             // with `-C`) so this keeps working under `safe.bareRepository=explicit`.
-            return try self.run(gitLocationArguments(path.pathString, bare: true) + ["lfs", "fetch"])
+            var args = gitLocationArguments(path.pathString, bare: true) + ["lfs", "fetch"]
+            if let ref {
+                args += ["origin", ref]
+            }
+            return try self.run(args)
         } catch let error as CancellationError {
             throw error
         } catch {
@@ -889,7 +897,7 @@ public final class GitRepository: Repository, WorkingCheckout {
             )
             self.cachedHasLFS.clear()
             try self.updateSubmoduleAndCleanIfNecessary()
-            try self.pullLFSIfNecessary()
+            try self.pullLFSIfNecessary(ref: tag)
         }
     }
 
@@ -912,7 +920,7 @@ public final class GitRepository: Repository, WorkingCheckout {
             )
             self.cachedHasLFS.clear()
             try self.updateSubmoduleAndCleanIfNecessary()
-            try self.pullLFSIfNecessary()
+            try self.pullLFSIfNecessary(ref: revision.identifier)
         }
     }
 
@@ -973,16 +981,16 @@ public final class GitRepository: Repository, WorkingCheckout {
         cachedHasLFS.clear()
     }
 
-    fileprivate func fetchLFSIfNecessary() throws {
+    fileprivate func fetchLFSIfNecessary(ref: String? = nil) throws {
         try self.lock.withLock {
-            try self.fetchLFSIfNecessaryWithoutLock()
+            try self.fetchLFSIfNecessaryWithoutLock(ref: ref)
         }
     }
 
-    private func fetchLFSIfNecessaryWithoutLock() throws {
+    private func fetchLFSIfNecessaryWithoutLock(ref: String? = nil) throws {
         guard !self.isWorkingRepo else { return }
         guard try self.hasLFSTrackedFilesWithoutLock() else { return }
-        _ = try self.git.fetchLFS(at: self.path)
+        _ = try self.git.fetchLFS(at: self.path, ref: ref)
     }
 
     private func updateSubmoduleAndCleanIfNecessary() throws {
@@ -994,7 +1002,11 @@ public final class GitRepository: Repository, WorkingCheckout {
     }
 
     /// Pulls LFS files if the repository uses LFS (auto-detected)
-    private func pullLFSIfNecessary() throws {
+    /// - Parameter ref: Tag name or revision SHA of the revision being checked out. When
+    ///   the working copy's LFS pull fails because the bare mirror only has HEAD's LFS
+    ///   objects, this ref is passed to `git lfs fetch origin <ref>` in the mirror so
+    ///   objects for the specific revision are fetched before retrying.
+    private func pullLFSIfNecessary(ref: String? = nil) throws {
         guard self.isWorkingRepo else { return }
 
         // Callers already hold `self.lock`
@@ -1009,7 +1021,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                 }
 
                 let alternateRepository = GitRepository(git: self.git, path: alternateRepositoryPath, isWorkingRepo: false)
-                try alternateRepository.fetchLFSIfNecessary()
+                try alternateRepository.fetchLFSIfNecessary(ref: ref)
                 try self.git.pullLFS(at: self.path)
             } catch let error as CancellationError {
                 throw error

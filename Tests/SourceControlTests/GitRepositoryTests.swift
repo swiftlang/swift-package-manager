@@ -1619,6 +1619,56 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    /// Test that checking out a tag other than the default-branch HEAD resolves LFS objects.
+    /// Regression test for https://github.com/swiftlang/swift-package-manager/issues/10719:
+    /// `git lfs fetch` without a ref only fetched objects for HEAD, so pinning to an older
+    /// release tag failed with "remote missing object" on a clean cache.
+    func testGitLFSCheckoutNonHeadTagFetchesCorrectObjects() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
+        try await self.requireGitLFS()
+
+        try await testWithTemporaryDirectory { path in
+            let lfsRepoPath = path.appending("lfs-repo")
+            // Create a repo tagged 1.0.0 with a known binary payload.
+            let binaryData100 = try await self.createLFSRepository(at: lfsRepoPath, tag: "1.0.0")
+            // Commit a different payload so 1.0.1 has a distinct LFS object; HEAD moves past 1.0.0.
+            let binaryData101 = Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+            let repo100 = GitRepository(path: lfsRepoPath)
+            try localFileSystem.writeFileContents(
+                lfsRepoPath.appending("test.bin"),
+                bytes: ByteString(binaryData101)
+            )
+            try repo100.stageEverything()
+            try repo100.commit(message: "Update binary file for 1.0.1")
+            try repo100.tag(name: "1.0.1")
+            // HEAD is now at 1.0.1; fetching LFS without a ref fetches only HEAD's objects.
+            XCTAssertNotEqual(binaryData100, binaryData101)
+
+            let provider = GitRepositoryProvider()
+            let repoSpec = RepositorySpecifier(path: lfsRepoPath)
+            let clonePath = path.appending("clone")
+            try await provider.fetch(repository: repoSpec, to: clonePath)
+
+            // Remove the origin so all LFS objects must come from the bare mirror.
+            try localFileSystem.removeFileTree(lfsRepoPath)
+
+            let checkoutPath = path.appending("checkout")
+            let workingCopy = try await provider.createWorkingCopy(
+                repository: repoSpec,
+                sourcePath: clonePath,
+                at: checkoutPath,
+                editable: false
+            )
+            // Checking out 1.0.0 (not HEAD) must succeed and resolve the LFS file,
+            // not leave behind a raw LFS pointer.
+            try workingCopy.checkout(tag: "1.0.0")
+
+            let binaryFilePath = checkoutPath.appending("test.bin")
+            XCTAssertFileExists(binaryFilePath)
+            try self.assertFileMatchesBinaryData(binaryFilePath, expected: binaryData100)
+        }
+    }
+
     /// Test full Git LFS workflow: fetch LFS objects and verify content is not a pointer.
     /// This test requires git-lfs to be installed and will skip if unavailable.
     func testGitLFSFetchAndPull() async throws {
