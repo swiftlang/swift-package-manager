@@ -154,4 +154,41 @@ struct CoverageTests {
         }
     }
 
+    @Test(
+        .tags(
+            .Feature.Command.Test,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func coverageMergesAcrossTestProducts(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        // TestDebuggingMultiProduct contains two libraries (LibA, LibB) with a separate
+        // test target for each. Coverage from every test product must appear in the
+        // single exported report rather than the last product overwriting the others.
+        let config = BuildConfiguration.debug
+        try await fixture(name: "Miscellaneous/TestDebuggingMultiProduct") { path in
+            let coveragePathString = try await getCoveragePath(
+                path,
+                with: BuildData(buildSystem: buildSystem, config: config),
+            )
+            let coveragePath = try AbsolutePath(validating: coveragePathString)
+            try #require(!localFileSystem.exists(coveragePath))
+
+            try await executeSwiftTest(
+                path,
+                configuration: config,
+                extraArgs: [
+                    "--enable-code-coverage",
+                ],
+                buildSystem: buildSystem,
+                throwIfCommandFails: true,
+            )
+
+            let report: String = try localFileSystem.readFileContents(coveragePath)
+            #expect(report.contains("LibA.swift"), "Coverage should include LibA.swift")
+            #expect(report.contains("LibB.swift"), "Coverage should include LibB.swift")
+        }
+    }
+
 }
