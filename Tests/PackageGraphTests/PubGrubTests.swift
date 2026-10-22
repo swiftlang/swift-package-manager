@@ -2844,6 +2844,152 @@ final class PubGrubBacktrackTests: XCTestCase {
         ])
     }
 
+    /// Minimal shape of a reported failure where resolution was claimed to be impossible even though a solution
+    /// exists.
+    ///
+    /// root -> tool 1.0.0..<3.0.0
+    /// root -> tls-lib 1.0.0..<3.0.0
+    /// tool 1.0.0, 1.1.0 -> tls-lib ==1.0.0
+    /// tool 2.0.0, 2.1.0 -> tls-lib ==1.0.1 (adjacent patch release of 1.0.0)
+    /// tls-lib has 1.0.0, 1.0.1 and 2.0.0.
+    ///
+    /// `tls-lib` has fewer candidates (3) than `tool` (4), so it is decided first, at 2.0.0. Every `tool` version
+    /// then conflicts with it, and the solver learns that `tool` needs `tls-lib` to be 1.0.0 or 1.0.1, i.e. the
+    /// union of two adjacent exact versions `{1.0.0} U {1.0.1}`, built from two negative terms. That union must
+    /// not be treated as empty, otherwise the solver cannot record the requirement and either loops or reports
+    /// the graph as unresolvable instead of falling back to `tls-lib` 1.0.1.
+    func testBacktrackAdjacentExactVersionsFromDifferentDependentVersions() async throws {
+        try builder.serve("tls-lib", at: "1.0.0")
+        try builder.serve("tls-lib", at: "1.0.1")
+        try builder.serve("tls-lib", at: "2.0.0")
+
+        for version in ["1.0.0", "1.1.0"] as [Version] {
+            try builder.serve("tool", at: version, with: [
+                "tool": ["tls-lib": (.versionSet(.exact("1.0.0")), .specific(["tls-lib"]))],
+            ])
+        }
+        for version in ["2.0.0", "2.1.0"] as [Version] {
+            try builder.serve("tool", at: version, with: [
+                "tool": ["tls-lib": (.versionSet(.exact("1.0.1")), .specific(["tls-lib"]))],
+            ])
+        }
+
+        let resolver = builder.create()
+        let dependencies = try builder.create(dependencies: [
+            "tool": (.versionSet(.range("1.0.0"..<"3.0.0")), .specific(["tool"])),
+            "tls-lib": (.versionSet(.range("1.0.0"..<"3.0.0")), .specific(["tls-lib"])),
+        ])
+
+        let result = await resolver.solve(constraints: dependencies)
+
+        AssertResult(result, [
+            ("tool", .version("2.1.0")),
+            ("tls-lib", .version("1.0.1")),
+        ])
+    }
+
+    /// Serves a graph mirroring a reported failure where resolution was claimed to be impossible even though
+    /// valid solutions exist. (rdar://190709844)
+    ///
+    /// tool 40.2.1...40.4.1 -> wrapper-client 0.20.0..<1.0.0, tls-lib 2.29.0..<3.0.0
+    /// tool 40.5.0...40.8.0 -> wrapper-client 0.22.0..<1.0.0, tls-lib 2.29.0..<3.0.0
+    /// wrapper-client 0.20.0 -> base-client 0.10.0..<0.11.0
+    /// wrapper-client 0.21.0 -> base-client 0.12.0..<0.13.0
+    /// wrapper-client 0.22.0 -> base-client 0.14.0..<0.15.0
+    /// base-client 0.10.0...0.12.0 -> tls-lib ==2.36.0
+    /// base-client 0.13.0, 0.14.0 -> tls-lib ==2.37.2
+    ///
+    /// `base-client` releases pin exact `tls-lib` versions, and some of those releases are adjacent patch
+    /// versions (0.10.0 and 0.10.1 both pin 2.36.0), so the solver builds unions of exact versions while
+    /// backtracking from the newest `tool`.
+    private func serveClientGraph() throws {
+        for version in [
+            "2.29.0", "2.29.1", "2.29.2", "2.29.3", "2.30.0", "2.31.0", "2.32.0", "2.33.0", "2.34.0", "2.34.1",
+            "2.35.0", "2.36.0", "2.36.1", "2.37.0", "2.37.1", "2.37.2", "2.37.3", "2.37.4", "2.37.5",
+        ] {
+            try builder.serve("tls-lib", at: .version(Version(stringLiteral: version)))
+        }
+
+        for (version, tlsVersion) in [
+            ("0.10.0", "2.36.0"), ("0.10.1", "2.36.0"), ("0.11.0", "2.36.0"), ("0.12.0", "2.36.0"),
+            ("0.13.0", "2.37.2"), ("0.14.0", "2.37.2"),
+        ] {
+            try builder.serve("base-client", at: .version(Version(stringLiteral: version)), with: [
+                "base-client": [
+                    "tls-lib": (.versionSet(.exact(Version(stringLiteral: tlsVersion))), .specific(["tls-lib"])),
+                ],
+            ])
+        }
+
+        for (version, baseClientRange) in [
+            ("0.20.0", VersionSetSpecifier.range("0.10.0"..<"0.11.0")),
+            ("0.21.0", .range("0.12.0"..<"0.13.0")),
+            ("0.22.0", .range("0.14.0"..<"0.15.0")),
+        ] {
+            try builder.serve(
+                "wrapper-client",
+                at: .version(Version(stringLiteral: version)),
+                with: [
+                    "wrapper-client": [
+                        "base-client": (.versionSet(baseClientRange), .specific(["base-client"])),
+                    ],
+                ]
+            )
+        }
+
+        for (version, internalRange) in [
+            ("40.2.1", VersionSetSpecifier.range("0.20.0"..<"1.0.0")),
+            ("40.3.0", .range("0.20.0"..<"1.0.0")),
+            ("40.4.0", .range("0.20.0"..<"1.0.0")),
+            ("40.4.1", .range("0.20.0"..<"1.0.0")),
+            ("40.5.0", .range("0.22.0"..<"1.0.0")),
+            ("40.6.0", .range("0.22.0"..<"1.0.0")),
+            ("40.7.0", .range("0.22.0"..<"1.0.0")),
+            ("40.8.0", .range("0.22.0"..<"1.0.0")),
+        ] {
+            try builder.serve("tool", at: .version(Version(stringLiteral: version)), with: [
+                "tool": [
+                    "wrapper-client": (
+                        .versionSet(internalRange), .specific(["wrapper-client"])
+                    ),
+                    "tls-lib": (.versionSet(.range("2.29.0"..<"3.0.0")), .specific(["tls-lib"])),
+                ],
+            ])
+        }
+    }
+
+    /// root -> tool 40.2.1..<41.0.0, tls-lib 2.32.0..<3.0.0, net-lib 26.43.3..<27.0.0
+    /// net-lib 26.43.3 -> tls-lib 2.36.0..<3.0.0
+    ///
+    /// `net-lib` adds a further, overlapping constraint on `tls-lib`. The same graph without it resolves, but
+    /// with it the solver used to report the graph as unresolvable even though valid solutions exist: `tool`
+    /// 40.8.0 with `tls-lib` 2.37.2, or `tool` 40.4.1 with `tls-lib` 2.36.0. (rdar://190709844)
+    func testBacktrackWithOverlappingTransitiveConstraint() async throws {
+        try self.serveClientGraph()
+        try builder.serve("net-lib", at: "26.43.3", with: [
+            "net-lib": [
+                "tls-lib": (.versionSet(.range("2.36.0"..<"3.0.0")), .specific(["tls-lib"])),
+            ],
+        ])
+
+        let resolver = builder.create()
+        let dependencies = try builder.create(dependencies: [
+            "tool": (.versionSet(.range("40.2.1"..<"41.0.0")), .specific(["tool"])),
+            "tls-lib": (.versionSet(.range("2.32.0"..<"3.0.0")), .specific(["tls-lib"])),
+            "net-lib": (.versionSet(.range("26.43.3"..<"27.0.0")), .specific(["net-lib"])),
+        ])
+
+        let result = await resolver.solve(constraints: dependencies)
+
+        AssertResult(result, [
+            ("tool", .version("40.8.0")),
+            ("wrapper-client", .version("0.22.0")),
+            ("base-client", .version("0.14.0")),
+            ("tls-lib", .version("2.37.2")),
+            ("net-lib", .version("26.43.3")),
+        ])
+    }
+
     func testBacktrack2() async throws {
         try builder.serve("a", at: v1)
         try builder.serve("a", at: "2.0.0", with: [
