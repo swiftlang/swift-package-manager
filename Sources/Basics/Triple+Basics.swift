@@ -64,7 +64,7 @@ extension Triple {
     }
 
     public func isFreeBSD() -> Bool {
-        os == .freebsd
+        os == .freeBSD
     }
 
     public func isNoneOS() -> Bool {
@@ -178,7 +178,7 @@ extension Triple {
         switch os {
         case _ where isDarwin():
             return ".dylib"
-        case .linux, .openbsd, .freebsd:
+        case .linux, .openbsd, .freeBSD:
             return ".so"
         case .win32:
             return ".dll"
@@ -218,7 +218,7 @@ extension Triple {
         switch os {
         case _ where isDarwin():
             return ""
-        case .linux, .openbsd, .freebsd:
+        case .linux, .openbsd, .freeBSD:
             return ""
         case .win32:
             return ".exe"
