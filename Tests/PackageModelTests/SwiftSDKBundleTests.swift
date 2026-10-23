@@ -148,11 +148,7 @@ private func generateTestFileSystem(
 private let arm64Triple = try! Triple("arm64-apple-macosx13.0")
 private let i686Triple = try! Triple("i686-apple-macosx13.0")
 
-private let fixtureSDKsPath = try! AbsolutePath(validating: #file)
-    .parentDirectory
-    .parentDirectory
-    .parentDirectory
-    .appending(components: ["Fixtures", "SwiftSDKs"])
+private let fixtureSDKsPath = fixturesDirectory.appending(component: "SwiftSDKs")
 
 final class SwiftSDKBundleTests: XCTestCase {
     func testInstallRemote() async throws {

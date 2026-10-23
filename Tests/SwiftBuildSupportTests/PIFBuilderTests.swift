@@ -1209,6 +1209,32 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test(arguments: BuildConfiguration.allCases)
+    func resourceBundlesDisableCopyPhaseStrip(configuration: BuildConfiguration) async throws {
+        try await withGeneratedPIF(fromFixture: "Resources/Simple") { pif, observabilitySystem, fixturePath in
+            let errors = observabilitySystem.diagnostics.filter { $0.severity == .error }
+            #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+            let project = try pif.workspace.project(named: "Resources")
+            let bundleConfig = try project
+                .target(id: "PACKAGE-RESOURCE:ClangResource")
+                .buildConfig(named: configuration)
+
+            #expect(bundleConfig.settings[.COPY_PHASE_STRIP] == "NO")
+
+            let projectConfig = try project.buildConfig(named: configuration)
+            let moduleConfig = try project
+                .target(id: "PACKAGE-TARGET:ClangResource")
+                .buildConfig(named: configuration)
+            let moduleCopyPhaseStrip = moduleConfig.settings[.COPY_PHASE_STRIP] ?? projectConfig.settings[.COPY_PHASE_STRIP]
+            switch configuration {
+            case .debug:
+                #expect(moduleCopyPhaseStrip == "NO")
+            case .release:
+                #expect(moduleCopyPhaseStrip == "YES")
+            }
+        }
+    }
 
     @Test(arguments: BuildConfiguration.allCases)
     func conditionalLinkerSettings(configuration: BuildConfiguration) async throws {

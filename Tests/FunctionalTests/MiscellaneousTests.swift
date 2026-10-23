@@ -742,8 +742,7 @@ struct MiscellaneousTestCase {
 
                 // ••••• Set up dependency.
                 let dependencyName = "UnicodeDependency‐\(complicatedString)"
-                let dependencyOrigin = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
-                    .appending("Fixtures")
+                let dependencyOrigin = fixturesDirectory
                     .appending("Miscellaneous")
                     .appending(component: dependencyName)
                 let dependencyDestination = fixturePath.parentDirectory.appending(component: dependencyName)

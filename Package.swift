@@ -837,6 +837,9 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 "Workspace",
             ] + swiftTSCTestSupportDeps,
+            resources: [
+                .copy("Fixtures"),
+            ],
         ),
         .target(
             /** SwiftPM internal test suite support library */
