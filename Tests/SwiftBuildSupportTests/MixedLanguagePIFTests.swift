@@ -86,7 +86,7 @@ struct MixedLanguagePIFTests {
         )
         let target = try project.requireTarget(named: "App")
         let config = try target.buildConfig(named: .debug)
-        #expect(config.settings[.SWIFT_OBJC_BRIDGING_HEADER] == "/BridgeApp/Sources/App/Bridging.h")
+        #expect(config.settings[.SWIFT_OBJC_BRIDGING_HEADER] == AbsolutePath("/BridgeApp/Sources/App/Bridging.h").pathString)
         #expect(config.settings[.SWIFT_BRIDGING_HEADER_IS_INTERNAL] == "NO")
     }
 
@@ -114,18 +114,19 @@ struct MixedLanguagePIFTests {
         let target = try project.requireTarget(named: "Lib")
         let config = try target.buildConfig(named: .debug)
 
-        #expect(config.settings[.SWIFT_OBJC_BRIDGING_HEADER, .macOS] == "/BridgeLib/Sources/Lib/Shims.h")
+        #expect(config.settings[.SWIFT_OBJC_BRIDGING_HEADER, .macOS] == AbsolutePath("/BridgeLib/Sources/Lib/Shims.h").pathString)
         #expect(config.settings[.SWIFT_BRIDGING_HEADER_IS_INTERNAL, .macOS] == "YES")
         #expect(config.settings[.SWIFT_OBJC_BRIDGING_HEADER] == nil)
     }
 
     @Test func mixedSwiftCLibrary() async throws {
+        let headerSearchPath = AbsolutePath("/MixedSwiftCLibrary/Sources/MixedSwiftCLibrary/include")
         let project = try await makeProject(
             packageName: "MixedSwiftCLibrary",
             files: [
                 "/MixedSwiftCLibrary/Sources/MixedSwiftCLibrary/Adder.swift",
                 "/MixedSwiftCLibrary/Sources/MixedSwiftCLibrary/cadd.c",
-                "/MixedSwiftCLibrary/Sources/MixedSwiftCLibrary/include/cadd.h",
+                headerSearchPath.appending(component:"cadd.h").pathString,
             ],
             targets: [TargetDescription(name: "MixedSwiftCLibrary")],
             toolsVersion: try mixedLanguageToolsVersion(),
@@ -141,20 +142,20 @@ struct MixedLanguagePIFTests {
         #expect(moduleMap.contains("module MixedSwiftCLibrary"))
 
         let headerSearchPaths = try #require(config.settings[.HEADER_SEARCH_PATHS])
-        #expect(headerSearchPaths.contains("/MixedSwiftCLibrary/Sources/MixedSwiftCLibrary/include"))
+        #expect(headerSearchPaths.contains(headerSearchPath.pathString))
         let ownSwiftFlags = try #require(config.settings[.OTHER_SWIFT_FLAGS])
-        #expect(ownSwiftFlags.contains("-fmodule-map-file=$(GENERATED_MODULEMAP_DIR)/MixedSwiftCLibrary.modulemap"))
+        #expect(ownSwiftFlags.contains("-fmodule-map-file=$(GENERATED_MODULEMAP_DIR)\(ProcessInfo.osSeparator)MixedSwiftCLibrary.modulemap"))
     }
 
     @Test func mixedTargetWithCustomModuleMap() async throws {
-        let customModuleMapPath = "/CustomModuleMapMixed/Sources/MixedCustom/include/module.modulemap"
+        let customModuleMapPath = AbsolutePath("/CustomModuleMapMixed/Sources/MixedCustom/include/module.modulemap")
         let project = try await makeProject(
             packageName: "CustomModuleMapMixed",
             files: [
                 "/CustomModuleMapMixed/Sources/MixedCustom/Adder.swift",
                 "/CustomModuleMapMixed/Sources/MixedCustom/cadd.c",
                 "/CustomModuleMapMixed/Sources/MixedCustom/include/cadd.h",
-                customModuleMapPath,
+                customModuleMapPath.pathString,
             ],
             targets: [TargetDescription(name: "MixedCustom")],
             toolsVersion: try mixedLanguageToolsVersion(),
@@ -162,7 +163,7 @@ struct MixedLanguagePIFTests {
         let target = try project.requireTarget(named: "MixedCustom")
         let config = try target.buildConfig(named: .debug)
 
-        #expect(config.settings[.MODULEMAP_PATH] == customModuleMapPath)
+        #expect(config.settings[.MODULEMAP_PATH] == customModuleMapPath.pathString)
         #expect(config.settings[.MODULEMAP_FILE_CONTENTS] == nil)
         #expect(config.settings[.SWIFT_EXTEND_MODULEMAP_FILE_CONTENTS] == nil)
         let ownSwiftFlags = try #require(config.settings[.OTHER_SWIFT_FLAGS])
@@ -291,9 +292,9 @@ struct MixedLanguagePIFTests {
         let config = try core.buildConfig(named: .debug)
 
         let impartedSwiftFlags = try #require(config.impartedBuildProperties.settings[.OTHER_SWIFT_FLAGS])
-        #expect(impartedSwiftFlags.contains("-fmodule-map-file=$(GENERATED_MODULEMAP_DIR)/MixedCore.modulemap"))
+        #expect(impartedSwiftFlags.contains("-fmodule-map-file=$(GENERATED_MODULEMAP_DIR)\(ProcessInfo.osSeparator)MixedCore.modulemap"))
         let impartedCFlags = try #require(config.impartedBuildProperties.settings[.OTHER_CFLAGS])
-        #expect(impartedCFlags.contains("-fmodule-map-file=$(GENERATED_MODULEMAP_DIR)/MixedCore.modulemap"))
+        #expect(impartedCFlags.contains("-fmodule-map-file=$(GENERATED_MODULEMAP_DIR)\(ProcessInfo.osSeparator)MixedCore.modulemap"))
     }
 
     @Test func testTargetImportingMixedLibrary() async throws {
@@ -314,7 +315,7 @@ struct MixedLanguagePIFTests {
         let core = try project.requireTarget(named: "MixedCore")
         let config = try core.buildConfig(named: .debug)
         let impartedSwiftFlags = try #require(config.impartedBuildProperties.settings[.OTHER_SWIFT_FLAGS])
-        #expect(impartedSwiftFlags.contains("-fmodule-map-file=$(GENERATED_MODULEMAP_DIR)/MixedCore.modulemap"))
+        #expect(impartedSwiftFlags.contains("-fmodule-map-file=$(GENERATED_MODULEMAP_DIR)\(ProcessInfo.osSeparator)MixedCore.modulemap"))
     }
 
     @Test func testTargetImportingMixedExecutable() async throws {
@@ -389,7 +390,7 @@ struct MixedLanguagePIFTests {
         #expect(moduleMap.contains("module MacroImpl"))
         #expect(moduleMap.contains("umbrella"))
         let ownSwiftFlags = try #require(config.settings[.OTHER_SWIFT_FLAGS])
-        #expect(ownSwiftFlags.contains("-fmodule-map-file=$(GENERATED_MODULEMAP_DIR)/MacroImpl.modulemap"))
+        #expect(ownSwiftFlags.contains("-fmodule-map-file=$(GENERATED_MODULEMAP_DIR)\(ProcessInfo.osSeparator)MacroImpl.modulemap"))
     }
 
     @Test func macroWithCSettings() async throws {

@@ -156,6 +156,12 @@ def is_on_darwin() -> bool:
 def set_environment() -> None:
     os.environ["SWIFTCI_IS_SELF_HOSTED"] = "1"
 
+    # TEMPORARY (diagnostics PR only, do not merge): run the tests that are disabled on Windows
+    # so their DEBUG(#NNNNN) output lands in the CI log. Only consulted on Windows hosts.
+    os.environ["SWIFTPM_RUN_WINDOWS_DISABLED_TESTS"] = "1"
+    # Report still-running XCTest tests (with their output tail) every 5 minutes, to diagnose hangs.
+    os.environ["SWIFTPM_TEST_RUNNER_WATCHDOG_SECONDS"] = "300"
+
     # Ensure SDKROOT is configure
     if is_on_darwin():
         sdk_root = call_output(shlex.split("xcrun --show-sdk-path --sdk macosx"))
@@ -319,6 +325,7 @@ def main() -> None:
                 dispaly_event_stream_json_file_contents()
                 if event_stream_path.exists():
                     os.remove(event_stream_path)
+                raise
 
 
         if is_on_darwin() and not args.skip_bootstrap:

@@ -1852,6 +1852,13 @@ final class ParallelTestRunner {
 
     private let buildSystem: any BuildSystem
 
+    /// DEBUG: tests that are currently executing, keyed by specifier, used by the hang watchdog.
+    private struct RunningTest: Sendable {
+        let start: DispatchTime
+        let output: ThreadSafeBox<String>
+    }
+    private let runningTests = ThreadSafeKeyValueStore<String, RunningTest>()
+
     init(
         bundlePaths: [AbsolutePath],
         cancellator: Cancellator,
@@ -1893,6 +1900,21 @@ final class ParallelTestRunner {
         self.productsBuildParameters = productsBuildParameters
 
         assert(numJobs > 0, "num jobs should be > 0")
+    }
+
+    /// DEBUG: writes the tests that are currently running, how long they have run, and the tail of their output to stderr.
+    private func reportRunningTests() {
+        let now = DispatchTime.now()
+        let running = self.runningTests.get()
+        var report = "\nDEBUG(hang) \(Date()) \(self.numCurrentTest)/\(self.numTests) finished, \(running.count) running:\n"
+        for (specifier, test) in running.sorted(by: { $0.value.start < $1.value.start }) {
+            let seconds = (now.uptimeNanoseconds - test.start.uptimeNanoseconds) / 1_000_000_000
+            let output = test.output.get()
+            report += "DEBUG(hang)   \(specifier) running for \(seconds)s; output tail:\n"
+            report += String(output.suffix(2000)).split(separator: "\n", omittingEmptySubsequences: false)
+                .map { "DEBUG(hang)     | \($0)" }.joined(separator: "\n") + "\n"
+        }
+        FileHandle.standardError.write(Data(report.utf8))
     }
 
     /// Updates the progress bar status.
@@ -1948,7 +1970,9 @@ final class ParallelTestRunner {
                     )
                     let output = ThreadSafeBox<String>("")
                     let start = DispatchTime.now()
+                    self.runningTests[test.specifier] = RunningTest(start: start, output: output)
                     let result = testRunner.test(outputHandler: { _output in output.append(_output) })
+                    self.runningTests[test.specifier] = nil
                     let duration = start.distance(to: .now())
                     if result == .failure {
                         self.ranSuccessfully = false
@@ -1964,6 +1988,21 @@ final class ParallelTestRunner {
             thread.start()
             return thread
         })
+
+        // DEBUG: periodically report tests that are still running, to diagnose hangs in CI.
+        // Enabled by setting SWIFTPM_TEST_RUNNER_WATCHDOG_SECONDS to the reporting interval.
+        let watchdogStop = ThreadSafeBox<Bool>(false)
+        if let value = Environment.current["SWIFTPM_TEST_RUNNER_WATCHDOG_SECONDS"], let interval = UInt32(value), interval > 0 {
+            let watchdog = Thread {
+                while !watchdogStop.get() {
+                    sleep(interval)
+                    if watchdogStop.get() { break }
+                    self.reportRunningTests()
+                }
+            }
+            watchdog.start()
+        }
+        defer { watchdogStop.put(true) }
 
         // List of processed tests.
         let processedTests = ThreadSafeArrayStore<TestResult>()

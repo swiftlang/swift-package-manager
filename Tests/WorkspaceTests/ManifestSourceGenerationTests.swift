@@ -69,7 +69,28 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 delegateQueue: .sharedConcurrent
             )
 
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            // DEBUG(#10711): dump what the loader resolved when it reports unexpected diagnostics.
+            if !observability.diagnostics.isEmpty {
+                print("DEBUG(#10711) packageDir=\(packageDir) pathString=\(packageDir.pathString)")
+                print("DEBUG(#10711) manifestContents:\n\(manifestContents)")
+                print("DEBUG(#10711) diagnostics: \(observability.diagnostics.map { "\($0.severity): \($0.message)" })")
+                for dependency in manifest.dependencies {
+                    switch dependency {
+                    case .sourceControl(let settings):
+                        print("DEBUG(#10711) dependency identity=\(dependency.identity) location=\(settings.location)")
+                    case .fileSystem(let settings):
+                        print("DEBUG(#10711) dependency identity=\(dependency.identity) path=\(settings.path)")
+                    default:
+                        print("DEBUG(#10711) dependency identity=\(dependency.identity) \(dependency)")
+                    }
+                }
+            }
+
+            XCTAssertNoDiagnostics(
+                observability.diagnostics,
+                file: file,
+                line: line,
+            )
 
             // Generate source code for the loaded manifest,
             let newContents = try manifest.generateManifestFileContents(
@@ -79,7 +100,12 @@ final class ManifestSourceGenerationTests: XCTestCase {
 
             // Check that the tools version was serialized properly.
             let versionSpacing = (toolsVersion >= .v5_4) ? " " : ""
-            XCTAssertMatch(newContents, .prefix("// swift-tools-version:\(versionSpacing)\(toolsVersion.major).\(toolsVersion.minor)"))
+            XCTAssertMatch(
+                newContents,
+                .prefix("// swift-tools-version:\(versionSpacing)\(toolsVersion.major).\(toolsVersion.minor)"),
+                file: file,
+                line: line,
+            )
 
             // Write out the generated manifest to replace the old manifest file contents, and load it again.
             try fs.writeFileContents(manifestPath, string: newContents)
@@ -97,7 +123,11 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 delegateQueue: .sharedConcurrent
             )
 
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(
+                observability.diagnostics,
+                file: file,
+                line: line,
+            )
 
             // Check that all the relevant properties survived.
             let failureDetails = "\n--- ORIGINAL MANIFEST CONTENTS ---\n" + manifestContents + "\n--- REWRITTEN MANIFEST CONTENTS ---\n" + newContents
@@ -743,6 +773,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testModuleAliasGeneration() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/10711: spurious duplicate-dependency warning from temp-dir identity collision")
         let manifest = Manifest.createRootManifest(
             displayName: "thisPkg",
             path: "/thisPkg",
@@ -766,6 +797,16 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 try TargetDescription(name: "Logging", dependencies: []),
             ])
         let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
+        // DEBUG(#10711): show how the fake `/fooPkg`-style paths turn into relative URLs on this host.
+        print("DEBUG(#10711) manifest.path=\(manifest.path) parentDirectory=\(manifest.path.parentDirectory)")
+        print("DEBUG(#10711) components manifest.path=\(manifest.path.components) parent=\(manifest.path.parentDirectory.components)")
+        for dependency in manifest.dependencies {
+            if case .sourceControl(let settings) = dependency, case .local(let absPath) = settings.location {
+                let rel = absPath.relative(to: manifest.path.parentDirectory)
+                print("DEBUG(#10711) dep absPath=\(absPath) components=\(absPath.components) relative=<\(rel)> identity=\(dependency.identity)")
+            }
+        }
+        print("DEBUG(#10711) generated manifest:\n\(contents)")
         let parts =
         """
             dependencies: [
