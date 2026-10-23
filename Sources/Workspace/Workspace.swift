@@ -1023,6 +1023,9 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
 
+        // TODO bp -- here, we have finished running the resolver. now we need to carry over the package
+        // major versions and ensure that we created the appropriate nodes.
+
         let binaryArtifacts = await self.state.artifacts
             .reduce(into: [PackageIdentity: [String: BinaryArtifact]]()) { partial, artifact in
                 partial[artifact.packageRef.identity, default: [:]][artifact.targetName] = BinaryArtifact(
@@ -1580,7 +1583,7 @@ extension Workspace {
 extension Workspace.Location {
     /// Returns the path to the dependency's repository checkout directory.
     func repositoriesCheckoutSubdirectory(for dependency: Workspace.ManagedDependency) -> AbsolutePath {
-        self.repositoriesCheckoutsDirectory.appending(dependency.subpath)
+            self.repositoriesCheckoutsDirectory.appending(dependency.subpath)
     }
 
     /// Returns the path to the  dependency's download directory.

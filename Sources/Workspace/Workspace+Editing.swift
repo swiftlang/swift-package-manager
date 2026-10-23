@@ -212,6 +212,7 @@ extension Workspace {
             _ = try await self.checkoutRepository(
                 package: dependency.packageRef,
                 at: checkoutState,
+                isMultipleMajor: false,
                 observabilityScope: observabilityScope
             )
         } else {
