@@ -1367,7 +1367,10 @@ struct PIFBuilderTests {
         }
     }
 
-    @Test(.skipHostOS(.linux, "linux does not support C-family test targets"), arguments: BuildConfiguration.allCases)
+    @Test(
+        .skipHostOS(.linux, because: "linux does not support C-family test targets"),
+        arguments: BuildConfiguration.allCases,
+    )
     func testProductsPassModuleNameToClang(configuration: BuildConfiguration) async throws {
         let observability = ObservabilitySystem.makeForTesting()
 
@@ -2272,7 +2275,7 @@ struct PIFBuilderTests {
         #expect(!moduleMapContents.contains("lib-Swift.h"))
 
         let headerSearchPaths = try #require(libConfig.settings[.HEADER_SEARCH_PATHS])
-        #expect(headerSearchPaths.contains("/Pkg/Sources/lib/include"))
+        #expect(headerSearchPaths.contains(AbsolutePath("/Pkg/Sources/lib/include").pathString))
      }
 
     @Test func testTargetDependsOnTestTarget() async throws {

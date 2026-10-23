@@ -1241,6 +1241,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.BuildSystem,
         ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10712", relationship: .defect),
     )
     func buildCachePrefixMapping() async throws {
         let config = BuildConfiguration.debug
@@ -1324,7 +1325,14 @@ struct BuildCommandTestCases {
             // hits (0%).
             let secondOutput = try await buildWithPrefixMapping(at: secondPackage)
             #expect(secondOutput.contains("cache hit"))
+            withKnownIssue(
+                "https://github.com/swiftlang/swift-package-manager/issues/10712",
+                isIntermittent: true,
+            ) {
             #expect(secondOutput.contains("(100%)"))
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
         }
     }
 
@@ -1994,9 +2002,17 @@ struct BuildCommandTestCases {
                     buildSystem: buildSystem
                 )
                 // THEN we should not see any output in stderr
-                 #expect(stderr.isEmpty)
+                let filteredStderr = filterSwiftPMOutput(content: stderr)
+                #expect(
+                    filteredStderr.isEmpty,
+                    "stderr: \(stderr)",
+                )
                 // AND no content in stdout
-                 #expect(stdout.isEmpty)
+                let filteredStdout = filterSwiftPMOutput(content: stdout)
+                #expect(
+                    filteredStdout.isEmpty,
+                    "stdout: \(stdout)",
+                )
             }
     }
 

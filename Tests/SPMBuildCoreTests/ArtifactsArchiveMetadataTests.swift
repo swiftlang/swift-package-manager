@@ -137,7 +137,7 @@ struct ArtifactsArchiveMetadataTests {
                     "artifacts": {}
                 }
                 """,
-                expectedError: StringError("Type mismatch in ArtifactsArchive info.json at '/info.json'. Key 'schemaVersion' expected type 'String'."),
+                expectedError: StringError("Type mismatch in ArtifactsArchive info.json at '\(AbsolutePath("/info.json"))'. Key 'schemaVersion' expected type 'String'."),
                 id: "Type Mismatch",
             ),
             (
@@ -152,7 +152,7 @@ struct ArtifactsArchiveMetadataTests {
                     }
                 }
                 """,
-                expectedError: StringError("Invalid JSON in ArtifactsArchive info.json at '/info.json': The given data was not valid JSON."),
+                expectedError: StringError("Invalid JSON in ArtifactsArchive info.json at '\(AbsolutePath("/info.json"))': The given data was not valid JSON."),
                 id: "Invalid JSON",
             
             ),
@@ -169,7 +169,7 @@ struct ArtifactsArchiveMetadataTests {
                     }
                 }
                 """,
-                expectedError: StringError("Missing required key 'version' in ArtifactsArchive info.json at '/info.json' in 'artifacts.my-artifact'."),
+                expectedError: StringError("Missing required key 'version' in ArtifactsArchive info.json at '\(AbsolutePath("/info.json"))' in 'artifacts.my-artifact'."),
                 id: "Missing Key",
             ),
             (
@@ -186,7 +186,7 @@ struct ArtifactsArchiveMetadataTests {
                     }
                 }
                 """,
-                expectedError: StringError("Expected non-null value of type 'String' in ArtifactsArchive info.json at '/info.json'. Key 'artifacts.my-artifact.version' is null."),
+                expectedError: StringError("Expected non-null value of type 'String' in ArtifactsArchive info.json at '\(AbsolutePath("/info.json"))'. Key 'artifacts.my-artifact.version' is null."),
                 id: "Value not found",
             ),
         ],
