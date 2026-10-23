@@ -156,6 +156,10 @@ def is_on_darwin() -> bool:
 def set_environment() -> None:
     os.environ["SWIFTCI_IS_SELF_HOSTED"] = "1"
 
+    # TEMPORARY (diagnostics PR only, do not merge): run the tests that are disabled on Windows
+    # so their DEBUG(#NNNNN) output lands in the CI log. Only consulted on Windows hosts.
+    os.environ["SWIFTPM_RUN_WINDOWS_DISABLED_TESTS"] = "1"
+
     # Ensure SDKROOT is configure
     if is_on_darwin():
         sdk_root = call_output(shlex.split("xcrun --show-sdk-path --sdk macosx"))
