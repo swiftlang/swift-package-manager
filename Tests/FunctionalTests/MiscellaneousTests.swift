@@ -748,6 +748,18 @@ struct MiscellaneousTestCase {
                     .appending("Miscellaneous")
                     .appending(component: dependencyName)
                 let dependencyDestination = fixturePath.parentDirectory.appending(component: dependencyName)
+                // DEBUG(#10686): compare the expected fixture name against what exists on disk, scalar by scalar.
+                if ProcessInfo.hostOperatingSystem == .windows {
+                    let parent = dependencyOrigin.parentDirectory
+                    print("DEBUG(#10686) #file=\(#file)")
+                    print("DEBUG(#10686) origin=\(dependencyOrigin.pathString) exists=\(FileManager.default.fileExists(atPath: dependencyOrigin.pathString))")
+                    print("DEBUG(#10686) expected scalars=\(dependencyName.unicodeScalars.map { String($0.value, radix: 16) })")
+                    let entries = (try? FileManager.default.contentsOfDirectory(atPath: parent.pathString)) ?? []
+                    for entry in entries where entry.hasPrefix("Unicode") {
+                        print("DEBUG(#10686) on-disk entry=\(entry) scalars=\(entry.unicodeScalars.map { String($0.value, radix: 16) }) equalsExpected=\(entry == dependencyName) scalarsEqual=\(entry.unicodeScalars.elementsEqual(dependencyName.unicodeScalars))")
+                    }
+                    print("DEBUG(#10686) destination=\(dependencyDestination.pathString)")
+                }
                 try? FileManager.default.removeItem(atPath: dependencyDestination.pathString)
                 defer { try? FileManager.default.removeItem(atPath: dependencyDestination.pathString) }
                 try FileManager.default.copyItem(
@@ -1620,11 +1632,12 @@ struct MiscellaneousTestCase {
     )
     func diamondLinkagePromotesAutomaticLibraryToDynamic() async throws {
         try await fixture(name: "Miscellaneous/DynamicLibraryDiamond") { fixturePath in
-            let (stdout, _) = try await executeSwiftRun(
+            let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Exec"),
                 "Exec",
                 buildSystem: .swiftbuild,
             )
+            debugDumpDiamondLinkage(fixturePath: fixturePath, stdout: stdout, stderr: stderr)
             withKnownIssue(
                 "https://github.com/swiftlang/swift-package-manager/issues/10687",
                 isIntermittent: true,
@@ -1644,11 +1657,12 @@ struct MiscellaneousTestCase {
     )
     func diamondLinkageDynamicVariantModuleMapIsFoundByClangClients() async throws {
         try await fixture(name: "Miscellaneous/DynamicLibraryDiamondClang") { fixturePath in
-            let (stdout, _) = try await executeSwiftRun(
+            let (stdout, stderr) = try await executeSwiftRun(
                 fixturePath.appending("Exec"),
                 "Exec",
                 buildSystem: .swiftbuild,
             )
+            debugDumpDiamondLinkage(fixturePath: fixturePath, stdout: stdout, stderr: stderr)
             withKnownIssue(
                 "https://github.com/swiftlang/swift-package-manager/issues/10687",
                 isIntermittent: true,
@@ -1656,6 +1670,24 @@ struct MiscellaneousTestCase {
             #expect(stdout.contains("first=1 second=2"))
             } when: {
                 ProcessInfo.hostOperatingSystem == .windows
+            }
+        }
+    }
+}
+
+
+/// DEBUG(#10687): dump the products of a diamond-linkage build so a Windows run shows whether
+/// the automatic library was promoted to a dynamic library (`.dll`) or linked statically (`.lib`).
+private func debugDumpDiamondLinkage(fixturePath: AbsolutePath, stdout: String, stderr: String) {
+    guard ProcessInfo.hostOperatingSystem == .windows else { return }
+    print("DEBUG(#10687) stdout=<\(stdout)>")
+    print("DEBUG(#10687) stderr=<\(stderr)>")
+    let interesting: Set<String> = ["dll", "lib", "exe", "swiftmodule", "modulemap", "json"]
+    if let enumerator = FileManager.default.enumerator(atPath: fixturePath.pathString) {
+        for case let relative as String in enumerator {
+            let ext = (relative as NSString).pathExtension.lowercased()
+            if interesting.contains(ext), relative.contains(".build") {
+                print("DEBUG(#10687) artifact: \(relative)")
             }
         }
     }

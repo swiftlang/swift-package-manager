@@ -1023,6 +1023,17 @@ extension Workspace {
         case .success:
             return .notRequired
         case .failure(ResolverPrecomputationError.missingPackage(let package)):
+            // DEBUG(#10688): identities are compared, so show what the precomputation had available.
+            observabilityScope.emit(debug: "precomputation: missing package identity=\(package.identity) kind=\(package.kind) canonicalLocation=\(package.canonicalLocation)")
+            for (_, managed, _, _) in dependencyManifests.dependencies {
+                observabilityScope.emit(debug: "precomputation: managed dependency identity=\(managed.packageRef.identity) kind=\(managed.packageRef.kind) canonicalLocation=\(managed.packageRef.canonicalLocation) state=\(managed.state)")
+            }
+            for pin in resolvedPackagesStore.resolvedPackages.values {
+                observabilityScope.emit(debug: "precomputation: pin identity=\(pin.packageRef.identity) kind=\(pin.packageRef.kind) canonicalLocation=\(pin.packageRef.canonicalLocation) state=\(pin.state)")
+            }
+            for (identity, _) in root.manifests {
+                observabilityScope.emit(debug: "precomputation: root manifest identity=\(identity)")
+            }
             return .required(reason: .newPackages(packages: [package]))
         case .failure(ResolverPrecomputationError.differentRequirement(let package, let state, let requirement)):
             return .required(reason: .packageRequirementChange(

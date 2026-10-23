@@ -3998,7 +3998,7 @@ struct PackageCommandTests {
                         version: "1.0.0"
                     )
                     let (_, err) = try await execute(
-                        ["resolve", "--only-use-versions-from-resolved-file", "-v"],
+                        ["resolve", "--only-use-versions-from-resolved-file", "--very-verbose"],
                         packagePath: clientDir,
                         configuration: config,
                         buildSystem: buildSystem,
@@ -4028,7 +4028,7 @@ struct PackageCommandTests {
                         version: "1.0.1"
                     )
                     let (_, err) = try await execute(
-                        ["resolve", "--only-use-versions-from-resolved-file", "-v"],
+                        ["resolve", "--only-use-versions-from-resolved-file", "--very-verbose"],
                         packagePath: clientDir,
                         configuration: config,
                         buildSystem: buildSystem,
@@ -4041,7 +4041,7 @@ struct PackageCommandTests {
                 // And again
                 do {
                     let (_, err) = try await execute(
-                        ["resolve", "--only-use-versions-from-resolved-file", "-v"],
+                        ["resolve", "--only-use-versions-from-resolved-file", "--very-verbose"],
                         packagePath: clientDir,
                         configuration: config,
                         buildSystem: buildSystem,

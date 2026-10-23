@@ -69,6 +69,23 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 delegateQueue: .sharedConcurrent
             )
 
+            // DEBUG(#10711): dump what the loader resolved when it reports unexpected diagnostics.
+            if !observability.diagnostics.isEmpty {
+                print("DEBUG(#10711) packageDir=\(packageDir) pathString=\(packageDir.pathString)")
+                print("DEBUG(#10711) manifestContents:\n\(manifestContents)")
+                print("DEBUG(#10711) diagnostics: \(observability.diagnostics.map { "\($0.severity): \($0.message)" })")
+                for dependency in manifest.dependencies {
+                    switch dependency {
+                    case .sourceControl(let settings):
+                        print("DEBUG(#10711) dependency identity=\(dependency.identity) location=\(settings.location)")
+                    case .fileSystem(let settings):
+                        print("DEBUG(#10711) dependency identity=\(dependency.identity) path=\(settings.path)")
+                    default:
+                        print("DEBUG(#10711) dependency identity=\(dependency.identity) \(dependency)")
+                    }
+                }
+            }
+
             XCTAssertNoDiagnostics(
                 observability.diagnostics,
                 file: file,
@@ -780,6 +797,16 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 try TargetDescription(name: "Logging", dependencies: []),
             ])
         let contents = try manifest.generateManifestFileContents(packageDirectory: manifest.path.parentDirectory)
+        // DEBUG(#10711): show how the fake `/fooPkg`-style paths turn into relative URLs on this host.
+        print("DEBUG(#10711) manifest.path=\(manifest.path) parentDirectory=\(manifest.path.parentDirectory)")
+        print("DEBUG(#10711) components manifest.path=\(manifest.path.components) parent=\(manifest.path.parentDirectory.components)")
+        for dependency in manifest.dependencies {
+            if case .sourceControl(let settings) = dependency, case .local(let absPath) = settings.location {
+                let rel = absPath.relative(to: manifest.path.parentDirectory)
+                print("DEBUG(#10711) dep absPath=\(absPath) components=\(absPath.components) relative=<\(rel)> identity=\(dependency.identity)")
+            }
+        }
+        print("DEBUG(#10711) generated manifest:\n\(contents)")
         let parts =
         """
             dependencies: [

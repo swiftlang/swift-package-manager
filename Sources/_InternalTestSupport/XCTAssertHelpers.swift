@@ -77,6 +77,8 @@ public func XCTSkipIfselfHostedCI(because reason: String, file: StaticString = #
 public func XCTSkipOnWindows(because reason: String? = nil, skipPlatformCi: Bool = false, skipSelfHostedCI: Bool = false , file: StaticString = #filePath, line: UInt = #line) throws {
     swiftTestingTestCalledAnXCTestAPI()
     #if os(Windows)
+    // DEBUG: set SWIFTPM_RUN_WINDOWS_DISABLED_TESTS=1 to run tests that are disabled on Windows.
+    if ProcessInfo.processInfo.environment["SWIFTPM_RUN_WINDOWS_DISABLED_TESTS"] != nil { return }
     let failureCause: String
     if let reason {
         failureCause = " because \(reason.description)"

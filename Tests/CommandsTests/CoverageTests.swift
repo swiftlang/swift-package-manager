@@ -683,8 +683,18 @@ struct CoverageTests {
                     buildSystem: buildSystem,
                 )
 
-                let htmlCommandRegex = try Regex("debug: Calling HTML: .*llvm-cov show.*\(xcovData.expectedHtmlReportCmd).*")
-                let jsonCommandRegex = try Regex("debug: Calling JSON: .*llvm-cov export.*\(xcovData.expectedJsonReportCmd).*")
+                // On Windows the tool is `llvm-cov.exe`, so the executable suffix must be optional.
+                let htmlCommandRegex = try Regex("debug: Calling HTML: .*llvm-cov(\\.exe)? show.*\(xcovData.expectedHtmlReportCmd).*")
+                let jsonCommandRegex = try Regex("debug: Calling JSON: .*llvm-cov(\\.exe)? export.*\(xcovData.expectedJsonReportCmd).*")
+
+                // DEBUG(#10722): show what was actually emitted so a failing Windows run can be diagnosed.
+                if ProcessInfo.hostOperatingSystem == .windows {
+                    let emitted = stderr.split(whereSeparator: \.isNewline).filter { $0.contains("Calling HTML") || $0.contains("Calling JSON") }
+                    print("DEBUG(#10722) expectedHtml=<\(xcovData.expectedHtmlReportCmd)> expectedJson=<\(xcovData.expectedJsonReportCmd)>")
+                    print("DEBUG(#10722) htmlRegex=\(htmlCommandRegex) jsonRegex=\(jsonCommandRegex)")
+                    for line in emitted { print("DEBUG(#10722) emitted: \(line)") }
+                    print("DEBUG(#10722) emitted \(emitted.count) Calling lines; stderr length \(stderr.count)")
+                }
                 withKnownIssue(
                     "https://github.com/swiftlang/swift-package-manager/issues/10722",
                     isIntermittent: true,

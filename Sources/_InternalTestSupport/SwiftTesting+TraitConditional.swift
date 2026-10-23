@@ -31,7 +31,11 @@ extension Trait where Self == Testing.ConditionTrait {
     /// Skip test if the host operating system matches the running OS.
     public static func skipHostOS(_ os: OperatingSystem, because comment: Comment? = nil) -> Self {
         disabled(comment ?? "This test cannot run on a \(os) host OS.") {
-            ProcessInfo.hostOperatingSystem == os
+            // DEBUG: set SWIFTPM_RUN_WINDOWS_DISABLED_TESTS=1 to run tests that are disabled on Windows.
+            if os == .windows, ProcessInfo.processInfo.environment["SWIFTPM_RUN_WINDOWS_DISABLED_TESTS"] != nil {
+                return false
+            }
+            return ProcessInfo.hostOperatingSystem == os
         }
     }
 
