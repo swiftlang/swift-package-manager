@@ -217,6 +217,38 @@ struct RunCommandTests {
     }
 
     @Test(
+        .bug("https://github.com/swiftlang/swift-package-manager/issues/10611"),
+        .skipHostOS(.windows, "AsyncProcess does not close the child's stdin on Windows, so LLDB waits for input"),
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func debuggerLaunchesProductUnderLLDB(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+            // LLDB reads its commands from stdin, which is closed here, so it
+            // creates the target and exits without running it.
+            let (stdout, stderr) = try await execute(
+                ["--debugger", "secho", "1", "--hello", "world"],
+                packagePath: fixturePath,
+                buildSystem: buildSystem,
+            )
+
+            #expect(
+                stdout.contains("target create"),
+                "got stdout: \(stdout), stderr: \(stderr)",
+            )
+            // The product arguments must reach the target, not be parsed by LLDB.
+            #expect(
+                stdout.contains("target.run-args") && stdout.contains(#""--hello" "world""#),
+                "got stdout: \(stdout), stderr: \(stderr)",
+            )
+        }
+    }
+
+    @Test(
         .bug("https://github.com/swiftlang/swift-package-manager/issues/8279"),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
