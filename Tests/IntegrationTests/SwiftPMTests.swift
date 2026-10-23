@@ -79,6 +79,24 @@ private struct SwiftPMTests {
         }
     }
 
+    @Test
+    func packageComputeChecksumArtifactBundleIndex() async throws {
+        try await withTemporaryDirectory { temporaryDirectory in
+            let indexPath = temporaryDirectory.appending(component: "test.artifactbundleindex")
+            try localFileSystem.writeFileContents(indexPath, string: "{}")
+
+            let output = try await executeSwiftPackage(
+                temporaryDirectory,
+                extraArgs: ["compute-checksum", indexPath.pathString],
+                buildSystem: .native
+            )
+            #expect(
+                output.stdout.spm_chomp()
+                    == "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+            )
+        }
+    }
+
     @Test(
         .tags(
             Tag.Feature.Command.Package.Init,
