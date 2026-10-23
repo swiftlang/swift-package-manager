@@ -13,7 +13,7 @@ concurrency:
 
 jobs:
   build:
-    needs: [soundness]
+    needs: [soundness, soundness-api-diff]
     strategy:
       fail-fast: false
     name: Build
@@ -46,7 +46,7 @@ jobs:
       # freebsd_host_archs: '["aarch64", "x86_64"]' # FreeBSD builds currently only support x86_64
 
   test-example-package-registry:
-    needs: [soundness]
+    needs: [soundness, soundness-api-diff]
     strategy:
       fail-fast: false
     name: Build and Test Example Package Registry
@@ -85,9 +85,28 @@ jobs:
       python_lint_check_enabled: true
       yamllint_check_enabled: true
 
+
+  # Reference branch main for API diff until the required changes are in a tag
+  soundness-api-diff:
+    name: Soundness-API-Diff
+    uses: swiftlang/github-workflows/.github/workflows/soundness.yml@main
+    with:
+      api_breakage_check_enabled: true
+      api_breakage_check_allowlist_path: api-breakages-allowlist.txt
+      api_breakage_check_additional_arguments: --products SwiftPM
+      license_header_check_enabled: false
+      unacceptable_language_check_enabled: false
+      format_check_enabled: false
+      shell_check_enabled: false
+      docs_check_enabled: false
+      docs_check_macos_enabled: false
+      broken_symlink_check_enabled: false
+      python_lint_check_enabled: false
+      yamllint_check_enabled: false
+
   integration-tests:
     name: Integration Tests
-    needs: [soundness]
+    needs: [soundness, soundness-api-diff]
     uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.16
     with:
       enable_linux_checks: false
@@ -113,6 +132,7 @@ jobs:
       - build
       - test-example-package-registry
       - soundness
+      - soundness-api-diff
       - integration-tests
     if: always()  # Runs even if previous jobs fail so it can evaluate them
     steps:
