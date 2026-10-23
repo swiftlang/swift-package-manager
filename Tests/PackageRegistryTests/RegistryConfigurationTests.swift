@@ -418,11 +418,35 @@ final class RegistryConfigurationTests: XCTestCase {
         let json = #"""
         {
             "registries": {},
-            "version": 999
+            "version": 0
         }
         """#
 
         XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
+    }
+
+    func testThrowForNegativeVersionNumbers() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "version": -1
+        }
+        """#
+
+        XCTAssertThrowsError(try self.decoder.decode(RegistryConfiguration.self, from: json))
+    }
+
+    func testDecodeConfigurationWithUnrecognizedVersionFallsBackToLatest() throws {
+        let json = #"""
+        {
+            "registries": {},
+            "version": 999
+        }
+        """#
+
+        // 999 could be a valid version: the decoder should parse it without throwing
+        let configuration = try self.decoder.decode(RegistryConfiguration.self, from: json)
+        XCTAssertNil(configuration.defaultRegistry)
     }
 
     func testGetAuthenticationConfigurationByRegistryURL() throws {
