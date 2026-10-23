@@ -14,6 +14,12 @@ import Basics
 import Testing
 import Foundation
 import class TSCBasic.BufferedOutputByteStream
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 
 fileprivate func fileErrorMessage(
@@ -340,12 +346,11 @@ private func _expectThrowsCommandExecutionError<R, T>(
 
     guard let error = err,
           case .executionFailure(let processError, let stdout, let stderr) = error,
-          case AsyncProcessResult.Error.nonZeroExit(let processResult) = processError,
-          processResult.exitStatus != .terminated(code: 0) else {
+          let nonZeroExitError = processError as? NonZeroExitError else {
         Issue.record("Unexpected error type: \(err?.interpolationDescription ?? "<unknown>")", sourceLocation: sourceLocation)
         return Optional<R>.none
     }
-    return try errorHandler(CommandExecutionError(result: processResult, stdout: stdout, stderr: stderr))
+    return try errorHandler(CommandExecutionError(terminationStatus: nonZeroExitError.terminationStatus, stdout: stdout, stderr: stderr))
 }
 
 /// Checks if an output stream contains a specific string, with retry logic for asynchronous writes.
