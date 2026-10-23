@@ -67,6 +67,11 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
         }
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
+            let configuration = try getRegistriesConfig(swiftCommandState, global: self.global)
+            let authenticated = try configuration.configuration.authentication(for: self.registryURL) != nil
+            if self.allowInsecureHTTP, authenticated {
+                throw ValidationError.insecureURLWithAuthentication(self.registryURL)
+            }
             try self.registryURL.validateRegistryURL(allowHTTP: self.allowInsecureHTTP)
 
             let scope = try scope.map(PackageIdentity.Scope.init(validating:))
@@ -80,7 +85,6 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
                 }
             }
 
-            let configuration = try getRegistriesConfig(swiftCommandState, global: self.global)
             if self.global {
                 try configuration.updateShared(with: set)
             } else {
@@ -143,6 +147,13 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
         case unknownCredentialStore
         case invalidCredentialStore(Error)
         case credentialLengthLimitExceeded(Int)
+        case incompleteClientCertificate
+        case multipleClientIdentities
+        case ambiguousIdentityCommonName(String, [KeychainIdentityAttributes])
+        case identityCommonNameNotFound(String)
+        case identityHashNotFound(String)
+        case keychainUnavailable
+        case insecureURLWithAuthentication(URL)
     }
 
     static func getRegistriesConfig(_ swiftCommandState: SwiftCommandState, global: Bool) throws -> Workspace.Configuration.Registries {
@@ -210,6 +221,23 @@ extension PackageRegistryCommand.ValidationError: CustomStringConvertible {
             return "credential store is invalid: \(error.interpolationDescription)"
         case .credentialLengthLimitExceeded(let limit):
             return "password or access token must be \(limit) characters or less"
+        case .incompleteClientCertificate:
+            return "Both '--cert' and '--key' are required when one of them is set."
+        case .multipleClientIdentities:
+            return "Only one client identity may be specified: choose one of '--cert'/'--key', '--identity-common-name', or '--identity-hash'."
+        case .ambiguousIdentityCommonName(let commonName, let matches):
+            let rows = matches.map { "  \($0.hash)  \"\($0.commonName ?? commonName)\"" }
+            return (["More than one identity has a Common Name of '\(commonName)':"] + rows + [
+                "Use --identity-hash instead.",
+            ]).joined(separator: "\n")
+        case .identityCommonNameNotFound(let commonName):
+            return "No identity with a Common Name of '\(commonName)' was found in the keychain."
+        case .identityHashNotFound(let hash):
+            return "No identity with hash '\(hash)' was found in the keychain."
+        case .keychainUnavailable:
+            return "Keychain identities are only available on macOS. Use '--cert' and '--key' instead."
+        case .insecureURLWithAuthentication(let url):
+            return "'--allow-insecure-http' has no effect on '\(url)' because authentication is configured for it. Remove the authentication entry with 'swift package-registry logout', or use an https URL."
         }
     }
 }

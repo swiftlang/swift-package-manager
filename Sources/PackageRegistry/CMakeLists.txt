@@ -7,14 +7,32 @@
 # See http://swift.org/CONTRIBUTORS.txt for Swift project authors
 
 add_library(PackageRegistry STATIC
-  ChecksumTOFU.swift  
+  ChecksumTOFU.swift
+  KeychainIdentityStore.swift
+  KeychainSigningKey.swift
+  KeychainTLSIdentity.swift
   RegistryConfiguration.swift
   RegistryClient.swift
+  RegistryClientIdentityLookup.swift
+  RegistryClientIdentityResolver.swift
+  RegistryClientTLSConfiguration.swift
   RegistryDownloadsManager.swift
+  RegistryHTTPClientImplementation.swift
+  RegistryHTTPClientProvider.swift
+  RegistryHTTPExchangeHandler.swift
+  RegistryHTTPRedirectFollower.swift
+  RegistryHTTPRequestEncoding.swift
+  RegistryHTTPTransportError.swift
+  RegistryNIOHTTPClient.swift
   SignatureValidation.swift
   SigningEntityTOFU.swift)
 target_link_libraries(PackageRegistry PUBLIC
   Basics
+  Crypto
+  NIOCore
+  NIOHTTP1
+  NIOPosix
+  NIOSSL
   PackageFingerprint
   PackageLoading
   PackageModel
