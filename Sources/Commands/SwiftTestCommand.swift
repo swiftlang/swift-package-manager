@@ -986,16 +986,15 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         try await mergeCodeCovRawDataFiles(swiftCommandState: swiftCommandState, buildSystem: buildSystem)
 
         let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
-        for product in testProducts {
-            // Export the codecov data as JSON.
-            let jsonPath = try await buildSystem.codeCovPath(for: productsBuildParameters).appending(component: rootManifest.displayName + ".json")
-            try await exportCodeCovAsJSON(
-                to: jsonPath,
-                testBinary: product.coverageBinaryPath,
-                swiftCommandState: swiftCommandState,
-                buildSystem: buildSystem
-            )
-        }
+        // Export the codecov data as JSON for all test binaries in a single invocation
+        // so coverage is merged across products.
+        let jsonPath = try await buildSystem.codeCovPath(for: productsBuildParameters).appending(component: rootManifest.displayName + ".json")
+        try await exportCodeCovAsJSON(
+            to: jsonPath,
+            testBinaries: testProducts.map(\.coverageBinaryPath),
+            swiftCommandState: swiftCommandState,
+            buildSystem: buildSystem
+        )
     }
 
     /// Merges all the profraw profiles in the `codecoverage` directory into the `default.profdata` file.
@@ -1023,10 +1022,11 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     /// Exports profdata as a JSON file.
     private func exportCodeCovAsJSON(
         to path: AbsolutePath,
-        testBinary: AbsolutePath,
+        testBinaries: [AbsolutePath],
         swiftCommandState: SwiftCommandState,
         buildSystem: any BuildSystem
     ) async throws {
+        guard let primaryBinary = testBinaries.first else { return }
         // Export using the llvm-cov tool.
         let llvmCov = try swiftCommandState.getTargetToolchain().getLLVMCov()
         let (productsBuildParameters, _) = try swiftCommandState.buildParametersForTest(options: self.options)
@@ -1040,8 +1040,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             "export",
             "-instr-profile=\(try await buildSystem.codeCovDataFile(for: productsBuildParameters))",
         ] + archArgs + [
-            testBinary.pathString,
-        ]
+            primaryBinary.pathString,
+        ] + testBinaries.dropFirst().flatMap { ["-object", $0.pathString] }
         let result = try await AsyncProcess.popen(arguments: args)
 
         if result.exitStatus != .terminated(code: 0) {
