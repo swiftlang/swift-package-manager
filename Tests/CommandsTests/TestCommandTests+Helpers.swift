@@ -47,7 +47,7 @@ struct TestCommmandHelpersTests {
                     let jsonData = try encoder.encode(output)
                     let decoded = try JSONSerialization.jsonObject(with: jsonData) as! [String: String]
 
-                    #expect(decoded["json"] == "/path/to/coverage.json")
+                    #expect(decoded["json"] == path.pathString)
                     #expect(decoded.count == 1)
                 }
 
@@ -70,8 +70,8 @@ struct TestCommmandHelpersTests {
                     let jsonString = String(decoding: jsonData, as: UTF8.self)
                     let decoded = try JSONSerialization.jsonObject(with: jsonData) as! [String: String]
 
-                    #expect(decoded["json"] == "/path/to/coverage.json")
-                    #expect(decoded["html"] == "/path/to/coverage-html")
+                    #expect(decoded["json"] == jsonPath.pathString)
+                    #expect(decoded["html"] == htmlPath.pathString)
                     #expect(decoded.count == 2)
 
                     #expect(jsonString.contains("{\n"))
@@ -113,7 +113,7 @@ struct TestCommmandHelpersTests {
 
                     // PlainTextEncoder capitalizes first letter of keys
                     let expectedFormat = format.rawValue.prefix(1).uppercased() + format.rawValue.dropFirst()
-                    #expect(textString == "\(expectedFormat): /path/to/coverage.json")
+                    #expect(textString == "\(expectedFormat): \(path.pathString)")
                 }
 
                 @Test("Encode as text with multiple formats")
@@ -135,7 +135,7 @@ struct TestCommmandHelpersTests {
 
                     // Should be sorted by format name (html comes before json alphabetically)
                     // PlainTextEncoder capitalizes first letter of keys
-                    #expect(textString == "Html: /path/to/coverage-html\nJson: /path/to/coverage.json")
+                    #expect(textString == "Html: \(htmlPath.pathString)\nJson: \(jsonPath.pathString)")
                 }
 
                 @Test("Encode as text with empty data")
@@ -169,7 +169,7 @@ struct TestCommmandHelpersTests {
                 let textData = try textEncoder.encode(output)
                 let textString = String(decoding: textData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
                 #expect(textString.hasPrefix("Html:"))
-                #expect(textString.hasSuffix("Json: /json/path"))
+                #expect(textString.hasSuffix("Json: \(jsonPath.pathString)"))
 
                 // JSON encoding should also maintain consistent ordering
                 let jsonEncoder = JSONEncoder()
@@ -177,8 +177,8 @@ struct TestCommmandHelpersTests {
                 let jsonData = try jsonEncoder.encode(output)
                 let decoded = try JSONSerialization.jsonObject(with: jsonData) as! [String: String]
 
-                #expect(decoded["html"] == "/html/path")
-                #expect(decoded["json"] == "/json/path")
+                #expect(decoded["html"] == htmlPath.pathString)
+                #expect(decoded["json"] == jsonPath.pathString)
             }
 
             @Test("Text encoding handles special characters in paths")
@@ -191,7 +191,7 @@ struct TestCommmandHelpersTests {
                 let textData = try encoder.encode(output)
                 let textString = String(decoding: textData, as: UTF8.self).trimmingCharacters(in: .whitespacesAndNewlines)
 
-                #expect(textString == "Json: /path with/spaces & symbols/coverage.json")
+                #expect(textString == "Json: \(specialPath.pathString)")
             }
 
             @Test("JSON encoding handles special characters in paths")
@@ -204,7 +204,7 @@ struct TestCommmandHelpersTests {
                 let jsonData = try encoder.encode(output)
                 let decoded = try JSONSerialization.jsonObject(with: jsonData) as! [String: String]
 
-                #expect(decoded["json"] == "/path with/spaces & symbols/coverage.json")
+                #expect(decoded["json"] == specialPath.pathString)
             }
         }
 
