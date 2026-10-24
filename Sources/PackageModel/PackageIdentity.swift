@@ -607,3 +607,73 @@ extension String {
         return true
     }
 }
+
+// MARK: - PURL Identity
+
+public struct PURL: Codable, Equatable, Hashable, CustomStringConvertible {
+    internal let scheme: String
+    internal let type: String
+    internal let namespace: String?
+    internal let name: String
+    internal let version: String?
+    internal let qualifiers: [String: String]?
+    internal let subpath: String?
+
+    public init(
+        scheme: String,
+        type: String,
+        namespace: String? = nil,
+        name: String,
+        version: String? = nil,
+        qualifiers: [String: String]? = nil,
+        subpath: String? = nil
+    ) {
+        self.scheme = scheme
+        self.type = type
+        self.namespace = namespace
+        self.name = name
+        self.version = version
+        self.qualifiers = qualifiers?.isEmpty == true ? nil : qualifiers
+        self.subpath = subpath
+    }
+
+    public var description: String {
+        var result = "\(scheme):\(type)"
+        if let namespace {
+            result += "/\(namespace)"
+        }
+        result += "/\(self.name)"
+        if let version, version != "unknown" {
+            result += "@\(version)"
+        }
+        if let qualifiers, !qualifiers.isEmpty {
+            let qualifierPairs = qualifiers.map { "\($0.key)=\($0.value)" }.sorted()
+            result += "?" + qualifierPairs.joined(separator: "&")
+        }
+        if let subpath {
+            result += "#\(subpath)"
+        }
+        return result
+    }
+
+    public var packageIdentity: PackageIdentity {
+        PackageIdentity(name)
+    }
+}
+
+
+extension PURL {
+    public static func from(identity: PackageIdentity) -> PURL {
+        // This will usually be derived from a swift package kind. Thus, the scheme and type are already known.
+        .init(scheme: "pkg", type: "swift", name: identity.description)
+    }
+}
+
+extension PURL {
+    public static func swiftPackage(from identity: PackageIdentity) -> PURL {
+        .init(scheme: PURL.swiftPackageScheme, type: PURL.swiftPackageType, name: identity.description)
+    }
+
+    public static let swiftPackageScheme = "pkg"
+    public static let swiftPackageType = "swift" // tbd
+}
