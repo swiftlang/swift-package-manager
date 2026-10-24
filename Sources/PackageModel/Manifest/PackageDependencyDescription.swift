@@ -138,6 +138,9 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         public enum Requirement: Equatable, Hashable, Sendable {
             case exact(Version)
             case range(Range<Version>)
+            /// The union of a list of version ranges. An allowable version is any
+            /// version contained in at least one of the ranges.
+            case ranges([Range<Version>])
             case revision(String)
             case branch(String)
         }
@@ -191,6 +194,9 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
         public enum Requirement: Equatable, Hashable, Sendable {
             case exact(Version)
             case range(Range<Version>)
+            /// The union of a list of version ranges. An allowable version is any
+            /// version contained in at least one of the ranges.
+            case ranges([Range<Version>])
         }
 
         private enum CodingKeys: CodingKey {
@@ -511,6 +517,8 @@ extension PackageDependency.SourceControl.Requirement: CustomStringConvertible {
             return version.description
         case .range(let range):
             return range.description
+        case .ranges(let ranges):
+            return "union" + ranges.map(\.description).description
         case .revision(let revision):
             return "revision[\(revision)]"
         case .branch(let branch):
@@ -526,6 +534,8 @@ extension PackageDependency.Registry.Requirement: CustomStringConvertible {
             return version.description
         case .range(let range):
             return range.description
+        case .ranges(let ranges):
+            return "union" + ranges.map(\.description).description
         }
     }
 }
@@ -553,7 +563,7 @@ extension PackageDependency: Encodable {
 
 extension PackageDependency.SourceControl.Requirement: Encodable {
     private enum CodingKeys: String, CodingKey {
-        case exact, range, revision, branch
+        case exact, range, ranges, revision, branch
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -565,6 +575,9 @@ extension PackageDependency.SourceControl.Requirement: Encodable {
         case let .range(a1):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .range)
             try unkeyedContainer.encode(CodableRange(a1))
+        case let .ranges(a1):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .ranges)
+            try unkeyedContainer.encode(a1.map(CodableRange.init))
         case let .revision(a1):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .revision)
             try unkeyedContainer.encode(a1)
@@ -595,7 +608,7 @@ extension PackageDependency.SourceControl.Location: Encodable {
 
 extension PackageDependency.Registry.Requirement: Encodable {
     private enum CodingKeys: String, CodingKey {
-        case exact, range
+        case exact, range, ranges
     }
 
     public func encode(to encoder: Encoder) throws {
@@ -607,6 +620,9 @@ extension PackageDependency.Registry.Requirement: Encodable {
         case let .range(a1):
             var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .range)
             try unkeyedContainer.encode(CodableRange(a1))
+        case let .ranges(a1):
+            var unkeyedContainer = container.nestedUnkeyedContainer(forKey: .ranges)
+            try unkeyedContainer.encode(a1.map(CodableRange.init))
         }
     }
 }
