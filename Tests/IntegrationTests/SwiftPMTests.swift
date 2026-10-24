@@ -22,7 +22,11 @@ import struct SPMBuildCore.BuildSystemProvider
     .tags(Tag.TestSize.large)
 )
 private struct SwiftPMTests {
-    @Test(.requireHostOS(.macOS), arguments: [BuildSystemProvider.Kind.native, .swiftbuild])
+    @Test(
+        .requireHostOS(.macOS),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10679", relationship: .verifies),
+        arguments: [BuildSystemProvider.Kind.native, .swiftbuild]
+    )
     func binaryTargets(buildSystem: BuildSystemProvider.Kind) async throws {
         try await binaryTargetsFixture { fixturePath in
             do {
