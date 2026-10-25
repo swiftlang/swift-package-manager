@@ -638,6 +638,40 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test func anyAppleOSPlatformGroup() async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/AnyAppleOS") { pif, observabilitySystem, fixturePath in
+            #expect(!observabilitySystem.diagnostics.contains { $0.severity == .error })
+
+            let project = try pif.workspace.project(named: "AnyAppleOS")
+
+            for configuration in BuildConfiguration.allCases {
+                let projectConfig = try project.buildConfig(named: configuration)
+                #expect(projectConfig.settings[.MACOSX_DEPLOYMENT_TARGET] == "27.0")
+                #expect(projectConfig.settings[.IPHONEOS_DEPLOYMENT_TARGET] == "26.0")
+                #expect(projectConfig.settings[.IPHONEOS_DEPLOYMENT_TARGET, .macCatalyst] == "26.0")
+                #expect(projectConfig.settings[.TVOS_DEPLOYMENT_TARGET] == "26.0")
+                #expect(projectConfig.settings[.WATCHOS_DEPLOYMENT_TARGET] == "26.0")
+                #expect(projectConfig.settings[.XROS_DEPLOYMENT_TARGET] == "26.0")
+                #expect(projectConfig.settings[.DRIVERKIT_DEPLOYMENT_TARGET] != "26.0")
+
+                let targetConfig = try project
+                    .target(id: "PACKAGE-TARGET:AnyAppleOS")
+                    .buildConfig(named: configuration)
+                for platform in ProjectModel.BuildSettings.Platform.allCases {
+                    let conditions = targetConfig.settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, platform]
+                    switch platform {
+                    case .macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .xrOS:
+                        #expect(conditions == ["$(inherited)", "APPLE", "APPLE_OR_LINUX"], "for platform \(platform)")
+                    case .linux:
+                        #expect(conditions == ["$(inherited)", "APPLE_OR_LINUX"], "for platform \(platform)")
+                    case .driverKit, .android, .windows, .wasi, .openbsd, .freebsd, ._iOSDevice:
+                        #expect(conditions == nil, "for platform \(platform)")
+                    }
+                }
+            }
+        }
+    }
+
     @Test func platformCCLibrary() async throws {
         try await withGeneratedPIF(fromFixture: "PIFBuilder/CCPackage") { pif, observabilitySystem, fixturePath in
             let releaseConfig = try pif.workspace

@@ -134,18 +134,34 @@ enum ManifestJSONParser {
             throw ManifestParseError.runtimeManifestErrors(["supported platforms can't be empty"])
         }
 
+        let platformRegistry = PlatformRegistry.default
         var platforms: [PlatformDescription] = []
+        var groups: [(group: PlatformGroup, description: PlatformDescription)] = []
 
         for platform in declaredPlatforms {
             let description = PlatformDescription(platform)
 
-            // Check for duplicates.
-            if platforms.map({ $0.platformName }).contains(description.platformName) {
-                // FIXME: We need to emit the API name and not the internal platform name.
-                throw ManifestParseError.runtimeManifestErrors(["found multiple declaration for the platform: \(description.platformName)"])
-            }
+            if let group = platformRegistry.platformGroupByName[description.platformName] {
+                if groups.contains(where: { $0.group == group }) {
+                    throw ManifestParseError.runtimeManifestErrors(["found multiple declarations for the platform: \(group.displayName)"])
+                }
+                groups.append((group, description))
+            } else {
+                // Check for duplicates.
+                if platforms.map({ $0.platformName }).contains(description.platformName) {
+                    // FIXME: We need to emit the API name and not the internal platform name.
+                    throw ManifestParseError.runtimeManifestErrors(["found multiple declarations for the platform: \(description.platformName)"])
+                }
 
-            platforms.append(description)
+                platforms.append(description)
+            }
+        }
+
+        // Expand platform groups
+        for (group, description) in groups {
+            for platform in group.platforms where !platforms.contains(where: { $0.platformName == platform.name }) {
+                platforms.append(PlatformDescription(name: platform.name, version: description.version, options: description.options))
+            }
         }
 
         return platforms
