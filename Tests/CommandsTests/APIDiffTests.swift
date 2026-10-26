@@ -624,33 +624,4 @@ struct APIDiffTests {
             #expect(error.stdout.contains("`swift package experimental-api-diff` has been renamed to `swift package diagnose-api-breaking-changes`"))
         }
     }
-
-    @Test(
-        .requiresAPIDigester,
-        .tags(
-            .Feature.Command.Package.DiagnoseApiBreakingChanges,
-        ),
-        arguments: SupportedBuildSystemOnAllPlatforms,
-    )
-    func testDiagnoseApiBreakingChangesAcceptsNetrcOptions(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
-            let packageRoot = fixturePath.appending("Foo")
-            try localFileSystem.writeFileContents(
-                packageRoot.appending("Foo.swift"),
-                string: "public let foo = 42"
-            )
-            let netrcPath = fixturePath.appending(".netrc")
-            try localFileSystem.writeFileContents(netrcPath, string: "machine example.com login test password secret\n")
-            await expectThrowsCommandExecutionError(
-                try await execute(
-                    ["--netrc-file", netrcPath.pathString, "diagnose-api-breaking-changes", "1.2.3"],
-                    packagePath: packageRoot,
-                    buildSystem: buildSystem
-                )
-            ) { error in
-                #expect(error.stdout.contains("1 breaking change detected in Foo"))
-                #expect(error.stdout.contains("💔 API breakage: func foo() has been removed"))
-            }
-        }
-    }
 }

@@ -282,13 +282,7 @@ struct APIDiff: AsyncSwiftCommand {
         try workingCopy.checkout(revision: baselineRevision)
 
         // Create the workspace for this package.
-        let workspace = try Workspace(
-            forRootPackage: baselinePackageRoot,
-            authorizationProvider: try swiftCommandState.getAuthorizationProvider(),
-            registryAuthorizationProvider: try swiftCommandState.getRegistryAuthorizationProvider(),
-            cancellator: swiftCommandState.cancellator,
-            customHostToolchain: try swiftCommandState.getHostToolchain()
-        )
+        let workspace = try swiftCommandState.makeWorkspace(forRootPackage: baselinePackageRoot)
 
         let graph = try await workspace.loadPackageGraph(
             rootPath: baselinePackageRoot,
