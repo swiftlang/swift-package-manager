@@ -617,9 +617,7 @@ public final class SwiftCommandState {
             self.observabilityHandler.prompt
         )
 
-        let targetTriple = try self.getTargetToolchain().targetTriple
-        let workspace = try Workspace(
-            fileSystem: self.fileSystem,
+        let workspace = try self.makeWorkspace(
             location: .init(
                 scratchDirectory: self.scratchDirectory,
                 editsDirectory: self.getEditsDirectory(),
@@ -630,6 +628,35 @@ public final class SwiftCommandState {
                 sharedCacheDirectory: self.sharedCacheDirectory,
                 emitDeprecatedConfigurationWarning: emitDeprecatedConfigurationWarning
             ),
+            delegate: delegate
+        )
+        self._workspace = workspace
+        self._workspaceDelegate = delegate
+        return workspace
+    }
+
+    /// Creates a workspace for another root package, such as a checkout of a different revision.
+    package func makeWorkspace(forRootPackage rootPath: AbsolutePath) throws -> Workspace {
+        try self.makeWorkspace(
+            location: .init(
+                scratchDirectory: Workspace.DefaultLocations.scratchDirectory(forRootPackage: rootPath),
+                editsDirectory: Workspace.DefaultLocations.editsDirectory(forRootPackage: rootPath),
+                resolvedVersionsFile: Workspace.DefaultLocations.resolvedVersionsFile(forRootPackage: rootPath),
+                localConfigurationDirectory: Workspace.DefaultLocations.configurationDirectory(forRootPackage: rootPath),
+                sharedConfigurationDirectory: self.sharedConfigurationDirectory,
+                sharedSecurityDirectory: self.sharedSecurityDirectory,
+                sharedCacheDirectory: self.sharedCacheDirectory,
+                emitDeprecatedConfigurationWarning: false
+            ),
+            delegate: nil
+        )
+    }
+
+    private func makeWorkspace(location: Workspace.Location, delegate: WorkspaceDelegate?) throws -> Workspace {
+        let targetTriple = try self.getTargetToolchain().targetTriple
+        return try Workspace(
+            fileSystem: self.fileSystem,
+            location: location,
             authorizationProvider: self.getAuthorizationProvider(),
             registryAuthorizationProvider: self.getRegistryAuthorizationProvider(),
             configuration: .init(
@@ -661,9 +688,6 @@ public final class SwiftCommandState {
             customManifestLoader: self.getManifestLoader(),
             delegate: delegate
         )
-        self._workspace = workspace
-        self._workspaceDelegate = delegate
-        return workspace
     }
 
     /// Purges all global caches without requiring workspace initialization.
