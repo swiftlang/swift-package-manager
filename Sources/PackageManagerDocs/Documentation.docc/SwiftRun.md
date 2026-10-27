@@ -45,7 +45,8 @@ run [--package-path=<package-path>]
   [--build-system=<build-system>] [--=<debug-info-format>]
   [--enable-dead-strip|disable-dead-strip]
   [--disable-local-rpath] [--repl] [--debugger] [--run]
-  [--skip-build] [--build-tests] [<executable>]
+  [--skip-build] [--build-tests]
+  [--enable-testability|disable-testability] [<executable>]
   [--traits=<traits>] [--enable-all-traits]
   [--disable-default-traits] [<arguments>...] [--version]
   [--help]
@@ -308,6 +309,11 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 - term **--build-tests**:
 
 *Build both source and test targets.*
+
+
+- term **--enable-testability|disable-testability**:
+
+*Determines whether to build with testability enabled (`-enable-testing`). By default, testability is enabled for debug builds and disabled for release builds.*
 
 
 - term **executable**:

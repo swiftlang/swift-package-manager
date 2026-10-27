@@ -136,6 +136,9 @@ struct BuildCommandOptions: ParsableArguments {
     @Flag(name: .customLong("static-swift-stdlib"), inversion: .prefixedNo, help: "Determines whether Swift stdlib links statically.")
     public var shouldLinkStaticSwiftStdlib: Bool = false
 
+    @OptionGroup()
+    var testability: TestabilityOptions
+
     @OptionGroup(title: "Software Bill of Materials (SBOM)")
     var sbom: SBOMOptions
 }
@@ -194,6 +197,8 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
             productsBuildParameters.testingParameters.enableCodeCoverage = true
             toolsBuildParameters.testingParameters.enableCodeCoverage = true
         }
+
+        self.options.testability.apply(to: &productsBuildParameters)
 
         if self.options.printPIFManifestGraphviz {
             productsBuildParameters.printPIFManifestGraphviz = true

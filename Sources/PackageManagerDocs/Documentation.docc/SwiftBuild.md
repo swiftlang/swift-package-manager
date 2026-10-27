@@ -46,6 +46,7 @@ build [--package-path=<package-path>]
   [--build-system=<build-system>] [--=<debug-info-format>]
   [--enable-dead-strip|disable-dead-strip]
   [--disable-local-rpath] [--build-tests]
+  [--enable-testability|disable-testability]
   [--enable-coverage|disable-coverage]
   [--enable-code-coverage|disable-code-coverage]
   [--show-bin-path] [--print-manifest-job-graph]
@@ -297,6 +298,11 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 - term **--build-tests**:
 
 *Build both source and test targets.*
+
+
+- term **--enable-testability|disable-testability**:
+
+*Determines whether to build with testability enabled (`-enable-testing`). By default, testability is enabled for debug builds and disabled for release builds.*
 
 
 - term **--enable-coverage|disable-coverage**:
