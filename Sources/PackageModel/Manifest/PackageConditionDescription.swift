@@ -35,6 +35,7 @@ public struct PackageConditionDescription: Codable, Hashable, Sendable {
 /// build configurations.
 public enum PackageCondition: Hashable, Sendable {
     case platforms(PlatformsCondition)
+    case prebuilts(PrebuiltsCondition)
     case configuration(ConfigurationCondition)
     case traits(TraitCondition)
 
@@ -44,6 +45,8 @@ public enum PackageCondition: Hashable, Sendable {
             return configuration.satisfies(environment)
         case .platforms(let platforms):
             return platforms.satisfies(environment)
+        case .prebuilts(let prebuilts):
+            return prebuilts.satisfies(environment)
         case .traits(let traits):
             return traits.satisfies(environment)
         }
@@ -55,6 +58,14 @@ public enum PackageCondition: Hashable, Sendable {
         }
 
         return platformsCondition
+    }
+
+    public var prebuiltsCondition: PrebuiltsCondition? {
+        guard case let .prebuilts(prebuiltsCondition) = self else {
+            return nil
+        }
+
+        return prebuiltsCondition
     }
 
     public var configurationCondition: ConfigurationCondition? {
@@ -96,11 +107,17 @@ public struct PlatformsCondition: Hashable, Sendable {
     }
 }
 
-/// A mini version of target platform constraints that will eventually be user specifiable..
-/// For now used to mark modules host only that are only accessed by macros and plugins.
-public enum PlatformConstraint {
-    case all
-    case host
+public struct PrebuiltsCondition: Hashable, Sendable {
+    public let whenHost: Bool
+
+    public init(whenHost: Bool) {
+        self.whenHost = whenHost
+    }
+
+    public func satisfies(_ environment: BuildEnvironment) -> Bool {
+        // if you're asking (i.e. native build), prebuilts aren't supported
+        return false
+    }
 }
 
 /// A configuration condition implies that an assignment is valid on
@@ -122,8 +139,7 @@ public struct ConfigurationCondition: Hashable, Sendable {
 }
 
 
-/// A configuration condition implies that an assignment is valid on
-/// a particular build configuration.
+/// A traits condition that is satisfied if any of the traits mentioned are enabled.
 public struct TraitCondition: Hashable, Sendable {
     public let traits: Set<String>
 
@@ -132,6 +148,7 @@ public struct TraitCondition: Hashable, Sendable {
     }
 
     public func satisfies(_ environment: BuildEnvironment) -> Bool {
+        // Traits are evaluted before the build environment is determined.
         return true
     }
 }

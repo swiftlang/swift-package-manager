@@ -21,6 +21,7 @@ public enum BuildSettings {
         public static let SWIFT_VERSION: Declaration = .init("SWIFT_VERSION")
         public static let SWIFT_OBJC_BRIDGING_HEADER: Declaration = .init("SWIFT_OBJC_BRIDGING_HEADER")
         public static let SWIFT_BRIDGING_HEADER_IS_INTERNAL: Declaration = .init("SWIFT_BRIDGING_HEADER_IS_INTERNAL")
+        public static let SWIFT_INCLUDE_PATHS: Declaration = .init("SWIFT_INCLUDE_PATHS")
 
         // C family.
         public static let GCC_PREPROCESSOR_DEFINITIONS: Declaration = .init("GCC_PREPROCESSOR_DEFINITIONS")
@@ -32,11 +33,6 @@ public enum BuildSettings {
         public static let OTHER_LDFLAGS: Declaration = .init("OTHER_LDFLAGS")
         public static let LINK_LIBRARIES: Declaration = .init("LINK_LIBRARIES")
         public static let LINK_FRAMEWORKS: Declaration = .init("LINK_FRAMEWORKS")
-
-        // Prebuilts settings.
-        public static let PREBUILT_INCLUDE_PATHS: Declaration = .init("PREBUILT_INCLUDE_PATHS")
-        public static let PREBUILT_LIBRARY_PATHS: Declaration = .init("PREBUILT_LIBRARY_PATHS")
-        public static let PREBUILT_LIBRARIES: Declaration = .init("PREBUILT_LIBRARIES")
 
         /// The declaration name.
         public let name: String

@@ -23,6 +23,8 @@ import struct Basics.SourceControlURL
 import class PackageModel.Manifest
 import class PackageModel.Module
 import class PackageModel.BinaryModule
+import struct PackageModel.Platform
+import class PackageModel.PrebuiltTarget
 import enum PackageModel.PrebuiltsPlatform
 import class PackageModel.Product
 import class PackageModel.SystemLibraryModule
@@ -95,13 +97,14 @@ extension PackagePIFProjectBuilder {
                         )
                     }
 
-                case .library, .systemModule, .test, .binary, .plugin, .macro:
+                case .library, .systemModule, .test, .binary, .plugin, .macro, .prebuilt:
                     let dependencyGUID = moduleDependency.pifTargetGUID
                     pluginTarget.common.addDependency(
                         on: dependencyGUID,
                         platformFilters: dependencyPlatformFilters
                     )
                     log(.debug, indent: 1, "Added dependency on target '\(dependencyGUID)'")
+
                 }
 
             case .product(let productDependency, _):
@@ -490,9 +493,6 @@ extension PackagePIFProjectBuilder {
         // Ensure the intermediates for this target don't clash with the intermediates of a target representing a package product with the same name
         settings[.TARGET_TEMP_DIR_SUFFIX] = "-t"
 
-        if sourceModule.platformConstraint == .host {
-            settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
-        }
         if shouldGenerateBundleAccessor {
             settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
         }
@@ -934,7 +934,7 @@ extension PackagePIFProjectBuilder {
                     )
                     log(.debug, indent: 1, "Added use of plugin target '\(dependencyGUID)'")
 
-                case .library, .test, .macro, .systemModule:
+                case .library, .test, .macro, .systemModule, .prebuilt:
                     moduleTarget.common.addDependency(
                         on: moduleDependency.pifTargetGUID,
                         platformFilters: dependencyPlatformFilters,
@@ -1184,5 +1184,73 @@ extension PackagePIFProjectBuilder {
             toolsVersion: pifBuilder.packageManifest.toolsVersion
         )
         self.builtModulesAndProducts.append(systemModule)
+    }
+
+    mutating func makePrebuiltTarget(_ resolvedPrebuilt: PackageGraph.ResolvedModule) throws {
+        guard let prebuiltTarget = resolvedPrebuilt.underlying as? PrebuiltTarget else {
+            fatalError("Not a prebuilt target")
+        }
+
+        guard let host = PackageModel.Platform.host else {
+            fatalError("Host platform is nil")
+        }
+
+        let prebuiltTargetKeyPath = try self.project.addAggregateTarget { _ in
+            ProjectModel.AggregateTarget(
+                id: resolvedPrebuilt.pifTargetGUID,
+                name: resolvedPrebuilt.name
+            )
+        }
+        do {
+            let prebuiltLibraryTarget = self.project[keyPath: prebuiltTargetKeyPath]
+            log(
+                .debug,
+                "Created aggregate target '\(prebuiltLibraryTarget.id)' with name '\(prebuiltLibraryTarget.name)'"
+            )
+        }
+
+        let allBuildSettings = resolvedPrebuilt.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
+
+        let buildSettings = self.package.underlying.packageBaseBuildSettings
+        var debugSettings = buildSettings
+        var releaseSettings = buildSettings
+        let impartedSettings = BuildSettings()
+        var debugImpartedSettings = impartedSettings
+        var releaseImpartedSettings = impartedSettings
+
+        allBuildSettings.apply(to: &debugSettings, for: .debug)
+        allBuildSettings.apply(to: &releaseSettings, for: .release)
+        allBuildSettings.applyImparted(to: &debugImpartedSettings, for: .debug)
+        allBuildSettings.applyImparted(to: &releaseImpartedSettings, for: .release)
+
+        self.project[keyPath: prebuiltTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Debug", settings: debugSettings, impartedBuildSettings: debugImpartedSettings)
+        }
+        self.project[keyPath: prebuiltTargetKeyPath].common.addBuildConfig { id in
+            BuildConfig(id: id, name: "Release", settings: releaseSettings, impartedBuildSettings: releaseImpartedSettings)
+        }
+
+        // Add in the copy of the library file to the product dir
+        let lib: String
+        if host == .windows {
+            lib = "\(prebuiltTarget.prebuilt.libraryName).lib"
+        } else {
+            lib = "lib\(prebuiltTarget.prebuilt.libraryName).a"
+        }
+        let libFile = prebuiltTarget.path.appending("lib").appending(lib)
+
+        let fileRef = self.binaryGroup.addFileReference { id in
+            FileReference(id: id, path: libFile.pathString)
+        }
+
+        self.project[keyPath: prebuiltTargetKeyPath].common.addCopyFilesBuildPhase { id in
+            var phase = ProjectModel.CopyFilesBuildPhase(common: .init(id: id), destinationSubfolder: .builtProductsDir)
+
+            phase.common.addBuildFile { id in
+                BuildFile(id: id, fileRef: fileRef)
+            }
+
+            return phase
+        }
     }
 }

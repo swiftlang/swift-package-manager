@@ -1320,10 +1320,10 @@ fileprivate extension Module.Kind {
 
     var isCoverable: Bool {
         switch self {
-            case .executable, .library, .macro, .plugin:
-                return true
-            case .test, .snippet, .binary, .systemModule:
-                return false
+        case .executable, .library, .macro, .plugin:
+            return true
+        case .test, .snippet, .binary, .systemModule, .prebuilt:
+            return false
         }
     }
 }
