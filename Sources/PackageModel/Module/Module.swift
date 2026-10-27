@@ -29,6 +29,7 @@ public class Module {
         case plugin
         case snippet
         case `macro`
+        case prebuilt
     }
 
     /// A reference to a product from a module dependency.

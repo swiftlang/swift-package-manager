@@ -585,6 +585,9 @@ public final class PackagePIFBuilder {
 
             case .macro:
                 try projectBuilder.makeMacroModule(module)
+
+            case .prebuilt:
+                try projectBuilder.makePrebuiltTarget(module)
             }
         }
 
@@ -809,7 +812,7 @@ extension PackagePIFBuilder.LinkedPackageBinary {
         case .library, .binary, .macro:
             self.init(module: module.name, packageIdentity: module.packageIdentity)
 
-        case .systemModule, .plugin:
+        case .systemModule, .plugin, .prebuilt:
             return nil
         }
     }
