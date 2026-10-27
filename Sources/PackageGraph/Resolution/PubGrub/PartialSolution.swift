@@ -15,6 +15,7 @@ import OrderedCollections
 
 import struct TSCUtility.Version
 import struct PackageModel.PackageIdentity
+import struct PackageModel.PackageReference
 
 /// The partial solution is a constantly updated solution used throughout the
 /// dependency resolution process, tracking known assignments.
@@ -98,18 +99,33 @@ public struct PartialSolution {
 
     /// Returns the first Assignment in this solution such that the list of
     /// assignments up to and including that entry satisfies term.
-    public func satisfier(for term: Term) throws -> Assignment {
+    ///
+    /// If no such assignment exists and `term`'s package is a key in `flaggedMultipleMajorVersionPackages`
+    /// (see `PubGrubDependencyResolver.State.multipleMajorVersionPackages`), this falls back to the most
+    /// recent assignment for that node instead of throwing. The usual PubGrub invariant — that some
+    /// prefix of assignments satisfies every term — doesn't hold once we've let a package's positive
+    /// term widen to cover more than one major version, so there may genuinely be no "real" satisfier.
+    public func satisfier(
+        for term: Term,
+        flaggedMultipleMajorVersionPackages: [PackageReference: Set<Int>] = [:]
+    ) throws -> Assignment {
         var assignedTerm: Term?
+        var lastAssignment: Assignment?
 
         for assignment in self.assignments {
             guard assignment.term.node == term.node else {
                 continue
             }
+            lastAssignment = assignment
             assignedTerm = assignedTerm.flatMap { $0.intersect(with: assignment.term) } ?? assignment.term
 
             if assignedTerm!.satisfies(term) {
                 return assignment
             }
+        }
+
+        if flaggedMultipleMajorVersionPackages[term.node.package] != nil, let lastAssignment {
+            return lastAssignment
         }
 
         throw InternalError("term \(term) not satisfied")

@@ -97,6 +97,14 @@ public actor WorkspaceState {
     public func remove(identity: PackageIdentity) {
         dependencies = dependencies.remove(identity)
     }
+
+    public func addMultiMajor(identity: PackageIdentity) {
+        dependencies = dependencies.addMultipleMajorDependency(identity)
+    }
+
+    public func isMultiMajor(identity: PackageIdentity) -> Bool {
+        dependencies.isMultiMajor(identity)
+    }
 }
 
 // MARK: - Serialization

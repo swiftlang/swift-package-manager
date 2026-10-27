@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct PackageModel.PackageReference
+
 /// A term represents a statement about a package that may be true or false.
 public struct Term: Equatable, Hashable {
     public let node: DependencyResolutionNode
@@ -88,6 +90,14 @@ public struct Term: Equatable, Hashable {
         }
 
         guard let versionIntersection = intersection, versionIntersection != .empty else {
+            // Two positive requirements on the same package that are each confined to a single,
+            // but different, major version aren't treated as "no intersection" here. Instead we
+            // hand back the union of the two ranges so the solver can keep going rather than
+            // failing resolution outright. Noticing and recording that this happened is `State`'s
+            // job (see `State.derive`) — this is purely about not blocking on it for now.
+            if self.isPositive, otherIsPositive, self.isMultipleMajorVersion(requirement) {
+                return Term(node: self.node, requirement: lhs.union(rhs), isPositive: true)
+            }
             return nil
         }
 
@@ -98,12 +108,35 @@ public struct Term: Equatable, Hashable {
         self.intersect(with: other.inverse)
     }
 
+    /// Returns true if `self` and `other` each pin the package to a single major version, and those
+    /// major versions differ (e.g. `1.2.0..<1.5.0` vs `2.0.0..<2.3.0`). Returns false if either side
+    /// spans more than one major version, or is unbounded/empty — those cases aren't explained purely
+    /// by differing major-version expectations.
+    private func isMultipleMajorVersion(_ other: VersionSetSpecifier) -> Bool {
+        let lhs = self.requirement
+        let rhs = other
+
+        guard let lhsMajor = lhs.singleMajorVersion, let rhsMajor = rhs.singleMajorVersion else {
+            return false
+        }
+
+        return lhsMajor != rhsMajor
+    }
+
     /// Verify if the term fulfills all requirements to be a valid choice for
     /// making a decision in the given partial solution.
     /// - There has to exist a positive derivation for it.
     /// - There has to be no decision for it.
     /// - The package version has to match all assignments.
-    public func isValidDecision(for solution: PartialSolution) -> Bool {
+    ///
+    /// If this node's package is a key in `flaggedMultipleMajorVersionPackages` (see
+    /// `PubGrubDependencyResolver.State.multipleMajorVersionPackages`), a historical assignment
+    /// that this term doesn't satisfy is skipped rather than failing the whole check - such an
+    /// assignment may simply belong to a different major version than the one being decided here.
+    public func isValidDecision(
+        for solution: PartialSolution,
+        flaggedMultipleMajorVersionPackages: [PackageReference: Set<Int>] = [:]
+    ) -> Bool {
         // The intersection between release and pre-release ranges is
         // allowed to produce a pre-release range. This means that the
         // solver is allowed to make a pre-release version decision
@@ -135,7 +168,12 @@ public struct Term: Equatable, Hashable {
                 self
             }
 
-            guard term.satisfies(assignment.term) else { return false }
+            if !term.satisfies(assignment.term) {
+                if flaggedMultipleMajorVersionPackages[self.node.package] != nil {
+                    continue
+                }
+                return false
+            }
         }
         return true
     }
@@ -172,6 +210,18 @@ public struct Term: Equatable, Hashable {
         } else {
             if self.isPositive {
                 if !other.requirement.containsAny(self.requirement) {
+                    // Ordinarily, a negative term whose excluded range doesn't touch this node's
+                    // existing positive assignment is trivially satisfied (`.subset`) - the
+                    // negation is already true. But if that's only because the two ranges are
+                    // each confined to a single, different major version, treat it as still
+                    // unresolved (`.overlap`) instead. Otherwise `propagate` sees every term in
+                    // the incompatibility as satisfied and reports a `.conflict` before `derive`
+                    // ever runs on the conflicting requirement, so `Term.intersect`'s
+                    // multiple-major-version fallback and `State.flagIfMultipleMajorVersions`
+                    // never get a chance to run.
+                    if self.isMultipleMajorVersion(other.requirement) {
+                        return .overlap
+                    }
                     return .subset
                 }
                 if other.requirement.containsAll(self.requirement) {
