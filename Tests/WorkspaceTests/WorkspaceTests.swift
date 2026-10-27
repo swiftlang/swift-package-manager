@@ -16251,6 +16251,9 @@ final class WorkspaceTests: XCTestCase {
         await workspace.checkManagedDependencies { result in
             result.check(dependency: "baz", at: .custom(Version(1, 0, 0), .root))
         }
+        // The package is provided by the custom container provider, so it must not be fetched from source
+        // control (including when prefetching containers ahead of dependency resolution).
+        XCTAssertNoMatch(workspace.delegate.events, [.contains("fetching package")])
     }
 
     func testCustomPackageContainerProviderWithMultipleTargets() async throws {
