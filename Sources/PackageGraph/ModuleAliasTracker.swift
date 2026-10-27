@@ -635,7 +635,7 @@ struct ModuleAliasTracker {
                 // Diagnostics
                 if chain.chain.count > 1  {
                     for link in chain.chain {
-                        observabilityScope.emit(.aliasOverridden(
+                        observabilityScope.emit(ModuleAliasDiagnostic.aliasOverridden(
                             alias: link.name,
                             declaringPackage: link.declaringPackage,
                             declaringModule: link.declaringModule.name,
@@ -770,7 +770,7 @@ struct ModuleAliasTracker {
                     // No alias could be picked, so this module refers to the aliased names directly. Record it on the
                     // aliased modules, so that the modules depending on this one can tell.
                     let aliasedNames = Set(rawProposal.candidates.map(\.terminalAlias.name)).sorted()
-                    observabilityScope.emit(.useAliasedNamesDirectly(
+                    observabilityScope.emit(ModuleAliasDiagnostic.useAliasedNamesDirectly(
                         module: moduleInfo.module.name,
                         name: proposal.canonicalModuleName,
                         aliasedNames: aliasedNames
@@ -812,7 +812,7 @@ struct ModuleAliasTracker {
                 guard let module = productPackageModules?[name]?.module,
                       module.sources.containsNonSwiftFiles,
                       let aliases = module.moduleAliases else { continue }
-                observabilityScope.emit(.nonSwiftSources(
+                observabilityScope.emit(ModuleAliasDiagnostic.nonSwiftSources(
                     module: module.name,
                     product: product.productName,
                     package: product.package,
@@ -831,7 +831,7 @@ struct ModuleAliasTracker {
         // means it never matched any actual dependency of the product it was declared on.
         for moduleAlias in self.moduleAliases where moduleAlias.terminalAliases.isEmpty {
             if let diagnosedAlias = moduleAlias.aliases.first(where: { $0.overridenName == moduleAlias.module.name }) {
-                observabilityScope.emit(.unmatchedAlias(
+                observabilityScope.emit(ModuleAliasDiagnostic.unmatchedAlias(
                     module: moduleAlias.module.name,
                     declaringPackage: diagnosedAlias.declaringPackage,
                     product: diagnosedAlias.product.name,
