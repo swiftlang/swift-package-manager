@@ -1413,7 +1413,10 @@ extension Workspace {
             for package in packagesToWarm {
                 group.addTask {
                     do {
-                        let container = try await self.getContainer(
+                        // Use the same provider as the resolver (which honors a custom package container
+                        // provider), since these containers are handed to it: bypassing it would fetch
+                        // packages the custom provider is meant to supply, and override its containers.
+                        let container = try await self.packageContainerProvider.getContainer(
                             for: package,
                             updateStrategy: updateStrategy,
                             observabilityScope: observabilityScope
