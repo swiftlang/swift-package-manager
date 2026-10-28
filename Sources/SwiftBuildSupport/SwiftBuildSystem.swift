@@ -993,11 +993,11 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
         // FIXME: "none" triples get a placeholder SDK/platform and don't support any specific triple by default. Unlike most platforms, where the vendor and environment is implied as a function of the arch and "platform", bare metal operates in terms of triples directly. We need to replace this bringup convenience with a more idiomatic mechanism, perhaps in the build request.
         if buildParameters.triple.os == .noneOS {
-            settings["ARCHS"] = buildParameters.triple.archName
-            settings["VALID_ARCHS"] = buildParameters.triple.archName
-            settings["LLVM_TARGET_TRIPLE_VENDOR"] = buildParameters.triple.vendorName
+            settings["ARCHS[__destination_platform=YES]"] = buildParameters.triple.archName
+            settings["VALID_ARCHS[__destination_platform=YES]"] = buildParameters.triple.archName
+            settings["LLVM_TARGET_TRIPLE_VENDOR[__destination_platform=YES]"] = buildParameters.triple.vendorName
             if !buildParameters.triple.environmentName.isEmpty {
-                settings["LLVM_TARGET_TRIPLE_SUFFIX"] = "-" + buildParameters.triple.environmentName
+                settings["LLVM_TARGET_TRIPLE_SUFFIX[__destination_platform=YES]"] = "-" + buildParameters.triple.environmentName
             }
         }
 
