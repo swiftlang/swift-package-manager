@@ -249,6 +249,41 @@ class PackageCollectionsStorageTests: XCTestCase {
             }
         }
     }
+
+    func testCloseWhileQueryingDoesNotCrash() async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let path = tmpPath.appending("test.db")
+
+            let seed = SQLitePackageCollectionsStorage(path: path)
+            let mockCollections = makeMockCollections(count: 50)
+            for collection in mockCollections {
+                _ = try await seed.put(collection: collection)
+            }
+            try seed.close()
+
+            for _ in 0..<50 {
+                let storage = SQLitePackageCollectionsStorage(path: path)
+                let identifiers = mockCollections.map { $0.identifier }
+
+                await withTaskGroup(of: Void.self) { group in
+                    for _ in 0..<8 {
+                        group.addTask {
+                            for _ in 0..<100 {
+                                _ = try? await storage.list(identifiers: identifiers)
+                            }
+                        }
+                    }
+
+                    // Close the connection down while the queries are in flight
+                    group.addTask {
+                        try? storage.close()
+                    }
+                }
+
+                try? storage.close()
+            }
+        }
+    }
 }
 
 extension SQLitePackageCollectionsStorage {
