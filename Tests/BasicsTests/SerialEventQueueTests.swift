@@ -123,4 +123,40 @@ struct SerialEventQueueTests {
 
         #expect(recorder.values == [0])
     }
+
+    /// Flushing waits for everything already queued, even when the sink is slow
+    /// enough that none of it could have been delivered yet.
+    @Test
+    func flushWaitsForQueuedEvents() async throws {
+        let recorder = Recorder { value in
+            if value == 0 {
+                Thread.sleep(forTimeInterval: 0.1)
+            }
+        }
+        let queue = SerialEventQueue(recorder)
+
+        let expected = Array(0 ..< 100)
+        for value in expected {
+            queue.emit { $0.receive(value) }
+        }
+
+        await queue.flush()
+        #expect(recorder.values == expected)
+    }
+
+    /// Unlike `finish()`, flushing does not stop the queue from delivering events
+    /// emitted afterwards.
+    @Test
+    func flushDoesNotStopLaterDelivery() async throws {
+        let recorder = Recorder()
+        let queue = SerialEventQueue(recorder)
+
+        queue.emit { $0.receive(0) }
+        await queue.flush()
+        #expect(recorder.values == [0])
+
+        queue.emit { $0.receive(1) }
+        await queue.flush()
+        #expect(recorder.values == [0, 1])
+    }
 }
