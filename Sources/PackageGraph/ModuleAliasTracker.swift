@@ -122,10 +122,10 @@ struct ModuleAliasTracker {
             var allModules: IdentifiableSet<ReachableModule> = []
             for module in modules {
                 guard let moduleInfo = packageModules[module.name] else { continue }
-                allModules.insert(.init(moduleInfo: moduleInfo, distance: 0))
+                allModules.insertIfAbsent(.init(moduleInfo: moduleInfo, distance: 0))
                 for dependencyName in moduleInfo.allModuleDependencies {
                     if let dependencyInfo = packageModules[dependencyName] {
-                        allModules.insert(.init(moduleInfo: dependencyInfo, distance: 0))
+                        allModules.insertIfAbsent(.init(moduleInfo: dependencyInfo, distance: 0))
                     }
                 }
             }
@@ -262,7 +262,7 @@ struct ModuleAliasTracker {
             let reached = checkDirectModuleDependencies(siblingModule)
             if !reached.isEmpty {
                 result.formUnion(reached)
-                result.insert(siblingModule) // mirror the parent-inserts-child step, for the top-level entry point
+                result.insertIfAbsent(siblingModule) // mirror the parent-inserts-child step, for the top-level entry point
             }
         }
 
@@ -492,13 +492,13 @@ struct ModuleAliasTracker {
                                         productRef,
                                         originatingPackage
                                     )
-                                    self.moduleAliases.insert(newAlias)
+                                    self.moduleAliases.insertIfAbsent(newAlias)
                                 }
                             } else {
                                 // For aliases that are possibly chained, or still ambiguous at this point
                                 // in package-processing order; add to unresolved. We will retry these on
                                 // a second pass, once every package has registered its own direct aliases.
-                                let (inserted, existing) = unresolvedAliases.insert(aliasInfo)
+                                let (inserted, existing) = unresolvedAliases.insertIfAbsent(aliasInfo)
                                 if !inserted && existing.name != aliasInfo.name {
                                     throw PackageGraphError.multipleModuleAliases(
                                         module: aliasInfo.overridenName,
@@ -562,7 +562,7 @@ struct ModuleAliasTracker {
                 for alias in correctedChain.reversed() {
                     try newAlias.addAlias(alias)
                 }
-                self.moduleAliases.insert(newAlias)
+                self.moduleAliases.insertIfAbsent(newAlias)
             }
         }
     }
@@ -1002,7 +1002,7 @@ public class ModuleAlias: Identifiable {
             originatingPackage: originatingPackage
         )
 
-        guard self.aliases.insert(alias).inserted else { return }
+        guard self.aliases.insertIfAbsent(alias).inserted else { return }
         self.reverseLookupAliases[alias.reverseId, default: []].append(alias.id)
 
         // Multiple different names for the same overridden name/originating package is only
