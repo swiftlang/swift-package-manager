@@ -79,7 +79,8 @@ struct LibraryTargetPIFTests {
         products: [ProductDescription] = [],
         dependencies: [PackageDependency] = [],
         dependencyManifests: [Manifest] = [],
-        shouldCreateDylibForDynamicProducts: Bool = true
+        shouldCreateDylibForDynamicProducts: Bool = true,
+        projectName: String = LibraryTargetPIFTests.packageName
     ) async throws -> SwiftBuildSupport.PIF.Project {
         let fs = InMemoryFileSystem(emptyFiles: files)
         let observability = ObservabilitySystem.makeForTesting()
@@ -112,7 +113,7 @@ struct LibraryTargetPIFTests {
         let (pif, _) = try await pifBuilder.constructPIF(
             buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
         )
-        return try pif.workspace.project(named: Self.packageName)
+        return try pif.workspace.project(named: projectName)
     }
 
     @Test
@@ -297,6 +298,42 @@ struct LibraryTargetPIFTests {
         ] {
             #expect(!dependencyIDs.contains("PACKAGE-TARGET:\(name)"))
         }
+    }
+
+    @Test(arguments: [ProductType.LibraryType.static, .dynamic])
+    func aliasedLibraryTargetInDependency(libraryType: ProductType.LibraryType) async throws {
+        let project = try await makeProject(
+            files: [
+                "/LibraryTargets/Sources/Tool/main.swift",
+                "/Dep/Sources/Utils/Utils.swift",
+            ],
+            targets: [
+                try TargetDescription(
+                    name: "Tool",
+                    dependencies: [
+                        .target(name: "Utils", package: "Dep", moduleAliases: ["Utils": "DepUtils"], condition: nil),
+                    ],
+                    type: .executable
+                ),
+            ],
+            dependencies: [.fileSystem(path: "/Dep")],
+            dependencyManifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "Dep",
+                    path: "/Dep",
+                    toolsVersion: .vNext,
+                    targets: [
+                        try TargetDescription(name: "Utils", type: .library(libraryType), visibility: .public),
+                    ]
+                ),
+            ],
+            projectName: "Dep"
+        )
+
+        let target = try project.requireStandardTarget(named: "DepUtils")
+        let settings = try target.buildConfig(named: .debug).settings
+        #expect(settings[.SWIFT_MODULE_ALIASES] == ["Utils=DepUtils"])
+        #expect(settings[.PRODUCT_MODULE_NAME] == "DepUtils")
     }
 
     @Test

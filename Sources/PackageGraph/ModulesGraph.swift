@@ -99,16 +99,10 @@ enum PackageGraphError: Swift.Error {
         packageName: String
     )
 
-    /// FIXME: Support module aliases on cross package target deps.
-    case moduleAliasesUnsupportedForExternalModuleDependency(
-        moduleName: String,
-        dependentModuleName: String
-    )
-
     /// Duplicate aliases for a target found in a product.
     case multipleModuleAliases(
         module: String,
-        product: String,
+        publicComponent: String,
         package: String,
         aliases: [String]
     )
@@ -402,8 +396,8 @@ extension PackageGraphError: CustomStringConvertible {
                 return description
             }
             return "multiple packages (\(packagesDescriptions.joined(separator: ", "))) declare products with a conflicting name: '\(product)’; product names need to be unique across the package graph"
-        case .multipleModuleAliases(let target, let product, let package, let aliases):
-            return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in product '\(product)' from package '\(package)'"
+        case .multipleModuleAliases(let target, let publicComponent, let package, let aliases):
+            return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in \(publicComponent) from package '\(package)'"
         case .unsupportedPluginDependency(let targetName, let dependencyName, let dependencyType,  let dependencyPackage):
             var trailingMsg = ""
             if let dependencyPackage {
@@ -416,8 +410,6 @@ extension PackageGraphError: CustomStringConvertible {
             return "target '\(moduleName)' required by target '\(dependentModuleName)' not found in package '\(packageName)'"
         case .externalModuleDependencyNotPublic(let moduleName, let dependentModuleName, let packageName):
             return "target '\(moduleName)' in package '\(packageName)' can't be a dependency of target '\(dependentModuleName)'; only targets declared with 'visibility: .public' may be depended on from another package"
-        case .moduleAliasesUnsupportedForExternalModuleDependency(let moduleName, let dependentModuleName):
-            return "FIXME: unimplemented"
         }
     }
 }

@@ -21,18 +21,42 @@ struct ModuleAliasTracker {
     /// All module aliases in the package graph.
     public private(set) var moduleAliases: IdentifiableSet<ModuleAlias> = []
 
-    /// Key: fully qualified name of a product (package id + product name)
-    /// Value: list of modules that the product depends on
-    fileprivate var productModules: IdentifiableSet<ProductModules> = []
+    /// Key: a public component (a product, or a target with public visibility)
+    /// Value: the modules that the public component depends on
+    fileprivate var publicComponentModules: IdentifiableSet<PublicComponentModules> = []
     fileprivate var packageModules: [PackageIdentity: IdentifiableSet<ModuleInfo>] = [:]
-    /// Reverse index: for a module (by package + name), every product that vends it —
-    /// i.e. every product whose `intraPackageModules` includes it. Purely structural (built
-    /// once alongside `productModules`, before any aliasing state exists), so `vendingProducts(for:)`
-    /// can look this up directly instead of scanning every product in the package on every call.
-    fileprivate var vendingProductsIndex: [PackageIdentity: [String: Set<String>]] = [:]
+    /// Reverse index: for a module (by package + name), every public component that vends it —
+    /// i.e. every public component whose `intraPackageModules` includes it. Purely structural (built
+    /// once alongside `publicComponentModules`, before any aliasing state exists), so `publicComponents(for:)`
+    /// can look this up directly instead of scanning every public component in the package on every call.
+    fileprivate var publicComponentsIndex: [PackageIdentity: [String: Set<PublicComponent>]] = [:]
 
     /// Flag that tracks whether module aliasing is being used in the current package graph.
     public var moduleAliasingUsed: Bool = false
+
+    /// A component of a package exposed to dependents, either a product or target with public visibility.
+    public enum PublicComponent: Hashable, Sendable {
+        case product(identity: String, name: String)
+        case publicTarget(ModuleAlias.ModuleAliasID)
+
+        public var name: String {
+            switch self {
+            case .product(_, let name):
+                return name
+            case .publicTarget(let id):
+                return id.moduleName
+            }
+        }
+
+        public var diagnosticDescription: String {
+            switch self {
+            case .product(_, let name):
+                return "product '\(name)'"
+            case .publicTarget(let id):
+                return "target '\(id.moduleName)'"
+            }
+        }
+    }
 
     /// A model that stores direct module dependencies and the associated product, if any.
     public struct ModuleInfo: Identifiable, Hashable {
@@ -63,34 +87,32 @@ struct ModuleAliasTracker {
         }
     }
 
-    /// A model that stores all transitively available modules for a given product in the package graph.
-    public struct ProductModules: Identifiable {
-        /// The product identity.
-        let productId: String
-        /// The product name.
-        let productName: String
-        /// The product package.
+    /// A model that stores all transitively available modules for a given public component in the package graph.
+    public struct PublicComponentModules: Identifiable {
+        /// The public component identity.
+        let publicComponent: PublicComponent
+        /// The public component package.
         let package: PackageIdentity
-        /// The directly dependent modules needed for the product.
+        /// The directly dependent modules needed for the public component.
         let directModules: Set<String>
         /// All transitively dependent modules within the same package.
         let intraPackageModules: IdentifiableSet<ReachableModule>
-        /// All transitively dependent cross-package products.
-        var crossPackageChildProducts: Set<String> = []
-        /// All modules reachable by recursively following `crossPackageChildProducts`,
-        /// i.e. each child product's own `intraPackageModules` plus its own
-        /// cross-package closure. Populated once every product in the graph is known; empty until then.
+        /// All transitively dependent cross-package public components.
+        var crossPackageChildPublicComponents: Set<PublicComponent> = []
+        /// All modules reachable by recursively following `crossPackageChildPublicComponents`,
+        /// i.e. each child public component's own `intraPackageModules` plus its own
+        /// cross-package closure. Populated once every public component in the graph is known; empty until then.
         var crossPackageReachableModules: [PackageIdentity: IdentifiableSet<ReachableModule>] = [:]
         /// The same modules as `crossPackageReachableModules`, grouped by literal module name
         /// instead of by package.
         var reachableModulesByName: [String: [ReachableModule]] = [:]
-        /// All products that transitively depend on this one, i.e. the mirror image of
-        /// `crossPackageReachableModules`. Populated by `computeAllDependentProducts()`
-        /// once every product's `crossPackageChildProducts` is known; empty until then.
-        var crossPackageDependentProducts: Set<String> = []
+        /// All public components that transitively depend on this one, i.e. the mirror image of
+        /// `crossPackageReachableModules`. Populated by `computeAllDependentPublicComponents()`
+        /// once every public component's `crossPackageChildPublicComponents` is known; empty until then.
+        var crossPackageDependentPublicComponents: Set<PublicComponent> = []
 
-        public var id: String {
-            self.productId
+        public var id: PublicComponent {
+            self.publicComponent
         }
 
         public struct ReachableModule: Identifiable, Hashable {
@@ -107,16 +129,15 @@ struct ModuleAliasTracker {
         /// - Parameter packageModules: every module of `package`, keyed by name, with its
         ///   `allModuleDependencies` already computed. Each direct module's own transitive
         ///   closure is looked up here rather than re-walked, since the union of the direct
-        ///   modules' own closures is exactly this product's full intra-package module set.
+        ///   modules' own closures is exactly this public component's full intra-package module set.
         public init(
-            product: Product,
+            publicComponent: PublicComponent,
             package: PackageIdentity,
+            modules: [Module],
             packageModules: IdentifiableSet<ModuleInfo>
         ) {
-            self.productId = product.identity
-            self.productName = product.name
+            self.publicComponent = publicComponent
             self.package = package
-            let modules = product.modules
             self.directModules = Set(modules.map(\.name))
 
             var allModules: IdentifiableSet<ReachableModule> = []
@@ -131,16 +152,6 @@ struct ModuleAliasTracker {
             }
 
             self.intraPackageModules = allModules
-
-            var childProducts: Set<String> = []
-            for module in allModules.values {
-                for dep in module.dependencies {
-                    if case let .product(productRef, _) = dep {
-                        childProducts.insert(productRef.identity)
-                    }
-                }
-            }
-            self.crossPackageChildProducts = childProducts
         }
 
         public func directlyVendsModule(_ module: ModuleInfo) -> Bool {
@@ -173,8 +184,8 @@ struct ModuleAliasTracker {
         let canonicalModuleName: String
         /// The set of candidate aliases for this module.
         var candidates: Set<Candidate>
-        /// The set of products that vend this module.
-        let vendingProducts: Set<String>
+        /// The set of public components that vend this module.
+        let publicComponents: Set<PublicComponent>
 
         var id: String {
             canonicalModuleName
@@ -190,44 +201,44 @@ struct ModuleAliasTracker {
         }
     }
 
-    /// Computes a reverse-lookup of dependent products per product. Mirrors
-    /// `computeAllReachableModules()`'s bottom-up memoization: each product's dependent
+    /// Computes a reverse-lookup of dependent public components per public component. Mirrors
+    /// `computeAllReachableModules()`'s bottom-up memoization: each public component's dependent
     /// set is resolved exactly once and reused when composing the sets of everything
-    /// above it, rather than re-walked from scratch per product.
-    private mutating func computeAllDependentProducts() {
-        var parentProducts: [String: Set<String>] = [:]
-        for product in self.productModules.values {
-            for childId in product.crossPackageChildProducts {
-                parentProducts[childId, default: []].insert(product.productId)
+    /// above it, rather than re-walked from scratch per public component.
+    private mutating func computeAllDependentPublicComponents() {
+        var parentPublicComponents: [PublicComponent: Set<PublicComponent>] = [:]
+        for publicComponent in self.publicComponentModules.values {
+            for childId in publicComponent.crossPackageChildPublicComponents {
+                parentPublicComponents[childId, default: []].insert(publicComponent.publicComponent)
             }
         }
 
-        var resolved: Set<String> = []
-        var inProgress: Set<String> = []
+        var resolved: Set<PublicComponent> = []
+        var inProgress: Set<PublicComponent> = []
 
-        func resolve(for productId: String) -> Set<String> {
-            if resolved.contains(productId) {
-                return self.productModules[productId]?.crossPackageDependentProducts ?? []
+        func resolve(for publicComponentId: PublicComponent) -> Set<PublicComponent> {
+            if resolved.contains(publicComponentId) {
+                return self.publicComponentModules[publicComponentId]?.crossPackageDependentPublicComponents ?? []
             }
-            guard inProgress.insert(productId).inserted else {
+            guard inProgress.insert(publicComponentId).inserted else {
                 // Cycle guard; contribute nothing further along this path.
                 return []
             }
-            defer { inProgress.remove(productId) }
+            defer { inProgress.remove(publicComponentId) }
 
-            var dependents: Set<String> = []
-            for parentId in parentProducts[productId] ?? [] {
+            var dependents: Set<PublicComponent> = []
+            for parentId in parentPublicComponents[publicComponentId] ?? [] {
                 dependents.insert(parentId)
                 dependents.formUnion(resolve(for: parentId))
             }
 
-            self.productModules[productId]?.crossPackageDependentProducts = dependents
-            resolved.insert(productId)
+            self.publicComponentModules[publicComponentId]?.crossPackageDependentPublicComponents = dependents
+            resolved.insert(publicComponentId)
             return dependents
         }
 
-        for product in self.productModules.values {
-            _ = resolve(for: product.productId)
+        for publicComponent in self.publicComponentModules.values {
+            _ = resolve(for: publicComponent.publicComponent)
         }
     }
 
@@ -270,46 +281,87 @@ struct ModuleAliasTracker {
     }
 
     public init(packages: [Package], _ observabilityScope: ObservabilityScope) throws {
-        // Build the product -> module map and each package's own intra-package modules.
+        // Build the public component -> module map and each package's own intra-package modules.
         packages.forEach({ package in
-            self.addProductAndPackageModules(package)
+            self.addPublicComponentAndPackageModules(package)
         })
 
-        // Resolve every product's full reachable-modules closure (with hop distance).
+        // Resolve the cross-package public components each public component depends on, now that every public component is known.
+        self.computeAllChildPublicComponents()
+
+        // Resolve every public component's full reachable-modules closure (with hop distance).
         self.computeAllReachableModules()
 
-        // Compute the reverse lookup: which products transitively depend on each product.
-        self.computeAllDependentProducts()
+        // Compute the reverse lookup: which public components transitively depend on each public component.
+        self.computeAllDependentPublicComponents()
 
         // Register every module alias declaration found across the package graph.
-        try self.addAliases(packages)
+        try self.addAliases(packages, observabilityScope)
 
         // Propagate aliases across the package graph, applying terminal aliases.
         let proposedAliases = self.proposeAliases(observabilityScope)
         self.disambiguateAndApplyAliases(with: proposedAliases, observabilityScope)
     }
 
-    /// Computes, for every product, the full set of modules reachable through it — tagged
-    /// with hop distance — by recursively following `crossPackageChildProducts`.
-    private mutating func computeAllReachableModules() {
-        var resolved: Set<String> = []
-        var inProgress: Set<String> = []
+    /// The public component that a cross-package dependency refers to, if it is known.
+    private func publicComponent(for dependency: Module.Dependency) -> PublicComponent? {
+        switch dependency {
+        case .module:
+            return nil
+        case .product(let productRef, _):
+            let product = PublicComponent.product(identity: productRef.identity, name: productRef.name)
+            if self.publicComponentModules[product] != nil {
+                return product
+            }
+            guard let package = productRef.package else { return nil }
+            let publicTarget = PublicComponent.publicTarget(.init(moduleName: productRef.name, packageIdentity: .plain(package)))
+            return self.publicComponentModules[publicTarget] != nil ? publicTarget : nil
+        case .externalModule(let moduleRef, _):
+            let publicTarget = PublicComponent.publicTarget(.init(moduleName: moduleRef.name, packageIdentity: .plain(moduleRef.package)))
+            return self.publicComponentModules[publicTarget] != nil ? publicTarget : nil
+        }
+    }
 
-        func resolve(for productId: String) -> [PackageIdentity: IdentifiableSet<ProductModules.ReachableModule>] {
-            guard let product = self.productModules[productId] else { return [:] }
-            if resolved.contains(product.productId) {
-                return product.crossPackageReachableModules
+    private mutating func computeAllChildPublicComponents() {
+        for publicComponent in self.publicComponentModules.values {
+            var dependencyModules = publicComponent.intraPackageModules.values.map(\.moduleInfo)
+            if case .publicTarget(let id) = publicComponent.publicComponent, let moduleInfo = self.packageModules[id.packageIdentity]?[id.moduleName] {
+                dependencyModules.append(moduleInfo)
             }
-            guard inProgress.insert(productId).inserted else {
+
+            var childPublicComponents: Set<PublicComponent> = []
+            for moduleInfo in dependencyModules {
+                for dependency in moduleInfo.module.dependencies {
+                    if let childPublicComponent = self.publicComponent(for: dependency) {
+                        childPublicComponents.insert(childPublicComponent)
+                    }
+                }
+            }
+            self.publicComponentModules[publicComponent.publicComponent]?.crossPackageChildPublicComponents = childPublicComponents
+        }
+    }
+
+    /// Computes, for every public component, the full set of modules reachable through it — tagged
+    /// with hop distance — by recursively following `crossPackageChildPublicComponents`.
+    private mutating func computeAllReachableModules() {
+        var resolved: Set<PublicComponent> = []
+        var inProgress: Set<PublicComponent> = []
+
+        func resolve(for publicComponentId: PublicComponent) -> [PackageIdentity: IdentifiableSet<PublicComponentModules.ReachableModule>] {
+            guard let publicComponent = self.publicComponentModules[publicComponentId] else { return [:] }
+            if resolved.contains(publicComponent.publicComponent) {
+                return publicComponent.crossPackageReachableModules
+            }
+            guard inProgress.insert(publicComponentId).inserted else {
                 // Cycle guard; contribute nothing further along this path.
-                return [product.package: product.intraPackageModules]
+                return [publicComponent.package: publicComponent.intraPackageModules]
             }
-            defer { inProgress.remove(productId) }
-            var reachable: [PackageIdentity: IdentifiableSet<ProductModules.ReachableModule>] = [product.package: product.intraPackageModules]
-            for childId in product.crossPackageChildProducts {
+            defer { inProgress.remove(publicComponentId) }
+            var reachable: [PackageIdentity: IdentifiableSet<PublicComponentModules.ReachableModule>] = [publicComponent.package: publicComponent.intraPackageModules]
+            for childId in publicComponent.crossPackageChildPublicComponents {
                 for (pkg, modules) in resolve(for: childId) {
                     for module in modules.values {
-                        let hopped = ProductModules.ReachableModule(moduleInfo: module.moduleInfo, distance: module.distance + 1)
+                        let hopped = PublicComponentModules.ReachableModule(moduleInfo: module.moduleInfo, distance: module.distance + 1)
                         if let existing = reachable[pkg]?[hopped.id], existing.distance <= hopped.distance {
                             continue
                         }
@@ -318,53 +370,66 @@ struct ModuleAliasTracker {
                 }
             }
 
-            self.productModules[productId]?.crossPackageReachableModules = reachable
-            self.productModules[productId]?.reachableModulesByName = Dictionary(grouping: reachable.values.flatMap(\.values), by: \.name)
-            resolved.insert(productId)
+            self.publicComponentModules[publicComponentId]?.crossPackageReachableModules = reachable
+            self.publicComponentModules[publicComponentId]?.reachableModulesByName = Dictionary(grouping: reachable.values.flatMap(\.values), by: \.name)
+            resolved.insert(publicComponentId)
             return reachable
         }
 
-        for product in self.productModules.values {
-            _ = resolve(for: product.productId)
+        for publicComponent in self.publicComponentModules.values {
+            _ = resolve(for: publicComponent.publicComponent)
         }
     }
 
-    /// Adds all the modules that make up each product for `package`.
-    public mutating func addProductAndPackageModules(_ package: Package) {
+    /// Adds all the modules that make up each public component (product, or target with public visibility) for `package`.
+    public mutating func addPublicComponentAndPackageModules(_ package: Package) {
         let packageModules = IdentifiableSet(package.modules.map { ModuleInfo(module: $0, package: package.identity) })
         self.packageModules[package.identity] = packageModules
 
-        for product in package.products {
-            // Don't redundantly populate the modules map if this product was already added.
-            guard productModules[product.identity] == nil else { continue }
-            let newProduct = ProductModules(
-                product: product,
+        var publicComponents: [(publicComponent: PublicComponent, modules: [Module])] = package.products.map { product in
+            (.product(identity: product.identity, name: product.name), product.modules)
+        }
+        for module in package.modules where module.visibility == .public {
+            let publicComponent = PublicComponent.publicTarget(.init(moduleName: module.name, packageIdentity: package.identity))
+            if module.type.isLibraryAggregate {
+                publicComponents.append((publicComponent, module.dependencies.compactMap(\.module)))
+            } else {
+                publicComponents.append((publicComponent, [module]))
+            }
+        }
+
+        for (publicComponent, modules) in publicComponents {
+            // Don't redundantly populate the modules map if this public component was already added.
+            guard publicComponentModules[publicComponent] == nil else { continue }
+            let newPublicComponent = PublicComponentModules(
+                publicComponent: publicComponent,
                 package: package.identity,
+                modules: modules,
                 packageModules: packageModules
             )
-            self.productModules[product.identity] = newProduct
+            self.publicComponentModules[publicComponent] = newPublicComponent
 
-            for reachable in newProduct.intraPackageModules.values {
-                self.vendingProductsIndex[reachable.packageId, default: [:]][reachable.name, default: []].insert(product.identity)
+            for reachable in newPublicComponent.intraPackageModules.values {
+                self.publicComponentsIndex[reachable.packageId, default: [:]][reachable.name, default: []].insert(publicComponent)
             }
         }
     }
 
-    /// The set of products (by identity) belonging to `moduleInfo`'s own package that
-    /// deliver/vend it — i.e. every product whose `intraPackageModules` includes it.
-    /// Purely structural, precomputed once in `addProductAndPackageModules` — a direct
-    /// lookup rather than a filter over every product in the package.
-    private func vendingProducts(for moduleInfo: ModuleInfo) -> Set<String> {
-        self.vendingProductsIndex[moduleInfo.packageId]?[moduleInfo.id] ?? []
+    /// The set of public components belonging to `moduleInfo`'s own package that
+    /// deliver/vend it — i.e. every public component whose `intraPackageModules` includes it.
+    /// Purely structural, precomputed once in `addPublicComponentAndPackageModules` — a direct
+    /// lookup rather than a filter over every public component in the package.
+    private func publicComponents(for moduleInfo: ModuleInfo) -> Set<PublicComponent> {
+        self.publicComponentsIndex[moduleInfo.packageId]?[moduleInfo.id] ?? []
     }
 
-    /// Resolves what `name` refers to, reachable through `product` — either a still-plain
+    /// Resolves what `name` refers to, reachable through `publicComponent` — either a still-plain
     /// canonical module (its own name matches `name` and it hasn't been aliased by anything
     /// yet), or a module some prior alias already renamed to `name`. Ties are broken by
     /// proximity: the closest reachable match wins, using the distance `computeAllReachableModules()`
     /// already precomputed. A genuine tie at the same distance is left unresolved, same as
     /// the original ambiguity check.
-    private func resolveModule(for name: String, reachableThrough product: ProductModules) -> (moduleInfo: ModuleInfo, originatingPackage: PackageIdentity)? {
+    private func resolveModule(for name: String, reachableThrough publicComponent: PublicComponentModules) -> (moduleInfo: ModuleInfo, originatingPackage: PackageIdentity)? {
         var matchesAtDistance: [Int: [(moduleInfo: ModuleInfo, originatingPackage: PackageIdentity)]] = [:]
         // Candidates already aliased under a *different* name, where this lookup is asking
         // for their original canonical name again — only relevant as a fallback, so a
@@ -374,8 +439,9 @@ struct ModuleAliasTracker {
 
         // Candidates whose own literal name is `name` — via the precomputed index instead of
         // scanning every reachable module. Already-aliased ones only count as a reclaim
-        // fallback; still-plain ones are direct matches.
-        for reachable in product.reachableModulesByName[name] ?? [] {
+        // fallback; still-plain ones are direct matches. Aggregate library targets have no
+        // sources, so there is no module to rename.
+        for reachable in publicComponent.reachableModulesByName[name] ?? [] where !reachable.moduleInfo.module.type.isLibraryAggregate {
             let candidate = reachable.moduleInfo
             let id = ModuleAlias.ModuleAliasID(moduleName: candidate.module.name, packageIdentity: candidate.packageId)
             if self.moduleAliases[id] != nil {
@@ -391,7 +457,7 @@ struct ModuleAliasTracker {
         // rather than scanning every reachable module to check whether it's aliased.
         for moduleAlias in self.moduleAliases {
             guard let matched = moduleAlias.aliases.first(where: { $0.name == name }) else { continue }
-            guard let reachable = product.reachableModulesByName[moduleAlias.module.name]?
+            guard let reachable = publicComponent.reachableModulesByName[moduleAlias.module.name]?
                 .first(where: { $0.packageId == moduleAlias.package }) else { continue }
             matchesAtDistance[reachable.distance, default: []].append((reachable.moduleInfo, matched.declaringPackage))
         }
@@ -408,15 +474,23 @@ struct ModuleAliasTracker {
         return nil
     }
 
+    private func libraryAggregate(named name: String, reachableThrough publicComponent: PublicComponentModules) -> ModuleInfo? {
+        if case .publicTarget(let id) = publicComponent.publicComponent, id.moduleName == name,
+           let moduleInfo = self.packageModules[id.packageIdentity]?[name], moduleInfo.module.type.isLibraryAggregate {
+            return moduleInfo
+        }
+        return publicComponent.reachableModules(named: name).first { $0.moduleInfo.module.type.isLibraryAggregate }?.moduleInfo
+    }
+
     func hasCompetingModuleName(_ proposedAlias: String, for module: ModuleInfo) -> Bool {
-        // Amongst the products that vend this module, determine all the modules that are grouped
-        // within that product (both intra- and cross-package). Check that there isn't already a module
+        // Amongst the public components of this module, determine all the modules that are grouped
+        // within that public component (both intra- and cross-package). Check that there isn't already a module
         // that is already named proposedAlias.canonicalModuleName.
-        let vendingProducts = self.vendingProducts(for: module)
-        guard !vendingProducts.isEmpty else { return true }
-        let products = vendingProducts.compactMap({ self.productModules[$0] })
-        for product in products {
-            for other in product.reachableModules(named: proposedAlias) {
+        let publicComponents = self.publicComponents(for: module)
+        guard !publicComponents.isEmpty else { return true }
+        let publicComponentModules = publicComponents.compactMap({ self.publicComponentModules[$0] })
+        for publicComponent in publicComponentModules {
+            for other in publicComponent.reachableModules(named: proposedAlias) {
                 let id = ModuleAlias.ModuleAliasID(moduleName: proposedAlias, packageIdentity: other.packageId)
                 if self.moduleAliases[id] == nil {
                     return true
@@ -427,7 +501,7 @@ struct ModuleAliasTracker {
         return false
     }
 
-    public mutating func addAliases(_ packages: [Package]) throws {
+    public mutating func addAliases(_ packages: [Package], _ observabilityScope: ObservabilityScope) throws {
         // To track aliases that have not yet been resolved; this applies to aliases that
         // do not have an identifiable "chain" yet, i.e. we have no matching ModuleAlias object.
         var unresolvedAliases: IdentifiableSet<ModuleAlias.Alias> = []
@@ -437,79 +511,97 @@ struct ModuleAliasTracker {
             let consumingPackage = pkg.identity
             for module in pkg.modules {
                 for dep in module.dependencies {
-                    // Detected independent of whether this specific reference resolves (e.g. package: nil,
-                    // an implicit/by-name product reference) — downstream diagnostics (like the
-                    // tools-version-too-old warning) need to know aliasing was attempted at all.
-                    if case let .product(productRef, _) = dep, let aliases = productRef.moduleAliases, !aliases.isEmpty {
+                    let aliases: [String: String]
+                    let referencedPackage: String
+                    switch dep {
+                    case .module:
+                        continue
+                    case .product(let productRef, _):
+                        guard let productAliases = productRef.moduleAliases, !productAliases.isEmpty else { continue }
+                        // Detected independent of whether this specific reference resolves (e.g. package: nil,
+                        // an implicit/by-name product reference) — downstream diagnostics (like the
+                        // tools-version-too-old warning) need to know aliasing was attempted at all.
                         self.moduleAliasingUsed = true
+                        guard let productPkg = productRef.package else { continue }
+                        aliases = productAliases
+                        referencedPackage = productPkg
+                    case .externalModule(let moduleRef, _):
+                        guard let moduleAliases = moduleRef.moduleAliases, !moduleAliases.isEmpty else { continue }
+                        self.moduleAliasingUsed = true
+                        aliases = moduleAliases
+                        referencedPackage = moduleRef.package
                     }
 
-                    if case let .product(productRef, _) = dep,
-                       let productPkg = productRef.package,
-                       let aliases = productRef.moduleAliases,
-                       let modulesForProduct = self.productModules[productRef.identity]
-                        {
-                        try aliases.forEach({ alias in
-                            let aliasInfo = ModuleAlias.Alias(
-                                name: alias.value,
-                                overridenName: alias.key,
-                                product: productRef,
-                                declaringPackage: consumingPackage,
-                                declaringModule: module,
-                                originatingPackage: .plain(productPkg)
+                    guard let publicComponent = self.publicComponent(for: dep), let modulesForPublicComponent = self.publicComponentModules[publicComponent] else {
+                        continue
+                    }
+
+                    try aliases.forEach({ alias in
+                        let aliasInfo = ModuleAlias.Alias(
+                            name: alias.value,
+                            overridenName: alias.key,
+                            publicComponent: publicComponent,
+                            declaringPackage: consumingPackage,
+                            declaringModule: module,
+                            originatingPackage: .plain(referencedPackage)
+                        )
+
+                        // For aliases that are direct i.e. override the canonical name of a module,
+                        // or that chain onto an already-introduced alias name reachable through this public component.
+                        if let (moduleInfo, originatingPackage) = self.resolveModule(for: alias.key, reachableThrough: modulesForPublicComponent) {
+                            let moduleAliasId = ModuleAlias.ModuleAliasID(
+                                moduleName: moduleInfo.module.name,
+                                packageIdentity: moduleInfo.packageId
                             )
-
-                            // For aliases that are direct i.e. override the canonical name of a module,
-                            // or that chain onto an already-introduced alias name reachable through this product.
-                            if let (moduleInfo, originatingPackage) = self.resolveModule(for: alias.key, reachableThrough: modulesForProduct) {
-                                let moduleAliasId = ModuleAlias.ModuleAliasID(
-                                    moduleName: moduleInfo.module.name,
-                                    packageIdentity: moduleInfo.packageId
+                            // Existing alias; add to alias chain.
+                            if let existingAlias = self.moduleAliases[moduleAliasId] {
+                                try existingAlias.addAlias(
+                                    aliasInfo.name,
+                                    oldName: aliasInfo.overridenName,
+                                    consumingPackage,
+                                    module,
+                                    publicComponent,
+                                    originatingPackage
                                 )
-                                // Existing alias; add to alias chain.
-                                if let existingAlias = self.moduleAliases[moduleAliasId] {
-                                    try existingAlias.addAlias(
-                                        aliasInfo.name,
-                                        oldName: aliasInfo.overridenName,
-                                        consumingPackage,
-                                        module,
-                                        productRef,
-                                        originatingPackage
-                                    )
-                                } else {
-                                    // New alias; add to the dict.
-                                    let vendingProducts = self.vendingProducts(for: moduleInfo)
-                                    let newAlias = ModuleAlias(
-                                        module: moduleInfo.module,
-                                        products: vendingProducts,
-                                        package: moduleAliasId.packageIdentity,
-                                    )
-                                    try newAlias.addAlias(
-                                        aliasInfo.name,
-                                        oldName: aliasInfo.overridenName,
-                                        aliasInfo.declaringPackage,
-                                        module,
-                                        productRef,
-                                        originatingPackage
-                                    )
-                                    self.moduleAliases.insertIfAbsent(newAlias)
-                                }
                             } else {
-                                // For aliases that are possibly chained, or still ambiguous at this point
-                                // in package-processing order; add to unresolved. We will retry these on
-                                // a second pass, once every package has registered its own direct aliases.
-                                let (inserted, existing) = unresolvedAliases.insertIfAbsent(aliasInfo)
-                                if !inserted && existing.name != aliasInfo.name {
-                                    throw PackageGraphError.multipleModuleAliases(
-                                        module: aliasInfo.overridenName,
-                                        product: aliasInfo.product.name,
-                                        package: productPkg,
-                                        aliases: [existing.name, aliasInfo.name]
-                                    )
-                                }
+                                // New alias; add to the dict.
+                                let publicComponents = self.publicComponents(for: moduleInfo)
+                                let newAlias = ModuleAlias(
+                                    module: moduleInfo.module,
+                                    publicComponents: publicComponents,
+                                    package: moduleAliasId.packageIdentity,
+                                )
+                                try newAlias.addAlias(
+                                    aliasInfo.name,
+                                    oldName: aliasInfo.overridenName,
+                                    aliasInfo.declaringPackage,
+                                    module,
+                                    publicComponent,
+                                    originatingPackage
+                                )
+                                self.moduleAliases.insertIfAbsent(newAlias)
                             }
-                        })
-                    }
+                        } else if let aggregate = self.libraryAggregate(named: alias.key, reachableThrough: modulesForPublicComponent) {
+                            observabilityScope.emit(ModuleAliasDiagnostic.aliasedLibraryAggregate(
+                                module: aggregate.module.name,
+                                declaringPackage: consumingPackage,
+                                package: aggregate.packageId
+                            ))
+                        } else {
+                            // For aliases that are possibly chained, or still ambiguous at this point
+                            // in package-processing order; add to unresolved. We will retry these on
+                            // a second pass, once every package has registered its own direct aliases.
+                            let (inserted, existing) = unresolvedAliases.insertIfAbsent(aliasInfo)
+                            if !inserted && existing.name != aliasInfo.name {
+                                throw PackageGraphError.multipleModuleAliases(
+                                    module: aliasInfo.overridenName,
+                                    publicComponent: aliasInfo.publicComponent.diagnosticDescription,
+                                    package: referencedPackage,
+                                    aliases: [existing.name, aliasInfo.name]
+                                )
+                            }
+                        }
+                    })
                 }
             }
         }
@@ -532,20 +624,20 @@ struct ModuleAliasTracker {
             // every package has registered its own direct aliases, regardless of which order they
             // were processed in, so whatever narrowed/disambiguated the target may now be available.
             guard let root = chain.last else { continue }
-            guard let rootProductModules = self.productModules[root.product.identity],
-                  let (moduleInfo, originatingPackage) = self.resolveModule(for: root.overridenName, reachableThrough: rootProductModules) else {
+            guard let rootPublicComponentModules = self.publicComponentModules[root.publicComponent],
+                  let (moduleInfo, originatingPackage) = self.resolveModule(for: root.overridenName, reachableThrough: rootPublicComponentModules) else {
                 // Genuinely unresolvable (e.g. ambiguous even after every package registered its
                 // own aliases) — this chain is silently dropped.
                 continue
             }
 
             // Correct root's originatingPackage to the verified value resolveModule just determined,
-            // rather than the naive `.plain(productPkg)` guess it was created with.
+            // rather than the naive `.plain(referencedPackage)` guess it was created with.
             var correctedChain = chain
             correctedChain[correctedChain.count - 1] = ModuleAlias.Alias(
                 name: root.name,
                 overridenName: root.overridenName,
-                product: root.product,
+                publicComponent: root.publicComponent,
                 declaringPackage: root.declaringPackage,
                 declaringModule: root.declaringModule,
                 originatingPackage: originatingPackage
@@ -557,8 +649,8 @@ struct ModuleAliasTracker {
                     try existingAlias.addAlias(alias)
                 }
             } else {
-                let vendingProducts = self.vendingProducts(for: moduleInfo)
-                let newAlias = ModuleAlias(module: moduleInfo.module, products: vendingProducts, package: moduleInfo.packageId)
+                let publicComponents = self.publicComponents(for: moduleInfo)
+                let newAlias = ModuleAlias(module: moduleInfo.module, publicComponents: publicComponents, package: moduleInfo.packageId)
                 for alias in correctedChain.reversed() {
                     try newAlias.addAlias(alias)
                 }
@@ -570,12 +662,12 @@ struct ModuleAliasTracker {
     /// Determines whether the given alias requires an entry in the module aliases mapping for a module.
     func needsOwnKeyEntry(for link: ModuleAlias.Alias) -> Bool {
         guard let linkModuleInfo = self.packageModules[link.declaringPackage]?[link.declaringModule.name] else { return false }
-        let vendingProducts = self.vendingProducts(for: linkModuleInfo)
-        return vendingProducts.contains { productId in
-            guard let product = self.productModules[productId],
-                  let ownDistance = product.reachableModulesByName[link.overridenName]?
+        let publicComponents = self.publicComponents(for: linkModuleInfo)
+        return publicComponents.contains { publicComponentId in
+            guard let publicComponent = self.publicComponentModules[publicComponentId],
+                  let ownDistance = publicComponent.reachableModulesByName[link.overridenName]?
                       .first(where: { $0.packageId == link.originatingPackage })?.distance else { return false }
-            return (product.reachableModulesByName[link.overridenName] ?? []).contains(where: {
+            return (publicComponent.reachableModulesByName[link.overridenName] ?? []).contains(where: {
                 $0.packageId != link.originatingPackage && $0.distance <= ownDistance
             })
         }
@@ -612,7 +704,7 @@ struct ModuleAliasTracker {
                 let proposedAlias = ProposedAlias(
                     canonicalModuleName: overridenName,
                     candidates: [candidate],
-                    vendingProducts: moduleAlias.vendingProducts
+                    publicComponents: moduleAlias.publicComponents
                 )
                 proposedAliases[module, default: []][overridenName] = proposedAlias
             }
@@ -624,8 +716,8 @@ struct ModuleAliasTracker {
             guard let aliasedModule = self.aliasedModule(for: moduleAlias) else { continue }
 
             let affectedModules = dependentIntraPackageModules(aliasedModule)
-            let affectedProducts = moduleAlias.vendingProducts
-                .compactMap({ self.productModules[$0]?.crossPackageDependentProducts })
+            let affectedPublicComponents = moduleAlias.publicComponents
+                .compactMap({ self.publicComponentModules[$0]?.crossPackageDependentPublicComponents })
                 .flatMap({ $0 })
 
             for chain in chains {
@@ -639,7 +731,7 @@ struct ModuleAliasTracker {
                             alias: link.name,
                             declaringPackage: link.declaringPackage,
                             declaringModule: link.declaringModule.name,
-                            product: link.product.name,
+                            publicComponent: link.publicComponent,
                             overriddenBy: terminal.name
                         ))
                     }
@@ -650,10 +742,10 @@ struct ModuleAliasTracker {
                     propose(chain, of: moduleAlias, overridenName: moduleAlias.module.name, for: affectedModule, isSelfRename: affectedModule == aliasedModule)
                 }
 
-                // Propose the alias for each affected modules via cross-package products.
-                for affectedProduct in affectedProducts {
-                    guard let product = self.productModules[affectedProduct] else { continue }
-                    for reachable in product.intraPackageModules where product.directlyVendsModule(reachable.moduleInfo) {
+                // Propose the alias for each affected modules via cross-package public components.
+                for affectedPublicComponent in affectedPublicComponents {
+                    guard let publicComponent = self.publicComponentModules[affectedPublicComponent] else { continue }
+                    for reachable in publicComponent.intraPackageModules where publicComponent.directlyVendsModule(reachable.moduleInfo) {
                         propose(chain, of: moduleAlias, overridenName: moduleAlias.module.name, for: reachable.moduleInfo)
                     }
                 }
@@ -670,7 +762,7 @@ struct ModuleAliasTracker {
         return proposedAliases
     }
 
-    /// The modules that `moduleInfo` directly depends on, which is a single hop: the modules of the products that it (or
+    /// The modules that `moduleInfo` directly depends on, which is a single hop: the modules of the public components that it (or
     /// the modules of its own package that it depends on) depends on, and the modules those directly depend on.
     private func directlyDependedOnModules(of moduleInfo: ModuleInfo) -> Set<ModuleAlias.ModuleAliasID> {
         var consumers: [Module] = [moduleInfo.module]
@@ -683,14 +775,14 @@ struct ModuleAliasTracker {
 
         var dependencies: Set<ModuleAlias.ModuleAliasID> = []
         for consumer in consumers {
-            for case let .product(productRef, _) in consumer.dependencies {
-                guard let product = self.productModules[productRef.identity] else { continue }
-                let productPackageModules = self.packageModules[product.package]
-                for vendedName in product.directModules {
-                    dependencies.insert(.init(moduleName: vendedName, packageIdentity: product.package))
-                    guard let vended = productPackageModules?[vendedName] else { continue }
+            for dependency in consumer.dependencies {
+                guard let publicComponentId = self.publicComponent(for: dependency), let publicComponent = self.publicComponentModules[publicComponentId] else { continue }
+                let publicComponentPackageModules = self.packageModules[publicComponent.package]
+                for vendedName in publicComponent.directModules {
+                    dependencies.insert(.init(moduleName: vendedName, packageIdentity: publicComponent.package))
+                    guard let vended = publicComponentPackageModules?[vendedName] else { continue }
                     for dependencyName in vended.directModuleDependencies {
-                        dependencies.insert(.init(moduleName: dependencyName, packageIdentity: product.package))
+                        dependencies.insert(.init(moduleName: dependencyName, packageIdentity: publicComponent.package))
                     }
                 }
             }
@@ -701,20 +793,20 @@ struct ModuleAliasTracker {
     /// Amongst the aliases that have been proposed, determine which mappings should be stored in each module if applicable.
     private mutating func disambiguateAndApplyAliases(with proposedAliases: [ModuleInfo: IdentifiableSet<ProposedAlias>], _ observabilityScope: ObservabilityScope) {
         func closestCandidate(_ proposedAlias: ProposedAlias, for moduleInfo: ModuleInfo) -> ProposedAlias.Candidate? {
-            let vendingProducts = self.vendingProducts(for: moduleInfo)
+            let publicComponents = self.publicComponents(for: moduleInfo)
             let candidatePackages = Set(proposedAlias.candidates.map(\.originatingPackage))
 
             var bestDistance: [PackageIdentity: Int] = [:]
-            for productId in vendingProducts {
-                guard let product = self.productModules[productId] else { continue }
+            for publicComponentId in publicComponents {
+                guard let publicComponent = self.publicComponentModules[publicComponentId] else { continue }
                 for candidatePackage in candidatePackages {
-                    guard let match = product.reachableModulesByName[proposedAlias.canonicalModuleName]?
+                    guard let match = publicComponent.reachableModulesByName[proposedAlias.canonicalModuleName]?
                         .first(where: { $0.packageId == candidatePackage }) else { continue }
                     if let existing = bestDistance[candidatePackage], existing <= match.distance { continue }
                     bestDistance[candidatePackage] = match.distance
                 }
             }
-            
+
             let minDistance = bestDistance.values.min()
             let closestCandidates = proposedAlias.candidates.filter { bestDistance[$0.originatingPackage] == minDistance }
             return closestCandidates.count == 1 ? closestCandidates.first : nil
@@ -800,22 +892,22 @@ struct ModuleAliasTracker {
             module.addModuleAlias(for: proposal.canonicalModuleName, as: winner)
         }
 
-        // Warn about aliased modules that may contain non-Swift sources, once per product that they belong to and with
-        // their final aliases. A product's modules are the ones that it vends and the ones those directly depend on.
-        for product in self.productModules {
-            let productPackageModules = self.packageModules[product.package]
-            var moduleNames = product.directModules
-            for name in product.directModules {
-                moduleNames.formUnion(productPackageModules?[name]?.directModuleDependencies ?? [])
+        // Warn about aliased modules that may contain non-Swift sources, once per public component that they belong to and with
+        // their final aliases. A public component's modules are the ones that it vends and the ones those directly depend on.
+        for publicComponent in self.publicComponentModules {
+            let publicComponentPackageModules = self.packageModules[publicComponent.package]
+            var moduleNames = publicComponent.directModules
+            for name in publicComponent.directModules {
+                moduleNames.formUnion(publicComponentPackageModules?[name]?.directModuleDependencies ?? [])
             }
             for name in moduleNames.sorted() {
-                guard let module = productPackageModules?[name]?.module,
+                guard let module = publicComponentPackageModules?[name]?.module,
                       module.sources.containsNonSwiftFiles,
                       let aliases = module.moduleAliases else { continue }
                 observabilityScope.emit(ModuleAliasDiagnostic.nonSwiftSources(
                     module: module.name,
-                    product: product.productName,
-                    package: product.package,
+                    publicComponent: publicComponent.publicComponent,
+                    package: publicComponent.package,
                     aliases: aliases
                 ))
             }
@@ -828,13 +920,13 @@ struct ModuleAliasTracker {
         }
 
         // Diagnose unapplied aliases — a declared alias that never produced a terminal
-        // means it never matched any actual dependency of the product it was declared on.
+        // means it never matched any actual dependency of the public component it was declared on.
         for moduleAlias in self.moduleAliases where moduleAlias.terminalAliases.isEmpty {
             if let diagnosedAlias = moduleAlias.aliases.first(where: { $0.overridenName == moduleAlias.module.name }) {
                 observabilityScope.emit(ModuleAliasDiagnostic.unmatchedAlias(
                     module: moduleAlias.module.name,
                     declaringPackage: diagnosedAlias.declaringPackage,
-                    product: diagnosedAlias.product.name,
+                    publicComponent: diagnosedAlias.publicComponent,
                     package: moduleAlias.package
                 ))
             }
@@ -847,17 +939,17 @@ public class ModuleAlias: Identifiable {
     public typealias ID = ModuleAliasID
 
     /// Representative of an instance of a declared module alias.
-    /// A single module can have its aliases overridden 
+    /// A single module can have its aliases overridden
     public struct Alias: Identifiable {
         /// The new name in which the module is to be referred to.
         let name: String
         /// The module's old name.
         let overridenName: String
-        /// The product dependency being consumed by `declaringPackage` in which
+        /// The product or public target dependency being consumed by `declaringPackage` in which
         /// `overridenName` is exposed — either as a canonical module name (direct alias)
         /// or as a prior alias name (chained alias).
-        let product: Module.ProductReference
-        /// The package consuming the product dependency and declaring the alias.
+        let publicComponent: ModuleAliasTracker.PublicComponent
+        /// The package consuming the dependency and declaring the alias.
         let declaringPackage: PackageIdentity
         /// The module declaring this module alias.
         let declaringModule: Module
@@ -885,7 +977,7 @@ public class ModuleAlias: Identifiable {
     }
 
     var module: Module
-    var vendingProducts: Set<String> = []
+    var publicComponents: Set<ModuleAliasTracker.PublicComponent> = []
     let package: PackageIdentity
     /// Flat list of all aliases (chained, etc.) for this module.
     var aliases: IdentifiableSet<Alias> = []
@@ -920,7 +1012,7 @@ public class ModuleAlias: Identifiable {
 
     /// The ID of any module, which is its name and the package that it belongs to. For a `ModuleAlias`, it identifies
     /// the module that it renames.
-    public struct ModuleAliasID: Hashable {
+    public struct ModuleAliasID: Hashable, Sendable {
         var moduleName: String
         var packageIdentity: PackageIdentity
     }
@@ -932,11 +1024,11 @@ public class ModuleAlias: Identifiable {
 
     init(
         module: Module,
-        products: Set<String>,
+        publicComponents: Set<ModuleAliasTracker.PublicComponent>,
         package: PackageIdentity
     ) {
         self.module = module
-        self.vendingProducts = products
+        self.publicComponents = publicComponents
         self.package = package
     }
 
@@ -979,7 +1071,7 @@ public class ModuleAlias: Identifiable {
             oldName: alias.overridenName,
             alias.declaringPackage,
             alias.declaringModule,
-            alias.product,
+            alias.publicComponent,
             alias.originatingPackage
         )
     }
@@ -989,14 +1081,14 @@ public class ModuleAlias: Identifiable {
         oldName: String,
         _ consumingPackage: PackageIdentity,
         _ declaringModule: Module,
-        _ productRef: Module.ProductReference,
+        _ publicComponent: ModuleAliasTracker.PublicComponent,
         _ originatingPackage: PackageIdentity
     ) throws {
         // Create alias.
         let alias = Alias(
             name: alias,
             overridenName: oldName,
-            product: productRef,
+            publicComponent: publicComponent,
             declaringPackage: consumingPackage,
             declaringModule: declaringModule,
             originatingPackage: originatingPackage
@@ -1013,7 +1105,7 @@ public class ModuleAlias: Identifiable {
             if Set(declaringPackages).count < declaringPackages.count {
                 throw PackageGraphError.multipleModuleAliases(
                     module: alias.overridenName,
-                    product: productRef.name,
+                    publicComponent: publicComponent.diagnosticDescription,
                     package: self.package.description,
                     aliases: aliasIds.map { $0.name }
                 )
