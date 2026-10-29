@@ -770,7 +770,7 @@ private func createResolvedPackages(
         func findPublicModule(named name: String, inPackageNamed packageName: String) -> ResolvedModuleBuilder? {
             let candidatePackages: [ResolvedPackageBuilder] = dependencyPackageMap[packageName.lowercased()].map { [$0] } ?? []
             let matches = candidatePackages.compactMap { candidate in
-                candidate.modules.first { $0.module.name == name && $0.module.visibility == .public }
+                candidate.modules.first { $0.module.declaredName == name && $0.module.visibility == .public }
             }
             return matches.spm_only
         }
@@ -793,7 +793,8 @@ private func createResolvedPackages(
                     continue
                 }
 
-                guard let dependencyBuilder = dependencyPackage.modules.first(where: { $0.module.name == moduleRef.name }) else {
+                // Look the target up by its declared name, since a module alias may have renamed it.
+                guard let dependencyBuilder = dependencyPackage.modules.first(where: { $0.module.declaredName == moduleRef.name }) else {
                     packageObservabilityScope.emit(
                         PackageGraphError.externalModuleDependencyNotFound(
                             moduleName: moduleRef.name,
@@ -815,16 +816,6 @@ private func createResolvedPackages(
                     continue
                 }
 
-                if let moduleAliases = moduleRef.moduleAliases, !moduleAliases.isEmpty {
-                    packageObservabilityScope.emit(
-                        PackageGraphError.moduleAliasesUnsupportedForExternalModuleDependency(
-                            moduleName: moduleRef.name,
-                            dependentModuleName: moduleBuilder.module.name
-                        )
-                    )
-                    continue
-                }
-
                 try moduleBuilder.module.validateDependency(module: dependencyBuilder.module)
                 moduleBuilder.dependencies.append(.module(dependencyBuilder, conditions: conditions))
             }
@@ -839,17 +830,11 @@ private func createResolvedPackages(
                     // If the package doesn't declare a product with this name, fall back to a
                     // target of the same name with public visibility. This allows a package to
                     // migrate from products to public targets without breaking clients.
+                    // `ModuleAliasTracker.publicComponent(for:)` mirrors this fallback when resolving module aliases.
                     if let package = productRef.package, let fallbackModuleBuilder = findPublicModule(
                         named: productRef.name,
                         inPackageNamed: package
                     ) {
-                        if let moduleAliases = productRef.moduleAliases, !moduleAliases.isEmpty {
-                            packageObservabilityScope.emit(
-                                PackageGraphError.moduleAliasesUnsupportedForExternalModuleDependency(moduleName: productRef.name, dependentModuleName: moduleBuilder.module.name)
-                            )
-                            continue
-                        }
-
                         try moduleBuilder.module.validateDependency(module: fallbackModuleBuilder.module)
                         moduleBuilder.dependencies.append(.module(fallbackModuleBuilder, conditions: conditions))
                         continue

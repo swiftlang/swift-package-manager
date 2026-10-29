@@ -201,6 +201,9 @@ public class Module {
     /// name) name in many cases, instead use ``Target/c99name`` if you need uniqueness.
     public private(set) var name: String
 
+    /// The name of the module as declared in its manifest, before any module alias renamed it.
+    public let declaredName: String
+
     /// Module aliases needed to build this module. The key is an original name of a
     /// dependent module and the value is a new unique name mapped to the name
     /// of its .swiftmodule binary.
@@ -316,6 +319,7 @@ public class Module {
         visibility: TargetDescription.TargetVisibility = .package
     ) {
         self.name = name
+        self.declaredName = name
         self.potentialBundleName = potentialBundleName
         self.type = type
         self.path = path

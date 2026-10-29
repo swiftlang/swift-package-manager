@@ -592,6 +592,11 @@ extension PackagePIFProjectBuilder {
             }
         }
 
+        if let aliases = sourceModule.moduleAliases {
+            let list = aliases.map { $0.0 + "=" + $0.1 }
+            settings[.SWIFT_MODULE_ALIASES] = list.isEmpty ? nil : list
+        }
+
         if desiredModuleType == .dynamicLibrary {
             settings.configureDynamicSettings(
                 product: nil,
@@ -672,12 +677,6 @@ extension PackagePIFProjectBuilder {
                 if productInstallsOwnModule {
                     settings[.SWIFT_INSTALL_MODULE] = "NO"
                 }
-            }
-
-            if let aliases = sourceModule.moduleAliases {
-                // Format each entry as "original_name=alias"
-                let list = aliases.map { $0.0 + "=" + $0.1 }
-                settings[.SWIFT_MODULE_ALIASES] = list.isEmpty ? nil : list
             }
 
             // We mark in the PIF that we are intentionally not offering a dynamic target here,
