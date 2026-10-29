@@ -63,7 +63,11 @@ final class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             )
             """
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, _) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, _) = try await loadAndValidateManifest(
+            content,
+            toolsVersion: .vNext,
+            observabilityScope: observability.topScope,
+        )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let product = try XCTUnwrap(manifest.products.first)
@@ -94,7 +98,11 @@ final class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             )
             """
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, _) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, _) = try await loadAndValidateManifest(
+            content,
+            toolsVersion: .vNext,
+            observabilityScope: observability.topScope,
+        )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let product = try XCTUnwrap(manifest.products.first)
@@ -125,7 +133,11 @@ final class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             )
             """
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, _) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, _) = try await loadAndValidateManifest(
+            content,
+            toolsVersion: .vNext,
+            observabilityScope: observability.topScope,
+        )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let product = try XCTUnwrap(manifest.products.first)
@@ -152,7 +164,11 @@ final class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             )
             """
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, _) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, _) = try await loadAndValidateManifest(
+            content,
+            toolsVersion: .vNext,
+            observabilityScope: observability.topScope,
+        )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let product = try XCTUnwrap(manifest.products.first)
@@ -182,7 +198,11 @@ final class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             )
             """
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, _) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, _) = try await loadAndValidateManifest(
+            content,
+            toolsVersion: .vNext,
+            observabilityScope: observability.topScope,
+        )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let product = try XCTUnwrap(manifest.products.first)
@@ -219,7 +239,11 @@ final class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             )
             """
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, _) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, _) = try await loadAndValidateManifest(
+            content,
+            toolsVersion: .vNext,
+            observabilityScope: observability.topScope,
+        )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let product = try XCTUnwrap(manifest.products.first)
@@ -242,7 +266,11 @@ final class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             )
             """
         let observability = ObservabilitySystem.makeForTesting()
-        let (manifest, _) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        let (manifest, _) = try await loadAndValidateManifest(
+            content,
+            toolsVersion: .vNext,
+            observabilityScope: observability.topScope,
+        )
         XCTAssertNoDiagnostics(observability.diagnostics)
 
         let product = try XCTUnwrap(manifest.products.first)
