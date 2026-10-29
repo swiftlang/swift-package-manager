@@ -721,7 +721,10 @@ struct MiscellaneousTestCase {
         .skipHostOS(.linux),
         .skipHostOS(.android),
         .skipHostOS(.freebsd),
-        .skipHostOS(.windows, because: "https://github.com/swiftlang/swift-package-manager/issues/10686"),
+        .skipHostOS(
+            .windows,
+            because: "https://github.com/swiftlang/swift-package-manager/issues/10686: the Windows checkout stores the fixture's directory names in a different Unicode normalization form than the manifest uses"
+        ),
         .tags(
             .Feature.Command.Test,
             .Feature.Command.Run,
@@ -743,10 +746,16 @@ struct MiscellaneousTestCase {
 
                 // ••••• Set up dependency.
                 let dependencyName = "UnicodeDependency‐\(complicatedString)"
-                let dependencyOrigin = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
+                let fixturesDirectory = AbsolutePath(#file).parentDirectory.parentDirectory.parentDirectory
                     .appending("Fixtures")
                     .appending("Miscellaneous")
-                    .appending(component: dependencyName)
+                // The checkout may store the directory name in a different, canonically equivalent Unicode
+                // normalization form. Swift's `String` equality is canonical-equivalence aware but the file
+                // system is not, so look the directory up by comparing names instead of building the path
+                // from the literal.
+                let originName = (try? FileManager.default.contentsOfDirectory(atPath: fixturesDirectory.pathString))?
+                    .first(where: { $0 == dependencyName }) ?? dependencyName
+                let dependencyOrigin = fixturesDirectory.appending(component: originName)
                 let dependencyDestination = fixturePath.parentDirectory.appending(component: dependencyName)
                 try? FileManager.default.removeItem(atPath: dependencyDestination.pathString)
                 defer { try? FileManager.default.removeItem(atPath: dependencyDestination.pathString) }
