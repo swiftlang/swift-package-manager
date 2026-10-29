@@ -424,6 +424,10 @@ public final class Package {
     ///   - pkgConfig: The name to use for C modules. If present, Swift Package Manager searches for a
     ///   `<name>.pc` file to get the additional flags required for a system target.
     ///   - providers: The package providers for a system target.
+    ///   - defaultSwiftSettings: Swift compiler settings used for all targets that do not have additional settings applied.
+    ///   - defaultCSettings: C compiler settings used for all targets that do not have additional settings applied.
+    ///   - defaultCXXSettings: C++ compiler settings used for all targets that do not have additional settings applied.
+    ///   - defaultLinkerSettings: Linker compiler settings used for all targets that do not have additional settings applied.
     ///   - traits: The set of traits this package provides.
     ///   - dependencies: The list of package dependencies.
     ///   - targets: The list of targets that are part of this package.
@@ -437,6 +441,10 @@ public final class Package {
         platforms: [SupportedPlatform]? = nil,
         pkgConfig: String? = nil,
         providers: [SystemPackageProvider]? = nil,
+        defaultSwiftSettings: [SwiftSetting]? = nil,
+        defaultCSettings: [CSetting]? = nil,
+        defaultCXXSettings: [CXXSetting]? = nil,
+        defaultLinkerSettings: [LinkerSetting]? = nil,
         traits: Set<Trait> = [],
         dependencies: [Dependency] = [],
         targets: [Target] = [],
@@ -454,12 +462,12 @@ public final class Package {
         self.dependencies = dependencies
         self.targets = targets
         self.swiftLanguageModes = swiftLanguageModes
-        self.defaultSwiftSettings = nil
+        self.defaultSwiftSettings = defaultSwiftSettings
         self.cLanguageStandard = cLanguageStandard
-        self.defaultCSettings = nil
+        self.defaultCSettings = defaultCSettings
         self.cxxLanguageStandard = cxxLanguageStandard
-        self.defaultCXXSettings = nil
-        self.defaultLinkerSettings = nil
+        self.defaultCXXSettings = defaultCXXSettings
+        self.defaultLinkerSettings = defaultLinkerSettings
         registerExitHandler()
     }
 
@@ -484,6 +492,7 @@ public final class Package {
     ///   - cLanguageStandard: The C language standard to use for all C targets in this package.
     ///   - cxxLanguageStandard: The C++ language standard to use for all C++ targets in this package.
     @available(_PackageDescription, introduced: 6.5)
+    @available(_PackageDescription, deprecated: 999.0, message: "products are deprecated; declare targets with 'visibility: .public' instead")
     public init(
         name: String,
         defaultLocalization: LanguageTag? = nil,
@@ -507,7 +516,7 @@ public final class Package {
         self.platforms = platforms
         self.pkgConfig = pkgConfig
         self.providers = providers
-        self.products = products
+        self.productsStorage = products
         self.traits = traits
         self.dependencies = dependencies
         self.targets = targets
