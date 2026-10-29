@@ -74,7 +74,8 @@ class GitRepositoryTests: XCTestCase {
     private func addLFSTrackedBinaryFile(
         to repositoryPath: AbsolutePath,
         fileName: String = "test.bin",
-        tag: String = "1.0.0"
+        tag: String = "1.0.0",
+        binaryData: Data = Data([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46])
     ) async throws -> Data {
         try await AsyncProcess.checkNonZeroExit(
             args: Git.tool, "-C", repositoryPath.pathString, "lfs", "install", "--local", "--force",
@@ -85,7 +86,6 @@ class GitRepositoryTests: XCTestCase {
             environment: .init(Git.environmentBlock)
         )
 
-        let binaryData = Data([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46])
         try localFileSystem.writeFileContents(
             repositoryPath.appending(fileName),
             bytes: ByteString(binaryData)
@@ -286,13 +286,55 @@ class GitRepositoryTests: XCTestCase {
             XCTAssertEqual(funnyNamesRoot.contents.map{ $0.name }, ["README.txt", "funny-names", "subdir"])
             guard funnyNamesRoot.contents.count == 3 else { return XCTFail() }
 
-            // FIXME: This isn't yet supported.
             let funnyNamesSubdirEntry = funnyNamesRoot.contents[1]
             XCTAssertEqual(funnyNamesSubdirEntry.type, .tree)
-            if let _ = try? repo.readTree(location: funnyNamesSubdirEntry.location) {
-                XCTFail("unexpected success reading tree with funny names")
+            let funnyNamesTree = try repo.readTree(location: funnyNamesSubdirEntry.location)
+            XCTAssertEqual(funnyNamesTree.contents.map(\.name), [
+                "a\u{08}", "a\tb", "a\nb", "a\u{12}b", "a b", "a\"b", "a$b",
+            ])
+        }
+    }
+
+    func testTreeNamesWithGitQuotePathSettings() throws {
+        try XCTSkipOnWindows(because: "The file names in this test are not portable to Windows")
+
+        try testWithTemporaryDirectory { path in
+            let names = [
+                "中文.swift", "日本語.txt", "café.md", "🧪.json", "مرحبا.txt",
+                "\"leading-quote.swift", "a\\b.swift",
+            ]
+            let expectedNames = Set(names + ["file.swift"])
+            for quotePath in ["true", "false"] {
+                let repositoryPath = path.appending("repo-\(quotePath)")
+                try makeDirectories(repositoryPath)
+                initGitRepo(repositoryPath)
+
+                for name in names {
+                    try localFileSystem.writeFileContents(repositoryPath.appending(name), string: name)
+                }
+
+                let repository = GitRepository(path: repositoryPath)
+                try repository.stageEverything()
+                try repository.commit(message: "Add special file names")
+                try repository.tag(name: "special-names")
+                try AsyncProcess.checkNonZeroExit(
+                    args: Git.tool, "-C", repositoryPath.pathString, "config", "core.quotepath", quotePath,
+                    environment: .init(Git.environmentBlock)
+                )
+
+                let commit = try repository.readCommit(hash: repository.resolveHash(treeish: "main"))
+                let treeByHash = try repository.readTree(hash: commit.tree)
+                let treeByTag = try repository.readTree(tag: "special-names")
+                XCTAssertEqual(Set(treeByHash.contents.map(\.name)), expectedNames)
+                XCTAssertEqual(Set(treeByTag.contents.map(\.name)), expectedNames)
+
+                let view = try repository.openFileView(revision: repository.resolveRevision(tag: "special-names"))
+                XCTAssertEqual(Set(try view.getDirectoryContents(.root)), expectedNames)
+                for name in names {
+                    XCTAssertEqual(try view.readFileContents(AbsolutePath("/" + name)), name)
+                }
             }
-       }
+        }
     }
 
     func testSubmoduleRead() throws {
@@ -1519,6 +1561,67 @@ class GitRepositoryTests: XCTestCase {
             try gitWorkingCopy.checkout(tag: "after-lfs")
             let hasLFS2 = try await gitWorkingCopy.hasLFSTrackedFiles()
             XCTAssertTrue(hasLFS2)
+        }
+    }
+
+    /// The bare cache only fetches LFS objects for its `HEAD`, so checking out an older tag
+    /// must fetch that revision's objects before the smudge filter reads them from the cache.
+    func testGitLFSCheckoutOfTagBehindHEAD() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
+        try await self.requireGitLFS()
+
+        try await testWithTemporaryDirectory { path in
+            let lfsRepoPath = path.appending("lfs-repo")
+            let oldBinaryData = try await self.createLFSRepository(at: lfsRepoPath, tag: "1.0.0")
+            _ = try await self.addLFSTrackedBinaryFile(to: lfsRepoPath, tag: "1.0.1", binaryData: Data([0x01, 0x02, 0x03]))
+
+            let provider = GitRepositoryProvider()
+            let repoSpec = RepositorySpecifier(path: lfsRepoPath)
+            let clonePath = path.appending("clone")
+            try await provider.fetch(repository: repoSpec, to: clonePath)
+
+            let checkoutPath = path.appending("checkout")
+            let workingCopy = try await provider.createWorkingCopy(
+                repository: repoSpec,
+                sourcePath: clonePath,
+                at: checkoutPath,
+                editable: false
+            )
+            try workingCopy.checkout(tag: "1.0.0")
+
+            try self.assertFileMatchesBinaryData(checkoutPath.appending("test.bin"), expected: oldBinaryData)
+        }
+    }
+
+    func testGitLFSCheckoutOfTagWhenHEADNoLongerUsesLFS() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
+        try await self.requireGitLFS()
+
+        try await testWithTemporaryDirectory { path in
+            let lfsRepoPath = path.appending("lfs-repo")
+            let binaryData = try await self.createLFSRepository(at: lfsRepoPath, tag: "1.0.0")
+            let repository = GitRepository(path: lfsRepoPath)
+            try localFileSystem.removeFileTree(lfsRepoPath.appending("test.bin"))
+            try localFileSystem.removeFileTree(lfsRepoPath.appending(".gitattributes"))
+            try repository.stageEverything()
+            try repository.commit(message: "Stop using LFS")
+            try repository.tag(name: "2.0.0")
+
+            let provider = GitRepositoryProvider()
+            let repoSpec = RepositorySpecifier(path: lfsRepoPath)
+            let clonePath = path.appending("clone")
+            try await provider.fetch(repository: repoSpec, to: clonePath)
+
+            let checkoutPath = path.appending("checkout")
+            let workingCopy = try await provider.createWorkingCopy(
+                repository: repoSpec,
+                sourcePath: clonePath,
+                at: checkoutPath,
+                editable: false
+            )
+            try workingCopy.checkout(revision: repository.resolveRevision(tag: "1.0.0"))
+
+            try self.assertFileMatchesBinaryData(checkoutPath.appending("test.bin"), expected: binaryData)
         }
     }
 

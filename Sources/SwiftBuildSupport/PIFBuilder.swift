@@ -908,6 +908,8 @@ fileprivate func buildAggregatePIFProject(
     settings[.SDKROOT] = "auto"
     settings[.SDK_VARIANT] = "auto"
     settings[.SKIP_INSTALL] = "YES"
+    // The aggregate project doesn't have a meaninful deployment target, so never diagnose deprecated targets in the build request, individual packages will diagnose them if needed.
+    settings[single: "__DIAGNOSE_DEPRECATED_ARCHS"] = "NO"
 
     aggregateProject.addBuildConfig { id in BuildConfig(id: id, name: "Debug", settings: settings) }
     aggregateProject.addBuildConfig { id in BuildConfig(id: id, name: "Release", settings: settings) }

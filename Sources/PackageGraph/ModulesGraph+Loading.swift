@@ -421,10 +421,12 @@ private func createResolvedPackages(
 
     // Resolve module aliases, if specified, for modules and their dependencies
     // across packages. Aliasing will result in module renaming.
-    let moduleAliasingUsed = try resolveModuleAliases(
-        packageBuilders: packageBuilders,
-        observabilityScope: observabilityScope
+    var moduleAliasTracker = try ModuleAliasTracker(
+        packages: packageBuilders.map(\.package),
+        observabilityScope
     )
+
+    let moduleAliasingUsed = moduleAliasTracker.moduleAliasingUsed
 
     // Scan and validate the dependencies
     for packageBuilder in packageBuilders {
@@ -1330,63 +1332,6 @@ private func computePlatforms(
     }
 
     return declaredPlatforms.sorted(by: { $0.platform.name < $1.platform.name })
-}
-
-// Track and override module aliases specified for modules in a package graph
-private func resolveModuleAliases(
-    packageBuilders: [ResolvedPackageBuilder],
-    observabilityScope: ObservabilityScope
-) throws -> Bool {
-    // If there are no module aliases specified, return early
-    let hasAliases = packageBuilders.contains { $0.package.modules.contains {
-        $0.dependencies.contains { dep in
-            if case .product(let prodRef, _) = dep {
-                return prodRef.moduleAliases != nil
-            }
-            return false
-        }
-    }
-    }
-
-    guard hasAliases else { return false }
-    var aliasTracker = ModuleAliasTracker()
-    for packageBuilder in packageBuilders {
-        try aliasTracker.addModuleAliases(
-            modules: packageBuilder.package.modules,
-            package: packageBuilder.package.identity
-        )
-    }
-
-    // Track modules that need module aliases for each package
-    for packageBuilder in packageBuilders {
-        for product in packageBuilder.package.products {
-            aliasTracker.trackModulesPerProduct(
-                product: product,
-                package: packageBuilder.package.identity
-            )
-        }
-    }
-
-    // Override module aliases upstream if needed
-    aliasTracker.propagateAliases(observabilityScope: observabilityScope)
-
-    // Validate sources (Swift files only) for modules being aliased.
-    // Needs to be done after `propagateAliases` since aliases defined
-    // upstream can be overridden.
-    for packageBuilder in packageBuilders {
-        for product in packageBuilder.package.products {
-            try aliasTracker.validateAndApplyAliases(
-                product: product,
-                package: packageBuilder.package.identity,
-                observabilityScope: observabilityScope
-            )
-        }
-    }
-
-    // Emit diagnostics for any module aliases that did not end up being applied.
-    aliasTracker.diagnoseUnappliedAliases(observabilityScope: observabilityScope)
-
-    return true
 }
 
 /// A generic builder for `Resolved` models.

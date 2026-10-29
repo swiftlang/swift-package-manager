@@ -9,6 +9,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 import Basics
 import PackageGraph
@@ -523,7 +524,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
             """
         try await testManifestWritingRoundTrip(manifestContents: manifestContents, toolsVersion: .v5_9)
     }
-    
+
     func testCustomProductSourceGeneration() throws {
         // Create a manifest containing a product for which we'd like to do custom source fragment generation.
         let packageDir = AbsolutePath("/tmp/MyLibrary")

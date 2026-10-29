@@ -288,12 +288,17 @@ enum Serialization {
         case apt([String])
         case yum([String])
         case nuget([String])
+        case pkg([String])
     }
 
     struct Package: Codable {
         let name: String
         let platforms: [SupportedPlatform]?
         let defaultLocalization: LanguageTag?
+        let defaultSwiftSettings: [SwiftSetting]?
+        let defaultCSettings: [CSetting]?
+        let defaultCXXSettings: [CXXSetting]?
+        let defaultLinkerSettings: [LinkerSetting]?
         let pkgConfig: String?
         let providers: [SystemPackageProvider]?
         let targets: [Target]

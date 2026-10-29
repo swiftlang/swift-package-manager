@@ -137,6 +137,7 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
 
     enum ValidationError: Swift.Error {
         case invalidURL(URL)
+        case insecureHTTP(URL)
         case invalidPackageIdentity(PackageIdentity)
         case unknownRegistry
         case unknownCredentialStore
@@ -168,9 +169,16 @@ public struct PackageRegistryCommand: AsyncParsableCommand {
 
 extension URL {
     func validateRegistryURL(allowHTTP: Bool = false) throws {
-        guard self.scheme == "https" || (self.scheme == "http" && allowHTTP) else {
-            throw PackageRegistryCommand.ValidationError.invalidURL(self)
+        if self.scheme == "https" {
+            return
         }
+        if self.scheme == "http" {
+            guard allowHTTP else {
+                throw PackageRegistryCommand.ValidationError.insecureHTTP(self)
+            }
+            return
+        }
+        throw PackageRegistryCommand.ValidationError.invalidURL(self)
     }
 }
 
@@ -190,6 +198,8 @@ extension PackageRegistryCommand.ValidationError: CustomStringConvertible {
         switch self {
         case .invalidURL(let url):
             return "invalid URL: \(url)"
+        case .insecureHTTP(let url):
+            return "insecure HTTP URL: \(url)"
         case .invalidPackageIdentity(let identity):
             return "invalid package identifier '\(identity)'"
         case .unknownRegistry:

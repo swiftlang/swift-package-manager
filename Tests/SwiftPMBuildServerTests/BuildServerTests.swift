@@ -83,7 +83,7 @@ fileprivate func withSwiftPMBSP(fixtureName: String, extraBSPArgs: [String] = []
 }
 
 @Suite(
-    .disabled(if: ProcessInfo.hostOperatingSystem == .windows, "This hangs intermittently on Windows in CI using the native build system")
+    .disabled("test is flaky in nightly toolchain builds"), .issue("https://github.com/swiftlang/swift-package-manager/issues/10514", relationship: .defect)
 )
 struct SwiftPMBuildServerTests {
     @Test

@@ -37,7 +37,7 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
     @Flag(help: "Skip members inherited through classes or default implementations.")
     var skipSynthesizedMembers = false
 
-    @Option(help: "Include symbols with this access level or more. Possible values: \(SymbolGraphExtract.AccessLevel.allValueStrings.joined(separator: " | ")).")
+    @Option(help: "Include symbols with this access level or more.")
     var minimumAccessLevel = defaultMinimumAccessLevel
 
     @Flag(help: "Skip emitting doc comments for members inherited through classes or default implementations.")
@@ -49,12 +49,7 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
     @Flag(help: "Emit extension block symbols for extensions to external types or directly associate members and conformances with the extended nominal.")
     var extensionBlockSymbolBehavior: ExtensionBlockSymbolBehavior = .omitExtensionBlockSymbols
 
-    @Option(
-        help: .init(
-            "Specify symbol graph output directory",
-            visibility: .hidden,
-        ),
-    )
+    @Option(help: "The directory to write the symbol graph files to. (default: <scratch-path>/symbolgraph)")
     var outputDir: Basics.AbsolutePath? = nil
 
     func run(_ swiftCommandState: SwiftCommandState) async throws {
@@ -77,11 +72,17 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
             )
         ), .buildPlan])
 
-        let symbolGraphDirectory = try self.outputDir ?? swiftCommandState.productsBuildParameters.dataPath.appending("symbolgraph")
-
         let fs = swiftCommandState.fileSystem
 
-        try? fs.removeFileTree(symbolGraphDirectory)
+        let symbolGraphDirectory: Basics.AbsolutePath
+        if let outputDir = self.outputDir {
+            // A caller-provided output dir may contain unrelated files, so don't remove its contents.
+            symbolGraphDirectory = outputDir
+        } else {
+            // Clear the default output dir to remove any stale symbol graphs
+            symbolGraphDirectory = try swiftCommandState.productsBuildParameters.dataPath.appending("symbolgraph")
+            try? fs.removeFileTree(symbolGraphDirectory)
+        }
         try fs.createDirectory(symbolGraphDirectory, recursive: true)
 
         if let symbolGraph = buildResult.symbolGraph {
@@ -95,7 +96,9 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
 
                     if case let sgDir = buildPath.appending(components: sgDir), fs.exists(sgDir) {
                         for sgFile in try fs.getDirectoryContents(sgDir) {
-                            try fs.copy(from: sgDir.appending(components: sgFile), to: symbolGraphDirectory.appending(sgFile))
+                            let destination = symbolGraphDirectory.appending(sgFile)
+                            try? fs.removeFileTree(destination)
+                            try fs.copy(from: sgDir.appending(components: sgFile), to: destination)
                         }
                     }
                 }

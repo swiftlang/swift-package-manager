@@ -845,6 +845,75 @@ struct PIFBuilderTests {
     }
 
     @Test
+    func dynamicVariantWritesModuleMapImpartedByPrimaryTarget() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(
+            emptyFiles: [
+                "/MyPkg/Sources/MyLib/MyLib.swift",
+            ]
+        )
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "MyPkg",
+                    path: "/MyPkg",
+                    toolsVersion: .v6_2,
+                    products: [
+                        .init(name: "MyLibDynamic", type: .library(.dynamic), targets: ["MyLib"]),
+                    ],
+                    targets: [
+                        .init(name: "MyLib"),
+                    ]
+                )
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root,
+                addLocalRpaths: .always,
+                shouldCreateDylibForDynamicProducts: false
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "MyPkg")
+
+        func target(isDynamicVariant: Bool) throws -> ProjectModel.BaseTarget {
+            try #require(
+                project.underlying.targets.first {
+                    $0.common.name == "MyLib" && $0.common.id.value.hasSuffix("-dynamic") == isDynamicVariant
+                }
+            )
+        }
+
+        let primary = try target(isDynamicVariant: false)
+        let dynamicVariant = try target(isDynamicVariant: true)
+
+        for configuration in BuildConfiguration.allCases {
+            let imparted = try #require(primary.buildConfig(named: configuration).impartedBuildProperties.settings[.OTHER_CFLAGS])
+            let impartedModuleMaps = imparted.filter { $0.hasPrefix("-fmodule-map-file=") }
+                .map { String($0.dropFirst("-fmodule-map-file=".count)) }
+            let writtenModuleMap = try #require(dynamicVariant.buildConfig(named: configuration).settings[.MODULEMAP_PATH])
+            #expect(
+                impartedModuleMaps == [writtenModuleMap],
+                "\(configuration): primary target imparts \(impartedModuleMaps) but dynamic variant writes \(writtenModuleMap)"
+            )
+        }
+    }
+
+    @Test
     func binaryFrameworkProductWithStubTargetSynthesizesDisambiguatedDynamicVariant() async throws {
         let observability = ObservabilitySystem.makeForTesting()
 
@@ -1229,6 +1298,73 @@ struct PIFBuilderTests {
         let ldFlags = try #require(try runnerTarget.buildConfig(named: configuration).settings[.OTHER_LDFLAGS])
         #expect(ldFlags.contains("-lhelper"))
         #expect(ldFlags.contains("-L") && ldFlags.contains("/Vendor"))
+    }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10597", relationship: .verifies),
+        arguments: BuildConfiguration.allCases
+    )
+    func conditionalLinkerFlagsAreImpartedPerConfiguration(configuration: BuildConfiguration) async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/Lib/Lib.swift",
+            "/Root/Sources/App/main.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_2,
+                    targets: [
+                        TargetDescription(
+                            name: "Lib",
+                            settings: [
+                                .init(tool: .linker, kind: .unsafeFlags(["-L", "/ReleaseOnly"]), condition: .init(config: "release")),
+                                .init(tool: .linker, kind: .unsafeFlags(["-L", "/DebugOnly"]), condition: .init(config: "debug")),
+                                .init(tool: .linker, kind: .unsafeFlags(["-L", "/Always"])),
+                            ]
+                        ),
+                        TargetDescription(name: "App", dependencies: ["Lib"], type: .executable),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let libConfig = try pif.workspace
+            .project(named: "Root")
+            .target(id: "PACKAGE-TARGET:Lib")
+            .buildConfig(named: configuration)
+        let imparted = try #require(libConfig.impartedBuildProperties.settings[.OTHER_LDFLAGS])
+
+        #expect(imparted.contains("/Always"))
+        switch configuration {
+        case .debug:
+            #expect(imparted.contains("/DebugOnly"))
+            #expect(!imparted.contains("/ReleaseOnly"), "Debug config imparts release-only flags: \(imparted)")
+        case .release:
+            #expect(imparted.contains("/ReleaseOnly"))
+            #expect(!imparted.contains("/DebugOnly"), "Release config imparts debug-only flags: \(imparted)")
+        }
     }
 
     @Test(.skipHostOS(.linux, "linux does not support C-family test targets"), arguments: BuildConfiguration.allCases)
@@ -2350,6 +2486,58 @@ struct PIFBuilderTests {
         )
     }
 
+    @Test func aggregateProjectDisablesDeprecatedArchDiagnostics() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/RootExe/main.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    platforms: [PlatformDescription(name: "macos", version: "15.0")],
+                    toolsVersion: .v5_9,
+                    targets: [
+                        TargetDescription(name: "RootExe", type: .executable),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always,
+                pluginScriptRunner: NoOpPluginScriptRunner()
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+
+        let errors = observability.diagnostics.filter { $0.severity == .error }
+        #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+        let aggregate = try pif.workspace.project(named: "Aggregate")
+        for configuration in BuildConfiguration.allCases {
+            let settings = try aggregate.buildConfig(named: configuration).settings
+            #expect(settings[single: "__DIAGNOSE_DEPRECATED_ARCHS"] == "NO")
+        }
+
+        let rootProject = try pif.workspace.project(named: "Root")
+        for configuration in BuildConfiguration.allCases {
+            let settings = try rootProject.buildConfig(named: configuration).settings
+            #expect(settings[single: "__DIAGNOSE_DEPRECATED_ARCHS"] == nil)
+        }
+    }
+
     @Test func hostBuildToolExcludedFromAggregates() async throws {
         let observability = ObservabilitySystem.makeForTesting()
         let fs = InMemoryFileSystem(emptyFiles: [
@@ -2862,6 +3050,184 @@ struct PIFBuilderTests {
             pluginTarget.common.dependencies.contains { $0.targetId == myToolProductTarget.common.id },
             "Expected MyPlugin to depend on my-tool-product from ToolPkg. Actual dependencies: \(pluginTarget.common.dependencies.map(\.targetId.value))"
         )
+    }
+
+    @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/9516", relationship: .verifies)
+    )
+    func transitiveLinkageDependencyThroughPlatformFilter() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/Library/Library.swift",
+            "/Root/Sources/AndroidSupport/AndroidSupport.swift",
+            "/Root/Sources/AndroidOnlyHelper/AndroidOnlyHelper.swift",
+            "/Root/Sources/Shared/Shared.swift",
+        ])
+
+        let androidOnly = PackageConditionDescription(platformNames: ["android"])
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_2,
+                    targets: [
+                        TargetDescription(
+                            name: "Library",
+                            dependencies: [
+                                .target(name: "AndroidSupport", condition: androidOnly),
+                                .target(name: "Shared", condition: nil),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "AndroidSupport",
+                            dependencies: [
+                                .target(name: "AndroidOnlyHelper", condition: nil),
+                                .target(name: "Shared", condition: nil),
+                            ]
+                        ),
+                        TargetDescription(name: "AndroidOnlyHelper"),
+                        TargetDescription(name: "Shared"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "Root")
+        let library = try project.target(named: "Library")
+
+        let androidSupportEdge = try #require(library.common.dependencies.first { $0.targetId.value.hasSuffix("AndroidSupport") })
+        let helperEdge = try #require(
+            library.common.dependencies.first { $0.targetId.value.hasSuffix("AndroidOnlyHelper") }
+        )
+
+        #expect(!androidSupportEdge.platformFilters.isEmpty)
+        #expect(helperEdge.platformFilters == androidSupportEdge.platformFilters)
+
+        let androidSupport = try project.target(named: "AndroidSupport")
+        let directHelperEdge = try #require(androidSupport.common.dependencies.first { $0.targetId.value.hasSuffix("AndroidOnlyHelper") })
+        #expect(directHelperEdge.platformFilters.isEmpty)
+        let sharedEdge = try #require(library.common.dependencies.first { $0.targetId.value.hasSuffix("Shared") })
+        #expect(sharedEdge.platformFilters.isEmpty)
+    }
+
+    @Test
+    func transitiveLinkageDependencyThroughMultiplePlatformFilters() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/Library/Library.swift",
+            "/Root/Sources/MidA/MidA.swift",
+            "/Root/Sources/MidB/MidB.swift",
+            "/Root/Sources/MidC/MidC.swift",
+            "/Root/Sources/Deep/Deep.swift",
+            "/Root/Sources/DeadEnd/DeadEnd.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    toolsVersion: .v6_2,
+                    targets: [
+                        TargetDescription(
+                            name: "Library",
+                            dependencies: [
+                                .target(name: "MidA", condition: PackageConditionDescription(platformNames: ["ios", "tvos"])),
+                                .target(name: "MidB", condition: PackageConditionDescription(platformNames: ["macos", "visionos"])),
+                                .target(name: "MidC", condition: PackageConditionDescription(platformNames: ["ios"])),
+                            ]
+                        ),
+                        TargetDescription(
+                            name: "MidA",
+                            dependencies: [.target(name: "Deep", condition: PackageConditionDescription(platformNames: ["tvos", "watchos"]))]
+                        ),
+                        TargetDescription(
+                            name: "MidB",
+                            dependencies: [.target(name: "Deep", condition: PackageConditionDescription(platformNames: ["macos", "watchos"]))]
+                        ),
+                        TargetDescription(
+                            name: "MidC",
+                            dependencies: [.target(name: "DeadEnd", condition: PackageConditionDescription(platformNames: ["watchos"]))]
+                        ),
+                        TargetDescription(name: "Deep"),
+                        TargetDescription(name: "DeadEnd"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "Root")
+
+        func filters(from targetName: String, to suffix: String) throws -> Set<ProjectModel.PlatformFilter> {
+            let dependencies = try project.target(named: targetName).common.dependencies
+            let edge = try #require(dependencies.only { $0.targetId.value.hasSuffix(suffix) })
+            return edge.platformFilters
+        }
+
+        #expect(try filters(from: "Library", to: "MidA") == [
+            .init(platform: "ios"), .init(platform: "ios", environment: "simulator"),
+            .init(platform: "tvos"), .init(platform: "tvos", environment: "simulator"),
+        ])
+        #expect(try filters(from: "Library", to: "MidB") == [
+            .init(platform: "macos"),
+            .init(platform: "xros"), .init(platform: "xros", environment: "simulator"),
+        ])
+        #expect(try filters(from: "Library", to: "MidC") == [
+            .init(platform: "ios"), .init(platform: "ios", environment: "simulator"),
+        ])
+        #expect(try filters(from: "MidA", to: "Deep") == [
+            .init(platform: "tvos"), .init(platform: "tvos", environment: "simulator"),
+            .init(platform: "watchos"), .init(platform: "watchos", environment: "simulator"),
+        ])
+        #expect(try filters(from: "MidB", to: "Deep") == [
+            .init(platform: "macos"),
+            .init(platform: "watchos"), .init(platform: "watchos", environment: "simulator"),
+        ])
+        #expect(try filters(from: "MidC", to: "DeadEnd") == [
+            .init(platform: "watchos"), .init(platform: "watchos", environment: "simulator"),
+        ])
+
+        #expect(try filters(from: "Library", to: "Deep") == [
+            .init(platform: "macos"),
+            .init(platform: "tvos"), .init(platform: "tvos", environment: "simulator"),
+        ])
+        let library = try project.target(named: "Library")
+        #expect(!library.common.dependencies.contains { $0.targetId.value.hasSuffix("DeadEnd") })
     }
 }
 

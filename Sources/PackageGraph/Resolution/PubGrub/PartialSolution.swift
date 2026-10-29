@@ -125,7 +125,6 @@ public struct PartialSolution {
                 toBeRemoved.append((idx, assignment))
             }
         }
-
         for (idx, remove) in toBeRemoved.reversed() {
             let assignment = self.assignments.remove(at: idx)
             if assignment.isDecision {

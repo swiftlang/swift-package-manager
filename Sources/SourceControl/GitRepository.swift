@@ -115,16 +115,18 @@ private struct GitShellHelper {
 
     /// Fetches LFS objects for a bare repository.
     ///
-    /// - Parameter path: Path to the bare repository
+    /// - Parameters:
+    ///   - path: Path to the bare repository
+    ///   - revision: The revision whose objects to fetch, or `nil` for the default ref
     /// - Throws: GitLFSError if git-lfs is not installed or fetch fails
     ///
     /// - Important: This intentionally does NOT use the `--all` flag. Using `--all` fetches
     ///   LFS objects for all refs/commits in history, which fails with 404 errors when
     ///   historical LFS objects have been deleted or pruned from the server (a common
-    ///   practice for large repositories to save storage). By omitting `--all`, we only
-    ///   fetch objects needed for the default ref, which is sufficient for checkout.
+    ///   practice for large repositories to save storage). Instead, objects for the default
+    ///   ref are fetched up front, and those for any other revision on checkout.
     @discardableResult
-    func fetchLFS(at path: AbsolutePath) throws -> String {
+    func fetchLFS(at path: AbsolutePath, revision: String? = nil) throws -> String {
         guard !self.shouldSkipLFSOperations() else {
             return ""
         }
@@ -135,7 +137,8 @@ private struct GitShellHelper {
             // DO NOT add --all here. See documentation above for why.
             // Address the bare repository explicitly via `--git-dir` (rather than discovery
             // with `-C`) so this keeps working under `safe.bareRepository=explicit`.
-            return try self.run(gitLocationArguments(path.pathString, bare: true) + ["lfs", "fetch"])
+            let refArguments = revision.map { ["origin", $0] } ?? []
+            return try self.run(gitLocationArguments(path.pathString, bare: true) + ["lfs", "fetch"] + refArguments)
         } catch let error as CancellationError {
             throw error
         } catch {
@@ -881,15 +884,14 @@ public final class GitRepository: Repository, WorkingCheckout {
         // may need to take a little more care here.
         // use barrier for write operations
         try self.lock.withLock {
-            try callGit(
-                "reset",
-                "--hard",
-                tag,
-                failureMessage: "Couldn’t check out tag ‘\(tag)’"
-            )
-            self.cachedHasLFS.clear()
-            try self.updateSubmoduleAndCleanIfNecessary()
-            try self.pullLFSIfNecessary()
+            try self.checkoutWithoutLock(tag) {
+                try callGit(
+                    "reset",
+                    "--hard",
+                    tag,
+                    failureMessage: "Couldn’t check out tag ‘\(tag)’"
+                )
+            }
         }
     }
 
@@ -898,21 +900,36 @@ public final class GitRepository: Repository, WorkingCheckout {
         // may need to take a little more care here.
         // use barrier for write operations
         try self.lock.withLock {
-            // `-q` suppresses git's detached-HEAD "orphaned commit" advisory. Beyond silencing
-            // noise, that advisory walks every ref to compute reachability, which aborts the
-            // checkout with `fatal: bad object <ref>` if any remote-tracking ref is left dangling
-            // (e.g. an upstream branch was deleted and its tip was pruned from the shared object
-            // store).
-            try callGit(
-                "checkout",
-                "-q",
-                "-f",
-                revision.identifier,
-                failureMessage: "Couldn’t check out revision ‘\(revision.identifier)’"
-            )
-            self.cachedHasLFS.clear()
-            try self.updateSubmoduleAndCleanIfNecessary()
-            try self.pullLFSIfNecessary()
+            try self.checkoutWithoutLock(revision.identifier) {
+                // `-q` suppresses git's detached-HEAD "orphaned commit" advisory. Beyond silencing
+                // noise, that advisory walks every ref to compute reachability, which aborts the
+                // checkout with `fatal: bad object <ref>` if any remote-tracking ref is left dangling
+                // (e.g. an upstream branch was deleted and its tip was pruned from the shared object
+                // store).
+                try callGit(
+                    "checkout",
+                    "-q",
+                    "-f",
+                    revision.identifier,
+                    failureMessage: "Couldn’t check out revision ‘\(revision.identifier)’"
+                )
+            }
+        }
+    }
+
+    /// Runs `checkout` to move the working tree to `treeish`, then brings its submodules and LFS files in line.
+    private func checkoutWithoutLock(_ treeish: String, using checkout: () throws -> Void) throws {
+        let hasLFS = try self.gitAttributesTrackLFS(at: treeish)
+        // The smudge filter reads LFS objects from the shared object store, which only holds
+        // those for its default ref.
+        if hasLFS, let alternateRepositoryPath = self.alternateObjectStoreRepositoryPath() {
+            try self.git.fetchLFS(at: alternateRepositoryPath, revision: treeish)
+        }
+        try checkout()
+        self.cachedHasLFS.put(hasLFS)
+        try self.updateSubmoduleAndCleanIfNecessary()
+        if hasLFS {
+            try self.git.pullLFS(at: self.path)
         }
     }
 
@@ -942,23 +959,27 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     private func hasLFSTrackedFilesWithoutLock() throws -> Bool {
         try self.cachedHasLFS.memoize {
-            do {
-                let output = try callGit(
-                    "cat-file", "-p", "HEAD:.gitattributes",
-                    failureMessage: "Failed to read .gitattributes"
-                )
-                return output.components(separatedBy: "\n").contains { line in
-                    let trimmed = line.trimmingCharacters(in: .whitespaces)
-                    guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else {
-                        return false
-                    }
-                    return trimmed.split(whereSeparator: \.isWhitespace).contains { $0 == "filter=lfs" }
+            try self.gitAttributesTrackLFS(at: "HEAD")
+        }
+    }
+
+    private func gitAttributesTrackLFS(at treeish: String) throws -> Bool {
+        do {
+            let output = try callGit(
+                "cat-file", "-p", "\(treeish):.gitattributes",
+                failureMessage: "Failed to read .gitattributes"
+            )
+            return output.components(separatedBy: "\n").contains { line in
+                let trimmed = line.trimmingCharacters(in: .whitespaces)
+                guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else {
+                    return false
                 }
-            } catch let error as CancellationError {
-                throw error
-            } catch is GitRepositoryError {
-                return false
+                return trimmed.split(whereSeparator: \.isWhitespace).contains { $0 == "filter=lfs" }
             }
+        } catch let error as CancellationError {
+            throw error
+        } catch is GitRepositoryError {
+            return false
         }
     }
 
@@ -990,32 +1011,6 @@ public final class GitRepository: Repository, WorkingCheckout {
             localFileSystem.exists(self.path.appending(".gitmodules")) ? true : nil
         }) ?? false {
             try self.updateSubmoduleAndCleanNotOnQueue()
-        }
-    }
-
-    /// Pulls LFS files if the repository uses LFS (auto-detected)
-    private func pullLFSIfNecessary() throws {
-        guard self.isWorkingRepo else { return }
-
-        // Callers already hold `self.lock`
-        if try self.hasLFSTrackedFilesWithoutLock() {
-            do {
-                try self.git.pullLFS(at: self.path)
-            } catch let error as GitLFSError {
-                guard case .pullFailed = error,
-                      let alternateRepositoryPath = self.alternateObjectStoreRepositoryPath()
-                else {
-                    throw error
-                }
-
-                let alternateRepository = GitRepository(git: self.git, path: alternateRepositoryPath, isWorkingRepo: false)
-                try alternateRepository.fetchLFSIfNecessary()
-                try self.git.pullLFS(at: self.path)
-            } catch let error as CancellationError {
-                throw error
-            } catch {
-                throw GitLFSError.pullFailed(underlyingError: error)
-            }
         }
     }
 
@@ -1179,6 +1174,7 @@ public final class GitRepository: Repository, WorkingCheckout {
             try self.cachedTrees.memoize(hashString) {
                 let output = try callGit(
                     "ls-tree",
+                    "-z",
                     hashString,
                     failureMessage: "Couldn’t read '\(hashString)'"
                 )
@@ -1193,6 +1189,7 @@ public final class GitRepository: Repository, WorkingCheckout {
             try self.cachedTrees.memoize(tag) {
                 let output = try callGit(
                     "ls-tree",
+                    "-z",
                     tag,
                     failureMessage: "Couldn’t read '\(tag)'"
                 )
@@ -1204,18 +1201,20 @@ public final class GitRepository: Repository, WorkingCheckout {
 
     private func parseTree(_ text: String) throws -> [Tree.Entry] {
         var entries = [Tree.Entry]()
-        for line in text.components(separatedBy: "\n") {
-            // Ignore empty lines.
-            if line == "" { continue }
+        // With -z, Git returns raw file names and separates tree entries with NUL.
+        // File names can contain newlines, tabs, and characters that Git otherwise quotes.
+        for entry in text.components(separatedBy: "\0") {
+            // Ignore the empty component after the final NUL.
+            if entry == "" { continue }
 
-            // Each line in the response should match:
+            // Each entry in the response should match:
             //
             //   `mode type hash\tname`
             //
             // where `mode` is the 6-byte octal file mode, `type` is a 4-byte or 6-byte
             // type ("blob", "tree", "commit"), `hash` is the hash, and the remainder of
-            // the line is the file name.
-            let bytes = ByteString(encodingAsUTF8: line)
+            // the entry is the file name.
+            let bytes = ByteString(encodingAsUTF8: entry)
             let expectedBytesCount = 6 + 1 + 4 + 1 + 40 + 1
             guard bytes.count > expectedBytesCount,
                   bytes.contents[6] == UInt8(ascii: " "),
@@ -1224,7 +1223,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                   bytes.contents[secondSpace] == UInt8(ascii: " "),
                   bytes.contents[secondSpace + 1 + 40] == UInt8(ascii: "\t")
             else {
-                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(text)'")
+                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(entry)' in '\(text)'")
             }
 
             // Compute the mode.
@@ -1235,12 +1234,7 @@ public final class GitRepository: Repository, WorkingCheckout {
                   let hash = Hash(asciiBytes: bytes.contents[(secondSpace + 1) ..< (secondSpace + 1 + 40)]),
                   let name = ByteString(bytes.contents[(secondSpace + 1 + 40 + 1) ..< bytes.count]).validDescription
             else {
-                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(text)'")
-            }
-
-            // FIXME: We do not handle de-quoting of names, currently.
-            if name.hasPrefix("\"") {
-                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(line)' in '\(text)'")
+                throw GitInterfaceError.malformedResponse("unexpected tree entry '\(entry)' in '\(text)'")
             }
 
             entries.append(Tree.Entry(location: .hash(hash), type: type, name: name))

@@ -15,7 +15,12 @@ import Foundation
 import _AsyncFileSystem
 import _InternalTestSupport
 import Testing
+
+#if canImport(System)
+import struct System.FilePath
+#else
 import struct SystemPackage.FilePath
+#endif
 
 struct AsyncFileSystemTests {
     @Test

@@ -926,7 +926,7 @@ extension BuildPlan {
 extension BuildPlan {
     fileprivate typealias Destination = BuildParameters.Destination
 
-    enum TraversalNode: Hashable {
+    enum TraversalNode {
         case package(ResolvedPackage)
         case product(ResolvedProduct, BuildParameters.Destination)
         case module(ResolvedModule, BuildParameters.Destination)
@@ -1298,6 +1298,36 @@ extension BuildPlan {
     }
 }
 
+extension BuildPlan.TraversalNode: Equatable {
+    static func == (lhs: BuildPlan.TraversalNode, rhs: BuildPlan.TraversalNode) -> Bool {
+        switch (lhs, rhs) {
+        case (.package(let lhsPackage), .package(let rhsPackage)):
+            lhsPackage.id == rhsPackage.id
+        case (.product(let lhsProduct, let lhsDestination), .product(let rhsProduct, let rhsDestination)):
+            lhsProduct.id == rhsProduct.id && lhsDestination == rhsDestination
+        case (.module(let lhsModule, let lhsDestination), .module(let rhsModule, let rhsDestination)):
+            lhsModule.id == rhsModule.id && lhsDestination == rhsDestination
+        case (.package, _), (.product, _), (.module, _):
+            false
+        }
+    }
+}
+
+extension BuildPlan.TraversalNode: Hashable {
+    func hash(into hasher: inout Hasher) {
+        switch self {
+        case .package(let package):
+            hasher.combine(package.id)
+        case .product(let product, let destination):
+            hasher.combine(product.id)
+            hasher.combine(destination)
+        case .module(let module, let destination):
+            hasher.combine(module.id)
+            hasher.combine(destination)
+        }
+    }
+}
+
 extension Basics.Diagnostic {
     static var swiftBackDeployError: Self {
         .warning(
@@ -1368,7 +1398,7 @@ func generateResourceInfoPlist(
 
 extension Basics.Triple {
     var isSupportingStaticStdlib: Bool {
-        isLinux() || arch == .wasm32
+        isLinux() || isFreeBSD() || arch == .wasm32
     }
 }
 

@@ -10,7 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if canImport(System)
+package import struct System.FilePath
+#else
 package import struct SystemPackage.FilePath
+#endif
 
 /// In-memory implementation of `AsyncFileSystem` for mocking and testing purposes.
 package actor MockFileSystem: AsyncFileSystem {

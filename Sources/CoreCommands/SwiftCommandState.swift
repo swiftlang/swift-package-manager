@@ -97,7 +97,6 @@ public protocol _SwiftCommand {
     var toolWorkspaceConfiguration: ToolWorkspaceConfiguration { get }
     var workspaceDelegateProvider: WorkspaceDelegateProvider { get }
     var workspaceLoaderProvider: WorkspaceLoaderProvider { get }
-    func buildSystemProvider(_ swiftCommandState: SwiftCommandState) throws -> BuildSystemProvider
 
     // If a packagePath is specificed, this indicates that the command allows
     // creating the directory if it doesn't exist.
@@ -141,7 +140,6 @@ extension SwiftCommand {
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
         swiftCommandState.setNeedsLocking()
 
-        swiftCommandState.buildSystemProvider = try buildSystemProvider(swiftCommandState)
         var toolError: Error? = .none
         do {
             try self.run(swiftCommandState)
@@ -260,7 +258,6 @@ extension AsyncSwiftCommand {
         // We use this to attempt to catch misuse of the locking APIs since we only release the lock from here.
         swiftCommandState.setNeedsLocking()
 
-        swiftCommandState.buildSystemProvider = try buildSystemProvider(swiftCommandState)
         var toolError: Error? = .none
         do {
             try await self.run(swiftCommandState)
@@ -378,8 +375,6 @@ public final class SwiftCommandState {
     private let workspaceLoaderProvider: WorkspaceLoaderProvider
 
     private let toolWorkspaceConfiguration: ToolWorkspaceConfiguration
-
-    fileprivate var buildSystemProvider: BuildSystemProvider?
 
     private let environment: Environment
 
@@ -571,14 +566,14 @@ public final class SwiftCommandState {
             // they're being captured in an event trace file.
             if !options.logging.verbose && !options.logging.veryVerbose && options.build.traceEventsFilePath == nil {
                 observabilityScope.emit(
-                    warning: "'--experimental-task-backtraces' requires '--verbose', '--very-verbose', or '--experimental-trace-events-file'"
+                    warning: "'--enable-task-backtraces' requires '--verbose', '--very-verbose', or '--trace-events-file'"
                 )
             }
 
             // Task backtraces are only supported by the swiftbuild build system
             if options.build.buildSystem != .swiftbuild {
                 observabilityScope.emit(
-                    warning: "'--experimental-task-backtraces' is only supported when using '--build-system swiftbuild'"
+                    warning: "'--enable-task-backtraces' is only supported when using '--build-system swiftbuild'"
                 )
             }
         }
@@ -586,7 +581,7 @@ public final class SwiftCommandState {
         if options.build.traceEventsFilePath != nil {
             if options.build.buildSystem != .swiftbuild {
                 observabilityScope.emit(
-                    warning: "'--experimental-trace-events-file' is only supported when using '--build-system swiftbuild'"
+                    warning: "'--trace-events-file' is only supported when using '--build-system swiftbuild'"
                 )
             }
         }
@@ -621,6 +616,8 @@ public final class SwiftCommandState {
             self.observabilityHandler.progress,
             self.observabilityHandler.prompt
         )
+
+        let targetTriple = try self.getTargetToolchain().targetTriple
         let workspace = try Workspace(
             fileSystem: self.fileSystem,
             location: .init(
@@ -640,7 +637,7 @@ public final class SwiftCommandState {
                 prefetchBasedOnResolvedFile: options.resolver.shouldEnableResolverPrefetching,
                 shouldCreateMultipleTestProducts: toolWorkspaceConfiguration.wantsMultipleTestProducts || options.build.buildSystem.shouldCreateMultipleTestProducts,
                 createREPLProduct: toolWorkspaceConfiguration.wantsREPLProduct,
-                additionalFileRules: options.build.buildSystem.additionalFileRules,
+                additionalFileRules: options.build.buildSystem.additionalFileRules(targetTriple: targetTriple),
                 sharedDependenciesCacheEnabled: self.options.caching.useDependenciesCache,
                 fingerprintCheckingMode: self.options.security.fingerprintCheckingMode,
                 signingEntityCheckingMode: self.options.security.signingEntityCheckingMode,
@@ -802,6 +799,41 @@ public final class SwiftCommandState {
             )
         }
     }
+
+    /// The default on-disk location for the build cache, used when caching
+    /// is enabled but no explicit cache path is configured.
+    public var defaultBuildCacheDirectory: AbsolutePath {
+        self.sharedCacheDirectory.appending("build-cache")
+    }
+
+    /// Resolve the effective build cache configuration by merging, in
+    /// decreasing order of precedence: command-line flags, the local (per
+    /// package) configuration, and the shared (global) configuration.
+    public func resolveBuildCacheConfiguration() throws -> BuildCacheConfiguration {
+        try self._buildCacheConfiguration.get()
+    }
+
+    private lazy var _buildCacheConfiguration: Result<BuildCacheConfiguration, Swift.Error> = Result(catching: {
+        let cliConfiguration = try self.options.buildCaching.resolved()
+
+        let localBuildCacheFile = (try? self.getLocalConfigurationDirectory())
+            .map { Workspace.DefaultLocations.buildCacheConfigurationFile(at: $0) }
+
+        let configuration = try Workspace.Configuration.BuildCache(
+            fileSystem: self.fileSystem,
+            localBuildCacheFile: localBuildCacheFile,
+            sharedBuildCacheFile: Workspace.DefaultLocations
+                .buildCacheConfigurationFile(at: self.sharedConfigurationDirectory)
+        )
+
+        var resolved = cliConfiguration.merging(over: configuration.configuration)
+
+        if resolved.enabled == true, resolved.casPath == nil {
+            resolved.casPath = self.defaultBuildCacheDirectory
+        }
+
+        return resolved
+    })
 
     public func getAuthorizationProvider() throws -> AuthorizationProvider? {
         var authorization = Workspace.Configuration.Authorization.default
@@ -1029,9 +1061,7 @@ public final class SwiftCommandState {
             self.observabilityScope.emit(warning: "`--use-integrated-swift-driver` option is deprecated as the feature is not fully functional.")
         }
 
-        guard let buildSystemProvider else {
-            fatalError("build system provider not initialized")
-        }
+        let buildSystemProvider = self.defaultBuildSystemProvider
         var productsParameters = try productsBuildParameters ?? self.productsBuildParameters
         productsParameters.linkingParameters.shouldLinkStaticSwiftStdlib = shouldLinkStaticSwiftStdlib
         let buildSystem = try await buildSystemProvider.createBuildSystem(
@@ -1096,6 +1126,18 @@ public final class SwiftCommandState {
             case (true, false): .on
             case (true, true): .noLazy
             }
+
+        let buildCaching = try self.resolveBuildCacheConfiguration()
+        // Build caching is only honored by the swiftbuild build system. Warn
+        // once (for the target destination) if it is requested with another one.
+        if destination == .target,
+           self.options.build.buildSystem != .swiftbuild,
+           !buildCaching.isEmpty
+        {
+            self.observabilityScope.emit(
+                warning: "build caching is only supported by the 'swiftbuild' build system and will be ignored"
+            )
+        }
 
         return try BuildParameters(
             destination: destination,
@@ -1162,6 +1204,7 @@ public final class SwiftCommandState {
             ),
             stripProducts: self.options.build.stripProducts,
             shouldPreserveSymlinks: options.locations.skipResolvingPackagePaths,
+            buildCaching: buildCaching,
         )
     }
 
@@ -1399,12 +1442,12 @@ extension BuildSystemProvider.Kind {
         }
     }
 
-    fileprivate var additionalFileRules: [FileRuleDescription] {
+    fileprivate func additionalFileRules(targetTriple: Triple) -> [FileRuleDescription] {
         switch self {
         case .xcode:
             FileRuleDescription.xcbuildFileTypes
         case .swiftbuild:
-            FileRuleDescription.swiftBuildFileTypes
+            FileRuleDescription.swiftBuildFileTypes(targetTriple: targetTriple)
         case .native:
             FileRuleDescription.swiftpmFileTypes
         }

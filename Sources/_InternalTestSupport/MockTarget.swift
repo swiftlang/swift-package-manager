@@ -26,6 +26,7 @@ public struct MockTarget {
     public let packageAccess: Bool
     public let settings: [TargetBuildSettingDescription.Setting]
     public let type: Type
+    public let pluginUsages: [TargetDescription.PluginUsage]?
     public let pluginCapability: TargetDescription.PluginCapability?
 
     public init(
@@ -37,7 +38,8 @@ public struct MockTarget {
         url: String? = nil,
         packageAccess: Bool = true,
         settings: [TargetBuildSettingDescription.Setting] = [],
-        checksum: String? = nil
+        checksum: String? = nil,
+        pluginUsages: [TargetDescription.PluginUsage]? = nil
     ) throws {
         self.name = name
         self.dependencies = dependencies
@@ -48,6 +50,7 @@ public struct MockTarget {
         self.packageAccess = packageAccess
         self.settings = settings
         self.checksum = checksum
+        self.pluginUsages = pluginUsages
     }
 
     func convert(identityResolver: IdentityResolver) throws -> TargetDescription {
@@ -62,7 +65,8 @@ public struct MockTarget {
                 publicHeadersPath: nil,
                 type: .regular,
                 packageAccess: packageAccess,
-                settings: self.settings
+                settings: self.settings,
+                pluginUsages: self.pluginUsages
             )
         case .test:
             return try TargetDescription(
@@ -74,7 +78,8 @@ public struct MockTarget {
                 publicHeadersPath: nil,
                 type: .test,
                 packageAccess: packageAccess,
-                settings: self.settings
+                settings: self.settings,
+                pluginUsages: self.pluginUsages
             )
         case .binary:
             return try TargetDescription(
@@ -100,7 +105,8 @@ public struct MockTarget {
                 publicHeadersPath: nil,
                 type: .macro,
                 packageAccess: packageAccess,
-                settings: self.settings
+                settings: self.settings,
+                pluginUsages: self.pluginUsages
             )
         case .executable:
             return try TargetDescription(
@@ -112,7 +118,8 @@ public struct MockTarget {
                 publicHeadersPath: nil,
                 type: .executable,
                 packageAccess: packageAccess,
-                settings: self.settings
+                settings: self.settings,
+                pluginUsages: self.pluginUsages
             )
         case .plugin:
             return try TargetDescription(

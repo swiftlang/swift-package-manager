@@ -29,7 +29,131 @@ final class VersionSetSpecifierTests: XCTestCase {
         let ranges1 = VersionSetSpecifier.union(from: ["1.0.0"..<"1.1.0", "1.1.1"..<"2.0.0"])
         XCTAssertEqual(ranges1.union(.exact("1.1.0")), .range("1.0.0"..<"2.0.0"))
 
-        XCTAssertEqual(VersionSetSpecifier.union(from: ["1.0.0"..<"1.0.0", "1.0.1"..<"2.0.0"]), .range("1.0.0"..<"2.0.0"))
+        XCTAssertEqual(VersionSetSpecifier.range("1.0.0"..<"1.0.0"), .empty)
+        XCTAssertEqual(VersionSetSpecifier.range("1.0.0"..<"1.0.1"), .exact("1.0.0"))
+        XCTAssertEqual(VersionSetSpecifier.union(from: ["1.0.0"..<"1.0.1", "1.0.1"..<"2.0.0"]), .range("1.0.0"..<"2.0.0"))
+    }
+
+    func testUnionOfAdjacentExactVersions() {
+        // {1.0.0} U {1.0.1} must contain both versions and must not collapse to empty.
+        let pair = VersionSetSpecifier.exact("1.0.0").union(.exact("1.0.1"))
+        XCTAssertNotEqual(pair, .empty)
+        XCTAssertTrue(pair.contains("1.0.0"))
+        XCTAssertTrue(pair.contains("1.0.1"))
+        XCTAssertFalse(pair.contains("1.0.2"))
+        XCTAssertEqual(pair, .range("1.0.0"..<"1.0.2"))
+
+        // Order of operands must not matter.
+        XCTAssertEqual(VersionSetSpecifier.exact("1.0.1").union(.exact("1.0.0")), pair)
+
+        // A chain of adjacent exacts keeps merging.
+        let triple = pair.union(.exact("1.0.2"))
+        XCTAssertTrue(triple.contains("1.0.0"))
+        XCTAssertTrue(triple.contains("1.0.1"))
+        XCTAssertTrue(triple.contains("1.0.2"))
+        XCTAssertEqual(triple, .range("1.0.0"..<"1.0.3"))
+
+        // The union's complement within a wider range excludes exactly those versions.
+        let remainder = VersionSetSpecifier.range("1.0.0"..<"2.0.0").difference(pair)
+        XCTAssertEqual(remainder, .range("1.0.2"..<"2.0.0"))
+    }
+
+    /// Unions that involve exact versions next to, inside, or apart from other ranges must keep exactly the
+    /// versions of their operands, no matter how an exact version is represented internally. These cases pass
+    /// both before and after the adjacent-exact-versions fix and guard against it changing their behavior.
+    func testUnionOfExactVersionsWithOtherRanges() {
+        let probes: [Version] = [
+            "0.9.9", "1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9",
+            "1.5.0", "1.9.9", "2.0.0", "2.0.1",
+        ]
+
+        func members(_ set: VersionSetSpecifier) -> [Version] {
+            probes.filter { set.contains($0) }
+        }
+
+        // Asserts the union has exactly the expected members and that operand order doesn't matter.
+        func assertUnion(
+            _ lhs: VersionSetSpecifier,
+            _ rhs: VersionSetSpecifier,
+            members expected: [Version],
+            file: StaticString = #filePath,
+            line: UInt = #line
+        ) {
+            XCTAssertEqual(members(lhs.union(rhs)), expected, "\(lhs) U \(rhs)", file: file, line: line)
+            XCTAssertEqual(members(rhs.union(lhs)), expected, "\(rhs) U \(lhs)", file: file, line: line)
+        }
+
+        // Exact versions that are not adjacent stay separate.
+        assertUnion(.exact("1.0.0"), .exact("1.0.5"), members: ["1.0.0", "1.0.5"])
+        assertUnion(.exact("1.0.0"), .exact("1.0.2"), members: ["1.0.0", "1.0.2"])
+
+        // Exact version directly below a range merges into it.
+        XCTAssertEqual(VersionSetSpecifier.exact("1.0.0").union(.range("1.0.1"..<"2.0.0")), .range("1.0.0"..<"2.0.0"))
+        assertUnion(.exact("1.0.0"), .range("1.0.1"..<"2.0.0"), members: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9", "1.5.0", "1.9.9"])
+
+        // Exact version right at a range's exclusive upper bound extends it by exactly one patch.
+        assertUnion(.exact("2.0.0"), .range("1.0.0"..<"2.0.0"), members: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9", "1.5.0", "1.9.9", "2.0.0"])
+
+        // Exact version already inside a range changes nothing.
+        XCTAssertEqual(VersionSetSpecifier.exact("1.0.1").union(.range("1.0.0"..<"2.0.0")), .range("1.0.0"..<"2.0.0"))
+        XCTAssertEqual(VersionSetSpecifier.range("1.0.0"..<"2.0.0").union(.exact("1.0.1")), .range("1.0.0"..<"2.0.0"))
+        assertUnion(.exact("1.5.0"), .range("1.0.0"..<"2.0.0"), members: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.6", "1.0.7", "1.0.8", "1.0.9", "1.5.0", "1.9.9"])
+
+        // Exact version outside and away from a range stays separate.
+        assertUnion(.exact("2.0.1"), .range("1.0.0"..<"1.0.5"), members: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "2.0.1"])
+
+        // Exact version attached to the end of one range of a disjoint list extends only that range.
+        let disjoint = VersionSetSpecifier.ranges(["1.0.0"..<"1.0.5", "1.0.7"..<"1.0.9"])
+        assertUnion(disjoint, .exact("1.0.5"), members: ["1.0.0", "1.0.1", "1.0.2", "1.0.3", "1.0.4", "1.0.5", "1.0.7", "1.0.8"])
+
+        // Exact version filling the one-patch gap between two ranges joins them.
+        let gapped = VersionSetSpecifier.ranges(["1.0.0"..<"1.0.6", "1.0.7"..<"1.0.9"])
+        XCTAssertEqual(gapped.union(.exact("1.0.6")), .range("1.0.0"..<"1.0.9"))
+        XCTAssertEqual(VersionSetSpecifier.exact("1.0.6").union(gapped), .range("1.0.0"..<"1.0.9"))
+
+        // Union with the same exact version, empty, and any.
+        assertUnion(.exact("1.0.1"), .exact("1.0.1"), members: ["1.0.1"])
+        assertUnion(.exact("1.0.1"), .empty, members: ["1.0.1"])
+        XCTAssertEqual(VersionSetSpecifier.exact("1.0.1").union(.any), .any)
+    }
+
+    /// Adjacent exact versions combined with further exacts and ranges.
+    /// These only pass once `{1.0.0} U {1.0.1}` no longer collapses to the empty set.
+    func testUnionOfAdjacentExactVersionsWithOtherRanges() {
+        let pair = VersionSetSpecifier.exact("1.0.0").union(.exact("1.0.1"))
+
+        // Adjacent exact versions followed by a distant exact version stay separate from it.
+        for set in [pair.union(.exact("1.0.5")), VersionSetSpecifier.exact("1.0.5").union(pair)] {
+            XCTAssertTrue(set.contains("1.0.0"))
+            XCTAssertTrue(set.contains("1.0.1"))
+            XCTAssertFalse(set.contains("1.0.2"))
+            XCTAssertFalse(set.contains("1.0.4"))
+            XCTAssertTrue(set.contains("1.0.5"))
+            XCTAssertFalse(set.contains("1.0.6"))
+        }
+
+        // Adjacent exact versions merge with a range that starts right after them.
+        XCTAssertEqual(pair.union(.range("1.0.2"..<"2.0.0")), .range("1.0.0"..<"2.0.0"))
+        XCTAssertEqual(VersionSetSpecifier.range("1.0.2"..<"2.0.0").union(pair), .range("1.0.0"..<"2.0.0"))
+
+        // ...but not with one that leaves a gap.
+        let gapped = pair.union(.range("1.0.3"..<"2.0.0"))
+        XCTAssertTrue(gapped.contains("1.0.1"))
+        XCTAssertFalse(gapped.contains("1.0.2"))
+        XCTAssertTrue(gapped.contains("1.0.3"))
+
+        // Adjacent exact versions inside a range are absorbed by it.
+        XCTAssertEqual(pair.union(.range("1.0.0"..<"2.0.0")), .range("1.0.0"..<"2.0.0"))
+
+        // Removing a member of the pair leaves the other one.
+        let withoutFirst = pair.difference(.exact("1.0.0"))
+        XCTAssertFalse(withoutFirst.contains("1.0.0"))
+        XCTAssertTrue(withoutFirst.contains("1.0.1"))
+        let withoutSecond = pair.difference(.exact("1.0.1"))
+        XCTAssertTrue(withoutSecond.contains("1.0.0"))
+        XCTAssertFalse(withoutSecond.contains("1.0.1"))
+        XCTAssertEqual(pair.difference(pair), .empty)
+        XCTAssertEqual(pair.intersection(.exact("1.0.1")), .exact("1.0.1"))
     }
 
     func testIntersection() {
@@ -120,6 +244,51 @@ final class VersionSetSpecifierTests: XCTestCase {
 
         XCTAssertEqual(VersionSetSpecifier.range("1.0.0-alpha"..<"2.0.0").difference(.range("1.0.0-beta" ..< "2.0.0")), .range("1.0.0-alpha"..<"1.0.0-beta"))
         XCTAssertEqual(VersionSetSpecifier.range("1.0.0-beta"..<"2.0.0").difference(.range("1.0.0-alpha" ..< "2.0.0")), .empty)
+    }
+
+    /// Subtracting the last version of a range leaves nothing above it. That remainder is `upper..<upper`,
+    /// which is the empty set and must not turn into a member (e.g. `1.0.5` in `1.0.0..<1.0.5`).
+    func testDifferenceOfExactVersionDoesNotLeaveEmptyRemainder() {
+        // Removing the last version of a range shrinks it from above and does not add the upper bound back.
+        let removedLast = VersionSetSpecifier.range("1.0.0"..<"1.0.5").difference(.exact("1.0.4"))
+        XCTAssertEqual(removedLast, .range("1.0.0"..<"1.0.4"))
+        for member in ["1.0.0", "1.0.1", "1.0.2", "1.0.3"] as [Version] {
+            XCTAssertTrue(removedLast.contains(member), "\(member) should be in \(removedLast)")
+        }
+        for nonMember in ["0.9.9", "1.0.4", "1.0.5", "1.0.6"] as [Version] {
+            XCTAssertFalse(removedLast.contains(nonMember), "\(nonMember) should not be in \(removedLast)")
+        }
+
+        // Two-version range minus its second version leaves exactly its first version.
+        let single = VersionSetSpecifier.range("1.0.0"..<"1.0.2").difference(.exact("1.0.1"))
+        XCTAssertEqual(single, .exact("1.0.0"))
+        XCTAssertTrue(single.contains("1.0.0"))
+        XCTAssertFalse(single.contains("1.0.1"))
+        XCTAssertFalse(single.contains("1.0.2"))
+
+        // A pair of adjacent exact versions minus either member leaves exactly the other one.
+        let pair = VersionSetSpecifier.exact("1.0.0").union(.exact("1.0.1"))
+        XCTAssertEqual(pair.difference(.exact("1.0.1")), .exact("1.0.0"))
+        XCTAssertEqual(pair.difference(.exact("1.0.0")), .exact("1.0.1"))
+
+        // The disjoint-ranges case already guards the empty remainder; keep it that way.
+        let disjoint = VersionSetSpecifier.ranges(["1.0.0"..<"1.0.5", "1.0.7"..<"1.0.9"]).difference(.exact("1.0.4"))
+        XCTAssertTrue(disjoint.contains("1.0.3"))
+        XCTAssertFalse(disjoint.contains("1.0.4"))
+        XCTAssertFalse(disjoint.contains("1.0.5"))
+        XCTAssertTrue(disjoint.contains("1.0.7"))
+
+        // A leftover empty remainder must not be turned into a member by a later union
+        // with an exact version that sits right after it.
+        let laundered = removedLast.union(.exact("1.0.6"))
+        XCTAssertTrue(laundered.contains("1.0.3"))
+        XCTAssertFalse(laundered.contains("1.0.4"))
+        XCTAssertFalse(laundered.contains("1.0.5"))
+        XCTAssertTrue(laundered.contains("1.0.6"))
+        let launderedFromRemainder = VersionSetSpecifier.range("1.0.0"..<"1.0.5").difference(.exact("1.0.4")).union(.exact("1.0.5"))
+        XCTAssertEqual(launderedFromRemainder, .range("1.0.0"..<"1.0.4").union(.exact("1.0.5")))
+        XCTAssertFalse(launderedFromRemainder.contains("1.0.4"))
+        XCTAssertTrue(launderedFromRemainder.contains("1.0.5"))
     }
 
     func testEquality() {

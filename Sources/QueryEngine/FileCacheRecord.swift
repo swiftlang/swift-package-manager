@@ -13,7 +13,11 @@
 import struct _AsyncFileSystem.OpenReadableFile
 
 // FIXME: need a new swift-system tag to remove `@preconcurrency`
+#if canImport(System)
+@preconcurrency package import struct System.FilePath
+#else
 @preconcurrency package import struct SystemPackage.FilePath
+#endif
 
 package struct FileCacheRecord: Sendable {
     package let path: FilePath

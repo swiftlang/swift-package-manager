@@ -123,8 +123,9 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
         observabilityScope: ObservabilityScope?,
         delegate: BuildSystemDelegate?
     ) throws -> any BuildSystem {
+        let buildParameters = try productsBuildParameters ?? self.swiftCommandState.productsBuildParameters
         return try SwiftBuildSystem(
-            buildParameters: productsBuildParameters ?? self.swiftCommandState.productsBuildParameters,
+            buildParameters: buildParameters,
             hostBuildParameters: toolsBuildParameters ?? self.swiftCommandState.toolsBuildParameters,
             packageGraphLoader: packageGraphLoader ?? {
                 try await self.swiftCommandState.loadPackageGraph(
@@ -133,7 +134,7 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
                 )
             },
             packageManagerResourcesDirectory: swiftCommandState.packageManagerResourcesDirectory,
-            additionalFileRules: FileRuleDescription.swiftBuildFileTypes,
+            additionalFileRules: FileRuleDescription.swiftBuildFileTypes(targetTriple: buildParameters.triple),
             outputStream: outputStream ?? self.swiftCommandState.outputStream,
             logLevel: logLevel ?? self.swiftCommandState.logLevel,
             fileSystem: self.swiftCommandState.fileSystem,
@@ -151,7 +152,7 @@ private struct SwiftBuildSystemFactory: BuildSystemFactory {
 }
 
 extension SwiftCommandState {
-    public var defaultBuildSystemProvider: BuildSystemProvider {
+    var defaultBuildSystemProvider: BuildSystemProvider {
         .init(providers: [
             .native: NativeBuildSystemFactory(swiftCommandState: self),
             .swiftbuild: SwiftBuildSystemFactory(swiftCommandState: self),

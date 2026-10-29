@@ -22,6 +22,7 @@ add_library(Commands
   PackageCommands/AuditBinaryArtifact.swift
   PackageCommands/BuildServer.swift
   PackageCommands/CompletionCommand.swift
+  PackageCommands/BuildCacheCommand.swift
   PackageCommands/ComputeChecksum.swift
   PackageCommands/Config.swift
   PackageCommands/Describe.swift
@@ -67,6 +68,7 @@ add_library(Commands
   Utilities/RefactoringSupport.swift
   Utilities/SymbolGraphExtract.swift
   Utilities/TestingSupport.swift
+  Utilities/UTF8StreamDecoder.swift
   Utilities/XCTEvents.swift)
 target_link_libraries(Commands PUBLIC
   SwiftCollections::OrderedCollections

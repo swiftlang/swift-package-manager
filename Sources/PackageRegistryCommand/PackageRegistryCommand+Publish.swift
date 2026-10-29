@@ -508,6 +508,13 @@ enum PackageArchiver {
             try localFileSystem.writeFileContents(toBeReplacedPath, bytes: replacement)
         }
 
+        let hasLicense = try localFileSystem.getDirectoryContents(sourceDirectory).contains { name in
+            ["license", "licence", "copying"].contains(where: name.lowercased().hasPrefix)
+        }
+        if !hasLicense {
+            observabilityScope.emit(warning: "no license file (LICENSE, LICENCE or COPYING) found at the root of the package")
+        }
+
         try await SwiftPackageCommand.archiveSource(
             at: sourceDirectory,
             to: archivePath,

@@ -314,11 +314,18 @@ struct APIDiff: AsyncSwiftCommand {
         productsBuildParameters.dataPath = workspace.location.scratchDirectory
         productsBuildParameters.apiDigesterMode = .generateBaselines(baselinesDirectory: baselineDir, modulesRequestingBaselines: modulesNeedingBaselines)
 
+        // Redirect tools (host) build outputs into the same sandbox so that any
+        // plugin tool paths baked into the build description point at the tools
+        // that this baseline build actually produces, not the root package's.
+        var toolsBuildParameters = try swiftCommandState.toolsBuildParameters
+        toolsBuildParameters.dataPath = workspace.location.scratchDirectory
+
         // Build the baseline module.
         // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the APIDigester. rdar://86112934
         let buildSystem = try await swiftCommandState.createBuildSystem(
             cacheBuildManifest: false,
             productsBuildParameters: productsBuildParameters,
+            toolsBuildParameters: toolsBuildParameters,
             packageGraphLoader: { graph }
         )
         try await buildSystem.build()

@@ -170,6 +170,9 @@ public struct BuildParameters: Encodable {
     /// The mode to run the API digester in, if any.
     public var apiDigesterMode: APIDigesterMode?
 
+    /// Build caching configuration.
+    public var buildCaching: BuildCacheConfiguration
+
     public init(
         destination: Destination,
         dataPath: Basics.AbsolutePath,
@@ -197,6 +200,7 @@ public struct BuildParameters: Encodable {
         apiDigesterMode: APIDigesterMode? = nil,
         stripProducts: Bool? = nil,
         shouldPreserveSymlinks: Bool = false,
+        buildCaching: BuildCacheConfiguration = .none,
     ) throws {
         // Default to the unversioned triple if none is provided so that we defer to the package's requested deployment target, for Darwin platforms. For other platforms, continue to include the version since those don't have the concept of a package-specified version, and the version is meaningful for some platforms including Android and FreeBSD.
         let triple = try triple ?? {
@@ -264,6 +268,7 @@ public struct BuildParameters: Encodable {
         self.apiDigesterMode = apiDigesterMode
         self.stripProducts = stripProducts
         self.shouldPreserveSymlinks = shouldPreserveSymlinks
+        self.buildCaching = buildCaching
     }
 
     /// The path to the build directory (inside the data directory).

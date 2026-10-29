@@ -720,6 +720,7 @@ struct MiscellaneousTestCase {
     @Test(
         .skipHostOS(.linux),
         .skipHostOS(.android),
+        .skipHostOS(.freebsd),
         .tags(
             .Feature.Command.Test,
             .Feature.Command.Run,
@@ -1617,6 +1618,22 @@ struct MiscellaneousTestCase {
     )
     func diamondLinkagePromotesAutomaticLibraryToDynamic() async throws {
         try await fixture(name: "Miscellaneous/DynamicLibraryDiamond") { fixturePath in
+            let (stdout, _) = try await executeSwiftRun(
+                fixturePath.appending("Exec"),
+                "Exec",
+                buildSystem: .swiftbuild,
+            )
+            #expect(stdout.contains("first=1 second=2"))
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Run,
+        )
+    )
+    func diamondLinkageDynamicVariantModuleMapIsFoundByClangClients() async throws {
+        try await fixture(name: "Miscellaneous/DynamicLibraryDiamondClang") { fixturePath in
             let (stdout, _) = try await executeSwiftRun(
                 fixturePath.appending("Exec"),
                 "Exec",

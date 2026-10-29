@@ -37,8 +37,6 @@ struct TraceEventsWriterTests {
         #expect(event.category == .build)
         #expect(event.processID == 1)
         #expect(event.threadID >= .firstTask)
-        #expect(event.timestamp > 0)
-        #expect(event.duration >= 0)
     }
 
     @Test

@@ -130,43 +130,40 @@ public class RepositoryManager: Cancellable {
         observabilityScope: ObservabilityScope
     ) async throws -> RepositoryHandle {
         return try await self.asyncOperationQueue.withOperation {
-            let task = await withCheckedContinuation { continuation in
-                self.pendingLookups.withLock { pendingLookups in
-                    // Identifies this lookup so that, on completion, it only removes
-                    // its own entry from `pendingLookups`.
-                    let lookupID = UUID()
-                    let inFlight = pendingLookups[repositorySpecifier]?.task
+            let task = self.pendingLookups.withLock { pendingLookups -> Task<RepositoryManager.RepositoryHandle, Error> in
+                // Identifies this lookup so that, on completion, it only removes its own entry from `pendingLookups`.
+                let lookupID = UUID()
+                let inFlight = pendingLookups[repositorySpecifier]?.task
 
-                    // Serialize lookups per repository, but each caller runs its own `performLookup` to honor its own `updateStrategy`.
-                    let lookupTask = Task { () throws -> RepositoryManager.RepositoryHandle in
-                        defer { self.removePendingLookup(for: repositorySpecifier, id: lookupID) }
+                // Serialize lookups per repository, but each caller runs its own `performLookup` to honor its own `updateStrategy`.
+                let lookupTask = Task { () throws -> RepositoryManager.RepositoryHandle in
+                    defer { self.removePendingLookup(for: repositorySpecifier, id: lookupID) }
 
-                        // Let the existing in-flight task finish before queuing up the new one
-                        if let inFlight {
-                            _ = try? await inFlight.value
-                        }
-
-                        if Task.isCancelled {
-                            throw CancellationError()
-                        }
-
-                        let result = try await self.performLookup(
-                            package: package,
-                            repository: repositorySpecifier,
-                            updateStrategy: updateStrategy,
-                            observabilityScope: observabilityScope
-                        )
-
-                        if Task.isCancelled {
-                            throw CancellationError()
-                        }
-
-                        return result
+                    // Let the existing in-flight task finish before queuing up the new one
+                    if let inFlight {
+                        _ = try? await inFlight.value
                     }
 
-                    pendingLookups[repositorySpecifier] = (id: lookupID, task: lookupTask)
-                    continuation.resume(returning: lookupTask)
+                    if Task.isCancelled {
+                        throw CancellationError()
+                    }
+
+                    let result = try await self.performLookup(
+                        package: package,
+                        repository: repositorySpecifier,
+                        updateStrategy: updateStrategy,
+                        observabilityScope: observabilityScope
+                    )
+
+                    if Task.isCancelled {
+                        throw CancellationError()
+                    }
+
+                    return result
                 }
+
+                pendingLookups[repositorySpecifier] = (id: lookupID, task: lookupTask)
+                return lookupTask
             }
 
             return try await task.value

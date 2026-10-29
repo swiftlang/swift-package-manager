@@ -36,6 +36,7 @@ internal struct PluginContextSerializer {
     var productsToWireIDs: [ResolvedProduct.ID: WireInput.Product.Id] = [:]
     var packages: [WireInput.Package] = []
     var packagesToWireIDs: [ResolvedPackage.ID: WireInput.Package.Id] = [:]
+    var packagesBeingSerialized: Set<ResolvedPackage.ID> = []
 
     var xcodeTargets: [WireInput.XcodeTarget] = []
     var xcodeTargetsToIds: [XcodeProjectRepresentation.Target: WireInput.XcodeTarget.Id] = [:]
@@ -262,6 +263,14 @@ internal struct PluginContextSerializer {
     mutating func serialize(package: ResolvedPackage) throws -> WireInput.Package.Id {
         // If we've already seen the package, just return the wire ID we already assigned to it.
         if let id = packagesToWireIDs[package.id] { return id }
+
+        // Package-level dependency cycles are permitted in the module graph (tools-version >= 6.0,
+        // as long as there's no module cycle), but would otherwise recurse here indefinitely since
+        // `packagesToWireIDs` is only populated once a package's dependencies finish serializing.
+        guard packagesBeingSerialized.insert(package.id).inserted else {
+            throw StringError("cyclic dependency between packages involving '\(package.identity)'; cannot construct plugin input")
+        }
+        defer { packagesBeingSerialized.remove(package.id) }
 
         // Determine how we should represent the origin of the package to the plugin.
         func origin(for package: ResolvedPackage) throws -> WireInput.Package.Origin {

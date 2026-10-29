@@ -23,6 +23,7 @@ import struct Foundation.URL
 
 import enum PackageModel.BuildConfiguration
 import struct PackageModel.BuildFlags
+import struct PackageModel.BuildCacheConfiguration
 import struct PackageModel.EnabledSanitizers
 import class PackageModel.Manifest
 import struct PackageModel.PackageIdentity
@@ -54,6 +55,9 @@ public struct GlobalOptions: ParsableArguments {
 
     @OptionGroup(title: "Caching")
     public var caching: CachingOptions
+
+    @OptionGroup(title: "Build Caching")
+    public var buildCaching: BuildCachingOptions
 
     @OptionGroup(title: "Logging")
     public var logging: LoggingOptions
@@ -230,6 +234,70 @@ public struct CachingOptions: ParsableArguments {
         help: .hidden
     )
     public var prebuiltsRootCertPath: String?
+}
+
+public struct BuildCachingOptions: ParsableArguments {
+    public init() {}
+
+    @Flag(
+        name: .customLong("build-caching"),
+        inversion: .prefixedEnableDisable,
+        help: "Enable or disable the build cache."
+    )
+    public var enableBuildCache: Bool?
+
+    @Option(
+        name: .customLong("build-cache-path"),
+        help: "The path to the build cache.",
+        completion: .directory
+    )
+    public var path: AbsolutePath?
+
+    @Option(
+        name: .customLong("build-cache-size-limit"),
+        help: "Limit the build cache size, either as an absolute size (e.g. '10G') or as a percentage of available disk space (e.g. '50%')."
+    )
+    public var sizeLimit: BuildCacheConfiguration.SizeLimit?
+
+    @Flag(
+        name: .customLong("build-cache-diagnostic-remarks"),
+        inversion: .prefixedEnableDisable,
+        help: "Enable or disable diagnostic remarks about build cache hits and misses."
+    )
+    public var enableDiagnosticRemarks: Bool?
+
+    @Option(
+        name: .customLong("experimental-build-cache-plugin-path"),
+        help: "The path to an LLVM-compatible build cache plugin.",
+        completion: .directory
+    )
+    public var pluginPath: AbsolutePath?
+
+    @Option(
+        name: .customLong("experimental-build-cache-remote-service-path"),
+        help: "The path to a remote build cache service.",
+        completion: .directory
+    )
+    public var remoteServicePath: AbsolutePath?
+
+    @Flag(
+        name: .customLong("build-cache-prefix-mapping"),
+        inversion: .prefixedEnableDisable,
+        help: "Enable or disable prefix mapping, allowing copies of a package at different paths to share cached outputs."
+    )
+    public var enablePrefixMapping: Bool?
+
+    public func resolved() throws -> BuildCacheConfiguration {
+        .init(
+            enabled: self.enableBuildCache,
+            casPath: self.path,
+            sizeLimit: self.sizeLimit,
+            enableDiagnosticRemarks: self.enableDiagnosticRemarks,
+            remoteServicePath: self.remoteServicePath,
+            pluginPath: self.pluginPath,
+            enablePrefixMapping: self.enablePrefixMapping
+        )
+    }
 }
 
 public struct LoggingOptions: ParsableArguments {
@@ -605,12 +673,33 @@ public struct BuildOptions: ParsableArguments {
     public var omitFramePointers: Bool? = nil
 
     // Whether to enable task backtrace logging.
+    @Flag(
+        name: .customLong("enable-task-backtraces"),
+        help: "Log a backtrace explaining why each build task ran. Requires '--verbose', '--very-verbose', or '--trace-events-file'."
+    )
+    var _enableTaskBacktraces: Bool = false
+
     @Flag(name: .customLong("experimental-task-backtraces"), help: .hidden)
-    public var enableTaskBacktraces: Bool = false
+    var _deprecated_enableTaskBacktraces: Bool = false
+
+    public var enableTaskBacktraces: Bool {
+        self._enableTaskBacktraces || self._deprecated_enableTaskBacktraces
+    }
 
     // Path to write a Trace Event Format JSON file with build task timeline data.
+    @Option(
+        name: .customLong("trace-events-file"),
+        help: "Write a Trace Event Format JSON file containing a timeline of build tasks to the given path.",
+        completion: .file()
+    )
+    var _traceEventsFilePath: String? = nil
+
     @Option(name: .customLong("experimental-trace-events-file"), help: .hidden)
-    public var traceEventsFilePath: String? = nil
+    var _deprecated_traceEventsFilePath: String? = nil
+
+    public var traceEventsFilePath: String? {
+        self._traceEventsFilePath ?? self._deprecated_traceEventsFilePath
+    }
 
     // Build dynamic library targets as frameworks (only available for Darwin targets and only when using the 'swiftbuild' build-system (currently used for tests).
     @Flag(name: .customLong("experimental-build-dylibs-as-frameworks"), help: .hidden )
@@ -960,8 +1049,18 @@ extension URL {
     }
 }
 
+extension BuildCacheConfiguration.SizeLimit {
+    public init?(argument: String) {
+        guard let sizeLimit = try? BuildCacheConfiguration.SizeLimit.parse(argument) else {
+            return nil
+        }
+        self = sizeLimit
+    }
+}
+
 extension BuildConfiguration: ExpressibleByArgument {}
 extension AbsolutePath: ExpressibleByArgument {}
+extension BuildCacheConfiguration.SizeLimit: ExpressibleByArgument {}
 extension WorkspaceConfiguration.CheckingMode: ExpressibleByArgument {}
 extension Sanitizer: ExpressibleByArgument {}
 extension BuildSystemProvider.Kind: ExpressibleByArgument {}

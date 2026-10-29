@@ -50,9 +50,10 @@ struct ModuleMapsTestCase {
             try await AsyncProcess.checkNonZeroExit(args: executableName("clang"), "-shared", input.pathString, "-o", output.pathString)
 
             var Xld = ["-L", outdir.pathString]
-        #if os(Linux) || os(Android)
-            Xld += ["-rpath", outdir.pathString]
-        #endif
+
+            if triple.objectFormat == .elf {
+                Xld += ["-rpath", outdir.pathString]
+            }
 
             try await body(fixturePath, Xld)
         }

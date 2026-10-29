@@ -366,6 +366,8 @@ struct PluginCommand: AsyncSwiftCommand {
         // Set up a delegate to handle callbacks from the command plugin.
         let pluginDelegate = PluginDelegate(swiftCommandState: swiftCommandState, buildSystem: buildSystemKind, plugin: pluginTarget)
         let delegateQueue = DispatchQueue(label: "plugin-invocation")
+        // Output callbacks are dispatched async onto delegateQueue, so the flush must queue up behind them.
+        defer { delegateQueue.sync { pluginDelegate.flushOutput() } }
 
         // Run the command plugin.
 

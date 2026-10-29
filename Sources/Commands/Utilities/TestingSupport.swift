@@ -9,6 +9,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 import Basics
 import CoreCommands
@@ -24,6 +25,8 @@ import WinSDK
 import Darwin
 #elseif canImport(Glibc)
 import Glibc
+#elseif canImport(Android)
+import Android
 #endif
 
 import struct TSCBasic.FileSystemError

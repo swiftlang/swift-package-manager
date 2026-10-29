@@ -64,15 +64,15 @@ extension PackagePIFProjectBuilder {
         // Add the dependencies.
         var pluginTarget = self.project[keyPath: pluginTargetKeyPath]
         let mainModuleProducts = self.package.products.filter(\.isMainModuleProduct)
-        pluginModule.recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: []) { dependency in
+        pluginModule.recursivelyTraverseTransitiveLinkageDependencies(
+            includeDependenciesOfMacros: [],
+            toolsVersion: self.package.manifest.toolsVersion
+        ) { dependency, dependencyPlatformFilters in
             switch dependency {
-            case .module(let moduleDependency, let packageConditions):
+            case .module(let moduleDependency, _):
                 // This assertion is temporarily disabled since we may see targets from
                 // _other_ packages, but this should be resolved; see rdar://95467710.
                 /* assert(moduleDependency.packageName == self.package.name) */
-
-                let dependencyPlatformFilters = packageConditions
-                    .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
 
                 switch moduleDependency.type {
                 case .executable, .snippet:
@@ -104,7 +104,7 @@ extension PackagePIFProjectBuilder {
                     log(.debug, indent: 1, "Added dependency on target '\(dependencyGUID)'")
                 }
 
-            case .product(let productDependency, let packageConditions):
+            case .product(let productDependency, _):
                 // Do not add a dependency for binary-only executable products since they are not part of the build.
                 if productDependency.isBinaryOnlyExecutableProduct {
                     break
@@ -115,8 +115,6 @@ extension PackagePIFProjectBuilder {
                     buildSettings: &buildSettings
                 ) {
                     let dependencyGUID = productDependency.pifTargetGUID
-                    let dependencyPlatformFilters = packageConditions
-                        .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
 
                     pluginTarget.common.addDependency(
                         on: dependencyGUID,
@@ -270,7 +268,8 @@ extension PackagePIFProjectBuilder {
 
         // Ensure the generated module map of the testable variant of an executable/macro does not conflict with the
         // primary copy.
-        let moduleMapFileName = "\(sourceModule.name)\(targetSuffix.uniqueDescription(forName: sourceModule.name)).modulemap"
+        let moduleMapSuffix: TargetSuffix? = targetSuffix == .testable ? targetSuffix : nil
+        let moduleMapFileName = "\(sourceModule.name)\(moduleMapSuffix.uniqueDescription(forName: sourceModule.name)).modulemap"
         let generatedModuleMapPath = try RelativePath(
             validating: "$(GENERATED_MODULEMAP_DIR)/\(moduleMapFileName)"
         ).pathString
@@ -864,15 +863,15 @@ extension PackagePIFProjectBuilder {
         let shouldLinkProduct = (desiredModuleType == .dynamicLibrary) || (desiredModuleType == .macro)
         var moduleTarget = self.project[keyPath: sourceModuleTargetKeyPath]
         let moduleMainProducts = self.package.products.filter(\.isMainModuleProduct)
-        sourceModule.recursivelyTraverseTransitiveLinkageDependencies(includeDependenciesOfMacros: []) { dependency in
+        sourceModule.recursivelyTraverseTransitiveLinkageDependencies(
+            includeDependenciesOfMacros: [],
+            toolsVersion: self.package.manifest.toolsVersion
+        ) { dependency, dependencyPlatformFilters in
             switch dependency {
-            case .module(let moduleDependency, let packageConditions):
+            case .module(let moduleDependency, _):
                 // This assertion is temporarily disabled since we may see targets from
                 // _other_ packages, but this should be resolved; see rdar://95467710.
                 /* assert(moduleDependency.packageName == self.package.name) */
-
-                let dependencyPlatformFilters = packageConditions
-                    .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
 
                 switch moduleDependency.type {
                 case .executable, .snippet:
@@ -948,7 +947,7 @@ extension PackagePIFProjectBuilder {
                     )
                 }
 
-            case .product(let productDependency, let packageConditions):
+            case .product(let productDependency, _):
                 // Do not add a dependency for binary-only executable products since they are not part of the build.
                 if productDependency.isBinaryOnlyExecutableProduct {
                     return
@@ -958,8 +957,6 @@ extension PackagePIFProjectBuilder {
                     product: productDependency.underlying,
                     buildSettings: &settings
                 ) {
-                    let dependencyPlatformFilters = packageConditions
-                        .toPlatformFilter(toolsVersion: self.package.manifest.toolsVersion)
                     let shouldLinkProduct = shouldLinkProduct && productDependency.isLinkable
 
                     moduleTarget.common.addDependency(
@@ -994,9 +991,6 @@ extension PackagePIFProjectBuilder {
         allBuildSettings.apply(to: &debugSettings, for: .debug)
         allBuildSettings.apply(to: &releaseSettings, for: .release)
 
-        // Apply imparted settings
-        allBuildSettings.applyImparted(to: &impartedSettings)
-
         // Set the **imparted** settings, which are ones that clients (both direct and indirect ones) use.
         // For instance, given targets A, B, C with the following dependency graph:
         //
@@ -1018,6 +1012,11 @@ extension PackagePIFProjectBuilder {
             rpaths.append("$(BUILT_PRODUCTS_DIR)/PackageFrameworks")
             impartedDebugSettings[.LD_RUNPATH_SEARCH_PATHS] = rpaths + ["$(inherited)"]
         }
+        var impartedReleaseSettings = impartedSettings
+
+        // Apply the imparted settings declared in the manifest, which may differ per configuration.
+        allBuildSettings.applyImparted(to: &impartedDebugSettings, for: .debug)
+        allBuildSettings.applyImparted(to: &impartedReleaseSettings, for: .release)
 
         var moduleTargetForConfigs = self.project[keyPath: sourceModuleTargetKeyPath]
         moduleTargetForConfigs.common.addBuildConfig { id in
@@ -1033,7 +1032,7 @@ extension PackagePIFProjectBuilder {
                 id: id,
                 name: "Release",
                 settings: releaseSettings,
-                impartedBuildSettings: impartedSettings
+                impartedBuildSettings: impartedReleaseSettings
             )
         }
         self.project[keyPath: sourceModuleTargetKeyPath] = moduleTargetForConfigs

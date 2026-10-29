@@ -1059,7 +1059,7 @@ public final class UserToolchain: Toolchain {
             }
 
             // this tests if we are debugging / testing SwiftPM with SwiftPM
-            if localFileSystem.exists(applicationPath.appending("swift-package")) {
+            if localFileSystem.exists(applicationPath.appending("swift-package\(hostExecutableSuffix)")) {
                 // Newer versions of SwiftPM will emit modules to a "Modules" subdirectory, but we're also staying compatible with older versions for development.
                 let modulesPath: AbsolutePath
                 if localFileSystem.exists(applicationPath.appending("Modules")) {

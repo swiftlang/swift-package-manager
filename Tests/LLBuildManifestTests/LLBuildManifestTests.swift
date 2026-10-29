@@ -9,6 +9,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
 
 import struct Basics.AbsolutePath
 import class Basics.InMemoryFileSystem
@@ -36,7 +37,7 @@ final class LLBuildManifestTests: XCTestCase {
 
         let commandName = outputPath.pathString
         XCTAssertEqual(manifest.commands.count, 1)
-        
+
         let command = try XCTUnwrap(manifest.commands[commandName]?.tool as? WriteAuxiliaryFile)
 
         XCTAssertEqual(command, .init(inputs: inputs, outputFilePath: outputPath))
@@ -215,7 +216,7 @@ final class LLBuildManifestTests: XCTestCase {
                 description: "C.mutate"
                 args: ["touch","file.out"]
 
-            
+
             """)
     }
 }

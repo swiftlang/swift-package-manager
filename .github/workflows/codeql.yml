@@ -1,0 +1,33 @@
+# set up scans to run on commits and pull requests to the main branch, and weekly
+on:
+  pull_request:
+    types:
+      - opened
+      - reopened
+      - synchronize
+  push:
+    branches:
+      - main
+      - 'release/*'
+  schedule:
+    - cron: 29 17 * * 4
+
+jobs:
+  # analyze GitHub Actions workflow YAMLs
+  analyze-actions:
+    name: Analyze (actions)
+    permissions:
+      security-events: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@7211b7c8077ea37d8641b6271f6a365a22a5fbfa  # v4
+        with:
+          languages: actions
+          build-mode: none
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@7211b7c8077ea37d8641b6271f6a365a22a5fbfa  # v4
+        with:
+          category: /language:actions

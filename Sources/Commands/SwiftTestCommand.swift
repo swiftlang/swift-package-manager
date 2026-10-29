@@ -30,6 +30,7 @@ import PackageGraph
 import PackageModel
 
 import SPMBuildCore
+import Synchronization
 import TSCUtility
 
 import func TSCLibc.exit
@@ -1024,10 +1025,11 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             let extraArgs = xcovArguments.getArguments(for: format)
             let testBinaries = testProducts.map(\.coverageBinaryPath)
             switch format {
-                case .json:
+            case .json, .lcov:
                     // Export the codecov data as JSON for all test binaries in a single invocation
                     // so coverage is merged across products.
-                    let path = try await exportCodeCovAsJSON(
+                    let path = try await exportCodeCov(
+                        format: format,
                         to: coverageReportOutput,
                         testBinaries: testBinaries,
                         swiftCommandState: swiftCommandState,
@@ -1093,7 +1095,8 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
     }
 
     /// Exports profdata as a JSON file.
-    private func exportCodeCovAsJSON(
+    private func exportCodeCov(
+        format: CoverageFormat,
         to path: AbsolutePath,
         testBinaries: [AbsolutePath],
         swiftCommandState: SwiftCommandState,
@@ -1102,7 +1105,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         productsBuildParameters: BuildParameters,
     ) async throws -> AbsolutePath {
         guard let primaryBinary = testBinaries.first else {
-            throw CoverageError.noTestBinariesSupplied(format: .json)
+            throw CoverageError.noTestBinariesSupplied(format: format)
         }
         let additionalBinaryArgs = testBinaries.dropFirst().flatMap { ["-object", $0.pathString] }
 
@@ -1113,20 +1116,36 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         } else {
             []
         }
-        let args = [
+        let formatArgs: [String]
+        switch format {
+        case .json:
+            formatArgs = ["--format=text"]
+        case .lcov:
+            formatArgs = ["--format=lcov"]
+        case .html:
+            fatalError("exportCodeCov does not support the .html format; use generateHtmlCoverageReport instead.")
+
+        }
+
+
+
+        var args: [String] = [
             llvmCov.pathString,
             "export",
             "--instr-profile=\(profData.pathString)",
-        ] + extraArguments + archArgs + additionalBinaryArgs + [
-            primaryBinary.pathString,
         ]
+        args += formatArgs
+        args += extraArguments
+        args += archArgs
+        args += additionalBinaryArgs
+        args.append(primaryBinary.pathString)
 
-        swiftCommandState.observabilityScope.emit(debug: "Calling JSON: \(args.joined(separator: " "))")
+        swiftCommandState.observabilityScope.emit(debug: "Calling \(format.rawValue.uppercased()): \(args.joined(separator: " "))")
         let result = try await AsyncProcess.popen(arguments: args)
 
         if result.exitStatus != .terminated(code: 0) {
             let output = try result.utf8Output() + result.utf8stderrOutput()
-            throw CoverageError.llvmCovFailed(format: .json, output: output)
+            throw CoverageError.llvmCovFailed(format: format, output: output)
         }
         try swiftCommandState.fileSystem.writeFileContents(path, bytes: ByteString(result.output.get()))
         return path
@@ -1397,8 +1416,8 @@ extension SwiftTestCommand {
                     outputPath = defaultPath
                 }
 
-            case .json:
-                outputPath = codeCovBaseDir.appending(component: rootManifestName + ".json")
+        case .json, .lcov:
+            outputPath = codeCovBaseDir.appending(component: rootManifestName + ".\(format.rawValue.lowercased())")
         }
         return outputPath
     }
@@ -1732,14 +1751,11 @@ final class TestRunner {
         let testObservabilityScope = self.observabilityScope.makeChildScope(description: "running test at \(path)")
 
         do {
-            let outputHandler: @Sendable ([UInt8]) -> Void = { (bytes: [UInt8]) in
-                if let output = String(bytes: bytes, encoding: .utf8) {
-                    outputHandler(output)
-                }
-            }
+            let stdoutDecoder = Mutex(UTF8StreamDecoder())
+            let stderrDecoder = Mutex(UTF8StreamDecoder())
             let outputRedirection = AsyncProcess.OutputRedirection.stream(
-                stdout: outputHandler,
-                stderr: outputHandler
+                stdout: { bytes in outputHandler(stdoutDecoder.withLock { $0.decode(bytes) }) },
+                stderr: { bytes in outputHandler(stderrDecoder.withLock { $0.decode(bytes) }) }
             )
             let arguments = try args(forTestAt: path)
             let process = AsyncProcess(arguments: arguments, environment: self.testEnv, outputRedirection: outputRedirection)
@@ -1749,6 +1765,8 @@ final class TestRunner {
             defer { self.cancellator.deregister(terminationKey) }
             try process.launch()
             let result = try process.waitUntilExit()
+            outputHandler(stdoutDecoder.withLock { $0.flush() })
+            outputHandler(stderrDecoder.withLock { $0.flush() })
             switch result.exitStatus {
             case .terminated(code: 0):
                 return .success

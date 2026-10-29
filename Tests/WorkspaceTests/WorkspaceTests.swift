@@ -8066,7 +8066,7 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         // returns a dummy zipfile for the requested artifact
-        let httpClient = HTTPClient { request, _ in
+        let httpClient = HTTPClient(configuration: .init(retryStrategy: .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(1)))) { request, _ in
             guard case .download(let fileSystem, let destination) = request.kind else {
                 throw StringError("invalid request \(request.kind)")
             }
@@ -8126,6 +8126,12 @@ final class WorkspaceTests: XCTestCase {
 
         await workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
+                for _ in 0 ..< 2 {
+                    result.checkUnordered(
+                        diagnostic: .contains("https://a.com/a1.zip failed, retrying in"),
+                        severity: .warning
+                    )
+                }
                 result.checkUnordered(
                     diagnostic: .contains(
                         "failed downloading 'https://a.com/a1.zip' which is required by binary target 'A1': badResponseStatusCode(500)"
@@ -10482,7 +10488,7 @@ final class WorkspaceTests: XCTestCase {
         let fs = InMemoryFileSystem()
 
         // returns a dummy files for the requested artifact
-        let httpClient = HTTPClient { _, _ in
+        let httpClient = HTTPClient(configuration: .init(retryStrategy: .exponentialBackoff(maxAttempts: 3, baseDelay: .milliseconds(1)))) { _, _ in
             .serverError()
         }
 
@@ -10509,6 +10515,12 @@ final class WorkspaceTests: XCTestCase {
 
         await workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
             testDiagnostics(diagnostics) { result in
+                for _ in 0 ..< 2 {
+                    result.check(
+                        diagnostic: .contains("https://a.com/a.artifactbundleindex failed, retrying in"),
+                        severity: .warning
+                    )
+                }
                 result.check(
                     diagnostic: .contains(
                         "failed retrieving 'https://a.com/a.artifactbundleindex': badResponseStatusCode(500)"
@@ -16792,7 +16804,7 @@ final class WorkspaceTests: XCTestCase {
             testDiagnostics(diagnostics) { result in
                 result.check(
                     diagnostic: .regex(
-                        "failed extracting '.*[\\\\/]registry[\\\\/]downloads[\\\\/]org[\\\\/]foo[\\\\/]1.0.0.zip' to '.*[\\\\/]registry[\\\\/]downloads[\\\\/]org[\\\\/]foo[\\\\/]1.0.0': boom"
+                        "failed extracting '.*[\\\\/]registry[\\\\/]downloads[\\\\/][^\\\\/]+[\\\\/]org[\\\\/]foo[\\\\/]1.0.0.zip' to '.*[\\\\/]registry[\\\\/]downloads[\\\\/][^\\\\/]+[\\\\/]org[\\\\/]foo[\\\\/]1.0.0': boom"
                     ),
                     severity: .error
                 )
@@ -16847,7 +16859,9 @@ final class WorkspaceTests: XCTestCase {
         // for mock manifest loader to work with an actual registry download
         // we populate the mock manifest with a pointer to the correct download location
         let defaultLocations = try Workspace.Location(forRootPackage: sandbox, fileSystem: fs)
-        let packagePath = defaultLocations.registryDownloadDirectory.appending(components: ["org", "foo", "1.5.1"])
+        let packagePath = defaultLocations.registryDownloadDirectory
+            .appending(component: Registry(url: registryURL, supportsAvailability: false).storageKey)
+            .appending(components: ["org", "foo", "1.5.1"])
         workspace.manifestLoader.manifests[.init(url: "org.foo", version: "1.5.1")] =
             try Manifest.createManifest(
                 displayName: "Foo",
@@ -17837,7 +17851,7 @@ final class WorkspaceTests: XCTestCase {
             signingEntityStorage: signingEntityStorage,
             signingEntityCheckingMode: signingEntityCheckingMode,
             authorizationProvider: authorizationProvider,
-            customHTTPClient: HTTPClient(configuration: .init(), implementation: { request, progress in
+            customHTTPClient: HTTPClient(configuration: .init(retryStrategy: nil), implementation: { request, progress in
                 switch request.url.path {
                 // request to get package releases
                 case "/\(identity.scope)/\(identity.name)":
