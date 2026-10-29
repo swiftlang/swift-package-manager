@@ -285,10 +285,10 @@ struct TestCommandTests {
     }
 
     @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10683", relationship: .verifies),
         .tags(
             .Feature.TargetType.Executable,
         ),
-        .SWBINTTODO("Test currently fails due to 'error: build failed'"),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func enableDisableTestabilityDisabled(
@@ -310,8 +310,9 @@ struct TestCommandTests {
                     return
                 }
 
+                let output = stdout + stderr
                 #expect(
-                    stderr.contains("was not compiled for testing") || stderr.contains("ignore swiftmodule built without '-enable-testing'"),
+                    output.contains("was not compiled for testing") || output.contains("built without '-enable-testing'"),
                     "got stdout: \(stdout), stderr: \(stderr)",
                 )
             }
