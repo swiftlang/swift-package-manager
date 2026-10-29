@@ -756,14 +756,13 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testModuleAliasGeneration() async throws {
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/10711: spurious duplicate-dependency warning from temp-dir identity collision")
         let manifest = Manifest.createRootManifest(
             displayName: "thisPkg",
-            path: "/thisPkg",
+            path: "/pkgs/thisPkg",
             toolsVersion: .v5_7,
             dependencies: [
-                .localSourceControl(path: "/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
-                .localSourceControl(path: "/barPkg", requirement: .upToNextMajor(from: "2.0.0")),
+                .localSourceControl(path: "/pkgs/fooPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                .localSourceControl(path: "/pkgs/barPkg", requirement: .upToNextMajor(from: "2.0.0")),
             ],
             targets: [
                 try TargetDescription(name: "exe",
@@ -892,7 +891,6 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testManifestGenerationWithWarningControlFlags() async throws {
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8543: there are compilation errors")
 
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
@@ -937,7 +935,6 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testDefaultIsolation() async throws {
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8543: there are compilation errors")
 
         let manifest = Manifest.createRootManifest(
             displayName: "pkg",
