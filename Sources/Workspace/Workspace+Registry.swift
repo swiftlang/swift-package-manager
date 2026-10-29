@@ -273,8 +273,24 @@ extension Workspace {
                                     condition: condition
                                 )
                             }
-                        case .target:
-                            break
+                        case .target(
+                            name: let name,
+                            package: let packageName,
+                            moduleAliases: let moduleAliases,
+                            condition: let condition
+                        ):
+                            if let packageName,
+                               // makes sure we use the updated package name for target based dependencies
+                               let modifiedPackageName =
+                               targetDependencyPackageNameTransformations[packageName.lowercased()]
+                            {
+                                modifiedDependency = .target(
+                                    name: name,
+                                    package: modifiedPackageName,
+                                    moduleAliases: moduleAliases,
+                                    condition: condition
+                                )
+                            }
                         }
                         modifiedDependencies.append(modifiedDependency)
                     }
@@ -307,7 +323,8 @@ extension Workspace {
                             settings: target.settings,
                             explicitSettings: target.explicitSettings,
                             checksum: target.checksum,
-                            pluginUsages: modifiedPluginUsages
+                            pluginUsages: modifiedPluginUsages,
+                            visibility: target.visibility
                         )
                     )
                 }
