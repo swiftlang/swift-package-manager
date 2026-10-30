@@ -729,7 +729,8 @@ public struct SwiftSDK: Equatable {
         environment: Environment = .current
     ) -> SwiftSDK? {
         #if os(macOS)
-        if let darwinPlatform = targetTriple.darwinPlatform {
+        // Apple firmware SDKs aren't modeled here.
+        if let darwinPlatform = targetTriple.darwinPlatform, darwinPlatform != .Firmware {
             // the Darwin SDKs are trivially available on macOS
             var sdk = try? self.systemSwiftSDK(
                 hostSDK.toolset.rootPaths.first,
