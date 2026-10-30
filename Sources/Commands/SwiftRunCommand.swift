@@ -192,7 +192,7 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
                     let lldbPath = try swiftCommandState.getTargetToolchain().getLLDB()
                     try safeExec(
                         path: lldbPath.pathString,
-                        args: ["--", pathRelativeToWorkingDirectory.pathString] + options.arguments,
+                        args: [lldbPath.pathString, "--", pathRelativeToWorkingDirectory.pathString] + options.arguments,
                         observabilityScope: swiftCommandState.observabilityScope
                     )
                 }
