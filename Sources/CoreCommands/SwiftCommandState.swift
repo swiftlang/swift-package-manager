@@ -1198,6 +1198,7 @@ public final class SwiftCommandState {
                 }
             ),
             testingParameters: .init(
+                enableTestability: destination == .target ? self.options.build.enableTestability : nil,
                 forceTestDiscovery: self.options.build.enableTestDiscovery,
                 // backwards compatibility, remove with --enable-test-discovery
                 testEntryPointPath: self.options.build.testEntryPointPath

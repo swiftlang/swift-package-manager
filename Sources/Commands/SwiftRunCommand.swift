@@ -83,10 +83,6 @@ struct RunCommandOptions: ParsableArguments {
     @Flag(name: .customLong("build-tests"), help: "Build both source and test targets.")
     var shouldBuildTests: Bool = false
 
-    /// Whether to build with testability enabled.
-    @OptionGroup()
-    var testability: TestabilityOptions
-
     /// The executable product to run.
     @Argument(help: "The executable to run.", completion: .shellCommand("swift package completion-tool list-executables"))
     var executable: String?
@@ -125,9 +121,6 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             throw ExitCode.failure
         }
 
-        var productsBuildParameters = try swiftCommandState.productsBuildParameters
-        options.testability.apply(to: &productsBuildParameters)
-
         switch options.mode {
         case .repl:
             // Load a custom package graph which has a special product for REPL.
@@ -141,7 +134,6 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             // FIXME: We need to implement the build tool invocation closure here so that build tool plugins work with the REPL. rdar://86112934
             let buildSystem = try await swiftCommandState.createBuildSystem(
                 cacheBuildManifest: false,
-                productsBuildParameters: productsBuildParameters,
                 packageGraphLoader: asyncUnsafeGraphLoader
             )
 
@@ -168,7 +160,6 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             do {
                 let buildSystem = try await swiftCommandState.createBuildSystem(
                     explicitProduct: options.executable,
-                    productsBuildParameters: productsBuildParameters,
                 )
                 let productName = try await findProductName(in: buildSystem.getPackageGraph())
                 if options.shouldBuildTests {
@@ -231,7 +222,6 @@ public struct SwiftRunCommand: AsyncSwiftCommand {
             do {
                 let buildSystem = try await swiftCommandState.createBuildSystem(
                     explicitProduct: options.executable,
-                    productsBuildParameters: productsBuildParameters,
                 )
                 let modulesGraph = try await buildSystem.getPackageGraph()
                 let productName = try findProductName(in: modulesGraph)
