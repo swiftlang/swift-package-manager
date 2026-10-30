@@ -15,6 +15,7 @@ import _Concurrency
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
 import class Basics.ObservabilityScope
+import class Basics.ObservabilitySystem
 import func Basics.os_signpost
 import struct Basics.RelativePath
 import enum Basics.SignpostName
@@ -81,7 +82,7 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
         let rootManifestsMinimumToolsVersion = rootManifests.values.map(\.toolsVersion).min() ?? ToolsVersion.current
-        let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
+        let resolvedFileOriginHash = try await self.computeResolvedFileOriginHash(root: root, rootManifests: rootManifests)
 
         // Load the current manifests.
         let graphRoot = try PackageGraphRoot(
@@ -319,7 +320,11 @@ extension Workspace {
                 return try await resolveAndUpdateResolvedFile(forceResolution: false)
             }
 
-            let currentHash = try self.computeResolvedFileOriginHash(root: root)
+            let rootManifests = try await self.loadRootManifests(
+                packages: root.packages,
+                observabilityScope: observabilityScope
+            )
+            let currentHash = try await self.computeResolvedFileOriginHash(root: root, rootManifests: rootManifests)
             guard storedHash == currentHash else {
                 observabilityScope
                     .emit(
@@ -365,7 +370,10 @@ extension Workspace {
         }
     }
 
-    private func computeResolvedFileOriginHash(root: PackageGraphRootInput) throws -> String {
+    private func computeResolvedFileOriginHash(
+        root: PackageGraphRootInput,
+        rootManifests: [AbsolutePath: Manifest]
+    ) async throws -> String {
         var content = try root.packages.reduce(into: "") { partial, element in
             let path = try ManifestLoader.findManifest(
                 packagePath: element,
@@ -377,7 +385,40 @@ extension Workspace {
         content += root.dependencies.reduce(into: "") { partial, element in
             partial += element.locationString
         }
+        content += await self.localPackageManifestsContent(root: root, rootManifests: rootManifests)
         return content.sha256Checksum
+    }
+
+    private func localPackageManifestsContent(
+        root: PackageGraphRootInput,
+        rootManifests: [AbsolutePath: Manifest]
+    ) async -> String {
+        var pending = rootManifests.values.flatMap(\.dependencies) + root.dependencies
+        var visited = Set(root.packages)
+        var contents: [AbsolutePath: String] = [:]
+        while let dependency = pending.popLast() {
+            guard case .fileSystem(let settings) = dependency, visited.insert(settings.path).inserted else {
+                continue
+            }
+            guard let manifestPath = try? ManifestLoader.findManifest(
+                packagePath: settings.path,
+                fileSystem: self.fileSystem,
+                currentToolsVersion: self.currentToolsVersion
+            ), let manifestContent: String = try? self.fileSystem.readFileContents(manifestPath) else {
+                continue
+            }
+            contents[settings.path] = manifestContent
+            if let manifest = try? await self.loadManifest(
+                packageIdentity: settings.identity,
+                packageKind: .fileSystem(settings.path),
+                packagePath: settings.path,
+                packageLocation: settings.path.pathString,
+                observabilityScope: ObservabilitySystem.NOOP
+            ) {
+                pending += manifest.dependencies
+            }
+        }
+        return contents.sorted { $0.key < $1.key }.map(\.value).joined()
     }
 
     @discardableResult
@@ -628,7 +669,7 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
         let rootManifestsMinimumToolsVersion = rootManifests.values.map(\.toolsVersion).min() ?? ToolsVersion.current
-        let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
+        let resolvedFileOriginHash = try await self.computeResolvedFileOriginHash(root: root, rootManifests: rootManifests)
 
         // Load the current manifests.
         let graphRoot = try PackageGraphRoot(
