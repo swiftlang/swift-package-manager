@@ -3401,6 +3401,47 @@ struct PackageBuilderTests {
         }
     }
 
+    @Test(
+        .tags(
+            .Feature.Snippets,
+        ),
+    )
+    func testSnippetsLinkPublicLibraryTargets() throws {
+        let root = AbsolutePath("/Foo")
+        let internalSourcesDir = root.appending(components: "Sources", "Internal")
+        let publicSourcesDir = root.appending(components: "Sources", "Public")
+        let publicLibrarySourcesDir = root.appending(components: "Sources", "PublicLibrary")
+        let snippetsDir = root.appending(components: "Snippets")
+        let fs = InMemoryFileSystem(emptyFiles:
+            internalSourcesDir.appending("Internal.swift").pathString,
+            publicSourcesDir.appending("Public.swift").pathString,
+            publicLibrarySourcesDir.appending("PublicLibrary.swift").pathString,
+            snippetsDir.appending("ASnippet.swift").pathString)
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "Foo", toolsVersion: .vNext,
+            targets: [
+                try TargetDescription(name: "Internal"),
+                try TargetDescription(name: "Public", visibility: .public),
+                try TargetDescription(name: "PublicLibrary", type: .library(.automatic), visibility: .public),
+                try TargetDescription(name: "PublicAggregate", dependencies: ["Internal"], type: .library(.automatic), visibility: .public),
+            ])
+
+        try PackageBuilderTester(manifest, path: root, in: fs) { result, diagnostics in
+            result.checkProduct("ASnippet") { aSnippet in
+                aSnippet.check(type: .snippet, targets: ["ASnippet"])
+            }
+            try result.checkModule("Internal") { _ in }
+            try result.checkModule("Public") { _ in }
+            try result.checkModule("PublicLibrary") { _ in }
+            try result.checkModule("PublicAggregate") { _ in }
+            try result.checkModule("ASnippet") { aSnippet in
+                aSnippet.checkSources(sources: ["ASnippet.swift"])
+                aSnippet.check(targetDependencies: ["Public", "PublicAggregate", "PublicLibrary"])
+            }
+        }
+    }
+
     @Test
     func testCustomPlatformInConditionals() throws {
         let fs = InMemoryFileSystem(emptyFiles: "/Sources/Foo/Best.swift")
