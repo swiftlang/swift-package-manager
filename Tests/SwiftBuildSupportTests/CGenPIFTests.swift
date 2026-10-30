@@ -26,6 +26,7 @@ import SwiftBuild
 @Suite struct CGenPIFTests {
     enum Kind {
         case cModule
+        case headerOnlyCModule
         case swiftModule
     }
 
@@ -50,6 +51,8 @@ import SwiftBuild
                 "/MyPkg/Sources/MyModule/MyModule.c",
                 "/MyPkg/Sources/MyModule/include/MyModule.h",
             ]
+        case .headerOnlyCModule:
+            ["/MyPkg/Sources/MyModule/include/MyModule.h"]
         case .swiftModule:
             [
                 "/MyPkg/Sources/MyModule/MyModule.swift",
@@ -267,6 +270,37 @@ import SwiftBuild
             })
             #expect(x)
         }
+    }
+
+    @Test(arguments: [
+        (["Gened.c"] as [RelativePath], true),
+        (["include/Gened.h"] as [RelativePath], false),
+        ([RelativePath](), false),
+        (["Data.txt"] as [RelativePath], false),
+        (["Model.mlmodel"] as [RelativePath], true),
+    ])
+    func headerOnlyModuleLinkingDependsOnGeneratedInputs(outputs: [RelativePath], shouldLink: Bool) async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let pif = try await setup(
+            kind: .headerOnlyCModule,
+            gened: outputs,
+            observability: observability.topScope
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "MyPkg")
+        let module = try project.target(named: "MyModule")
+        // Only compilable sources or resource code-generation inputs require linking the module.
+        let executable = try project.target(named: "MyExe-product")
+        #expect(executable.common.dependencies.contains { $0.targetId == module.id })
+        let linkInputs = executable.common.buildPhases.flatMap { phase -> [ProjectModel.BuildFile] in
+            guard case .frameworks(let frameworks) = phase else { return [] }
+            return frameworks.files
+        }
+        #expect(linkInputs.contains { file in
+            guard case .targetProduct(let id) = file.ref else { return false }
+            return id == module.id
+        } == shouldLink)
     }
 
     /// Test that generating C into Swift modules throws warnings
