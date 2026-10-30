@@ -20,7 +20,9 @@ import pathlib
 import platform
 import shlex
 import signal
+import subprocess
 import sys
+import threading
 from datetime import datetime
 
 import typing as t
@@ -151,6 +153,45 @@ def get_swiftpm_bin_dir(
 
 def is_on_darwin() -> bool:
     return platform.system() == "Darwin"
+
+
+def dump_process_tree() -> None:
+    """DEBUG: log running processes (with start time and command line) to see which tests are stalled."""
+    if sys.platform == "win32":
+        cmd = [
+            "powershell",
+            "-NoProfile",
+            "-Command",
+            "Get-CimInstance Win32_Process | Sort-Object CreationDate | "
+            "ForEach-Object { '{0} ppid={1} started={2} {3} :: {4}' -f $_.ProcessId, $_.ParentProcessId, $_.CreationDate, $_.Name, $_.CommandLine }",
+        ]
+    else:
+        cmd = ["ps", "-eo", "pid,ppid,etime,args"]
+    try:
+        out = subprocess.run(cmd, capture_output=True, text=True, timeout=120).stdout
+    except Exception as e:  # noqa: BLE001 - diagnostics must never break the build
+        out = f"failed to list processes: {e!r}"
+    lines = [line for line in out.splitlines() if line.strip()]
+    logging.info("STALL-DEBUG process list (%d processes):\n%s", len(lines), "\n".join(f"STALL-DEBUG | {line}" for line in lines))
+
+
+def call_with_stall_watchdog(cmd, cwd=None, interval_seconds: int = 300) -> None:
+    """DEBUG: like `call`, but dumps the process list every `interval_seconds` while the command runs."""
+    cwd = cwd or pathlib.Path.cwd()
+    logging.info("executing command >>> %r with cwd %s", cmd, cwd)
+    done = threading.Event()
+
+    def watch() -> None:
+        while not done.wait(interval_seconds):
+            dump_process_tree()
+
+    watcher = threading.Thread(target=watch, daemon=True)
+    watcher.start()
+    try:
+        subprocess.check_call(cmd, cwd=cwd)
+    finally:
+        done.set()
+
 
 
 def set_environment() -> None:
@@ -300,7 +341,7 @@ def main() -> None:
                 )
 
             try:
-                call(
+                call_with_stall_watchdog(
                     filterIsTruthy(
                         [
                             "swift",
@@ -319,6 +360,7 @@ def main() -> None:
                 dispaly_event_stream_json_file_contents()
                 if event_stream_path.exists():
                     os.remove(event_stream_path)
+                raise
 
 
         if is_on_darwin() and not args.skip_bootstrap:

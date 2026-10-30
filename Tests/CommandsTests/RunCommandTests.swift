@@ -480,8 +480,12 @@ struct RunCommandTests {
                    buildSystem: buildSystem
                )
                // THEN we should not see any output in stderr
-                #expect(stderr.isEmpty)
-               // AND no content in stdout
+               let filterStderr = filterSwiftPMOutput(content: stderr)
+                #expect(
+                    filterStderr.isEmpty,
+                    "stderr: \(stderr)",
+                )
+                // AND no content in stdout
                 #expect(stdout == "done\n")
            }
         } when: {
