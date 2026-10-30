@@ -198,6 +198,68 @@ struct PublicTargetModuleAliasingTests {
     }
 
     @Test
+    func chainedAliasesThroughByNameDependencyOnPublicTarget() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/App/Sources/App/main.swift",
+            "/App/Sources/Utils/file.swift",
+            "/Lib/Sources/Lib/file.swift",
+            "/Utils/Sources/Utils/file.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "Utils",
+                    path: "/Utils",
+                    targets: [
+                        TargetDescription(name: "Utils", visibility: .public),
+                    ]
+                ),
+                Manifest.createFileSystemManifest(
+                    displayName: "Lib",
+                    path: "/Lib",
+                    dependencies: [
+                        .localSourceControl(path: "/Utils", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Lib", dependencies: ["Utils"], visibility: .public),
+                    ]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "App",
+                    path: "/App",
+                    dependencies: [
+                        .localSourceControl(path: "/Lib", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "App",
+                            dependencies: [
+                                "Utils",
+                                .target(name: "Lib", package: "Lib", moduleAliases: ["Utils": "LibUtils"], condition: nil),
+                            ],
+                            type: .executable
+                        ),
+                        TargetDescription(name: "Utils"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        expectNoDiagnostics(observability.diagnostics)
+
+        let libUtils = try module("LibUtils", in: "Utils", of: graph)
+        #expect(libUtils.moduleAliases == ["Utils": "LibUtils"])
+        let lib = try module("Lib", in: "Lib", of: graph)
+        #expect(lib.moduleAliases?["Utils"] == "LibUtils")
+        #expect(try module("Utils", in: "App", of: graph).moduleAliases == nil)
+    }
+
+    @Test
     func chainedAliasesMixingProductAndTargetDependencies() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:

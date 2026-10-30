@@ -313,7 +313,7 @@ struct ModuleAliasTracker {
             if self.publicComponentModules[product] != nil {
                 return product
             }
-            guard let package = productRef.package else { return nil }
+            let package = productRef.package ?? productRef.name
             let publicTarget = PublicComponent.publicTarget(.init(moduleName: productRef.name, packageIdentity: .plain(package)))
             return self.publicComponentModules[publicTarget] != nil ? publicTarget : nil
         case .externalModule(let moduleRef, _):
