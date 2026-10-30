@@ -286,14 +286,20 @@ public enum TestError: Error {
     }
 }
 
+package let fixturesDirectory: AbsolutePath = {
+    guard let resourceURL = Bundle.module.resourceURL else {
+        fatalError("Unable to locate the _InternalTestSupport resource bundle")
+    }
+    return try! AbsolutePath(validating: resourceURL.appendingPathComponent("Fixtures").path)
+}()
+
 fileprivate func verifyFixtureExists(
     at fixtureSubpath: RelativePath,
     file: StaticString = #file,
     line: UInt = #line,
     sourceLocation: SourceLocation = #_sourceLocation,
 ) throws -> AbsolutePath {
-    let fixtureDir = AbsolutePath("../../../Fixtures", relativeTo: #file)
-        .appending(fixtureSubpath)
+    let fixtureDir = fixturesDirectory.appending(fixtureSubpath)
 
     // Check that the fixture is really there.
     guard localFileSystem.isDirectory(fixtureDir) else {
