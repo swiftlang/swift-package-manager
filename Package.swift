@@ -295,7 +295,11 @@ let package = Package(
                 "PackageLoading",
                 "PackageModel",
                 "PackageSigning",
-            ],
+                .product(name: "NIOCore", package: "swift-nio"),
+                .product(name: "NIOPosix", package: "swift-nio"),
+                .product(name: "NIOHTTP1", package: "swift-nio"),
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
+            ] + swiftCryptoDeps,
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures
         ),
@@ -654,6 +658,7 @@ let package = Package(
                 "SourceControl",
                 "SPMBuildCore",
                 "Workspace",
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
             ],
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures
@@ -962,7 +967,11 @@ let package = Package(
         ),
         .testTarget(
             name: "PackageRegistryTests",
-            dependencies: ["_InternalTestSupport", "PackageRegistry"]
+            dependencies: [
+                "_InternalTestSupport",
+                "PackageRegistry",
+                .product(name: "NIOSSL", package: "swift-nio-ssl"),
+            ]
         ),
         .testTarget(
             name: "PackageSigningTests",
@@ -1158,6 +1167,8 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(url: "https://github.com/apple/swift-argument-parser.git", revision: "1.8.2"),
         .package(url: "https://github.com/apple/swift-collections.git", revision: "1.1.6"),
         .package(url: "https://github.com/apple/swift-certificates.git", revision: "1.10.1"),
+        .package(url: "https://github.com/apple/swift-nio.git", revision: "2.103.0"),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", revision: "2.37.5"),
     ]
     if !useSystemSDKDeps {
         package.dependencies += [
@@ -1178,6 +1189,8 @@ if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
         .package(path: "../swift-syntax"),
         .package(path: "../swift-collections"),
         .package(path: "../swift-certificates"),
+        .package(path: "../swift-nio"),
+        .package(path: "../swift-nio-ssl"),
     ]
     if !useSystemSDKDeps {
         package.dependencies += [
