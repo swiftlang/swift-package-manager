@@ -500,12 +500,10 @@ public final class Manifest: Sendable {
         switch targetDependency {
         case .target(_, package: nil, _, _):
             break
-        case .target(let target, package: let package?, _, _):
+        case .target(_, package: let package?, _, _):
             let identity = self.packageIdentity(referencedBy: package)
             if availablePackages.contains(identity) {
                 registry.known[identity, default: .nothing].formUnion(.nothing)
-            } else {
-                registry.unknown.insert(target)
             }
         case .product(let product, let package, _, _):
             if let package { // ≥ 5.2
