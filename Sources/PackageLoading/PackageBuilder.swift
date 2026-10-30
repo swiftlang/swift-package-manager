@@ -692,11 +692,21 @@ public final class PackageBuilder {
         let snippetTargets: [Module]
 
         if self.manifest.packageKind.isRoot {
-            // Snippets: depend on all available library targets in the package.
+            // Snippets: depend on all library targets in the package which are either part of a product
+            // or have public visibility.
             // TODO: Do we need to filter out targets that aren't available on the host platform?
             let productTargets = Set(manifest.products.flatMap(\.targets))
             let snippetDependencies = targets
-                .filter { $0.type.isLibrary && productTargets.contains($0.name) }
+                .filter {
+                    switch ($0.type, $0.visibility) {
+                    case (.library, .public), (.libraryAggregate, .public):
+                        true
+                    case (.library, _):
+                        productTargets.contains($0.name)
+                    default:
+                        false
+                    }
+                }
                 .map { Module.Dependency.module($0, conditions: []) }
             snippetTargets = try createSnippetModules(dependencies: snippetDependencies)
         } else {
