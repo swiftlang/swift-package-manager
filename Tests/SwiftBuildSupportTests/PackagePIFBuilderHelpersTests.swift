@@ -11,7 +11,9 @@
 //===----------------------------------------------------------------------===//
 
 import Testing
-import SwiftBuildSupport
+import PackageModel
+import SwiftBuild
+@testable import SwiftBuildSupport
 
 @Suite(
     .tags(
@@ -234,5 +236,33 @@ struct PackagePIFBuilderHelpersTests {
                 "Module target '\(targetName)' should be recognized as a module"
             )
         }
+    }
+
+    // MARK: - toBuildConfigurationFilter() Tests
+
+    @Test("toBuildConfigurationFilter maps build configurations to PIF configuration names")
+    func buildConfigurationFilterMapping() {
+        let debugConditions: [PackageCondition] = [.init(configuration: .debug)]
+        #expect(debugConditions.toBuildConfigurationFilter() == [ProjectModel.BuildConfigurationFilter(buildConfiguration: "Debug")])
+        let releaseConditions: [PackageCondition] = [.init(configuration: .release)]
+        #expect(releaseConditions.toBuildConfigurationFilter() == [ProjectModel.BuildConfigurationFilter(buildConfiguration: "Release")])
+    }
+
+    @Test("toBuildConfigurationFilter ignores conditions which are not build configurations")
+    func buildConfigurationFilterIgnoresOtherConditions() {
+        let conditions: [PackageCondition] = [
+            .init(platforms: [.macOS]),
+            .traits(.init(traits: ["SomeTrait"])),
+        ]
+        #expect(conditions.toBuildConfigurationFilter().isEmpty)
+    }
+
+    @Test("toBuildConfigurationFilter keeps the build configuration alongside other conditions")
+    func buildConfigurationFilterWithMixedConditions() {
+        let conditions: [PackageCondition] = [
+            .init(platforms: [.macOS]),
+            .init(configuration: .release),
+        ]
+        #expect(conditions.toBuildConfigurationFilter() == [ProjectModel.BuildConfigurationFilter(buildConfiguration: "Release")])
     }
 }
