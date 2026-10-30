@@ -292,14 +292,6 @@ struct APIDiff: AsyncSwiftCommand {
             observabilityScope: swiftCommandState.observabilityScope
         )
 
-        let baselineModules = try Self.determineModulesToDiff(
-            packageGraph: graph,
-            productNames: products,
-            targetNames: targets,
-            observabilityScope: swiftCommandState.observabilityScope,
-            diagnoseMissingNames: false
-        )
-
         // Don't emit a baseline for a module that didn't exist yet in this revision.
         var modulesNeedingBaselines = modulesNeedingBaselines
         modulesNeedingBaselines.formIntersection(graph.apiDigesterModules)
@@ -329,7 +321,7 @@ struct APIDiff: AsyncSwiftCommand {
             packageGraphLoader: { graph }
         )
         try await buildSystem.build()
-        return baselineModules
+        return modulesNeedingBaselines
     }
 
     private static func determineModulesToDiff(packageGraph: ModulesGraph, productNames: [String], targetNames: [String], observabilityScope: ObservabilityScope, diagnoseMissingNames: Bool) throws -> Set<String> {
