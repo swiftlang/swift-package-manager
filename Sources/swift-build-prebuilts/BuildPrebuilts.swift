@@ -138,7 +138,7 @@ struct BuildPrebuilts: AsyncParsableCommand {
             // Gather the list of targets for the package products
             let libraryTargets = package.targets(forPackage: package)
 
-            var packageContents = try String(contentsOf: packageFile.asURL)
+            var packageContents = try String(contentsOf: packageFile.asURL, encoding: .utf8)
             packageContents += """
                     package.products += [
                         .library(name: "\(libraryName)", type: .static, targets: [

@@ -53,7 +53,7 @@ extension Workspace {
             public let name: String
             public var checksum: String
             public var products: [String]
-            public var includePath: [String]?
+            public var includePath: [String]
 
             public var id: String { name }
 
@@ -61,12 +61,12 @@ extension Workspace {
                 name: String,
                 checksum: String,
                 products: [String] = [],
-                includePath: [RelativePath]? = nil
+                includePath: [RelativePath]
             ) {
                 self.name = name
                 self.checksum = checksum
                 self.products = products
-                self.includePath = includePath?.map({ $0.pathString.replacingOccurrences(of: "\\", with: "/") })
+                self.includePath = includePath.map({ $0.pathString.replacingOccurrences(of: "\\", with: "/") })
             }
         }
 
@@ -555,8 +555,6 @@ extension Workspace {
                 continue
             }
 
-            let hostPlatform = prebuiltsManager.hostPlatform
-
             for library in prebuiltManifest.libraries {
                 if let path = try await prebuiltsManager
                     .downloadPrebuilt(
@@ -577,8 +575,7 @@ extension Workspace {
                         path: path,
                         checkoutPath: checkoutPath,
                         products: library.products,
-                        includePath: try library.includePath?.map({ try RelativePath(validating: $0) }),
-                        cModules: []
+                        includePath: try library.includePath.map({ try RelativePath(validating: $0) })
                     )
                     addedPrebuilts.add(managedPrebuilt)
                     await self.state.prebuilts.add(managedPrebuilt)
