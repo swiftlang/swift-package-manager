@@ -44,6 +44,7 @@ build [--package-path=<package-path>]
   [--use-integrated-swift-driver]
   [--explicit-target-dependency-import-check=<explicit-target-dependency-import-check>]
   [--build-system=<build-system>] [--=<debug-info-format>]
+  [--enable-testability|disable-testability]
   [--enable-dead-strip|disable-dead-strip]
   [--disable-local-rpath] [--build-tests]
   [--enable-coverage|disable-coverage]
@@ -282,6 +283,11 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 - term **--=\<debug-info-format\>**:
 
 *The Debug Information Format to use.*
+
+
+- term **--enable-testability|disable-testability**:
+
+*Determines whether to build with testability enabled (`-enable-testing`). By default, testability is enabled for debug builds and disabled for release builds.*
 
 
 - term **--enable-dead-strip|disable-dead-strip**:
