@@ -85,6 +85,29 @@ jobs:
       python_lint_check_enabled: true
       yamllint_check_enabled: true
 
+
+  # Reference branch main for API diff until the required changes are in a tag
+  soundness-api-diff:
+    name: Soundness-API-Diff
+    uses: swiftlang/github-workflows/.github/workflows/soundness.yml@main
+    with:
+      concurrency_group_suffix: "soundness-api-diff"
+      api_breakage_check_enabled: true
+      api_breakage_check_container_image: swiftlang/swift:nightly-main
+      # api_breakage_check_container_image: swift:6.4-noble
+      api_breakage_pre_build_command: ./.github/scripts/prebuild.sh
+      api_breakage_check_allowlist_path: api-breakages-allowlist.txt
+      api_breakage_check_additional_arguments: --products SwiftPM
+      license_header_check_enabled: false
+      unacceptable_language_check_enabled: false
+      format_check_enabled: false
+      shell_check_enabled: false
+      docs_check_enabled: false
+      docs_check_macos_enabled: false
+      broken_symlink_check_enabled: false
+      python_lint_check_enabled: false
+      yamllint_check_enabled: false
+
   integration-tests:
     name: Integration Tests
     needs: [soundness]
@@ -113,6 +136,7 @@ jobs:
       - build
       - test-example-package-registry
       - soundness
+      # - soundness-api-diff
       - integration-tests
     if: always()  # Runs even if previous jobs fail so it can evaluate them
     steps:
