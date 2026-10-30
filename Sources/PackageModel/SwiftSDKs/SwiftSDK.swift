@@ -578,7 +578,16 @@ public struct SwiftSDK: Equatable {
         #if os(macOS)
         let darwinPlatform = darwinPlatformOverride ?? .macOS
         // Get the SDK.
-        if let value = environment["SDKROOT"] {
+        //
+        // Honor an ambient `SDKROOT` only when it targets the requested platform (or
+        // when its platform can't be determined, preserving legacy behavior). During an
+        // Xcode/`xcodebuild` build for a non-macOS destination, `SDKROOT` points at the
+        // destination SDK (e.g. iPhoneSimulator); trusting it for the macOS host SDK
+        // yields an inconsistent toolchain — a macOS `-target` paired with an iOS
+        // `-sdk` — that fails manifest compilation with "unable to load standard
+        // library" (rdar://176892456).
+        if let value = environment["SDKROOT"],
+           Self.sdkRootMatches(value, platform: darwinPlatform, fileSystem: fileSystem) ?? true {
             sdkPath = try AbsolutePath(validating: value)
         } else if let value = environment[EnvironmentKey("SWIFTPM_SDKROOT_\(darwinPlatform.xcrunName)")] {
             sdkPath = try AbsolutePath(validating: value)
@@ -632,6 +641,36 @@ public struct SwiftSDK: Equatable {
             xctestSupport: xctestSupport
         )
     }
+
+    #if os(macOS)
+    /// Determines whether the SDK rooted at `sdkRoot` targets `platform`.
+    ///
+    /// The platform is read from the `CanonicalName` in the SDK's `SDKSettings.json`
+    /// (e.g. `macosx26.5`, `iphonesimulator26.5`), each of which is prefixed by the
+    /// platform's `xcrun` name (`macosx`, `iphonesimulator`, ...).
+    ///
+    /// - Returns: `true`/`false` when the SDK's platform is known, or `nil` when it
+    ///   can't be determined (invalid path, or missing/unreadable `SDKSettings.json`),
+    ///   so callers can preserve the legacy behavior of trusting `SDKROOT` for
+    ///   non-standard SDK layouts.
+    private static func sdkRootMatches(
+        _ sdkRoot: String,
+        platform: DarwinPlatform,
+        fileSystem: any FileSystem
+    ) -> Bool? {
+        guard let path = try? Basics.AbsolutePath(validating: sdkRoot) else {
+            return nil
+        }
+        let settingsPath = path.appending("SDKSettings.json")
+        guard fileSystem.exists(settingsPath),
+              let data: Data = try? fileSystem.readFileContents(settingsPath),
+              let settings = try? JSONDecoder().decode(SDKSettings.self, from: data)
+        else {
+            return nil
+        }
+        return settings.CanonicalName.lowercased().hasPrefix(platform.xcrunName)
+    }
+    #endif
 
     /// Auxiliary platform frameworks and libraries.
     ///
