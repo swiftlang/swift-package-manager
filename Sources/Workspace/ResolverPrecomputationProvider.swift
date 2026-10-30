@@ -176,4 +176,8 @@ private struct LocalPackageContainer: PackageContainer {
     func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<TraitDescription> {
         return manifest.traits
     }
+
+    func getDependencyTraitRequests(at boundVersion: BoundVersion, _ enabledTraits: EnabledTraits) async throws -> [PackageContainerConstraint] {
+        return try manifest.dependencyTraitRequests(enabledTraits)
+    }
 }
