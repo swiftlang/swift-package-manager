@@ -75,18 +75,18 @@ package final class MockArchiver: Archiver {
 
     package func extract(
         from archivePath: AbsolutePath,
-        to destinationPath: AbsolutePath,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        do {
-            if let handler = self.extractionHandler {
-                try handler(self, archivePath, destinationPath, completion)
-            } else {
-                self.extractions.append(Extraction(archivePath: archivePath, destinationPath: destinationPath))
-                completion(.success(()))
+        to destinationPath: AbsolutePath
+    ) async throws {
+        if let handler = self.extractionHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                do {
+                    try handler(self, archivePath, destinationPath, { continuation.resume(with: $0) })
+                } catch {
+                    continuation.resume(throwing: error)
+                }
             }
-        } catch {
-            completion(.failure(error))
+        } else {
+            self.extractions.append(Extraction(archivePath: archivePath, destinationPath: destinationPath))
         }
     }
 
@@ -109,15 +109,17 @@ package final class MockArchiver: Archiver {
         self.compressions.append(Compression(paths: paths, parent: parent, destinationPath: destinationPath))
     }
 
-    package func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
-        do {
-            if let handler = self.validationHandler {
-                try handler(self, path, completion)
-            } else {
-                completion(.success(true))
+    package func validate(path: AbsolutePath) async throws -> Bool {
+        if let handler = self.validationHandler {
+            return try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Bool, Error>) in
+                do {
+                    try handler(self, path, { continuation.resume(with: $0) })
+                } catch {
+                    continuation.resume(throwing: error)
+                }
             }
-        } catch {
-            completion(.failure(error))
+        } else {
+            return true
         }
     }
 }

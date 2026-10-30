@@ -24,7 +24,6 @@ import SPMBuildCore
 import XCBuildSupport
 import SwiftBuildSupport
 
-import class Basics.AsyncProcess
 import var TSCBasic.stdoutStream
 
 import enum TSCUtility.Diagnostics

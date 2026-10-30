@@ -30,13 +30,17 @@ import PackageGraph
 import PackageModel
 
 import SPMBuildCore
-import Synchronization
 import TSCUtility
 
 import func TSCLibc.exit
 import Workspace
 
-import class Basics.AsyncProcess
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 import struct TSCBasic.ByteString
 import struct TSCBasic.FileSystemError
 import enum TSCBasic.JSON
@@ -925,7 +929,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         )
 
         // Run the tests and collect per-product results.
-        return runner.testPerProduct(outputHandler: {
+        return await runner.testPerProduct(outputHandler: {
             // command's result output goes on stdout
             // ie "swift test" should output to stdout
             print($0, terminator: "")
@@ -1090,7 +1094,15 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
 
         let codeCovDataFile = try await buildSystem.codeCovDataFile(for: productsBuildParameters)
         args += ["-o", codeCovDataFile.pathString]
-        try await AsyncProcess.checkNonZeroExit(arguments: args)
+        let mergeResult = try await Subprocess.run(
+            .path(FilePath(args[0])),
+            arguments: Subprocess.Arguments(Array(args.dropFirst())),
+            output: .discarded,
+            error: .string(limit: .max)
+        )
+        guard mergeResult.terminationStatus.isSuccess else {
+            throw CoverageError.llvmProfdataMergeFailed(output: mergeResult.standardError)
+        }
         return codeCovDataFile
     }
 
@@ -1141,13 +1153,18 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         args.append(primaryBinary.pathString)
 
         swiftCommandState.observabilityScope.emit(debug: "Calling \(format.rawValue.uppercased()): \(args.joined(separator: " "))")
-        let result = try await AsyncProcess.popen(arguments: args)
+        let result = try await Subprocess.run(
+            .path(FilePath(args[0])),
+            arguments: Subprocess.Arguments(Array(args.dropFirst())),
+            output: .bytes(limit: .max),
+            error: .string(limit: .max)
+        )
 
-        if result.exitStatus != .terminated(code: 0) {
-            let output = try result.utf8Output() + result.utf8stderrOutput()
+        if !result.terminationStatus.isSuccess {
+            let output = String(decoding: result.standardOutput, as: UTF8.self) + result.standardError
             throw CoverageError.llvmCovFailed(format: format, output: output)
         }
-        try swiftCommandState.fileSystem.writeFileContents(path, bytes: ByteString(result.output.get()))
+        try swiftCommandState.fileSystem.writeFileContents(path, bytes: ByteString(result.standardOutput))
         return path
     }
 
@@ -1192,10 +1209,15 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         args.append(contentsOf: sourceFiles.sorted().map { $0.pathString })
 
         observabilityScope.emit(debug: "Calling HTML: \(args.joined(separator: " "))")
-        let result = try await AsyncProcess.popen(arguments: args)
+        let result = try await Subprocess.run(
+            .path(FilePath(args[0])),
+            arguments: Subprocess.Arguments(Array(args.dropFirst())),
+            output: .string(limit: .max),
+            error: .string(limit: .max)
+        )
 
-        if result.exitStatus != .terminated(code: 0) {
-            let output = try result.utf8Output() + result.utf8stderrOutput()
+        if !result.terminationStatus.isSuccess {
+            let output = result.standardOutput + result.standardError
             throw CoverageError.llvmCovFailed(format: .html, output: output)
         }
 
@@ -1552,7 +1574,7 @@ extension SwiftTestCommand {
                     )
 
                     // Finally, run the tests.
-                    let result = runner.test(outputHandler: {
+                    let result = await runner.test(outputHandler: {
                         // command's result output goes on stdout
                         // ie "swift test" should output to stdout
                         print($0, terminator: "")
@@ -1626,7 +1648,7 @@ final class TestRunner {
     // The toolchain to use.
     private let toolchain: UserToolchain
 
-    private let testEnv: Environment
+    private let testEnv: Basics.Environment
 
     /// The `ObservabilityScope`  to emit diagnostics.
     private let observabilityScope: ObservabilityScope
@@ -1660,7 +1682,7 @@ final class TestRunner {
         additionalArguments: [String],
         cancellator: Cancellator,
         toolchain: UserToolchain,
-        testEnv: Environment,
+        testEnv: Basics.Environment,
         observabilityScope: ObservabilityScope,
         library: TestingLibrary
     ) {
@@ -1689,12 +1711,12 @@ final class TestRunner {
 
     /// Executes and returns the execution status. Prints the test output on standard streams if requested.
     /// - Returns: Result of spawning and running the test process, and the output stream result.
-    func test(outputHandler: @escaping @Sendable (String) -> Void) -> Result {
-        testPerProduct(outputHandler: outputHandler).map(\.result).reduce()
+    func test(outputHandler: @escaping @Sendable (String) -> Void) async -> Result {
+        await testPerProduct(outputHandler: outputHandler).map(\.result).reduce()
     }
 
     /// Executes and returns per-product results.
-    func testPerProduct(outputHandler: @escaping @Sendable (String) -> Void) -> [SwiftTestCommand.TestProductResult] {
+    func testPerProduct(outputHandler: @escaping @Sendable (String) -> Void) async -> [SwiftTestCommand.TestProductResult] {
         var results: [SwiftTestCommand.TestProductResult] = []
         for product in testProducts {
             let path: AbsolutePath
@@ -1704,7 +1726,7 @@ final class TestRunner {
             case .swiftTesting:
                 path = product.binaryPath
             }
-            results.append(.init(productName: product.productName, library: library, result: self.test(at: path, outputHandler: outputHandler)))
+            await results.append(.init(productName: product.productName, library: library, result: self.test(at: path, outputHandler: outputHandler)))
         }
         return results
     }
@@ -1747,39 +1769,49 @@ final class TestRunner {
         return args
     }
 
-    private func test(at path: AbsolutePath, outputHandler: @escaping @Sendable (String) -> Void) -> Result {
+    private func test(at path: AbsolutePath, outputHandler: @escaping @Sendable (String) -> Void) async -> Result {
         let testObservabilityScope = self.observabilityScope.makeChildScope(description: "running test at \(path)")
 
         do {
-            let stdoutDecoder = Mutex(UTF8StreamDecoder())
-            let stderrDecoder = Mutex(UTF8StreamDecoder())
-            let outputRedirection = AsyncProcess.OutputRedirection.stream(
-                stdout: { bytes in outputHandler(stdoutDecoder.withLock { $0.decode(bytes) }) },
-                stderr: { bytes in outputHandler(stderrDecoder.withLock { $0.decode(bytes) }) }
-            )
             let arguments = try args(forTestAt: path)
-            let process = AsyncProcess(arguments: arguments, environment: self.testEnv, outputRedirection: outputRedirection)
-            guard let terminationKey = self.cancellator.register(process) else {
-                return .failure // terminating
+            let subprocessEnv = Subprocess.Environment.custom(
+                Dictionary(uniqueKeysWithValues: self.testEnv.removingKeysInvalidForSubprocess.map {
+                    (Subprocess.Environment.Key(rawValue: $0.key.rawValue)!, $0.value)
+                })
+            )
+            let outcome = try await self.cancellator.withCancellable(name: arguments.joined(separator: " ")) {
+                try await Subprocess.run(
+                    .path(FilePath(arguments[0])),
+                    arguments: Subprocess.Arguments(Array(arguments.dropFirst())),
+                    environment: subprocessEnv,
+                    platformOptions: .cancellable,
+                    input: .none,
+                    output: .sequence,
+                    error: .combinedWithOutput
+                ) { execution in
+                    var decoder = UTF8StreamDecoder()
+                    for try await buffer in execution.standardOutput {
+                        outputHandler(decoder.decode(buffer.withUnsafeBytes { Array($0) }))
+                    }
+                    outputHandler(decoder.flush())
+                }
             }
-            defer { self.cancellator.deregister(terminationKey) }
-            try process.launch()
-            let result = try process.waitUntilExit()
-            outputHandler(stdoutDecoder.withLock { $0.flush() })
-            outputHandler(stderrDecoder.withLock { $0.flush() })
-            switch result.exitStatus {
-            case .terminated(code: 0):
+            switch outcome.terminationStatus {
+            case .exited(0):
                 return .success
-            case .terminated(code: EXIT_NO_TESTS_FOUND) where library == .swiftTesting:
+            case .exited(TerminationStatus.Code(EXIT_NO_TESTS_FOUND)) where library == .swiftTesting:
                 return .noMatchingTests
             #if !os(Windows)
-            case .signalled(let signal) where ![SIGINT, SIGKILL, SIGTERM].contains(signal):
+            case .signaled(let signal) where ![SIGINT, SIGKILL, SIGTERM].contains(signal):
                 testObservabilityScope.emit(error: "Process '\(arguments.joined(separator: " "))' exited with unexpected signal code \(signal)")
                 return .failure
             #endif
             default:
                 return .failure
             }
+        } catch is Basics.CancellationError {
+            // The Cancellator is shutting down (e.g. Ctrl-C); that's not a test failure worth reporting.
+            return .failure
         } catch {
             testObservabilityScope.emit(error)
             return .failure
@@ -1787,6 +1819,23 @@ final class TestRunner {
     }
 }
 
+extension PlatformOptions {
+    /// Options for a child process run through `Cancellator.withCancellable`: its own process group, torn down
+    /// gracefully on cancellation. Keep in sync with `Sources/Basics/Concurrency/CancellablePlatformOptions.swift`.
+    fileprivate static var cancellable: PlatformOptions {
+        var options = PlatformOptions()
+        #if os(Windows)
+        options.createProcessGroup = true
+        options.teardownSequence = [.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: .seconds(2))]
+        #else
+        options.processGroupID = 0
+        options.teardownSequence = [
+            .send(signal: .interrupt, toProcessGroup: true, allowedDurationToNextStep: .seconds(2)),
+        ]
+        #endif
+        return options
+    }
+}
 extension Collection where Element == TestRunner.Result {
     /// Reduce all results in this collection into a single result.
     func reduce() -> Element {
@@ -1812,12 +1861,6 @@ final class ParallelTestRunner {
 
     /// Path to XCTest binaries.
     private let bundlePaths: [AbsolutePath]
-
-    /// The queue containing list of tests to run (producer).
-    private let pendingTests = SynchronizedQueue<UnitTest?>()
-
-    /// The queue containing tests which are finished running.
-    private let finishedTests = SynchronizedQueue<TestResult?>()
 
     /// Instance of a terminal progress animation.
     private let progressAnimation: ProgressAnimationProtocol
@@ -1901,20 +1944,30 @@ final class ParallelTestRunner {
         progressAnimation.update(step: numCurrentTest, total: numTests, text: "Testing \(test.specifier)")
     }
 
-    private func enqueueTests(_ tests: [UnitTest]) throws {
-        // Enqueue all the tests.
-        for test in tests {
-            pendingTests.enqueue(test)
-        }
-        self.numTests = tests.count
-        self.numCurrentTest = 0
-        // Enqueue the sentinels, we stop a thread when it encounters a sentinel in the queue.
-        for _ in 0..<numJobs {
-            pendingTests.enqueue(nil)
-        }
+    /// Runs a single test in its own `TestRunner` and reports the result.
+    private func runTest(_ test: UnitTest, testEnv: Basics.Environment) async -> TestResult {
+        let additionalArguments = TestRunner.xctestArguments(forTestSpecifiers: CollectionOfOne(test.specifier))
+        let testRunner = TestRunner(
+            testProducts: [test.testProduct],
+            additionalArguments: additionalArguments,
+            cancellator: self.cancellator,
+            toolchain: self.toolchain,
+            testEnv: testEnv,
+            observabilityScope: self.observabilityScope,
+            library: .xctest // swift-testing does not use ParallelTestRunner
+        )
+        let output = ThreadSafeBox<String>("")
+        let start = DispatchTime.now()
+        let result = await testRunner.test(outputHandler: { _output in output.append(_output) })
+        return TestResult(
+            unitTest: test,
+            output: output.get(),
+            success: result != .failure,
+            duration: start.distance(to: .now())
+        )
     }
 
-    /// Executes the tests spawning parallel workers. Blocks calling thread until all workers are finished.
+    /// Executes the tests, running up to `numJobs` of them concurrently. Returns when all tests have finished.
     func run(_ tests: [UnitTest]) async throws -> [TestResult] {
         assert(!tests.isEmpty, "There should be at least one test to execute.")
 
@@ -1928,68 +1981,37 @@ final class ParallelTestRunner {
             buildSystem: self.buildSystem
         )
 
-        // Enqueue all the tests.
-        try enqueueTests(tests)
-
-        // Create the worker threads.
-        let workers: [Thread] = (0..<numJobs).map({ _ in
-            let thread = Thread {
-                // Dequeue a specifier and run it till we encounter nil.
-                while let test = self.pendingTests.dequeue() {
-                    let additionalArguments = TestRunner.xctestArguments(forTestSpecifiers: CollectionOfOne(test.specifier))
-                    let testRunner = TestRunner(
-                        testProducts: [test.testProduct],
-                        additionalArguments: additionalArguments,
-                        cancellator: self.cancellator,
-                        toolchain: self.toolchain,
-                        testEnv: testEnv,
-                        observabilityScope: self.observabilityScope,
-                        library: .xctest // swift-testing does not use ParallelTestRunner
-                    )
-                    let output = ThreadSafeBox<String>("")
-                    let start = DispatchTime.now()
-                    let result = testRunner.test(outputHandler: { _output in output.append(_output) })
-                    let duration = start.distance(to: .now())
-                    if result == .failure {
-                        self.ranSuccessfully = false
-                    }
-                    self.finishedTests.enqueue(TestResult(
-                        unitTest: test,
-                        output: output.get(),
-                        success: result != .failure,
-                        duration: duration
-                    ))
-                }
-            }
-            thread.start()
-            return thread
-        })
+        self.numTests = tests.count
+        self.numCurrentTest = 0
 
         // List of processed tests.
-        let processedTests = ThreadSafeArrayStore<TestResult>()
+        var processedTests: [TestResult] = []
 
-        // Report (consume) the tests which have finished running.
-        while let result = finishedTests.dequeue() {
-            updateProgress(for: result.unitTest)
-
-            // Store the result.
-            processedTests.append(result)
-
-            // We can't enqueue a sentinel into finished tests queue because we won't know
-            // which test is last one so exit this when all the tests have finished running.
-            if numCurrentTest == numTests {
-                break
+        // Keep `numJobs` tests in flight: start that many, then start another each time one finishes. Reporting
+        // (consuming) the finished tests here also keeps the progress updates on a single task.
+        await withTaskGroup(of: TestResult.self) { group in
+            var remaining = tests.makeIterator()
+            for _ in 0..<self.numJobs {
+                guard let test = remaining.next() else { break }
+                group.addTask { await self.runTest(test, testEnv: testEnv) }
+            }
+            while let result = await group.next() {
+                self.updateProgress(for: result.unitTest)
+                if !result.success {
+                    self.ranSuccessfully = false
+                }
+                processedTests.append(result)
+                if let test = remaining.next() {
+                    group.addTask { await self.runTest(test, testEnv: testEnv) }
+                }
             }
         }
 
-        // Wait till all threads finish execution.
-        workers.forEach { $0.join() }
-
         // Report the completion.
-        progressAnimation.complete(success: processedTests.get().contains(where: { !$0.success }))
+        progressAnimation.complete(success: processedTests.contains(where: { !$0.success }))
 
         // Print test results.
-        for test in processedTests.get() {
+        for test in processedTests {
             if (!test.success || shouldOutputSuccess) && !productsBuildParameters.testingParameters.experimentalTestOutput {
                 // command's result output goes on stdout
                 // ie "swift test" should output to stdout
@@ -1997,7 +2019,7 @@ final class ParallelTestRunner {
             }
         }
 
-        return processedTests.get()
+        return processedTests
     }
 }
 
