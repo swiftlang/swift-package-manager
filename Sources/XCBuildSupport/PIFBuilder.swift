@@ -650,7 +650,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         // Disable code coverage linker flags since we're producing .o files. Otherwise, we will run into duplicated
         // symbols when there are more than one targets that produce .o as their product.
         settings[.CLANG_COVERAGE_MAPPING_LINKER_ARGS] = "NO"
-        if let aliases = target.moduleAliases {
+        if let aliases = target.moduleAliasesForCompilation {
             settings[.SWIFT_MODULE_ALIASES] = aliases.map { $0.key + "=" + $0.value }
         }
 
