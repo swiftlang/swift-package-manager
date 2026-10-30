@@ -24,7 +24,7 @@ extension ResolvedModule {
             packageIdentity: packageIdentity,
             underlying: SwiftModule(
                 name: name,
-                type: .library,
+                type: .library(libraryType: .object),
                 path: .root,
                 sources: Sources(paths: [], root: "/"),
                 dependencies: [],

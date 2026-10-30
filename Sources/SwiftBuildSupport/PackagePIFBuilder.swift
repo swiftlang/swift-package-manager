@@ -585,6 +585,9 @@ public final class PackagePIFBuilder {
 
             case .macro:
                 try projectBuilder.makeMacroModule(module)
+
+            case .libraryAggregate(let libraryType):
+                try projectBuilder.makeAggregateLibraryModule(module, type: libraryType)
             }
         }
 
@@ -806,7 +809,7 @@ extension PackagePIFBuilder.LinkedPackageBinary {
         case .executable, .snippet, .test:
             self.init(product: module.name, packageIdentity: module.packageIdentity)
 
-        case .library, .binary, .macro:
+        case .library, .binary, .macro, .libraryAggregate:
             self.init(module: module.name, packageIdentity: module.packageIdentity)
 
         case .systemModule, .plugin:

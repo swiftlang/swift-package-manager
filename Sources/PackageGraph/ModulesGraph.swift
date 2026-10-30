@@ -78,10 +78,31 @@ enum PackageGraphError: Swift.Error {
     /// A product was found in multiple packages.
     case duplicateProduct(product: String, packages: [Package])
 
+    /// A dependency on a target referenced an unknown package.
+    case externalModuleDependencyPackageNotFound(
+        moduleName: String,
+        dependentModuleName: String,
+        packageName: String
+    )
+
+    /// A target has a dependency on an unknown target.
+    case externalModuleDependencyNotFound(
+        moduleName: String,
+        dependentModuleName: String,
+        packageName: String
+    )
+
+    /// A dependency on a target referenced a non-public target in another package.
+    case externalModuleDependencyNotPublic(
+        moduleName: String,
+        dependentModuleName: String,
+        packageName: String
+    )
+
     /// Duplicate aliases for a target found in a product.
     case multipleModuleAliases(
         module: String,
-        product: String,
+        publicComponent: String,
         package: String,
         aliases: [String]
     )
@@ -375,14 +396,20 @@ extension PackageGraphError: CustomStringConvertible {
                 return description
             }
             return "multiple packages (\(packagesDescriptions.joined(separator: ", "))) declare products with a conflicting name: '\(product)’; product names need to be unique across the package graph"
-        case .multipleModuleAliases(let target, let product, let package, let aliases):
-            return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in product '\(product)' from package '\(package)'"
+        case .multipleModuleAliases(let target, let publicComponent, let package, let aliases):
+            return "multiple aliases: ['\(aliases.joined(separator: "', '"))'] found for target '\(target)' in \(publicComponent) from package '\(package)'"
         case .unsupportedPluginDependency(let targetName, let dependencyName, let dependencyType,  let dependencyPackage):
             var trailingMsg = ""
             if let dependencyPackage {
               trailingMsg = " from package '\(dependencyPackage)'"
             }
             return "plugin '\(targetName)' cannot depend on '\(dependencyName)' of type '\(dependencyType)'\(trailingMsg); this dependency is unsupported"
+        case .externalModuleDependencyPackageNotFound(let moduleName, let dependentModuleName, let packageName):
+            return "target '\(moduleName)' required by target '\(dependentModuleName)' not found; could not find package '\(packageName)'"
+        case .externalModuleDependencyNotFound(let moduleName, let dependentModuleName, let packageName):
+            return "target '\(moduleName)' required by target '\(dependentModuleName)' not found in package '\(packageName)'"
+        case .externalModuleDependencyNotPublic(let moduleName, let dependentModuleName, let packageName):
+            return "target '\(moduleName)' in package '\(packageName)' can't be a dependency of target '\(dependentModuleName)'; only targets declared with 'visibility: .public' may be depended on from another package"
         }
     }
 }

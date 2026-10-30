@@ -86,12 +86,7 @@ public class Product {
     /// The library product of a Swift package.
     public final class Library: Product, @unchecked Sendable {
         /// The different types of a library product.
-        public enum LibraryType: String {
-            /// A statically linked library.
-            case `static`
-            /// A dynamically linked library.
-            case `dynamic`
-        }
+        public typealias LibraryType = PackageDescription.LibraryType
 
         /// The names of the targets in this product.
         public let targets: [String]
@@ -139,6 +134,7 @@ public class Product {
     ///   - targets: The targets that are bundled into a library product.
     ///
     /// - Returns: A `Product` instance.
+    @available(_PackageDescription, deprecated: 999.0, message: "library products are deprecated; declare a 'libraryTarget' with 'visibility: .public' instead")
     public static func library(
         name: String,
         type: Library.LibraryType? = nil,
@@ -153,6 +149,7 @@ public class Product {
     ///   - name: The name of the executable product.
     ///   - targets: The targets to bundle into an executable product.
     /// - Returns: A `Product` instance.
+    @available(_PackageDescription, deprecated: 999.0, message: "executable products are deprecated; declare an 'executableTarget' with 'visibility: .public' instead")
     public static func executable(
         name: String,
         targets: [String]
@@ -160,6 +157,7 @@ public class Product {
         return Executable(name: name, targets: targets, settings: [])
     }
 
+    @available(_PackageDescription, deprecated: 999.0, message: "executable products are deprecated; declare an 'executableTarget' with 'visibility: .public' instead")
     @_spi(PackageProductSettings)
     public static func executable(
         name: String,
@@ -181,6 +179,7 @@ public class Product {
     ///   - targets: The plugin targets to vend as a product.
     /// - Returns: A `Product` instance.
     @available(_PackageDescription, introduced: 5.5)
+    @available(_PackageDescription, deprecated: 999.0, message: "plugin products are deprecated; declare a 'plugin' target with 'visibility: .public' instead")
     public static func plugin(
         name: String,
         targets: [String]

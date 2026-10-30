@@ -14920,6 +14920,83 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testSwizzlePreservesPublicTargetVisibility() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    path: "root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .target(name: "FooTarget", package: "org.foo", condition: nil),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .vNext
+                ),
+            ],
+            packages: [
+                // FooPackage's manifest is swizzled because it has an SCM dependency with a registry mapping.
+                // FooTarget must remain public, and its `.target(package: "bar")` must be rewritten to "org.bar".
+                MockPackage(
+                    name: "FooPackage",
+                    identity: "org.foo",
+                    targets: [
+                        MockTarget(
+                            name: "FooTarget",
+                            dependencies: [
+                                .target(name: "BarTarget", package: "bar", condition: nil),
+                            ],
+                            visibility: .public
+                        ),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://git/org/bar", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: ["1.0.0"],
+                    toolsVersion: .vNext
+                ),
+                MockPackage(
+                    name: "BarPackage",
+                    identity: "org.bar",
+                    alternativeURLs: ["https://git/org/bar"],
+                    targets: [
+                        MockTarget(name: "BarTarget", visibility: .public),
+                    ],
+                    products: [],
+                    versions: ["1.0.0"],
+                    toolsVersion: .vNext
+                ),
+            ]
+        )
+
+        workspace.sourceControlToRegistryDependencyTransformation = .swizzle
+
+        try await workspace.checkPackageGraph(roots: ["root"]) { graph, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(roots: "Root")
+                result.check(packages: "org.bar", "org.foo", "Root")
+                result.check(modules: "BarTarget", "FooTarget", "RootTarget")
+                result.checkTarget("FooTarget") { result in result.check(dependencies: "BarTarget") }
+            }
+        }
+
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .registryDownload("1.0.0"))
+            result.check(dependency: "org.bar", at: .registryDownload("1.0.0"))
+        }
+    }
+
     // duplicate package at root level
     func testResolutionMixedRegistryAndSourceControl2() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")

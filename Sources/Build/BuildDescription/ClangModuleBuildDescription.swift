@@ -207,7 +207,7 @@ public final class ClangModuleBuildDescription {
         }
 
         // Try computing modulemap path for a C library.  This also creates the file in the file system, if needed.
-        if target.type == .library {
+        if target.type.isLibrary {
             // If there's a custom module map, use it as given.
             if case .custom(let path) = clangTarget.moduleMapType {
                 self.moduleMap = path

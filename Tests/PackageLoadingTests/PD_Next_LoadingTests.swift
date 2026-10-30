@@ -15,6 +15,7 @@ import PackageLoading
 import PackageModel
 import _InternalTestSupport
 import XCTest
+import Testing
 
 final class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
     override var toolsVersion: ToolsVersion {
@@ -37,6 +38,34 @@ final class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             } else {
                 XCTFail("unexpected error: \($0)")
             }
+        }
+    }
+
+    func testTargetDependencyInvalidPackage() async throws {
+        let content = """
+            import PackageDescription
+            let package = Package(
+                name: "Trivial",
+                dependencies: [
+                    .package(url: "http://scm.com/org/foo", from: "1.0.0"),
+                    .package(url: "http://scm.com/org/bar", from: "1.0.0"),
+                ],
+                targets: [
+                    .target(
+                        name: "Target1",
+                        dependencies: [.target(name: "FooLib", package: "foo1")]),
+                    .target(
+                        name: "Target2",
+                        dependencies: [.target(name: "FooLib", package: "foo")]),
+                ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        testDiagnostics(validationDiagnostics) { result in
+            result.check(diagnostic: "unknown package 'foo1' in dependencies of target 'Target1'; valid packages are: 'foo' (from 'http://scm.com/org/foo'), 'bar' (from 'http://scm.com/org/bar')", severity: .error)
         }
     }
 }
