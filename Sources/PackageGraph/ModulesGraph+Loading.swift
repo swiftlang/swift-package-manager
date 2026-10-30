@@ -767,10 +767,14 @@ private func createResolvedPackages(
             uniquingKeysWith: { lhs, _ in lhs }
         )
 
-        func findPublicModule(named name: String, inPackageNamed packageName: String) -> ResolvedModuleBuilder? {
-            let candidatePackages: [ResolvedPackageBuilder] = dependencyPackageMap[packageName.lowercased()].map { [$0] } ?? []
+        func findPublicModule(named name: String, inPackageNamed packageName: String?) -> (package: ResolvedPackageBuilder, module: ResolvedModuleBuilder)? {
+            let candidatePackages: [ResolvedPackageBuilder] = if let packageName {
+                dependencyPackageMap[packageName.lowercased()].map { [$0] } ?? []
+            } else {
+                packageBuilder.dependencies
+            }
             let matches = candidatePackages.compactMap { candidate in
-                candidate.modules.first { $0.module.declaredName == name && $0.module.visibility == .public }
+                candidate.modules.first { $0.module.declaredName == name && $0.module.visibility == .public }.map { (candidate, $0) }
             }
             return matches.spm_only
         }
@@ -831,10 +835,27 @@ private func createResolvedPackages(
                     // target of the same name with public visibility. This allows a package to
                     // migrate from products to public targets without breaking clients.
                     // `ModuleAliasTracker.publicComponent(for:)` mirrors this fallback when resolving module aliases.
-                    if let package = productRef.package, let fallbackModuleBuilder = findPublicModule(
+                    if let (fallbackPackageBuilder, fallbackModuleBuilder) = findPublicModule(
                         named: productRef.name,
-                        inPackageNamed: package
+                        inPackageNamed: productRef.package
                     ) {
+                        if packageBuilder.package.manifest.toolsVersion >= .v5_2 && productRef.package == nil {
+                            guard let referencedPackageName = packageBuilder
+                                .dependencyNamesForModuleDependencyResolutionOnly[fallbackPackageBuilder.package.identity]
+                            else {
+                                throw InternalError(
+                                    "could not determine name for dependency on package '\(fallbackPackageBuilder.package.identity)' from package '\(packageBuilder.package.identity)'"
+                                )
+                            }
+                            if productRef.name != referencedPackageName {
+                                packageObservabilityScope.emit(PackageGraphError.productDependencyMissingPackage(
+                                    productName: productRef.name,
+                                    moduleName: moduleBuilder.module.name,
+                                    packageIdentifier: referencedPackageName
+                                ))
+                            }
+                        }
+
                         try moduleBuilder.module.validateDependency(module: fallbackModuleBuilder.module)
                         moduleBuilder.dependencies.append(.module(fallbackModuleBuilder, conditions: conditions))
                         continue

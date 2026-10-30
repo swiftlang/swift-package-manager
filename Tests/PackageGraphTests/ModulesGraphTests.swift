@@ -2013,6 +2013,138 @@ struct ModulesGraphTests {
     }
 
     @Test
+    func byNameDependencyFallsBackToPublicTarget() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Foo/Sources/FooLib/src.swift",
+            "/Foo/Sources/FooHelper/src.swift",
+            "/Bar/Sources/Bar/src.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    targets: [
+                        TargetDescription(name: "FooLib", dependencies: ["FooHelper"], visibility: .public),
+                        TargetDescription(name: "FooHelper"),
+                    ]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "Bar",
+                    path: "/Bar",
+                    dependencies: [
+                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar", dependencies: ["FooLib"]),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        expectNoDiagnostics(observability.diagnostics)
+        try PackageGraphTester(graph) { result in
+            result.check(packages: "Bar", "Foo")
+            result.check(modules: "Bar", "FooLib", "FooHelper")
+            try result.checkTarget("Bar") { result in
+                result.check(dependencies: "FooLib")
+                try result.checkDependency("FooLib") { result in
+                    try result.checkTarget { result in result.check(dependencies: "FooHelper") }
+                }
+            }
+        }
+    }
+
+    @Test
+    func byNameDependencyFallsBackToPublicTargetMatchingPackageName() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Foo/Sources/Foo/src.swift",
+            "/Bar/Sources/Bar/src.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .v5_2,
+                    targets: [
+                        TargetDescription(name: "Foo", visibility: .public),
+                    ]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "Bar",
+                    path: "/Bar",
+                    toolsVersion: .v5_2,
+                    dependencies: [
+                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar", dependencies: ["Foo"]),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        expectNoDiagnostics(observability.diagnostics)
+        try PackageGraphTester(graph) { result in
+            try result.checkTarget("Bar") { result in result.check(dependencies: "Foo") }
+        }
+    }
+
+    @Test
+    func byNameDependencyFallbackRequiresMatchingPackageNameIn5_2() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Foo/Sources/FooLib/src.swift",
+            "/Bar/Sources/Bar/src.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        _ = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .v5_2,
+                    targets: [
+                        TargetDescription(name: "FooLib", visibility: .public),
+                    ]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "Bar",
+                    path: "/Bar",
+                    toolsVersion: .v5_2,
+                    dependencies: [
+                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Bar", dependencies: ["FooLib"]),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        try expectDiagnostics(observability.diagnostics) { result in
+            result.check(
+                diagnostic: .contains("reference the package in the target dependency with '.product(name: \"FooLib\", package: \"Foo\")'"),
+                severity: .error
+            )
+        }
+    }
+
+    @Test
     func executableTargetDependency() throws {
         let fs = InMemoryFileSystem(
             emptyFiles:
