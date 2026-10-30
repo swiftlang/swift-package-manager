@@ -341,7 +341,7 @@ fileprivate extension ResolvedProduct {
 /// - root: A root package to start search from
 /// - dependency: A dependency which to find transitive dependencies for.
 /// - graph: List of resolved package builders representing a dependency graph.
-/// The function returns all possible dependency chains, each chain is a list of nodes representing transitive
+/// The function returns the shortest dependency chain, each chain is a list of nodes representing transitive
 /// dependencies between `root` and `dependency`. A dependency chain
 /// "A root depends on B, which depends on C" is returned as [Root, B, C].
 /// If `root` doesn't actually depend on `dependency` then the function returns empty list.
@@ -360,6 +360,7 @@ private func findAllTransitiveDependencies(
     // Use BFS to find paths between start and finish.
     var queue: [(CanonicalPackageLocation, [CanonicalPackageLocation])] = []
     var foundPaths: [[CanonicalPackageLocation]] = []
+    var visited: Set<CanonicalPackageLocation> = [root]
     queue.append((root, []))
     while !queue.isEmpty {
         let currentItem = queue.removeFirst()
@@ -369,7 +370,7 @@ private func findAllTransitiveDependencies(
             let pathToFinish = pathToCurrent + [current]
             foundPaths.append(pathToFinish)
         }
-        for dependency in edges[current] ?? [] {
+        for dependency in edges[current] ?? [] where visited.insert(dependency).inserted {
             queue.append((dependency, pathToCurrent + [current]))
         }
     }
