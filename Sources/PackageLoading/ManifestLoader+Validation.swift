@@ -234,16 +234,24 @@ public struct ManifestValidator {
         return diagnostics
     }
 
-    /// Validates that product target dependencies reference an existing package.
+    /// Validates that product and package-qualified target dependencies reference an existing package.
     private func validateTargetDependencyReferences() -> [Basics.Diagnostic] {
         var diagnostics = [Basics.Diagnostic]()
 
         for target in self.manifest.targets {
             for targetDependency in target.dependencies {
                 switch targetDependency {
-                case .target:
-                    // If this is a target dependency, we don't need to check anything.
+                case .target(_, package: nil, _, _):
+                    // If this is a dependency on a target in the same package, we don't need to check anything.
                     break
+                case .target(_, package: let packageName?, _, _):
+                    if self.manifest.packageDependency(referencedBy: targetDependency) == nil {
+                        diagnostics.append(.unknownTargetPackageDependency(
+                            packageName: packageName,
+                            targetName: target.name,
+                            validPackages: self.manifest.dependencies
+                        ))
+                    }
                 case .product(_, let packageName, _, _):
                     if self.manifest.packageDependency(referencedBy: targetDependency) == nil {
                         diagnostics.append(.unknownTargetPackageDependency(
