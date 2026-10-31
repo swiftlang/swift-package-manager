@@ -431,6 +431,7 @@ extension PackagePIFProjectBuilder {
         // Either create or reuse the resource bundle.
         var resourceBundleName = inputResourceBundleName
         let shouldGenerateBundleAccessor: Bool
+        var bundleAccessorIsApplePlatformsOnly = false
         let shouldGenerateEmbedInCodeAccessor: Bool
         if resourceBundleName == nil && desiredModuleType != .executable && desiredModuleType != .macro {
             // FIXME: We are not handling resource rules here, but the same is true for non-generated resources.
@@ -445,6 +446,7 @@ extension PackagePIFProjectBuilder {
 
             resourceBundleName = result.bundleName
             shouldGenerateBundleAccessor = result.shouldGenerateBundleAccessor
+            bundleAccessorIsApplePlatformsOnly = result.bundleAccessorIsApplePlatformsOnly
             shouldGenerateEmbedInCodeAccessor = result.shouldGenerateEmbedInCodeAccessor
         } else {
             // Here we have to assume we need both types of accessors which will always bring in Foundation into the
@@ -494,7 +496,7 @@ extension PackagePIFProjectBuilder {
             settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
         }
         if shouldGenerateBundleAccessor {
-            settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
+            settings.enableResourceAccessors(applePlatformsOnly: bundleAccessorIsApplePlatformsOnly)
         }
         if shouldGenerateEmbedInCodeAccessor {
             settings[.GENERATE_EMBED_IN_CODE_ACCESSORS] = "YES"

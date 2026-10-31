@@ -336,7 +336,7 @@ extension PackagePIFProjectBuilder {
             )
 
             if result.shouldGenerateBundleAccessor {
-                settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
+                settings.enableResourceAccessors(applePlatformsOnly: result.bundleAccessorIsApplePlatformsOnly)
 
                 // Do not set `SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE` here since it is just going to point to the same bundle as code.
                 // #bundle can use its default implementation for that.
@@ -358,7 +358,7 @@ extension PackagePIFProjectBuilder {
                 settings[.PACKAGE_RESOURCE_BUNDLE_NAME] = resourceBundle
 
                 if result.shouldGenerateBundleAccessor {
-                    settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
+                    settings.enableResourceAccessors(applePlatformsOnly: result.bundleAccessorIsApplePlatformsOnly)
 
                     if mainModule.usesSwift {
                         settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) { $0.append("SWIFT_MODULE_RESOURCE_BUNDLE_AVAILABLE") }
