@@ -60,7 +60,7 @@ elif command -v apt-get >/dev/null 2>&1 ; then # bookworm, noble, jammy
     if [[ "$SKIP_ANDROID" != "1" ]] && [[ "$dpkg_architecture" == amd64 ]] ; then
         eval "$(cat /etc/os-release)"
         case "$VERSION_CODENAME" in
-            bookworm|jammy)
+            bookworm|jammy|resolute)
                 : # Not available
                 ;;
             noble)
