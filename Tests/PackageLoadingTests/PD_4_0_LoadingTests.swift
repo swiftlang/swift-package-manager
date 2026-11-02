@@ -396,6 +396,37 @@ final class PackageDescription4_0LoadingTests: PackageDescriptionLoadingTests {
         }
     }
 
+    func testInvalidTargetAndProductNames() async throws {
+        let content = """
+            import PackageDescription
+
+            let package = Package(
+                name: "Foo",
+                products: [
+                    .library(name: "../escapingProduct", targets: ["A"]),
+                ],
+                targets: [
+                    .target(name: "A"),
+                    .target(name: ".."),
+                    .target(name: "."),
+                    .target(name: "a/b"),
+                    .target(name: "a\\\\b"),
+                ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (_, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        testDiagnostics(validationDiagnostics) { result in
+            result.checkUnordered(diagnostic: "invalid target name '..'; names cannot be '.' or '..' or contain path separators", severity: .error)
+            result.checkUnordered(diagnostic: "invalid target name '.'; names cannot be '.' or '..' or contain path separators", severity: .error)
+            result.checkUnordered(diagnostic: "invalid target name 'a/b'; names cannot be '.' or '..' or contain path separators", severity: .error)
+            result.checkUnordered(diagnostic: "invalid target name 'a\\b'; names cannot be '.' or '..' or contain path separators", severity: .error)
+            result.checkUnordered(diagnostic: "invalid product name '../escapingProduct'; names cannot be '.' or '..' or contain path separators", severity: .error)
+        }
+    }
+
     func testEmptyProductTargets() async throws {
         let content = """
             import PackageDescription
