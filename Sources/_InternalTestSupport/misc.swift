@@ -202,6 +202,26 @@ public enum TestError: Error {
     case platformNotSupported
 }
 
+/// Copies `source` to `destination` such that `destination` never becomes visible in a
+/// partially-written or under-permissioned state: the file is written to a temporary path in
+/// `destination`'s parent directory, given `source`'s executable permission, then atomically
+/// moved into place.
+public func copyFileAtomically(
+    from source: AbsolutePath,
+    to destination: AbsolutePath,
+    fileSystem: FileSystem = localFileSystem,
+) throws {
+    let bytes = try fileSystem.readFileContents(source)
+    let temporaryDestination = destination.parentDirectory.appending(
+        component: ".\(destination.basename).copying-\(UUID().uuidString)"
+    )
+    try fileSystem.writeFileContents(temporaryDestination, bytes: bytes)
+    if fileSystem.isExecutableFile(source) {
+        try fileSystem.chmod(.executable, path: temporaryDestination, options: [])
+    }
+    try fileSystem.move(from: temporaryDestination, to: destination)
+}
+
 @available(*, deprecated, message: "Migrate test to Swift Testing and use 'fixture' instead")
 @discardableResult public func fixtureXCTest<T>(
     name: String,
@@ -343,14 +363,7 @@ fileprivate func setup(
                     try copyItem(from: sourcePath, to: destPath)
                 }
             } else if localFileSystem.isFile(resolvedSource) {
-                try localFileSystem.copy(from: resolvedSource, to: destination)
-
-                // Preserve executable permission if the source file is executable
-                #if !os(Windows)
-                if localFileSystem.isExecutableFile(resolvedSource) {
-                    try localFileSystem.chmod(.executable, path: destination, options: [])
-                }
-                #endif
+                try copyFileAtomically(from: resolvedSource, to: destination)
             }
         }
 

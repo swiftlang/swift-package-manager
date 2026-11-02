@@ -3662,10 +3662,7 @@ struct PackageCommandTests {
         let config = BuildConfiguration.debug
         try await withKnownIssue(isIntermittent: true) {
             // Create a temporary directory without Package.swift
-            try await fixture(name: "Miscellaneous") { fixturePath in
-                let tempDir = fixturePath.appending("empty-dir-for-purge-test")
-                try localFileSystem.createDirectory(tempDir, recursive: true)
-
+            try await withTemporaryDirectory(removeTreeOnDeinit: true) { tempDir in
                 // Use a unique temporary cache directory to avoid conflicts with parallel tests
                 try await withTemporaryDirectory(removeTreeOnDeinit: true) { cacheDir in
                     let result = try await executeSwiftPackage(
