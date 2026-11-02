@@ -20,12 +20,6 @@
     { "kind": "folder", "path": "MyXcodeApp", "target-membership": [ "MyXcodeApp" ] },
     {
       "kind": "group",
-      "name": "Frameworks",
-      "children": [
-        { "path": "../SDL/build-macos/libSDL3.a" },
-      ],
-    }, {
-      "kind": "group",
       "name": "Products",
       "children": [
         { "path": "<PRODUCTS>/MyXcodeApp.app", "id": "000000000000000000000120", "type": "wrapper.application", "index": false },
