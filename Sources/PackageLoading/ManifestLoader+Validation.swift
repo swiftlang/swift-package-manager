@@ -60,13 +60,27 @@ public struct ManifestValidator {
             diagnostics.append(.duplicateTargetName(targetName: name))
         }
 
+        for target in self.manifest.targets where !Self.isValidNameComponent(target.name) {
+            diagnostics.append(.invalidTargetName(target.name))
+        }
+
         return diagnostics
+    }
+
+    // A name becomes a path component under shared build directories (e.g. the binary
+    // artifacts and plugin output trees), so a separator or `..` lets it escape them.
+    private static func isValidNameComponent(_ name: String) -> Bool {
+        name != "." && name != ".." && !name.contains("/") && !name.contains(#"\"#)
     }
 
     private func validateProducts()  -> [Basics.Diagnostic] {
         var diagnostics = [Basics.Diagnostic]()
         
         for product in self.manifest.products {
+            if !Self.isValidNameComponent(product.name) {
+                diagnostics.append(.invalidProductName(product.name))
+            }
+
             // Check that the product contains targets.
             guard !product.targets.isEmpty else {
                 diagnostics.append(.emptyProductTargets(productName: product.name))
@@ -300,6 +314,14 @@ public protocol ManifestSourceControlValidator {
 extension Basics.Diagnostic {
     static func duplicateTargetName(targetName: String) -> Self {
         .error("duplicate target named '\(targetName)'")
+    }
+
+    static func invalidTargetName(_ name: String) -> Self {
+        .error("invalid target name '\(name)'; names cannot be '.' or '..' or contain path separators")
+    }
+
+    static func invalidProductName(_ name: String) -> Self {
+        .error("invalid product name '\(name)'; names cannot be '.' or '..' or contain path separators")
     }
 
     static func emptyProductTargets(productName: String) -> Self {
