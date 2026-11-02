@@ -634,6 +634,19 @@ public struct BuildOptions: ParsableArguments {
     @Option(name: .customLong("debug-info-format", withSingleDash: true), help: "The Debug Information Format to use.")
     public var debugInfoFormat: DebugInfoFormat? = nil
 
+
+    /// Determines whether to build with testability enabled (`-enable-testing`).
+    ///
+    /// If neither `--enable-testability` nor `--disable-testability` is passed, testability is enabled for
+    /// debug builds and disabled for release builds. `swift test` always builds with testability unless
+    /// `--disable-testable-imports` is passed.
+    @Flag(
+        name: .customLong("testability"),
+        inversion: .prefixedEnableDisable,
+        help: "Determines whether to build with testability enabled. By default, testability is enabled for debug builds and disabled for release builds."
+    )
+    public var enableTestability: Bool?
+
     public var buildSystem: BuildSystemProvider.Kind {
         switch self._buildSystem {
         case .swiftbuild, .xcode:

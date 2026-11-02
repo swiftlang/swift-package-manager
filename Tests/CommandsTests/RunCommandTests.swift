@@ -39,11 +39,13 @@ struct RunCommandTests {
         _ args: [String] = [],
         _ executable: String? = nil,
         packagePath: AbsolutePath? = nil,
+        configuration: BuildConfiguration = .debug,
         buildSystem: BuildSystemProvider.Kind
     ) async throws -> (stdout: String, stderr: String) {
         return try await executeSwiftRun(
             packagePath,
             executable,
+            configuration: configuration,
             extraArgs: args,
             buildSystem: buildSystem,
         )
@@ -58,6 +60,71 @@ struct RunCommandTests {
         let stdout = try await execute(["-help"], buildSystem: buildSystem).stdout
 
         #expect(stdout.contains("USAGE: swift run <options>") || stdout.contains("USAGE: swift run [<options>]"), "got stdout:\n \(stdout)")
+    }
+
+
+    @Test(
+        .tags(.Feature.TargetType.Executable),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testabilityIsEnabledByDefaultForDebug(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+            let result = try await execute(
+                ["--vv"],
+                packagePath: fixturePath,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+            let output = result.stdout + result.stderr
+            #expect(output.contains("-enable-testing"), "got: \(output)")
+        }
+    }
+
+    @Test(
+        .tags(.Feature.TargetType.Executable),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func disableTestabilityOmitsEnableTesting(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+            let result = try await execute(
+                ["--disable-testability", "--vv"],
+                packagePath: fixturePath,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+            let output = result.stdout + result.stderr
+            let compileLines = output.split(separator: "\n").filter {
+                $0.contains("-module-name") && !$0.contains("Package.swift")
+            }
+            #expect(!compileLines.isEmpty, "expected module compile commands in the --vv output, got: \(output)")
+            #expect(
+                compileLines.allSatisfy { !$0.contains("-enable-testing") },
+                "got: \(output)"
+            )
+        }
+    }
+
+    @Test(
+        .tags(.Feature.TargetType.Executable),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func enableTestabilityAddsEnableTestingForRelease(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/EchoExecutable") { fixturePath in
+            let result = try await execute(
+                ["--enable-testability", "--vv"],
+                packagePath: fixturePath,
+                configuration: .release,
+                buildSystem: buildSystem,
+            )
+            let output = result.stdout + result.stderr
+            #expect(output.contains("-enable-testing"), "got: \(output)")
+        }
     }
 
     @Test(
