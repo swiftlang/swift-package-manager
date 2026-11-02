@@ -725,7 +725,7 @@ extension PackageGraph.ResolvedModule {
     /// Collect the build settings defined in the package manifest.
     /// Some of them apply *only* to the target itself, while others are also imparted to clients.
     /// Note that the platform is *optional*; unconditional settings have no platform condition.
-    func computeAllBuildSettings(observabilityScope: ObservabilityScope, forRemotePackage: Bool) -> AllBuildSettings {
+     func computeAllBuildSettings(observabilityScope: ObservabilityScope, forRemotePackage: Bool) throws -> AllBuildSettings {
         var allSettings = AllBuildSettings()
 
         for (declaration, settingsAssigments) in self.underlying.buildSettings.assignments.sorted(by: { $0.key < $1.key }) {
@@ -748,21 +748,23 @@ extension PackageGraph.ResolvedModule {
                 case .HEADER_SEARCH_PATHS:
                     singleValueSetting = nil
                     multipleValueSetting = .HEADER_SEARCH_PATHS
-                    if underlying is PrebuiltTarget {
-                        // paths are absolute
-                        values = settingAssignment.values
-                    } else {
-                        values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
-                    }
+                    values = try settingAssignment.values
+                        .map { try RelativePath(validating: $0) }
+                        .map { self.sourceDirAbsolutePath.appending($0).pathString }
+                case .ABSOLUTE_HEADER_SEARCH_PATHS:
+                    singleValueSetting = nil
+                    multipleValueSetting = .HEADER_SEARCH_PATHS
+                    values = settingAssignment.values
                 case .SWIFT_INCLUDE_PATHS:
                     singleValueSetting = nil
                     multipleValueSetting = .SWIFT_INCLUDE_PATHS
-                    if underlying is PrebuiltTarget {
-                        // paths are absolute
-                        values = settingAssignment.values
-                    } else {
-                        values = settingAssignment.values.map { self.sourceDirAbsolutePath.pathString + "/" + $0 }
-                    }
+                    values = try settingAssignment.values
+                        .map { try RelativePath(validating: $0) }
+                        .map { self.sourceDirAbsolutePath.appending($0).pathString }
+                 case .ABSOLUTE_SWIFT_INCLUDE_PATHS:
+                    singleValueSetting = nil
+                    multipleValueSetting = .SWIFT_INCLUDE_PATHS
+                    values = settingAssignment.values
                 case .OTHER_SWIFT_FLAGS:
                     singleValueSetting = nil
                     multipleValueSetting = .OTHER_SWIFT_FLAGS

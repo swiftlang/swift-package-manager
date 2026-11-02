@@ -25,7 +25,7 @@ public final class PrebuiltTarget: Module {
         // Add modules path
         buildSettings.add(
             .init(values: [prebuilt.path.appending("Modules").pathString]),
-            for: .SWIFT_INCLUDE_PATHS
+            for: .ABSOLUTE_SWIFT_INCLUDE_PATHS
         )
 
         // Add C header paths
@@ -33,7 +33,7 @@ public final class PrebuiltTarget: Module {
             .init(values: prebuilt.includePath.map({
                 prebuilt.checkoutPath.appending($0).pathString
             })),
-            for: .HEADER_SEARCH_PATHS
+            for: .ABSOLUTE_HEADER_SEARCH_PATHS
         )
 
         // Add library
