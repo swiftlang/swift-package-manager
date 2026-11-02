@@ -32,7 +32,7 @@ package typealias MockPackageGraph = (
     observabilityScope: ObservabilityScope
 )
 
-package func macrosPackageGraph() throws -> MockPackageGraph {
+package func macrosPackageGraph(shouldSeparateHostOnlyModules: Bool = false) throws -> MockPackageGraph {
     let fs = InMemoryFileSystem(emptyFiles:
         "/swift-firmware/Sources/Core/source.swift",
         "/swift-firmware/Sources/HAL/source.swift",
@@ -125,6 +125,7 @@ package func macrosPackageGraph() throws -> MockPackageGraph {
                 traits: []
             ),
         ],
+        shouldSeparateHostOnlyModules: shouldSeparateHostOnlyModules,
         observabilityScope: observability.topScope,
         traitConfiguration: .default,
         enabledTraitsMap: .init()

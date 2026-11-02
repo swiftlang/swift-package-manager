@@ -32,6 +32,7 @@ extension ModulesGraph {
         binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
         prebuilts: [PackageIdentity: [String: PrebuiltLibrary]], // Product name to library mapping
         shouldCreateMultipleTestProducts: Bool = false,
+        shouldSeparateHostOnlyModules: Bool = false,
         createREPLProduct: Bool = false,
         customPlatformsRegistry: PlatformRegistry? = .none,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
@@ -206,6 +207,7 @@ extension ModulesGraph {
             root: root,
             unsafeAllowedPackages: unsafeAllowedPackages,
             prebuilts: prebuilts,
+            shouldSeparateHostOnlyModules: shouldSeparateHostOnlyModules,
             platformRegistry: customPlatformsRegistry ?? .default,
             platformVersionProvider: platformVersionProvider,
             fileSystem: fileSystem,
@@ -385,6 +387,7 @@ private func createResolvedPackages(
     root: PackageGraphRoot,
     unsafeAllowedPackages: Set<PackageReference>,
     prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
+    shouldSeparateHostOnlyModules: Bool,
     platformRegistry: PlatformRegistry,
     platformVersionProvider: PlatformVersionProvider,
     fileSystem: FileSystem,
@@ -902,15 +905,15 @@ private func createResolvedPackages(
     }
 
     // Adjust the package graph for any prebuilts, removing any that are no longer needed.
-    handlePrebuilts(packageBuilders: packageBuilders, root: root)
+    handlePrebuilts(packageBuilders: packageBuilders, root: root, shouldSeparateHostOnlyModules: shouldSeparateHostOnlyModules)
 
     return try IdentifiableSet(packageBuilders.map { try $0.construct() })
 }
 
 // Adjust the graph to integrate prebuilts
-private func handlePrebuilts(packageBuilders: [ResolvedPackageBuilder], root: PackageGraphRoot) {
+private func handlePrebuilts(packageBuilders: [ResolvedPackageBuilder], root: PackageGraphRoot, shouldSeparateHostOnlyModules: Bool) {
     // Skip this if there are no prebuilts. Modules are unconstrained by default.
-    guard packageBuilders.contains(where: { $0.prebuilts != nil }) else {
+    guard shouldSeparateHostOnlyModules || packageBuilders.contains(where: { $0.prebuilts != nil }) else {
         return
     }
 

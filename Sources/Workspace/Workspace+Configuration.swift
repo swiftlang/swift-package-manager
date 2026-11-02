@@ -1047,6 +1047,10 @@ public struct WorkspaceConfiguration {
     /// Whether to create multiple test products or one per package
     public var shouldCreateMultipleTestProducts: Bool
 
+    /// Whether modules that are only used by macros and plugins (for example swift-syntax) are built separately for the host.
+    /// This is needed when a custom Swift SDK or toolset is used: its settings must not apply to host tools, even if the Swift SDK has the same platform as the host.
+    public var shouldSeparateHostOnlyModules: Bool
+
     /// Whether to create a product for use in the Swift REPL
     public var createREPLProduct: Bool
 
@@ -1072,6 +1076,7 @@ public struct WorkspaceConfiguration {
         skipDependenciesUpdates: Bool,
         prefetchBasedOnResolvedFile: Bool,
         shouldCreateMultipleTestProducts: Bool,
+        shouldSeparateHostOnlyModules: Bool = false,
         createREPLProduct: Bool,
         additionalFileRules: [FileRuleDescription],
         sharedDependenciesCacheEnabled: Bool,
@@ -1090,6 +1095,7 @@ public struct WorkspaceConfiguration {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
         self.shouldCreateMultipleTestProducts = shouldCreateMultipleTestProducts
+        self.shouldSeparateHostOnlyModules = shouldSeparateHostOnlyModules
         self.createREPLProduct = createREPLProduct
         self.additionalFileRules = additionalFileRules
         self.sharedDependenciesCacheEnabled = sharedDependenciesCacheEnabled

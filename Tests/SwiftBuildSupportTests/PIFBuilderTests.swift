@@ -2150,8 +2150,10 @@ struct PIFBuilderTests {
                 let platforms = config.settings[.SUPPORTED_PLATFORMS]
                 if id == "PACKAGE-TARGET:MacroImpl" {
                     #expect(platforms == ["$(HOST_PLATFORM)"], "target \(id) did not have the expected supported platform setting")
+                    #expect(config.settings[.SDKROOT] == "$(HOST_PLATFORM)", "target \(id) did not pin its SDK to the host platform")
                 } else {
                     #expect(platforms == nil, "target \(id) has supported platforms set, unexpectedly")
+                    #expect(config.settings[.SDKROOT] != "$(HOST_PLATFORM)", "target \(id) pins its SDK to the host platform, unexpectedly")
                 }
             }
         }

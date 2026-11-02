@@ -636,6 +636,7 @@ public final class SwiftCommandState {
                 skipDependenciesUpdates: options.resolver.skipDependencyUpdate,
                 prefetchBasedOnResolvedFile: options.resolver.shouldEnableResolverPrefetching,
                 shouldCreateMultipleTestProducts: toolWorkspaceConfiguration.wantsMultipleTestProducts || options.build.buildSystem.shouldCreateMultipleTestProducts,
+                shouldSeparateHostOnlyModules: (try? self.getTargetToolchain().swiftSDK) != (try? self.getHostToolchain().swiftSDK),
                 createREPLProduct: toolWorkspaceConfiguration.wantsREPLProduct,
                 additionalFileRules: options.build.buildSystem.additionalFileRules(targetTriple: targetTriple),
                 sharedDependenciesCacheEnabled: self.options.caching.useDependenciesCache,

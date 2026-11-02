@@ -127,6 +127,8 @@ extension PackagePIFProjectBuilder {
 
         // Any dependencies of plugin targets need to be built for the host.
         buildSettings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
+        // Also pin the SDK: with a Swift SDK for the host platform, `auto` would otherwise be replaced with the SDK of the run destination.
+        buildSettings[.SDKROOT] = "$(HOST_PLATFORM)"
 
         pluginTarget.common.addBuildConfig { id in
             BuildConfig(id: id, name: "Debug", settings: buildSettings)
@@ -492,6 +494,8 @@ extension PackagePIFProjectBuilder {
 
         if sourceModule.platformConstraint == .host {
             settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
+            // Also pin the SDK: with a Swift SDK for the host platform, `auto` would otherwise be replaced with the SDK of the run destination.
+            settings[.SDKROOT] = "$(HOST_PLATFORM)"
         }
         if shouldGenerateBundleAccessor {
             settings[.GENERATE_RESOURCE_ACCESSORS] = "YES"
@@ -848,6 +852,8 @@ extension PackagePIFProjectBuilder {
         if desiredModuleType == .macro {
             settings[.SWIFT_IMPLEMENTS_MACROS_FOR_MODULE_NAMES] = [sourceModule.c99name]
             settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
+            // Also pin the SDK: with a Swift SDK for the host platform, `auto` would otherwise be replaced with the SDK of the run destination.
+            settings[.SDKROOT] = "$(HOST_PLATFORM)"
 
             // Don't install the Swift module when building the macro executable, lest it conflict with the testable variant.
             // The contents of the testable variant's module will exactly match the binary linked by dependencies (test targets).

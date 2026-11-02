@@ -184,6 +184,8 @@ extension PackagePIFProjectBuilder {
             if mainModule.platformConstraint == .host {
                 // This is a macro test using prebuilts
                 settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
+                // Also pin the SDK: with a Swift SDK for the host platform, `auto` would otherwise be replaced with the SDK of the run destination.
+                settings[.SDKROOT] = "$(HOST_PLATFORM)"
             }
         } else if mainModule.type == .executable {
             // Setup install path for executables if it's in root of a pure Swift package.

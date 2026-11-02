@@ -76,6 +76,35 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
         }
     }
 
+    /// With a custom Swift SDK, the host platform and the destination platform may be the same platform (for example macOS), but
+    /// the modules that are only used by macros and plugins (for example swift-syntax) must still be built for the host
+    /// without the Swift SDK. They are only marked as host-only when `shouldSeparateHostOnlyModules` is set.
+    func testHostOnlyModulesAreSeparatedWithSwiftSDK() throws {
+        func module(_ name: String, in graph: ModulesGraph) throws -> ResolvedModule {
+            try XCTUnwrap(graph.allModules.first { $0.name == name }, "no module named \(name)")
+        }
+
+        // By default modules are not constrained.
+        do {
+            let graph = try macrosPackageGraph().graph
+            for name in ["Core", "HAL", "MMIO", "MMIOMacros", "SwiftSyntax"] {
+                XCTAssertEqual(try module(name, in: graph).platformConstraint, .all, "\(name) is expected to be unconstrained")
+            }
+        }
+
+        // With a custom Swift SDK the macro and its dependencies are host only, and the modules used by
+        // the root package's products stay unconstrained.
+        do {
+            let graph = try macrosPackageGraph(shouldSeparateHostOnlyModules: true).graph
+            for name in ["MMIOMacros", "SwiftSyntax"] {
+                XCTAssertEqual(try module(name, in: graph).platformConstraint, .host, "\(name) is expected to be host only")
+            }
+            for name in ["Core", "HAL", "MMIO"] {
+                XCTAssertEqual(try module(name, in: graph).platformConstraint, .all, "\(name) is expected to be unconstrained")
+            }
+        }
+    }
+
     func testMacrosTests() throws {
         let graph = try macrosTestsPackageGraph().graph
         PackageGraphTesterXCTest(graph) { result in

@@ -1057,6 +1057,7 @@ extension Workspace {
             binaryArtifacts: binaryArtifacts,
             prebuilts: prebuilts,
             shouldCreateMultipleTestProducts: self.configuration.shouldCreateMultipleTestProducts,
+            shouldSeparateHostOnlyModules: self.configuration.shouldSeparateHostOnlyModules,
             createREPLProduct: self.configuration.createREPLProduct,
             customXCTestMinimumDeploymentTargets: customXCTestMinimumDeploymentTargets,
             testEntryPointPath: testEntryPointPath,
