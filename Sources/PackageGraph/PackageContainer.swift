@@ -101,6 +101,10 @@ public protocol PackageContainer {
     /// Get the updated set of traits at a bound version.
     ///
     func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<TraitDescription>
+
+    /// The traits the package at a bound version asks of each dependency it declares, whether or not
+    /// anything uses that dependency.
+    func getDependencyTraitRequests(at boundVersion: BoundVersion, _ enabledTraits: EnabledTraits) async throws -> [PackageContainerConstraint]
 }
 
 extension PackageContainer {
@@ -117,6 +121,10 @@ extension PackageContainer {
     }
 
     func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: Set<String> = ["default"]) async throws -> [PackageContainerConstraint] {
+        return []
+    }
+
+    public func getDependencyTraitRequests(at boundVersion: BoundVersion, _ enabledTraits: EnabledTraits) async throws -> [PackageContainerConstraint] {
         return []
     }
 }

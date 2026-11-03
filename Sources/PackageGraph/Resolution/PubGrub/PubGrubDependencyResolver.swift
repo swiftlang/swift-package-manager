@@ -40,13 +40,11 @@ public struct PubGrubDependencyResolver {
         public private(set) var incompatibilities: [DependencyResolutionNode: [Incompatibility]] = [:]
 
         /// The resolver's own accumulated view of enabled traits per package, fed incrementally by
-        /// `addIncompatibility` as the resolver itself discovers each parent's request. A single
-        /// `DependencyResolutionNode` only ever carries whichever parent edge constructed it,
-        /// namely the traits that parent enabled on the dependency; this map represents the unified
-        /// trait enablement for a given package.
-        private var enabledTraitsMap = EnabledTraitsMap()
+        /// `addIncompatibility` and `requestTraits` as the resolver discovers each parent's request.
+        /// A single `DependencyResolutionNode` only ever carries whichever parent edge constructed it.
+        private let traitRequests: TraitRequests
 
-        /// Already-decided packages whose `enabledTraitsMap` entry changed *after* they were
+        /// Already-decided packages whose `traitRequests` entry changed *after* they were
         /// decided - detected inline in `addIncompatibility`, the instant a new request for an
         /// already-decided package's traits arrives.
         public var decisionsToRepair: Set<DependencyResolutionNode> = []
@@ -58,29 +56,13 @@ public struct PubGrubDependencyResolver {
 
         init(root: DependencyResolutionNode,
              overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)] = [:],
+             traitRequests: TraitRequests = TraitRequests(),
              solution: PartialSolution = PartialSolution())
         {
             self.root = root
             self.overriddenPackages = overriddenPackages
+            self.traitRequests = traitRequests
             self.solution = solution
-        }
-
-        /// The traits to resolve a package with, including an outstanding request for that
-        /// package's defaults.
-        ///
-        /// Reading `enabledTraitsMap` directly hides that request behind any named traits, and a
-        /// dependency reachable only through a default trait is then never derived. The request
-        /// stays an unexpanded marker because expanding it needs the package's manifest. Callers
-        /// must already hold `lock`.
-        private func resolutionTraits(for identity: PackageIdentity) -> EnabledTraits {
-            let named = self.enabledTraitsMap[identity]
-            guard !named.contains("default"),
-                  let defaultSetter = self.enabledTraitsMap[defaultSettersFor: identity]?.first
-            else {
-                return named
-            }
-
-            return named.union(EnabledTraits(["default"], setBy: defaultSetter))
         }
 
         func addIncompatibility(_ incompatibility: Incompatibility, at location: LogLocation) {
@@ -89,17 +71,7 @@ public struct PubGrubDependencyResolver {
                     // Pre-resolution computation ensures we already handled root package dependency requests,
                     // and therefore should not need repairs.
                     if !package.package.kind.isRoot {
-                        let identity = package.package.identity
-                        let previousDecisionEnabledTraits = self.resolutionTraits(for: identity)
-                        self.enabledTraitsMap[identity] = package.enabledTraits
-                        let currentEnabledTraits = self.resolutionTraits(for: identity)
-                        // If a decision has already been made for this package but a change in enabled traits
-                        // is detected, flag it so the resolver can repair the shape of the package graph below
-                        // it (if applicable due to trait-guarded dependencies).
-                        if !currentEnabledTraits.isSubset(of: previousDecisionEnabledTraits)
-                        {
-                            self.decisionsToRepair.formUnion(self.solution.decisions(for: identity))
-                        }
+                        self.recordTraits(package.enabledTraits, for: package.package.identity)
                     }
                     if let incompats = self.incompatibilities[package] {
                         if !incompats.contains(incompatibility) {
@@ -109,6 +81,24 @@ public struct PubGrubDependencyResolver {
                         self.incompatibilities[package] = [incompatibility]
                     }
                 }
+            }
+        }
+
+        /// Records a request for a package's traits that may not come with a dependency on it.
+        func requestTraits(_ request: PackageContainerConstraint) {
+            guard !request.package.kind.isRoot else { return }
+            self.lock.withLock {
+                self.recordTraits(request.enabledTraits, for: request.package.identity)
+            }
+        }
+
+        /// Callers must already hold `lock`.
+        private func recordTraits(_ traits: EnabledTraits, for identity: PackageIdentity) {
+            // If a decision has already been made for this package but a change in enabled traits
+            // is detected, flag it so the resolver can repair the shape of the package graph below
+            // it (if applicable due to trait-guarded dependencies).
+            if self.traitRequests.record(traits, for: identity) {
+                self.decisionsToRepair.formUnion(self.solution.decisions(for: identity))
             }
         }
 
@@ -129,7 +119,7 @@ public struct PubGrubDependencyResolver {
         /// discovered and loaded).
         func enabledTraits(for node: DependencyResolutionNode) -> EnabledTraits {
             self.lock.withLock {
-                self.resolutionTraits(for: node.package.identity)
+                self.traitRequests.traits(for: node.package.identity)
             }
         }
 
@@ -262,9 +252,13 @@ public struct PubGrubDependencyResolver {
     /// Find a set of dependencies that fit the given constraints. If dependency
     /// resolution is unable to provide a result, an error is thrown.
     /// - Warning: It is expected that the root package reference has been set  before this is called.
-    internal func solve(root: DependencyResolutionNode, constraints: [Constraint]) async throws -> (bindings: [DependencyResolverBinding], state: State) {
+    internal func solve(
+        root: DependencyResolutionNode,
+        constraints: [Constraint],
+        traitRequests: TraitRequests = TraitRequests()
+    ) async throws -> (bindings: [DependencyResolverBinding], state: State) {
         // first process inputs
-        let inputs = try await self.processInputs(root: root, with: constraints)
+        let inputs = try await self.processInputs(root: root, with: constraints, traitRequests: traitRequests)
 
         // Prefetch the containers if prefetching is enabled.
         if self.prefetchBasedOnResolvedFile {
@@ -277,7 +271,7 @@ public struct PubGrubDependencyResolver {
             self.provider.prefetch(containers: resolvedPackageReferences)
         }
 
-        let state = State(root: root, overriddenPackages: inputs.overriddenPackages)
+        let state = State(root: root, overriddenPackages: inputs.overriddenPackages, traitRequests: traitRequests)
 
         // Decide root at v1.
         state.decide(state.root, at: "1.0.0")
@@ -291,6 +285,12 @@ public struct PubGrubDependencyResolver {
         }
 
         try await self.run(state: state)
+
+        // A package can ask an overridden package for traits it wasn't expanded with. Resolve again
+        // with every request seen so far.
+        if traitRequests.isOutgrown {
+            return try await self.solve(root: root, constraints: constraints, traitRequests: traitRequests)
+        }
 
         let decisions = state.solution.assignments.filter(\.isDecision)
         var flattenedAssignments: [PackageReference: (binding: BoundVersion, products: ProductFilter, traits: Set<String>)] = [:]
@@ -367,7 +367,8 @@ public struct PubGrubDependencyResolver {
 
     private func processInputs(
         root: DependencyResolutionNode,
-        with constraints: [Constraint]
+        with constraints: [Constraint],
+        traitRequests: TraitRequests
     ) async throws -> (
         overriddenPackages: [PackageReference: (version: BoundVersion, products: ProductFilter)],
         rootIncompatibilities: [Incompatibility]
@@ -387,6 +388,13 @@ public struct PubGrubDependencyResolver {
         // Some of these might be overridden as we discover local and branch-based references.
         var versionBasedDependencies = OrderedCollections.OrderedDictionary<DependencyResolutionNode, [VersionBasedConstraint]>()
 
+        // Expand each overridden package with every parent's request for its traits, not just the
+        // first request to reach it.
+        traitRequests.startPass()
+        for constraint in constraints {
+            traitRequests.record(constraint)
+        }
+
         // Process unversioned constraints in first phase. We go through all of the unversioned packages
         // and collect them and their dependencies. This gives us the complete list of unversioned
         // packages in the graph since unversioned packages can only be referred by other
@@ -405,6 +413,9 @@ public struct PubGrubDependencyResolver {
                 overriddenPackages[constraint.package] = (version: .unversioned, products: constraint.products)
             }
 
+            let traits = constraint.package.kind.isRoot ?
+                constraint.enabledTraits :
+                traitRequests.expansionTraits(for: constraint.package.identity)
             for node in constraint.nodes() {
                 // Process dependencies of this package.
                 //
@@ -420,9 +431,14 @@ public struct PubGrubDependencyResolver {
                     )
                 }
 
+                for request in try await container.underlying.getDependencyTraitRequests(at: .unversioned, traits) {
+                    traitRequests.record(request)
+                }
                 for dependency in try await container.underlying
-                    .getUnversionedDependencies(productFilter: node.productFilter, node.enabledTraits)
+                    .getUnversionedDependencies(productFilter: node.productFilter, traits)
                 {
+                    // Covers containers that don't implement `getDependencyTraitRequests`.
+                    traitRequests.record(dependency)
                     if let versionedBasedConstraints = VersionBasedConstraint.constraints(dependency) {
                         for constraint in versionedBasedConstraints {
                             versionBasedDependencies[node, default: []].append(constraint)
@@ -491,12 +507,20 @@ public struct PubGrubDependencyResolver {
                 overriddenPackages[package] = (version: .revision(revision), products: constraint.products)
             }
 
+            let traits = traitRequests.expansionTraits(for: package.identity)
+            for request in try await container.underlying.getDependencyTraitRequests(at: .revision(revisionForDependencies), traits) {
+                traitRequests.record(request)
+            }
             for node in constraint.nodes() {
                 var unprocessedDependencies = try await container.underlying.getDependencies(
                     at: revisionForDependencies,
                     productFilter: constraint.products,
-                    node.enabledTraits
+                    traits
                 )
+                // Covers containers that don't implement `getDependencyTraitRequests`.
+                for dependency in unprocessedDependencies {
+                    traitRequests.record(dependency)
+                }
                 if let sharedRevision = node.revisionLock(revision: revision) {
                     unprocessedDependencies.append(sharedRevision)
                 }
@@ -581,6 +605,7 @@ public struct PubGrubDependencyResolver {
                 for incompatibility in incompatibilities {
                     state.addIncompatibility(incompatibility, at: .decisionMaking)
                 }
+                try await self.requestDependencyTraits(of: repairNode, at: version, in: container, state: state)
             } else {
                 // If decision making determines that no more decisions are to be
                 // made, it returns nil to signal that version solving is done.
@@ -848,9 +873,27 @@ public struct PubGrubDependencyResolver {
         if !haveConflict {
             self.delegate?.didResolve(term: pkgTerm, version: version, duration: start.distance(to: .now()))
             state.decide(pkgTerm.node, at: version)
+            try await self.requestDependencyTraits(of: pkgTerm.node, at: version, in: container, state: state)
         }
 
         return pkgTerm.node
+    }
+
+    /// Records the traits a decided package asks of every dependency it declares, including the
+    /// overridden ones and the ones it doesn't use, none of which reach its incompatibilities.
+    private func requestDependencyTraits(
+        of node: DependencyResolutionNode,
+        at version: Version,
+        in container: PubGrubPackageContainer,
+        state: State
+    ) async throws {
+        let requests = try await container.underlying.getDependencyTraitRequests(
+            at: .version(version),
+            state.enabledTraits(for: node)
+        )
+        for request in requests {
+            state.requestTraits(request)
+        }
     }
 }
 
@@ -931,6 +974,68 @@ private extension PackageRequirement {
             false
         case .revision:
             true
+        }
+    }
+}
+
+extension PubGrubDependencyResolver {
+    /// Every parent's request for each package's traits, unified across the passes of one `solve`.
+    ///
+    /// Not thread-safe on its own: `State` reads and writes it under its lock, and `processInputs`
+    /// runs before any `State` exists.
+    final class TraitRequests {
+        private var map = EnabledTraitsMap()
+
+        /// The traits this pass expanded each overridden package with.
+        private var expanded: [PackageIdentity: EnabledTraits] = [:]
+
+        /// Records a parent's request for a package's traits, returning whether they grew.
+        func record(_ traits: EnabledTraits, for identity: PackageIdentity) -> Bool {
+            let previous = self.traits(for: identity)
+            self.map[identity] = traits
+            return !self.traits(for: identity).isSubset(of: previous)
+        }
+
+        @discardableResult
+        func record(_ request: PackageContainerConstraint) -> Bool {
+            guard !request.package.kind.isRoot else { return false }
+            return self.record(request.enabledTraits, for: request.package.identity)
+        }
+
+        /// The traits to resolve a package with, including an outstanding request for that
+        /// package's defaults.
+        ///
+        /// Reading the map directly hides that request behind any named traits, and a dependency
+        /// reachable only through a default trait is then never derived. The request stays an
+        /// unexpanded marker because expanding it needs the package's manifest.
+        func traits(for identity: PackageIdentity) -> EnabledTraits {
+            let named = self.map[identity]
+            guard !named.contains("default"),
+                  let defaultSetter = self.map[defaultSettersFor: identity]?.first
+            else {
+                return named
+            }
+
+            return named.union(EnabledTraits(["default"], setBy: defaultSetter))
+        }
+
+        /// The traits to expand an overridden package with, remembered for `isOutgrown`.
+        func expansionTraits(for identity: PackageIdentity) -> EnabledTraits {
+            let traits = self.traits(for: identity)
+            self.expanded[identity] = traits
+            return traits
+        }
+
+        /// Forgets the previous pass's expansions, keeping every request.
+        func startPass() {
+            self.expanded = [:]
+        }
+
+        /// Whether an overridden package has been asked for traits this pass didn't expand it with.
+        var isOutgrown: Bool {
+            self.expanded.contains { identity, traits in
+                self.traits(for: identity) != traits
+            }
         }
     }
 }

@@ -111,6 +111,11 @@ public struct FileSystemPackageContainer: PackageContainer {
         return manifest.traits
     }
 
+    public func getDependencyTraitRequests(at boundVersion: BoundVersion, _ enabledTraits: EnabledTraits) async throws -> [PackageContainerConstraint] {
+        assert(boundVersion == .unversioned, "Unexpected bound version \(boundVersion)")
+        return try await loadManifest().dependencyTraitRequests(enabledTraits)
+    }
+
     public func isToolsVersionCompatible(at version: Version) -> Bool {
         fatalError("This should never be called")
     }

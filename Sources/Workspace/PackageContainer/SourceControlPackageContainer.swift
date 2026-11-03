@@ -378,24 +378,26 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
     }
 
     public func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<TraitDescription> {
-        let revision: Revision
-        var version: Version?
+        try await self.loadManifest(at: boundVersion)?.traits ?? []
+    }
+
+    public func getDependencyTraitRequests(at boundVersion: BoundVersion, _ enabledTraits: EnabledTraits) async throws -> [Constraint] {
+        try await self.loadManifest(at: boundVersion)?.dependencyTraitRequests(enabledTraits) ?? []
+    }
+
+    private func loadManifest(at boundVersion: BoundVersion) async throws -> Manifest? {
         switch boundVersion {
-        case .version(let v):
-            guard let tag = try self.knownVersions()[v] else {
-                throw StringError("unknown tag \(v)")
+        case .version(let version):
+            guard let tag = try self.knownVersions()[version] else {
+                throw StringError("unknown tag \(version)")
             }
-            version = v
-            revision = try repository.resolveRevision(tag: tag)
+            return try await self.loadManifest(tag: tag, version: version)
         case .revision(let identifier, _):
-            revision = try repository.resolveRevision(identifier: identifier)
+            return try await self.loadManifest(at: repository.resolveRevision(identifier: identifier), version: nil)
         case .unversioned, .excluded:
             assertionFailure("Unexpected type requirement \(boundVersion)")
-            return []
+            return nil
         }
-
-        let manifest = try await self.loadManifest(at: revision, version: version)
-        return manifest.traits
     }
 
     /// Returns true if the tools version is valid and can be used by this
