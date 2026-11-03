@@ -14,17 +14,20 @@
 ///
 /// This function finds the deepest directory that is an ancestor of all the provided paths.
 /// If the paths have no common ancestor other than the root directory, it returns the root.
+/// If the paths have no common ancestor at all, such as paths on different Windows drives,
+/// it returns `nil`.
 /// If the array is empty, it returns the root directory.
 ///
 /// - Parameter paths: An array of absolute paths to find the common parent for
-/// - Returns: The common parent directory as an AbsolutePath
+/// - Returns: The common parent directory as an AbsolutePath, or `nil` if there is none
 ///
 /// Examples:
 /// - `["/a/b/c", "/a/b/d"]` → `"/a/b"`
 /// - `["/usr/local/bin", "/usr/local/lib"]` → `"/usr/local"`
 /// - `["/a/b", "/x/y"]` → `"/"`
+/// - `["C:\\a", "D:\\a"]` → `nil`
 /// - `[]` → `"/"`
-public func getCommonParentDirectory(paths: [AbsolutePath]) throws -> AbsolutePath {
+public func getCommonParentDirectory(paths: [AbsolutePath]) throws -> AbsolutePath? {
     guard let first = paths.first else {
         return AbsolutePath.root
     }
@@ -33,7 +36,7 @@ public func getCommonParentDirectory(paths: [AbsolutePath]) throws -> AbsolutePa
     for path in paths.dropFirst() {
         while !common.isAncestorOfOrEqual(to: path) {
             if common.isRoot {
-                return common
+                return nil
             }
             common = common.parentDirectory
         }

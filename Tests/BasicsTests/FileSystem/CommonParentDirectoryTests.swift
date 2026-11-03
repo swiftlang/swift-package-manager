@@ -107,7 +107,7 @@ struct CommonParentDirectoryTests {
         let result = try getCommonParentDirectory(paths: absolutePaths)
         let expectedPath = try AbsolutePath(validating: expected)
 
-        #expect(result == expectedPath, "Test case '\(id)': Expected common parent \(expected) but got \(result.pathString)")
+        #expect(result == expectedPath, "Test case '\(id)': Expected common parent \(expected) but got \(result?.pathString ?? "nil")")
     }
 
     @Test(
@@ -131,7 +131,7 @@ struct CommonParentDirectoryTests {
             let result = try getCommonParentDirectory(paths: absolutePaths)
             let expectedPath = try AbsolutePath(validating: expected)
 
-            #expect(result == expectedPath, "Windows test case '\(id)': Expected common parent \(expected) but got \(result.pathString)")
+            #expect(result == expectedPath, "Windows test case '\(id)': Expected common parent \(expected) but got \(result?.pathString ?? "nil")")
         } when: {
             ProcessInfo.hostOperatingSystem == .windows
         }
@@ -152,7 +152,6 @@ struct CommonParentDirectoryTests {
             (id: "drive_root_and_child", paths: [#"C:\"#, #"C:\swiftpm"#], expected: #"C:\"#),
             (id: "drive_nested_common", paths: [#"C:\a\b\c"#, #"C:\a\b\d"#], expected: #"C:\a\b"#),
             (id: "drive_single_path", paths: [#"C:\a\b"#], expected: #"C:\a\b"#),
-            (id: "different_drives", paths: [#"C:\a"#, #"D:\a"#], expected: #"C:\"#),
         ] as [(String, [String], String)]
     )
     func testGetCommonParentDirectoryWindowsDriveRoots(id: String, paths: [String], expected: String) throws {
@@ -160,7 +159,15 @@ struct CommonParentDirectoryTests {
         let result = try getCommonParentDirectory(paths: absolutePaths)
         let expectedPath = try AbsolutePath(validating: expected)
 
-        #expect(result == expectedPath, "Test case '\(id)': Expected common parent \(expected) but got \(result.pathString)")
+        #expect(result == expectedPath, "Test case '\(id)': Expected common parent \(expected) but got \(result?.pathString ?? "nil")")
+    }
+
+    @Test(.requireHostOS(.windows))
+    func testGetCommonParentDirectoryDifferentDrives() throws {
+        let absolutePaths = try [#"C:\a"#, #"D:\a"#].map { try AbsolutePath(validating: $0) }
+        let result = try getCommonParentDirectory(paths: absolutePaths)
+
+        #expect(result == nil, "Paths on different drives should have no common parent")
     }
 }
 
