@@ -658,7 +658,10 @@ extension Workspace {
 
         var allNodes = OrderedDictionary<PackageIdentity, GraphLoadingNode>()
 
-        do {
+        // A manifest loaded late in the walk can enable traits on a package already visited, so walk
+        // again until no visited package's traits change.
+        repeat {
+            allNodes = [:]
             let manifestGraphRoots = try topLevelManifests.map { identity, manifest in
                 return try KeyedPair(
                     GraphLoadingNode(
@@ -679,20 +682,25 @@ extension Workspace {
             } onDuplicate: { _, _ in
                 // Nothing we need to compute here.
             }
-        }
 
-        // Second pass: update enabled traits now that every manifest is loaded. A parent may set traits
-        // before the dependency's default traits are known, and a parent whose traits grow later in a
-        // pass conditionally enables traits on dependencies already visited, so repeat until stable.
-        let allManifests = allNodes.mapValues(\.manifest)
-        var previousTraits: OrderedDictionary<PackageIdentity, Set<String>> = [:]
-        var currentTraits = allManifests.mapValues { self.enabledTraitsMap[$0].names }
-        while currentTraits != previousTraits {
-            previousTraits = currentTraits
-            for (_, manifest) in allManifests {
-                try await updateEnabledTraits(for: manifest, observabilityScope: observabilityScope)
+            // Second pass: update enabled traits now that every manifest is loaded. A parent may set traits
+            // before the dependency's default traits are known, and a parent whose traits grow later in a
+            // pass conditionally enables traits on dependencies already visited, so repeat until stable.
+            let allManifests = allNodes.mapValues(\.manifest)
+            var previousTraits: OrderedDictionary<PackageIdentity, Set<String>> = [:]
+            var currentTraits = allManifests.mapValues { self.enabledTraitsMap[$0].names }
+            while currentTraits != previousTraits {
+                previousTraits = currentTraits
+                for (_, manifest) in allManifests {
+                    try await updateEnabledTraits(for: manifest, observabilityScope: observabilityScope)
+                }
+                currentTraits = allManifests.mapValues { self.enabledTraitsMap[$0].names }
             }
-            currentTraits = allManifests.mapValues { self.enabledTraitsMap[$0].names }
+        } while allNodes.contains { identity, node in
+            let traits = topLevelManifests.keys.contains(identity) ?
+                self.enabledTraitsMap[node.manifest] :
+                self.enabledTraitsMap[identity]
+            return traits != node.enabledTraits
         }
 
         let dependencyManifests = allNodes.filter { !$0.value.manifest.packageKind.isRoot }
