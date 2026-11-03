@@ -582,6 +582,11 @@ final class RepositoryManagerTests: XCTestCase {
 
             XCTAssertNoDiagnostics(observability.diagnostics)
 
+            // Delegate events are delivered asynchronously, so a finished lookup
+            // does not guarantee its willUpdate/didUpdate callbacks have run yet.
+            // Flush before counting, or the count below can undershoot and over-drain.
+            await manager.flushDelegateEvents()
+
             // Drain unused update slots so `wait` can balance.
             let unusedUpdateSlots = (concurrency - 1) - delegate.willUpdate.count
             for _ in 0 ..< (unusedUpdateSlots * 2) {

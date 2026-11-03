@@ -123,6 +123,13 @@ public class RepositoryManager: Cancellable {
         }
     }
 
+    /// Waits for every delegate event emitted so far to be delivered. Delegate
+    /// events are delivered asynchronously and out-of-band from `lookup`, so a
+    /// completed lookup does not guarantee its delegate callbacks have run yet.
+    package func flushDelegateEvents() async {
+        await self.delegate?.flush()
+    }
+
     public func lookup(
         package: PackageIdentity,
         repository repositorySpecifier: RepositorySpecifier,
