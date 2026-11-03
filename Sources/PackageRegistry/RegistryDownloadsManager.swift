@@ -393,7 +393,7 @@ extension Registry {
     package var storageKey: String {
         // canonicalize across similar URLs, keeping the scheme significant
         let canonical = CanonicalPackageURL(self.url.absoluteString)
-        let hash = "\(canonical.description)_\(canonical.scheme ?? "")".sha256Checksum.prefix(8)
+        let hash = "\(canonical.description)_\(canonical.scheme ?? "")".sha256Checksum.prefix(32)
         // Host is a readability label only; drop it when long to stay under path length limits.
         guard let host = self.url.host?.lowercased(), host.utf8.count <= 32 else {
             return String(hash)

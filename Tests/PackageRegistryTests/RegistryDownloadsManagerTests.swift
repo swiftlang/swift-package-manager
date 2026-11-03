@@ -312,9 +312,14 @@ final class RegistryDownloadsManagerTests: XCTestCase {
         XCTAssertNotEqual(key("http://localhost/registry"), key("https://localhost/registry"))
         XCTAssertNotEqual(key("http://localhost/registry"), key("http://localhost/other"))
 
+        XCTAssertNotEqual(
+            key("https://codeberg.org/api/packages/Cyberbeni/swift"),
+            key("https://codeberg.org/api/packages/1793456998_3860779591/swift")
+        )
+
         // a host too long to label with stays under the path length limits
         let longHost = String(repeating: "a", count: 250)
-        XCTAssertEqual(key("http://\(longHost)").utf8.count, 8)
+        XCTAssertEqual(key("http://\(longHost)").utf8.count, 32)
     }
 
     func testConcurrency() async throws {
