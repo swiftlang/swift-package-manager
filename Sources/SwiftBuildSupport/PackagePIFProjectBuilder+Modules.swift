@@ -1252,5 +1252,20 @@ extension PackagePIFProjectBuilder {
 
             return phase
         }
+
+        let prebuiltPIFTarget = PackagePIFBuilder.ModuleOrProduct(
+            type: .module,
+            name: resolvedPrebuilt.name,
+            moduleName: nil,
+            pifTarget: .aggregate(self.project[keyPath: prebuiltTargetKeyPath]),
+            indexableFileURLs: [],
+            headerFiles: [],
+            linkedPackageBinaries: [],
+            swiftLanguageVersion: nil,
+            declaredPlatforms: self.declaredPlatforms,
+            deploymentTargets: self.deploymentTargets,
+            toolsVersion: pifBuilder.packageManifest.toolsVersion
+        )
+        self.builtModulesAndProducts.append(prebuiltPIFTarget)
     }
 }

@@ -164,7 +164,7 @@ import _InternalTestSupport
                     }).first)
                     #expect(try conditions.contains(where: {
                         let prebuiltsCondition = try #require($0.prebuiltsCondition)
-                        return prebuiltsCondition.whenSupported
+                        return prebuiltsCondition.whenHost
                     }))
                 }
 
@@ -177,7 +177,7 @@ import _InternalTestSupport
                     }).first)
                     #expect(try conditions.contains(where: {
                         let prebuiltsCondition = try #require($0.prebuiltsCondition)
-                        return prebuiltsCondition.whenNotSupported
+                        return !prebuiltsCondition.whenHost
                     }))
                 }
             } else {

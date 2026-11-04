@@ -289,14 +289,12 @@ import _InternalTestSupport
             buildParameters: mockBuildParameters(
                 destination: .target,
                 buildSystemKind: .swiftbuild,
-                triple: .x86_64Windows,
-                isHostPlatform: true
+                triple: .x86_64Windows
             ),
             hostBuildParameters: mockBuildParameters(
                 destination: .host,
                 buildSystemKind: .swiftbuild,
-                triple: .arm64Windows,
-                isHostPlatform: true
+                triple: .arm64Windows
             )
         )
         #expect(!observability.hasErrorDiagnostics)

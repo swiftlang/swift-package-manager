@@ -932,9 +932,10 @@ extension PackageGraph.ResolvedProduct {
 
     /// Is this a *system library* product?
     var isSystemLibraryProduct: Bool {
-        if self.modules.only?.type == .systemModule {
+        switch self.modules.only?.type {
+        case .systemModule, .prebuilt:
             true
-        } else {
+        default:
             false
         }
     }

@@ -1056,7 +1056,7 @@ extension PackagePIFProjectBuilder {
         }
 
         self.project[keyPath: systemLibraryTargetKeyPath].common.addDependency(
-            on: product.systemModule!.pifTargetGUID,
+            on: product.modules.only!.pifTargetGUID,
             platformFilters: [],
             linkProduct: false
         )

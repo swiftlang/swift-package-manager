@@ -97,9 +97,6 @@ public struct BuildParameters: Encodable {
     /// Whether to strip debug symbols from the final binary
     public var stripProducts: Bool?
 
-    /// Whether this is an environment for the host platform.
-    public var isHostPlatform: Bool?
-
     /// The current build environment.
     public var buildEnvironment: BuildEnvironment {
         return BuildEnvironment(platform: currentPlatform, configuration: configuration)
@@ -182,7 +179,6 @@ public struct BuildParameters: Encodable {
         configuration: BuildConfiguration,
         toolchain: Toolchain,
         triple: Triple? = nil,
-        isHostPlatform: Bool? = nil,
         sdkRootOverride: Basics.AbsolutePath? = nil,
         flags: BuildFlags,
         buildSystemKind: BuildSystemProvider.Kind,
@@ -224,7 +220,6 @@ public struct BuildParameters: Encodable {
         self.configuration = configuration
         self._toolchain = _Toolchain(toolchain: toolchain)
         self.triple = triple
-        self.isHostPlatform = isHostPlatform
         self.sdkRootOverride = sdkRootOverride
         self.buildSystemKind = buildSystemKind
         switch self.debuggingParameters.debugInfoFormat {
