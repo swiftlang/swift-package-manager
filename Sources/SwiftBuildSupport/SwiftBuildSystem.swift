@@ -977,6 +977,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
         if let symbolGraphOptions {
             settings["RUN_SYMBOL_GRAPH_EXTRACT"] = "YES"
+            settings["DOCC_EXTRACT_ONLY_SWIFT_INFO_FOR_OBJC_SYMBOLS"] = "YES"
 
             if symbolGraphOptions.prettyPrint {
                 settings["DOCC_PRETTY_PRINT"] = "YES"
