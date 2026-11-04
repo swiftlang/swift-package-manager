@@ -35,7 +35,7 @@ extension PackageRegistryCommand {
         @Argument(help: "Search query (free text and/or qualifiers like author:\"Mona\", scope:apple).")
         var query: [String] = []
 
-        @Option(help: "Maximum results to return (1-100).")
+        @Option(help: "Maximum results to request; the registry may return fewer.")
         var limit: Int = 20
 
         @Option(help: "Number of results to skip.")
@@ -46,6 +46,15 @@ extension PackageRegistryCommand {
 
         @Flag(help: "Output results as JSON.")
         var json: Bool = false
+
+        func validate() throws {
+            guard self.limit >= 1 else {
+                throw ArgumentParser.ValidationError("--limit must be at least 1")
+            }
+            guard self.offset >= 0 else {
+                throw ArgumentParser.ValidationError("--offset must not be negative")
+            }
+        }
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             let configuration = try PackageRegistryCommand.getRegistriesConfig(
