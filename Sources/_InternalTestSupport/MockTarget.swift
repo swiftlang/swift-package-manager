@@ -28,6 +28,7 @@ public struct MockTarget {
     public let type: Type
     public let pluginUsages: [TargetDescription.PluginUsage]?
     public let pluginCapability: TargetDescription.PluginCapability?
+    public let visibility: TargetDescription.TargetVisibility
 
     public init(
         name: String,
@@ -39,7 +40,8 @@ public struct MockTarget {
         packageAccess: Bool = true,
         settings: [TargetBuildSettingDescription.Setting] = [],
         checksum: String? = nil,
-        pluginUsages: [TargetDescription.PluginUsage]? = nil
+        pluginUsages: [TargetDescription.PluginUsage]? = nil,
+        visibility: TargetDescription.TargetVisibility = .package
     ) throws {
         self.name = name
         self.dependencies = dependencies
@@ -51,6 +53,7 @@ public struct MockTarget {
         self.settings = settings
         self.checksum = checksum
         self.pluginUsages = pluginUsages
+        self.visibility = visibility
     }
 
     func convert(identityResolver: IdentityResolver) throws -> TargetDescription {
@@ -66,7 +69,8 @@ public struct MockTarget {
                 type: .regular,
                 packageAccess: packageAccess,
                 settings: self.settings,
-                pluginUsages: self.pluginUsages
+                pluginUsages: self.pluginUsages,
+                visibility: self.visibility
             )
         case .test:
             return try TargetDescription(
@@ -79,7 +83,8 @@ public struct MockTarget {
                 type: .test,
                 packageAccess: packageAccess,
                 settings: self.settings,
-                pluginUsages: self.pluginUsages
+                pluginUsages: self.pluginUsages,
+                visibility: self.visibility
             )
         case .binary:
             return try TargetDescription(
@@ -93,7 +98,8 @@ public struct MockTarget {
                 type: .binary,
                 packageAccess: packageAccess,
                 settings: [],
-                checksum: self.checksum
+                checksum: self.checksum,
+                visibility: self.visibility
             )
         case .macro:
             return try TargetDescription(
@@ -106,7 +112,8 @@ public struct MockTarget {
                 type: .macro,
                 packageAccess: packageAccess,
                 settings: self.settings,
-                pluginUsages: self.pluginUsages
+                pluginUsages: self.pluginUsages,
+                visibility: self.visibility
             )
         case .executable:
             return try TargetDescription(
@@ -119,7 +126,8 @@ public struct MockTarget {
                 type: .executable,
                 packageAccess: packageAccess,
                 settings: self.settings,
-                pluginUsages: self.pluginUsages
+                pluginUsages: self.pluginUsages,
+                visibility: self.visibility
             )
         case .plugin:
             return try TargetDescription(
@@ -133,6 +141,7 @@ public struct MockTarget {
                 packageAccess: packageAccess,
                 pluginCapability: pluginCapability,
                 settings: self.settings,
+                visibility: self.visibility
             )
         }
     }

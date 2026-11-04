@@ -684,7 +684,7 @@ struct PluginTests {
 
             // Find the regular target in our test package.
             let libraryTarget = try #require(package.modules.map(\.underlying).first{ $0.name == "MyLibrary" } as? SwiftModule)
-            #expect(libraryTarget.type == .library)
+            #expect(libraryTarget.type == .library(libraryType: .object))
 
             // Set up a delegate to handle callbacks from the command plugin.
             let delegateQueue = DispatchQueue(label: "plugin-invocation")
@@ -875,6 +875,54 @@ struct PluginTests {
     }
 
     @Test(
+        .tags(
+            .Feature.Command.Package.Plugin,
+        )
+    )
+    func testPluginAPIsForTargetVisibilityAndLibraryTargets() async throws {
+        try await fixture(name: "Miscellaneous/Plugins/TargetVisibilityPluginAPIs") { fixturePath in
+            let (stdout, _) = try await executeSwiftPackage(
+                fixturePath,
+                extraArgs: ["dump-targets"],
+                buildSystem: .swiftbuild,
+            )
+
+            #expect(stdout.contains("Plain.visibility = package"), "stdout:\n\(stdout)")
+            #expect(stdout.contains("Plain.kind = generic"), "stdout:\n\(stdout)")
+            #expect(stdout.contains("DynamicLib.visibility = public"), "stdout:\n\(stdout)")
+            #expect(stdout.contains("DynamicLib.kind = library"), "stdout:\n\(stdout)")
+            #expect(stdout.contains("Aggregate.visibility = public"), "stdout:\n\(stdout)")
+            #expect(stdout.contains("Aggregate.kind = none"), "stdout:\n\(stdout)")
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.Command.Package.Plugin,
+        )
+    )
+    func testCommandPluginTargetsWithPublicVisibilityInDependencies() async throws {
+        try await fixture(name: "Miscellaneous/Plugins/PublicPluginTargets") { fixturePath in
+            let rootPath = fixturePath.appending("Root")
+
+            let (listStdout, _) = try await executeSwiftPackage(
+                rootPath,
+                extraArgs: ["plugin", "--list"],
+                buildSystem: .swiftbuild,
+            )
+            #expect(listStdout.contains("‘public-cmd’"), "stdout:\n\(listStdout)")
+            #expect(!listStdout.contains("‘package-cmd’"), "stdout:\n\(listStdout)")
+
+            let (runStdout, _) = try await executeSwiftPackage(
+                rootPath,
+                extraArgs: ["public-cmd"],
+                buildSystem: .swiftbuild,
+            )
+            #expect(runStdout.contains("This is PublicCmd."), "stdout:\n\(runStdout)")
+        }
+    }
+
+    @Test(
         .requiresSwiftConcurrencySupport,
     )
     func testPluginUsageDoesntAffectTestTargetMappings() async throws {
@@ -1011,7 +1059,7 @@ struct PluginTests {
                     .map(\.underlying)
                     .first{ $0.name == "MyLibrary" } as? SwiftModule
             )
-            #expect(libraryTarget.type == .library)
+            #expect(libraryTarget.type == .library(libraryType: .object))
 
             // Set up a delegate to handle callbacks from the command plugin.  In particular we want to know the process identifier.
             let delegateQueue = DispatchQueue(label: "plugin-invocation")

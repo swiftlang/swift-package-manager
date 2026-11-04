@@ -20,15 +20,54 @@ public class Module {
     /// Description of the module type used in `swift package describe` output. Preserved for backwards compatibility.
     public class var typeDescription: String { fatalError("implement in a subclass") }
     /// The module kind.
-    public enum Kind: String, CaseIterable {
+    public enum Kind: Hashable {
+        public enum LibraryType: String, Hashable, Sendable {
+            case object
+            case `static`
+            case dynamic
+            case automatic
+
+            public init(_ libraryType: ProductType.LibraryType) {
+                switch libraryType {
+                case .static: self = .static
+                case .dynamic: self = .dynamic
+                case .automatic: self = .automatic
+                }
+            }
+        }
+
         case executable
-        case library
-        case systemModule = "system-target"
+        case library(libraryType: LibraryType)
+        case libraryAggregate(libraryType: ProductType.LibraryType)
+        case systemModule
         case test
         case binary
         case plugin
         case snippet
         case `macro`
+
+        public var rawValue: String {
+            switch self {
+            case .executable: "executable"
+            case .library(.object): "library"
+            case .library(let libraryType): "\(libraryType.rawValue)-library"
+            case .systemModule: "system-target"
+            case .test: "test"
+            case .binary: "binary"
+            case .plugin: "plugin"
+            case .snippet: "snippet"
+            case .macro: "macro"
+            case .libraryAggregate(let libraryType): "\(libraryType.rawValue)-library-aggregate"
+            }
+        }
+
+        public var isLibrary: Bool {
+            if case .library = self { true } else { false }
+        }
+
+        public var isLibraryAggregate: Bool {
+            if case .libraryAggregate = self { true } else { false }
+        }
     }
 
     /// A reference to a product from a module dependency.
@@ -64,6 +103,26 @@ public class Module {
         }
     }
 
+    /// A reference to a module with `.public` visibility in another package.
+    public struct ModuleReference {
+        /// The name of the module.
+        public let name: String
+
+        /// The name of the package containing the module.
+        public let package: String
+
+        /// Module aliases for this module dependency. The key is an original
+        /// module name and the value is a new unique name that also becomes
+        /// the name of its .swiftmodule.
+        public let moduleAliases: [String: String]?
+
+        public init(name: String, package: String, moduleAliases: [String: String]? = nil) {
+            self.name = name
+            self.package = package
+            self.moduleAliases = moduleAliases
+        }
+    }
+
     /// A module dependency to a module or product.
     public enum Dependency {
         /// A dependency referencing another target, with conditions.
@@ -72,6 +131,8 @@ public class Module {
         /// A dependency referencing a product, with conditions.
         case product(_ product: ProductReference, conditions: [PackageCondition])
 
+        /// A dependency referencing a target with `.public` visibility in another package, with conditions.
+        case externalModule(_ module: ModuleReference, conditions: [PackageCondition])
 
         @available(*, deprecated, renamed: "module")
         public var target: Module? { self.module }
@@ -94,12 +155,23 @@ public class Module {
             }
         }
 
+        /// The module reference if the dependency is on a target in another package.
+        public var externalModule: ModuleReference? {
+            if case .externalModule(let module, _) = self {
+                return module
+            } else {
+                return nil
+            }
+        }
+
         /// The dependency conditions.
         public var conditions: [PackageCondition] {
             switch self {
             case .module(_, let conditions):
                 return conditions
             case .product(_, let conditions):
+                return conditions
+            case .externalModule(_, let conditions):
                 return conditions
             }
         }
@@ -111,6 +183,8 @@ public class Module {
                 return target.name
             case .product(let product, _):
                 return product.name
+            case .externalModule(let module, _):
+                return module.name
             }
         }
     }
@@ -126,6 +200,9 @@ public class Module {
     /// NOTE: This name is not the language-level module (i.e., the importable
     /// name) name in many cases, instead use ``Target/c99name`` if you need uniqueness.
     public private(set) var name: String
+
+    /// The name of the module as declared in its manifest, before any module alias renamed it.
+    public let declaredName: String
 
     /// Module aliases needed to build this module. The key is an original name of a
     /// dependent module and the value is a new unique name mapped to the name
@@ -189,6 +266,9 @@ public class Module {
     /// If true, access to package declarations from other modules is allowed.
     public let packageAccess: Bool
 
+    /// Which packages are allowed to depend on this module.
+    public let visibility: TargetDescription.TargetVisibility
+
     /// The path of the module.
     public let path: AbsolutePath
 
@@ -235,9 +315,11 @@ public class Module {
         buildSettingsDescription: [TargetBuildSettingDescription.Setting],
         pluginUsages: [PluginUsage],
         usesUnsafeFlags: Bool,
-        implicit: Bool
+        implicit: Bool,
+        visibility: TargetDescription.TargetVisibility = .package
     ) {
         self.name = name
+        self.declaredName = name
         self.potentialBundleName = potentialBundleName
         self.type = type
         self.path = path
@@ -253,6 +335,7 @@ public class Module {
         self.pluginUsages = pluginUsages
         self.usesUnsafeFlags = usesUnsafeFlags
         self.implicit = implicit
+        self.visibility = visibility
     }
 }
 

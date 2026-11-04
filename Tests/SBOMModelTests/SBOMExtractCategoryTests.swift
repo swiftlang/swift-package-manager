@@ -43,7 +43,7 @@ struct SBOMExtractCategoryTests {
         ),
         ProductCategoryTestCase(
             productType: .library(.automatic),
-            moduleType: .library,
+            moduleType: .library(libraryType: .object),
             expectedCategory: .library,
             description: "library"
         ),
@@ -55,19 +55,19 @@ struct SBOMExtractCategoryTests {
         ),
         ProductCategoryTestCase(
             productType: .snippet,
-            moduleType: .library,
+            moduleType: .library(libraryType: .object),
             expectedCategory: .library,
             description: "snippet"
         ),
         ProductCategoryTestCase(
             productType: .plugin,
-            moduleType: .library,
+            moduleType: .library(libraryType: .object),
             expectedCategory: .library,
             description: "plugin"
         ),
         ProductCategoryTestCase(
             productType: .macro,
-            moduleType: .library,
+            moduleType: .library(libraryType: .object),
             expectedCategory: .library,
             description: "macro"
         ),
@@ -147,7 +147,7 @@ struct SBOMExtractCategoryTests {
             let product = try SBOMTestModulesGraph.createProduct(
                 name: "Product\(index)",
                 type: productType,
-                moduleType: moduleType ?? .library
+                moduleType: moduleType ?? .library(libraryType: .object)
             )
             products.append(product)
         }

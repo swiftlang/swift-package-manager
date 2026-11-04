@@ -225,6 +225,20 @@ public protocol Target {
     ///
     /// Conditional dependencies that do not apply are filtered out.
     var dependencies: [TargetDependency] { get }
+
+    /// Whether this target is visible to other packages.
+    @available(_PackageDescription, introduced: 999.0)
+    var visibility: TargetVisibility { get }
+}
+
+/// Determines whether a target is visible to other packages.
+@available(_PackageDescription, introduced: 999.0)
+public enum TargetVisibility {
+    /// A target in the same package or in a dependent package may depend on the target.
+    case `public`
+
+    /// Only a target in the same package may depend on the target.
+    case `package`
 }
 
 /// A dependency of a target on a product or on another target.
@@ -311,6 +325,9 @@ public enum ModuleKind {
     /// A module that contains code for a macro.
     @available(_PackageDescription, introduced: 5.9)
     case macro // FIXME: This should really come from `CompilerPluginSupport` somehow, but we lack the infrastructure to allow that currently.
+    /// A module representing a linked library.
+    @available(_PackageDescription, introduced: 999.0)
+    case library
 }
 
 /// A target consisting of a source code module compiled using Swift.
@@ -374,6 +391,10 @@ public struct SwiftSourceModuleTarget: SourceModuleTarget {
     /// to the given target before the plugin being executed.
     @available(_PackageDescription, introduced: 6.0)
     public let pluginGeneratedResources: [URL]
+
+    /// This target's visibility.
+    @available(_PackageDescription, introduced: 999.0)
+    public let visibility: TargetVisibility
 
     @available(_PackageDescription, introduced: 6.5)
     public var swiftCompilationConditions: [String] { self.compilationConditions }
@@ -466,6 +487,10 @@ public struct ClangSourceModuleTarget: SourceModuleTarget {
     @available(_PackageDescription, introduced: 6.0)
     public let pluginGeneratedResources: [URL]
 
+    /// This target's visibility.
+    @available(_PackageDescription, introduced: 999.0)
+    public let visibility: TargetVisibility
+
     @available(_PackageDescription, introduced: 6.5)
     public var swiftCompilationConditions: [String] { [] }
 
@@ -492,6 +517,24 @@ internal struct ConcreteSourceModuleTarget: SourceModuleTarget {
     let linkedFrameworks: [String]
     let pluginGeneratedSources: [URL]
     let pluginGeneratedResources: [URL]
+    let visibility: TargetVisibility
+}
+
+/// Used to represent a libraryTarget with no sources. This type is not intended to be public API.
+internal struct ConcreteLibraryTarget: Target {
+    let id: ID
+    let name: String
+    let directory: Path
+    let directoryURL: URL
+    let dependencies: [TargetDependency]
+    let kind: LibraryKind
+    let visibility: TargetVisibility
+
+    enum LibraryKind {
+        case `static`
+        case dynamic
+        case automatic
+    }
 }
 
 /// A target describing an artifact that is distributed as a binary.
@@ -533,6 +576,10 @@ public struct BinaryArtifactTarget: Target {
     /// The file URL of the location of the binary artifact in the local file system.
     @available(_PackageDescription, introduced: 6.0)
     public let artifactURL: URL
+
+    /// This target's visibility.
+    @available(_PackageDescription, introduced: 999.0)
+    public let visibility: TargetVisibility
 
     /// A kind of binary artifact.
     public enum Kind {
@@ -587,6 +634,10 @@ public struct SystemLibraryTarget: Target {
 
     /// Flags from `pkg-config` to pass to the platform linker.
     public let linkerFlags: [String]
+
+    /// This target's visibility.
+    @available(_PackageDescription, introduced: 999.0)
+    public let visibility: TargetVisibility
 }
 
 /// Provides information about a list of files.

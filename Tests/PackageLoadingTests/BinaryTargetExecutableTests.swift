@@ -196,7 +196,7 @@ struct BinaryTargetExecutableTests {
             }
 
             try package.checkModule("RegularTarget") { module in
-                module.check(type: .library)
+                module.check(type: .library(libraryType: .object))
                 module.check(targetDependencies: ["BinaryTarget"])
             }
 
@@ -242,7 +242,7 @@ struct BinaryTargetExecutableTests {
             diagnostics.checkIsEmpty()
 
             try package.checkModule("LibraryTarget") { module in
-                module.check(type: .library)
+                module.check(type: .library(libraryType: .object))
             }
 
             try package.checkModule("BinaryTarget") { module in

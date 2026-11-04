@@ -131,7 +131,7 @@ enum SBOMTestModulesGraph {
         name: String,
         dependencies: [Module.Dependency] = [],
         packageAccess: Bool = false,
-        type: Module.Kind = .library
+        type: Module.Kind = .library(libraryType: .object)
     ) -> SwiftModule {
         let path = AbsolutePath("/\(name)")
         let sources = Sources(paths: [], root: path)
@@ -223,7 +223,7 @@ enum SBOMTestModulesGraph {
     static func createProduct(
         name: String,
         type: ProductType,
-        moduleType: Module.Kind = .library
+        moduleType: Module.Kind = .library(libraryType: .object)
     ) throws -> ResolvedProduct {
         let packageName = PackageIdentity.plain("Package\(name)")
         let module = self.createSwiftModule(
