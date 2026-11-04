@@ -1,0 +1,3 @@
+Name: DiamondRight
+Cflags: -I/path/to/right/include
+Requires: DiamondBase
