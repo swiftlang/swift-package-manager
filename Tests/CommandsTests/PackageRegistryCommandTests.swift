@@ -1672,6 +1672,27 @@ struct PackageRegistryCommandTests {
         #expect(stdout.contains("--json"))
     }
 
+    @Test(arguments: [
+        (["--limit", "0"], "--limit must be at least 1"),
+        // `--offset -1` fails at parsing because `-1` looks like a flag; `=` reaches validation.
+        (["--offset=-1"], "--offset must not be negative"),
+    ])
+    func searchRejectsOutOfRangePaging(_ arguments: [String], expectedMessage: String) async throws {
+        let error = await #expect(throws: SwiftPMError.self) {
+            try await SwiftPM.Registry.execute(["search", "networking"] + arguments)
+        }
+        guard case .executionFailure(_, _, let stderr) = error else {
+            Issue.record("unexpected error: \(String(describing: error))")
+            return
+        }
+        #expect(stderr.contains(expectedMessage), "got: \(stderr)")
+    }
+
+    @Test func searchLeavesUpperLimitToTheRegistry() throws {
+        let search = try PackageRegistryCommand.Search.parse(["networking", "--limit", "500"])
+        #expect(search.limit == 500)
+    }
+
     @Test func interleavingRoundRobinsAcrossRegistries() {
         let registryA = Registry(url: URL("https://a.example.com"), supportsAvailability: true)
         let registryB = Registry(url: URL("https://b.example.com"), supportsAvailability: true)
