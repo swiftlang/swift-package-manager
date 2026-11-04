@@ -400,29 +400,23 @@ private struct MockRegistryArchiver: Archiver {
 
     func extract(
         from archivePath: AbsolutePath,
-        to destinationPath: AbsolutePath,
-        completion: @escaping (Result<Void, Error>) -> Void
-    ) {
-        do {
-            let lines = try self.readFileContents(archivePath)
-            guard lines.count >= 2 else {
-                throw StringError("invalid mock zip format, not enough lines")
+        to destinationPath: AbsolutePath
+    ) async throws {
+        let lines = try self.readFileContents(archivePath)
+        guard lines.count >= 2 else {
+            throw StringError("invalid mock zip format, not enough lines")
+        }
+        let rootPath = lines[1]
+        for path in lines[2 ..< lines.count] {
+            let relativePath = String(path.dropFirst(rootPath.count + 1))
+            let targetPath = try AbsolutePath(
+                validating: relativePath,
+                relativeTo: destinationPath.appending("package")
+            )
+            if !self.fileSystem.exists(targetPath.parentDirectory) {
+                try self.fileSystem.createDirectory(targetPath.parentDirectory, recursive: true)
             }
-            let rootPath = lines[1]
-            for path in lines[2 ..< lines.count] {
-                let relativePath = String(path.dropFirst(rootPath.count + 1))
-                let targetPath = try AbsolutePath(
-                    validating: relativePath,
-                    relativeTo: destinationPath.appending("package")
-                )
-                if !self.fileSystem.exists(targetPath.parentDirectory) {
-                    try self.fileSystem.createDirectory(targetPath.parentDirectory, recursive: true)
-                }
-                try self.fileSystem.copy(from: try AbsolutePath(validating: path), to: targetPath)
-            }
-            completion(.success(()))
-        } catch {
-            completion(.failure(error))
+            try self.fileSystem.copy(from: try AbsolutePath(validating: path), to: targetPath)
         }
     }
 
@@ -437,13 +431,9 @@ private struct MockRegistryArchiver: Archiver {
         fatalError("not implemented")
     }
 
-    func validate(path: AbsolutePath, completion: @escaping (Result<Bool, Error>) -> Void) {
-        do {
-            let lines = try self.readFileContents(path)
-            completion(.success(lines.count >= 2))
-        } catch {
-            completion(.failure(error))
-        }
+    func validate(path: AbsolutePath) async throws -> Bool {
+        let lines = try self.readFileContents(path)
+        return lines.count >= 2
     }
 
     private func readFileContents(_ path: AbsolutePath) throws -> [String] {

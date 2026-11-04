@@ -27,7 +27,7 @@ public final class Cancellator: Cancellable, Sendable {
 
     private let observabilityScope: ObservabilityScope?
     private let registry = ThreadSafeKeyValueStore<String, (name: String, handler: CancellationHandler)>()
-    private let cancelling = ThreadSafeBox<Bool>(false)
+    internal let cancelling = ThreadSafeBox<Bool>(false) // internal for testing
 
     /// Whether the signal handlers have been installed. Guards installation so it happens at most once.
     private static let isSignalHandlerInstalled = Mutex<Bool>(false)
@@ -138,6 +138,51 @@ public final class Cancellator: Cancellable, Sendable {
     public func deregister(_ key: RegistrationKey) {
         self.registry[key] = nil
     }
+
+    /// Runs `block` as a cancellable task, hooking it into the Cancellator so that
+    /// an OS-level cancellation signal (e.g. SIGINT) causes the task — and any
+    /// Subprocess running inside it — to be cancelled cooperatively.
+    ///
+    /// - The Cancellator's handler waits for the task to finish after cancelling it, so that SwiftPM doesn't exit
+    ///   (and re-raise the signal) before Subprocess has torn the child down.
+    /// - Cancelling the calling task also cancels `block`.
+    /// - If the work was cancelled, throws `CancellationError` instead of returning the result of a terminated process.
+    ///
+    /// A single `ThreadSafeBox` holding the task controls and the cancellation flag ensures that
+    /// "store task + check cancelled" and "set cancelled + cancel task" are each atomic, closing the race between
+    /// registration and task creation.
+    public func withCancellable<T: Sendable>(
+        name: String,
+        _ block: @escaping @Sendable () async throws -> T
+    ) async throws -> T {
+        let state = ThreadSafeBox<CancellationState>(CancellationState())
+        guard let registrationKey = self.register(name: name, handler: { _ in
+            state.mutate { s in
+                s.cancelled = true
+                s.cancelTask?()
+            }
+            await state.get().awaitTask?()
+        }) else {
+            throw CancellationError()
+        }
+        defer { self.deregister(registrationKey) }
+        let task = Task { try await block() }
+        state.mutate { s in
+            s.cancelTask = { task.cancel() }
+            s.awaitTask = { _ = await task.result }
+            if s.cancelled { task.cancel() }
+        }
+        let value = try await withTaskCancellationHandler {
+            try await task.value
+        } onCancel: {
+            task.cancel()
+        }
+        if state.get().cancelled || Task.isCancelled {
+            throw CancellationError()
+        }
+        return value
+    }
+
 
     public func cancel(deadline: DispatchTime) throws {
         self._cancel(deadline: deadline)
@@ -276,3 +321,13 @@ extension Foundation.Process {
     }
 }
 #endif
+
+/// The state shared between `Cancellator.withCancellable`'s cancellation handler and the task it runs.
+///
+/// This is deliberately not generic. The task is held as type-erased closures so that the `ThreadSafeBox`
+/// isn't instantiated over a type containing `Task<T, any Error>` for a generic `T`.
+private struct CancellationState: Sendable {
+    var cancelled = false
+    var cancelTask: (@Sendable () -> Void)?
+    var awaitTask: (@Sendable () async -> Void)?
+}

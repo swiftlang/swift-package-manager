@@ -12,11 +12,24 @@
 
 import Basics
 import Foundation
-
-import class Basics.AsyncProcess
-import struct Basics.AsyncProcessResult
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 import enum TSCBasic.ProcessEnv
+
+package struct NonZeroExitError: Error, CustomStringConvertible {
+    package let terminationStatus: TerminationStatus
+    /// The command that exited with a non-zero status: the SwiftPM executable and its arguments.
+    package let command: [String]
+
+    package var description: String {
+        "'\(self.command.joined(separator: " "))' exited with \(self.terminationStatus)"
+    }
+}
 
 // Fan out from invocation of SPM 'swift-*' commands can be quite large.  Limit the number of concurrent tasks to a fraction of total CPUs.
 private let swiftPMExecutionQueue = AsyncOperationQueue(concurrentTasks: Int(Double(ProcessInfo.processInfo.activeProcessorCount) * 0.5))
@@ -82,7 +95,7 @@ extension SwiftPM {
     public func execute(
         _ args: [String] = [],
         packagePath: AbsolutePath? = nil,
-        env: Environment? = nil,
+        env: Basics.Environment? = nil,
         throwIfCommandFails: Bool = true,
         commandPrefix: [String] = [],
     ) async throws -> (stdout: String, stderr: String) {
@@ -100,30 +113,29 @@ extension SwiftPM {
                 commandPrefix: commandPrefix,
             )
             // Remove /r from stdout/stderr so that tests do not have to deal with them
-            let stdout = try String(decoding: result.output.get().filter { $0 != 13 }, as: Unicode.UTF8.self)
-            let stderr = try String(decoding: result.stderrOutput.get().filter { $0 != 13 }, as: Unicode.UTF8.self)
+            let stdout = String(decoding: result.stdout.filter { $0 != 13 }, as: Unicode.UTF8.self)
+            let stderr = String(decoding: result.stderr.filter { $0 != 13 }, as: Unicode.UTF8.self)
 
             let returnValue = (stdout: stdout, stderr: stderr)
             if !throwIfCommandFails { return returnValue }
 
-            if result.exitStatus == .terminated(code: 0) {
+            if result.terminationStatus.isSuccess {
                 return returnValue
             }
             throw SwiftPMError.executionFailure(
-                underlying: AsyncProcessResult.Error.nonZeroExit(result),
+                underlying: NonZeroExitError(
+                    terminationStatus: result.terminationStatus,
+                    command: [self.executableName] + args
+                ),
                 stdout: stdout,
                 stderr: stderr
             )
         }
     }
 
-    private func executeProcess(
-        _ args: [String],
-        packagePath: AbsolutePath? = nil,
-        env: Environment? = nil,
-        commandPrefix: [String],
-    ) async throws -> AsyncProcessResult {
-        var environment = Environment.current
+    /// The environment SwiftPM tool invocations run in.
+    private func makeEnvironment(overriding env: Basics.Environment?) -> Basics.Environment {
+        var environment = Basics.Environment.current
 #if !os(Windows)
         environment["SDKROOT"] = nil
 #endif
@@ -145,14 +157,74 @@ extension SwiftPM {
         for (key, value) in env ?? [:] {
             environment[key] = value
         }
+        return environment
+    }
 
+    private func makeCommandLine(_ args: [String], packagePath: AbsolutePath?, commandPrefix: [String]) -> [String] {
         var completeArgs = commandPrefix + [Self.xctestBinaryPath(for: RelativePath(self.executableName)).pathString]
         if let packagePath = packagePath {
             completeArgs += ["--package-path", packagePath.pathString]
         }
         completeArgs += args
+        return completeArgs
+    }
 
-        return try await AsyncProcess.popen(arguments: completeArgs, environment: environment)
+    /// Starts the command and returns without waiting for it to finish, for tests that need to signal it while it runs.
+    ///
+    /// The command's standard output and standard error are written to the given files. Standard input is closed.
+    public func launch(
+        _ args: [String] = [],
+        packagePath: AbsolutePath? = nil,
+        env: Basics.Environment? = nil,
+        standardOutputFile: AbsolutePath,
+        standardErrorFile: AbsolutePath
+    ) throws -> Foundation.Process {
+        let completeArgs = makeCommandLine(args, packagePath: packagePath, commandPrefix: [])
+        let process = Foundation.Process()
+        process.executableURL = URL(fileURLWithPath: completeArgs[0])
+        process.arguments = Array(completeArgs.dropFirst())
+        process.environment = Dictionary(
+            uniqueKeysWithValues: self.makeEnvironment(overriding: env).removingKeysInvalidForSubprocess.map {
+                ($0.key.rawValue, $0.value)
+            }
+        )
+        process.standardInput = FileHandle.nullDevice
+        for (path, setter) in [
+            (standardOutputFile, { (handle: FileHandle) in process.standardOutput = handle }),
+            (standardErrorFile, { (handle: FileHandle) in process.standardError = handle }),
+        ] {
+            FileManager.default.createFile(atPath: path.pathString, contents: nil)
+            setter(try FileHandle(forWritingTo: URL(fileURLWithPath: path.pathString)))
+        }
+        try process.run()
+        return process
+    }
+
+    private func executeProcess(
+        _ args: [String],
+        packagePath: AbsolutePath? = nil,
+        env: Basics.Environment? = nil,
+        commandPrefix: [String],
+    ) async throws -> (stdout: [UInt8], stderr: [UInt8], terminationStatus: TerminationStatus) {
+        let environment = self.makeEnvironment(overriding: env)
+        let completeArgs = self.makeCommandLine(args, packagePath: packagePath, commandPrefix: commandPrefix)
+
+        let result = try await Subprocess.run(
+            .path(FilePath(completeArgs[0])),
+            arguments: Subprocess.Arguments(Array(completeArgs.dropFirst())),
+            environment: Subprocess.Environment.custom(
+                Dictionary(uniqueKeysWithValues: environment.removingKeysInvalidForSubprocess.map {
+                    (Subprocess.Environment.Key(rawValue: $0.key.rawValue)!, $0.value)
+                })
+            ),
+            output: .bytes(limit: .max),
+            error: .bytes(limit: .max)
+        )
+        return (
+            stdout: result.standardOutput,
+            stderr: result.standardError,
+            terminationStatus: result.terminationStatus
+        )
     }
 }
 

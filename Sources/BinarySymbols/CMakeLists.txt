@@ -12,7 +12,9 @@ add_library(BinarySymbols STATIC
   ReferencedSymbols.swift
   SymbolProvider.swift)
 target_link_libraries(BinarySymbols PUBLIC
-  Basics)
+  Basics
+  SwiftSubprocess::Subprocess
+  SwiftSystem::SystemPackage)
 
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(BinarySymbols PROPERTIES
