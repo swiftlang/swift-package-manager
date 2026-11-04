@@ -2412,7 +2412,6 @@ struct BuildCommandTestCases {
     struct ProductDeprecation {
 
         @Test(
-            // .requireSwift6_5,
             arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func buildEmitsWarningForConsumerOfDeprecatedProduct(
@@ -2443,7 +2442,6 @@ struct BuildCommandTestCases {
         }
 
         @Test(
-            // .requireSwift6_5,
             arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func buildEscalatesToErrorForTargetWithTreatAllWarningsError(
@@ -2475,7 +2473,6 @@ struct BuildCommandTestCases {
         }
 
         @Test(
-            // .requireSwift6_5,
             arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func buildEscalatesToErrorViaXswiftcWarningsAsErrors(
@@ -2504,7 +2501,6 @@ struct BuildCommandTestCases {
         }
 
         @Test(
-            // .requireSwift6_5,
             arguments: SupportedBuildSystemOnAllPlatforms,
         )
         func buildDoesNotWarnForNonConsumingPackage(
@@ -2516,8 +2512,42 @@ struct BuildCommandTestCases {
                     configuration: .debug,
                     buildSystem: buildSystem,
                 )
-                #expect(!stderr.contains("is unsupported"))
-                #expect(!stdout.contains("is unsupported"))
+                #expect(
+                    stderr.contains("is unsupported") == false,
+                    "stdout:\n\(stdout)",
+                )
+                #expect(
+                    stdout.contains("is unsupported") == false,
+                    "stderr:\n\(stderr)",
+                )
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func buildDoesNotWarnAboutProducersOwnProducts(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            // Building the producer package should NOT emit a deprecation
+            // diagnostic for any of its OWN products (PaperLegacy,
+            // PaperExperimental, paper-tool-old) because no producer target
+            // depends on them via `.product()`. A diagnostic about
+            // OldThirdParty (which the producer's `Paper` target does consume)
+            // is acceptable — that's the correct behavior for a producer that
+            // consumes a deprecated product from a third-party dependency.
+            try await fixture(name: "Miscellaneous/DeprecatedProducts/") { fixturePath in
+                let (_, stderr) = try await executeSwiftBuild(
+                    fixturePath.appending("producer"),
+                    configuration: .debug,
+                    buildSystem: buildSystem,
+                )
+                for productName in ["PaperLegacy", "PaperExperimental", "paper-tool-old"] {
+                    #expect(
+                        stderr.contains("product '\(productName)' from package 'producer' is unsupported") == false,
+                        "producer should not warn about its own product '\(productName)'\nstderr:\n\(stderr)",
+                    )
+                }
             }
         }
     }
