@@ -25,7 +25,6 @@ import PackageLoading
 @_spi(SwiftPMInternal)
 import SPMBuildCore
 
-import class Basics.AsyncProcess
 import func TSCBasic.memoize
 import protocol TSCBasic.OutputByteStream
 import func TSCBasic.withTemporaryFile

@@ -340,7 +340,7 @@ public class BuildPlan: SPMBuildCore.BuildPlan {
                     }
 
                     buildToolPluginInvocationResults[module.id] = pluginInvocationResults
-                    prebuildCommandResults[module.id] = try Self.runPluginCommands(
+                    prebuildCommandResults[module.id] = try await Self.runPluginCommands(
                         using: pluginConfiguration,
                         for: pluginInvocationResults,
                         fileSystem: fileSystem,
@@ -873,9 +873,10 @@ extension BuildPlan {
         for pluginResults: [BuildToolPluginInvocationResult],
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
-    ) throws -> [CommandPluginResult] {
+    ) async throws -> [CommandPluginResult] {
+        var results: [CommandPluginResult] = []
         // Run through all the commands from all the plugin usages in the target.
-        try pluginResults.map { pluginResult in
+        for pluginResult in pluginResults {
             // As we go we will collect a list of prebuild output directories whose contents should be input to the
             // build, and a list of the files in those directories after running the commands.
             var derivedFiles: [Basics.AbsolutePath] = []
@@ -898,14 +899,11 @@ extension BuildPlan {
                         writableDirectories: [pluginResult.pluginOutputDirectory]
                     )
                 }
-                let processResult = try AsyncProcess.popen(
-                    arguments: commandLine,
-                    environment: command.configuration.environment
+                _ = try await runPrebuildCommand(
+                    commandLine: commandLine,
+                    environment: command.configuration.environment,
+                    description: "\(command)"
                 )
-                let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
-                if processResult.exitStatus != .terminated(code: 0) {
-                    throw StringError("failed: \(command)\n\n\(output)")
-                }
 
                 // Add any files found in the output directory declared for the prebuild command after the command ends.
                 let outputFilesDir = command.outputFilesDirectory
@@ -918,8 +916,9 @@ extension BuildPlan {
             }
 
             // Add the results of running any prebuild commands for this invocation.
-            return CommandPluginResult(derivedFiles: derivedFiles, outputDirectories: prebuildOutputDirs)
+            results.append(CommandPluginResult(derivedFiles: derivedFiles, outputDirectories: prebuildOutputDirs))
         }
+        return results
     }
 }
 

@@ -12,33 +12,35 @@
 
 import Basics
 import Foundation
-
-import protocol TSCBasic.WritableByteStream
+import Subprocess
+import struct TSCBasic.StringError
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 package func detectDefaultObjects(
     clang: AbsolutePath, fileSystem: any FileSystem, hostTriple: Triple,
     observabilityScope: ObservabilityScope
 ) async throws -> [AbsolutePath] {
-    let clangProcess = AsyncProcess(args: clang.pathString, "-###", "-x", "c", "-")
-    let stdinStream = try clangProcess.launch()
-    stdinStream.write(
-        #"""
+    let clangResult = try await Subprocess.run(
+        .path(FilePath(clang.pathString)),
+        arguments: ["-###", "-x", "c", "-"],
+        input: .string(#"""
         #include <stdio.h>
         int main(int argc, char *argv[]) {
             printf("Hello world!\n")
             return 0;
         }
-        """#
+        """#),
+        output: .discarded,
+        error: .string(limit: .max)
     )
-    stdinStream.flush()
-    try stdinStream.close()
-    let clangResult = try await clangProcess.waitUntilExit()
-    guard case .terminated(let status) = clangResult.exitStatus,
-        status == 0
-    else {
+    guard clangResult.terminationStatus.isSuccess else {
         throw StringError("Couldn't run clang on sample hello world program")
     }
-    let commandsStrings = try clangResult.utf8stderrOutput().split(whereSeparator: \.isNewline)
+    let commandsStrings = (clangResult.standardError ?? "").split(whereSeparator: \.isNewline)
 
     let commands = commandsStrings.map { $0.split(whereSeparator: \.isWhitespace) }
     guard let linkerCommand = commands.last(where: { $0.first?.contains("ld") == true }) else {
