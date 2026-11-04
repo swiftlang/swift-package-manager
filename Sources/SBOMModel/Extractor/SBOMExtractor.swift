@@ -153,13 +153,13 @@ internal struct SBOMExtractor {
             return cachedVersionInfo
         }
         // root package (built from source)
-        if let rootPackage = modulesGraph.rootPackages.first(where: { $0.identity == packageIdentity }) {
+        if let rootPackage = modulesGraph.rootPackages.first(where: { $0.identity.packageIdentity == packageIdentity }) {
             let versionInfo = try await extractComponentInfoFromGit(packagePath: rootPackage.path)
             await self.caches.version.set(packageIdentity, versionInfo: versionInfo)
             return versionInfo
         }
         // non-root package (version is from store, URL is from registry or repo)
-        guard let resolvedPackage = store.resolvedPackages[packageIdentity] else {
+        guard let resolvedPackage = store.resolvedPackages[PURL.from(identity: packageIdentity)] else {
             return SBOMVersionInfo(
                 version: SBOMComponent.Version(revision: "unknown"),
                 originator: SBOMOriginator(commits: nil)
@@ -182,7 +182,7 @@ internal struct SBOMExtractor {
             sha = revision
         }
         // Get registry or repo information
-        if case .registry(packageIdentity) = resolvedPackage.packageRef.kind {
+        if case .registry(PURL.from(identity: packageIdentity)) = resolvedPackage.packageRef.kind {
             guard let registry = resolvedPackage.packageRef.identity.registry else {
                 return SBOMVersionInfo(
                     version: SBOMComponent.Version(revision: version),
@@ -190,7 +190,7 @@ internal struct SBOMExtractor {
                 )
             }
             
-            guard let actualResolvedPackage = modulesGraph.packages.first(where: { $0.identity == packageIdentity }),
+            guard let actualResolvedPackage = modulesGraph.packages.first(where: { $0.identity.packageIdentity == packageIdentity }),
                   let registryMetadata = actualResolvedPackage.registryMetadata,
                   case .registry(let registryURL) = registryMetadata.source else {
                 return SBOMVersionInfo(
@@ -239,11 +239,11 @@ internal struct SBOMExtractor {
     }
 
     internal func extractComponent(package: ResolvedPackage) async throws -> SBOMComponent {
-        if let cached = await caches.component.getPackage(package.identity) {
+        if let cached = await caches.component.getPackage(package.identity.packageIdentity) {
             return cached
         }
 
-        let versionInfo = try await extractComponentVersionInfo(from: package.identity)
+        let versionInfo = try await extractComponentVersionInfo(from: package.identity.packageIdentity)
         let products = try await extractProductsFromPackage(package: package)
         let component = try await SBOMComponent(
             category: Self.extractCategory(from: package),
@@ -258,17 +258,17 @@ internal struct SBOMExtractor {
             entity: .package
         )
 
-        await self.caches.component.setPackage(package.identity, component: component)
+        await self.caches.component.setPackage(package.identity.packageIdentity, component: component)
 
         return component
     }
 
     internal func extractComponent(product: ResolvedProduct) async throws -> SBOMComponent {
-        if let cached = await caches.component.getProduct(product.packageIdentity, productName: product.name) {
+        if let cached = await caches.component.getProduct(product.packageIdentity.packageIdentity, productName: product.name) {
             return cached
         }
 
-        let versionInfo = try await extractComponentVersionInfo(from: product.packageIdentity)
+        let versionInfo = try await extractComponentVersionInfo(from: product.packageIdentity.packageIdentity)
         let component = try await SBOMComponent(
             category: Self.extractCategory(from: product),
             id: Self.extractComponentID(from: product),
@@ -281,7 +281,7 @@ internal struct SBOMExtractor {
             entity: .product
         )
 
-        await self.caches.component.setProduct(product.packageIdentity, productName: product.name, component: component)
+        await self.caches.component.setProduct(product.packageIdentity.packageIdentity, productName: product.name, component: component)
 
         return component
     }

@@ -15,7 +15,7 @@ import PackageModel
 
 extension ResolvedModule {
     public static func mock(
-        packageIdentity: PackageIdentity,
+        packageIdentity: PURL,
         name: String,
         deps: ResolvedModule...,
         conditions: [PackageCondition] = []

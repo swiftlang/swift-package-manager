@@ -256,7 +256,7 @@ public final class MockWorkspace {
             let packageVersions: [String?] = isRoot ? [nil] : package.versions
 
             var sourceControlSpecifier: RepositorySpecifier? = nil
-            var registryIdentity: PackageIdentity? = nil
+            var registryIdentity: PURL? = nil
             var registryAlternativeURLs: [URL]? = nil
 
             switch (isRoot, package.location) {
@@ -273,7 +273,7 @@ public final class MockWorkspace {
                 packageKind = .remoteSourceControl(url)
                 sourceControlSpecifier = RepositorySpecifier(url: url)
             case (_, .registry(let identity, let alternativeURLs, _)):
-                packageLocation = identity.description
+                packageLocation = identity.packageIdentity.description
                 packageKind = .registry(identity)
                 registryIdentity = identity
                 registryAlternativeURLs = alternativeURLs
@@ -311,7 +311,7 @@ public final class MockWorkspace {
                     toolsVersion: packageToolsVersion
                 )
                 self.registry.addPackage(
-                    identity: identity,
+                    identity: identity.packageIdentity,
                     versions: packageVersions.compactMap { $0 },
                     sourceControlURLs: registryAlternativeURLs ?? [],
                     source: source
@@ -611,7 +611,7 @@ public final class MockWorkspace {
         roots: [String] = [],
         dependencies: [PackageDependency] = [],
         forceResolvedVersions: Bool = false,
-        expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
+        expectedSigningEntities: [PURL: RegistryReleaseMetadata.SigningEntity] = [:],
         _ result: (ModulesGraph, [Basics.Diagnostic]) throws -> Void
     ) async throws {
         let observability = ObservabilitySystem.makeForTesting()
@@ -744,7 +744,7 @@ public final class MockWorkspace {
         let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
 
         for (ref, state) in resolvedPackages {
-            resolvedPackagesStore.track(packageRef: ref, state: state, scm: nil)
+            resolvedPackagesStore.track(packageRef: ref, state: state, scm: nil, purl: ref.identity)
         }
 
         for dependency in managedDependencies {
@@ -799,7 +799,7 @@ public final class MockWorkspace {
         }
 
         public func check(notPresent dependencyId: PackageIdentity, file: StaticString = #file, line: UInt = #line) {
-            let dependency = self.managedDependencies[dependencyId]
+            let dependency = self.managedDependencies[PURL.from(identity: dependencyId)]
             XCTAssertNil(
                 dependency,
                 "Unexpectedly found \(dependencyId) in managed dependencies",
@@ -822,7 +822,7 @@ public final class MockWorkspace {
             file: StaticString = #file,
             line: UInt = #line
         ) {
-            guard let dependency = managedDependencies[dependencyId] else {
+            guard let dependency = managedDependencies[PURL.from(identity: dependencyId)] else {
                 return XCTFail("\(dependencyId) does not exists", file: file, line: line)
             }
             switch state {
@@ -884,7 +884,7 @@ public final class MockWorkspace {
             file: StaticString = #file,
             line: UInt = #line
         ) {
-            let artifact = self.managedArtifacts[packageIdentity: packageIdentity, targetName: targetName]
+            let artifact = self.managedArtifacts[packageIdentity: PURL.from(identity: packageIdentity), targetName: targetName]
             XCTAssert(
                 artifact == nil,
                 "Unexpectedly found \(packageIdentity).\(targetName) in managed artifacts",
@@ -923,7 +923,7 @@ public final class MockWorkspace {
             file: StaticString = #file,
             line: UInt = #line
         ) {
-            guard let artifact = managedArtifacts[packageIdentity: packageIdentity, targetName: targetName] else {
+            guard let artifact = managedArtifacts[packageIdentity: PURL.from(identity: packageIdentity), targetName: targetName] else {
                 XCTFail("managed artifact '\(packageIdentity).\(targetName)' does not exists", file: file, line: line)
                 return
             }
@@ -1014,7 +1014,7 @@ public final class MockWorkspace {
         }
 
         public func check(dependency package: String, at state: State, file: StaticString = #file, line: UInt = #line) {
-            guard let pin = store.resolvedPackages.first(where: { $0.key.description == package })?.value else {
+            guard let pin = store.resolvedPackages.first(where: { $0.key.packageIdentity.description == package })?.value else {
                 XCTFail("Pin for \(package) not found", file: file, line: line)
                 return
             }

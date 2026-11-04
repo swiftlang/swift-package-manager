@@ -72,10 +72,10 @@ public struct PubGrubDependencyResolver {
         /// dependency reachable only through a default trait is then never derived. The request
         /// stays an unexpanded marker because expanding it needs the package's manifest. Callers
         /// must already hold `lock`.
-        private func resolutionTraits(for identity: PackageIdentity) -> EnabledTraits {
-            let named = self.enabledTraitsMap[identity]
+        private func resolutionTraits(for identity: PURL) -> EnabledTraits {
+            let named = self.enabledTraitsMap[identity.packageIdentity]
             guard !named.contains("default"),
-                  let defaultSetter = self.enabledTraitsMap[defaultSettersFor: identity]?.first
+                  let defaultSetter = self.enabledTraitsMap[defaultSettersFor: identity.packageIdentity]?.first
             else {
                 return named
             }
@@ -91,7 +91,7 @@ public struct PubGrubDependencyResolver {
                     if !package.package.kind.isRoot {
                         let identity = package.package.identity
                         let previousDecisionEnabledTraits = self.resolutionTraits(for: identity)
-                        self.enabledTraitsMap[identity] = package.enabledTraits
+                        self.enabledTraitsMap[identity.packageIdentity] = package.enabledTraits
                         let currentEnabledTraits = self.resolutionTraits(for: identity)
                         // If a decision has already been made for this package but a change in enabled traits
                         // is detected, flag it so the resolver can repair the shape of the package graph below
@@ -477,7 +477,7 @@ public struct PubGrubDependencyResolver {
             case .revision(let existingRevision, let branch)?:
                 // If this branch-based package was encountered before, ensure the references match.
                 if (branch ?? existingRevision) != revision {
-                    throw PubGrubError.unresolvable("\(package.identity) is required using two different revision-based requirements (\(existingRevision) and \(revision)), which is not supported")
+                    throw PubGrubError.unresolvable("\(package.identity.packageIdentity) is required using two different revision-based requirements (\(existingRevision) and \(revision)), which is not supported")
                 } else {
                     // Otherwise, continue since we've already processed this constraint. Any cycles will be diagnosed separately.
                     continue
@@ -531,8 +531,8 @@ public struct PubGrubDependencyResolver {
                         constraints.append(dependency)
                     case .unversioned:
                         throw DependencyResolverError.revisionDependencyContainsLocalPackage(
-                            dependency: package.identity.description,
-                            localPackage: dependency.package.identity.description
+                            dependency: package.identity.packageIdentity.description,
+                            localPackage: dependency.package.identity.packageIdentity.description
                         )
                     }
                 }

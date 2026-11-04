@@ -1444,7 +1444,7 @@ final class PrebuiltsTests: XCTestCase {
             let rootDep = PackageDependency.fileSystem(identity: .plain("Foo"), path: workspace.packagesDir.appending("Foo"))
             try await workspace.checkPackageGraph(roots: [], dependencies: [rootDep]) { modulesGraph, diagnostics in
                 XCTAssertTrue(diagnostics.filter({ $0.severity == .error || $0.severity == .warning }).isEmpty)
-                let rootPackage = try XCTUnwrap(modulesGraph.package(for: rootDep.identity))
+                let rootPackage = try XCTUnwrap(modulesGraph.package(for: PURL.from(identity: rootDep.identity)))
                 try checkSettings(rootPackage, "FooMacros", usePrebuilt: false)
                 try checkSettings(rootPackage, "Foo", usePrebuilt: false)
             }

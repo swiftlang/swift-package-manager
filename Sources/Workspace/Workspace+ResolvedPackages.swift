@@ -35,13 +35,13 @@ extension Workspace {
             } else if let managedDependency = await self.state.dependencies[dependency.identity] {
                 observabilityScope
                     .emit(
-                        info: "required dependency '\(dependency.identity)' from '\(dependency.locationString)' was not found in managed dependencies, using alternative location '\(managedDependency.packageRef.locationString)' instead"
+                        info: "required dependency '\(dependency.identity.packageIdentity)' from '\(dependency.locationString)' was not found in managed dependencies, using alternative location '\(managedDependency.packageRef.locationString)' instead"
                     )
                 dependenciesToSaveAsResolved.append(ManagedDependency(packageRef: dependency, state: managedDependency.state, subpath: managedDependency.subpath))
             } else {
                 observabilityScope
                     .emit(
-                        warning: "required dependency '\(dependency.identity)' from '\(dependency.locationString)' was not found in managed dependencies and will not be recorded in resolved file"
+                        warning: "required dependency '\(dependency.identity.packageIdentity)' from '\(dependency.locationString)' was not found in managed dependencies and will not be recorded in resolved file"
                     )
             }
         }
@@ -129,25 +129,29 @@ extension ResolvedPackagesStore.ResolvedPackage {
             self.init(
                 packageRef: dependency.packageRef,
                 state: .version(version, revision: revision.identifier),
-                originalScmUrl: nil
+                originalScmUrl: nil,
+                purl: dependency.packageRef.identity
             )
         case .sourceControlCheckout(.branch(let branch, let revision)):
             self.init(
                 packageRef: dependency.packageRef,
                 state: .branch(name: branch, revision: revision.identifier),
-                originalScmUrl: nil
+                originalScmUrl: nil,
+                purl: dependency.packageRef.identity
             )
         case .sourceControlCheckout(.revision(let revision)):
             self.init(
                 packageRef: dependency.packageRef,
                 state: .revision(revision.identifier),
-                originalScmUrl: nil
+                originalScmUrl: nil,
+                purl: dependency.packageRef.identity
             )
         case .registryDownload(let version, let scm):
             self.init(
                 packageRef: dependency.packageRef,
                 state: .version(version, revision: .none),
-                originalScmUrl: scm
+                originalScmUrl: scm,
+                purl: dependency.packageRef.identity
             )
         case .edited, .fileSystem, .custom:
             // NOOP

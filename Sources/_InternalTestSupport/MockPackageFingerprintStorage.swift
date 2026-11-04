@@ -19,18 +19,18 @@ import PackageModel
 import struct TSCUtility.Version
 
 public class MockPackageFingerprintStorage: PackageFingerprintStorage {
-    private var packageFingerprints: [PackageIdentity: [Version: [Fingerprint
+    private var packageFingerprints: [PURL: [Version: [Fingerprint
             .Kind: [Fingerprint.ContentType: Fingerprint]]]]
     private let lock = NSLock()
 
-    public init(_ packageFingerprints: [PackageIdentity: [Version: [Fingerprint
+    public init(_ packageFingerprints: [PURL: [Version: [Fingerprint
             .Kind: [Fingerprint.ContentType: Fingerprint]]]] = [:])
     {
         self.packageFingerprints = packageFingerprints
     }
 
     public func get(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         observabilityScope: ObservabilityScope
     ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
@@ -41,7 +41,7 @@ public class MockPackageFingerprintStorage: PackageFingerprintStorage {
     }
 
     public func put(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         fingerprint: Fingerprint,
         observabilityScope: ObservabilityScope

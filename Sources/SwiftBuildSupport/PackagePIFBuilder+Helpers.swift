@@ -439,7 +439,7 @@ extension PackageGraph.ResolvedModule {
 
     /// The name of the group this module belongs to; by default, the package identity.
     var packageName: String? {
-        self.packageAccess ? packageIdentity.c99name : nil
+        self.packageAccess ? packageIdentity.packageIdentity.c99name : nil
     }
 
     /// Minimum deployment targets for particular platforms, as declared in the manifest.

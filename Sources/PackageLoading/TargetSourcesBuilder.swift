@@ -63,7 +63,7 @@ public struct TargetSourcesBuilder {
 
     /// Create a new target builder.
     public init(
-        packageIdentity: PackageIdentity,
+        packageIdentity: PURL,
         packageKind: PackageReference.Kind,
         packagePath: Basics.AbsolutePath,
         target: TargetDescription,
@@ -92,7 +92,7 @@ public struct TargetSourcesBuilder {
         self.fileSystem = fileSystem
 
         let childObservabilityScope = observabilityScope.makeChildScope(description: "TargetSourcesBuilder") {
-            var metadata = ObservabilityMetadata.packageMetadata(identity: .from(identity: packageIdentity), kind: packageKind)
+            var metadata = ObservabilityMetadata.packageMetadata(identity: packageIdentity, kind: packageKind)
             metadata.moduleName = target.name
             return metadata
         }

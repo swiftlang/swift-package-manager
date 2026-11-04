@@ -13,6 +13,7 @@
 import Foundation
 @testable import SBOMModel
 import Testing
+import struct PackageModel.PURL
 
 @Suite(
     .tags(

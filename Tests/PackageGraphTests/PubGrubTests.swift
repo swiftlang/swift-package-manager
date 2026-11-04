@@ -214,16 +214,16 @@ final class PubGrubTests: XCTestCase {
             .derivation("b@2.0.0", cause: _cause, decisionLevel: 0),
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0)
         ])
-        let a1 = s1._positive.first { $0.key.package.identity == PackageIdentity("a") }?.value
+        let a1 = s1._positive.first { $0.key.package.identity == PURL.from(name: "a") }?.value
         XCTAssertEqual(a1?.requirement, v1_5Range)
-        let b1 = s1._positive.first { $0.key.package.identity == PackageIdentity("b") }?.value
+        let b1 = s1._positive.first { $0.key.package.identity == PURL.from(name: "b") }?.value
         XCTAssertEqual(b1?.requirement, .exact(v2))
 
         let s2 = PartialSolution(assignments: [
             .derivation("¬a^1.5.0", cause: _cause, decisionLevel: 0),
             .derivation("a^1.0.0", cause: _cause, decisionLevel: 0)
         ])
-        let a2 = s2._positive.first { $0.key.package.identity == PackageIdentity("a") }?.value
+        let a2 = s2._positive.first { $0.key.package.identity == PURL.from(name: "a") }?.value
         XCTAssertEqual(a2?.requirement, .range(v1..<v1_5))
     }
 
@@ -369,7 +369,8 @@ final class PubGrubTests: XCTestCase {
 
     func testUpdatePackageIdentifierAfterResolution() async throws {
         let fooURL = SourceControlURL("https://example.com/foo")
-        let fooRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: fooURL), url: fooURL)
+        let fooID = PackageIdentity(url: fooURL)
+        let fooRef = PackageReference.remoteSourceControl(identity: PURL.from(identity: fooID), url: fooURL)
         let foo = MockContainer(package: fooRef, dependenciesByVersion: [v1: [:]])
         foo.manifestName = "bar"
 
@@ -464,7 +465,7 @@ final class PubGrubTests: XCTestCase {
                                     root: rootNode), at: .topLevel)
         state2.decide(rootNode, at: v1)
         XCTAssertEqual(state2.solution.assignments.count, 1)
-        try solver2.propagate(state: state2, node: .root(package: .root(identity: PackageIdentity("root"), path: .root)))
+        try solver2.propagate(state: state2, node: .root(package: .root(identity: PURL.from(name: "root"), path: .root)))
         XCTAssertEqual(state2.solution.assignments.count, 2)
     }
 
@@ -1634,13 +1635,13 @@ final class PubGrubTests: XCTestCase {
 
             func willResolve(term: Term) {
                 self.lock.withLock {
-                    self.events.append("willResolve '\(term.node.package.identity)'")
+                    self.events.append("willResolve '\(term.node.package.identity.packageIdentity)'")
                 }
             }
 
             func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
                 self.lock.withLock {
-                    self.events.append("didResolve '\(term.node.package.identity)' at '\(version)'")
+                    self.events.append("didResolve '\(term.node.package.identity.packageIdentity)' at '\(version)'")
                 }
             }
 
@@ -1655,7 +1656,7 @@ final class PubGrubTests: XCTestCase {
             func failedToResolve(incompatibility: Incompatibility) {}
 
             func solved(result: [DependencyResolverBinding]) {
-                let decisions = result.sorted(by: { $0.package.identity < $1.package.identity }).map { "'\($0.package.identity)' at '\($0.boundVersion)'" }
+                let decisions = result.sorted(by: { $0.package.identity < $1.package.identity }).map { "'\($0.package.identity.packageIdentity)' at '\($0.boundVersion)'" }
                 self.lock.withLock {
                     self.events.append("solved: \(decisions.joined(separator: ", "))")
                 }
@@ -1713,9 +1714,12 @@ final class PubGrubTests: XCTestCase {
         let dependencyALocation = AbsolutePath("/DependencyA")
         let dependencyBLocation = AbsolutePath("/DependencyB")
         let root = PackageReference(identity: PackageIdentity(path: rootLocation), kind: .fileSystem(rootLocation))
-        let other = PackageReference.localSourceControl(identity: .init(path: otherLocation), path: otherLocation)
-        let dependencyA = PackageReference.localSourceControl(identity: .init(path: dependencyALocation), path: dependencyALocation)
-        let dependencyB = PackageReference.localSourceControl(identity: .init(path: dependencyBLocation), path: dependencyBLocation)
+        let otherID = PackageIdentity(path: otherLocation)
+        let aID = PackageIdentity(path: dependencyALocation)
+        let bID = PackageIdentity(path: dependencyBLocation)
+        let other = PackageReference.localSourceControl(identity: PURL.from(identity: otherID), path: otherLocation)
+        let dependencyA = PackageReference.localSourceControl(identity: PURL.from(identity: aID), path: dependencyALocation)
+        let dependencyB = PackageReference.localSourceControl(identity: PURL.from(identity: bID), path: dependencyBLocation)
         let result = try await container.incompatibilites(
             at: Version(1, 0, 0),
             node: .product(
@@ -1842,7 +1846,8 @@ final class PubGrubTests: XCTestCase {
         }
 
         let path = AbsolutePath("/Package")
-        let package = PackageReference.localSourceControl(identity: .init(path: path), path: path)
+        let id = PackageIdentity(path: path)
+        let package = PackageReference.localSourceControl(identity: PURL.from(identity: id), path: path)
         let pinnedVersion = Version(1, 2, 3)
         let container = PubGrubPackageContainer(
             underlying: SingleVersionContainer(package: package, version: pinnedVersion),
@@ -1850,7 +1855,8 @@ final class PubGrubTests: XCTestCase {
                 package.identity: .init(
                     packageRef: package,
                     state: .version(pinnedVersion, revision: nil),
-                    originalScmUrl: nil
+                    originalScmUrl: nil,
+                    purl: package.identity
                 )
             ],
             trustPinnedVersions: true
@@ -3376,7 +3382,7 @@ private func AssertBindings(
         let unexpectedBindings = bindings
             .filter { binding in
                 packages.contains(where: { pkg in
-                    pkg.identity != binding.package.identity
+                    pkg.identity != binding.package.identity.packageIdentity
                 })
             }
             .map { $0.package.identity }
@@ -3384,7 +3390,7 @@ private func AssertBindings(
         XCTFail("Unexpected binding(s) found for \(unexpectedBindings.map { $0.description }.joined(separator: ", ")).", file: file, line: line)
     }
     for package in packages {
-        guard let binding = bindings.first(where: { $0.package.identity == package.identity }) else {
+        guard let binding = bindings.first(where: { $0.package.identity.packageIdentity == package.identity }) else {
             XCTFail("No binding found for \(package.identity).", file: file, line: line)
             continue
         }
@@ -3509,7 +3515,7 @@ public class MockContainer: PackageContainer {
 
     public func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
         if let manifestName {
-            self.package = self.package.withName(manifestName.identity.description)
+            self.package = self.package.withName(manifestName.identity.packageIdentity.description)
         }
         return self.package
     }
@@ -3728,7 +3734,8 @@ class DependencyGraphBuilder {
         )
 
         for (package, resolution) in resolvedPackages {
-            store.track(packageRef: try reference(for: package), state: resolution.0)
+            let ref = try reference(for: package)
+            store.track(packageRef: ref, state: resolution.0, purl: ref.identity)
         }
 
         try! store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
@@ -3787,12 +3794,12 @@ extension Term {
             requirement = .versionSet(.range(Version(stringLiteral: lowerBound)..<Version(stringLiteral: upperBound)))
         }
 
-        let packageReference = PackageReference(identity: .plain(components[0]), kind: .localSourceControl(.root), name: components[0])
+        let packageReference = PackageReference(identity: PURL.plain(components[0]), kind: .localSourceControl(.root), name: components[0])
 
         guard case let .versionSet(vs) = requirement! else {
             fatalError()
         }
-        self.init(node: .product(packageReference.identity.description, package: packageReference),
+        self.init(node: .product(packageReference.identity.packageIdentity.description, package: packageReference),
                   requirement: vs,
                   isPositive: isPositive)
     }
@@ -3815,7 +3822,7 @@ final class ContainerProviderWarmCacheTests: XCTestCase {
 
     private func makeRef(_ name: String) -> PackageReference {
         PackageReference.remoteSourceControl(
-            identity: PackageIdentity.plain(name),
+            identity: PURL.from(name: name),
             url: SourceControlURL("https://example.com/\(name)")
         )
     }
@@ -3827,7 +3834,7 @@ final class ContainerProviderWarmCacheTests: XCTestCase {
     /// A provider that counts getContainer calls per package.
     private class CountingProvider: PackageContainerProvider {
         let inner: MockProvider
-        let fetchCounts = ThreadSafeKeyValueStore<PackageIdentity, Int>()
+        let fetchCounts = ThreadSafeKeyValueStore<PURL, Int>()
 
         init(containers: [MockContainer]) {
             self.inner = MockProvider(containers: containers)
@@ -3920,7 +3927,7 @@ final class ContainerProviderWarmCacheTests: XCTestCase {
 
         // Override ref has same identity but different URL.
         let overrideRef = PackageReference.remoteSourceControl(
-            identity: PackageIdentity.plain("foo"),
+            identity: PURL.from(name: "foo"),
             url: SourceControlURL("https://other.com/foo")
         )
         cp.promoteWarmContainers(excluding: [overrideRef])

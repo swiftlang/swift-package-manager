@@ -263,7 +263,7 @@ internal final class SourceControlPackageContainer: PackageContainer, CustomStri
                 return try ToolsVersionParser.parse(
                     manifestPath: manifestPath,
                     fileSystem: fileSystem,
-                    packageIdentity: self.package.identity
+                    packageIdentity: self.package.identity.packageIdentity
                 )
             }
         }

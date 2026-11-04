@@ -16,7 +16,7 @@ import PackageModel
 /// A fully resolved package. Contains resolved modules, products and dependencies of the package.
 public struct ResolvedPackage {
     // The identity of the package.
-    public var identity: PackageIdentity {
+    public var identity: PURL {
         return self.underlying.identity
     }
 
@@ -43,7 +43,7 @@ public struct ResolvedPackage {
     public let enabledTraits: Set<String>?
 
     /// The dependencies of the package.
-    public let dependencies: [PackageIdentity]
+    public let dependencies: [PURL]
 
     /// The default localization for resources.
     public let defaultLocalization: String?
@@ -61,7 +61,7 @@ public struct ResolvedPackage {
         underlying: Package,
         defaultLocalization: String?,
         supportedPlatforms: [SupportedPlatform],
-        dependencies: [PackageIdentity],
+        dependencies: [PURL],
         enabledTraits: Set<String>?,
         modules: IdentifiableSet<ResolvedModule>,
         products: [ResolvedProduct],
@@ -95,7 +95,7 @@ extension ResolvedPackage: CustomStringConvertible {
 }
 
 extension ResolvedPackage: Identifiable {
-    public var id: PackageIdentity { self.underlying.identity }
+    public var id: PURL { self.underlying.identity }
 }
 
 extension ResolvedPackage: Equatable {

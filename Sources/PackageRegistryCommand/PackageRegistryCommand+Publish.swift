@@ -217,7 +217,7 @@ extension PackageRegistryCommand {
                 .emit(info: "publishing \(self.packageIdentity) archive at '\(archivePath)' to \(registryURL)")
             let result = try await registryClient.publish(
                 registryURL: registryURL,
-                packageIdentity: self.packageIdentity,
+                packageIdentity: PURL.from(identity: self.packageIdentity),
                 packageVersion: self.packageVersion,
                 packageArchive: archivePath,
                 packageMetadata: metadataLocation?.path,

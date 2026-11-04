@@ -45,7 +45,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
     let currentToolsVersion: ToolsVersion
 
     /// Restricts which packages should be served from local manifests.
-    let allowedLocalPackageIdentities: Set<PackageIdentity>?
+    let allowedLocalPackageIdentities: Set<PURL>?
 
     /// Fallback provider for packages that should not or cannot be served locally.
     let fallbackProvider: PackageContainerProvider?
@@ -54,7 +54,7 @@ struct ResolverPrecomputationProvider: PackageContainerProvider {
         root: PackageGraphRoot,
         dependencyManifests: Workspace.DependencyManifests,
         currentToolsVersion: ToolsVersion = ToolsVersion.current,
-        allowedLocalPackageIdentities: Set<PackageIdentity>? = nil,
+        allowedLocalPackageIdentities: Set<PURL>? = nil,
         fallbackProvider: PackageContainerProvider? = nil
     ) {
         self.root = root

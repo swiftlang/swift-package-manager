@@ -79,7 +79,7 @@ struct ModulesGraphTests {
             let rootPackages = (0..<num).map {
                 ResolvedPackage(
                     underlying: Package(
-                        identity: PackageIdentity("package_\($0)"),
+                        identity: PURL.from(name: "package_\($0)"),
                         manifest: manifest,
                         path: AbsolutePath("/"),
                         targets: [],
@@ -1960,7 +1960,7 @@ struct ModulesGraphTests {
         try expectDiagnostics(observability.diagnostics) { result in
             let diagnostic = try #require(result.check(diagnostic: "dependency 'baz' is not used by any target", severity: .warning))
             let metadata = try #require(diagnostic.metadata)
-            #expect(metadata.packageIdentity == "foo")
+            #expect(metadata.packageIdentity == PURL.from(name: "foo"))
             let packageKind = try #require(metadata.packageKind)
             #expect(packageKind.isRoot)
 #if ENABLE_TARGET_BASED_DEPENDENCY_RESOLUTION

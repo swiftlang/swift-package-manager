@@ -19,13 +19,13 @@ import struct TSCUtility.Version
 
 public protocol PackageFingerprintStorage {
     func get(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         observabilityScope: ObservabilityScope
     ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]]
 
     func put(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         fingerprint: Fingerprint,
         observabilityScope: ObservabilityScope
@@ -47,7 +47,7 @@ public protocol PackageFingerprintStorage {
 
 extension PackageFingerprintStorage {
     public func get(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         kind: Fingerprint.Kind,
         contentType: Fingerprint.ContentType,

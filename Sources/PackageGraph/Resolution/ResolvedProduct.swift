@@ -24,7 +24,7 @@ public struct ResolvedProduct {
         self.underlying.type
     }
 
-    public let packageIdentity: PackageIdentity
+    public let packageIdentity: PURL
 
     /// The underlying product.
     public let underlying: Product
@@ -85,11 +85,11 @@ public struct ResolvedProduct {
         product: Product,
         targets: IdentifiableSet<ResolvedModule>
     ) {
-        self.init(packageIdentity: packageIdentity, product: product, modules: targets)
+        self.init(packageIdentity: PURL.from(identity: packageIdentity), product: product, modules: targets)
     }
 
     public init(
-        packageIdentity: PackageIdentity,
+        packageIdentity: PURL,
         product: Product,
         modules: IdentifiableSet<ResolvedModule>
     ) {
@@ -201,7 +201,7 @@ extension ResolvedProduct: Identifiable {
     /// Resolved module identity that uniquely identifies it in a resolution graph.
     public struct ID: Hashable {
         public let productName: String
-        let packageIdentity: PackageIdentity
+        let packageIdentity: PURL
     }
 
     public var id: ID {

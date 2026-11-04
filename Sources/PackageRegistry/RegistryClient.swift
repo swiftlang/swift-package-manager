@@ -165,11 +165,11 @@ public final class RegistryClient: AsyncCancellable {
     }
 
     public func getPackageMetadata(
-        package: PackageIdentity,
+        package: PURL,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope
     ) async throws -> PackageMetadata {
-        let (registryIdentity, registry) = try self.unwrapRegistry(from: package)
+        let (registryIdentity, registry) = try self.unwrapRegistry(from: package.packageIdentity)
 
         try await withAvailabilityCheck(
             registry: registry,
@@ -226,7 +226,7 @@ public final class RegistryClient: AsyncCancellable {
 
     @available(*, deprecated, message: "Use the async alternative")
     public func getPackageMetadata(
-        package: PackageIdentity,
+        package: PURL,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
@@ -249,7 +249,7 @@ public final class RegistryClient: AsyncCancellable {
         observabilityScope: ObservabilityScope
     ) async throws -> PackageMetadata {
         let wrapWithFailedRetrievingReleases: (Error) -> Error = {
-            RegistryError.failedRetrievingReleases(registry: registry, package: package.underlying, error: $0)
+            RegistryError.failedRetrievingReleases(registry: registry, package: package.underlying.packageIdentity, error: $0)
         }
 
         let response = try await self.get(
@@ -288,13 +288,13 @@ public final class RegistryClient: AsyncCancellable {
     }
 
     public func getPackageVersionMetadata(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         timeout: DispatchTimeInterval? = .none,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) async throws -> PackageVersionMetadata {
-        let (package, registry) = try self.unwrapRegistry(from: package)
+        let (package, registry) = try self.unwrapRegistry(from: package.packageIdentity)
 
         try await withAvailabilityCheck(
             registry: registry,
@@ -381,7 +381,7 @@ public final class RegistryClient: AsyncCancellable {
     ) {
         callbackQueue.asyncResult(completion) {
             try await self.getPackageVersionMetadata(
-                package: package,
+                package: PURL.from(identity: package),
                 version: version,
                 timeout: timeout,
                 fileSystem: fileSystem,
@@ -407,7 +407,7 @@ public final class RegistryClient: AsyncCancellable {
         let wrapWithFailedRetrievingReleaseInfo: (Error) -> Error = {
             RegistryError.failedRetrievingReleaseInfo(
                 registry: registry,
-                package: package.underlying,
+                package: package.underlying.packageIdentity,
                 version: version,
                 error: $0
             )
@@ -438,12 +438,12 @@ public final class RegistryClient: AsyncCancellable {
     }
 
     public func getAvailableManifests(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope
     ) async throws -> [String: (toolsVersion: ToolsVersion, content: String?)]{
-        let (registryIdentity, registry) = try self.unwrapRegistry(from: package)
+        let (registryIdentity, registry) = try self.unwrapRegistry(from: package.packageIdentity)
 
         try await withAvailabilityCheck(
             registry: registry,
@@ -469,7 +469,7 @@ public final class RegistryClient: AsyncCancellable {
         let wrapWithFailedRetrievingManifest: (Error) -> Error = {
             RegistryError.failedRetrievingManifest(
                 registry: registry,
-                package: registryIdentity.underlying,
+                package: registryIdentity.underlying.packageIdentity,
                 version: version,
                 error: $0
             )
@@ -573,7 +573,7 @@ public final class RegistryClient: AsyncCancellable {
     ) {
         callbackQueue.asyncResult(completion) {
             try await self.getAvailableManifests(
-                package: package,
+                package: PURL.from(identity: package),
                 version: version,
                 timeout: timeout,
                 observabilityScope: observabilityScope
@@ -582,13 +582,13 @@ public final class RegistryClient: AsyncCancellable {
     }
 
     public func getManifestContent(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         customToolsVersion: ToolsVersion?,
         timeout: DispatchTimeInterval? = .none,
         observabilityScope: ObservabilityScope
     ) async throws -> String {
-        let (registryIdentity, registry) = try self.unwrapRegistry(from: package)
+        let (registryIdentity, registry) = try self.unwrapRegistry(from: package.packageIdentity)
         try await withAvailabilityCheck(
             registry: registry,
             observabilityScope: observabilityScope
@@ -613,7 +613,7 @@ public final class RegistryClient: AsyncCancellable {
         let wrapWithFailedRetrievingManifest: (Error) -> Error = {
             RegistryError.failedRetrievingManifest(
                 registry: registry,
-                package: registryIdentity.underlying,
+                package: registryIdentity.underlying.packageIdentity,
                 version: version,
                 error: $0
             )
@@ -700,7 +700,7 @@ public final class RegistryClient: AsyncCancellable {
     ) {
         callbackQueue.asyncResult(completion) {
             try await self.getManifestContent(
-                package: package,
+                package: PURL.from(identity: package),
                 version: version,
                 customToolsVersion: customToolsVersion,
                 timeout: timeout,
@@ -710,7 +710,7 @@ public final class RegistryClient: AsyncCancellable {
     }
 
     public func downloadSourceArchive(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         destinationPath: AbsolutePath,
         progressHandler: (@Sendable (_ bytesReceived: Int64, _ totalBytes: Int64?) -> Void)?,
@@ -718,7 +718,7 @@ public final class RegistryClient: AsyncCancellable {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) async throws {
-        let (registryIdentity, registry) = try self.unwrapRegistry(from: package)
+        let (registryIdentity, registry) = try self.unwrapRegistry(from: package.packageIdentity)
 
         try await withAvailabilityCheck(
             registry: registry,
@@ -774,7 +774,7 @@ public final class RegistryClient: AsyncCancellable {
         let wrapWithFailedDownloadingSourceArchive: (Error) -> Error = {
             RegistryError.failedDownloadingSourceArchive(
                 registry: registry,
-                package: registryIdentity.underlying,
+                package: registryIdentity.underlying.packageIdentity,
                 version: version,
                 error: $0
             )
@@ -921,7 +921,7 @@ public final class RegistryClient: AsyncCancellable {
     ) {
         callbackQueue.asyncResult(completion) {
             try await self.downloadSourceArchive(
-                package: package,
+                package: PURL.from(identity: package),
                 version: version,
                 destinationPath: destinationPath,
                 progressHandler: progressHandler,
@@ -1118,7 +1118,7 @@ public final class RegistryClient: AsyncCancellable {
         callbackQueue.asyncResult(completion) {
             try await self.publish(
                 registryURL: registryURL,
-                packageIdentity: packageIdentity,
+                packageIdentity: PURL.from(identity: packageIdentity),
                 packageVersion: packageVersion,
                 packageArchive: packageArchive,
                 packageMetadata: packageMetadata,
@@ -1134,7 +1134,7 @@ public final class RegistryClient: AsyncCancellable {
 
     public func publish(
         registryURL: URL,
-        packageIdentity: PackageIdentity,
+        packageIdentity: PURL,
         packageVersion: Version,
         packageArchive: AbsolutePath,
         packageMetadata: AbsolutePath?,
@@ -1146,7 +1146,7 @@ public final class RegistryClient: AsyncCancellable {
         observabilityScope: ObservabilityScope
     ) async throws -> PublishResult {
         guard let registryIdentity = packageIdentity.registry else {
-            throw RegistryError.invalidPackageIdentity(packageIdentity)
+            throw RegistryError.invalidPackageIdentity(packageIdentity.packageIdentity)
         }
         let url = try registryURL.appendingRegistryPath(
             registryIdentity.scope.description,

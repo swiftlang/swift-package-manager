@@ -767,7 +767,7 @@ extension Workspace {
         root: PackageGraphRootInput,
         observabilityScope: ObservabilityScope
     ) async throws {
-        guard let dependency = await self.state.dependencies[.plain(packageIdentity)] else {
+        guard let dependency = await self.state.dependencies[PURL.from(name: packageIdentity)] else {
             observabilityScope.emit(.dependencyNotFound(packageName: packageIdentity))
             return
         }
@@ -829,7 +829,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async throws {
         // Look up the dependency and check if we can pin it.
-        guard let dependency = await self.state.dependencies[.plain(packageName)] else {
+        guard let dependency = await self.state.dependencies[PURL.from(name: packageName.lowercased())] else {
             throw StringError("dependency '\(packageName)' was not found")
         }
 
@@ -845,9 +845,9 @@ extension Workspace {
         case .registryDownload(let version, _), .custom(let version, _):
             defaultRequirement = .versionSet(.exact(version))
         case .fileSystem:
-            throw StringError("local dependency '\(dependency.packageRef.identity)' can't be resolved")
+            throw StringError("local dependency '\(dependency.packageRef.identity.packageIdentity)' can't be resolved")
         case .edited:
-            throw StringError("edited dependency '\(dependency.packageRef.identity)' can't be resolved")
+            throw StringError("edited dependency '\(dependency.packageRef.identity.packageIdentity)' can't be resolved")
         }
 
         // Compute the custom or extra constraint we need to impose.
@@ -866,7 +866,7 @@ extension Workspace {
             package: dependency.packageRef,
             requirement: requirement,
             products: .nothing,
-            enabledTraits: self.enabledTraitsMap[dependency.packageRef.identity]
+            enabledTraits: self.enabledTraitsMap[dependency.packageRef.identity.packageIdentity]
         )
 
         // Run the resolution.
@@ -1000,7 +1000,7 @@ extension Workspace {
         forceResolvedVersions: Bool = false,
         customXCTestMinimumDeploymentTargets: [PackageModel.Platform: PlatformVersion]? = .none,
         testEntryPointPath: AbsolutePath? = nil,
-        expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
+        expectedSigningEntities: [PURL: RegistryReleaseMetadata.SigningEntity] = [:],
         observabilityScope: ObservabilityScope
     ) async throws -> ModulesGraph {
         let start = DispatchTime.now()
@@ -1024,7 +1024,7 @@ extension Workspace {
         )
 
         let binaryArtifacts = await self.state.artifacts
-            .reduce(into: [PackageIdentity: [String: BinaryArtifact]]()) { partial, artifact in
+            .reduce(into: [PURL: [String: BinaryArtifact]]()) { partial, artifact in
                 partial[artifact.packageRef.identity, default: [:]][artifact.targetName] = BinaryArtifact(
                     kind: artifact.kind,
                     originURL: artifact.originURL,
@@ -1032,7 +1032,7 @@ extension Workspace {
                 )
             }
 
-        let prebuilts: [PackageIdentity: [String: PrebuiltLibrary]] = await self.state.prebuilts.reduce(into: .init()) {
+        let prebuilts: [PURL: [String: PrebuiltLibrary]] = await self.state.prebuilts.reduce(into: .init()) {
             let prebuilt = PrebuiltLibrary(
                 identity: $1.identity,
                 libraryName: $1.libraryName,
@@ -1042,7 +1042,7 @@ extension Workspace {
                 includePath: $1.includePath,
                 cModules: $1.cModules)
             for product in $1.products {
-                $0[$1.identity, default: [:]][product] = prebuilt
+                $0[PURL.from(identity: $1.identity), default: [:]][product] = prebuilt
             }
         }
 
@@ -1113,7 +1113,7 @@ extension Workspace {
                     // TODO: this does not use the identity resolver which is probably fine since its the root packages
                     do {
                         let manifest = try await self.loadManifest(
-                            packageIdentity: PackageIdentity(path: package),
+                            packageIdentity: PURL.from(identity: PackageIdentity(path: package)),
                             packageKind: .root(package),
                             packagePath: package,
                             packageLocation: package.pathString,
@@ -1302,22 +1302,22 @@ extension Workspace {
             let paths = pluginTarget.sources.paths
             guard let pkgId = packageGraph.package(for: pluginTarget)?.identity else { continue }
 
-            if importList[pkgId] == nil {
-                importList[pkgId] = [pluginTarget.name: []]
-            } else if importList[pkgId]?[pluginTarget.name] == nil {
-                importList[pkgId]?[pluginTarget.name] = []
+            if importList[pkgId.packageIdentity] == nil {
+                importList[pkgId.packageIdentity] = [pluginTarget.name: []]
+            } else if importList[pkgId.packageIdentity]?[pluginTarget.name] == nil {
+                importList[pkgId.packageIdentity]?[pluginTarget.name] = []
             }
 
             for path in paths {
                 let result = try await scanner.scanImports(path)
-                importList[pkgId]?[pluginTarget.name]?.append(contentsOf: result)
+                importList[pkgId.packageIdentity]?[pluginTarget.name]?.append(contentsOf: result)
             }
         }
         return importList
     }
 
     public func loadPackage(
-        with identity: PackageIdentity,
+        with identity: PURL,
         packageGraph: ModulesGraph,
         observabilityScope: ObservabilityScope
     ) async throws -> Package {
@@ -1360,7 +1360,7 @@ extension Workspace {
     ) {
         DispatchQueue.sharedConcurrent.asyncResult(completion) {
             try await self.loadPackage(
-                with: identity,
+                with: PURL.from(identity: identity),
                 packageGraph: packageGraph,
                 observabilityScope: observabilityScope
             )
@@ -1399,14 +1399,14 @@ extension Workspace {
         //
         // Note that we don't actually remove a local package from disk.
         if case .fileSystem = dependency.state {
-            await self.state.remove(identity: package.identity)
+            await self.state.remove(identity: package.identity.packageIdentity)
             try await self.state.save()
             return
         }
 
         // Inform the delegate.
         let repository = try? dependency.packageRef.makeRepositorySpecifier()
-        self.delegate?.removing(package: package.identity, packageLocation: repository?.location.description)
+        self.delegate?.removing(package: package.identity.packageIdentity, packageLocation: repository?.location.description)
 
         // Compute the dependency which we need to remove.
         let dependencyToRemove: ManagedDependency
@@ -1423,7 +1423,7 @@ extension Workspace {
             await self.state.add(dependency: updatedDependency)
         } else {
             dependencyToRemove = dependency
-            await self.state.remove(identity: dependencyToRemove.packageRef.identity)
+            await self.state.remove(identity: dependencyToRemove.packageRef.identity.packageIdentity)
         }
 
         switch package.kind {
@@ -1532,7 +1532,7 @@ extension Workspace {
                 .joined(separator: ", ")
             result.append("the following dependencies were added: \(dependencies)")
         case .packageRequirementChange(let package, let state, let requirement):
-            result.append("dependency '\(package.identity)' (\(package.kind.locationString)) was ")
+            result.append("dependency '\(package.identity.packageIdentity)' (\(package.kind.locationString)) was ")
 
             switch state {
             case .sourceControlCheckout(let checkoutState)?:

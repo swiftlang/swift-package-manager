@@ -3799,7 +3799,7 @@ struct PackageCommandTests {
                     revision: yoloRevision.identifier
                 )
                 let identity = PackageIdentity(path: barPath)
-                #expect(resolvedPackagesStore.resolvedPackages[identity]?.state == state)
+                #expect(resolvedPackagesStore.resolvedPackages[PURL.from(identity: identity)]?.state == state)
             }
 
             // Try to resolve `bar` at a revision.
@@ -3813,7 +3813,7 @@ struct PackageCommandTests {
                 )
                 let state = ResolvedPackagesStore.ResolutionState.revision(yoloRevision.identifier)
                 let identity = PackageIdentity(path: barPath)
-                #expect(resolvedPackagesStore.resolvedPackages[identity]?.state == state)
+                #expect(resolvedPackagesStore.resolvedPackages[PURL.from(identity: identity)]?.state == state)
             }
 
             // Try to resolve `bar` at a bad revision.
@@ -3889,9 +3889,9 @@ struct PackageCommandTests {
                 for pkg in ["bar", "baz"] {
                     let path = try SwiftPM.packagePath(for: pkg, packageRoot: fooPath)
                     let resolvedPackage = resolvedPackagesStore.resolvedPackages[
-                        PackageIdentity(path: path)
+                        PURL.from(identity: PackageIdentity(path: path))
                     ]!
-                    #expect(resolvedPackage.packageRef.identity == PackageIdentity(path: path))
+                    #expect(resolvedPackage.packageRef.identity.packageIdentity == PackageIdentity(path: path))
                     guard case .localSourceControl(let path) = resolvedPackage.packageRef.kind,
                           path.pathString.hasSuffix(pkg)
                     else {
@@ -3929,7 +3929,7 @@ struct PackageCommandTests {
                 let identity = PackageIdentity(path: barPath)
                 // let resolvedPackageIdentify = try #require(resolvedPackagesStore.resolvedPackages[identity])
                 // switch resolvedPackageIdentify.state {
-                switch resolvedPackagesStore.resolvedPackages[identity]?.state {
+                switch resolvedPackagesStore.resolvedPackages[PURL.from(identity: identity)]?.state {
                 case .version(let version, revision: _):
                     #expect(version == "1.2.3")
                 default:
@@ -3966,7 +3966,7 @@ struct PackageCommandTests {
                     mirrors: .init()
                 )
                 let identity = PackageIdentity(path: barPath)
-                switch resolvedPackagesStore.resolvedPackages[identity]?.state {
+                switch resolvedPackagesStore.resolvedPackages[PURL.from(identity: identity)]?.state {
                 case .version(let version, revision: _):
                     #expect(version == "1.2.3")
                 default:

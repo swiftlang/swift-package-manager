@@ -28,6 +28,7 @@ import struct PackageModel.PlatformVersion
 import enum PackageModel.PrebuiltsPlatform
 import struct PackageModel.Resource
 import struct PackageModel.PackageIdentity
+import struct PackageModel.PURL
 import enum PackageModel.ProductType
 import struct PackageModel.ToolsVersion
 
@@ -414,7 +415,7 @@ public final class PackagePIFBuilder {
     public struct LinkedPackageBinary {
         public let name: String
         public let type: BinaryType
-        public let packageIdentity: PackageIdentity
+        public let packageIdentity: PURL
 
         @frozen
         public enum BinaryType {
@@ -422,13 +423,13 @@ public final class PackagePIFBuilder {
             case target
         }
 
-        public init(product: String, packageIdentity: PackageIdentity) {
+        public init(product: String, packageIdentity: PURL) {
             self.name = product
             self.type = .product
             self.packageIdentity = packageIdentity
         }
 
-        public init(module: String, packageIdentity: PackageIdentity) {
+        public init(module: String, packageIdentity: PURL) {
             self.name = module
             self.type = .target
             self.packageIdentity = packageIdentity

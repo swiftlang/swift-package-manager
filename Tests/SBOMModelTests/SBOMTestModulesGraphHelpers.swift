@@ -161,7 +161,7 @@ enum SBOMTestModulesGraph {
         )
 
         return Package(
-            identity: identity,
+            identity: PURL.from(identity: identity),
             manifest: manifest,
             path: AbsolutePath(path),
             targets: modules,
@@ -178,7 +178,7 @@ enum SBOMTestModulesGraph {
         supportedPlatforms: [SupportedPlatform] = []
     ) -> ResolvedModule {
         ResolvedModule(
-            packageIdentity: packageIdentity,
+            packageIdentity: PURL.from(identity: packageIdentity),
             underlying: module,
             dependencies: dependencies,
             defaultLocalization: nil,
@@ -194,7 +194,7 @@ enum SBOMTestModulesGraph {
         modules: IdentifiableSet<ResolvedModule>
     ) -> ResolvedProduct {
         ResolvedProduct(
-            packageIdentity: packageIdentity,
+            packageIdentity: PURL.from(identity: packageIdentity),
             product: product,
             modules: modules
         )
@@ -211,7 +211,7 @@ enum SBOMTestModulesGraph {
             underlying: package,
             defaultLocalization: nil,
             supportedPlatforms: [],
-            dependencies: dependencies,
+            dependencies: dependencies.map({ PURL.from(identity: $0) }),
             enabledTraits: enabledTraits,
             modules: modules,
             products: products,

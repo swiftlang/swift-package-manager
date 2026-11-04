@@ -373,6 +373,6 @@ struct DiagnosticReportBuilder {
 
 extension DependencyResolutionNode {
     fileprivate var nameForDiagnostics: String {
-        "'\(self.package.identity)'"
+        "'\(self.package.identity.packageIdentity)'"
     }
 }

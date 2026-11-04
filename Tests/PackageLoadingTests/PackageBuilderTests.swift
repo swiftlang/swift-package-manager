@@ -3909,7 +3909,7 @@ final class PackageBuilderTester {
     }
 
     // the package identity
-    public let packageIdentity: PackageIdentity
+    public let packageIdentity: PURL
 
     /// Contains the result produced by PackageBuilder.
     private let result: Result
@@ -3932,7 +3932,7 @@ final class PackageBuilderTester {
         sourceLocation: SourceLocation = #_sourceLocation,
         _ body: (PackageBuilderTester, DiagnosticsTestResult) throws -> Void
     ) throws {
-        self.packageIdentity = PackageIdentity(urlString: manifest.packageLocation)
+        self.packageIdentity = PURL.from(identity: PackageIdentity(urlString: manifest.packageLocation))
         let observability = ObservabilitySystem.makeForTesting()
         do {
             // FIXME: We should allow customizing root package boolean.

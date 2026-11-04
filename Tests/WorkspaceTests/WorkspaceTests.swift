@@ -367,7 +367,7 @@ final class WorkspaceTests: XCTestCase {
                     ),
                     severity: .error
                 )
-                XCTAssertEqual(diagnostic?.metadata?.packageIdentity, .init(path: pkgDir))
+                XCTAssertEqual(diagnostic?.metadata?.packageIdentity?.packageIdentity, .init(path: pkgDir))
                 XCTAssertEqual(diagnostic?.metadata?.packageKind, .root(pkgDir))
             }
         }
@@ -997,13 +997,13 @@ final class WorkspaceTests: XCTestCase {
 
         let bPackagePath = try workspace.pathToPackage(withName: "B")
         let bRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: bPackagePath),
+            identity: PURL.from(identity: PackageIdentity(path: bPackagePath)),
             path: bPackagePath
         )
 
         let cPackagePath = try workspace.pathToPackage(withName: "C")
         let cRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: cPackagePath),
+            identity: PURL.from(identity: PackageIdentity(path: cPackagePath)),
             path: cPackagePath
         )
 
@@ -1058,14 +1058,16 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let bPackagePath = try workspace.pathToPackage(withName: "B")
+        let bID = PackageIdentity(path: bPackagePath)
         let bRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: bPackagePath),
+            identity: PURL.from(identity: bID),
             path: bPackagePath
         )
 
         let cPackagePath = try workspace.pathToPackage(withName: "C")
+        let cID = PackageIdentity(path: cPackagePath)
         let cRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: cPackagePath),
+            identity: PURL.from(identity: cID),
             path: cPackagePath
         )
 
@@ -1121,14 +1123,16 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let bPackagePath = try workspace.pathToPackage(withName: "B")
+        let bID = PackageIdentity(path: bPackagePath)
         let bRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: bPackagePath),
+            identity: PURL.from(identity: bID),
             path: bPackagePath
         )
 
         let cPackagePath = try workspace.pathToPackage(withName: "C")
+        let cID = PackageIdentity(path: cPackagePath)
         let cRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: cPackagePath),
+            identity: PURL.from(identity: cID),
             path: cPackagePath
         )
 
@@ -1179,8 +1183,9 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let cPackagePath = try testWorkspace.pathToPackage(withName: "C")
+        let cID = PackageIdentity(path: cPackagePath)
         let cRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: cPackagePath),
+            identity: PURL.from(identity: cID),
             path: cPackagePath
         )
 
@@ -1239,14 +1244,16 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let bPackagePath = try workspace.pathToPackage(withName: "B")
+        let bID = PackageIdentity(path: bPackagePath)
         let bRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: bPackagePath),
+            identity: PURL.from(identity: bID),
             path: bPackagePath
         )
 
         let cPackagePath = try workspace.pathToPackage(withName: "C")
+        let cID = PackageIdentity(path: cPackagePath)
         let cRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: cPackagePath),
+            identity: PURL.from(identity: cID),
             path: cPackagePath
         )
 
@@ -1306,14 +1313,16 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let bPackagePath = try workspace.pathToPackage(withName: "B")
+        let bID = PackageIdentity(path: bPackagePath)
         let bRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: bPackagePath),
+            identity: PURL.from(identity: bID),
             path: bPackagePath
         )
 
         let cPackagePath = try workspace.pathToPackage(withName: "C")
+        let cID = PackageIdentity(path: cPackagePath)
         let cRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: cPackagePath),
+            identity: PURL.from(identity: cID),
             path: cPackagePath
         )
 
@@ -1374,14 +1383,16 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let bPackagePath = try workspace.pathToPackage(withName: "B")
+        let bID = PackageIdentity(path: bPackagePath)
         let bRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: bPackagePath),
+            identity: PURL.from(identity: bID),
             path: bPackagePath
         )
 
         let cPackagePath = try workspace.pathToPackage(withName: "C")
+        let cID = PackageIdentity(path: cPackagePath)
         let cRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: cPackagePath),
+            identity: PURL.from(identity: cID),
             path: cPackagePath
         )
 
@@ -1442,14 +1453,16 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let bPackagePath = try workspace.pathToPackage(withName: "B")
+        let bID = PackageIdentity(path: bPackagePath)
         let bRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: bPackagePath),
+            identity: PURL.from(identity: bID),
             path: bPackagePath
         )
 
         let cPackagePath = try workspace.pathToPackage(withName: "C")
+        let cID = PackageIdentity(path: cPackagePath)
         let cRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: cPackagePath),
+            identity: PURL.from(identity: cID),
             path: cPackagePath
         )
 
@@ -1512,14 +1525,16 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let bPackagePath = try workspace.pathToPackage(withName: "B")
+        let bID = PackageIdentity(path: bPackagePath)
         let bRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: bPackagePath),
+            identity: PURL.from(identity: bID),
             path: bPackagePath
         )
 
         let cPackagePath = try workspace.pathToPackage(withName: "C")
+        let cID = PackageIdentity(path: cPackagePath)
         let cRef = PackageReference.localSourceControl(
-            identity: PackageIdentity(path: cPackagePath),
+            identity: PURL.from(identity: cID),
             path: cPackagePath
         )
 
@@ -1734,8 +1749,9 @@ final class WorkspaceTests: XCTestCase {
             #endif
 
             let path = sandbox.appending(components: ["pkgs","Foo"])
+            let id = PackageIdentity(path: path)
             let expectedChange = (
-                PackageReference.localSourceControl(identity: PackageIdentity(path: path), path: path),
+                PackageReference.localSourceControl(identity: PURL.from(identity: id), path: path),
                 stateChange
             )
             guard let change = changes?.first, changes?.count == 1 else {
@@ -3202,7 +3218,7 @@ final class WorkspaceTests: XCTestCase {
                 storageDirectory: underlying.state.storagePath.parentDirectory,
                 initializationWarningHandler: { _ in }
             )
-            await externalState.remove(identity: fooState.packageRef.identity)
+            await externalState.remove(identity: fooState.packageRef.identity.packageIdentity)
             try await externalState.add(dependency: fooState.edited(subpath: "foo", unmanagedPath: fooEditPath))
             try await externalState.save()
         }
@@ -4342,8 +4358,8 @@ final class WorkspaceTests: XCTestCase {
             }
 
             let resolvedPackagesStore = try workspace.getOrCreateWorkspace().resolvedPackagesStore.load()
-            checkPinnedVersion(pin: resolvedPackagesStore.resolvedPackages["foo"]!, version: "1.3.1")
-            checkPinnedVersion(pin: resolvedPackagesStore.resolvedPackages["bar"]!, version: "1.1.1")
+            checkPinnedVersion(pin: resolvedPackagesStore.resolvedPackages[PURL.from(name: "foo")]!, version: "1.3.1")
+            checkPinnedVersion(pin: resolvedPackagesStore.resolvedPackages[PURL.from(name: "bar")]!, version: "1.1.1")
         }
 
         do {
@@ -5356,7 +5372,7 @@ final class WorkspaceTests: XCTestCase {
             let resolvedPackagesStore = try ws.resolvedPackagesStore.load()
             let fooPin = try XCTUnwrap(
                 resolvedPackagesStore.resolvedPackages.values
-                    .first(where: { $0.packageRef.identity.description == "foo" })
+                    .first(where: { $0.packageRef.identity.packageIdentity.description == "foo" })
             )
 
             let fooRepo = try workspace.repositoryProvider
@@ -5367,7 +5383,7 @@ final class WorkspaceTests: XCTestCase {
             let revision = try fooRepo.resolveRevision(tag: "1.0.0")
             let newState = ResolvedPackagesStore.ResolutionState.version("1.0.0", revision: revision.identifier)
 
-            resolvedPackagesStore.track(packageRef: fooPin.packageRef, state: newState, scm: nil)
+            resolvedPackagesStore.track(packageRef: fooPin.packageRef, state: newState, scm: nil, purl: fooPin.packageRef.identity)
             try resolvedPackagesStore.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         }
 
@@ -6655,7 +6671,8 @@ final class WorkspaceTests: XCTestCase {
 
         // Pin A to 1.0.0, Checkout B to 1.0.0
         let aPath = try workspace.pathToPackage(withName: "A")
-        let aRef = PackageReference.localSourceControl(identity: PackageIdentity(path: aPath), path: aPath)
+        let aID = PackageIdentity(path: aPath)
+        let aRef = PackageReference.localSourceControl(identity: PURL.from(identity: aID), path: aPath)
         let aRepo = workspace.repositoryProvider.specifierMap[RepositorySpecifier(path: aPath)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
         let aState = CheckoutState.version("1.0.0", revision: aRevision)
@@ -7012,7 +7029,8 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let rootPath = try workspace.pathToRoot(withName: "Root")
-        let rootRef = PackageReference.root(identity: PackageIdentity(path: rootPath), path: rootPath)
+        let rootID = PackageIdentity(path: rootPath)
+        let rootRef = PackageReference.root(identity: PURL.from(identity: rootID), path: rootPath)
 
         // Set an initial workspace state
         try await workspace.set(
@@ -7618,7 +7636,8 @@ final class WorkspaceTests: XCTestCase {
 
         // Pin A to 1.0.0, Checkout B to 1.0.0
         let aPath = try workspace.pathToPackage(withName: "A")
-        let aRef = PackageReference.localSourceControl(identity: PackageIdentity(path: aPath), path: aPath)
+        let aID = PackageIdentity(path: aPath)
+        let aRef = PackageReference.localSourceControl(identity: PURL.from(identity: aID), path: aPath)
         let aRepo = workspace.repositoryProvider.specifierMap[RepositorySpecifier(path: aPath)]!
         let aRevision = try aRepo.resolveRevision(tag: "1.0.0")
         let aState = CheckoutState.version("1.0.0", revision: aRevision)
@@ -8577,7 +8596,8 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let rootPath = try workspace.pathToRoot(withName: "Root")
-        let rootRef = PackageReference.root(identity: PackageIdentity(path: rootPath), path: rootPath)
+        let rootID = PackageIdentity(path: rootPath)
+        let rootRef = PackageReference.root(identity: PURL.from(identity: rootID), path: rootPath)
 
         try await workspace.set(
             managedArtifacts: [
@@ -8673,7 +8693,8 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let rootPath = try workspace.pathToRoot(withName: "Root")
-        let rootRef = PackageReference.root(identity: PackageIdentity(path: rootPath), path: rootPath)
+        let rootID = PackageIdentity(path: rootPath)
+        let rootRef = PackageReference.root(identity: PURL.from(identity: rootID), path: rootPath)
 
         try await workspace.set(
             managedArtifacts: [
@@ -10620,7 +10641,8 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let rootPath = try workspace.pathToRoot(withName: "Root")
-        let rootRef = PackageReference.root(identity: PackageIdentity(path: rootPath), path: rootPath)
+        let rootID = PackageIdentity(path: rootPath)
+        let rootRef = PackageReference.root(identity: PURL.from(identity: rootID), path: rootPath)
 
         try await workspace.set(
             managedArtifacts: [
@@ -10683,7 +10705,8 @@ final class WorkspaceTests: XCTestCase {
         )
 
         let rootPath = try workspace.pathToRoot(withName: "Root")
-        let rootRef = PackageReference.root(identity: PackageIdentity(path: rootPath), path: rootPath)
+        let rootID = PackageIdentity(path: rootPath)
+        let rootRef = PackageReference.root(identity: PURL.from(identity: rootID), path: rootPath)
         let artifactPath = workspace.artifactsDir.appending(components: "root", "A", "A.xcframework")
 
         try await workspace.set(
@@ -12993,14 +13016,14 @@ final class WorkspaceTests: XCTestCase {
 
         await workspace.checkManagedDependencies { result in
             XCTAssertEqual(
-                result.managedDependencies["foo"]?.packageRef.locationString,
+                result.managedDependencies[PURL.from(name: "foo")]?.packageRef.locationString,
                 "https://github.com/org/foo.git"
             )
         }
 
         workspace.checkResolved { result in
             XCTAssertEqual(
-                result.store.resolvedPackages["foo"]?.packageRef.locationString,
+                result.store.resolvedPackages[PURL.from(name: "foo")]?.packageRef.locationString,
                 "https://github.com/org/foo.git"
             )
         }
@@ -13134,12 +13157,12 @@ final class WorkspaceTests: XCTestCase {
         }
 
         await workspace.checkManagedDependencies { result in
-            XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
+            XCTAssertEqual(result.managedDependencies[PURL.from(name: "foo")]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
 
         workspace.checkResolved { result in
             XCTAssertEqual(
-                result.store.resolvedPackages["foo"]?.packageRef.locationString,
+                result.store.resolvedPackages[PURL.from(name: "foo")]?.packageRef.locationString,
                 "git@github.com:org/foo.git"
             )
         }
@@ -13267,12 +13290,12 @@ final class WorkspaceTests: XCTestCase {
         }
 
         await workspace.checkManagedDependencies { result in
-            XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
+            XCTAssertEqual(result.managedDependencies[PURL.from(name: "foo")]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
 
         workspace.checkResolved { result in
             XCTAssertEqual(
-                result.store.resolvedPackages["foo"]?.packageRef.locationString,
+                result.store.resolvedPackages[PURL.from(name: "foo")]?.packageRef.locationString,
                 "git@github.com:org/foo.git"
             )
         }
@@ -13296,12 +13319,12 @@ final class WorkspaceTests: XCTestCase {
 
         await workspace.checkManagedDependencies { result in
             // we expect the managed dependency to carry the old state
-            XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
+            XCTAssertEqual(result.managedDependencies[PURL.from(name: "foo")]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
 
         workspace.checkResolved { result in
             XCTAssertEqual(
-                result.store.resolvedPackages["foo"]?.packageRef.locationString,
+                result.store.resolvedPackages[PURL.from(name: "foo")]?.packageRef.locationString,
                 "https://github.com/org/foo"
             )
         }
@@ -13385,14 +13408,14 @@ final class WorkspaceTests: XCTestCase {
 
         await workspace.checkManagedDependencies { result in
             XCTAssertEqual(
-                result.managedDependencies["foo"]?.packageRef.locationString,
+                result.managedDependencies[PURL.from(name: "foo")]?.packageRef.locationString,
                 "https://github.com/org/foo.git"
             )
         }
 
         workspace.checkResolved { result in
             XCTAssertEqual(
-                result.store.resolvedPackages["foo"]?.packageRef.locationString,
+                result.store.resolvedPackages[PURL.from(name: "foo")]?.packageRef.locationString,
                 "https://github.com/org/foo.git"
             )
         }
@@ -13409,12 +13432,12 @@ final class WorkspaceTests: XCTestCase {
         }
 
         await workspace.checkManagedDependencies { result in
-            XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
+            XCTAssertEqual(result.managedDependencies[PURL.from(name: "foo")]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
 
         workspace.checkResolved { result in
             XCTAssertEqual(
-                result.store.resolvedPackages["foo"]?.packageRef.locationString,
+                result.store.resolvedPackages[PURL.from(name: "foo")]?.packageRef.locationString,
                 "git@github.com:org/foo.git"
             )
         }
@@ -13545,14 +13568,14 @@ final class WorkspaceTests: XCTestCase {
 
         await workspace.checkManagedDependencies { result in
             XCTAssertEqual(
-                result.managedDependencies["foo"]?.packageRef.locationString,
+                result.managedDependencies[PURL.from(name: "foo")]?.packageRef.locationString,
                 "https://github.com/org/foo.git"
             )
         }
 
         workspace.checkResolved { result in
             XCTAssertEqual(
-                result.store.resolvedPackages["foo"]?.packageRef.locationString,
+                result.store.resolvedPackages[PURL.from(name: "foo")]?.packageRef.locationString,
                 "https://github.com/org/foo.git"
             )
         }
@@ -13575,12 +13598,12 @@ final class WorkspaceTests: XCTestCase {
         }
 
         await workspace.checkManagedDependencies { result in
-            XCTAssertEqual(result.managedDependencies["foo"]?.packageRef.locationString, "git@github.com:org/foo.git")
+            XCTAssertEqual(result.managedDependencies[PURL.from(name: "foo")]?.packageRef.locationString, "git@github.com:org/foo.git")
         }
 
         workspace.checkResolved { result in
             XCTAssertEqual(
-                result.store.resolvedPackages["foo"]?.packageRef.locationString,
+                result.store.resolvedPackages[PURL.from(name: "foo")]?.packageRef.locationString,
                 "git@github.com:org/foo.git"
             )
         }
@@ -16866,7 +16889,7 @@ final class WorkspaceTests: XCTestCase {
             try Manifest.createManifest(
                 displayName: "Foo",
                 path: packagePath.appending(component: Manifest.filename),
-                packageKind: .registry("org.foo"),
+                packageKind: .registry(PURL.from(name: "org.foo")),
                 packageIdentity: .plain("Foo"),
                 packageLocation: "org.foo",
                 toolsVersion: .current,
@@ -17063,7 +17086,7 @@ final class WorkspaceTests: XCTestCase {
         let workspace = try await createBasicRegistryWorkspace(metadata: ["org.bar": actualMetadata])
 
         try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-            PackageIdentity.plain("org.bar"): XCTUnwrap(actualMetadata.signature?.signedBy),
+            PURL.from(name: "org.bar"): XCTUnwrap(actualMetadata.signature?.signedBy),
         ]) { _, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
         }
@@ -17089,7 +17112,7 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-                PackageIdentity.plain("org.bar"): expectedSigningEntity,
+                PURL.from(name: "org.bar"): expectedSigningEntity,
             ]) { _, _ in }
             XCTFail("should not succeed")
         } catch Workspace.SigningError.mismatchedSigningEntity(_, let expected, let actual) {
@@ -17112,7 +17135,7 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-                PackageIdentity.plain("org.bar"): expectedSigningEntity,
+                PURL.from(name: "org.bar"): expectedSigningEntity,
             ]) { _, _ in }
             XCTFail("should not succeed")
         } catch Workspace.SigningError.unsigned(_, let expected) {
@@ -17134,7 +17157,7 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-                PackageIdentity.plain("foo.bar"): expectedSigningEntity,
+                PURL.from(name: "foo.bar"): expectedSigningEntity,
             ]) { _, _ in }
             XCTFail("should not succeed")
         } catch Workspace.SigningError.expectedIdentityNotFound(let package) {
@@ -17163,7 +17186,7 @@ final class WorkspaceTests: XCTestCase {
         )
 
         try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-            PackageIdentity.plain("org.bar"): XCTUnwrap(actualMetadata.signature?.signedBy),
+            PURL.from(name: "org.bar"): XCTUnwrap(actualMetadata.signature?.signedBy),
         ]) { graph, diagnostics in
             XCTAssertNoDiagnostics(diagnostics)
             PackageGraphTesterXCTest(graph) { result in
@@ -17199,7 +17222,7 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-                PackageIdentity.plain("org.bar"): expectedSigningEntity,
+                PURL.from(name: "org.bar"): expectedSigningEntity,
             ]) { _, _ in }
             XCTFail("should not succeed")
         } catch Workspace.SigningError.mismatchedSigningEntity(_, let expected, let actual) {
@@ -17225,7 +17248,7 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-                PackageIdentity.plain("org.bar"): expectedSigningEntity,
+                PURL.from(name: "org.bar"): expectedSigningEntity,
             ]) { _, _ in }
             XCTFail("should not succeed")
         } catch Workspace.SigningError.unsigned(_, let expected) {
@@ -17250,7 +17273,7 @@ final class WorkspaceTests: XCTestCase {
 
         do {
             try await workspace.checkPackageGraph(roots: ["MyPackage"], expectedSigningEntities: [
-                PackageIdentity.plain("org.bar"): expectedSigningEntity,
+                PURL.from(name: "org.bar"): expectedSigningEntity,
             ]) { _, _ in }
             XCTFail("should not succeed")
         } catch Workspace.SigningError.expectedSignedMirroredToSourceControl(_, let expected) {
@@ -17702,7 +17725,7 @@ final class WorkspaceTests: XCTestCase {
         // The managed dependency for org.foo should carry the original SCM URL
         let ws = try workspace.getOrCreateWorkspace()
         let deps = await ws.state.dependencies
-        let fooDep = try XCTUnwrap(deps[PackageIdentity.plain("org.foo")])
+        let fooDep = try XCTUnwrap(deps[PURL.from(name: "org.foo")])
         guard case .registryDownload(_, let scmUrl) = fooDep.state else {
             return XCTFail("Expected registryDownload state for org.foo")
         }

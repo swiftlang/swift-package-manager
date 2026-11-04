@@ -796,7 +796,7 @@ extension WorkspaceTests {
                     }
 
                     let deps = package.dependencies
-                    XCTAssertEqual(deps, [PackageIdentity(urlString: "./GuardedDependency")])
+                    XCTAssertEqual(deps, [PURL.from(identity: PackageIdentity(urlString: "./GuardedDependency"))])
                     XCTAssertEqual(enabledTraits, ["Enabled1", "Enabled2"])
                 }
             }
@@ -936,7 +936,7 @@ extension WorkspaceTests {
 
                     // Verify the dependency on GuardedDependency is included
                     let deps = package.dependencies
-                    XCTAssertEqual(deps, [PackageIdentity(urlString: "./GuardedDependency")])
+                    XCTAssertEqual(deps, [PURL.from(identity: PackageIdentity(urlString: "./GuardedDependency"))])
                 }
 
                 // The graph should include GuardedDependency since Feature1 is enabled

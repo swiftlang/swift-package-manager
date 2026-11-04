@@ -119,7 +119,7 @@ extension Workspace {
     /// A collection of managed artifacts which have been downloaded.
     public final class ManagedArtifacts {
         /// A mapping from package identity, to target name, to ManagedArtifact.
-        private var artifactMap: [PackageIdentity: [String: ManagedArtifact]]
+        private var artifactMap: [PURL: [String: ManagedArtifact]]
 
         internal var artifacts: AnyCollection<ManagedArtifact> {
             AnyCollection(self.artifactMap.values.lazy.flatMap{ $0.values })
@@ -144,7 +144,7 @@ extension Workspace {
             }
         }
 
-        public subscript(packageIdentity packageIdentity: PackageIdentity, targetName targetName: String) -> ManagedArtifact? {
+        public subscript(packageIdentity packageIdentity: PURL, targetName targetName: String) -> ManagedArtifact? {
             self.artifactMap[packageIdentity]?[targetName]
         }
 
@@ -152,7 +152,7 @@ extension Workspace {
             self.artifactMap[artifact.packageRef.identity, default: [:]][artifact.targetName] = artifact
         }
 
-        public func remove(packageIdentity: PackageIdentity, targetName: String) {
+        public func remove(packageIdentity: PURL, targetName: String) {
             self.artifactMap[packageIdentity]?[targetName] = nil
         }
     }

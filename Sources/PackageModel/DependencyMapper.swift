@@ -56,7 +56,7 @@ public struct DefaultDependencyMapper: DependencyMapper {
             let url = SourceControlURL(mappedLocationString)
             let identity = try self.identityResolver.resolveIdentity(for: url)
             return .remoteSourceControl(
-                identity: identity,
+                identity: identity.packageIdentity,
                 nameForTargetDependencyResolutionOnly: dependency.nameForTargetDependencyResolutionOnly,
                 url: url,
                 requirement: try dependency.sourceControlRequirement(for: mappedLocationString),
@@ -70,7 +70,7 @@ public struct DefaultDependencyMapper: DependencyMapper {
             let localPath = try AbsolutePath(validating: mappedLocationString)
             let identity = try self.identityResolver.resolveIdentity(for: localPath)
             return .localSourceControl(
-                identity: identity,
+                identity: identity.packageIdentity,
                 nameForTargetDependencyResolutionOnly: dependency.nameForTargetDependencyResolutionOnly,
                 path: localPath,
                 requirement: try dependency.sourceControlRequirement(for: mappedLocationString),

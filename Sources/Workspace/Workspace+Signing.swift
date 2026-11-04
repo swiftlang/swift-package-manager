@@ -13,6 +13,7 @@
 import enum PackageFingerprint.FingerprintCheckingMode
 import struct PackageGraph.ModulesGraph
 import struct PackageModel.PackageIdentity
+import struct PackageModel.PURL
 import struct PackageModel.RegistryReleaseMetadata
 import enum PackageSigning.SigningEntityCheckingMode
 
@@ -43,41 +44,42 @@ extension SigningEntityCheckingMode {
 extension Workspace {
     func validateSignatures(
         packageGraph: ModulesGraph,
-        expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity]
+        expectedSigningEntities: [PURL: RegistryReleaseMetadata.SigningEntity]
     ) throws {
         try expectedSigningEntities.forEach { identity, expectedSigningEntity in
             if let package = packageGraph.package(for: identity) {
                 guard let actualSigningEntity = package.registryMetadata?.signature?.signedBy else {
-                    throw SigningError.unsigned(package: identity, expected: expectedSigningEntity)
+                    throw SigningError.unsigned(package: identity.packageIdentity, expected: expectedSigningEntity)
                 }
                 if actualSigningEntity != expectedSigningEntity {
                     throw SigningError.mismatchedSigningEntity(
-                        package: identity,
+                        package: identity.packageIdentity,
                         expected: expectedSigningEntity,
                         actual: actualSigningEntity
                     )
                 }
             } else {
-                guard let mirror = self.mirrors.mirror(for: identity.description) else {
-                    throw SigningError.expectedIdentityNotFound(package: identity)
+                guard let mirror = self.mirrors.mirror(for: identity.packageIdentity.description) else {
+                    throw SigningError.expectedIdentityNotFound(package: identity.packageIdentity)
                 }
-                let mirroredIdentity = PackageIdentity.plain(mirror)
+//                let mirroredIdentity = PackageIdentity.plain(mirror)
+                let mirroredIdentity = PURL.from(name: mirror)
                 guard mirroredIdentity.isRegistry else {
                     throw SigningError.expectedSignedMirroredToSourceControl(
-                        package: identity,
+                        package: identity.packageIdentity,
                         expected: expectedSigningEntity
                     )
                 }
                 guard let package = packageGraph.package(for: mirroredIdentity) else {
                     // Unsure if this case is reachable in practice.
-                    throw SigningError.expectedIdentityNotFound(package: identity)
+                    throw SigningError.expectedIdentityNotFound(package: identity.packageIdentity)
                 }
                 guard let actualSigningEntity = package.registryMetadata?.signature?.signedBy else {
-                    throw SigningError.unsigned(package: identity, expected: expectedSigningEntity)
+                    throw SigningError.unsigned(package: identity.packageIdentity, expected: expectedSigningEntity)
                 }
                 if actualSigningEntity != expectedSigningEntity {
                     throw SigningError.mismatchedSigningEntity(
-                        package: identity,
+                        package: identity.packageIdentity,
                         expected: expectedSigningEntity,
                         actual: actualSigningEntity
                     )

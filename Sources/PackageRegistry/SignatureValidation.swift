@@ -140,7 +140,7 @@ struct SignatureValidation {
             guard let signatureBase64Encoded = sourceArchiveResource.signing?.signatureBase64Encoded else {
                 throw RegistryError.sourceArchiveNotSigned(
                     registry: registry,
-                    package: package.underlying,
+                    package: package.underlying.packageIdentity,
                     version: version
                 )
             }
@@ -181,7 +181,7 @@ struct SignatureValidation {
 
             let sourceArchiveNotSignedError = RegistryError.sourceArchiveNotSigned(
                 registry: registry,
-                package: package.underlying,
+                package: package.underlying.packageIdentity,
                 version: version
             )
 
@@ -189,7 +189,7 @@ struct SignatureValidation {
             case .prompt:
                 return try await withCheckedThrowingContinuation { continuation in
                     self.delegate
-                        .onUnsigned(registry: registry, package: package.underlying, version: version) { `continue` in
+                        .onUnsigned(registry: registry, package: package.underlying.packageIdentity, version: version) { `continue` in
                             if `continue` {
                                 continuation.resume(returning: .none)
                             } else {
@@ -212,7 +212,7 @@ struct SignatureValidation {
         } catch RegistryError.failedRetrievingReleaseInfo(_, _, _, let error) {
             throw RegistryError.failedRetrievingSourceArchiveSignature(
                 registry: registry,
-                package: package.underlying,
+                package: package.underlying.packageIdentity,
                 version: version,
                 error: error
             )
@@ -221,7 +221,7 @@ struct SignatureValidation {
         } catch {
             throw RegistryError.failedRetrievingSourceArchiveSignature(
                 registry: registry,
-                package: package.underlying,
+                package: package.underlying.packageIdentity,
                 version: version,
                 error: error
             )
@@ -273,7 +273,7 @@ struct SignatureValidation {
                 }
 
                 let signerNotTrustedError = ValidationError.passthrough(
-                    RegistryError.signerNotTrusted(package.underlying, signingEntity)
+                    RegistryError.signerNotTrusted(package.underlying.packageIdentity, signingEntity)
                 )
 
                 switch onUntrusted {
@@ -282,7 +282,7 @@ struct SignatureValidation {
                         self.delegate
                             .onUntrusted(
                                 registry: registry,
-                                package: package.underlying,
+                                package: package.underlying.packageIdentity,
                                 version: version
                             ) { `continue` in
                                 if `continue` {
@@ -406,7 +406,7 @@ struct SignatureValidation {
             guard sourceArchiveResource.signing?.signatureBase64Encoded != nil else {
                 throw RegistryError.sourceArchiveNotSigned(
                     registry: registry,
-                    package: package.underlying,
+                    package: package.underlying.packageIdentity,
                     version: version
                 )
             }
@@ -415,7 +415,7 @@ struct SignatureValidation {
             guard let manifestSignature = try ManifestSignatureParser.parse(utf8String: manifestContent) else {
                 throw ValidationError.passthrough(RegistryError.manifestNotSigned(
                     registry: registry,
-                    package: package.underlying,
+                    package: package.underlying.packageIdentity,
                     version: version,
                     toolsVersion: toolsVersion
                 ))
@@ -454,7 +454,7 @@ struct SignatureValidation {
 
             let sourceArchiveNotSignedError = RegistryError.sourceArchiveNotSigned(
                 registry: registry,
-                package: package.underlying,
+                package: package.underlying.packageIdentity,
                 version: version
             )
 
@@ -464,7 +464,7 @@ struct SignatureValidation {
             case .prompt:
                 return try await withCheckedThrowingContinuation { continuation in
                     self.delegate
-                        .onUnsigned(registry: registry, package: package.underlying, version: version) { `continue` in
+                        .onUnsigned(registry: registry, package: package.underlying.packageIdentity, version: version) { `continue` in
                             if `continue` {
                                 continuation.resume(returning: .none)
                             } else {
@@ -532,7 +532,7 @@ struct SignatureValidation {
                 }
 
                 let signerNotTrustedError = ValidationError.passthrough(
-                    RegistryError.signerNotTrusted(package.underlying, signingEntity)
+                    RegistryError.signerNotTrusted(package.underlying.packageIdentity, signingEntity)
                 )
 
                 // Prompt if configured, otherwise just continue (this differs
@@ -543,7 +543,7 @@ struct SignatureValidation {
                         self.delegate
                             .onUntrusted(
                                 registry: registry,
-                                package: package.underlying,
+                                package: package.underlying.packageIdentity,
                                 version: version
                             ) { `continue` in
                                 if `continue` {
@@ -648,8 +648,9 @@ extension VerifierConfiguration {
 extension ObservabilityMetadata {
     public static func registryPackageMetadata(identity: PackageIdentity.RegistryIdentity) -> Self {
         var metadata = ObservabilityMetadata()
-        metadata.packageIdentity = identity.underlying
-        metadata.packageKind = .registry(identity.underlying)
+        let id = PURL.from(identity: identity.underlying.packageIdentity)
+        metadata.packageIdentity = id
+        metadata.packageKind = .registry(id)
         return metadata
     }
 }

@@ -29,11 +29,11 @@ public final class PackageGraphResult {
     }
 
     public func check(roots: PackageIdentity..., sourceLocation: SourceLocation = #_sourceLocation) {
-        #expect(graph.rootPackages.map{$0.identity }.sorted() == roots.sorted(), sourceLocation: sourceLocation)
+        #expect(graph.rootPackages.map{$0.identity.packageIdentity }.sorted() == roots.sorted(), sourceLocation: sourceLocation)
     }
 
     public func check(packages: PackageIdentity..., sourceLocation: SourceLocation = #_sourceLocation) {
-        #expect(graph.packages.map {$0.identity }.sorted() == packages.sorted(), sourceLocation: sourceLocation)
+        #expect(graph.packages.map {$0.identity.packageIdentity }.sorted() == packages.sorted(), sourceLocation: sourceLocation)
     }
 
     public func check(modules: String..., sourceLocation: SourceLocation = #_sourceLocation) {
@@ -121,7 +121,7 @@ public final class PackageGraphResult {
     }
 
     public func find(package: PackageIdentity) -> ResolvedPackage? {
-        return graph.package(for: package)
+        return graph.package(for: PURL.from(identity: package))
     }
 
     private func reachableBuildTargets(in environment: BuildEnvironment) throws -> IdentifiableSet<ResolvedModule> {

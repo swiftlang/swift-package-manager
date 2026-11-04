@@ -115,7 +115,7 @@ public class RepositoryManager: Cancellable {
             // check if the repository is already being looked up
             // if so, wait for it to finish and return the result
             try await self.lookup(
-                package: package,
+                package: PURL.from(identity: package),
                 repository: repository,
                 updateStrategy: updateStrategy,
                 observabilityScope: observabilityScope
@@ -124,7 +124,7 @@ public class RepositoryManager: Cancellable {
     }
 
     public func lookup(
-        package: PackageIdentity,
+        package: PURL,
         repository repositorySpecifier: RepositorySpecifier,
         updateStrategy: RepositoryUpdateStrategy,
         observabilityScope: ObservabilityScope
@@ -182,7 +182,7 @@ public class RepositoryManager: Cancellable {
     }
 
     private func performLookup(
-        package: PackageIdentity,
+        package: PURL,
         repository repositorySpecifier: RepositorySpecifier,
         updateStrategy: RepositoryUpdateStrategy,
         observabilityScope: ObservabilityScope
@@ -206,11 +206,11 @@ public class RepositoryManager: Cancellable {
             if self.fetchRequired(repository: repository, updateStrategy: updateStrategy) {
                 let start = DispatchTime.now()
 
-                self.delegate?.emit { $0.willUpdate(package: package, repository: handle.repository) }
+                self.delegate?.emit { $0.willUpdate(package: package.packageIdentity, repository: handle.repository) }
 
                 try await self.fetchAsync(repository)
                 let duration = start.distance(to: .now())
-                self.delegate?.emit { $0.didUpdate(package: package, repository: handle.repository, duration: duration) }
+                self.delegate?.emit { $0.didUpdate(package: package.packageIdentity, repository: handle.repository, duration: duration) }
             }
 
             return handle
@@ -220,7 +220,7 @@ public class RepositoryManager: Cancellable {
         // calculate if cached (for delegate call) outside queue as it may change while queue is processing
         let isCached = self.cachePath.map { self.fileSystem.exists($0.appending(handle.subpath)) } ?? false
         let details = FetchDetails(fromCache: isCached, updatedCache: false)
-        self.delegate?.emit { $0.willFetch(package: package, repository: handle.repository, details: details) }
+        self.delegate?.emit { $0.willFetch(package: package.packageIdentity, repository: handle.repository, details: details) }
 
         // perform the fetch
         let start = DispatchTime.now()
@@ -229,7 +229,7 @@ public class RepositoryManager: Cancellable {
             try? self.fileSystem.removeFileTree(repositoryPath)
             // fetch the repo and cache the results
             let result = try await self.fetchAndPopulateCache(
-                package: package,
+                package: package.packageIdentity,
                 handle: handle,
                 repositoryPath: repositoryPath,
                 updateStrategy: updateStrategy,
@@ -237,12 +237,12 @@ public class RepositoryManager: Cancellable {
             )
             // inform delegate fetch is done
             let duration = start.distance(to: .now())
-            self.delegate?.emit { $0.didFetch(package: package, repository: handle.repository, result: .success(result), duration: duration) }
+            self.delegate?.emit { $0.didFetch(package: package.packageIdentity, repository: handle.repository, result: .success(result), duration: duration) }
             return handle
         } catch {
             // inform delegate fetch is done
             let duration = start.distance(to: .now())
-            self.delegate?.emit { $0.didFetch(package: package, repository: handle.repository, result: .failure(error), duration: duration) }
+            self.delegate?.emit { $0.didFetch(package: package.packageIdentity, repository: handle.repository, result: .failure(error), duration: duration) }
             throw error
         }
     }

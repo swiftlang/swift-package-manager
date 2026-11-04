@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct PackageModel.PURL
+
 internal struct SBOMComponent: Codable, Equatable, Hashable, Comparable {
     internal enum Category: String, Codable, Equatable {
         case application

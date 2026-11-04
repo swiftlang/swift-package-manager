@@ -115,7 +115,7 @@ struct PackageVersionChecksumTOFU {
             guard let archiveChecksum = sourceArchiveResource.checksum else {
                 throw RegistryError.sourceArchiveMissingChecksum(
                     registry: registry,
-                    package: package.underlying,
+                    package: package.underlying.packageIdentity,
                     version: version
                 )
             }
@@ -123,7 +123,7 @@ struct PackageVersionChecksumTOFU {
         } catch {
             throw RegistryError.failedRetrievingReleaseChecksum(
                 registry: registry,
-                package: package.underlying,
+                package: package.underlying.packageIdentity,
                 version: version,
                 error: error
             )

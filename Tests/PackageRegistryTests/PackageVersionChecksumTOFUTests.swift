@@ -25,7 +25,7 @@ import struct TSCUtility.Version
 final class PackageVersionChecksumTOFUTests: XCTestCase {
     func testSourceArchiveChecksumSeenForTheFirstTime() async throws {
         let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
+        let identity = PURL.from(name: "mona.LinkedList")
         let package = identity.registry!
         let version = Version("1.1.1")
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
@@ -113,7 +113,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 
     func testSourceArchiveMetadataChecksumConflictsWithStorage_strictMode() async throws {
         let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
+        let identity = PURL.from(name: "mona.LinkedList")
         let package = identity.registry!
         let version = Version("1.1.1")
         let metadataURL = URL("\(registryURL)/\(package.scope)/\(package.name)/\(version)")
@@ -423,7 +423,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 
     func testSourceArchiveChecksumMatchingStorage() async throws {
         let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
+        let identity = PURL.from(name: "mona.LinkedList")
         let package = identity.registry!
         let version = Version("1.1.1")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
@@ -478,7 +478,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 
     func testSourceArchiveChecksumDoesNotMatchExpectedFromStorage_strictMode() async throws {
         let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
+        let identity = PURL.from(name: "mona.LinkedList")
         let package = identity.registry!
         let version = Version("1.1.1")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
@@ -541,7 +541,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 
     func testSourceArchiveChecksumDoesNotMatchExpectedFromStorage_warnMode() async throws {
         let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
+        let identity = PURL.from(name: "mona.LinkedList")
         let package = identity.registry!
         let version = Version("1.1.1")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
@@ -606,7 +606,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 
     func testManifestChecksumSeenForTheFirstTime() async throws {
         let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
+        let identity = PURL.from(name: "mona.LinkedList")
         let package = identity.registry!
         let version = Version("1.1.1")
 
@@ -681,7 +681,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 
     func testManifestChecksumMatchingStorage() async throws {
         let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
+        let identity = PURL.from(name: "mona.LinkedList")
         let package = identity.registry!
         let version = Version("1.1.1")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
@@ -738,7 +738,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 
     func testManifestChecksumDoesNotMatchExpectedFromStorage_strictMode() async throws {
         let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
+        let identity = PURL.from(name: "mona.LinkedList")
         let package = identity.registry!
         let version = Version("1.1.1")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
@@ -803,7 +803,7 @@ final class PackageVersionChecksumTOFUTests: XCTestCase {
 
     func testManifestChecksumDoesNotMatchExpectedFromStorage_warnMode() async throws {
         let registryURL = URL("https://packages.example.com")
-        let identity = PackageIdentity.plain("mona.LinkedList")
+        let identity = PURL.from(name: "mona.LinkedList")
         let package = identity.registry!
         let version = Version("1.1.1")
         let checksum = "a2ac54cf25fbc1ad0028f03f0aa4b96833b83bb05a14e510892bb27dea4dc812"
@@ -909,7 +909,7 @@ extension PackageVersionChecksumTOFU {
 
 private class WriteConflictFingerprintStorage: PackageFingerprintStorage {
     func get(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         observabilityScope: ObservabilityScope
     ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
@@ -917,7 +917,7 @@ private class WriteConflictFingerprintStorage: PackageFingerprintStorage {
     }
 
     func put(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         fingerprint: Fingerprint,
         observabilityScope: ObservabilityScope

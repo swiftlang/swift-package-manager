@@ -73,7 +73,7 @@ public final class Package {
     public let testTargetSearchPath: AbsolutePath
 
     public init(
-        identity: PackageIdentity,
+        identity: PURL,
         manifest: Manifest,
         path: AbsolutePath,
         targets: [Module],
@@ -81,7 +81,7 @@ public final class Package {
         targetSearchPath: AbsolutePath,
         testTargetSearchPath: AbsolutePath
     ) {
-        self.identity = .from(identity: identity)
+        self.identity = identity
         self.manifest = manifest
         self.path = path
         self.modules = targets

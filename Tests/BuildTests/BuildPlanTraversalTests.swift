@@ -17,6 +17,7 @@ import Basics
 @testable import Build
 
 import PackageGraph
+import struct PackageModel.PURL
 
 import _InternalTestSupport
 import SPMBuildCore
@@ -156,7 +157,7 @@ struct BuildPlanTraversalTests {
             results.append(Result(parent: $1, module: $0))
         }
 
-        let package = try #require(graph.package(for: "swift-mmio"))
+        let package = try #require(graph.package(for: PURL.from(name: "swift-mmio")))
 
         // Tests that if one of the test targets directly depends
         // on a macro - all tests are built for the "host".

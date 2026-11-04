@@ -183,7 +183,7 @@ extension Manifest {
 
     public static func createRegistryManifest(
         displayName: String,
-        identity: PackageIdentity,
+        identity: PURL,
         path: AbsolutePath = .root,
         defaultLocalization: String? = nil,
         platforms: [PlatformDescription] = [],
@@ -204,7 +204,7 @@ extension Manifest {
             path: path,
             packageKind: .registry(identity),
             packageIdentity: .plain(displayName.lowercased()),
-            packageLocation: identity.description,
+            packageLocation: identity.packageIdentity.description,
             defaultLocalization: defaultLocalization,
             platforms: platforms,
             version: version,
