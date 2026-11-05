@@ -34,6 +34,7 @@ import struct PackageModel.EnabledTrait
 import struct PackageModel.EnabledTraits
 import enum PackageModel.TraitError
 import class PackageModel.Manifest
+import enum PackageModel.MultiMajorVersions
 import struct PackageModel.PackageIdentity
 import struct PackageModel.PackageReference
 import enum PackageModel.ProductFilter
@@ -979,7 +980,7 @@ extension Workspace {
                     return
                 }
 
-                print("Unable to find dependency path for dep: \(dependency.packageRef.identity); path: \(dependencyPath)")
+                MultiMajorVersions.log("[MultiMajor][2-Checkouts] Unable to find dependency path for dep: \(dependency.packageRef.identity); path: \(dependencyPath)")
 
                 switch dependency.state {
                 case .sourceControlCheckout(let checkoutState):

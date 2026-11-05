@@ -129,7 +129,7 @@ public struct PubGrubDependencyResolver {
 
             self.lock.withLock {
                 // TODO bp: remove debug prints
-                print("[MultiMajor][DEBUG] State.decide: \(node) at \(version); existing=\(String(describing: self.solution.decisions[node])); assignmentsForNode=\(self.solution.assignments.filter { $0.term.node == node }.map { "\($0.isDecision ? "decision" : "derivation") \($0.term.requirement)" })")
+                MultiMajorVersions.log("[MultiMajor][DEBUG] State.decide: \(node) at \(version); existing=\(String(describing: self.solution.decisions[node])); assignmentsForNode=\(self.solution.assignments.filter { $0.term.node == node }.map { "\($0.isDecision ? "decision" : "derivation") \($0.term.requirement)" })")
                 assert(term.isValidDecision(
                     for: self.solution,
                     flaggedMultipleMajorVersionPackages: self.multipleMajorVersionPackages
@@ -141,12 +141,15 @@ public struct PubGrubDependencyResolver {
         func derive(_ term: Term, cause: Incompatibility) {
             self.lock.withLock {
                 let existing = self.solution._positive[term.node]
-                self.flagIfMultipleMajorVersions(existing: self.solution._positive[term.node], incoming: term)
+                // Legacy approach, disabled in every mode: flagging a package as "requested at two majors" is what
+                // used to switch on the union/bypass machinery. Majors are now separated up front by
+                // `scopedToHighestMajor`, and leaving this on would let a major conflict slip through in default mode.
+//                self.flagIfMultipleMajorVersions(existing: self.solution._positive[term.node], incoming: term)
                 self.solution.derive(term, cause: cause)
                 // TODO bp: remove debug prints
                 // Shows how each package's positive requirement evolves, to find where a major's requirement is lost.
                 if existing != nil || self.multipleMajorVersionPackages[term.node.package] != nil {
-                    print("[MultiMajor][DEBUG] derive: \(term.node) incoming=\(term.requirement) positive=\(term.isPositive) existing=\(existing.map { "\($0.requirement)" } ?? "nil") after=\(self.solution._positive[term.node].map { "\($0.requirement)" } ?? "nil") flagged=\(self.multipleMajorVersionPackages[term.node.package]?.sorted() ?? [])")
+                    MultiMajorVersions.log("[MultiMajor][DEBUG] derive: \(term.node) incoming=\(term.requirement) positive=\(term.isPositive) existing=\(existing.map { "\($0.requirement)" } ?? "nil") after=\(self.solution._positive[term.node].map { "\($0.requirement)" } ?? "nil") flagged=\(self.multipleMajorVersionPackages[term.node.package]?.sorted() ?? [])")
                 }
             }
         }
@@ -166,7 +169,7 @@ public struct PubGrubDependencyResolver {
             let alreadyFlagged = self.multipleMajorVersionPackages[incoming.node.package]?.isSuperset(of: [existingMajor, incomingMajor]) ?? false
             self.multipleMajorVersionPackages[incoming.node.package, default: []].formUnion([existingMajor, incomingMajor])
             if !alreadyFlagged {
-                print("[MultiMajor][1-Resolution] flagged '\(incoming.node.package.identity)': majors \(self.multipleMajorVersionPackages[incoming.node.package]!.sorted()) were requested at the same time")
+                MultiMajorVersions.log("[MultiMajor][1-Resolution] flagged '\(incoming.node.package.identity)': majors \(self.multipleMajorVersionPackages[incoming.node.package]!.sorted()) were requested at the same time")
             }
         }
 
@@ -917,7 +920,7 @@ public struct PubGrubDependencyResolver {
         // If there are no more undecided terms, version solving is complete.
         let undecided = state.undecided
         // TODO bp: remove debug prints
-        print("[MultiMajor][DEBUG] makeDecision: undecided=\(undecided.map { "\($0.node.package.identity) \($0.requirement)" }) decided=\(state.solution.decisions.map { "\($0.key.package.identity)=\($0.value)" }.sorted()) flagged=\(state.multipleMajorVersionPackages.map { "\($0.key.identity)=\($0.value.sorted())" })")
+        MultiMajorVersions.log("[MultiMajor][DEBUG] makeDecision: undecided=\(undecided.map { "\($0.node.package.identity) \($0.requirement)" }) decided=\(state.solution.decisions.map { "\($0.key.package.identity)=\($0.value)" }.sorted()) flagged=\(state.multipleMajorVersionPackages.map { "\($0.key.identity)=\($0.value.sorted())" })")
         guard !undecided.isEmpty else {
 //            return nil
             return []
@@ -954,7 +957,7 @@ public struct PubGrubDependencyResolver {
                 pkgTerms.append(pkgTerm.scoped(toMajor: ver))
             }
             // TODO bp: remove debug prints
-            print("[MultiMajor][DEBUG] makeDecision: flagged pkgTerm=\(pkgTerm.node.package.identity) \(pkgTerm.requirement) scoped terms=\(pkgTerms.map { "\($0.node.package.identity) \($0.requirement)" })")
+            MultiMajorVersions.log("[MultiMajor][DEBUG] makeDecision: flagged pkgTerm=\(pkgTerm.node.package.identity) \(pkgTerm.requirement) scoped terms=\(pkgTerms.map { "\($0.node.package.identity) \($0.requirement)" })")
         }
 
         if !pkgTerms.isEmpty {
@@ -993,9 +996,9 @@ public struct PubGrubDependencyResolver {
 
         func makeDecisionForTerm(_ term: Term) async throws -> DependencyResolutionNode {
             // TODO bp: remove debug prints
-            print("[MultiMajor][DEBUG] decide-attempt: \(term.node.package.identity) requirement=\(term.requirement) node=\(term.node)")
+            MultiMajorVersions.log("[MultiMajor][DEBUG] decide-attempt: \(term.node.package.identity) requirement=\(term.requirement) node=\(term.node)")
             let debugBest = try await container.getBestAvailableVersion(for: term, flaggedMultipleMajorVersions: state.multipleMajorVersionPackages)
-            print("[MultiMajor][DEBUG]   best version: \(String(describing: debugBest))")
+            MultiMajorVersions.log("[MultiMajor][DEBUG]   best version: \(String(describing: debugBest))")
             guard let version = debugBest else {
                 state.addIncompatibility(try Incompatibility(term, root: state.root, cause: .noAvailableVersion), at: .decisionMaking)
                 return term.node
@@ -1026,13 +1029,13 @@ public struct PubGrubDependencyResolver {
             }
 
             // TODO bp: remove debug prints
-            print("[MultiMajor][DEBUG]   haveConflict=\(haveConflict) alreadyDecided=\(state.solution.decisions[term.node] != nil)")
+            MultiMajorVersions.log("[MultiMajor][DEBUG]   haveConflict=\(haveConflict) alreadyDecided=\(state.solution.decisions[term.node] != nil)")
             // Decide this version if there was no conflict with its dependencies.
             if !haveConflict {
                 self.delegate?.didResolve(term: term, version: version, duration: start.distance(to: .now()))
                 state.decide(term.node, at: version)
                 if term.node.package.identity != term.node.package.identity.withoutMajor() {
-                    print("[MultiMajor][1-Resolution] decided '\(term.node.package.identity)' -> \(version)")
+                    MultiMajorVersions.log("[MultiMajor][1-Resolution] decided '\(term.node.package.identity)' -> \(version)")
                 }
             }
 
@@ -1131,6 +1134,8 @@ extension PackageReference {
     }
 
     public func identityWithoutMajor() -> PackageReference {
+        // Without the multiple-major-versions prototype there are no major-scoped identities to strip.
+        guard MultiMajorVersions.isEnabled else { return self }
         if let genericId = self.identity.description.components(separatedBy: "@").first
         {
             let packageId = PackageIdentity.plain(genericId)
@@ -1143,6 +1148,8 @@ extension PackageReference {
 
 extension PackageIdentity {
     public func withoutMajor() -> PackageIdentity {
+        // Without the multiple-major-versions prototype there are no major-scoped identities to strip.
+        guard MultiMajorVersions.isEnabled else { return self }
         if let genericId = self.description.components(separatedBy: "@").first
         {
             return PackageIdentity.plain(genericId)
@@ -1152,6 +1159,7 @@ extension PackageIdentity {
     }
 
     public func getMajor() -> String {
+        guard MultiMajorVersions.isEnabled else { return "" }
         let parts = self.description.components(separatedBy: "@")
         if parts.count == 2 {
             return parts[1]

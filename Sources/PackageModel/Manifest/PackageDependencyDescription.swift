@@ -273,6 +273,10 @@ public enum PackageDependency: Equatable, Hashable, Sendable {
     }
 
     public var supportedMajorVersions: [Int] {
+        // With the multiple-major-versions prototype off there are no major-version buckets: this empties
+        // `maxSupportedMajorVersion` and makes `majorVersionIdentity` equal to `identity`, so everything that
+        // consults them behaves as before the prototype.
+        guard MultiMajorVersions.isEnabled else { return [] }
         switch self {
         case .sourceControl(let settings):
             switch settings.requirement {

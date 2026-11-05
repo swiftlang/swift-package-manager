@@ -37,6 +37,7 @@ add_library(PackageModel
   Module/SystemLibraryModule.swift
   Module/Module.swift
   ModuleMapType.swift
+  MultiMajorVersions.swift
   PackageModel.swift
   PackageIdentity.swift
   PackageReference.swift

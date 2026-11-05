@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import enum PackageModel.MultiMajorVersions
 import struct PackageModel.PackageReference
 
 /// A term represents a statement about a package that may be true or false.
@@ -90,16 +91,21 @@ public struct Term: Equatable, Hashable {
         }
 
         guard let versionIntersection = intersection, versionIntersection != .empty else {
-            // Two positive requirements on the same package that are each confined to a single,
-            // but different, major version aren't treated as "no intersection" here. Instead we
-            // hand back the union of the two ranges so the solver can keep going rather than
-            // failing resolution outright. Noticing and recording that this happened is `State`'s
-            // job (see `State.derive`) — this is purely about not blocking on it for now.
             // TODO bp: remove debug prints
-            print("[MultiMajor][DEBUG] intersect empty: \(self.node.package.identity) lhs=\(lhs) rhs=\(rhs) positive=\(self.isPositive)/\(otherIsPositive) multiMajor=\(self.isPositive && otherIsPositive && self.isMultipleMajorVersion(requirement))")
-            if self.isPositive, otherIsPositive, self.isMultipleMajorVersion(requirement) {
-                return Term(node: self.node, requirement: lhs.union(rhs), isPositive: true)
-            }
+            MultiMajorVersions.log("[MultiMajor][DEBUG] intersect empty: \(self.node.package.identity) lhs=\(lhs) rhs=\(rhs) positive=\(self.isPositive)/\(otherIsPositive) multiMajor=\(self.isPositive && otherIsPositive && self.isMultipleMajorVersion(requirement))")
+            // Legacy approach, disabled in every mode: widening two single-major requirements to their union
+            // changes default behaviour (a conflict between majors would silently continue instead of being a
+            // resolution error), and it can't represent "1.x OR 2.x" anyway (a later requirement narrows the union
+            // back to one major). Majors are now separated up front by `scopedToHighestMajor`, so the solver never
+            // sees two majors of one package on the same node.
+//            // Two positive requirements on the same package that are each confined to a single,
+//            // but different, major version aren't treated as "no intersection" here. Instead we
+//            // hand back the union of the two ranges so the solver can keep going rather than
+//            // failing resolution outright. Noticing and recording that this happened is `State`'s
+//            // job (see `State.derive`) — this is purely about not blocking on it for now.
+//            if self.isPositive, otherIsPositive, self.isMultipleMajorVersion(requirement) {
+//                return Term(node: self.node, requirement: lhs.union(rhs), isPositive: true)
+//            }
             return nil
         }
 
@@ -212,18 +218,20 @@ public struct Term: Equatable, Hashable {
         } else {
             if self.isPositive {
                 if !other.requirement.containsAny(self.requirement) {
-                    // Ordinarily, a negative term whose excluded range doesn't touch this node's
-                    // existing positive assignment is trivially satisfied (`.subset`) - the
-                    // negation is already true. But if that's only because the two ranges are
-                    // each confined to a single, different major version, treat it as still
-                    // unresolved (`.overlap`) instead. Otherwise `propagate` sees every term in
-                    // the incompatibility as satisfied and reports a `.conflict` before `derive`
-                    // ever runs on the conflicting requirement, so `Term.intersect`'s
-                    // multiple-major-version fallback and `State.flagIfMultipleMajorVersions`
-                    // never get a chance to run.
-                    if self.isMultipleMajorVersion(other.requirement) {
-                        return .overlap
-                    }
+                    // Legacy approach, disabled in every mode (it changes default conflict detection, and is
+                    // unnecessary now that majors are separated up front by `scopedToHighestMajor`):
+//                    // Ordinarily, a negative term whose excluded range doesn't touch this node's
+//                    // existing positive assignment is trivially satisfied (`.subset`) - the
+//                    // negation is already true. But if that's only because the two ranges are
+//                    // each confined to a single, different major version, treat it as still
+//                    // unresolved (`.overlap`) instead. Otherwise `propagate` sees every term in
+//                    // the incompatibility as satisfied and reports a `.conflict` before `derive`
+//                    // ever runs on the conflicting requirement, so `Term.intersect`'s
+//                    // multiple-major-version fallback and `State.flagIfMultipleMajorVersions`
+//                    // never get a chance to run.
+//                    if self.isMultipleMajorVersion(other.requirement) {
+//                        return .overlap
+//                    }
                     return .subset
                 }
                 if other.requirement.containsAll(self.requirement) {

@@ -97,9 +97,9 @@ extension VersionSetSpecifier {
 
 extension PackageContainerConstraint {
     /// Prototype switch: resolve a version range's "1.x OR 2.x" ambiguity up front (see `scopedToHighestMajor`).
-    /// When off, constraints keep targeting the plain package and the flagged-major machinery in PubGrub is what
-    /// (incompletely) handles multiple majors.
-    static let scopesToHighestMajor = true
+    /// Follows `--experimental-multiple-major-versions`. When off, constraints keep targeting the plain package
+    /// and resolution is stock PubGrub.
+    static var scopesToHighestMajor: Bool { MultiMajorVersions.isEnabled }
 
     /// Decides the OR of a version range that spans several majors with a heuristic instead of in the solver: the
     /// constraint is rewritten to target the major-scoped package (`pkg@M`) for the HIGHEST major M in the range,

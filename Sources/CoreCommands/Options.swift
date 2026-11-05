@@ -351,6 +351,18 @@ public struct ResolverOptions: ParsableArguments {
     )
     public var pruneDependencies: Bool = false
 
+    /// Enables the multiple-major-versions prototype: resolve and build several major versions of the same package
+    /// side by side, each under a major-scoped identity (e.g. `pkg@1`, `pkg@2`). Off by default, in which case
+    /// requirements on different majors of one package remain an ordinary resolution error.
+    @Flag(
+        name: .customLong("experimental-multiple-major-versions"),
+        help: ArgumentHelp(
+            "Resolve and build multiple major versions of the same package side by side (prototype).",
+            visibility: .hidden
+        )
+    )
+    public var enableMultipleMajorVersions: Bool = false
+
     @Option(help: "Default registry URL to use, instead of the registries.json configuration file.")
     public var defaultRegistryURL: URL?
 

@@ -80,7 +80,7 @@ struct ModuleAliasTracker {
                let productPkg = productRef.package {
                 let productPkgID = scopedPackage(for: productRef, consumer: package) ?? PackageIdentity.plain(productPkg)
                 if productPkgID != productPkgID.withoutMajor(), (bucketsByBase[productPkgID.withoutMajor()]?.count ?? 0) > 1 {
-                    print("[MultiMajor][4-Aliasing] '\(package)' product ref '\(productRef.identity)' -> '\(productID(for: productRef, consumer: package))'")
+                    MultiMajorVersions.log("[MultiMajor][4-Aliasing] '\(package)' product ref '\(productRef.identity)' -> '\(productID(for: productRef, consumer: package))'")
                 }
                 // Track dependency package ID chain
                 addPackageIDChain(parent: package, child: productPkgID)
@@ -107,7 +107,7 @@ struct ModuleAliasTracker {
             for module in productModules {
                 aliases[module.name] = "\(module.name)_v\(major)"
             }
-            print("[MultiMajor][4-Aliasing] '\(package)' product '\(product.name)': \(aliases.sorted(by: { $0.key < $1.key }).map { "\($0.key) -> \($0.value)" }.joined(separator: ", "))")
+            MultiMajorVersions.log("[MultiMajor][4-Aliasing] '\(package)' product '\(product.name)': \(aliases.sorted(by: { $0.key < $1.key }).map { "\($0.key) -> \($0.value)" }.joined(separator: ", "))")
             try addAliases(
                 aliases,
                 productID: product.identity,
@@ -195,7 +195,7 @@ struct ModuleAliasTracker {
             }
             let originalName = moduleWithAlias.name
             if moduleWithAlias.applyAlias(), package != package.withoutMajor() {
-                print("[MultiMajor][4-Aliasing] renamed module '\(originalName)' -> '\(moduleWithAlias.name)' in '\(package)'")
+                MultiMajorVersions.log("[MultiMajor][4-Aliasing] renamed module '\(originalName)' -> '\(moduleWithAlias.name)' in '\(package)'")
             }
         }
     }

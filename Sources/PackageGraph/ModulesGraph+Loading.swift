@@ -453,7 +453,7 @@ private func createResolvedPackages(
                     $0 != dependency.majorVersionIdentity && $0.withoutMajor() == dependency.majorVersionIdentity.withoutMajor()
                 }
                 if !otherBuckets.isEmpty {
-                    print("[MultiMajor][3-Graph] '\(package.identity)' -> '\(dependency.majorVersionIdentity)' (other buckets: \(otherBuckets.map(\.description).sorted().joined(separator: ", ")))")
+                    MultiMajorVersions.log("[MultiMajor][3-Graph] '\(package.identity)' -> '\(dependency.majorVersionIdentity)' (other buckets: \(otherBuckets.map(\.description).sorted().joined(separator: ", ")))")
                 }
                 // check if this resolved package already listed in the dependencies
                 // this means that the dependencies share the same identity

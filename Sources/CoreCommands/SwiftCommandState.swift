@@ -461,6 +461,9 @@ public final class SwiftCommandState {
             try Self.postprocessArgParserResult(options: options, observabilityScope: self.observabilityScope)
             self.options = options
 
+            // Turn the multiple-major-versions prototype on (or leave it off) before anything resolves or loads.
+            MultiMajorVersions.isEnabled = options.resolver.enableMultipleMajorVersions
+
             // Honor package-path option is provided.
             try Self.chdirIfNeeded(
                 packageDirectory: self.options.locations.packageDirectory,

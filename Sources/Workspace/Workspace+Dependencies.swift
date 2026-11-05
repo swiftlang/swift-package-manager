@@ -52,6 +52,7 @@ import struct PackageModel.TargetDescription
 import struct PackageModel.TraitDescription
 import enum PackageModel.TraitConfiguration
 import class PackageModel.Manifest
+import enum PackageModel.MultiMajorVersions
 
 extension Workspace {
     enum ResolvedFileStrategy {
@@ -904,7 +905,7 @@ extension Workspace {
         switch requirement {
         case .multipleMajorVersions(let versions):
             // todo bp
-            print("[MultiMajor][2-Checkouts] checking out '\(package.identity)' at \(versions.sorted().map(\.description).joined(separator: ", "))")
+            MultiMajorVersions.log("[MultiMajor][2-Checkouts] checking out '\(package.identity)' at \(versions.sorted().map(\.description).joined(separator: ", "))")
             let container = try await packageContainerProvider.getContainer(
                 for: package,
                 updateStrategy: ContainerUpdateStrategy.never,
@@ -1547,7 +1548,7 @@ extension Workspace {
                     multipleMajorAssignments[pkg, default: []].append(contentsOf: assignmentsForPkg)
                 }
                 for (pkg, binding) in multipleMajorAssignments {
-                    print("[MultiMajor][1-Resolution] '\(pkg.identity)' resolved to: \(binding.map({ "\($0.package.identity) -> \($0.boundVersion.description)" }).joined(separator: ", "))")
+                    MultiMajorVersions.log("[MultiMajor][1-Resolution] '\(pkg.identity)' resolved to: \(binding.map({ "\($0.package.identity) -> \($0.boundVersion.description)" }).joined(separator: ", "))")
                 }
             }
 

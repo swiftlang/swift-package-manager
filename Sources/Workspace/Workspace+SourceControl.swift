@@ -19,6 +19,7 @@ import struct Dispatch.DispatchTime
 import enum PackageGraph.PackageRequirement
 import class PackageGraph.ResolvedPackagesStore
 import struct PackageModel.PackageReference
+import enum PackageModel.MultiMajorVersions
 import struct SourceControl.RepositorySpecifier
 import struct SourceControl.Revision
 import struct TSCUtility.Version
@@ -226,7 +227,7 @@ extension Workspace {
         let checkoutPath = isMultipleMajor ? baseRepositoryName.appending(package.identity.description) : baseRepositoryName
 
         if isMultipleMajor {
-            print("[MultiMajor][2-Checkouts] '\(package.identity)' -> \(checkoutPath)")
+            MultiMajorVersions.log("[MultiMajor][2-Checkouts] '\(package.identity)' -> \(checkoutPath)")
         }
 
         // Remove any existing content at that path.
