@@ -812,7 +812,7 @@ extension PackageGraph.ResolvedModule {
                             if let multipleValueSetting {
                                 allSettings.impartedMultipleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
                             } else if let singleValueSetting {
-                                allSettings.targetSingleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][singleValueSetting] = values.only
+                                allSettings.impartedSingleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][singleValueSetting] = values.only
                             }
                         } else {
                             // Handle imparted settings for OTHER_LDFLAGS and prebuilts include paths (always multiple values)
@@ -930,7 +930,8 @@ extension PackageGraph.ResolvedProduct {
         }
     }
 
-    /// Is this a *system library* product?
+    /// Is this a "system library" product?
+    /// Prebuilts have the same semantics as system libraries for this purpose.
     var isSystemLibraryProduct: Bool {
         switch self.modules.only?.type {
         case .systemModule, .prebuilt:

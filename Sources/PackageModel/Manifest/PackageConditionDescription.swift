@@ -115,7 +115,7 @@ public struct PrebuiltsCondition: Hashable, Sendable {
     }
 
     public func satisfies(_ environment: BuildEnvironment) -> Bool {
-        // if you're asking (i.e. native build), prebuilts aren't supported
+        // only asked from native build where prebuilts are not supported
         return false
     }
 }
@@ -149,6 +149,7 @@ public struct TraitCondition: Hashable, Sendable {
 
     public func satisfies(_ environment: BuildEnvironment) -> Bool {
         // Traits are evaluted before the build environment is determined.
+        // If this node is still in the graph, the trait musts be enabled.
         return true
     }
 }

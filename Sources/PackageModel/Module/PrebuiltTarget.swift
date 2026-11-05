@@ -36,7 +36,8 @@ public final class PrebuiltTarget: Module {
             for: .ABSOLUTE_HEADER_SEARCH_PATHS
         )
 
-        // Add library
+        // Add library. The build must copy it to the shared library path so there is
+        // no need to add in the library path.
         buildSettings.add(.init(values: [prebuilt.libraryName]), for: .LINK_LIBRARIES)
 
         super.init(
