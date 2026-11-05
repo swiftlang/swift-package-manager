@@ -3278,10 +3278,9 @@ private struct NoOpPluginScriptRunner: PluginScriptRunner {
         workers: UInt32,
         observabilityScope: ObservabilityScope,
         callbackQueue: DispatchQueue,
-        delegate: any PluginScriptCompilerDelegate,
-        completion: @escaping (Result<PluginCompilationResult, any Error>) -> Void
-    ) {
-        callbackQueue.sync { completion(.failure(StringError("unimplemented"))) }
+        delegate: any PluginScriptCompilerDelegate
+    ) async throws -> PluginCompilationResult {
+        throw StringError("unimplemented")
     }
 
     func buildCommandLine(

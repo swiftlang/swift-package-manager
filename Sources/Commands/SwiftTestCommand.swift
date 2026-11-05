@@ -727,7 +727,7 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
             verbose: globalOptions.logging.verbose || globalOptions.logging.veryVerbose
         )
 
-        try debugRunner.run()
+        try await debugRunner.run()
     }
 
     private func runTestProducts(

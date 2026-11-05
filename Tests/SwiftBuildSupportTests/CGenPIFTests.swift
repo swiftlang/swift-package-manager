@@ -108,12 +108,9 @@ import SwiftBuild
                 workers: UInt32,
                 observabilityScope: Basics.ObservabilityScope,
                 callbackQueue: DispatchQueue,
-                delegate: any SPMBuildCore.PluginScriptCompilerDelegate,
-                completion: @escaping (Result<SPMBuildCore.PluginCompilationResult, any Error>) -> Void)
-            {
-                callbackQueue.sync {
-                    completion(.failure(StringError("unimplemented")))
-                }
+                delegate: any SPMBuildCore.PluginScriptCompilerDelegate
+            ) async throws -> SPMBuildCore.PluginCompilationResult {
+                throw StringError("unimplemented")
             }
 
             func buildCommandLine(

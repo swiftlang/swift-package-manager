@@ -23,9 +23,13 @@ import SourceControl
 import Workspace
 
 import protocol TSCBasic.DiagnosticLocation
-import class Basics.AsyncProcess
-import struct Basics.AsyncProcessResult
 import func TSCBasic.withTemporaryFile
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 import enum TSCUtility.Diagnostics
 import struct TSCUtility.SerializedDiagnostics
@@ -158,7 +162,7 @@ struct APIDigesterBaselineDumper {
             for module in modulesToDiff {
                 group.addTask {
                     do {
-                        try apiDigesterTool.emitAPIBaseline(
+                        try await apiDigesterTool.emitAPIBaseline(
                             to: baselinePath(module),
                             for: module,
                             buildPlan: buildPlan
@@ -203,15 +207,15 @@ public struct SwiftAPIDigester {
         to outputPath: AbsolutePath,
         for module: String,
         buildPlan: SPMBuildCore.BuildPlan
-    ) throws {
+    ) async throws {
         var args = ["-dump-sdk", "-compiler-style-diags"]
         args += try buildPlan.createAPIToolCommonArgs(includeLibrarySearchPaths: false)
         args += ["-module", module, "-o", outputPath.pathString]
 
-        let result = try runTool(args)
+        let result = try await runTool(args)
 
         if !self.fileSystem.exists(outputPath) {
-            throw Error.failedToGenerateBaseline(module: module, output: (try? result.utf8Output()) ?? "", error: (try? result.utf8stderrOutput()) ?? "")
+            throw Error.failedToGenerateBaseline(module: module, output: result.output, error: result.error)
         }
 
         try self.fileSystem.readFileContents(outputPath).withData { data in
@@ -221,7 +225,7 @@ public struct SwiftAPIDigester {
                 }
 
                 guard let symbols = abiRoot["children"] as? NSArray, symbols.count > 0 else {
-                    throw Error.noSymbolsInBaseline(module: module, toolOutput: try result.utf8Output())
+                    throw Error.noSymbolsInBaseline(module: module, toolOutput: result.output + result.error)
                 }
             }
         }
@@ -234,7 +238,7 @@ public struct SwiftAPIDigester {
         for module: String,
         buildPlan: SPMBuildCore.BuildPlan,
         except breakageAllowlistPath: AbsolutePath?
-    ) throws -> ComparisonResult? {
+    ) async throws -> ComparisonResult? {
         var args = [
             "-diagnose-sdk",
             "-baseline-path", baselinePath.pathString,
@@ -245,9 +249,9 @@ public struct SwiftAPIDigester {
             args.append(contentsOf: ["-breakage-allowlist-path", breakageAllowlistPath.pathString])
         }
 
-        return try? withTemporaryFile(deleteOnClose: false) { file in
+        return try? await withTemporaryFile(deleteOnClose: false) { file in
             args.append(contentsOf: ["-serialize-diagnostics-path", file.path.pathString])
-            try runTool(args)
+            try await runTool(args)
             let contents = try self.fileSystem.readFileContents(file.path)
             guard contents.count > 0 else {
                 return nil
@@ -262,14 +266,17 @@ public struct SwiftAPIDigester {
         }
     }
 
-    @discardableResult private func runTool(_ args: [String]) throws -> AsyncProcessResult {
-        let arguments = [tool.pathString] + args
-        let process = AsyncProcess(
-            arguments: arguments,
-            outputRedirection: .collect(redirectStderr: true)
+    @discardableResult private func runTool(_ args: [String]) async throws -> (output: String, error: String) {
+        let result = try await Subprocess.run(
+            .path(FilePath(tool.pathString)),
+            arguments: Subprocess.Arguments(args),
+            output: .bytes(limit: .max),
+            error: .bytes(limit: .max)
         )
-        try process.launch()
-        return try process.waitUntilExit()
+        return (
+            String(decoding: result.standardOutput, as: UTF8.self),
+            String(decoding: result.standardError, as: UTF8.self)
+        )
     }
 }
 

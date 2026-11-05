@@ -23,8 +23,12 @@ import SPMBuildCore
 import DriverSupport
 #endif
 
-import class Basics.AsyncProcess
-import struct Basics.AsyncProcessResult
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 /// A wrapper for swift-symbolgraph-extract tool.
 package struct SymbolGraphExtract {
@@ -51,15 +55,23 @@ package struct SymbolGraphExtract {
         case json(pretty: Bool)
     }
     
+    /// The result of running `swift-symbolgraph-extract`.
+    package struct ExtractionResult {
+        /// Whether the tool exited with a success (zero) status.
+        package let exitedSuccessfully: Bool
+        /// The combined standard output and standard error emitted by the tool.
+        package let output: String
+        /// The command line used to invoke the tool, including the tool path.
+        package let arguments: [String]
+    }
+
     /// Creates a symbol graph for `module` in `outputDirectory` using the build information from `buildPlan`.
-    /// The `outputDirection` determines how the output from the tool subprocess is handled, and `verbosity` specifies
-    /// how much console output to ask the tool to emit.
+    /// `verboseOutput` specifies how much console output to ask the tool to emit.
     package func extractSymbolGraph(
         for description: ModuleBuildDescription,
-        outputRedirection: AsyncProcess.OutputRedirection = .none,
         outputDirectory: AbsolutePath,
         verboseOutput: Bool
-    ) throws -> AsyncProcessResult {
+    ) async throws -> ExtractionResult {
         try self.fileSystem.createDirectory(outputDirectory, recursive: true)
 
         // Construct arguments for extracting symbols for a single target.
@@ -80,7 +92,7 @@ package struct SymbolGraphExtract {
         if includeSPISymbols {
             commandLine += ["-include-spi-symbols"]
         }
-        
+
         let extensionBlockSymbolsFlag = emitExtensionBlockSymbols ? "-emit-extension-block-symbols" : "-omit-extension-block-symbols"
         if DriverSupport.checkSupportedFrontendFlags(
             flags: [extensionBlockSymbolsFlag.trimmingCharacters(in: ["-"])],
@@ -91,7 +103,7 @@ package struct SymbolGraphExtract {
         } else {
             observabilityScope.emit(warning: "dropped \(extensionBlockSymbolsFlag) flag because it is not supported by this compiler version")
         }
-        
+
         switch outputFormat {
         case .json(let pretty):
             if pretty {
@@ -101,11 +113,16 @@ package struct SymbolGraphExtract {
         commandLine += ["-output-dir", outputDirectory.pathString]
 
         // Run the extraction.
-        let process = AsyncProcess(
-            arguments: commandLine,
-            outputRedirection: outputRedirection
+        let result = try await Subprocess.run(
+            .path(FilePath(self.tool.pathString)),
+            arguments: Subprocess.Arguments(Array(commandLine.dropFirst())),
+            output: .bytes(limit: .max),
+            error: .combinedWithOutput
         )
-        try process.launch()
-        return try process.waitUntilExit()
+        return ExtractionResult(
+            exitedSuccessfully: result.terminationStatus.isSuccess,
+            output: String(decoding: result.standardOutput, as: UTF8.self),
+            arguments: commandLine
+        )
     }
 }

@@ -452,7 +452,7 @@ public final class PIFBuilder {
 
                 // Run the prebuild commands generated from the plugin invocation now for this module. This will
                 // also give use the derived source code files needed for PIF generation.
-                let runResults = try Self.runPluginCommands(
+                let runResults = try await Self.runPluginCommands(
                     using: self.pluginConfiguration,
                     for: buildToolPluginResults,
                     fileSystem: fileSystem,
@@ -560,9 +560,10 @@ public final class PIFBuilder {
         for pluginResults: [BuildToolPluginInvocationResult],
         fileSystem: any FileSystem,
         observabilityScope: ObservabilityScope
-    ) throws -> [CommandPluginResult] {
+    ) async throws -> [CommandPluginResult] {
+        var results: [CommandPluginResult] = []
         // Run through all the commands from all the plugin usages in the target.
-        try pluginResults.map { pluginResult in
+        for pluginResult in pluginResults {
             // As we go we will collect a list of prebuild output directories whose contents should be input to the
             // build, and a list of the files in those directories after running the commands.
             var derivedFiles: [Basics.AbsolutePath] = []
@@ -585,14 +586,11 @@ public final class PIFBuilder {
                         writableDirectories: [pluginResult.pluginOutputDirectory]
                     )
                 }
-                let processResult = try AsyncProcess.popen(
-                    arguments: commandLine,
-                    environment: command.configuration.environment
+                _ = try await runPrebuildCommand(
+                    commandLine: commandLine,
+                    environment: command.configuration.environment,
+                    description: "\(command)"
                 )
-                let output = try processResult.utf8Output() + processResult.utf8stderrOutput()
-                if processResult.exitStatus != .terminated(code: 0) {
-                    throw StringError("failed: \(command)\n\n\(output)")
-                }
 
                 // Add any files found in the output directory declared for the prebuild command after the command ends.
                 let outputFilesDir = command.outputFilesDirectory
@@ -605,8 +603,9 @@ public final class PIFBuilder {
             }
 
             // Add the results of running any prebuild commands for this invocation.
-            return CommandPluginResult(derivedFiles: derivedFiles, outputDirectories: prebuildOutputDirs)
+            results.append(CommandPluginResult(derivedFiles: derivedFiles, outputDirectories: prebuildOutputDirs))
         }
+        return results
     }
 
     // Convenience method for generating PIF.
