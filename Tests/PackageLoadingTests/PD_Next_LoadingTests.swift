@@ -39,4 +39,120 @@ final class PackageDescriptionNextLoadingTests: PackageDescriptionLoadingTests {
             }
         }
     }
+
+    func testAnyAppleOSPlatform() async throws {
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                   name: "Foo",
+                   platforms: [
+                       .anyAppleOS(.v26), .driverKit(.v27),
+                   ]
+                )
+                """
+
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            XCTAssertEqual(manifest.platforms, [
+                PlatformDescription(name: "driverkit", version: "27.0"),
+                PlatformDescription(name: "macos", version: "26.0"),
+                PlatformDescription(name: "maccatalyst", version: "26.0"),
+                PlatformDescription(name: "ios", version: "26.0"),
+                PlatformDescription(name: "tvos", version: "26.0"),
+                PlatformDescription(name: "watchos", version: "26.0"),
+                PlatformDescription(name: "visionos", version: "26.0"),
+            ])
+        }
+
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                   name: "Foo",
+                   platforms: [
+                       .macOS(.v27), .anyAppleOS(.v26), .iOS(.v27),
+                   ]
+                )
+                """
+
+            let observability = ObservabilitySystem.makeForTesting()
+            let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(validationDiagnostics)
+
+            XCTAssertEqual(manifest.platforms, [
+                PlatformDescription(name: "macos", version: "27.0"),
+                PlatformDescription(name: "ios", version: "27.0"),
+                PlatformDescription(name: "maccatalyst", version: "26.0"),
+                PlatformDescription(name: "tvos", version: "26.0"),
+                PlatformDescription(name: "watchos", version: "26.0"),
+                PlatformDescription(name: "visionos", version: "26.0"),
+            ])
+        }
+
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                   name: "Foo",
+                   platforms: [
+                       .anyAppleOS("18.0"),
+                   ]
+                )
+                """
+
+            let observability = ObservabilitySystem.makeForTesting()
+            await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+                if case ManifestParseError.runtimeManifestErrors(let errors) = error {
+                    XCTAssertEqual(errors, ["invalid anyAppleOS version 18.0; the minimum major version should be 26"])
+                } else {
+                    XCTFail("unexpected error: \(error)")
+                }
+            }
+        }
+
+        do {
+            let content = """
+                import PackageDescription
+                let package = Package(
+                   name: "Foo",
+                   platforms: [
+                       .anyAppleOS(.v26), .anyAppleOS(.v27),
+                   ]
+                )
+                """
+
+            let observability = ObservabilitySystem.makeForTesting()
+            await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
+                if case ManifestParseError.runtimeManifestErrors(let errors) = error {
+                    XCTAssertEqual(errors, ["found multiple declarations for the platform: anyAppleOS"])
+                } else {
+                    XCTFail("unexpected error: \(error)")
+                }
+            }
+        }
+    }
+
+    func testAnyAppleOSCondition() async throws {
+        let content = """
+            import PackageDescription
+            let package = Package(
+               name: "Foo",
+               targets: [
+                   .target(name: "Foo", swiftSettings: [.define("APPLE", .when(platforms: [.anyAppleOS]))]),
+               ]
+            )
+            """
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let (manifest, validationDiagnostics) = try await loadAndValidateManifest(content, observabilityScope: observability.topScope)
+        XCTAssertNoDiagnostics(observability.diagnostics)
+        XCTAssertNoDiagnostics(validationDiagnostics)
+
+        XCTAssertEqual(manifest.targets[0].settings[0].condition, PackageConditionDescription(platformNames: ["anyappleos"]))
+    }
 }

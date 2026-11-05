@@ -235,7 +235,7 @@ final class PackageDescription5_0LoadingTests: PackageDescriptionLoadingTests {
             let observability = ObservabilitySystem.makeForTesting()
             await XCTAssertAsyncThrowsError(try await loadAndValidateManifest(content, observabilityScope: observability.topScope), "expected error") { error in
                 if case ManifestParseError.runtimeManifestErrors(let errors) = error {
-                    XCTAssertEqual(errors, ["found multiple declaration for the platform: macos"])
+                    XCTAssertEqual(errors, ["found multiple declarations for the platform: macos"])
                 } else {
                     XCTFail("unexpected error: \(error)")
                 }
