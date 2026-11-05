@@ -115,6 +115,16 @@ struct ModuleAliasTracker {
                 originPackage: package,
                 consumingPackage: package
             )
+
+            // Every module in a scoped bucket is renamed, so `fillInRest` (which only runs for products with at
+            // least one unaliased module) never gives a module the aliases of its sibling dependencies. Hand each
+            // module the full set so `import SharedSupport` inside `Shared` compiles as `SharedSupport_v2`.
+            // A module's own entry is skipped: `propagate` adds it and it drives `applyAlias()`.
+            for module in productModules {
+                for (original, alias) in aliases where original != module.name {
+                    module.addModuleAlias(for: original, as: alias)
+                }
+            }
         }
     }
 

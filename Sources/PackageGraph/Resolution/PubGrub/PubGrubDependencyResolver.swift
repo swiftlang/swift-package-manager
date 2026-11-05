@@ -128,6 +128,8 @@ public struct PubGrubDependencyResolver {
             let term = Term(node, .exact(version))
 
             self.lock.withLock {
+                // TODO bp: remove debug prints
+                print("[MultiMajor][DEBUG] State.decide: \(node) at \(version); existing=\(String(describing: self.solution.decisions[node])); assignmentsForNode=\(self.solution.assignments.filter { $0.term.node == node }.map { "\($0.isDecision ? "decision" : "derivation") \($0.term.requirement)" })")
                 assert(term.isValidDecision(
                     for: self.solution,
                     flaggedMultipleMajorVersionPackages: self.multipleMajorVersionPackages
@@ -138,8 +140,14 @@ public struct PubGrubDependencyResolver {
 
         func derive(_ term: Term, cause: Incompatibility) {
             self.lock.withLock {
+                let existing = self.solution._positive[term.node]
                 self.flagIfMultipleMajorVersions(existing: self.solution._positive[term.node], incoming: term)
                 self.solution.derive(term, cause: cause)
+                // TODO bp: remove debug prints
+                // Shows how each package's positive requirement evolves, to find where a major's requirement is lost.
+                if existing != nil || self.multipleMajorVersionPackages[term.node.package] != nil {
+                    print("[MultiMajor][DEBUG] derive: \(term.node) incoming=\(term.requirement) positive=\(term.isPositive) existing=\(existing.map { "\($0.requirement)" } ?? "nil") after=\(self.solution._positive[term.node].map { "\($0.requirement)" } ?? "nil") flagged=\(self.multipleMajorVersionPackages[term.node.package]?.sorted() ?? [])")
+                }
             }
         }
 
@@ -159,6 +167,21 @@ public struct PubGrubDependencyResolver {
             self.multipleMajorVersionPackages[incoming.node.package, default: []].formUnion([existingMajor, incomingMajor])
             if !alreadyFlagged {
                 print("[MultiMajor][1-Resolution] flagged '\(incoming.node.package.identity)': majors \(self.multipleMajorVersionPackages[incoming.node.package]!.sorted()) were requested at the same time")
+            }
+        }
+
+        /// The solution's undecided terms, minus the plain (unscoped) node of any package flagged for multiple
+        /// major versions once every flagged major's scoped node (`pkg@N`) has a decision. The plain node is
+        /// never decided itself; it is only a stand-in for its scoped nodes. Derived on demand rather than
+        /// stored so that backtracking, and the flagged set growing later, stay correct.
+        var undecided: [Term] {
+            self.lock.withLock {
+                self.solution.undecided.filter { term in
+                    guard let majors = self.multipleMajorVersionPackages[term.node.package], !majors.isEmpty else {
+                        return true
+                    }
+                    return !majors.allSatisfy { self.solution.decisions[term.node.scoped(toMajor: $0)] != nil }
+                }
             }
         }
 
@@ -298,7 +321,15 @@ public struct PubGrubDependencyResolver {
 
             // also note that the package identity here has been changed with the appended package version
             // so we must search against the same root package id
-            let resolvedMajorVersions = bindings.filter({ state.multipleMajorVersionPackages[$0.package.identityWithoutMajor()] != nil }).reduce(into: [PackageReference: Set<Version>]()) { multiMajors, binding in
+            // With edge scoping on (see `scopedToHighestMajor`) there is no flagged set: every major-bucketed
+            // dependency was already rewritten to its `pkg@M` identity, so treat any scoped binding as a major-version
+            // package. The workspace uses this to check packages out per major and to tolerate the scoped identities.
+//            let resolvedMajorVersions = bindings.filter({ state.multipleMajorVersionPackages[$0.package.identityWithoutMajor()] != nil }).reduce(into: [PackageReference: Set<Version>]()) { multiMajors, binding in
+            let resolvedMajorVersions = bindings.filter({
+                PackageContainerConstraint.scopesToHighestMajor
+                    ? $0.package.identity != $0.package.identity.withoutMajor()
+                    : state.multipleMajorVersionPackages[$0.package.identityWithoutMajor()] != nil
+            }).reduce(into: [PackageReference: Set<Version>]()) { multiMajors, binding in
                 if case let .version(version) = binding.boundVersion {
                     multiMajors[binding.package.identityWithoutMajor(), default: []].insert(version)
                 }
@@ -581,6 +612,8 @@ public struct PubGrubDependencyResolver {
                     unprocessedDependencies.append(sharedRevision)
                 }
                 for dependency in unprocessedDependencies {
+                    // Resolve a multi-major range to its highest major's scoped package (see `scopedToHighestMajor`).
+                    let dependency = dependency.scopedToHighestMajor()
                     switch dependency.requirement {
                     case .versionSet(let req):
                         for node in dependency.nodes() {
@@ -602,6 +635,8 @@ public struct PubGrubDependencyResolver {
         // At this point, we should be left with only version-based requirements in our constraints
         // list. Add them to our version-based dependency list.
         for constraint in constraints {
+            // Resolve a multi-major range to its highest major's scoped package (see `scopedToHighestMajor`).
+            let constraint = constraint.scopedToHighestMajor()
             switch constraint.requirement {
             case .versionSet(let req):
                 for node in constraint.nodes() {
@@ -645,7 +680,7 @@ public struct PubGrubDependencyResolver {
             }
 
             // initiate prefetch of known packages that will be used to make the decision on the next step
-            self.provider.prefetch(containers: state.solution.undecided.map(\.node.package))
+            self.provider.prefetch(containers: state.undecided.map(\.node.package))
 
             // Ensure that decisions that need repairing are prioritized.
             if let repairNode = state.decisionsToRepair.popFirst(),
@@ -880,7 +915,9 @@ public struct PubGrubDependencyResolver {
         state: State
     ) async throws -> [DependencyResolutionNode] {
         // If there are no more undecided terms, version solving is complete.
-        let undecided = state.solution.undecided
+        let undecided = state.undecided
+        // TODO bp: remove debug prints
+        print("[MultiMajor][DEBUG] makeDecision: undecided=\(undecided.map { "\($0.node.package.identity) \($0.requirement)" }) decided=\(state.solution.decisions.map { "\($0.key.package.identity)=\($0.value)" }.sorted()) flagged=\(state.multipleMajorVersionPackages.map { "\($0.key.identity)=\($0.value.sorted())" })")
         guard !undecided.isEmpty else {
 //            return nil
             return []
@@ -911,25 +948,43 @@ public struct PubGrubDependencyResolver {
         // is flagged for multiple major versions
         var pkgTerms: [Term] = []
         if let versions = state.multipleMajorVersionPackages[pkgTerm.node.package], !versions.isEmpty {
-            for ver in versions {
+            // Sorted so the order majors are decided in is deterministic (a Set's iteration order isn't).
+//            for ver in versions {
+            for ver in versions.sorted() {
                 pkgTerms.append(pkgTerm.scoped(toMajor: ver))
             }
+            // TODO bp: remove debug prints
+            print("[MultiMajor][DEBUG] makeDecision: flagged pkgTerm=\(pkgTerm.node.package.identity) \(pkgTerm.requirement) scoped terms=\(pkgTerms.map { "\($0.node.package.identity) \($0.requirement)" })")
         }
 
         if !pkgTerms.isEmpty {
             var nodes: [DependencyResolutionNode] = []
             for term in pkgTerms {
+                // A flagged major whose scoped requirement is empty can never be decided, and `State.undecided` only
+                // treats the plain node as satisfied once every flagged major is decided, so continuing would spin
+                // forever. Fail loudly instead. (Typically the plain term's requirement lost that major's range.)
+                if term.requirement == .empty {
+                    throw InternalError("[MultiMajor] '\(pkgTerm.node.package.identity)' is flagged for majors \((state.multipleMajorVersionPackages[pkgTerm.node.package] ?? []).sorted()), but the requirement for '\(term.node.package.identity)' is empty (the plain term's requirement is \(pkgTerm.requirement)); no requirement for that major was retained")
+                }
+                // A scoped node can compare equal to one that's already decided (e.g. `.root(pkg@1)` vs
+                // `.empty(pkg@1)`, which share `specificProduct == nil`), so don't decide it twice.
+                if state.solution.decisions[term.node] != nil {
+                    nodes.append(term.node)
+                    continue
+                }
                 nodes.append(try await makeDecisionForTerm(term))
             }
 
-            // Retire the plain (unscoped) node too, so it doesn't stick around in `undecided`
-            // forever and cause `makeDecision` to keep re-entering this branch for it. Use
-            // whichever major actually got decided, if any - some majors may have hit a conflict
-            // above and been left undecided.
-            if let decidedVersion = nodes.lazy.compactMap({ state.solution.decisions[$0] }).first {
-                state.decide(pkgTerm.node, at: decidedVersion)
-                nodes.append(pkgTerm.node)
-            }
+            // The plain (unscoped) node is intentionally not decided any more; `State.undecided` treats it as
+            // covered once all of its scoped nodes are decided.
+//            // Retire the plain (unscoped) node too, so it doesn't stick around in `undecided`
+//            // forever and cause `makeDecision` to keep re-entering this branch for it. Use
+//            // whichever major actually got decided, if any - some majors may have hit a conflict
+//            // above and been left undecided.
+//            if let decidedVersion = nodes.lazy.compactMap({ state.solution.decisions[$0] }).first {
+//                state.decide(pkgTerm.node, at: decidedVersion)
+//                nodes.append(pkgTerm.node)
+//            }
 
             return nodes
         } else {
@@ -937,7 +992,11 @@ public struct PubGrubDependencyResolver {
         }
 
         func makeDecisionForTerm(_ term: Term) async throws -> DependencyResolutionNode {
-            guard let version = try await container.getBestAvailableVersion(for: term, flaggedMultipleMajorVersions: state.multipleMajorVersionPackages) else {
+            // TODO bp: remove debug prints
+            print("[MultiMajor][DEBUG] decide-attempt: \(term.node.package.identity) requirement=\(term.requirement) node=\(term.node)")
+            let debugBest = try await container.getBestAvailableVersion(for: term, flaggedMultipleMajorVersions: state.multipleMajorVersionPackages)
+            print("[MultiMajor][DEBUG]   best version: \(String(describing: debugBest))")
+            guard let version = debugBest else {
                 state.addIncompatibility(try Incompatibility(term, root: state.root, cause: .noAvailableVersion), at: .decisionMaking)
                 return term.node
             }
@@ -966,6 +1025,8 @@ public struct PubGrubDependencyResolver {
                 }
             }
 
+            // TODO bp: remove debug prints
+            print("[MultiMajor][DEBUG]   haveConflict=\(haveConflict) alreadyDecided=\(state.solution.decisions[term.node] != nil)")
             // Decide this version if there was no conflict with its dependencies.
             if !haveConflict {
                 self.delegate?.didResolve(term: term, version: version, duration: start.distance(to: .now()))
@@ -1032,7 +1093,10 @@ extension PubGrubDependencyResolver {
         }
 
         internal static func constraints(_ constraint: Constraint) -> [VersionBasedConstraint]? {
-            switch constraint.requirement {
+            // Resolve a multi-major range to its highest major's scoped package (see `scopedToHighestMajor`).
+            let constraint = constraint.scopedToHighestMajor()
+            // `return` is explicit now that the body is more than a single switch expression.
+            return switch constraint.requirement {
             case .versionSet(let req):
                 constraint.nodes().map { VersionBasedConstraint(node: $0, req: req) }
             case .revision:

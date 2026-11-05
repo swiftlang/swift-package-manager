@@ -12,6 +12,8 @@
 
 import PackageModel
 
+import struct TSCUtility.Version
+
 extension PackageDependency {
     /// Create the package reference object for the dependency.
     public var packageRef: PackageReference {
@@ -71,6 +73,69 @@ extension Manifest {
                 enabledTraits: enabledTraitsSet
             )
         })
+    }
+}
+
+extension VersionSetSpecifier {
+    /// The major-version bucket a dependency declaring this requirement belongs to, or `nil` if it isn't bucketed.
+    ///
+    /// This must mirror `PackageDependency.supportedMajorVersions` / `maxSupportedMajorVersion` so that the resolver
+    /// and the graph layer (`majorVersionIdentity`) agree on which scoped identity a dependency refers to: the
+    /// highest major the declared range reaches. A range confined to a single major (e.g. `upToNextMinor`) isn't
+    /// bucketed there, so it isn't here either.
+    var highestMajorBucket: Int? {
+        switch self {
+        case .exact(let version):
+            return version.major
+        case .range(let range):
+            return range.lowerBound.major < range.upperBound.major ? range.upperBound.major - 1 : nil
+        case .any, .empty, .ranges:
+            return nil
+        }
+    }
+}
+
+extension PackageContainerConstraint {
+    /// Prototype switch: resolve a version range's "1.x OR 2.x" ambiguity up front (see `scopedToHighestMajor`).
+    /// When off, constraints keep targeting the plain package and the flagged-major machinery in PubGrub is what
+    /// (incompletely) handles multiple majors.
+    static let scopesToHighestMajor = true
+
+    /// Decides the OR of a version range that spans several majors with a heuristic instead of in the solver: the
+    /// constraint is rewritten to target the major-scoped package (`pkg@M`) for the HIGHEST major M in the range,
+    /// with the range sliced to that major. This is the same rule the graph layer uses (`majorVersionIdentity`) and
+    /// that module aliasing uses (`resolvedPackage(for:consumer:)`), so the resolver only ever sees single-major
+    /// scoped nodes and every dependent has exactly one edge to the package.
+    ///
+    /// Limitations (known, deliberate): there is no fallback to a lower major if the highest can't be satisfied, and
+    /// two dependents whose ranges overlap on several majors may end up with separate copies.
+    internal func scopedToHighestMajor() -> PackageContainerConstraint {
+        guard Self.scopesToHighestMajor,
+              case .versionSet(let requirement) = self.requirement,
+              let major = requirement.highestMajorBucket
+        else {
+            return self
+        }
+
+        switch self.package.kind {
+        case .remoteSourceControl, .localSourceControl:
+            break
+        case .root, .fileSystem, .registry:
+            return self
+        }
+
+        // Already scoped (e.g. the version lock a scoped product has on its own package).
+        guard self.package.identity == self.package.identity.withoutMajor() else {
+            return self
+        }
+
+        let slice = requirement.intersection(.range(Version(major, 0, 0)..<Version(major + 1, 0, 0)))
+        return PackageContainerConstraint(
+            package: self.package.scoped(toMajor: major),
+            requirement: .versionSet(slice),
+            products: self.products,
+            enabledTraits: self.enabledTraits
+        )
     }
 }
 

@@ -110,6 +110,8 @@ final class ContainerProvider {
     /// Get a cached container for the given identifier, asserting / throwing if not found.
     func getCachedContainer(for package: PackageReference) throws -> PubGrubPackageContainer {
         guard let container = self.containersCache[package] else {
+            // TODO bp: remove debug prints
+            print("[MultiMajor][DEBUG] container cache miss for \(package.identity) (kind \(package.kind)); cached=\(self.containersCache.get().keys.map { $0.identity.description }.sorted())")
             throw InternalError("container for \(package.identity) expected to be cached")
         }
         return container

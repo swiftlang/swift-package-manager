@@ -200,13 +200,16 @@ final class PubGrubPackageContainer {
                 continue
             }
 
-            for node in dep.nodes() {
+            // Resolve a multi-major range to its highest major's scoped package (see `scopedToHighestMajor`).
+            let scopedDep = dep.scopedToHighestMajor()
+
+            for node in scopedDep.nodes() {
                 constraints.append(
                     PackageContainerConstraint(
                         package: node.package,
-                        requirement: dep.requirement,
+                        requirement: scopedDep.requirement,
                         products: node.productFilter,
-                        enabledTraits: dep.enabledTraits
+                        enabledTraits: scopedDep.enabledTraits
                     )
                 )
             }

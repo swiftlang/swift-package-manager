@@ -219,12 +219,29 @@ extension Workspace {
                 )
                 return node
             } + root.dependencies.compactMap { dependency in
-                let package = dependency.packageRef
+//                let package = dependency.packageRef
+                // Track a root dependency under its scoped identity (e.g. `shared@2`) rather than the plain one
+                // that no longer gets checked out, but only when a manifest was actually loaded under that scoped
+                // identity. An ordinary single-major dependency is still keyed by its plain identity, so scoping it
+                // unconditionally would report it as missing.
+//                let package = if let majorVersion = dependency.maxSupportedMajorVersion {
+//                    dependency.packageRef.scoped(toMajor: majorVersion)
+//                } else {
+//                    dependency.packageRef
+//                }
+                let scopedPackage = dependency.maxSupportedMajorVersion.map { dependency.packageRef.scoped(toMajor: $0) }
+                let package = if let scopedPackage, manifestsMap[scopedPackage.identity] != nil {
+                    scopedPackage
+                } else {
+                    dependency.packageRef
+                }
                 inputIdentities.append(package)
-                return try manifestsMap[dependency.identity].map { manifest in
+//                return try manifestsMap[dependency.identity].map { manifest in
+                return try manifestsMap[package.identity].map { manifest in
 
                     return try GraphLoadingNode(
-                        identity: dependency.identity,
+//                        identity: dependency.identity,
+                        identity: package.identity,
                         manifest: manifest,
                         productFilter: dependency.productFilter,
                         enabledTraits: workspace.enabledTraitsMap[manifest]

@@ -95,6 +95,8 @@ public struct Term: Equatable, Hashable {
             // hand back the union of the two ranges so the solver can keep going rather than
             // failing resolution outright. Noticing and recording that this happened is `State`'s
             // job (see `State.derive`) — this is purely about not blocking on it for now.
+            // TODO bp: remove debug prints
+            print("[MultiMajor][DEBUG] intersect empty: \(self.node.package.identity) lhs=\(lhs) rhs=\(rhs) positive=\(self.isPositive)/\(otherIsPositive) multiMajor=\(self.isPositive && otherIsPositive && self.isMultipleMajorVersion(requirement))")
             if self.isPositive, otherIsPositive, self.isMultipleMajorVersion(requirement) {
                 return Term(node: self.node, requirement: lhs.union(rhs), isPositive: true)
             }
