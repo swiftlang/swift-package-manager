@@ -106,6 +106,28 @@ struct APIDiffTests {
         .tags(
             .Feature.Command.Package.DiagnoseApiBreakingChanges,
         ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testSimpleAPIDiffQuiet(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await fixture(name: "Miscellaneous/APIDiff/", createGitRepo: true) { fixturePath in
+            let packageRoot = fixturePath.appending("Foo")
+            // Overwrite the existing decl.
+            try localFileSystem.writeFileContents(
+                packageRoot.appending("Foo.swift"),
+                string: "public let foo = 42"
+            )
+            await expectThrowsCommandExecutionError(try await execute(["--quiet", "diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)) { error in
+                #expect(error.stdout.contains("1 breaking change detected in Foo"))
+                #expect(error.stdout.contains("func foo() has been removed"))
+            }
+        }
+    }
+
+    @Test(
+        .requiresAPIDigester,
+        .tags(
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/8926", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )

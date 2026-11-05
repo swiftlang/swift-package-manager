@@ -496,6 +496,39 @@ struct SwiftBuildSystemMessageHandlerTests {
     }
 
     @Test
+    func testDiagnosticReportedErrorLogLevel() throws {
+        let messageHandler = self.messageHandler.error
+
+        let events: [SwiftBuildMessage] = [
+            .taskStartedInfo(taskSignature: "quiet-diagnostic"),
+            .diagnostic(locationContext2: .init(taskSignature: "quiet-diagnostic"), message: "Quiet diagnostic", appendToOutputStream: true),
+        ]
+
+        for event in events {
+            _ = try messageHandler.emitEvent(event)
+        }
+        let completed = try messageHandler.emitEvent(.taskCompleteInfo(taskSignature: "quiet-diagnostic", result: .failed))
+
+        #expect(completed != nil)
+        try expectDiagnostics(observability.diagnostics) { result in
+            result.check(diagnostic: "Quiet diagnostic", severity: .error)
+        }
+    }
+
+    @Test
+    func testBuildProgressMessagesErrorLogLevel() throws {
+        let messageHandler = self.messageHandler.error
+
+        let progress = try messageHandler.emitEvent(.progress(message: "Something useful", percentComplete: 12))
+        let completed = try messageHandler.emitEvent(.buildCompletedInfo())
+
+        let output = self.outputStream.bytes.description
+        #expect(!output.contains("[Something useful]"))
+        #expect(progress != nil)
+        #expect(completed != nil)
+    }
+
+    @Test
     func testVerboseTaskOutputEndsWithNewline() throws {
         let messageHandler = self.messageHandler.debug
 

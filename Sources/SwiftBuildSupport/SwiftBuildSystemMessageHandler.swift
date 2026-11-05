@@ -226,7 +226,6 @@ public final class SwiftBuildSystemMessageHandler {
     public func emitEvent(_ message: SwiftBuild.SwiftBuildMessage) throws -> BuildSystemCallback? {
         var callback: BuildSystemCallback? = nil
 
-        guard !self.logLevel.isQuiet else { return callback }
         switch message {
         case .buildCompleted(let info):
             self.traceEventsWriter?.close()
@@ -248,7 +247,7 @@ public final class SwiftBuildSystemMessageHandler {
             }
 
             // Skip if message doesn't contain anything useful to display.
-            if !message.isEmpty {
+            if !message.isEmpty && !self.logLevel.isQuiet {
                 progressAnimation.update(step: -1, total: 100, text: message)
             }
 
