@@ -23,7 +23,7 @@ extension PackageCollectionModel.V1 {
     /// Encode a `Collection` to JSON to produce a package collection file,
     /// or decode one from a JSON document. For production distribution,
     /// wrap the collection in a ``SignedCollection``.
-    public struct Collection: Equatable, Codable {
+    public struct Collection: Equatable, Codable, Sendable {
         /// The name of the package collection, for display purposes only.
         public let name: String
 
@@ -78,7 +78,7 @@ extension PackageCollectionModel.V1 {
         ///
         /// This type is distinct from ``PackageCollectionModel/V1/Collection/Package/Version/Author``,
         /// which represents the author of a specific package version.
-        public struct Author: Equatable, Codable {
+        public struct Author: Equatable, Codable, Sendable {
             /// The author name, which may be a person or organization.
             public let name: String
 
@@ -93,7 +93,7 @@ extension PackageCollectionModel.V1 {
 extension PackageCollectionModel.V1.Collection {
     /// Metadata about a package included in a collection, including its URL,
     /// versions, and license information.
-    public struct Package: Equatable, Codable {
+    public struct Package: Equatable, Codable, Sendable {
         /// The URL of the package.
         ///
         /// By convention, this is a Git repository URL. The URL should use HTTPS
@@ -146,7 +146,7 @@ extension PackageCollectionModel.V1.Collection {
 extension PackageCollectionModel.V1.Collection.Package {
     /// A specific release of a package, containing one or more manifests keyed by
     /// Swift tools version along with compatibility and signing information.
-    public struct Version: Equatable, Codable {
+    public struct Version: Equatable, Codable, Sendable {
         /// The semantic version string.
         public let version: String
 
@@ -203,7 +203,7 @@ extension PackageCollectionModel.V1.Collection.Package {
 
         /// The resolved manifest data for a specific Swift tools version, including the
         /// package name, targets, products, and minimum platform versions.
-        public struct Manifest: Equatable, Codable {
+        public struct Manifest: Equatable, Codable, Sendable {
             /// The Swift tools version specified in `Package.swift` (for example, `5.7` or `5.9.2`).
             public let toolsVersion: String
 
@@ -239,7 +239,7 @@ extension PackageCollectionModel.V1.Collection.Package {
         ///
         /// This type is distinct from ``PackageCollectionModel/V1/Collection/Author``,
         /// which represents the author of the collection itself.
-        public struct Author: Equatable, Codable {
+        public struct Author: Equatable, Codable, Sendable {
             /// The author name.
             public let name: String
 
@@ -253,7 +253,7 @@ extension PackageCollectionModel.V1.Collection.Package {
 
 extension PackageCollectionModel.V1 {
     /// A target within a package, with an optional module name for importable targets.
-    public struct Target: Equatable, Codable {
+    public struct Target: Equatable, Codable, Sendable {
         /// The target name.
         public let name: String
 
@@ -268,7 +268,7 @@ extension PackageCollectionModel.V1 {
     }
 
     /// A product in a package.
-    public struct Product: Equatable, Codable {
+    public struct Product: Equatable, Codable, Sendable {
         /// The product name.
         public let name: String
 
@@ -292,7 +292,7 @@ extension PackageCollectionModel.V1 {
 
     /// A platform name paired with its minimum deployment target version string
     /// (for example, macOS `10.15` or iOS `13.0`).
-    public struct PlatformVersion: Equatable, Codable {
+    public struct PlatformVersion: Equatable, Codable, Sendable {
         /// The name of the platform (such as macOS and Linux).
         public let name: String
 
@@ -308,7 +308,7 @@ extension PackageCollectionModel.V1 {
 
     /// A platform identified by name, used within ``Compatibility``
     /// to pair with a Swift version.
-    public struct Platform: Equatable, Codable {
+    public struct Platform: Equatable, Codable, Sendable {
         /// The name of the platform (such as macOS and Linux).
         public let name: String
 
@@ -320,7 +320,7 @@ extension PackageCollectionModel.V1 {
 
     /// A verified platform and Swift version combination, indicating that the
     /// package was successfully built and tested with this configuration.
-    public struct Compatibility: Equatable, Codable {
+    public struct Compatibility: Equatable, Codable, Sendable {
         /// The platform (such as macOS and Linux).
         public let platform: Platform
 
@@ -338,7 +338,7 @@ extension PackageCollectionModel.V1 {
     /// name with the URL of the license file.
     ///
     /// Use an SPDX identifier for the name when possible.
-    public struct License: Equatable, Codable {
+    public struct License: Equatable, Codable, Sendable {
         /// The license name, preferably an SPDX identifier (such as `Apache-2.0` or `MIT`).
         public let name: String?
 
@@ -355,7 +355,7 @@ extension PackageCollectionModel.V1 {
     /// The entity that signed a package version, identified by certificate subject fields.
     ///
     /// Currently the only valid signer type is `ADP` (Apple Developer Program).
-    public struct Signer: Equatable, Codable {
+    public struct Signer: Equatable, Codable, Sendable {
         /// The signer type. Currently the only valid value is `ADP` (Apple Developer Program).
         public let type: String
 
@@ -408,9 +408,9 @@ extension PackageCollectionModel.V1.Compatibility: Comparable {
 
 extension PackageCollectionModel.V1 {
     /// The type of product.
-    public enum ProductType: Equatable {
+    public enum ProductType: Equatable, Sendable {
         /// The type of library.
-        public enum LibraryType: String, Codable {
+        public enum LibraryType: String, Codable, Sendable {
             /// Static library.
             case `static`
 
@@ -497,7 +497,7 @@ extension PackageCollectionModel.V1 {
     /// When encoded to JSON, `SignedCollection` produces a flat structure identical
     /// to ``Collection`` with an additional top-level `signature` key, rather than
     /// nesting the collection under a separate key.
-    public struct SignedCollection: Equatable {
+    public struct SignedCollection: Equatable, Sendable {
         /// The package collection.
         public let collection: PackageCollectionModel.V1.Collection
 
@@ -513,7 +513,7 @@ extension PackageCollectionModel.V1 {
 
     /// A cryptographic signature and the certificate metadata used to verify a
     /// package collection.
-    public struct Signature: Equatable, Codable {
+    public struct Signature: Equatable, Codable, Sendable {
         /// The signature.
         public let signature: String
 
@@ -528,7 +528,7 @@ extension PackageCollectionModel.V1 {
 
         /// The X.509 certificate that signs a package collection, represented by its
         /// subject and issuer distinguished names.
-        public struct Certificate: Equatable, Codable {
+        public struct Certificate: Equatable, Codable, Sendable {
             /// The subject of the certificate.
             public let subject: Name
 
@@ -543,7 +543,7 @@ extension PackageCollectionModel.V1 {
 
             /// The distinguished name fields of a certificate, used to represent
             /// both the subject and the issuer.
-            public struct Name: Equatable, Codable {
+            public struct Name: Equatable, Codable, Sendable {
                 /// The user ID.
                 public let userID: String?
 
