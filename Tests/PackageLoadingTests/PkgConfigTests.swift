@@ -150,6 +150,46 @@ class PkgConfigTests: XCTestCase {
         }
     }
 
+    func testExplicitSysrootDirTakesPrecedenceOverEnvVar() throws {
+        // Explicit sysrootDir is honored when PKG_CONFIG_SYSROOT_DIR is unset.
+        do {
+            let result = try PkgConfig(
+                name: "Foo",
+                additionalSearchPaths: [inputsDir],
+                sysrootDir: AbsolutePath("/explicit"),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertEqual(result.cFlags, ["-I/explicit/usr/include", "-I/path/to/inc", "-I\(inputsDir.pathString)"])
+            XCTAssertEqual(result.libs, ["-L/explicit/usr/lib", "-L/usr/da/lib", "-lSystemModule", "-lok"])
+        }
+
+        // Explicit sysrootDir should take precedence over PKG_CONFIG_SYSROOT_DIR when both are present.
+        try Environment.makeCustom(["PKG_CONFIG_SYSROOT_DIR": "/environment"]) {
+            let result = try PkgConfig(
+                name: "Foo",
+                additionalSearchPaths: [inputsDir],
+                sysrootDir: AbsolutePath("/explicit"),
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertEqual(result.cFlags, ["-I/explicit/usr/include", "-I/path/to/inc", "-I\(inputsDir.pathString)"])
+            XCTAssertEqual(result.libs, ["-L/explicit/usr/lib", "-L/usr/da/lib", "-lSystemModule", "-lok"])
+        }
+
+        // PKG_CONFIG_SYSROOT_DIR is still used when no explicit sysrootDir is provided.
+        try Environment.makeCustom(["PKG_CONFIG_SYSROOT_DIR": "/environment"]) {
+            let result = try PkgConfig(
+                name: "Foo",
+                additionalSearchPaths: [inputsDir],
+                fileSystem: fs,
+                observabilityScope: observability.topScope
+            )
+            XCTAssertEqual(result.cFlags, ["-I/environment/usr/include", "-I/path/to/inc", "-I\(inputsDir.pathString)"])
+            XCTAssertEqual(result.libs, ["-L/environment/usr/lib", "-L/usr/da/lib", "-lSystemModule", "-lok"])
+        }
+    }
+
     func testExplicitPkgConfigDirectories() throws {
         // Pc file.
         for result in try pkgConfigArgs(
