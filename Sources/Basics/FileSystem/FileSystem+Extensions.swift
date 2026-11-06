@@ -723,4 +723,17 @@ extension FileSystem {
             }
         }
     }
+
+    /// SHA256 of a file's contents, or for a directory, of its sorted entry names paired with their
+    /// own checksums, so that renaming or adding an entry changes the digest as much as editing one.
+    package func checksum(of path: AbsolutePath) throws -> String {
+        guard self.isDirectory(path) else {
+            return try self.readFileContents(path).sha256Checksum
+        }
+
+        let entries = try self.getDirectoryContents(path).sorted().map {
+            try "\($0):\(self.checksum(of: path.appending($0)))"
+        }
+        return entries.joined(separator: "\n").sha256Checksum
+    }
 }
