@@ -984,7 +984,7 @@ extension Workspace.Configuration {
                 return try decoder.decode(path: self.path, fileSystem: self.fileSystem, as: RegistryConfiguration.self)
             } catch {
                 throw StringError(
-                    "Failed loading registries configuration from '\(self.path)': \(error.interpolationDescription)"
+                    "Failed loading registries configuration: \(error.interpolationDescription)"
                 )
             }
         }
