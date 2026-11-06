@@ -202,6 +202,87 @@ final class PackageModelTests: XCTestCase {
             }
     }
 
+    func testToolchainPathsResolveCompilerSymlink() throws {
+        #if os(Windows)
+        throw XCTSkip("This test requires symbolic links without elevated privileges")
+        #else
+        let fs = localFileSystem
+        try withTemporaryDirectory(removeTreeOnDeinit: true) { rawTmp in
+            // macOS temporary paths can traverse /var -> /private/var.
+            let tmp = try resolveSymlinks(rawTmp)
+            let publicBinDir = tmp.appending(components: "usr", "bin")
+            let toolchainBinDir = tmp.appending(components: "swift-6.4", "bin")
+            let extraBinDir = tmp.appending(components: "sdk", "bin")
+            try fs.createDirectory(publicBinDir, recursive: true)
+            try fs.createDirectory(toolchainBinDir, recursive: true)
+            try fs.createDirectory(extraBinDir, recursive: true)
+
+            let colocatedTools = ["swiftc", "swift", "llvm-ar", "lldb"]
+            for tool in colocatedTools.map({ toolchainBinDir.appending($0) }) {
+                try fs.writeFileContents(tool, bytes: "")
+                try fs.chmod(.executable, path: tool, options: [])
+            }
+            let clang = extraBinDir.appending("clang")
+            try fs.writeFileContents(clang, bytes: "")
+            try fs.chmod(.executable, path: clang, options: [])
+
+            let compiler = toolchainBinDir.appending("swiftc")
+            let compilerSymlink = publicBinDir.appending("swiftc")
+            try fs.createSymbolicLink(compilerSymlink, pointingAt: compiler, relative: false)
+
+            var toolset = Toolset(toolchainBinDir: publicBinDir)
+            toolset.merge(with: Toolset(toolchainBinDir: extraBinDir))
+            let swiftSDK = SwiftSDK(
+                toolset: toolset,
+                pathsConfiguration: .init()
+            )
+
+            XCTAssertEqual(
+                MockToolchain.resolvedSwiftCompilerBinDir(compilerSymlink),
+                toolchainBinDir
+            )
+            XCTAssertEqual(
+                MockToolchain.compilerBinDirectories(swiftCompilerPath: compilerSymlink),
+                [toolchainBinDir, publicBinDir]
+            )
+            XCTAssertEqual(
+                MockToolchain.toolchainBinDirectories(
+                    swiftCompilerPath: compilerSymlink,
+                    swiftSDK: swiftSDK
+                ),
+                [extraBinDir, toolchainBinDir, publicBinDir]
+            )
+            XCTAssertEqual(
+                try MockToolchain.toolchainDir(swiftCompilerPath: compilerSymlink),
+                tmp.appending("swift-6.4")
+            )
+            let userToolchain = try UserToolchain(
+                swiftSDK: SwiftSDK(
+                    targetTriple: Triple.x86_64Linux,
+                    toolset: toolset,
+                    pathsConfiguration: .init()
+                ),
+                environment: [:],
+                searchStrategy: .custom(searchPaths: [], useXcrun: false),
+                customLibrariesLocation: .init(root: tmp.appending(components: "lib", "swift", "pm")),
+                customInstalledSwiftPMConfiguration: .default,
+                fileSystem: fs
+            )
+            XCTAssertEqual(userToolchain.swiftCompilerPath, compilerSymlink)
+            XCTAssertEqual(userToolchain.swiftInterpreterPath, toolchainBinDir.appending("swift"))
+            XCTAssertEqual(userToolchain.librarianPath, toolchainBinDir.appending("llvm-ar"))
+            XCTAssertEqual(try userToolchain.getClangCompiler(), clang)
+            XCTAssertEqual(try userToolchain.getLLDB(), toolchainBinDir.appending("lldb"))
+
+            let publicInterpreter = publicBinDir.appending("swift")
+            try fs.removeFileTree(toolchainBinDir.appending("swift"))
+            try fs.writeFileContents(publicInterpreter, bytes: "")
+            try fs.chmod(.executable, path: publicInterpreter, options: [])
+            XCTAssertEqual(userToolchain.swiftInterpreterPath, publicInterpreter)
+        }
+        #endif
+    }
+
     func testDetermineSwiftCompilersWarnsOnInvalidSWIFT_EXEC() throws {
         let fs = localFileSystem
         try withTemporaryDirectory(removeTreeOnDeinit: true) { tmp in

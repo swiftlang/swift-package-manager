@@ -829,7 +829,7 @@ extension BuildPlan {
                 scriptRunner: configuration.scriptRunner,
                 workingDirectory: package.path,
                 outputDirectory: pluginOutputDir,
-                toolSearchDirectories: [buildParameters.toolchain.swiftCompilerPath.parentDirectory],
+                toolSearchDirectories: buildParameters.toolchain.compilerBinDirectories,
                 accessibleTools: accessibleTools,
                 writableDirectories: writableDirectories,
                 readOnlyDirectories: readOnlyDirectories,
