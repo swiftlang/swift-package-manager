@@ -1400,7 +1400,7 @@ struct PluginTests {
         @Test(
             .issue("https://github.com/swiftlang/swift-package-manager/issues/9040", relationship: .verifies),
             .requiresSwiftConcurrencySupport,
-            arguments: SupportedBuildSystemOnAllPlatforms, try getFiles(in: RelativePath(validating: "Fixtures/Miscellaneous/Plugins/PluginsAndSnippets/Snippets"), matchingExtension: "swift",),
+            arguments: SupportedBuildSystemOnAllPlatforms, try getFiles(in: fixturesDirectory.appending(components: "Miscellaneous", "Plugins", "PluginsAndSnippets", "Snippets"), matchingExtension: "swift",).map { $0.relative(to: fixturesDirectory) },
         )
         func testBasicBuildIndividualSnippets(
             buildSystem: BuildSystemProvider.Kind,
@@ -1423,7 +1423,7 @@ struct PluginTests {
         @Test(
             .issue("https://github.com/swiftlang/swift-package-manager/issues/9040", relationship: .verifies),
             .requiresSwiftConcurrencySupport,
-            arguments: SupportedBuildSystemOnAllPlatforms, try getFiles(in: RelativePath(validating: "Fixtures/Miscellaneous/Plugins/PluginsAndSnippets/Snippets"), matchingExtension: "swift",),
+            arguments: SupportedBuildSystemOnAllPlatforms, try getFiles(in: fixturesDirectory.appending(components: "Miscellaneous", "Plugins", "PluginsAndSnippets", "Snippets"), matchingExtension: "swift",).map { $0.relative(to: fixturesDirectory) },
         )
         func testBasicRunSnippets(
             buildSystem: BuildSystemProvider.Kind,

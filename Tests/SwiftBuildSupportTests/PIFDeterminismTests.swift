@@ -25,7 +25,7 @@ struct PIFDeterminismTests {
     static let regenerationCount = 5
 
     static let fixturePackages: [String] = {
-        let fixturesDir = AbsolutePath("../../../Fixtures", relativeTo: #filePath)
+        let fixturesDir = fixturesDirectory
         var roots: [String] = []
 
         func walk(_ dir: AbsolutePath) {
