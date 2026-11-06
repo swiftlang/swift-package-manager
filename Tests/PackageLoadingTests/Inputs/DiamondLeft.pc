@@ -1,0 +1,3 @@
+Name: DiamondLeft
+Cflags: -I/path/to/left/include
+Requires: DiamondBase
