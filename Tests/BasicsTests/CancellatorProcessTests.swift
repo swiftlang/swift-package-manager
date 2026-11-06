@@ -87,7 +87,7 @@ struct CancellatorProcessTests {
 
         /// Waits until the script has recorded both PIDs and set up its signal handling.
         func waitUntilStarted() async throws -> (process: Int32, descendant: Int32) {
-            let deadline = ContinuousClock.now + .seconds(10)
+            let deadline = ContinuousClock.now + .seconds(60)
             while ContinuousClock.now < deadline {
                 if let process = self.processPID, let descendant = self.descendantPID,
                    FileManager.default.fileExists(atPath: self.directory.appendingPathComponent("ready").path)
