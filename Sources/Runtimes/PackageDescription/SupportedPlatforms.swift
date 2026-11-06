@@ -73,6 +73,10 @@ public struct Platform: Equatable, Sendable {
     /// The FreeBSD platform.
     @available(_PackageDescription, introduced: 999.0)
     public static let freebsd: Platform = Platform(name: "freebsd")
+
+    /// Any Apple platform.
+    @available(_PackageDescription, introduced: 999.0)
+    public static let anyAppleOS: Platform = Platform(name: "anyappleos")
 }
 
 /// A platform that the Swift package supports.
@@ -274,6 +278,26 @@ public struct SupportedPlatform: Equatable, Sendable {
     @available(_PackageDescription, introduced: 5.5)
     public static func driverKit(_ versionString: String) -> SupportedPlatform {
         return SupportedPlatform(platform: .driverKit, version: SupportedPlatform.DriverKitVersion(string: versionString).version)
+    }
+
+    /// Configures the minimum deployment target version for all Apple platforms.
+    ///
+    /// - Parameter version: The minimum deployment target that the package supports.
+    /// - Returns: A `SupportedPlatform` instance.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func anyAppleOS(_ version: SupportedPlatform.AnyAppleOSVersion) -> SupportedPlatform {
+        return SupportedPlatform(platform: .anyAppleOS, version: version.version)
+    }
+
+    /// Configures the minimum deployment target version for all Apple platforms
+    /// using a custom version string.
+    ///
+    /// - Parameter versionString: The minimum deployment target as a string
+    ///     representation of two or three dot-separated integers, such as `26.0.1`.
+    /// - Returns: A `SupportedPlatform` instance.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func anyAppleOS(_ versionString: String) -> SupportedPlatform {
+        return SupportedPlatform(platform: .anyAppleOS, version: SupportedPlatform.AnyAppleOSVersion(string: versionString).version)
     }
 
     /// Configures the minimum deployment target version for custom platforms.
@@ -870,6 +894,31 @@ extension SupportedPlatform {
         /// - Since: First available in PackageDescription 6.4.
         @available(_PackageDescription, introduced: 6.4)
         public static let v27: DriverKitVersion = .init(string: "27.0")
+    }
+
+    /// A version shared by all Apple platforms.
+    public struct AnyAppleOSVersion: AppleOSVersion {
+        fileprivate static let name = "anyAppleOS"
+        fileprivate static let minimumMajorVersion = 26
+
+        /// The underlying version representation.
+        let version: String
+
+        fileprivate init(uncheckedVersion version: String) {
+            self.version = version
+        }
+
+        /// The value that represents version 26.0 of all Apple platforms.
+        ///
+        /// - Since: First available in PackageDescription 999.0.
+        @available(_PackageDescription, introduced: 999.0)
+        public static let v26: AnyAppleOSVersion = .init(string: "26.0")
+
+        /// The value that represents version 27.0 of all Apple platforms.
+        ///
+        /// - Since: First available in PackageDescription 999.0.
+        @available(_PackageDescription, introduced: 999.0)
+        public static let v27: AnyAppleOSVersion = .init(string: "27.0")
     }
 
     /// A supported custom platform version.

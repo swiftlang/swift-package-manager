@@ -59,4 +59,10 @@ extension ProcessInfo {
     #else
     public static let batSuffix = ""
     #endif
+
+    #if os(Windows)
+    public static let osSeparator = "\\"
+    #else
+    public static let osSeparator = "/"
+    #endif
 }

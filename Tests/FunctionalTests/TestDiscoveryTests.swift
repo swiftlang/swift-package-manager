@@ -127,25 +127,28 @@ struct TestDiscoveryTests {
             .Feature.CommandLineArguments.BuildSystem,
         ),
         .IssueWindowsCannotSaveAttachment,
-        .bug("https://github.com/swiftlang/swift-build/issues/573"),
+        .issue("https://github.com/swiftlang/swift-build/issues/573", relationship: .defect),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func discovery_whenNoTests(_ buildSystem: BuildSystemProvider.Kind) async throws {
-            try await withKnownIssue(isIntermittent: true) {
+        try await withKnownIssue(
+            "https://github.com/swiftlang/swift-build/issues/573",
+            isIntermittent: true,
+        ) {
             try await fixture(name: "Miscellaneous/TestDiscovery/NoTests") { fixturePath in
                 let (stdout, stderr) = try await executeSwiftTest(fixturePath, buildSystem: buildSystem)
                 // in "swift test" build output goes to stderr
                 #expect(stderr.contains("Build complete!"))
                 // we are expecting that no warning is produced
-                let buidlSystemDeprecationDiag = Basics.Diagnostic.deprecatedBuildSystem(buildSystem: buildSystem)
-                let filteredStderr = stderr.components(separatedBy: "\n").filter { !$0.contains(buidlSystemDeprecationDiag.message)}.joined(separator: "\n|")
-                #expect(!filteredStderr.contains("warning:"))
+                let filteredStderr = filterSwiftPMOutput(content: stderr)
+                #expect(!filteredStderr.contains("warning:")) // this needs to be updated with the exact warning we do not expect.
                 // in "swift test" test output goes to stdout
                 #expect(stdout.contains("Executed 0 tests"))
             }
-            } when: {
-                buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows
-            }
+        } when: {
+            (buildSystem == .swiftbuild && ProcessInfo.hostOperatingSystem == .windows)
+            || (buildSystem == .native && ProcessInfo.hostOperatingSystem == .windows)
+        }
     }
 
     // FIXME: --build-system swiftbuild should support hand-authored entry points.

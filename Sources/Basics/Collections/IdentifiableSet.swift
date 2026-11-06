@@ -63,8 +63,22 @@ public struct IdentifiableSet<Element: Identifiable & Sendable>: Collection, Sen
         Index(storageIndex: self.storage.elements.index(after: i.storageIndex))
     }
 
+    /// Inserts `element`, replacing any existing member with the same `id`.
     public mutating func insert(_ element: Element) {
         self.storage[element.id] = element
+    }
+
+    /// Inserts `element` only if no member with the same `id` is present, leaving an existing member untouched.
+    ///
+    /// - Returns: Whether `element` was inserted, and the member now stored under its `id`.
+    @discardableResult
+    public mutating func insertIfAbsent(_ element: Element) -> (inserted: Bool, memberAfterInsert: Element) {
+        if let existingMember = self.storage[element.id] {
+            return (false, existingMember)
+        } else {
+            self.storage[element.id] = element
+            return (true, element)
+        }
     }
 
     public func union(_ otherSequence: some Sequence<Element>) -> Self {

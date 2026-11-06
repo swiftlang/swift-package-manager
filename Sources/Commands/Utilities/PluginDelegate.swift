@@ -20,8 +20,14 @@ import PackageGraph
 
 import protocol TSCBasic.OutputByteStream
 import class TSCBasic.BufferedOutputByteStream
-import class Basics.AsyncProcess
+import struct TSCBasic.ByteString
 import struct Basics.AsyncProcessResult
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 
 final class PluginDelegate: PluginInvocationDelegate {
     let swiftCommandState: SwiftCommandState
@@ -289,7 +295,7 @@ final class PluginDelegate: PluginInvocationDelegate {
 
                         // Run the test — for now we run the sequentially so we can capture accurate timing results.
                         let startTime = DispatchTime.now()
-                        let result = testRunner.test(outputHandler: { _ in }) // this drops the tests output
+                        let result = await testRunner.test(outputHandler: { _ in }) // this drops the tests output
                         let duration = Double(startTime.distance(to: .now()).milliseconds() ?? 0) / 1000.0
                         numFailedTests += (result != .failure) ? 0 : 1
                         testResults.append(
@@ -336,7 +342,15 @@ final class PluginDelegate: PluginInvocationDelegate {
                 llvmProfCommand.append(filePath.pathString)
             }
             llvmProfCommand += ["-o", mergedCovFile.pathString]
-            try await AsyncProcess.checkNonZeroExit(arguments: llvmProfCommand)
+            let mergeResult = try await Subprocess.run(
+                .path(FilePath(llvmProfCommand[0])),
+                arguments: Subprocess.Arguments(Array(llvmProfCommand.dropFirst())),
+                output: .discarded,
+                error: .string(limit: .max)
+            )
+            guard mergeResult.terminationStatus.isSuccess else {
+                throw CoverageError.llvmProfdataMergeFailed(output: mergeResult.standardError)
+            }
 
             // Use `llvm-cov` to export the merged `.profdata` file contents in JSON form.
             var llvmCovCommand = [try toolchain.getLLVMCov().pathString]
@@ -346,11 +360,19 @@ final class PluginDelegate: PluginInvocationDelegate {
                 llvmCovCommand.append(product.binaryPath.pathString)
             }
             // We get the output on stdout, and have to write it to a JSON ourselves.
-            let jsonOutput = try await AsyncProcess.checkNonZeroExit(arguments: llvmCovCommand)
+            let covResult = try await Subprocess.run(
+                .path(FilePath(llvmCovCommand[0])),
+                arguments: Subprocess.Arguments(Array(llvmCovCommand.dropFirst())),
+                output: .bytes(limit: .max),
+                error: .string(limit: .max)
+            )
+            guard covResult.terminationStatus.isSuccess else {
+                throw CoverageError.llvmCovFailed(format: .json, output: covResult.standardError)
+            }
             let jsonCovFile = mergedCovFile.parentDirectory.appending(
                 component: mergedCovFile.basenameWithoutExt + ".json"
             )
-            try swiftCommandState.fileSystem.writeFileContents(jsonCovFile, string: jsonOutput)
+            try swiftCommandState.fileSystem.writeFileContents(jsonCovFile, bytes: ByteString(covResult.standardOutput))
 
             // Return the path of the exported code coverage data file.
             codeCoverageDataFile = jsonCovFile

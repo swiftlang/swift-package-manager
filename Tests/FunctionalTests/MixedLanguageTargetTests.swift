@@ -45,7 +45,8 @@ struct MixedLanguageTargetTests {
 
     /// A library target that mixes Swift and C sources.
     @Test(
-        .tags(.Feature.Command.Build)
+        .requiresGeneratedHeaderUnderlyingModuleIncludeBase,
+        .tags(.Feature.Command.Build),
     )
     func mixedSwiftCLibrary() async throws {
         try await testMixedLanguageFixture("CFamilyTargets/MixedSwiftCLibrary")
@@ -61,7 +62,8 @@ struct MixedLanguageTargetTests {
 
     /// A library target that mixes Swift and C++ sources.
     @Test(
-        .tags(.Feature.Command.Build)
+        .requiresGeneratedHeaderUnderlyingModuleIncludeBase,
+        .tags(.Feature.Command.Build),
     )
     func mixedSwiftCxxLibrary() async throws {
         try await testMixedLanguageFixture("CFamilyTargets/MixedSwiftCxxLibrary")
@@ -69,6 +71,7 @@ struct MixedLanguageTargetTests {
 
     /// An executable target that mixes Swift and C sources.
     @Test(
+        .requiresGeneratedHeaderUnderlyingModuleIncludeBase,
         .tags(.Feature.Command.Build),
     )
     func mixedSwiftCExecutable() async throws {
@@ -77,7 +80,8 @@ struct MixedLanguageTargetTests {
 
     /// An executable target that mixes Swift and C++ sources.
     @Test(
-        .tags(.Feature.Command.Build)
+        .requiresGeneratedHeaderUnderlyingModuleIncludeBase,
+        .tags(.Feature.Command.Build),
     )
     func mixedSwiftCxxExecutable() async throws {
         try await testMixedLanguageFixture("CFamilyTargets/MixedSwiftCxxExecutable")
@@ -86,7 +90,8 @@ struct MixedLanguageTargetTests {
     /// A pure-Swift executable that consumes a mixed-language library, calling both its
     /// Swift API and its C API.
     @Test(
-        .tags(.Feature.Command.Build)
+        .requiresGeneratedHeaderUnderlyingModuleIncludeBase,
+        .tags(.Feature.Command.Build),
     )
     func mixedLanguageClient() async throws {
         try await testMixedLanguageFixture("CFamilyTargets/MixedLanguageClient")
@@ -111,7 +116,8 @@ struct MixedLanguageTargetTests {
 
     /// A test target that imports both the Swift and C API of a mixed-language library.
     @Test(
-        .tags(.Feature.Command.Build)
+        .requiresGeneratedHeaderUnderlyingModuleIncludeBase,
+        .tags(.Feature.Command.Build),
     )
     func testTargetImportingMixedLibrary() async throws {
         try await testMixedLanguageFixture(
@@ -122,7 +128,8 @@ struct MixedLanguageTargetTests {
 
     /// A test target that `@testable`-imports both the Swift and C API of a mixed-language executable.
     @Test(
-        .tags(.Feature.Command.Build)
+        .requiresGeneratedHeaderUnderlyingModuleIncludeBase,
+        .tags(.Feature.Command.Build),
     )
     func testTargetImportingMixedExecutable() async throws {
         try await testMixedLanguageFixture(
@@ -133,7 +140,8 @@ struct MixedLanguageTargetTests {
 
     /// A test target that itself mixes Swift and C sources.
     @Test(
-        .tags(.Feature.Command.Build)
+        .requiresGeneratedHeaderUnderlyingModuleIncludeBase,
+        .tags(.Feature.Command.Build),
     )
     func mixedSourceTestTarget() async throws {
         try await testMixedLanguageFixture(
@@ -144,7 +152,8 @@ struct MixedLanguageTargetTests {
 
     /// A `.macro` target that mixes Swift and C sources.
     @Test(
-        .tags(.Feature.Command.Build)
+        .requiresGeneratedHeaderUnderlyingModuleIncludeBase,
+        .tags(.Feature.Command.Build),
     )
     func mixedSourceMacro() async throws {
         try await testMixedLanguageFixture("CFamilyTargets/MixedSourceMacro")
@@ -194,13 +203,18 @@ struct MixedLanguageTargetTests {
     /// A mixed source library whose Objective-C code imports the Swift-generated header
     @Test(
         .requireHostOS(.macOS),
+        .requiresGeneratedHeaderUnderlyingModuleIncludeBase,
         .tags(.Feature.Command.Build)
     )
     func mixedTargetObjCImportsGeneratedSwiftHeader() async throws {
         try await testMixedLanguageFixture("CFamilyTargets/MixedObjCUsesSwiftHeader")
     }
 
-    @Test(.requireHostOS(.macOS), .tags(.Feature.Command.Build))
+    @Test(
+        .tags(.Feature.Command.Build),
+        .requireHostOS(.macOS),
+        .requiresGeneratedHeaderUnderlyingModuleIncludeBase,
+    )
     func objCImplementationInSwift() async throws {
         try await testMixedLanguageFixture("CFamilyTargets/ObjCImplementationInSwift")
     }

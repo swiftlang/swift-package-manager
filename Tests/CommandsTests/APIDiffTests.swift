@@ -412,6 +412,44 @@ struct APIDiffTests {
         .tags(
             .Feature.Command.Package.DiagnoseApiBreakingChanges,
         ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10748", relationship: .verifies),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testAPIDiffAfterRemovingTargetFromProduct(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await fixture(name: "Miscellaneous/APIDiff/ProductTargetRemoved") { packageRoot in
+            // This fixture's `Package.swift` lives directly in the fixture directory,
+            // so `fixture(createGitRepo:)` doesn't auto-tag it; tag it ourselves.
+            initGitRepo(packageRoot, tag: "1.2.3", addFile: false)
+            // Remove `Bar` from the product's target list while keeping the `Bar`
+            // target (and its sources) in the package, mirroring GH #10748.
+            try localFileSystem.writeFileContents(packageRoot.appending("Package.swift"), string:
+                """
+                // swift-tools-version:4.2
+                import PackageDescription
+
+                let package = Package(
+                    name: "ProductTargetRemoved",
+                    products: [
+                        .library(name: "ProductTargetRemoved", targets: ["Foo"]),
+                    ],
+                    targets: [
+                        .target(name: "Foo"),
+                        .target(name: "Bar"),
+                    ]
+                )
+                """
+            )
+            let (output, _) = try await execute(["diagnose-api-breaking-changes", "1.2.3"], packagePath: packageRoot, buildSystem: buildSystem)
+            #expect(output.contains("No breaking changes detected in Foo"))
+            #expect(!output.contains("Bar"))
+        }
+    }
+
+    @Test(
+        .requiresAPIDigester,
+        .tags(
+            .Feature.Command.Package.DiagnoseApiBreakingChanges,
+        ),
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
     func testAPIDiffPackageWithPlugin(buildSystem: BuildSystemProvider.Kind) async throws {

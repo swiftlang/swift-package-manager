@@ -41,82 +41,86 @@ struct BuildCacheCommandTests {
     @Test
     func buildCachePackageLocalConfiguration() async throws {
         try await testWithTemporaryDirectory { fixturePath in
-            let fs = localFileSystem
-            let packageRoot = fixturePath.appending("Foo")
-            let sharedConfig = ["--config-path", fixturePath.appending("shared-config").pathString]
+            try await withTemporaryDirectory { remoteServicePath in
+                try await withTemporaryDirectory { pluginPath in
+                    let fs = localFileSystem
+                    let packageRoot = fixturePath.appending("Foo")
+                    let sharedConfig = ["--config-path", fixturePath.appending("shared-config").pathString]
 
-            fs.createEmptyFiles(
-                at: packageRoot,
-                files:
-                "/Package.swift",
-            )
+                    fs.createEmptyFiles(
+                        at: packageRoot,
+                        files:
+                        "/Package.swift",
+                    )
+                    try await execute(
+                        sharedConfig + [
+                            "build-cache", "configure",
+                            "--enable-caching",
+                            "--size-limit", "10G",
+                            "--enable-diagnostic-remarks",
+                            "--experimental-remote-service-path", remoteServicePath.pathString,
+                            "--experimental-plugin-path", pluginPath.pathString,
+                            "--enable-prefix-mapping",
+                        ],
+                        packagePath: packageRoot,
+                    )
 
-            try await execute(
-                sharedConfig + [
-                    "build-cache", "configure",
-                    "--enable-caching",
-                    "--size-limit", "10G",
-                    "--enable-diagnostic-remarks",
-                    "--experimental-remote-service-path", "/tmp/remote-service",
-                    "--experimental-plugin-path", "/tmp/plugin",
-                    "--enable-prefix-mapping",
-                ],
-                packagePath: packageRoot,
-            )
+                    // Capture the first package's effective configuration.
+                    let (firstConfig, _) = try await execute(
+                        sharedConfig + ["build-cache", "get-configuration"],
+                        packagePath: packageRoot,
+                    )
+                    #expect(firstConfig.contains("build cache: enabled"))
+                    #expect(firstConfig.contains("size limit: 10G"))
+                    #expect(firstConfig.contains("diagnostic remarks: enabled"))
+                    #expect(firstConfig.contains("remote service path: \(remoteServicePath.pathString)"))
+                    #expect(firstConfig.contains("plugin path: \(pluginPath.pathString)"))
+                    #expect(firstConfig.contains("prefix mapping: enabled"))
 
-            // Capture the first package's effective configuration.
-            let (firstConfig, _) = try await execute(
-                sharedConfig + ["build-cache", "get-configuration"],
-                packagePath: packageRoot,
-            )
-            #expect(firstConfig.contains("build cache: enabled"))
-            #expect(firstConfig.contains("size limit: 10G"))
-            #expect(firstConfig.contains("diagnostic remarks: enabled"))
-            #expect(firstConfig.contains("remote service path: /tmp/remote-service"))
-            #expect(firstConfig.contains("plugin path: /tmp/plugin"))
-            #expect(firstConfig.contains("prefix mapping: enabled"))
+                    // Configure a second package with different options.
+                    let secondPackageRoot = fixturePath.appending("Bar")
+                    fs.createEmptyFiles(
+                        at: secondPackageRoot,
+                        files:
+                        "/Package.swift",
+                    )
 
-            // Configure a second package with different options.
-            let secondPackageRoot = fixturePath.appending("Bar")
-            fs.createEmptyFiles(
-                at: secondPackageRoot,
-                files:
-                "/Package.swift",
-            )
+                    try await execute(
+                        sharedConfig + [
+                            "build-cache", "configure",
+                            "--enable-caching",
+                            "--size-limit", "20%",
+                            "--disable-diagnostic-remarks",
+                            "--disable-prefix-mapping",
+                        ],
+                        packagePath: secondPackageRoot,
+                    )
 
-            try await execute(
-                sharedConfig + [
-                    "build-cache", "configure",
-                    "--enable-caching",
-                    "--size-limit", "20%",
-                    "--disable-diagnostic-remarks",
-                    "--disable-prefix-mapping",
-                ],
-                packagePath: secondPackageRoot,
-            )
+                    let (secondConfig, _) = try await execute(
+                        sharedConfig + ["build-cache", "get-configuration"],
+                        packagePath: secondPackageRoot,
+                    )
+                    #expect(secondConfig.contains("build cache: enabled"))
+                    #expect(secondConfig.contains("size limit: 20% of available disk space"))
+                    #expect(secondConfig.contains("diagnostic remarks: disabled"))
+                    #expect(secondConfig.contains("prefix mapping: disabled"))
+                    #expect(!secondConfig.contains("remote service path"))
+                    #expect(!secondConfig.contains("plugin path"))
 
-            let (secondConfig, _) = try await execute(
-                sharedConfig + ["build-cache", "get-configuration"],
-                packagePath: secondPackageRoot,
-            )
-            #expect(secondConfig.contains("build cache: enabled"))
-            #expect(secondConfig.contains("size limit: 20% of available disk space"))
-            #expect(secondConfig.contains("diagnostic remarks: disabled"))
-            #expect(secondConfig.contains("prefix mapping: disabled"))
-            #expect(!secondConfig.contains("remote service path"))
-            #expect(!secondConfig.contains("plugin path"))
+                    // The first package's configuration should be unaffected by the second.
+                    let (firstConfigAgain, _) = try await execute(
+                        sharedConfig + ["build-cache", "get-configuration"],
+                        packagePath: packageRoot,
+                    )
 
-            // The first package's configuration should be unaffected by the second.
-            let (firstConfigAgain, _) = try await execute(
-                sharedConfig + ["build-cache", "get-configuration"],
-                packagePath: packageRoot,
-            )
-            #expect(firstConfigAgain.contains("build cache: enabled"))
-            #expect(firstConfigAgain.contains("size limit: 10G"))
-            #expect(firstConfigAgain.contains("diagnostic remarks: enabled"))
-            #expect(firstConfigAgain.contains("remote service path: /tmp/remote-service"))
-            #expect(firstConfigAgain.contains("plugin path: /tmp/plugin"))
-            #expect(firstConfigAgain.contains("prefix mapping: enabled"))
+                    #expect(firstConfigAgain.contains("build cache: enabled"))
+                    #expect(firstConfigAgain.contains("size limit: 10G"))
+                    #expect(firstConfigAgain.contains("diagnostic remarks: enabled"))
+                    #expect(firstConfig.contains("remote service path: \(remoteServicePath.pathString)"))
+                    #expect(firstConfig.contains("plugin path: \(pluginPath.pathString)"))
+                    #expect(firstConfigAgain.contains("prefix mapping: enabled"))
+                }
+            }
         }
     }
 

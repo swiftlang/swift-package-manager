@@ -69,7 +69,11 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 delegateQueue: .sharedConcurrent
             )
 
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(
+                observability.diagnostics,
+                file: file,
+                line: line,
+            )
 
             // Generate source code for the loaded manifest,
             let newContents = try manifest.generateManifestFileContents(
@@ -79,7 +83,12 @@ final class ManifestSourceGenerationTests: XCTestCase {
 
             // Check that the tools version was serialized properly.
             let versionSpacing = (toolsVersion >= .v5_4) ? " " : ""
-            XCTAssertMatch(newContents, .prefix("// swift-tools-version:\(versionSpacing)\(toolsVersion.major).\(toolsVersion.minor)"))
+            XCTAssertMatch(
+                newContents,
+                .prefix("// swift-tools-version:\(versionSpacing)\(toolsVersion.major).\(toolsVersion.minor)"),
+                file: file,
+                line: line,
+            )
 
             // Write out the generated manifest to replace the old manifest file contents, and load it again.
             try fs.writeFileContents(manifestPath, string: newContents)
@@ -97,7 +106,11 @@ final class ManifestSourceGenerationTests: XCTestCase {
                 delegateQueue: .sharedConcurrent
             )
 
-            XCTAssertNoDiagnostics(observability.diagnostics)
+            XCTAssertNoDiagnostics(
+                observability.diagnostics,
+                file: file,
+                line: line,
+            )
 
             // Check that all the relevant properties survived.
             let failureDetails = "\n--- ORIGINAL MANIFEST CONTENTS ---\n" + manifestContents + "\n--- REWRITTEN MANIFEST CONTENTS ---\n" + newContents
@@ -743,6 +756,7 @@ final class ManifestSourceGenerationTests: XCTestCase {
     }
 
     func testModuleAliasGeneration() async throws {
+        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/10711: spurious duplicate-dependency warning from temp-dir identity collision")
         let manifest = Manifest.createRootManifest(
             displayName: "thisPkg",
             path: "/thisPkg",

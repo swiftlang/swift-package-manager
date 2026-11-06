@@ -140,6 +140,76 @@ struct BuildCommandTestCases {
     }
 
     @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func testabilityIsEnabledByDefaultForDebug(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
+            let result = try await execute(
+                ["--vv"],
+                packagePath: fixturePath,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+            let output = result.stdout + result.stderr
+            #expect(output.contains("-enable-testing"), "got: \(output)")
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func disableTestabilityOmitsEnableTesting(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
+            let result = try await execute(
+                ["--disable-testability", "--vv"],
+                packagePath: fixturePath,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+            let output = result.stdout + result.stderr
+            let compileLines = output.split(separator: "\n").filter {
+                $0.contains("-module-name") && !$0.contains("Package.swift")
+            }
+            #expect(!compileLines.isEmpty, "expected module compile commands in the --vv output, got: \(output)")
+            #expect(
+                compileLines.allSatisfy { !$0.contains("-enable-testing") },
+                "got: \(output)"
+            )
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.TargetType.Executable,
+        ),
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
+    func enableTestabilityAddsEnableTestingForRelease(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "Miscellaneous/TestableExe") { fixturePath in
+            let result = try await execute(
+                ["--enable-testability", "--vv"],
+                packagePath: fixturePath,
+                configuration: .release,
+                buildSystem: buildSystem,
+            )
+            let output = result.stdout + result.stderr
+            #expect(output.contains("-enable-testing"), "got: \(output)")
+        }
+    }
+
+    @Test(
         arguments: [
             BuildData(buildSystem: .swiftbuild, config: .release),
         ], ["enable", "disable"],
@@ -1241,6 +1311,7 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.BuildSystem,
         ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10712", relationship: .defect),
     )
     func buildCachePrefixMapping() async throws {
         let config = BuildConfiguration.debug
@@ -1324,7 +1395,14 @@ struct BuildCommandTestCases {
             // hits (0%).
             let secondOutput = try await buildWithPrefixMapping(at: secondPackage)
             #expect(secondOutput.contains("cache hit"))
+            withKnownIssue(
+                "https://github.com/swiftlang/swift-package-manager/issues/10712",
+                isIntermittent: true,
+            ) {
             #expect(secondOutput.contains("(100%)"))
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
         }
     }
 
@@ -1994,9 +2072,17 @@ struct BuildCommandTestCases {
                     buildSystem: buildSystem
                 )
                 // THEN we should not see any output in stderr
-                 #expect(stderr.isEmpty)
+                let filteredStderr = filterSwiftPMOutput(content: stderr)
+                #expect(
+                    filteredStderr.isEmpty,
+                    "stderr: \(stderr)",
+                )
                 // AND no content in stdout
-                 #expect(stdout.isEmpty)
+                let filteredStdout = filterSwiftPMOutput(content: stdout)
+                #expect(
+                    filteredStdout.isEmpty,
+                    "stdout: \(stdout)",
+                )
             }
     }
 

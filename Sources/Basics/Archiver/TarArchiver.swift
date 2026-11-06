@@ -11,9 +11,23 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import class Dispatch.DispatchQueue
 import struct Dispatch.DispatchTime
 import struct TSCBasic.FileSystemError
+#if USE_IMPL_ONLY_IMPORTS
+@_implementationOnly import Subprocess
+#if canImport(System)
+@_implementationOnly import System
+#else
+@_implementationOnly import SystemPackage
+#endif
+#else
+internal import Subprocess
+#if canImport(System)
+internal import System
+#else
+internal import SystemPackage
+#endif
+#endif
 
 #if os(Windows)
 import WinSDK
@@ -58,40 +72,49 @@ public struct TarArchiver: Archiver {
 #endif
     }
 
+    /// Creates a `TarArchiver` that runs `tarCommand` instead of the platform's `tar`. For testing.
+    internal init(fileSystem: FileSystem, cancellator: Cancellator?, tarCommand: String) {
+        self.fileSystem = fileSystem
+        self.cancellator = cancellator ?? Cancellator(observabilityScope: .none)
+        self.tarCommand = tarCommand
+    }
+
+    /// The `tar` executable to run: looked up in `PATH` unless the command is a path.
+    private var executable: Subprocess.Executable {
+        #if os(Windows)
+        return .path(FilePath(self.tarCommand))
+        #else
+        return self.tarCommand.contains("/") ? .path(FilePath(self.tarCommand)) : .name(self.tarCommand)
+        #endif
+    }
+
     public func extract(
         from archivePath: AbsolutePath,
-        to destinationPath: AbsolutePath,
-        completion: @escaping @Sendable (Result<Void, Error>) -> Void
-    ) {
-        do {
-            guard self.fileSystem.exists(archivePath) else {
-                throw FileSystemError(.noEntry, archivePath.underlying)
-            }
+        to destinationPath: AbsolutePath
+    ) async throws {
+        guard self.fileSystem.exists(archivePath) else {
+            throw FileSystemError(.noEntry, archivePath.underlying)
+        }
 
-            guard self.fileSystem.isDirectory(destinationPath) else {
-                throw FileSystemError(.notDirectory, destinationPath.underlying)
-            }
+        guard self.fileSystem.isDirectory(destinationPath) else {
+            throw FileSystemError(.notDirectory, destinationPath.underlying)
+        }
 
-            let process = AsyncProcess(
-                arguments: [self.tarCommand, "xf", archivePath.pathString, "-C", destinationPath.pathString]
+        let executable = self.executable
+
+        let result = try await self.cancellator.withCancellable(name: self.tarCommand) {
+            try await Subprocess.run(
+                executable,
+                arguments: Subprocess.Arguments([
+                    "xf", archivePath.pathString, "-C", destinationPath.pathString,
+                ]),
+                platformOptions: .cancellable,
+                output: .string(limit: .max),
+                error: .string(limit: .max)
             )
-
-            guard let registrationKey = self.cancellator.register(process) else {
-                throw CancellationError.failedToRegisterProcess(process)
-            }
-
-            DispatchQueue.sharedConcurrent.async {
-                defer { self.cancellator.deregister(registrationKey) }
-                completion(.init(catching: {
-                    try process.launch()
-                    let processResult = try process.waitUntilExit()
-                    guard processResult.exitStatus == .terminated(code: 0) else {
-                        throw try StringError(processResult.utf8stderrOutput())
-                    }
-                }))
-            }
-        } catch {
-            return completion(.failure(error))
+        }
+        guard result.terminationStatus.isSuccess else {
+            throw StringError(result.standardOutput + result.standardError)
         }
     }
 
@@ -104,47 +127,40 @@ public struct TarArchiver: Archiver {
             throw FileSystemError(.notDirectory, parent.underlying)
         }
 
-        let process = AsyncProcess(
-            arguments: [self.tarCommand, "acf", destinationPath.pathString] + paths.map(\.pathString),
-            environment: .current,
-            workingDirectory: parent
-        )
+        let executable = self.executable
 
-        guard let registrationKey = self.cancellator.register(process) else {
-            throw CancellationError.failedToRegisterProcess(process)
+        let result = try await self.cancellator.withCancellable(name: self.tarCommand) {
+            try await Subprocess.run(
+                executable,
+                arguments: Subprocess.Arguments(["acf", destinationPath.pathString] + paths.map(\.pathString)),
+                workingDirectory: FilePath(parent.pathString),
+                platformOptions: .cancellable,
+                output: .string(limit: .max),
+                error: .string(limit: .max)
+            )
         }
-
-        defer { self.cancellator.deregister(registrationKey) }
-
-        try process.launch()
-        let processResult = try await process.waitUntilExit()
-        guard processResult.exitStatus == .terminated(code: 0) else {
-            throw try StringError(processResult.utf8stderrOutput())
+        guard result.terminationStatus.isSuccess else {
+            throw StringError(result.standardOutput + result.standardError)
         }
     }
 
-    public func validate(path: AbsolutePath, completion: @escaping @Sendable (Result<Bool, Error>) -> Void) {
-        do {
-            guard self.fileSystem.exists(path) else {
-                throw FileSystemError(.noEntry, path.underlying)
-            }
-
-            let process = AsyncProcess(arguments: [self.tarCommand, "tf", path.pathString])
-            guard let registrationKey = self.cancellator.register(process) else {
-                throw CancellationError.failedToRegisterProcess(process)
-            }
-
-            DispatchQueue.sharedConcurrent.async {
-                defer { self.cancellator.deregister(registrationKey) }
-                completion(.init(catching: {
-                    try process.launch()
-                    let processResult = try process.waitUntilExit()
-                    return processResult.exitStatus == .terminated(code: 0)
-                }))
-            }
-        } catch {
-            return completion(.failure(error))
+    public func validate(path: AbsolutePath) async throws -> Bool {
+        guard self.fileSystem.exists(path) else {
+            throw FileSystemError(.noEntry, path.underlying)
         }
+
+        let executable = self.executable
+
+        let result = try await self.cancellator.withCancellable(name: self.tarCommand) {
+            try await Subprocess.run(
+                executable,
+                arguments: Subprocess.Arguments(["tf", path.pathString]),
+                platformOptions: .cancellable,
+                output: .discarded,
+                error: .discarded
+            )
+        }
+        return result.terminationStatus.isSuccess
     }
 
     public func cancel(deadline: DispatchTime) throws {

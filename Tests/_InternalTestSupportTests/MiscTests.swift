@@ -9,10 +9,18 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
+import Foundation
+
 import SPMBuildCore
 import _InternalTestSupport
 import Testing
+import Basics
 
+@Suite(
+    .tags(
+        .TestSize.small,
+    ),
+)
 struct TestGetNumberOfMatches {
     @Test(
         arguments: [
@@ -113,6 +121,11 @@ struct TestGetNumberOfMatches {
     }
 }
 
+@Suite(
+    .tags(
+        .TestSize.small,
+    ),
+)
 struct TestGetBuildSystemArgs {
     @Test
     func nilArgumentReturnsEmptyArray() {
@@ -136,5 +149,119 @@ struct TestGetBuildSystemArgs {
         let actual = getBuildSystemArgs(for: inputValue)
 
         #expect(actual == expected)
+    }
+}
+
+@Suite(
+    .tags(
+        .TestSize.small,
+    ),
+)
+struct CopyFileAtomicallyTests {
+    @Test
+    func copyingRegularFileProducesIdenticalContentAtDestination() throws {
+        try testWithTemporaryDirectory { tmpDir in
+            let source = tmpDir.appending(component: "source.txt")
+            let expectedContents = "hello atomic copy"
+            try localFileSystem.writeFileContents(source, string: expectedContents)
+            let destination = tmpDir.appending(component: "destination.txt")
+
+            try copyFileAtomically(from: source, to: destination)
+
+            let actualContents: String = try localFileSystem.readFileContents(destination)
+            #expect(actualContents == expectedContents)
+        }
+    }
+
+    @Test(
+        .skipHostOS(.windows, because: "There is no concept of executable file permission")
+    )
+    func copyingExecutableFilePreservesExecutableBitAtDestination() throws {
+        try testWithTemporaryDirectory { tmpDir in
+            let source = tmpDir.appending(component: "source")
+            try localFileSystem.writeFileContents(source, string: "#!/bin/sh\nexit 0\n")
+            try localFileSystem.chmod(.executable, path: source, options: [])
+            let destination = tmpDir.appending(component: "destination")
+
+            try copyFileAtomically(from: source, to: destination)
+
+            #expect(localFileSystem.isExecutableFile(destination) == true)
+        }
+    }
+
+    @Test
+    func copyingNonExecutableFileDoesNotMarkDestinationExecutable() throws {
+        try testWithTemporaryDirectory { tmpDir in
+            let source = tmpDir.appending(component: "source.txt")
+            try localFileSystem.writeFileContents(source, string: "not executable")
+            let destination = tmpDir.appending(component: "destination.txt")
+
+            try copyFileAtomically(from: source, to: destination)
+
+            #expect(localFileSystem.isExecutableFile(destination) == false)
+        }
+    }
+
+    @Test
+    func copyingFileLeavesNoTemporaryArtifactsInDestinationDirectory() throws {
+        try testWithTemporaryDirectory { tmpDir in
+            let source = tmpDir.appending(component: "source.txt")
+            try localFileSystem.writeFileContents(source, string: "content")
+            let destination = tmpDir.appending(component: "destination.txt")
+
+            try copyFileAtomically(from: source, to: destination)
+
+            let entries = try localFileSystem.getDirectoryContents(tmpDir)
+            #expect(Set(entries) == Set(["source.txt", "destination.txt"]))
+        }
+    }
+
+    @Test
+    func copyingToAnExistingDestinationThrows() throws {
+        try testWithTemporaryDirectory { tmpDir in
+            let source = tmpDir.appending(component: "source.txt")
+            try localFileSystem.writeFileContents(source, string: "content")
+            let destination = tmpDir.appending(component: "destination.txt")
+            try localFileSystem.writeFileContents(destination, string: "already here")
+
+            #expect(throws: (any Error).self) {
+                try copyFileAtomically(from: source, to: destination)
+            }
+        }
+    }
+}
+
+@Suite(
+    .tags(
+        .TestSize.medium,
+    ),
+)
+struct CopyThenExecuteExecutableFileTests {
+    @Test
+    func copiedExecutableRunsImmediatelyAfterCopyRepeatedly() async throws {
+        try await testWithTemporaryDirectory { tmpDir in
+            #if os(Windows)
+            let scriptContents = "@echo off\r\nexit /b 0\r\n"
+            #else
+            let scriptContents = "#!/bin/sh\nexit 0\n"
+            #endif
+
+            let source = tmpDir.appending(component: "source-script\(ProcessInfo.batSuffix)")
+            try localFileSystem.writeFileContents(source, string: scriptContents)
+            #if !os(Windows)
+            try localFileSystem.chmod(.executable, path: source, options: [])
+            #endif
+
+            for i in 0..<100 {
+                let destination = tmpDir.appending(component: "copy-\(i)\(ProcessInfo.batSuffix)")
+                try copyFileAtomically(from: source, to: destination)
+
+                do {
+                    try await AsyncProcess.checkNonZeroExit(arguments: [destination.pathString])
+                } catch {
+                    Issue.record("iteration \(i) did not exit with return code 0: \(error)")
+                }
+            }
+        }
     }
 }

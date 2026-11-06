@@ -21,6 +21,12 @@ import Testing
 import Testing
 
 import class Basics.AsyncProcess
+import Subprocess
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 import struct SPMBuildCore.BuildSystemProvider
 import enum TSCUtility.Git
 
@@ -142,7 +148,7 @@ struct MiscellaneousTestCase {
             )
         ) { error in
             // if our code crashes we'll get an exit code of 256
-            guard error.result.exitStatus == .terminated(code: 1) else {
+            guard error.terminationStatus == .exited(1) else {
                 Issue.record("failed in an unexpected manner: \(error)")
                 return
             }
@@ -168,7 +174,7 @@ struct MiscellaneousTestCase {
                 )
             ) { error in
                 // if our code crashes we'll get an exit code of 256
-                guard error.result.exitStatus == .terminated(code: 1) else {
+                guard error.terminationStatus == .exited(1) else {
                     Issue.record("failed in an unexpected manner: \(error)")
                     return
                 }
@@ -508,7 +514,7 @@ struct MiscellaneousTestCase {
             )
 
             let moduleUser = fixturePath.appending("SystemModuleUserClang")
-            let env: Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
+            let env: Basics.Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
             try await withKnownIssue(isIntermittent: true) {
                 await #expect(throws: Never.self) {
                     _ = try await executeSwiftBuild(
@@ -721,6 +727,7 @@ struct MiscellaneousTestCase {
         .skipHostOS(.linux),
         .skipHostOS(.android),
         .skipHostOS(.freebsd),
+        .skipHostOS(.windows, because: "https://github.com/swiftlang/swift-package-manager/issues/10686"),
         .tags(
             .Feature.Command.Test,
             .Feature.Command.Run,
@@ -931,7 +938,7 @@ struct MiscellaneousTestCase {
                 )
             ) { error in
                 // if our code crashes we'll get an exit code of 256
-                guard error.result.exitStatus == .terminated(code: 1) else {
+                guard error.terminationStatus == .exited(1) else {
                     Issue.record("failed in an unexpected manner: \(error)")
                     return
                 }
@@ -1590,7 +1597,7 @@ struct MiscellaneousTestCase {
         .tags(
             .Feature.Command.Build,
         ),
-        .skipHostOS(.windows, "libFuzzer is not included in the Windows distribution"),
+        .skipHostOS(.windows, because: "libFuzzer is not included in the Windows distribution"),
     )
     func libFuzzerSupport() async throws {
         try await withKnownIssue(isIntermittent: true) {
@@ -1614,7 +1621,8 @@ struct MiscellaneousTestCase {
     @Test(
         .tags(
             .Feature.Command.Run,
-        )
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10687",relationship: .defect),
     )
     func diamondLinkagePromotesAutomaticLibraryToDynamic() async throws {
         try await fixture(name: "Miscellaneous/DynamicLibraryDiamond") { fixturePath in
@@ -1623,14 +1631,22 @@ struct MiscellaneousTestCase {
                 "Exec",
                 buildSystem: .swiftbuild,
             )
+            withKnownIssue(
+                "https://github.com/swiftlang/swift-package-manager/issues/10687",
+                isIntermittent: true,
+            ) {
             #expect(stdout.contains("first=1 second=2"))
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
         }
     }
 
     @Test(
         .tags(
             .Feature.Command.Run,
-        )
+        ),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10687", relationship: .defect),
     )
     func diamondLinkageDynamicVariantModuleMapIsFoundByClangClients() async throws {
         try await fixture(name: "Miscellaneous/DynamicLibraryDiamondClang") { fixturePath in
@@ -1639,7 +1655,14 @@ struct MiscellaneousTestCase {
                 "Exec",
                 buildSystem: .swiftbuild,
             )
+            withKnownIssue(
+                "https://github.com/swiftlang/swift-package-manager/issues/10687",
+                isIntermittent: true,
+            ) {
             #expect(stdout.contains("first=1 second=2"))
+            } when: {
+                ProcessInfo.hostOperatingSystem == .windows
+            }
         }
     }
 }
@@ -1674,7 +1697,7 @@ struct MiscellaneousSwiftTestingTests {
             )
 
             let moduleUser = fixturePath.appending("SystemModuleUserClang")
-            let env: Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
+            let env: Basics.Environment = ["PKG_CONFIG_PATH": fixturePath.pathString]
             _ = try await executeSwiftBuild(
                 moduleUser,
                 env: env,

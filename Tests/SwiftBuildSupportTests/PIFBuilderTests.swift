@@ -638,6 +638,40 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test func anyAppleOSPlatformGroup() async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/AnyAppleOS") { pif, observabilitySystem, fixturePath in
+            #expect(!observabilitySystem.diagnostics.contains { $0.severity == .error })
+
+            let project = try pif.workspace.project(named: "AnyAppleOS")
+
+            for configuration in BuildConfiguration.allCases {
+                let projectConfig = try project.buildConfig(named: configuration)
+                #expect(projectConfig.settings[.MACOSX_DEPLOYMENT_TARGET] == "27.0")
+                #expect(projectConfig.settings[.IPHONEOS_DEPLOYMENT_TARGET] == "26.0")
+                #expect(projectConfig.settings[.IPHONEOS_DEPLOYMENT_TARGET, .macCatalyst] == "26.0")
+                #expect(projectConfig.settings[.TVOS_DEPLOYMENT_TARGET] == "26.0")
+                #expect(projectConfig.settings[.WATCHOS_DEPLOYMENT_TARGET] == "26.0")
+                #expect(projectConfig.settings[.XROS_DEPLOYMENT_TARGET] == "26.0")
+                #expect(projectConfig.settings[.DRIVERKIT_DEPLOYMENT_TARGET] != "26.0")
+
+                let targetConfig = try project
+                    .target(id: "PACKAGE-TARGET:AnyAppleOS")
+                    .buildConfig(named: configuration)
+                for platform in ProjectModel.BuildSettings.Platform.allCases {
+                    let conditions = targetConfig.settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, platform]
+                    switch platform {
+                    case .macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .xrOS:
+                        #expect(conditions == ["$(inherited)", "APPLE", "APPLE_OR_LINUX"], "for platform \(platform)")
+                    case .linux:
+                        #expect(conditions == ["$(inherited)", "APPLE_OR_LINUX"], "for platform \(platform)")
+                    case .driverKit, .android, .windows, .wasi, .openbsd, .freebsd, ._iOSDevice:
+                        #expect(conditions == nil, "for platform \(platform)")
+                    }
+                }
+            }
+        }
+    }
+
     @Test func platformCCLibrary() async throws {
         try await withGeneratedPIF(fromFixture: "PIFBuilder/CCPackage") { pif, observabilitySystem, fixturePath in
             let releaseConfig = try pif.workspace
@@ -1367,7 +1401,10 @@ struct PIFBuilderTests {
         }
     }
 
-    @Test(.skipHostOS(.linux, "linux does not support C-family test targets"), arguments: BuildConfiguration.allCases)
+    @Test(
+        .skipHostOS(.linux, because: "linux does not support C-family test targets"),
+        arguments: BuildConfiguration.allCases,
+    )
     func testProductsPassModuleNameToClang(configuration: BuildConfiguration) async throws {
         let observability = ObservabilitySystem.makeForTesting()
 
@@ -2272,7 +2309,7 @@ struct PIFBuilderTests {
         #expect(!moduleMapContents.contains("lib-Swift.h"))
 
         let headerSearchPaths = try #require(libConfig.settings[.HEADER_SEARCH_PATHS])
-        #expect(headerSearchPaths.contains("/Pkg/Sources/lib/include"))
+        #expect(headerSearchPaths.contains(AbsolutePath("/Pkg/Sources/lib/include").pathString))
      }
 
     @Test func testTargetDependsOnTestTarget() async throws {
@@ -2484,6 +2521,58 @@ struct PIFBuilderTests {
             pluginTarget.common.dependencies.contains { $0.targetId == pluginToolProductTarget.common.id },
             "Expected MyPlugin to depend on plugin-tool-product (the explicit product). Actual dependencies: \(pluginTarget.common.dependencies.map(\.targetId.value))"
         )
+    }
+
+    @Test func aggregateProjectDisablesDeprecatedArchDiagnostics() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+        let fs = InMemoryFileSystem(emptyFiles: [
+            "/Root/Sources/RootExe/main.swift",
+        ])
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    platforms: [PlatformDescription(name: "macos", version: "15.0")],
+                    toolsVersion: .v5_9,
+                    targets: [
+                        TargetDescription(name: "RootExe", type: .executable),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root.appending("tmp"),
+                addLocalRpaths: .always,
+                pluginScriptRunner: NoOpPluginScriptRunner()
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+
+        let errors = observability.diagnostics.filter { $0.severity == .error }
+        #expect(errors.isEmpty, "Expected no errors during PIF generation, but got: \(errors)")
+
+        let aggregate = try pif.workspace.project(named: "Aggregate")
+        for configuration in BuildConfiguration.allCases {
+            let settings = try aggregate.buildConfig(named: configuration).settings
+            #expect(settings[single: "__DIAGNOSE_DEPRECATED_ARCHS"] == "NO")
+        }
+
+        let rootProject = try pif.workspace.project(named: "Root")
+        for configuration in BuildConfiguration.allCases {
+            let settings = try rootProject.buildConfig(named: configuration).settings
+            #expect(settings[single: "__DIAGNOSE_DEPRECATED_ARCHS"] == nil)
+        }
     }
 
     @Test func hostBuildToolExcludedFromAggregates() async throws {

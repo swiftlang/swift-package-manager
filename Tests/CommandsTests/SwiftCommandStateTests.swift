@@ -136,7 +136,10 @@ struct SwiftCommandStateTestSuites {
             environment: [:],
         )
 
-        #expect(state.computeSDKRootOverride() == AbsolutePath("/fake/sdk"))
+        // The `--sdk` option is resolved relative to the current working directory, so on
+        // Windows it gains a drive letter; resolve the expectation the same way.
+        let expectedSDKRoot = try #require(AbsolutePath(argument: "/fake/sdk"))
+        #expect(state.computeSDKRootOverride() == expectedSDKRoot)
     }
 
     @Test(
@@ -159,12 +162,13 @@ struct SwiftCommandStateTestSuites {
         ),
     )
     func sdkOptionTakesPrecedenceOverSDKROOTEnvironmentVariable() throws {
+        let sdkPath = AbsolutePath("/fake/sdk")
         let (state, _) = try Self.makeSDKRootOverrideState(
-            arguments: ["--sdk", "/fake/sdk"],
+            arguments: ["--sdk", sdkPath.pathString],
             environment: ["SDKROOT": "/fake/env/sdk"],
         )
 
-        #expect(state.computeSDKRootOverride() == AbsolutePath("/fake/sdk"))
+        #expect(state.computeSDKRootOverride() == sdkPath)
     }
 
     @Test(
@@ -173,8 +177,10 @@ struct SwiftCommandStateTestSuites {
         ),
     )
     func swiftSDKSuppressesSDKOptionWithWarning() throws {
+        let sdkPath = AbsolutePath("/fake/sdk")
+        let sdkSelector = "my-swift-sdk"
         let (state, output) = try Self.makeSDKRootOverrideState(
-            arguments: ["--sdk", "/fake/sdk", "--swift-sdk", "my-swift-sdk"],
+            arguments: ["--sdk", sdkPath.pathString, "--swift-sdk", sdkSelector],
             environment: [:],
         )
 
@@ -184,7 +190,7 @@ struct SwiftCommandStateTestSuites {
         let contents = try #require(output.bytes.validDescription)
         #expect(
             contents.contains(
-                "warning: ignoring the SDK '/fake/sdk' specified using '--sdk' because the Swift SDK 'my-swift-sdk' was selected with '--swift-sdk'"
+                "warning: ignoring the SDK '\(sdkPath.pathString)' specified using '--sdk' because the Swift SDK 'my-swift-sdk' was selected with '--swift-sdk'"
             ),
         )
     }
@@ -206,7 +212,7 @@ struct SwiftCommandStateTestSuites {
         let contents = try #require(output.bytes.validDescription)
         #expect(
             contents.contains(
-                "warning: ignoring the SDK '/fake/env/sdk' specified using the 'SDKROOT' environment variable because the Swift SDK 'my-swift-sdk' was selected with '--swift-sdk'"
+                "warning: ignoring the SDK '\(AbsolutePath("/fake/env/sdk"))' specified using the 'SDKROOT' environment variable because the Swift SDK 'my-swift-sdk' was selected with '--swift-sdk'"
             ),
         )
     }

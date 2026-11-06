@@ -12,7 +12,9 @@
 
 import class Foundation.FileManager
 import class Foundation.ProcessInfo
+import class PackageLoading.ManifestLoader
 import class PackageModel.UserToolchain
+import struct PackageModel.ToolsVersion
 import DriverSupport
 import Basics
 import Testing
@@ -27,7 +29,7 @@ extension Trait where Self == Testing.ConditionTrait {
     }
 
     /// Skip test if the host operating system matches the running OS.
-    public static func skipHostOS(_ os: OperatingSystem, _ comment: Comment? = nil) -> Self {
+    public static func skipHostOS(_ os: OperatingSystem, because comment: Comment? = nil) -> Self {
         disabled(comment ?? "This test cannot run on a \(os) host OS.") {
             ProcessInfo.hostOperatingSystem == os
         }
@@ -73,6 +75,52 @@ extension Trait where Self == Testing.ConditionTrait {
     public static var requiresSymbolgraphExtract: Self {
         disabled("skipping test because the `swift-symbolgraph-extract` tools isn't available") {
             try (try? UserToolchain.default)?.getSymbolGraphExtract() == nil
+        }
+    }
+
+    public static var requiresGeneratedHeaderUnderlyingModuleIncludeBase: Self {
+        return Self.requiresFrontEndFlags(flags: ["-generated-header-underlying-module-include-base"])
+    }
+
+    /// Enabled only if the toolchain's `PackageDescription` library (used to compile manifests)
+    /// supports `SwiftSetting.bridgingHeader`. This is probed by actually compiling a minimal
+    /// manifest that uses the API, rather than checking a tools-version or OS, because toolchain
+    /// snapshots don't reliably indicate whether a specific API has landed yet.
+    public static var requiresBridgingHeaderManifestSupport: Self {
+        enabled("skipping because the toolchain's PackageDescription library doesn't support `SwiftSetting.bridgingHeader`") {
+            try await testWithTemporaryDirectory { tmpDir in
+                let manifestPath = tmpDir.appending("Package.swift")
+                try localFileSystem.writeFileContents(
+                    manifestPath,
+                    string: """
+                    // swift-tools-version: 6.5
+                    import PackageDescription
+                    let package = Package(
+                        name: "BridgingHeaderProbe",
+                        targets: [
+                            .target(
+                                name: "Probe",
+                                swiftSettings: [.bridgingHeader("Probe.h", visibility: .internal)]
+                            ),
+                        ]
+                    )
+                    """
+                )
+
+                let manifestLoader = ManifestLoader(toolchain: try UserToolchain.default)
+                do {
+                    _ = try await manifestLoader.load(
+                        manifestPath: manifestPath,
+                        packageKind: .root(tmpDir),
+                        toolsVersion: .v6_5,
+                        fileSystem: localFileSystem,
+                        observabilityScope: ObservabilitySystem.makeForTesting().topScope
+                    )
+                    return true
+                } catch {
+                    return false
+                }
+            }
         }
     }
 

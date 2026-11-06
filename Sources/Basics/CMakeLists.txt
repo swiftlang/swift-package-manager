@@ -18,6 +18,7 @@ add_library(Basics
   Collections/IdentifiableSet.swift
   Collections/String+Extensions.swift
   Concurrency/AsyncProcess.swift
+  Concurrency/CancellablePlatformOptions.swift
   Concurrency/ConcurrencyHelpers.swift
   Concurrency/NSLock+Extensions.swift
   Concurrency/SendableBox.swift
@@ -91,6 +92,8 @@ target_link_libraries(Basics PUBLIC
   TSCUtility)
 target_link_libraries(Basics PRIVATE
   SwiftCollections::DequeModule
+  SwiftSubprocess::Subprocess
+  SwiftSystem::SystemPackage
   SPMSQLite3
   TSCclibc)
 

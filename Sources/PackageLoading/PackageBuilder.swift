@@ -1504,14 +1504,8 @@ public final class PackageBuilder {
             conditions.append(.init(configuration: config))
         }
 
-        if let platforms = condition?.platformNames.map({
-            if let platform = platformRegistry.platformByName[$0] {
-                platform
-            } else {
-                PackageModel.Platform.custom(name: $0, oldestSupportedVersion: .unknown)
-            }
-        }), !platforms.isEmpty {
-            conditions.append(.init(platforms: platforms))
+        if let platforms = condition?.platformNames.flatMap({ platformRegistry.platforms(named: $0) }), !platforms.isEmpty {
+            conditions.append(.init(platforms: OrderedSet(platforms).elements))
         }
 
         if let traits = condition?.traits {

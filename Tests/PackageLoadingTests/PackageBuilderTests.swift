@@ -2835,7 +2835,7 @@ struct PackageBuilderTests {
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
-                #expect(scope.evaluate(.SWIFT_OBJC_BRIDGING_HEADER) == ["/Sources/exe/Bridging.h"])
+                #expect(scope.evaluate(.SWIFT_OBJC_BRIDGING_HEADER) == [AbsolutePath("/Sources/exe/Bridging.h").pathString])
                 #expect(scope.evaluate(.SWIFT_BRIDGING_HEADER_IS_INTERNAL) == ["NO"])
             }
 
@@ -2844,7 +2844,7 @@ struct PackageBuilderTests {
                     package.target.buildSettings,
                     environment: BuildEnvironment(platform: .macOS, configuration: .debug)
                 )
-                #expect(macOSScope.evaluate(.SWIFT_OBJC_BRIDGING_HEADER) == ["/Sources/lib/Shims.h"])
+                #expect(macOSScope.evaluate(.SWIFT_OBJC_BRIDGING_HEADER) == [AbsolutePath("/Sources/lib/Shims.h").pathString])
                 #expect(macOSScope.evaluate(.SWIFT_BRIDGING_HEADER_IS_INTERNAL) == ["YES"])
 
                 let linuxScope = BuildSettings.Scope(
@@ -3427,6 +3427,48 @@ struct PackageBuilderTests {
 
         var settings = BuildSettings.AssignmentTable()
         settings.add(assignment, for: .SWIFT_ACTIVE_COMPILATION_CONDITIONS)
+        settings.add(versionAssignment, for: .SWIFT_VERSION)
+
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("Foo") { module in
+                module.check(c99name: "Foo", type: .library)
+                module.check(buildSettings: settings)
+            }
+        }
+    }
+
+    @Test
+    func testAnyAppleOSInConditionals() throws {
+        let fs = InMemoryFileSystem(emptyFiles: "/Sources/Foo/Foo.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "Foo",
+            path: .root,
+            targets: [
+                try TargetDescription(
+                    name: "Foo",
+                    settings: [
+                        .init(tool: .swift, kind: .define("APPLE"), condition: .init(platformNames: ["anyappleos"])),
+                        .init(tool: .swift, kind: .define("APPLE_OR_LINUX"), condition: .init(platformNames: ["linux", "anyappleos", "macos"])),
+                    ]
+                )
+            ]
+        )
+
+        var appleAssignment = BuildSettings.Assignment()
+        appleAssignment.values = ["APPLE"]
+        appleAssignment.conditions = [PackageCondition(platforms: [.macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .visionOS])]
+
+        var appleOrLinuxAssignment = BuildSettings.Assignment()
+        appleOrLinuxAssignment.values = ["APPLE_OR_LINUX"]
+        appleOrLinuxAssignment.conditions = [PackageCondition(platforms: [.linux, .macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .visionOS])]
+
+        var versionAssignment = BuildSettings.Assignment(default: true)
+        versionAssignment.values = ["4"]
+
+        var settings = BuildSettings.AssignmentTable()
+        settings.add(appleAssignment, for: .SWIFT_ACTIVE_COMPILATION_CONDITIONS)
+        settings.add(appleOrLinuxAssignment, for: .SWIFT_ACTIVE_COMPILATION_CONDITIONS)
         settings.add(versionAssignment, for: .SWIFT_VERSION)
 
         try PackageBuilderTester(manifest, in: fs) { package, _ in

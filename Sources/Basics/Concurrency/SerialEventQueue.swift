@@ -58,4 +58,12 @@ package final class SerialEventQueue<Sink: Sendable>: Sendable {
         self.events.finish()
         await self.task.value
     }
+
+    /// Waits for every event emitted before this call to be delivered, without
+    /// stopping the queue from accepting and delivering events emitted later.
+    package func flush() async {
+        await withCheckedContinuation { continuation in
+            self.emit { _ in continuation.resume() }
+        }
+    }
 }
