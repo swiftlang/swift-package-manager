@@ -71,23 +71,28 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    /// Commits a binary file tracked by LFS. With a `subdirectory`, both the file and the LFS rule,
+    /// which `git lfs track` writes to the `.gitattributes` of the directory it runs in, go there.
     private func addLFSTrackedBinaryFile(
         to repositoryPath: AbsolutePath,
+        subdirectory: String? = nil,
         fileName: String = "test.bin",
         tag: String = "1.0.0",
         binaryData: Data = Data([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46])
     ) async throws -> Data {
+        let directory = subdirectory.map { repositoryPath.appending(component: $0) } ?? repositoryPath
+        try makeDirectories(directory)
         try await AsyncProcess.checkNonZeroExit(
             args: Git.tool, "-C", repositoryPath.pathString, "lfs", "install", "--local", "--force",
             environment: .init(Git.environmentBlock)
         )
         try await AsyncProcess.checkNonZeroExit(
-            args: Git.tool, "-C", repositoryPath.pathString, "lfs", "track", "*.bin",
+            args: Git.tool, "-C", directory.pathString, "lfs", "track", "*.bin",
             environment: .init(Git.environmentBlock)
         )
 
         try localFileSystem.writeFileContents(
-            repositoryPath.appending(fileName),
+            directory.appending(fileName),
             bytes: ByteString(binaryData)
         )
 
@@ -1321,6 +1326,51 @@ class GitRepositoryTests: XCTestCase {
         }
     }
 
+    /// Test LFS detection when the `filter=lfs` rule is in a subdirectory's .gitattributes
+    func testHasLFSTrackedFilesInSubdirectory() async throws {
+        try XCTSkipOnWindows(
+            because: "https://github.com/swiftlang/swift-package-manager/issues/8564",
+            skipSelfHostedCI: true
+        )
+        try await testWithTemporaryDirectory { path in
+            let testRepoPath = path.appending("test-repo")
+            // A non-ASCII name, which `git ls-tree` quotes unless given `-z`
+            let subdirectoryPath = testRepoPath.appending(components: "Sources", "Médias")
+            try makeDirectories(subdirectoryPath)
+            initGitRepo(testRepoPath)
+
+            let repo = GitRepository(path: testRepoPath)
+
+            // A root .gitattributes without LFS, a nested one that only mentions it in a comment,
+            // and a file that isn't a .gitattributes despite its name
+            try localFileSystem.writeFileContents(testRepoPath.appending(".gitattributes"), string: "*.txt text\n")
+            try localFileSystem.writeFileContents(
+                subdirectoryPath.appending(".gitattributes"),
+                string: "# This directory uses filter=lfs for large files\n*.txt text\n"
+            )
+            try localFileSystem.writeFileContents(
+                subdirectoryPath.appending("template.gitattributes"),
+                string: "*.bin filter=lfs diff=lfs merge=lfs -text\n"
+            )
+            try repo.stageEverything()
+            try repo.commit()
+
+            XCTAssertFalse(try repo.hasLFSTrackedFiles())
+
+            // Track files with LFS in the nested .gitattributes only
+            try localFileSystem.writeFileContents(
+                subdirectoryPath.appending(".gitattributes"),
+                string: "*.bin filter=lfs diff=lfs merge=lfs -text\n"
+            )
+            try repo.stageEverything()
+            try repo.commit()
+
+            repo.clearLFSCache()
+
+            XCTAssertTrue(try repo.hasLFSTrackedFiles())
+        }
+    }
+
     /// Test that LFS detection results are cached
     func testLFSDetectionCaching() async throws {
         try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
@@ -1622,6 +1672,54 @@ class GitRepositoryTests: XCTestCase {
             try workingCopy.checkout(revision: repository.resolveRevision(tag: "1.0.0"))
 
             try self.assertFileMatchesBinaryData(checkoutPath.appending("test.bin"), expected: binaryData)
+        }
+    }
+
+    /// `git lfs track` run from a subdirectory writes the rule to that subdirectory's `.gitattributes`,
+    /// leaving none at the root; its LFS objects must still reach the cache and the checkout.
+    func testGitLFSCheckoutWithRulesInSubdirectory() async throws {
+        try XCTSkipOnWindows(
+            because: "https://github.com/swiftlang/swift-package-manager/issues/8564",
+            skipSelfHostedCI: true
+        )
+        try await self.requireGitLFS()
+
+        try await testWithTemporaryDirectory { path in
+            let lfsRepoPath = path.appending("lfs-repo")
+            try makeDirectories(lfsRepoPath)
+            initGitRepo(lfsRepoPath)
+            let oldBinaryData = try await self.addLFSTrackedBinaryFile(
+                to: lfsRepoPath,
+                subdirectory: "Assets",
+                tag: "1.0.0"
+            )
+            let newBinaryData = try await self.addLFSTrackedBinaryFile(
+                to: lfsRepoPath,
+                subdirectory: "Assets",
+                tag: "1.0.1",
+                binaryData: Data([0x01, 0x02, 0x03])
+            )
+            XCTAssertFalse(localFileSystem.exists(lfsRepoPath.appending(".gitattributes")))
+
+            let provider = GitRepositoryProvider()
+            let repoSpec = RepositorySpecifier(path: lfsRepoPath)
+            let clonePath = path.appending("clone")
+            try await provider.fetch(repository: repoSpec, to: clonePath)
+
+            let checkoutPath = path.appending("checkout")
+            let workingCopy = try await provider.createWorkingCopy(
+                repository: repoSpec,
+                sourcePath: clonePath,
+                at: checkoutPath,
+                editable: false
+            )
+            let binaryFilePath = checkoutPath.appending(components: "Assets", "test.bin")
+
+            try workingCopy.checkout(tag: "1.0.1")
+            try self.assertFileMatchesBinaryData(binaryFilePath, expected: newBinaryData)
+
+            try workingCopy.checkout(tag: "1.0.0")
+            try self.assertFileMatchesBinaryData(binaryFilePath, expected: oldBinaryData)
         }
     }
 
