@@ -687,7 +687,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
 
             do {
                 try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchain: self.buildParameters.toolchain, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
-                    self.outputStream.send("Building for \(self.buildParameters.configuration.buildFor)...\n")
+                    if !self.logLevel.isQuiet {
+                        self.outputStream.send("Building for \(self.buildParameters.configuration.buildFor)...\n")
+                    }
 
                     // Load the workspace, and set the system information to the default
                     do {
