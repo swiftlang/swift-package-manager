@@ -4398,8 +4398,47 @@ final class WorkspaceTests: XCTestCase {
 
             // reset but keep resolved file
             try await workspace.closeWorkspace(resetResolvedFile: false)
+            // run resolution again, the pins did not change but the origin hash was refreshed,
+            // so it should rely on the resolved file
+            try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTesterXCTest(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Foo", "Root")
+                }
+                // no error
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash matches manifest dependencies, attempting resolution based on this file",
+                        severity: .debug
+                    )
+                }
+            }
+
+            // reset but keep resolved file
+            try await workspace.closeWorkspace(resetResolvedFile: false)
             // restore original manifest
             try fs.writeFileContents(rootManifestPath, string: manifestContent)
+            // run resolution again, the origin hash now describes the changed manifest
+            try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+                PackageGraphTesterXCTest(graph) { result in
+                    result.check(roots: "Root")
+                    result.check(packages: "Bar", "Foo", "Root")
+                }
+                // no error
+                XCTAssertNoDiagnostics(diagnostics)
+                // check resolution mode
+                testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                    result.checkUnordered(
+                        diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash does do not match manifest dependencies. resolving and updating accordingly",
+                        severity: .debug
+                    )
+                }
+            }
+
+            // reset but keep resolved file
+            try await workspace.closeWorkspace(resetResolvedFile: false)
             // run resolution again, now it should rely on the resolved file
             try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
                 PackageGraphTesterXCTest(graph) { result in
@@ -4507,6 +4546,74 @@ final class WorkspaceTests: XCTestCase {
                         severity: .debug
                     )
                 }
+            }
+        }
+    }
+
+    func testUpdateRefreshesOriginHashWhenNoPinChanges() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "Root", dependencies: [.product(name: "Foo", package: "foo")]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .sourceControl(url: "https://localhost/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    toolsVersion: .v5_10
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    url: "https://localhost/org/foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo"]),
+                    ],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        let originalResolvedFile = try workspace.getOrCreateWorkspace().resolvedPackagesStore.load()
+        checkPinnedVersion(pin: originalResolvedFile.resolvedPackages["foo"]!, version: "1.1.0")
+
+        // change the manifest without changing its dependencies
+        let rootManifestPath = try workspace.pathToRoot(withName: "Root").appending(Manifest.filename)
+        let manifestContent: String = try fs.readFileContents(rootManifestPath)
+        try fs.writeFileContents(rootManifestPath, string: manifestContent.appending("\n"))
+
+        try await workspace.checkUpdate(roots: ["Root"]) { diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        let updatedResolvedFile = try workspace.getOrCreateWorkspace().resolvedPackagesStore.load()
+        checkPinnedVersion(pin: updatedResolvedFile.resolvedPackages["foo"]!, version: "1.1.0")
+        XCTAssertNotNil(updatedResolvedFile.originHash)
+        XCTAssertNotEqual(updatedResolvedFile.originHash, originalResolvedFile.originHash)
+
+        // reset but keep resolved file
+        try await workspace.closeWorkspace(resetResolvedFile: false)
+        // run resolution again, now it should rely on the resolved file
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+            testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                result.checkUnordered(
+                    diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash matches manifest dependencies, attempting resolution based on this file",
+                    severity: .debug
+                )
             }
         }
     }
