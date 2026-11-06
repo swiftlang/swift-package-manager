@@ -319,7 +319,7 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
         settings[.ENABLE_TESTING_SEARCH_PATHS] = "YES"
 
         // XCTest search paths should only be specified for certain platforms (watchOS doesn't have XCTest).
-        for platform: PIF.BuildSettings.Platform in [.macOS, .iOS, .tvOS] {
+        for platform: PIF.BuildSettings.Platform in [.macOS, .iOS, .tvOS, .visionOS] {
             settings[.FRAMEWORK_SEARCH_PATHS, for: platform, default: ["$(inherited)"]]
                 .append("$(PLATFORM_DIR)/Developer/Library/Frameworks")
         }
@@ -1949,6 +1949,7 @@ extension PIF.BuildSettings.Platform {
         case .macOS: .macOS
         case .tvOS: .tvOS
         case .watchOS: .watchOS
+        case .visionOS: .visionOS
         case .driverKit: .driverKit
         default: nil
         }

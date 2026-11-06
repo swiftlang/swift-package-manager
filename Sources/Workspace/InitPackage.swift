@@ -1003,7 +1003,7 @@ extension PackageModel.Platform {
         case .visionOS:
             return "visionOS"
         case .driverKit:
-            return "DriverKit"
+            return "driverKit"
         default:
             fatalError("unexpected manifest name call for platform \(self)")
         }
@@ -1016,7 +1016,7 @@ extension SupportedPlatform {
             guard self.version.patch == 0 else {
                 return false
             }
-        } else if [Platform.macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .driverKit].contains(platform) {
+        } else if [Platform.macOS, .macCatalyst, .iOS, .watchOS, .tvOS, .visionOS, .driverKit].contains(platform) {
             guard self.version.minor == 0, self.version.patch == 0 else {
                 return false
             }
