@@ -1,0 +1,48 @@
+//===----------------------------------------------------------------------===//
+//
+// This source file is part of the Swift open source project
+//
+// Copyright (c) 2026 Apple Inc. and the Swift project authors
+// Licensed under Apache License v2.0 with Runtime Library Exception
+//
+// See http://swift.org/LICENSE.txt for license information
+// See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
+//
+//===----------------------------------------------------------------------===//
+import PackagePlugin
+
+@main
+struct SwiftSDLGenPlugin: BuildToolPlugin {
+    func createBuildCommands(
+        context: PluginContext,
+        target: Target
+    ) async throws -> [Command] {
+        let generator = try context.tool(named: "SwiftSDLGenerator")
+        let workDir = context.pluginWorkDirectoryURL
+        let moduleMap = workDir.appending(path: "module.modulemap")
+        let headerFile = workDir.appending(path: "SDL.h")
+        let bindingsFile = workDir.appending(path: "SwiftSDL.swift")
+        let apinotesFile = workDir.appending(path: "SwiftSDL.apinotes")
+        let sdlIncludeDir = context.package.directoryURL.appending(components: "SDL", "include")
+
+        return [
+            .buildCommand(
+                displayName: "SDL API Generator",
+                executable: generator.url,
+                arguments: [
+                    "--modulemap-file", moduleMap.path,
+                    "--header-file", headerFile.path,
+                    "--bindings-file", bindingsFile.path,
+                    "--apinotes-file", apinotesFile.path,
+                    "--header-path", sdlIncludeDir.path
+                ],
+                outputFiles: [
+                    moduleMap,
+                    headerFile,
+                    bindingsFile,
+                    apinotesFile
+                ]
+            )
+        ]
+    }
+}

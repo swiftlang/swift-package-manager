@@ -536,14 +536,6 @@ extension ModulesGraph {
                 observabilityScope: observabilityScope
             )
             generatedFiles.add(files)
-            if !files.headers.isEmpty {
-                // Capture the public include directory if there were header files generated there
-                // Hardcoding as the default for now
-                let publicDir = result.pluginOutputDirectory.appending(ClangModule.defaultPublicHeadersComponent)
-                if files.headers.contains(where: { $0.isDescendantOfOrEqual(to: publicDir) }) {
-                    generatedFiles.publicHeaderPaths.append(publicDir)
-                }
-            }
         }
 
         // Add any derived files that were discovered from output directories of prebuild commands.
@@ -561,9 +553,6 @@ extension ModulesGraph {
             }
             if !files.moduleMaps.isEmpty {
                 observabilityScope.emit(warning: "Module map generation not supported in prebuilt commands: \(target.name)")
-            }
-            if !files.apiNotes.isEmpty {
-                observabilityScope.emit(warning: "API note generation not supported in prebuilt commands: \(target.name)")
             }
             generatedFiles.add(GeneratedFiles(sources: files.sources, resources: files.resources))
         }
