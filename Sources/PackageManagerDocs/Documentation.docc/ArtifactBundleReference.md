@@ -52,6 +52,10 @@ To add a binary target as a dependency, read <doc:AddingDependencies>.
 
 `swiftSDK` and `crossCompilationDestination` bundles also carry a sibling `swift-sdk.json` file with additional fields not covered in this reference. See [SE-0387](https://github.com/swiftlang/swift-evolution/blob/main/proposals/0387-cross-compilation-destinations.md) for the full `swiftSDK` schema.
 
+The `experimentalWindowsDLL` type supports a specific use case: an executable target that needs DLLs at runtime.
+The bundle places the required DLLs in the same bin path as the executable, so the executable can load them.
+Nothing else replaces this form of prebuilt binary, so Swift Package Manager keeps accepting the type.
+
 `ArtifactType` doesn't have a `dynamicLibrary` case.
 
 ## Variant
