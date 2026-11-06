@@ -6,6 +6,9 @@
 
 Compute the checksum for a binary artifact.
 
+The command accepts archive formats supported by SwiftPM and artifact bundle index files with the
+`.artifactbundleindex` extension. It computes the checksum over the exact contents of the file.
+
 ```
 package compute-checksum [--package-path=<package-path>]
   [--cache-path=<cache-path>] [--config-path=<config-path>]
@@ -294,4 +297,3 @@ By default, color diagnostics are enabled when connected to a TTY and disabled o
 - term **--help**:
 
 *Show help information.*
-
