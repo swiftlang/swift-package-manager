@@ -593,6 +593,8 @@ public final class PackagePIFBuilder {
 
         try projectBuilder.makePackageTestProduct()
 
+        projectBuilder.removeLinkInputsForModulesWithoutSources()
+
         self._pifProject = projectBuilder.project
         return projectBuilder.builtModulesAndProducts
     }
