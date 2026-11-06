@@ -81,7 +81,7 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
         let rootManifestsMinimumToolsVersion = rootManifests.values.map(\.toolsVersion).min() ?? ToolsVersion.current
-        let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
+        let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root, rootManifests: rootManifests)
 
         // Load the current manifests.
         let graphRoot = try PackageGraphRoot(
@@ -319,7 +319,11 @@ extension Workspace {
                 return try await resolveAndUpdateResolvedFile(forceResolution: false)
             }
 
-            let currentHash = try self.computeResolvedFileOriginHash(root: root)
+            let rootManifests = try await self.loadRootManifests(
+                packages: root.packages,
+                observabilityScope: observabilityScope
+            )
+            let currentHash = try self.computeResolvedFileOriginHash(root: root, rootManifests: rootManifests)
             guard storedHash == currentHash else {
                 observabilityScope
                     .emit(
@@ -365,7 +369,10 @@ extension Workspace {
         }
     }
 
-    private func computeResolvedFileOriginHash(root: PackageGraphRootInput) throws -> String {
+    private func computeResolvedFileOriginHash(
+        root: PackageGraphRootInput,
+        rootManifests: [AbsolutePath: Manifest]
+    ) throws -> String {
         var content = try root.packages.reduce(into: "") { partial, element in
             let path = try ManifestLoader.findManifest(
                 packagePath: element,
@@ -376,6 +383,22 @@ extension Workspace {
         }
         content += root.dependencies.reduce(into: "") { partial, element in
             partial += element.locationString
+        }
+        // The manifest text alone does not reflect dependencies that only exist
+        // after evaluation (for example `#if os(...)` or environment-dependent
+        // manifests), so include the evaluated root dependencies as well.
+        // Otherwise a change in the evaluated dependency set leaves the hash
+        // unchanged and resolution fetches pins that are no longer required.
+        for path in rootManifests.keys.sorted(by: { $0.pathString < $1.pathString }) {
+            guard let manifest = rootManifests[path] else { continue }
+            // Appending the path for every root manifest also keeps hashes
+            // written by older versions (which hashed the manifest text only)
+            // from matching when the evaluated dependency set is empty.
+            content += path.pathString
+            content += manifest.dependencies.reduce(into: "") { partial, element in
+                partial += element.identity.description
+                partial += element.locationString
+            }
         }
         return content.sha256Checksum
     }
@@ -628,7 +651,7 @@ extension Workspace {
             observabilityScope: observabilityScope
         )
         let rootManifestsMinimumToolsVersion = rootManifests.values.map(\.toolsVersion).min() ?? ToolsVersion.current
-        let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root)
+        let resolvedFileOriginHash = try self.computeResolvedFileOriginHash(root: root, rootManifests: rootManifests)
 
         // Load the current manifests.
         let graphRoot = try PackageGraphRoot(
