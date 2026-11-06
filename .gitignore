@@ -12,7 +12,6 @@ xcuserdata
 .*.sw[nop]
 *.xcscmblueprint
 /default.profraw
-*.xcodeproj
 Utilities/Docker/*.tar.gz
 .swiftpm
 Package.resolved

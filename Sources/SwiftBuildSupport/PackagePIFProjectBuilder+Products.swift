@@ -180,11 +180,6 @@ extension PackagePIFProjectBuilder {
             settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS].lazilyInitialize { ["$(inherited)"] }
             // Enable index-while building for Swift compilations to facilitate discovery of XCTest tests.
             settings[.INDEX_ENABLE_DATA_STORE] = "YES"
-
-            if mainModule.platformConstraint == .host {
-                // This is a macro test using prebuilts
-                settings[.SUPPORTED_PLATFORMS] = ["$(HOST_PLATFORM)"]
-            }
         } else if mainModule.type == .executable {
             // Setup install path for executables if it's in root of a pure Swift package.
             if pifBuilder.delegate.hostsOnlyPackages && pifBuilder.delegate.isRootPackage {
@@ -529,18 +524,30 @@ extension PackagePIFProjectBuilder {
                         log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependencyGUID)'")
                     }
 
-                case .library, .systemModule, .test:
-                    let shouldLinkProduct = moduleDependency.type != .systemModule
+                case .library, .test:
                     let dependencyGUID = moduleDependency.pifTargetGUID
                     mainModuleTarget.common.addDependency(
                         on: dependencyGUID,
                         platformFilters: dependencyPlatformFilters,
-                        linkProduct: shouldLinkProduct
+                        linkProduct: true
                     )
                     log(
                         .debug,
                         indent: 1,
-                        "Added \(shouldLinkProduct ? "linked " : "")dependency on target '\(dependencyGUID)'"
+                        "Added linked dependency on target '\(dependencyGUID)'"
+                    )
+
+                case .systemModule, .prebuilt:
+                    let dependencyGUID = moduleDependency.pifTargetGUID
+                    mainModuleTarget.common.addDependency(
+                        on: dependencyGUID,
+                        platformFilters: dependencyPlatformFilters,
+                        linkProduct: false
+                    )
+                    log(
+                        .debug,
+                        indent: 1,
+                        "Added dependency on target '\(dependencyGUID)'"
                     )
                 }
 
@@ -569,7 +576,7 @@ extension PackagePIFProjectBuilder {
         var releaseSettings: ProjectModel.BuildSettings = settings
 
         // Apply target-specific build settings defined in the manifest.
-        let allBuildSettings = mainModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
+        let allBuildSettings = try mainModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
 
         // Apply settings using the convenience methods
         allBuildSettings.apply(to: &debugSettings, for: .debug)
@@ -747,17 +754,25 @@ extension PackagePIFProjectBuilder {
                     BuildFile(id: id, fileRef: binaryFileRef, codeSignOnCopy: true, removeHeadersOnCopy: true)
                 }
                 log(.debug, indent: 1, "Added use of binary library '\(binaryTarget.artifactPath)'")
-                continue
+            } else if module.type == .prebuilt {
+                // Do not link prebuilt targets. That is handled in their imparted settings.
+                libraryUmbrellaTargetForModules.common.addDependency(
+                    on: module.pifTargetGUID,
+                    platformFilters: [],
+                    linkProduct: false
+                )
+                log(.debug, indent: 1, "Added dependency on target '\(module.pifTargetGUID)'")
+            } else {
+                // We add these as linked dependencies; because the product type is `.packageProduct`,
+                // SwiftBuild won't actually link them, but will instead impart linkage to any clients that
+                // link against the package product.
+                libraryUmbrellaTargetForModules.common.addDependency(
+                    on: module.pifTargetGUID,
+                    platformFilters: [],
+                    linkProduct: true
+                )
+                log(.debug, indent: 1, "Added linked dependency on target '\(module.pifTargetGUID)'")
             }
-            // We add these as linked dependencies; because the product type is `.packageProduct`,
-            // SwiftBuild won't actually link them, but will instead impart linkage to any clients that
-            // link against the package product.
-            libraryUmbrellaTargetForModules.common.addDependency(
-                on: module.pifTargetGUID,
-                platformFilters: [],
-                linkProduct: true
-            )
-            log(.debug, indent: 1, "Added linked dependency on target '\(module.pifTargetGUID)'")
         }
 
         for module in product.modules where module.underlying.isSourceModule && module.resources.hasContent {
@@ -1041,7 +1056,7 @@ extension PackagePIFProjectBuilder {
         }
 
         self.project[keyPath: systemLibraryTargetKeyPath].common.addDependency(
-            on: product.systemModule!.pifTargetGUID,
+            on: product.modules.only!.pifTargetGUID,
             platformFilters: [],
             linkProduct: false
         )
@@ -1202,7 +1217,7 @@ extension PackagePIFProjectBuilder {
         // of e.g. linker settings specify a linked library external to the package.
         var debugSettings: ProjectModel.BuildSettings = settings
         var releaseSettings: ProjectModel.BuildSettings = settings
-        let allBuildSettings = unitTestModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
+        let allBuildSettings = try unitTestModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
         allBuildSettings.apply(to: &debugSettings, for: .debug)
         allBuildSettings.apply(to: &releaseSettings, for: .release)
 
