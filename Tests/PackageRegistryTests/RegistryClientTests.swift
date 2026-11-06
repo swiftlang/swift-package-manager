@@ -3421,6 +3421,53 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
         let identities = try await registryClient.lookupIdentities(scmURL: packageURL)
         #expect([PackageIdentity.plain("mona.LinkedList")] == identities)
     }
+
+    @Test func requestAuthorization_mutualTLSSuppressesCredential() async throws {
+        let handler: HTTPClient.Implementation = { request, _ in
+            switch (request.method, request.url) {
+            case (.get, identifiersURL):
+                #expect(request.headers.get("Authorization").first == nil)
+
+                let data = #"""
+                {
+                    "identifiers": [
+                    "mona.LinkedList"
+                    ]
+                }
+                """#.data(using: .utf8)!
+
+                return .init(
+                    statusCode: 200,
+                    headers: .init([
+                        .init(name: "Content-Length", value: "\(data.count)"),
+                        .init(name: "Content-Type", value: "application/json"),
+                        .init(name: "Content-Version", value: "1"),
+                    ]),
+                    body: data
+                )
+            default:
+                throw StringError("method and url should match")
+            }
+        }
+
+        let httpClient = HTTPClient(implementation: handler)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        configuration.registryAuthentication[registryURL.host!] = .init(
+            type: .mtls,
+            identity: .files(certificatePath: "/certs/client.cer", privateKeyPath: "/certs/client.key")
+        )
+
+        let authorizationProvider = TestProvider(map: [registryURL.host!: ("token", "top-sekret")])
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient,
+            authorizationProvider: authorizationProvider
+        )
+        let identities = try await registryClient.lookupIdentities(scmURL: packageURL)
+        #expect([PackageIdentity.plain("mona.LinkedList")] == identities)
+    }
 }
 
 @Suite("Login") struct Login {

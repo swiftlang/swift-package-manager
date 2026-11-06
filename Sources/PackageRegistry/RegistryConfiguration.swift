@@ -131,16 +131,24 @@ extension RegistryConfiguration {
     public struct Authentication: Hashable, Codable {
         public var type: AuthenticationType
         public var loginAPIPath: String?
+        public var identity: Identity?
 
-        public init(type: AuthenticationType, loginAPIPath: String? = nil) {
+        public init(type: AuthenticationType, loginAPIPath: String? = nil, identity: Identity? = nil) {
             self.type = type
             self.loginAPIPath = loginAPIPath
+            self.identity = identity
         }
     }
 
     public enum AuthenticationType: String, Hashable, Codable {
         case basic
         case token
+        case mtls
+    }
+
+    public enum Identity: Hashable, Codable, Sendable {
+        case files(certificatePath: String, privateKeyPath: String)
+        case keychain(commonName: String, hash: String)
     }
 }
 
@@ -411,6 +419,116 @@ extension RegistryConfiguration: Codable {
         try container.encode(self.registryAuthentication, forKey: .authentication)
         try container.encodeIfPresent(self.security, forKey: .security)
         try container.encodeIfPresent(self.replaceScmWithRegistry, forKey: .replaceScmWithRegistry)
+    }
+}
+
+extension RegistryConfiguration.Authentication {
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case loginAPIPath
+        case identity
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        let type = try container.decode(RegistryConfiguration.AuthenticationType.self, forKey: .type)
+        let identity = try container.decodeIfPresent(RegistryConfiguration.Identity.self, forKey: .identity)
+
+        guard type != .mtls || identity != nil else {
+            throw DecodingError.dataCorruptedError(
+                forKey: .identity,
+                in: container,
+                debugDescription: "'identity' is required when 'type' is '\(RegistryConfiguration.AuthenticationType.mtls.rawValue)'"
+            )
+        }
+
+        self.init(
+            type: type,
+            loginAPIPath: try container.decodeIfPresent(String.self, forKey: .loginAPIPath),
+            identity: identity
+        )
+    }
+}
+
+extension RegistryConfiguration.Identity {
+    private enum CodingKeys: String, CodingKey {
+        case files
+        case keychain
+    }
+
+    private enum FilesCodingKeys: String, CodingKey {
+        case certificatePath
+        case privateKeyPath
+    }
+
+    private enum KeychainCodingKeys: String, CodingKey {
+        case commonName
+        case hash
+    }
+
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+
+        guard container.contains(.files) != container.contains(.keychain) else {
+            throw DecodingError.dataCorrupted(.init(
+                codingPath: container.codingPath,
+                debugDescription: "'identity' must contain exactly one of 'files' or 'keychain'"
+            ))
+        }
+
+        guard container.contains(.files) else {
+            let keychain = try container.nestedContainer(keyedBy: KeychainCodingKeys.self, forKey: .keychain)
+            self = .keychain(
+                commonName: try keychain.decode(String.self, forKey: .commonName),
+                hash: try keychain.decode(String.self, forKey: .hash)
+            )
+            return
+        }
+
+        let files = try container.nestedContainer(keyedBy: FilesCodingKeys.self, forKey: .files)
+        self = .files(
+            certificatePath: try Self.decodeAbsolutePath(from: files, forKey: .certificatePath),
+            privateKeyPath: try Self.decodeAbsolutePath(from: files, forKey: .privateKeyPath)
+        )
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+
+        switch self {
+        case .files(let certificatePath, let privateKeyPath):
+            var files = container.nestedContainer(keyedBy: FilesCodingKeys.self, forKey: .files)
+            try files.encode(certificatePath, forKey: .certificatePath)
+            try files.encode(privateKeyPath, forKey: .privateKeyPath)
+        case .keychain(let commonName, let hash):
+            var keychain = container.nestedContainer(keyedBy: KeychainCodingKeys.self, forKey: .keychain)
+            try keychain.encode(commonName, forKey: .commonName)
+            try keychain.encode(hash, forKey: .hash)
+        }
+    }
+
+    private static func decodeAbsolutePath(
+        from container: KeyedDecodingContainer<FilesCodingKeys>,
+        forKey key: FilesCodingKeys
+    ) throws -> String {
+        guard let path = try container.decodeIfPresent(String.self, forKey: key) else {
+            throw DecodingError.dataCorruptedError(
+                forKey: key,
+                in: container,
+                debugDescription: "'\(key.stringValue)' is required in 'files'"
+            )
+        }
+
+        guard (try? AbsolutePath(validating: path)) != nil else {
+            throw DecodingError.dataCorruptedError(
+                forKey: key,
+                in: container,
+                debugDescription: "'\(key.stringValue)' must be an absolute path: '\(path)'"
+            )
+        }
+
+        return path
     }
 }
 
