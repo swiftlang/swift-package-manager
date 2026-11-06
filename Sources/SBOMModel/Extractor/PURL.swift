@@ -15,53 +15,53 @@ import PackageGraph
 import PackageModel
 import TSCUtility
 
-internal struct PURL: Codable, Equatable, Hashable, CustomStringConvertible {
-    internal let scheme: String
-    internal let type: String
-    internal let namespace: String?
-    internal let name: String
-    internal let version: String?
-    internal let qualifiers: [String: String]?
-    internal let subpath: String?
-
-    internal init(
-        scheme: String,
-        type: String,
-        namespace: String? = nil,
-        name: String,
-        version: String? = nil,
-        qualifiers: [String: String]? = nil,
-        subpath: String? = nil
-
-    ) {
-        self.scheme = scheme
-        self.type = type
-        self.namespace = namespace
-        self.name = name
-        self.version = version
-        self.qualifiers = qualifiers?.isEmpty == true ? nil : qualifiers
-        self.subpath = subpath
-    }
-
-    internal var description: String {
-        var result = "\(scheme):\(type)"
-        if let namespace {
-            result += "/\(namespace)"
-        }
-        result += "/\(self.name)"
-        if let version, version != "unknown" {
-            result += "@\(version)"
-        }
-        if let qualifiers, !qualifiers.isEmpty {
-            let qualifierPairs = qualifiers.map { "\($0.key)=\($0.value)" }.sorted()
-            result += "?" + qualifierPairs.joined(separator: "&")
-        }
-        if let subpath {
-            result += "#\(subpath)"
-        }
-        return result
-    }
-}
+//internal struct PURL: Codable, Equatable, Hashable, CustomStringConvertible {
+//    internal let scheme: String
+//    internal let type: String
+//    internal let namespace: String?
+//    internal let name: String
+//    internal let version: String?
+//    internal let qualifiers: [String: String]?
+//    internal let subpath: String?
+//
+//    internal init(
+//        scheme: String,
+//        type: String,
+//        namespace: String? = nil,
+//        name: String,
+//        version: String? = nil,
+//        qualifiers: [String: String]? = nil,
+//        subpath: String? = nil
+//
+//    ) {
+//        self.scheme = scheme
+//        self.type = type
+//        self.namespace = namespace
+//        self.name = name
+//        self.version = version
+//        self.qualifiers = qualifiers?.isEmpty == true ? nil : qualifiers
+//        self.subpath = subpath
+//    }
+//
+//    internal var description: String {
+//        var result = "\(scheme):\(type)"
+//        if let namespace {
+//            result += "/\(namespace)"
+//        }
+//        result += "/\(self.name)"
+//        if let version, version != "unknown" {
+//            result += "@\(version)"
+//        }
+//        if let qualifiers, !qualifiers.isEmpty {
+//            let qualifierPairs = qualifiers.map { "\($0.key)=\($0.value)" }.sorted()
+//            result += "?" + qualifierPairs.joined(separator: "&")
+//        }
+//        if let subpath {
+//            result += "#\(subpath)"
+//        }
+//        return result
+//    }
+//}
 
 extension PURL {
     internal static func from(package: ResolvedPackage, version: SBOMComponent.Version) async -> PURL {

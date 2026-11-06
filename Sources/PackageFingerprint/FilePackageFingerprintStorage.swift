@@ -34,7 +34,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
     }
 
     public func get(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         observabilityScope: ObservabilityScope
     ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
@@ -46,7 +46,7 @@ public struct FilePackageFingerprintStorage: PackageFingerprintStorage {
     }
 
     public func put(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         fingerprint: Fingerprint,
         observabilityScope: ObservabilityScope
@@ -352,6 +352,12 @@ protocol FingerprintReference {
 extension PackageIdentity: FingerprintReference {
     var fingerprintsFilename: String {
         "\(self.description).json"
+    }
+}
+
+extension PURL: FingerprintReference {
+    var fingerprintsFilename: String {
+        "\(self.packageIdentity.description).json"
     }
 }
 

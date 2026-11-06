@@ -21,7 +21,7 @@ import PackageModel
 /// - SeeAlso: ``DependencyResolutionNode``
 public struct GraphLoadingNode: Equatable, Hashable {
     /// The package identity.
-    public let identity: PackageIdentity
+    public let identity: PURL
 
     /// The package manifest.
     public let manifest: Manifest
@@ -33,7 +33,7 @@ public struct GraphLoadingNode: Equatable, Hashable {
     package var enabledTraits: EnabledTraits
 
     public init(
-        identity: PackageIdentity,
+        identity: PURL,
         manifest: Manifest,
         productFilter: ProductFilter,
         enabledTraits: EnabledTraits

@@ -405,14 +405,14 @@ struct PluginCommand: AsyncSwiftCommand {
         let directDependencyPackages = graph.rootPackages.flatMap {
             $0.dependencies
         }.filter {
-            $0.matching(identity: packageIdentity)
+            $0.packageIdentity.matching(identity: packageIdentity)
         }.compactMap {
             graph.package(for: $0)
         }
 
         let directDependencyPluginTargets = directDependencyPackages.flatMap { $0.products.filter { $0.type == .plugin } }.flatMap { $0.modules }
         // As well as any plugin targets in root packages.
-        let rootPackageTargets = graph.rootPackages.filter { $0.identity.matching(identity: packageIdentity) }.flatMap { $0.modules }
+        let rootPackageTargets = graph.rootPackages.filter { $0.identity.packageIdentity.matching(identity: packageIdentity) }.flatMap { $0.modules }
         return (directDependencyPluginTargets + rootPackageTargets).filter {
             guard let plugin = $0.underlying as? PluginModule else {
                 return false

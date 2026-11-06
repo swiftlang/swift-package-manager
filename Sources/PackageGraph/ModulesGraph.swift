@@ -155,7 +155,7 @@ public struct ModulesGraph {
     }
 
     /// Returns the package  based on the given identity, or nil if the package isn't in the graph.
-    public func package(for identity: PackageIdentity) -> ResolvedPackage? {
+    public func package(for identity: PURL) -> ResolvedPackage? {
         packages[identity]
     }
 
@@ -195,7 +195,7 @@ public struct ModulesGraph {
     public let inputPackages: [ResolvedPackage]
 
     /// Any binary artifacts referenced by the graph.
-    public let binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
+    public let binaryArtifacts: [PURL: [String: BinaryArtifact]]
 
     /// Construct a package graph directly.
     public init(
@@ -203,7 +203,7 @@ public struct ModulesGraph {
         rootDependencies: [ResolvedPackage] = [],
         packages: IdentifiableSet<ResolvedPackage>,
         dependencies requiredDependencies: [PackageReference],
-        binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]]
+        binaryArtifacts: [PURL: [String: BinaryArtifact]]
     ) throws {
         let rootPackages = IdentifiableSet(rootPackages)
         self.requiredDependencies = requiredDependencies
@@ -290,7 +290,7 @@ public struct ModulesGraph {
         if self.rootPackages.isEmpty {
             throw StringError("Root package does not exist.")
         }
-        return self.rootPackages[self.rootPackages.startIndex].identity.description +
+        return self.rootPackages[self.rootPackages.startIndex].identity.packageIdentity.description +
             Product.replProductSuffix
     }
 }
@@ -361,7 +361,7 @@ extension PackageGraphError: CustomStringConvertible {
 
         case .duplicateProduct(let product, let packages):
             let packagesDescriptions = packages.sorted(by: { $0.identity < $1.identity }).map {
-                var description = "'\($0.identity)'"
+                var description = "'\($0.identity.packageIdentity)'"
                 switch $0.manifest.packageKind {
                 case .root(let path),
                         .fileSystem(let path),
@@ -458,8 +458,8 @@ public func loadModulesGraph(
     identityResolver: IdentityResolver = DefaultIdentityResolver(),
     fileSystem: FileSystem,
     manifests: [Manifest],
-    binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]] = [:],
-    prebuilts: [PackageIdentity: [String: PrebuiltLibrary]] = [:],
+    binaryArtifacts: [PURL: [String: BinaryArtifact]] = [:],
+    prebuilts: [PURL: [String: PrebuiltLibrary]] = [:],
     explicitProduct: String? = .none,
     shouldCreateMultipleTestProducts: Bool = false,
     createREPLProduct: Bool = false,
@@ -473,7 +473,7 @@ public func loadModulesGraph(
     let externalManifests = try manifests.filter { !$0.packageKind.isRoot }
         .reduce(
             into: OrderedCollections
-                .OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()
+                .OrderedDictionary<PURL, (manifest: Manifest, fs: FileSystem)>()
         ) { partial, item in
             partial[try identityResolver.resolveIdentity(for: item.packageKind)] = (item, fileSystem)
         }

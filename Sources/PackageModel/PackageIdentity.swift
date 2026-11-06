@@ -67,7 +67,7 @@ public struct PackageIdentity: CustomStringConvertible, Sendable {
         return RegistryIdentity(
             scope: scope,
             name: name,
-            underlying: self
+            underlying: PURL.from(identity: self)
         )
     }
 
@@ -78,10 +78,10 @@ public struct PackageIdentity: CustomStringConvertible, Sendable {
     public struct RegistryIdentity: Hashable, CustomStringConvertible, Sendable {
         public let scope: PackageIdentity.Scope
         public let name: PackageIdentity.Name
-        public let underlying: PackageIdentity
+        public let underlying: PURL
 
         public var description: String {
-            self.underlying.description
+            self.underlying.packageIdentity.description
         }
     }
 }
@@ -605,5 +605,227 @@ extension String {
 
         self.replaceSubrange(range, with: replacement)
         return true
+    }
+}
+
+// MARK: - PURL Identity
+
+public struct PURL: Codable, Equatable, Hashable, CustomStringConvertible, Sendable {
+    public let scheme: String
+    public let type: String
+    public let namespace: String?
+    public let name: String
+    public let version: String?
+    public let qualifiers: [String: String]?
+    public let subpath: String?
+
+    public init(
+        scheme: String,
+        type: String,
+        namespace: String? = nil,
+        name: String,
+        version: String? = nil,
+        qualifiers: [String: String]? = nil,
+        subpath: String? = nil
+    ) {
+        self.scheme = scheme
+        self.type = type
+        self.namespace = namespace
+        self.name = name
+        self.version = version
+        self.qualifiers = qualifiers?.isEmpty == true ? nil : qualifiers
+        self.subpath = subpath
+    }
+
+//    public init(
+//        purlString: String
+//    ) {
+//        // Assert that the string begins with pkg:
+//        assert(purlString.hasPrefix("pkg:"))
+//        var components = purlString.components(separatedBy: "pkg:")
+//        extractType()
+//        extractNamespace()
+//        extractName()
+//        extractVersion()
+//        extractQualifiers()
+//        extractSubpath()
+//    }
+
+    public struct ParsingError: Error, Equatable, CustomStringConvertible {
+        public let description: String
+    }
+
+    /// Parses a PURL string of the form `scheme:type/namespace/name@version?qualifiers#subpath`.
+    public init(purlString: String) throws {
+        var remainder = Substring(purlString)
+
+        // subpath: everything after the first '#'
+        var subpath: String?
+        if let idx = remainder.firstIndex(of: "#") {
+            let raw = remainder[remainder.index(after: idx)...]
+            let joined = raw.split(separator: "/")
+                .filter { $0 != "." && $0 != ".." }
+                .compactMap { $0.removingPercentEncoding }
+                .joined(separator: "/")
+            subpath = joined.isEmpty ? nil : joined
+            remainder = remainder[..<idx]
+        }
+
+        // qualifiers: everything after the first '?', as key=value pairs split on '&'
+        var qualifiers: [String: String]?
+        if let idx = remainder.firstIndex(of: "?") {
+            var pairs = [String: String]()
+            for pair in remainder[remainder.index(after: idx)...].split(separator: "&") {
+                let kv = pair.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
+                // Per spec, qualifiers with empty values are dropped.
+                guard kv.count == 2, !kv[1].isEmpty, let value = kv[1].removingPercentEncoding else {
+                    continue
+                }
+                // Per spec, qualifier keys are case-insensitive.
+                pairs[kv[0].lowercased()] = value
+            }
+            qualifiers = pairs.isEmpty ? nil : pairs
+            remainder = remainder[..<idx]
+        }
+
+        // scheme
+        guard let colon = remainder.firstIndex(of: ":") else {
+            throw ParsingError(description: "missing scheme in '\(purlString)'")
+        }
+        let scheme = remainder[..<colon].lowercased()
+        guard scheme == PURL.swiftPackageScheme else {
+            throw ParsingError(description: "invalid scheme '\(scheme)', expected '\(PURL.swiftPackageScheme)'")
+        }
+        remainder = remainder[remainder.index(after: colon)...]
+        // Per spec, redundant leading slashes (e.g. `pkg://type/...`) are allowed.
+        remainder = remainder.drop(while: { $0 == "/" })
+
+        // type
+        guard let slash = remainder.firstIndex(of: "/") else {
+            throw ParsingError(description: "missing type or name in '\(purlString)'")
+        }
+        let type = remainder[..<slash].lowercased()
+        guard !type.isEmpty else {
+            throw ParsingError(description: "empty type in '\(purlString)'")
+        }
+        remainder = remainder[remainder.index(after: slash)...]
+
+        // version: everything after the last '@'
+        var version: String?
+        if let at = remainder.lastIndex(of: "@") {
+            version = remainder[remainder.index(after: at)...].removingPercentEncoding
+            remainder = remainder[..<at]
+        }
+
+        // name is the last path segment, namespace is whatever precedes it
+        var segments = remainder.split(separator: "/", omittingEmptySubsequences: true)
+        guard let rawName = segments.popLast(), let name = rawName.removingPercentEncoding else {
+            throw ParsingError(description: "missing name in '\(purlString)'")
+        }
+        let namespace = segments.isEmpty
+            ? nil
+            : segments.compactMap { $0.removingPercentEncoding }.joined(separator: "/")
+
+        self.init(
+            scheme: scheme,
+            type: type,
+            namespace: namespace,
+            name: name,
+            version: version,
+            qualifiers: qualifiers,
+            subpath: subpath
+        )
+    }
+
+    public var description: String {
+        var result = "\(scheme):\(type)"
+        if let namespace {
+            result += "/\(namespace)"
+        }
+        result += "/\(self.name)"
+        if let version, version != "unknown" {
+            result += "@\(version)"
+        }
+        if let qualifiers, !qualifiers.isEmpty {
+            let qualifierPairs = qualifiers.map { "\($0.key)=\($0.value)" }.sorted()
+            result += "?" + qualifierPairs.joined(separator: "&")
+        }
+        if let subpath {
+            result += "#\(subpath)"
+        }
+        return result
+    }
+
+    public var packageIdentity: PackageIdentity {
+        var result: String = ""
+        if let namespace {
+            result = namespace + "."
+        }
+        result += name
+        return PackageIdentity(result)
+    }
+}
+
+
+extension PURL {
+    public static func from(identity: PackageIdentity) -> PURL {
+        // This will usually be derived from a swift package kind. Thus, the scheme and type are already known.
+        let components = identity.description.split(separator: ".", maxSplits: 1, omittingEmptySubsequences: true)
+        if components.count == 2,
+           let scope = components.first?.lowercased(),
+           let name = components.last?.lowercased() {
+            return PURL(scheme: "pkg", type: "swift", namespace: String(scope), name: String(name))
+
+        }
+        return PURL(scheme: "pkg", type: "swift", name: identity.description.lowercased())
+    }
+
+    public static func from(name: String) -> PURL {
+        .from(identity: PackageIdentity(name))
+    }
+
+//    public static func from(ref: PackageReference) -> PURL {
+//        let location = ref.locationString
+//        let name = ref.
+//    }
+//
+    public var registry: PackageIdentity.RegistryIdentity? {
+        guard let namespace = self.namespace,
+              let scope = PackageIdentity.Scope(namespace),
+              let name = PackageIdentity.Name(self.name)
+              else {
+            return .none
+        }
+
+        return PackageIdentity.RegistryIdentity(
+            scope: scope,
+            name: name,
+            underlying: self
+        )
+    }
+
+    public var isRegistry: Bool {
+        // todo bp
+        self.registry != nil
+    }
+}
+
+extension PURL {
+    public static func swiftPackage(from identity: PackageIdentity) -> PURL {
+        .init(scheme: PURL.swiftPackageScheme, type: PURL.swiftPackageType, name: identity.description)
+    }
+
+    public static let swiftPackageScheme = "pkg"
+    public static let swiftPackageType = "swift" // tbd
+
+    public static func plain(_ id: String) -> PURL {
+//        .init(scheme: PURL.swiftPackageScheme, type: PURL.swiftPackageType, name: id.lowercased())
+        .from(name: id)
+    }
+}
+
+extension PURL: Comparable {
+    public static func < (lhs: Self, rhs: Self) -> Bool {
+        lhs.description < rhs.description
     }
 }

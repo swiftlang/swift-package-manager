@@ -204,7 +204,7 @@ struct SBOMExtractPrimaryComponentTests {
         ); return try await extractor.extractPrimaryComponent() }()
         #expect(component1.version.revision == expectedRevision)
 
-        let cachedVersion = await caches.version.get(rootPackage.identity)
+        let cachedVersion = await caches.version.get(rootPackage.identity.packageIdentity)
         #expect(cachedVersion != nil, "Cache should contain version for root package")
         #expect(cachedVersion?.version.revision == expectedRevision, "Cached version should match expected revision")
 
@@ -236,7 +236,7 @@ struct SBOMExtractPrimaryComponentTests {
             "Product should use cached version from root package"
         )
 
-        let cachedVersionAfter = await caches.version.get(rootPackage.identity)
+        let cachedVersionAfter = await caches.version.get(rootPackage.identity.packageIdentity)
         #expect(cachedVersionAfter?.version.revision == expectedRevision, "Cache should still contain same version")
     }
 

@@ -11,6 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
+import struct PackageModel.PURL
 
 internal struct SPDXConverter {
     private init() {}

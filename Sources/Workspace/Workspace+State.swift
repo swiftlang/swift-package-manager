@@ -95,7 +95,7 @@ public actor WorkspaceState {
     }
 
     public func remove(identity: PackageIdentity) {
-        dependencies = dependencies.remove(identity)
+        dependencies = dependencies.remove(PURL.from(identity: identity))
     }
 }
 
@@ -532,7 +532,7 @@ extension WorkspaceStateStorage {
 extension Workspace.ManagedDependency {
     fileprivate init(_ dependency: WorkspaceStateStorage.V7.Dependency) throws {
         try self.init(
-            packageRef: .init(dependency.packageRef),
+            packageRef: PackageReference.init(dependency.packageRef),
             state: dependency.state.underlying,
             subpath: RelativePath(validating: dependency.subpath)
         )
@@ -568,7 +568,7 @@ extension Workspace.ManagedPrebuilt {
 
 extension PackageModel.PackageReference {
     fileprivate init(_ reference: WorkspaceStateStorage.V7.PackageReference) throws {
-        let identity = PackageIdentity.plain(reference.identity)
+        let identity = try PURL(purlString: reference.identity)
         let kind: PackageModel.PackageReference.Kind
         switch reference.kind {
         case .root:
@@ -936,7 +936,7 @@ extension PackageModel.PackageReference {
         case .remoteSourceControl:
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
-            kind = .registry(identity)
+            kind = .registry(PURL.from(identity: identity))
         }
 
         self.init(
@@ -1263,7 +1263,7 @@ extension PackageModel.PackageReference {
         case .remoteSourceControl:
             kind = .remoteSourceControl(SourceControlURL(reference.location))
         case .registry:
-            kind = .registry(identity)
+            kind = .registry(PURL.from(identity: identity))
         }
 
         self.init(

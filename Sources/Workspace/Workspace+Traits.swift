@@ -197,7 +197,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async throws {
         let packages = manifests.dependencies.filter({
-            addedOrUpdatedPackages.map(\.identity).contains($0.manifest.packageIdentity) })
+            addedOrUpdatedPackages.map(\.identity.packageIdentity).contains($0.manifest.packageIdentity) })
 
         for package in packages {
             let manifest = package.manifest

@@ -182,14 +182,14 @@ extension Workspace.ManagedDependency: CustomStringConvertible {
 extension Workspace {
     /// A collection of managed dependencies.
     public struct ManagedDependencies {
-        private var dependencies: [PackageIdentity: ManagedDependency]
+        private var dependencies: [PURL: ManagedDependency]
 
         init() {
             self.dependencies = [:]
         }
         
         private init(
-            _ dependencies: [PackageIdentity: ManagedDependency]
+            _ dependencies: [PURL: ManagedDependency]
         ) {
             self.dependencies = dependencies
         }
@@ -205,7 +205,7 @@ extension Workspace {
             }
         }
 
-        public subscript(identity: PackageIdentity) -> ManagedDependency? {
+        public subscript(identity: PURL) -> ManagedDependency? {
             return self.dependencies[identity]
         }
 
@@ -225,7 +225,7 @@ extension Workspace {
             return ManagedDependencies(dependencies)
         }
 
-        public func remove(_ identity: PackageIdentity) -> Self {
+        public func remove(_ identity: PURL) -> Self {
             var dependencies = dependencies
             dependencies[identity] = nil
             return ManagedDependencies(dependencies)
@@ -234,7 +234,7 @@ extension Workspace {
 }
 
 extension Workspace.ManagedDependencies: Collection {
-    public typealias Index = Dictionary<PackageIdentity, Workspace.ManagedDependency>.Index
+    public typealias Index = Dictionary<PURL, Workspace.ManagedDependency>.Index
     public typealias Element = Workspace.ManagedDependency
 
     public var startIndex: Index {

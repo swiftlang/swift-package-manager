@@ -122,7 +122,7 @@ enum SBOMTestStore {
         url: String,
         revision: String
     ) throws {
-        let identity = PackageIdentity.plain(name)
+        let identity = PURL.from(name: name)
         let packageRef = PackageReference.remoteSourceControl(
             identity: identity,
             url: SourceControlURL(url)
@@ -130,7 +130,8 @@ enum SBOMTestStore {
 
         store.track(
             packageRef: packageRef,
-            state: .revision(revision)
+            state: .revision(revision),
+            purl: packageRef.identity
         )
     }
 
@@ -139,7 +140,7 @@ enum SBOMTestStore {
         to store: ResolvedPackagesStore
     ) throws {
         for (name, url, version) in dependencies {
-            let identity = PackageIdentity.plain(name)
+            let identity = PURL.from(name: name)
             let packageRef = PackageReference.remoteSourceControl(
                 identity: identity,
                 url: SourceControlURL(url)
@@ -148,7 +149,7 @@ enum SBOMTestStore {
             let mockRevision = self.generateMockRevision(for: name)
             let state = try createResolutionState(version: version, revision: mockRevision)
 
-            store.track(packageRef: packageRef, state: state)
+            store.track(packageRef: packageRef, state: state, purl: packageRef.identity)
         }
     }
 
@@ -174,7 +175,7 @@ enum SBOMTestStore {
 extension ResolvedPackagesStore {
     /// Get the repository URL for a given package name from the store
     package func getRepositoryURL(for packageName: String) throws -> String {
-        let identity = PackageIdentity.plain(packageName)
+        let identity = PURL.from(name: packageName)
         
         guard let resolvedPackage = self.resolvedPackages[identity] else {
             throw SBOMTestStoreError.packageNotFound(packageName)

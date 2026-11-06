@@ -42,10 +42,10 @@ public struct PackageGraphRootInput {
 public struct PackageGraphRoot {
 
     /// The root packages.
-    public let packages: [PackageIdentity: (reference: PackageReference, manifest: Manifest)]
+    public let packages: [PURL: (reference: PackageReference, manifest: Manifest)]
 
     /// The root manifests.
-    public var manifests: [PackageIdentity: Manifest] {
+    public var manifests: [PURL: Manifest] {
         return self.packages.compactMapValues { $0.manifest }
     }
 
@@ -79,8 +79,8 @@ public struct PackageGraphRoot {
     }
 
     /// Whether a package is exporting out the root, i.e. a root package or a root dependency
-    public func isExporting(_ identity: PackageIdentity) -> Bool{
-        return packages[identity] != nil || dependencies.contains(where: { $0.identity == identity })
+    public func isExporting(_ identity: PURL) -> Bool{
+        return packages[identity] != nil || dependencies.contains(where: { PURL.from(identity: $0.identity) == identity })
     }
 
     private let dependencyMapper: DependencyMapper?
@@ -103,7 +103,8 @@ public struct PackageGraphRoot {
             if let manifest = manifests[inputPath]  {
                 let packagePath = manifest.path.parentDirectory
                 let identity = PackageIdentity(path: packagePath) // this does not use the identity resolver which is fine since these are the root packages
-                partial[identity] = (.root(identity: identity, path: packagePath), manifest)
+                let purl = PURL.from(identity: identity)
+                partial[purl] = (.root(identity: purl, path: packagePath), manifest)
             }
         })
 
@@ -152,7 +153,7 @@ public struct PackageGraphRoot {
     public func constraints(_ enabledTraitsMap: EnabledTraitsMap) throws -> [PackageContainerConstraint] {
         var rootEnabledTraits: EnabledTraits = []
         let constraints = self.packages.map { (identity, package) in
-            let enabledTraits = enabledTraitsMap[identity]
+            let enabledTraits = enabledTraitsMap[identity.packageIdentity]
             rootEnabledTraits.formUnion(enabledTraits)
             return PackageContainerConstraint(
                 package: package.reference,

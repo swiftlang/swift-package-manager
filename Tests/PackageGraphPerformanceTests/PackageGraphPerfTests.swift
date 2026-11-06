@@ -34,7 +34,7 @@ final class PackageGraphPerfTests: XCTestCasePerf {
         let fs = InMemoryFileSystem(emptyFiles: files)
 
         let identityResolver = DefaultIdentityResolver()
-        var externalManifests = OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>()
+        var externalManifests = OrderedCollections.OrderedDictionary<PURL, (manifest: Manifest, fs: FileSystem)>()
         var rootManifest: Manifest!
         for pkg in 1...N {
             let name = "Foo\(pkg)"
@@ -169,10 +169,10 @@ final class PackageGraphPerfTests: XCTestCasePerf {
     func testRecursiveDependencies() throws {
         try XCTSkipOnWindows()
 
-        var resolvedTarget = ResolvedModule.mock(packageIdentity: "pkg", name: "t0")
+        var resolvedTarget = ResolvedModule.mock(packageIdentity: PURL.from(name: "pkg"), name: "t0")
         for i in 1..<1000 {
-            resolvedTarget = ResolvedModule.mock(packageIdentity: "pkg", name: "t\(i)", deps: resolvedTarget)
-        }        
+            resolvedTarget = ResolvedModule.mock(packageIdentity: PURL.from(name: "pkg"), name: "t\(i)", deps: resolvedTarget)
+        }
 
         let N = 10
         measure {

@@ -105,7 +105,7 @@ public enum ModuleError: Swift.Error {
     /// Indicates several targets with the same name exist in a registry and scm package
     case duplicateModulesScmAndRegistry(
         registryPackage: PackageIdentity.RegistryIdentity,
-        scmPackage: PackageIdentity,
+        scmPackage: PURL,
         modules: [String]
     )
 }
@@ -191,7 +191,7 @@ extension ModuleError: CustomStringConvertible {
             return """
             multiple similar targets \(targetsDescription) appear in registry package '\(
                 registryPackage
-            )' and source control package '\(scmPackage)', \
+            )' and source control package '\(scmPackage.packageIdentity)', \
             this may indicate that the two packages are the same and can be de-duplicated \
             by activating the automatic source-control to registry replacement, or by using mirrors. \
             if they are not duplicate consider using the `moduleAliases` parameter in manifest to provide unique names
@@ -298,7 +298,8 @@ public final class PackageBuilder {
     public static let predefinedPluginDirectories = ["Plugins"]
 
     /// The identity for the package being constructed.
-    private let identity: PackageIdentity
+//    private let identity: PackageIdentity
+    private let identity: PURL
 
     /// The manifest for the package being constructed.
     private let manifest: Manifest
@@ -362,7 +363,7 @@ public final class PackageBuilder {
     ///     each test target.
     ///   - fileSystem: The file system on which the builder should be run.///
     public init(
-        identity: PackageIdentity,
+        identity: PURL,
         manifest: Manifest,
         productFilter: ProductFilter,
         path: AbsolutePath,
@@ -1651,7 +1652,7 @@ public final class PackageBuilder {
         if self.shouldCreateMultipleTestProducts {
             for testModule in testModules {
                 let product = try Product(
-                    package: self.identity,
+                    package: self.identity.packageIdentity,
                     name: testModule.name,
                     type: .test,
                     modules: [testModule]
@@ -1669,7 +1670,7 @@ public final class PackageBuilder {
             let testEntryPointPath = try self.findTestEntryPoint(in: testModules)
 
             let product = try Product(
-                package: self.identity,
+                package: self.identity.packageIdentity,
                 name: productName,
                 type: .test,
                 modules: testModules,
@@ -1734,7 +1735,7 @@ public final class PackageBuilder {
                 }
             }
 
-            try append(Product(package: self.identity, name: product.name, type: product.type, modules: modules))
+            try append(Product(package: self.identity.packageIdentity, name: product.name, type: product.type, modules: modules))
         }
 
         // Add implicit executables - for root packages and for dependency plugins.
@@ -1782,7 +1783,7 @@ public final class PackageBuilder {
                 if self.manifest.packageKind.isRoot || implicitPlugInExecutables.contains(module.name) {
                     // Generate an implicit product for the executable target
                     let product = try Product(
-                        package: self.identity,
+                        package: self.identity.packageIdentity,
                         name: module.name,
                         type: .executable,
                         modules: [module],
@@ -1801,7 +1802,7 @@ public final class PackageBuilder {
                 self.observabilityScope.emit(.noLibraryTargetsForREPL)
             } else {
                 let replProduct = try Product(
-                    package: self.identity,
+                    package: self.identity.packageIdentity,
                     name: self.identity.description + Product.replProductSuffix,
                     type: .library(.dynamic),
                     modules: libraryTargets
@@ -1813,13 +1814,13 @@ public final class PackageBuilder {
         // Create implicit snippet products
         try modules
             .filter { $0.type == .snippet }
-            .map { try Product(package: self.identity, name: $0.name, type: .snippet, modules: [$0]) }
+            .map { try Product(package: self.identity.packageIdentity, name: $0.name, type: .snippet, modules: [$0]) }
             .forEach(append)
 
         // Create implicit macro products
         try modules
             .filter { $0.type == .macro }
-            .map { try Product(package: self.identity, name: $0.name, type: .macro, modules: [$0]) }
+            .map { try Product(package: self.identity.packageIdentity, name: $0.name, type: .macro, modules: [$0]) }
             .forEach(append)
 
         return products.map(\.item)

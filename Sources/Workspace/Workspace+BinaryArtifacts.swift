@@ -250,7 +250,7 @@ extension Workspace {
                 for artifact in zipArtifacts {
                     group.addTask { () -> ManagedArtifact? in
                         let destinationDirectory = artifactsDirectory
-                            .appending(components: [artifact.packageRef.identity.description, artifact.targetName])
+                            .appending(components: [artifact.packageRef.identity.packageIdentity.description, artifact.targetName])
                         guard observabilityScope.trap({ try fileSystem.createDirectory(
                             destinationDirectory,
                             recursive: true
@@ -313,7 +313,7 @@ extension Workspace {
                                 guard let tempExtractionDirectory = observabilityScope.trap({ () -> AbsolutePath in
                                     let path = artifactsDirectory.appending(
                                         components: "extract",
-                                        artifact.packageRef.identity.description,
+                                        artifact.packageRef.identity.packageIdentity.description,
                                         artifact.targetName,
                                         UUID().uuidString
                                     )
@@ -475,12 +475,12 @@ extension Workspace {
                 for artifact in artifacts {
                     group.addTask { () -> ManagedArtifact? in
                         let destinationDirectory = artifactsDirectory
-                            .appending(components: [artifact.packageRef.identity.description, artifact.targetName])
+                            .appending(components: [artifact.packageRef.identity.packageIdentity.description, artifact.targetName])
                         try fileSystem.createDirectory(destinationDirectory, recursive: true)
 
                         let tempExtractionDirectory = artifactsDirectory.appending(
                             components: "extract",
-                            artifact.packageRef.identity.description,
+                            artifact.packageRef.identity.packageIdentity.description,
                             artifact.targetName,
                             UUID().uuidString
                         )

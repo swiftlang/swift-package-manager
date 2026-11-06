@@ -46,7 +46,7 @@ public struct MockDependency {
             }
             let identity = try identityResolver.resolveIdentity(for: mappedPath)
             return .fileSystem(
-                identity: identity,
+                identity: identity.packageIdentity,
                 deprecatedName: self.deprecatedName,
                 path: mappedPath,
                 productFilter: self.products,
@@ -60,7 +60,7 @@ public struct MockDependency {
             }
             let identity = try identityResolver.resolveIdentity(for: mappedPath)
             return .localSourceControl(
-                identity: identity,
+                identity: identity.packageIdentity,
                 deprecatedName: self.deprecatedName,
                 path: mappedPath,
                 requirement: requirement,
@@ -91,7 +91,7 @@ public struct MockDependency {
                 let mappedURL = SourceControlURL(mappedLocation)
                 let identity = try identityResolver.resolveIdentity(for: mappedURL)
                 return .remoteSourceControl(
-                    identity: identity,
+                    identity: identity.packageIdentity,
                     deprecatedName: self.deprecatedName,
                     url: mappedURL,
                     requirement: _requirement,
@@ -120,7 +120,7 @@ public struct MockDependency {
                     requirement = .range(value)
                 }
                 return .remoteSourceControl(
-                    identity: identity,
+                    identity: identity.packageIdentity,
                     deprecatedName: self.deprecatedName,
                     url: mappedURL,
                     requirement: requirement,

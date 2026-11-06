@@ -44,7 +44,7 @@ struct PackageSigningEntityTOFU {
 
         let packageSigners: PackageSigners
         do {
-            packageSigners = try signingEntityStorage.get(package: package.underlying, observabilityScope: observabilityScope)
+            packageSigners = try signingEntityStorage.get(package: package.underlying.packageIdentity, observabilityScope: observabilityScope)
         } catch {
             observabilityScope.emit(
                 error: "Failed to get signing entity for \(package) from storage",
@@ -257,7 +257,7 @@ struct PackageSigningEntityTOFU {
 
         do {
             try signingEntityStorage.put(
-                package: package.underlying,
+                package: package.underlying.packageIdentity,
                 version: version,
                 signingEntity: signingEntity,
                 origin: .registry(registry.url),
@@ -287,7 +287,7 @@ struct PackageSigningEntityTOFU {
         case .strict:
             throw RegistryError.signingEntityForReleaseChanged(
                 registry: registry,
-                package: package.underlying,
+                package: package.underlying.packageIdentity,
                 version: version,
                 latest: latest,
                 previous: existing
@@ -313,7 +313,7 @@ struct PackageSigningEntityTOFU {
         case .strict:
             throw RegistryError.signingEntityForPackageChanged(
                 registry: registry,
-                package: package.underlying,
+                package: package.underlying.packageIdentity,
                 version: version,
                 latest: latest,
                 previous: existing,

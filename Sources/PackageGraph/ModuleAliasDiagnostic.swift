@@ -18,7 +18,7 @@ enum ModuleAliasDiagnostic {
     /// An alias in a chain is overridden by the alias that terminates the chain.
     case aliasOverridden(
         alias: String,
-        declaringPackage: PackageIdentity,
+        declaringPackage: PURL,
         declaringModule: String,
         product: String,
         overriddenBy: String
@@ -26,9 +26,9 @@ enum ModuleAliasDiagnostic {
     /// A module could not apply an alias to a name, so it has to use the aliased names directly in its source.
     case useAliasedNamesDirectly(module: String, name: String, aliasedNames: [String])
     /// A module that is aliased may contain non-Swift sources, whose symbols are not renamed.
-    case nonSwiftSources(module: String, product: String, package: PackageIdentity, aliases: [String: String])
+    case nonSwiftSources(module: String, product: String, package: PURL, aliases: [String: String])
     /// A declared alias that did not match any recursive dependency of the product it was declared for.
-    case unmatchedAlias(module: String, declaringPackage: PackageIdentity, product: String, package: PackageIdentity)
+    case unmatchedAlias(module: String, declaringPackage: PURL, product: String, package: PURL)
 
     var message: String {
         switch self {

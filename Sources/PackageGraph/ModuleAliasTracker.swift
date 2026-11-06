@@ -24,12 +24,12 @@ struct ModuleAliasTracker {
     /// Key: fully qualified name of a product (package id + product name)
     /// Value: list of modules that the product depends on
     fileprivate var productModules: IdentifiableSet<ProductModules> = []
-    fileprivate var packageModules: [PackageIdentity: IdentifiableSet<ModuleInfo>] = [:]
+    fileprivate var packageModules: [PURL: IdentifiableSet<ModuleInfo>] = [:]
     /// Reverse index: for a module (by package + name), every product that vends it —
     /// i.e. every product whose `intraPackageModules` includes it. Purely structural (built
     /// once alongside `productModules`, before any aliasing state exists), so `vendingProducts(for:)`
     /// can look this up directly instead of scanning every product in the package on every call.
-    fileprivate var vendingProductsIndex: [PackageIdentity: [String: Set<String>]] = [:]
+    fileprivate var vendingProductsIndex: [PURL: [String: Set<String>]] = [:]
 
     /// Flag that tracks whether module aliasing is being used in the current package graph.
     public var moduleAliasingUsed: Bool = false
@@ -43,13 +43,13 @@ struct ModuleAliasTracker {
         /// A module's transitive module dependencies, within the same package.
         let allModuleDependencies: Set<String>
         /// The package identity for which this module belongs to.
-        let packageId: PackageIdentity
+        let packageId: PURL
 
         public var id: String {
             return module.name
         }
 
-        public init(module: Module, package: PackageIdentity) {
+        public init(module: Module, package: PURL) {
             self.module = module
             self.packageId = package
             self.directModuleDependencies = Set(module.dependencies.compactMap(\.module).map(\.name))
@@ -70,7 +70,7 @@ struct ModuleAliasTracker {
         /// The product name.
         let productName: String
         /// The product package.
-        let package: PackageIdentity
+        let package: PURL
         /// The directly dependent modules needed for the product.
         let directModules: Set<String>
         /// All transitively dependent modules within the same package.
@@ -80,7 +80,7 @@ struct ModuleAliasTracker {
         /// All modules reachable by recursively following `crossPackageChildProducts`,
         /// i.e. each child product's own `intraPackageModules` plus its own
         /// cross-package closure. Populated once every product in the graph is known; empty until then.
-        var crossPackageReachableModules: [PackageIdentity: IdentifiableSet<ReachableModule>] = [:]
+        var crossPackageReachableModules: [PURL: IdentifiableSet<ReachableModule>] = [:]
         /// The same modules as `crossPackageReachableModules`, grouped by literal module name
         /// instead of by package.
         var reachableModulesByName: [String: [ReachableModule]] = [:]
@@ -98,7 +98,7 @@ struct ModuleAliasTracker {
             let distance: Int
             public var id: String { moduleInfo.id }
             public var name: String { moduleInfo.module.name }
-            public var packageId: PackageIdentity { moduleInfo.packageId }
+            public var packageId: PURL { moduleInfo.packageId }
             public var dependencies: [Module.Dependency] {
                 moduleInfo.module.dependencies
             }
@@ -110,7 +110,7 @@ struct ModuleAliasTracker {
         ///   modules' own closures is exactly this product's full intra-package module set.
         public init(
             product: Product,
-            package: PackageIdentity,
+            package: PURL,
             packageModules: IdentifiableSet<ModuleInfo>
         ) {
             self.productId = product.identity
@@ -167,7 +167,7 @@ struct ModuleAliasTracker {
             let isSelfRename: Bool
 
             /// The package that defines the aliased module.
-            var originatingPackage: PackageIdentity { self.aliasedModule.packageIdentity }
+            var originatingPackage: PURL { self.aliasedModule.packageIdentity }
         }
         /// The name for which a consuming module knows the aliased module to be named as.
         let canonicalModuleName: String
@@ -295,7 +295,7 @@ struct ModuleAliasTracker {
         var resolved: Set<String> = []
         var inProgress: Set<String> = []
 
-        func resolve(for productId: String) -> [PackageIdentity: IdentifiableSet<ProductModules.ReachableModule>] {
+        func resolve(for productId: String) -> [PURL: IdentifiableSet<ProductModules.ReachableModule>] {
             guard let product = self.productModules[productId] else { return [:] }
             if resolved.contains(product.productId) {
                 return product.crossPackageReachableModules
@@ -305,7 +305,7 @@ struct ModuleAliasTracker {
                 return [product.package: product.intraPackageModules]
             }
             defer { inProgress.remove(productId) }
-            var reachable: [PackageIdentity: IdentifiableSet<ProductModules.ReachableModule>] = [product.package: product.intraPackageModules]
+            var reachable: [PURL: IdentifiableSet<ProductModules.ReachableModule>] = [product.package: product.intraPackageModules]
             for childId in product.crossPackageChildProducts {
                 for (pkg, modules) in resolve(for: childId) {
                     for module in modules.values {
@@ -364,13 +364,13 @@ struct ModuleAliasTracker {
     /// proximity: the closest reachable match wins, using the distance `computeAllReachableModules()`
     /// already precomputed. A genuine tie at the same distance is left unresolved, same as
     /// the original ambiguity check.
-    private func resolveModule(for name: String, reachableThrough product: ProductModules) -> (moduleInfo: ModuleInfo, originatingPackage: PackageIdentity)? {
-        var matchesAtDistance: [Int: [(moduleInfo: ModuleInfo, originatingPackage: PackageIdentity)]] = [:]
+    private func resolveModule(for name: String, reachableThrough product: ProductModules) -> (moduleInfo: ModuleInfo, originatingPackage: PURL)? {
+        var matchesAtDistance: [Int: [(moduleInfo: ModuleInfo, originatingPackage: PURL)]] = [:]
         // Candidates already aliased under a *different* name, where this lookup is asking
         // for their original canonical name again — only relevant as a fallback, so a
         // genuine still-plain sibling (a different physical module sharing the same literal
         // name) is always preferred over flagging a conflicting re-declaration.
-        var reclaimAtDistance: [Int: [(moduleInfo: ModuleInfo, originatingPackage: PackageIdentity)]] = [:]
+        var reclaimAtDistance: [Int: [(moduleInfo: ModuleInfo, originatingPackage: PURL)]] = [:]
 
         // Candidates whose own literal name is `name` — via the precomputed index instead of
         // scanning every reachable module. Already-aliased ones only count as a reclaim
@@ -704,7 +704,7 @@ struct ModuleAliasTracker {
             let vendingProducts = self.vendingProducts(for: moduleInfo)
             let candidatePackages = Set(proposedAlias.candidates.map(\.originatingPackage))
 
-            var bestDistance: [PackageIdentity: Int] = [:]
+            var bestDistance: [PURL: Int] = [:]
             for productId in vendingProducts {
                 guard let product = self.productModules[productId] else { continue }
                 for candidatePackage in candidatePackages {
@@ -858,15 +858,15 @@ public class ModuleAlias: Identifiable {
         /// or as a prior alias name (chained alias).
         let product: Module.ProductReference
         /// The package consuming the product dependency and declaring the alias.
-        let declaringPackage: PackageIdentity
+        let declaringPackage: PURL
         /// The module declaring this module alias.
         let declaringModule: Module
         /// The package that defined the overriddenName of this alias.
-        let originatingPackage: PackageIdentity
+        let originatingPackage: PURL
 
         public struct AliasId: Hashable {
             var name: String
-            var declaringPackage: PackageIdentity
+            var declaringPackage: PURL
         }
 
         public var id: AliasId {
@@ -886,7 +886,7 @@ public class ModuleAlias: Identifiable {
 
     var module: Module
     var vendingProducts: Set<String> = []
-    let package: PackageIdentity
+    let package: PURL
     /// Flat list of all aliases (chained, etc.) for this module.
     var aliases: IdentifiableSet<Alias> = []
     var reverseLookupAliases: [Alias.AliasId: [Alias.AliasId]] = [:]
@@ -922,7 +922,7 @@ public class ModuleAlias: Identifiable {
     /// the module that it renames.
     public struct ModuleAliasID: Hashable {
         var moduleName: String
-        var packageIdentity: PackageIdentity
+        var packageIdentity: PURL
     }
 
     public var id: ID {
@@ -933,7 +933,7 @@ public class ModuleAlias: Identifiable {
     init(
         module: Module,
         products: Set<String>,
-        package: PackageIdentity
+        package: PURL
     ) {
         self.module = module
         self.vendingProducts = products
@@ -987,10 +987,10 @@ public class ModuleAlias: Identifiable {
     func addAlias(
         _ alias: String,
         oldName: String,
-        _ consumingPackage: PackageIdentity,
+        _ consumingPackage: PURL,
         _ declaringModule: Module,
         _ productRef: Module.ProductReference,
-        _ originatingPackage: PackageIdentity
+        _ originatingPackage: PURL
     ) throws {
         // Create alias.
         let alias = Alias(

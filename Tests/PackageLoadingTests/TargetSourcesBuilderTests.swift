@@ -1263,7 +1263,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
         fs: FileSystem,
         file: StaticString = #file,
         line: UInt = #line,
-        checker: (Sources, [Resource], [AbsolutePath], [AbsolutePath], PackageIdentity, PackageReference.Kind, AbsolutePath, [Basics.Diagnostic]) throws -> Void
+        checker: (Sources, [Resource], [AbsolutePath], [AbsolutePath], PURL, PackageReference.Kind, AbsolutePath, [Basics.Diagnostic]) throws -> Void
     ) {
         let observability = ObservabilitySystem.makeForTesting()
         let builder = TargetSourcesBuilder(
@@ -1290,7 +1290,7 @@ final class TargetSourcesBuilderTests: XCTestCase {
 
 extension TargetSourcesBuilder {
     public init(
-        packageIdentity: PackageIdentity,
+        packageIdentity: PURL,
         packageKind: PackageReference.Kind,
         packagePath: AbsolutePath,
         target: TargetDescription,

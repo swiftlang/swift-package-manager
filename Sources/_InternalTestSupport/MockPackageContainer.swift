@@ -107,12 +107,14 @@ public class MockPackageContainer: CustomPackageContainer {
         for (version, deps) in dependenciesByVersion {
             dependencies[version.description] = try deps.map {
                 let path = try AbsolutePath(validating: "/\($0.container)")
-                let ref = PackageReference.localSourceControl(identity: .init(path: path), path: path)
+                let id = PackageIdentity.init(path: path)
+                let ref = PackageReference.localSourceControl(identity: PURL.from(identity: id), path: path)
                 return (ref, .versionSet($0.versionRequirement))
             }
         }
         let path = try AbsolutePath(validating: "/\(name)")
-        let ref = PackageReference.localSourceControl(identity: .init(path: path), path: path)
+        let id = PackageIdentity.init(path: path)
+        let ref = PackageReference.localSourceControl(identity: PURL.from(identity: id), path: path)
         self.init(package: ref, dependencies: dependencies)
     }
 
@@ -140,12 +142,14 @@ public class MockPackageContainer: CustomPackageContainer {
         for (filter, deps) in dependenciesByProductFilter {
             dependencies[filter] = try deps.map {
                 let path = try AbsolutePath(validating: "/\($0.container)")
-                let ref = PackageReference.localSourceControl(identity: .init(path: path), path: path)
+                let id = PackageIdentity(path: path)
+                let ref = PackageReference.localSourceControl(identity: PURL.from(identity: id), path: path)
                 return (ref, .versionSet($0.versionRequirement))
             }
         }
         let path = try AbsolutePath(validating: "/\(name)")
-        let ref = PackageReference.localSourceControl(identity: .init(path: path), path: path)
+        let id = PackageIdentity(path: path)
+        let ref = PackageReference.localSourceControl(identity: PURL.from(identity: id), path: path)
         self.package = ref
         self._versions = [Version(1, 0, 0)]
         self.dependencies = [:]

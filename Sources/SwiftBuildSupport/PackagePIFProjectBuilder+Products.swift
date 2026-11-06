@@ -796,8 +796,8 @@ extension PackagePIFProjectBuilder {
                 product: product.underlying,
                 productName: product.name,
                 targetName: product.targetName(),
-                packageIdentity: package.identity,
-                packageName: package.identity.c99name,
+                packageIdentity: package.identity.packageIdentity,
+                packageName: package.identity.packageIdentity.c99name,
                 createDylibForDynamicProducts: pifBuilder.createDylibForDynamicProducts,
                 installPath: installPath(for: product.underlying),
                 delegate: pifBuilder.delegate

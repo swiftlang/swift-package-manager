@@ -31,11 +31,11 @@ public final class PackageGraphResultXCTest {
     }
 
     public func check(roots: PackageIdentity..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.rootPackages.map{$0.identity }.sorted(), roots.sorted(), file: file, line: line)
+        XCTAssertEqual(graph.rootPackages.map{ $0.identity.packageIdentity }.sorted(), roots.sorted(), file: file, line: line)
     }
 
     public func check(packages: PackageIdentity..., file: StaticString = #file, line: UInt = #line) {
-        XCTAssertEqual(graph.packages.map {$0.identity }.sorted(), packages.sorted(), file: file, line: line)
+        XCTAssertEqual(graph.packages.map { $0.identity.packageIdentity }.sorted(), packages.sorted(), file: file, line: line)
     }
 
     public func check(modules: String..., file: StaticString = #file, line: UInt = #line) {
@@ -138,7 +138,7 @@ public final class PackageGraphResultXCTest {
     }
 
     public func find(package: PackageIdentity) -> ResolvedPackage? {
-        return graph.package(for: package)
+        return graph.package(for: PURL.from(identity: package))
     }
 
     private func reachableBuildTargets(in environment: BuildEnvironment) throws -> IdentifiableSet<ResolvedModule> {

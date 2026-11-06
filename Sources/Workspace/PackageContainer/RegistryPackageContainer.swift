@@ -66,7 +66,7 @@ public class RegistryPackageContainer: PackageContainer {
         await self.validToolsVersionsCache.memoize(version) {
             do {
                 let toolsVersion = try await self.toolsVersion(for: version)
-                try toolsVersion.validateToolsVersion(self.currentToolsVersion, packageIdentity: self.package.identity)
+                try toolsVersion.validateToolsVersion(self.currentToolsVersion, packageIdentity: self.package.identity.packageIdentity)
                 return true
             } catch {
                 return false
@@ -82,7 +82,7 @@ public class RegistryPackageContainer: PackageContainer {
             return try ToolsVersionParser.parse(
                 manifestPath: manifestPath,
                 fileSystem: result.fileSystem,
-                packageIdentity: self.package.identity
+                packageIdentity: self.package.identity.packageIdentity
             )
         }
     }
@@ -152,7 +152,7 @@ public class RegistryPackageContainer: PackageContainer {
         let preferredToolsVersion = try ToolsVersionParser.parse(
             manifestPath: preferredToolsVersionManifestPath,
             fileSystem: fileSystem,
-            packageIdentity: self.package.identity
+            packageIdentity: self.package.identity.packageIdentity
         )
         // load the manifest content
         let loadManifest = {
