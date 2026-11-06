@@ -73,6 +73,14 @@ extension PackagePIFProjectBuilder {
             assert(product.type == .test, "Unexpected product type: \(product.type)")
             pifProductType = .unitTest
             moduleOrProductType = .unitTest
+
+            // A test bundle is a dynamic library, and its test runner is a separate executable that
+            // references the bundle's contents. Track the modules folded into the bundle the same way
+            // we do for a dynamic library product, so they are not compiled for static linking and
+            // their symbols are exported for the runner to reference.
+            for module in try product.recursiveModuleDependencies() where module.isSourceModule {
+                self.modulesInDynamicLibraries.insert(module.name)
+            }
         }
 
         // It's not a library product, so create a regular PIF target of the appropriate product type.
