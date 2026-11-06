@@ -14157,6 +14157,63 @@ final class WorkspaceTests: XCTestCase {
         )
     }
 
+    func testForceResolvedVersionsUpdatesRegistryDownloadWhenPinChanges() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "RootTarget", dependencies: [
+                            .product(name: "Foo", package: "org.foo"),
+                        ]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .registry(identity: "org.foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ]
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Foo",
+                    identity: "org.foo",
+                    targets: [MockTarget(name: "Foo")],
+                    products: [MockProduct(name: "Foo", modules: ["Foo"])],
+                    versions: ["1.0.0", "1.1.0"]
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .registryDownload("1.1.0"))
+        }
+
+        // Change the resolved version of org.foo while the workspace state still records 1.1.0.
+        do {
+            let ws = try workspace.getOrCreateWorkspace()
+            let resolvedPackagesStore = try ws.resolvedPackagesStore.load()
+            let fooPin = try XCTUnwrap(resolvedPackagesStore.resolvedPackages[.plain("org.foo")])
+            resolvedPackagesStore.track(packageRef: fooPin.packageRef, state: .version("1.0.0", revision: nil), scm: nil)
+            try resolvedPackagesStore.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
+        }
+
+        // Force resolution must download the resolved version instead of keeping the stale 1.1.0 download.
+        try await workspace.checkPackageGraph(roots: ["Root"], forceResolvedVersions: true) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "org.foo", at: .registryDownload("1.0.0"))
+        }
+    }
+
     func testBasicResolutionFromRegistry() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
