@@ -183,6 +183,9 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(enum: "exact", string: "\(version)"))
             case .range(let range):
                 params.append(SourceCodeFragment("\"\(range.lowerBound)\"..<\"\(range.upperBound)\""))
+            case .ranges(let ranges):
+                let list = ranges.map { "\"\($0.lowerBound)\"..<\"\($0.upperBound)\"" }.joined(separator: ", ")
+                params.append(SourceCodeFragment("versions: \(list)"))
             case .revision(let revision):
                 params.append(SourceCodeFragment(enum: "revision", string: revision))
             case .branch(let branch):
@@ -195,6 +198,9 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(enum: "exact", string: "\(version)"))
             case .range(let range):
                 params.append(SourceCodeFragment("\"\(range.lowerBound)\"..<\"\(range.upperBound)\""))
+            case .ranges(let ranges):
+                let list = ranges.map { "\"\($0.lowerBound)\"..<\"\($0.upperBound)\"" }.joined(separator: ", ")
+                params.append(SourceCodeFragment("versions: \(list)"))
             }
         }
 
