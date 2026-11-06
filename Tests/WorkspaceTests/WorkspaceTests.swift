@@ -11900,8 +11900,97 @@ final class WorkspaceTests: XCTestCase {
 
                 let prefix2 = sandbox.appending(components: ["pkgs", "standard", "glass"])
                 result.checkUnordered(
-                    diagnostic: .contains("Conflicting identity for glass: chains of dependencies for \(prefix2): [[\(sandboxCanonicalPackageLocation)/roots/root, \(sandboxCanonicalPackageLocation)/pkgs/shack, \(sandboxCanonicalPackageLocation)/pkgs/standard/glass], [\(sandboxCanonicalPackageLocation)/roots/root, \(sandboxCanonicalPackageLocation)/pkgs/house, \(sandboxCanonicalPackageLocation)/pkgs/budget_window, \(sandboxCanonicalPackageLocation)/pkgs/standard/glass]]"),
+                    diagnostic: .contains(
+                        "Conflicting identity for glass: chains of dependencies for \(prefix2): [[\(sandboxCanonicalPackageLocation)/roots/root, \(sandboxCanonicalPackageLocation)/pkgs/shack, \(sandboxCanonicalPackageLocation)/pkgs/standard/glass]]"
+                    ),
                     severity: .debug
+                )
+            }
+        }
+    }
+
+    func testDuplicateTransitiveIdentityInWideDiamondGraph() async throws {
+        // Every package in a layer depends on every package in the next layer, so the root reaches
+        // standard/glass through 3^14 chains, which must not be enumerated.
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let width = 3
+        let depth = 14
+        func name(_ layer: Int, _ index: Int) -> String {
+            "P\(layer)x\(index)"
+        }
+        func dependencies(onLayer layer: Int) -> ([MockDependency], [TargetDescription.Dependency]) {
+            guard layer < depth else {
+                return (
+                    [.sourceControl(path: "standard/glass", requirement: .upToNextMajor(from: "1.0.0"))],
+                    [.product(name: "StandardGlassProduct", package: "glass")]
+                )
+            }
+            return (
+                (0 ..< width).map { .sourceControl(
+                    path: "\(name(layer, $0))",
+                    requirement: .upToNextMajor(from: "1.0.0")
+                ) },
+                (0 ..< width).map { .product(name: name(layer, $0), package: name(layer, $0)) }
+            )
+        }
+
+        var packages: [MockPackage] = []
+        for layer in 0 ..< depth {
+            for index in 0 ..< width {
+                var (packageDependencies, targetDependencies) = dependencies(onLayer: layer + 1)
+                // This dependency triggers the conflict.
+                if layer == 0 && index == 0 {
+                    packageDependencies.append(
+                        .sourceControl(path: "tempered/glass", requirement: .upToNextMajor(from: "1.0.0"))
+                    )
+                    targetDependencies.append(.product(name: "TemperedGlassProduct", package: "glass"))
+                }
+                try packages.append(MockPackage(
+                    name: name(layer, index),
+                    path: name(layer, index),
+                    targets: [MockTarget(name: name(layer, index), dependencies: targetDependencies)],
+                    products: [MockProduct(name: name(layer, index), modules: [name(layer, index)])],
+                    dependencies: packageDependencies,
+                    versions: ["1.0.0"]
+                ))
+            }
+        }
+        try packages.append(MockPackage(
+            name: "StandardGlassPackage",
+            path: "standard/glass",
+            targets: [MockTarget(name: "StandardGlassTarget")],
+            products: [MockProduct(name: "StandardGlassProduct", modules: ["StandardGlassTarget"])],
+            versions: ["1.0.0"]
+        ))
+        try packages.append(MockPackage(
+            name: "TemperedGlassPackage",
+            path: "tempered/glass",
+            targets: [MockTarget(name: "TemperedGlassTarget")],
+            products: [MockProduct(name: "TemperedGlassProduct", modules: ["TemperedGlassTarget"])],
+            versions: ["1.0.0"]
+        ))
+
+        let (rootDependencies, rootTargetDependencies) = dependencies(onLayer: 0)
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [MockTarget(name: "RootTarget", dependencies: rootTargetDependencies)],
+                    products: [],
+                    dependencies: rootDependencies
+                ),
+            ],
+            packages: packages
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { _, diagnostics in
+            testPartialDiagnostics(diagnostics, minSeverity: .warning) { result in
+                result.check(
+                    diagnostic: .contains("Conflicting identity for glass"),
+                    severity: .warning
                 )
             }
         }
