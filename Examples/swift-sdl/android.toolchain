@@ -1,0 +1,8 @@
+set(ANDROID_ABI      "arm64-v8a"             CACHE STRING "Target ABI")
+set(ANDROID_PLATFORM "android-35" CACHE STRING "Minimum API level")
+set(ANDROID_STL      "c++_static"         CACHE STRING "NDK C++ runtime")
+set(ANDROID_ARM_NEON ON                   CACHE BOOL   "Enable NEON")
+
+set(CMAKE_ANDROID_API_MIN 35)
+
+include("$ENV{ANDROID_NDK_HOME}/build/cmake/android.toolchain.cmake")

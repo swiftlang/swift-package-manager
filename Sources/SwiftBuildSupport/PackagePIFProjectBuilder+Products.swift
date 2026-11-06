@@ -220,7 +220,6 @@ extension PackagePIFProjectBuilder {
         if let includeDirAbsolutePath = mainModule.includeDirAbsolutePath {
             headerSearchPaths.append(includeDirAbsolutePath)
         }
-        headerSearchPaths += generatedFiles.publicHeaderPaths
 
         if !headerSearchPaths.isEmpty {
             // Let the main module itself find its own headers.
@@ -243,6 +242,7 @@ extension PackagePIFProjectBuilder {
             let (moduleMapFileContents, moduleMapPath) = try self.configureSwiftTargetModuleMap(
                 for: mainModule,
                 targetSuffix: nil,
+                generatedFiles: generatedFiles,
                 settings: &settings,
                 impartedSettings: &impartedSettings
             )
