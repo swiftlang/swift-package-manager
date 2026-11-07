@@ -16,7 +16,7 @@ import struct SWBUtil.AbsolutePath
 import Testing
 @_spi(Testing)
 import SwiftBuild
-import SwiftBuildSupport
+@testable import SwiftBuildSupport
 
 import TSCBasic
 import _InternalTestSupport
@@ -561,6 +561,20 @@ struct SwiftBuildSystemMessageHandlerTests {
         let output = self.outputStream.bytes.description
         let occurrences = output.components(separatedBy: "Compile Foo").count - 1
         #expect(occurrences == 1)
+    }
+
+    @Test
+    func testDiagnosticBufferStoresAppendByLocationContext2() {
+        let key = SwiftBuildMessage.LocationContext2(targetID: 1, taskSignature: "mock-task-signature")
+        guard case .diagnostic(let diagnostic) = SwiftBuildMessage.diagnostic(locationContext2: key) else {
+            Issue.record("Expected a diagnostic message")
+            return
+        }
+
+        var buffer = SwiftBuildSystemMessageHandler.BuildState.TaskDiagnosticBuffer()
+        buffer[key, default: []].append(diagnostic)
+
+        #expect(buffer[key] == [diagnostic])
     }
 }
 
