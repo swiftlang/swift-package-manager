@@ -150,4 +150,28 @@ final class CrossCompilationPackageGraphTests: XCTestCase {
             }
         }
     }
+
+    func testMacroDepsArePropagatedAsHost() throws {
+        let graph = try macrosPackageGraph().graph
+        XCTAssertEqual(graph.module(for: "MMIOMacros")?.platformConstraint, .host)
+        XCTAssertEqual(graph.module(for: "SwiftSyntax")?.platformConstraint, .host)
+        XCTAssertEqual(graph.module(for: "MMIO")?.platformConstraint, .all)
+        XCTAssertEqual(graph.module(for: "Core")?.platformConstraint, .all)
+        XCTAssertEqual(graph.module(for: "HAL")?.platformConstraint, .all)
+        XCTAssertEqual(graph.module(for: "CoreTests")?.platformConstraint, .all)
+        XCTAssertEqual(graph.module(for: "HALTests")?.platformConstraint, .all)
+    }
+
+    func testPluginDepsArePropagatedAsHost() throws {
+        let graph = try pluginWithExecutableDepGraph().graph
+        XCTAssertEqual(graph.module(for: "MyBuildPlugin")?.platformConstraint, .host)
+        XCTAssertEqual(graph.module(for: "MyTool")?.platformConstraint, .host)
+        XCTAssertEqual(graph.module(for: "MyMacros")?.platformConstraint, .host)
+        XCTAssertEqual(graph.module(for: "SwiftSyntax")?.platformConstraint, .host)
+        XCTAssertEqual(graph.module(for: "SwiftCompilerPlugin")?.platformConstraint, .host)
+        XCTAssertEqual(graph.module(for: "SwiftCompilerPluginMessageHandling")?.platformConstraint, .host)
+        XCTAssertEqual(graph.module(for: "MyApp")?.platformConstraint, .all)
+        XCTAssertEqual(graph.module(for: "MyAppTests")?.platformConstraint, .all)
+        XCTAssertEqual(graph.module(for: "MyPluginUserTests")?.platformConstraint, .all)
+    }
 }
