@@ -509,6 +509,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 input: .init(packages: [packagePath]),
                 manifests: [packagePath: rootPackageManifest],
                 observabilityScope: observabilityScope,
+                implicitDependencies: [],
                 enabledTraitsMap: .init()
             )
 
@@ -520,6 +521,7 @@ struct SwiftBootstrapBuildTool: AsyncParsableCommand {
                 },
                 binaryArtifacts: [:],
                 prebuilts: [:],
+                implicitDependencies: [],
                 fileSystem: fileSystem,
                 observabilityScope: observabilityScope,
                 enabledTraitsMap: [:] // When bootstrapping no special trait build configuration is used

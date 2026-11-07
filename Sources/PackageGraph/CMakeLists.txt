@@ -11,6 +11,7 @@ add_library(PackageGraph
   DependencyMirrors.swift
   Diagnostics.swift
   GraphLoadingNode.swift
+  ImplicitDependency.swift
   ModuleAliasTracker.swift
   ModuleAliasDiagnostic.swift
   ModulesGraph.swift

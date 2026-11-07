@@ -1068,6 +1068,9 @@ public struct WorkspaceConfiguration {
     /// The trait configuration for the root.
     public var traitConfiguration: TraitConfiguration
 
+    /// Implicit dependencies to inject into the package manifests.
+    public var implicitDependencies: [ImplicitDependency]
+
     public init(
         skipDependenciesUpdates: Bool,
         prefetchBasedOnResolvedFile: Bool,
@@ -1085,7 +1088,8 @@ public struct WorkspaceConfiguration {
         prebuiltsDownloadURL: String?,
         prebuiltsRootCertPath: String?,
         pruneDependencies: Bool,
-        traitConfiguration: TraitConfiguration
+        traitConfiguration: TraitConfiguration,
+        implicitDependencies: [ImplicitDependency]
     ) {
         self.skipDependenciesUpdates = skipDependenciesUpdates
         self.prefetchBasedOnResolvedFile = prefetchBasedOnResolvedFile
@@ -1104,6 +1108,7 @@ public struct WorkspaceConfiguration {
         self.prebuiltsRootCertPath = prebuiltsRootCertPath
         self.pruneDependencies = pruneDependencies
         self.traitConfiguration = traitConfiguration
+        self.implicitDependencies = implicitDependencies
     }
 
     /// Default instance of WorkspaceConfiguration
@@ -1125,7 +1130,8 @@ public struct WorkspaceConfiguration {
             prebuiltsDownloadURL: nil,
             prebuiltsRootCertPath: nil,
             pruneDependencies: false,
-            traitConfiguration: .default
+            traitConfiguration: .default,
+            implicitDependencies: []
         )
     }
 
