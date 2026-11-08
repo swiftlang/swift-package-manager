@@ -168,6 +168,55 @@ final class TargetSourcesBuilderTests: XCTestCase {
             XCTAssertEqual(contents.filter { $0.basename == "BFile.swift" }.count, 1)
         }
     }
+
+    func testDeclaredSourceNotDroppedWhenSymlinkAliasIsWalkedFirst() throws {
+        // When a target declares explicit sources, a directory symlink aliasing
+        // the canonical source directory must not make the declared file
+        // disappear: if the alias is walked first, the canonical directory
+        // was skipped by the visited-directories dedup and the declared file
+        // received no compile rule.
+        // The walk pops directories last-in-first-out, so creating the alias
+        // parent last makes the alias the first directory visited. If the
+        // filesystem lists the directories in a different order, the canonical
+        // directory is visited first and the test passes without exercising
+        // the fix; it never fails spuriously.
+        try testWithTemporaryDirectory { tmpPath in
+            let fs = localFileSystem
+            let root = tmpPath.appending("Pkg")
+            try fs.createDirectory(root.appending(components: "hermes", "Public"), recursive: true)
+            try fs.createDirectory(root.appending(components: "src"), recursive: true)
+            try fs.createDirectory(root.appending(components: "Modules", "Hermes"), recursive: true)
+            try fs.writeFileContents(root.appending(components: "hermes", "Public", "rtti.cpp"), bytes: "int upstream_symbol() { return 42; }\n")
+            try fs.writeFileContents(root.appending(components: "src", "keep.cpp"), bytes: "int keep() { return 0; }\n")
+            try fs.createSymbolicLink(
+                root.appending(components: "Modules", "Hermes", "Public"),
+                pointingAt: root.appending(components: "hermes", "Public"),
+                relative: false
+            )
+
+            let target = try TargetDescription(
+                name: "RuntimeInfo", path: nil, exclude: [],
+                sources: ["src/keep.cpp", "hermes/Public/rtti.cpp"],
+                publicHeadersPath: nil, type: .regular
+            )
+            let observability = ObservabilitySystem.makeForTesting()
+            let builder = TargetSourcesBuilder(
+                packageIdentity: .plain("test"), packageKind: .root(root), packagePath: root,
+                target: target, path: root, toolsVersion: .v5_6,
+                fileSystem: fs, observabilityScope: observability.topScope
+            )
+
+            let (sources, _, _, _, _) = try builder.run()
+            XCTAssertEqual(
+                sources.paths,
+                [
+                    root.appending(components: "hermes", "Public", "rtti.cpp"),
+                    root.appending(components: "src", "keep.cpp"),
+                ],
+                "declared source dropped when its directory was reached through a symlink alias first"
+            )
+        }
+    }
     #endif
 
 

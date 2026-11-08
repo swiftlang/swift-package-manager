@@ -431,6 +431,12 @@ public struct TargetSourcesBuilder {
         return path == targetPath || declaredSources?.contains(path) == true
     }
 
+    /// Returns true if the given path is a declared source or contains one.
+    private func isDeclaredSourceOrAncestor(_ path: Basics.AbsolutePath) -> Bool {
+        guard let declaredSources else { return false }
+        return declaredSources.contains { $0.isDescendantOfOrEqual(to: path) }
+    }
+
     /// Compute the contents of the files in a target.
     ///
     /// This avoids recursing into certain directories like exclude or the
@@ -440,6 +446,9 @@ public struct TargetSourcesBuilder {
         // Dedup the walk by real (symlink-resolved) directory path to break symlink cycles.
         var queue: [(Basics.AbsolutePath, Basics.AbsolutePath?)] = [(targetPath, nil)]
         var visitedDirectories: Set<Basics.AbsolutePath> = []
+        // Directories re-walked once via the declared-source exception below,
+        // so a symlink cycle still terminates.
+        var revisitedDirectories: Set<Basics.AbsolutePath> = []
 
         // Ignore xcodeproj and playground directories.
         var ignoredDirectoryExtensions = ["xcodeproj", "playground", "xcworkspace"]
@@ -539,8 +548,16 @@ public struct TargetSourcesBuilder {
             } else {
                 realPath = (try? resolveSymlinks(path)) ?? path
             }
-            guard visitedDirectories.insert(realPath).inserted else {
-                continue
+            if !visitedDirectories.insert(realPath).inserted {
+                // A symlink alias of this directory was walked first, so its
+                // files were discovered under the alias path. If this directory
+                // or something under it is an explicitly declared source, walk
+                // it anyway so the declared file is discovered under its
+                // declared path and gets a compile rule. Allow one such
+                // re-walk per real directory so a symlink cycle still ends.
+                if !isDeclaredSourceOrAncestor(path) || !revisitedDirectories.insert(realPath).inserted {
+                    continue
+                }
             }
 
             // Otherwise, add its content to the queue.
