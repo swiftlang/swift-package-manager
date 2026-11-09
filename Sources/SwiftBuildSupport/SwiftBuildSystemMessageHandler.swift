@@ -164,15 +164,9 @@ public final class SwiftBuildSystemMessageHandler {
 
         // Handle diagnostics, if applicable.
         // This handles diagnostics for successful tasks, which could be notes or warnings.
-        let diagnostics = self.buildState.diagnostics(for: info)
-        if !diagnostics.isEmpty {
-            // Emit diagnostics using the `DiagnosticInfo` model.
-            diagnostics.forEach({ emitInfoAsDiagnostic(info: $0) })
-        } else {
-            // Emit diagnostics through textual compiler output.
-            let isDiagnosticOutput = self.buildState.diagnosticDataBufferExists(for: info)
-            emitDiagnosticCompilerOutput(startedInfo, condition: isDiagnosticOutput ? .always : .onlyWhenVerbose)
-        }
+        self.buildState.diagnostics(for: info).forEach({ emitInfoAsDiagnostic(info: $0) })
+        let isDiagnosticOutput = self.buildState.diagnosticDataBufferExists(for: info)
+        emitDiagnosticCompilerOutput(startedInfo, condition: isDiagnosticOutput ? .always : .onlyWhenVerbose)
 
         // Handle task backtraces, if applicable.
         if let renderedBacktrace, !renderedBacktrace.isEmpty {
@@ -196,17 +190,10 @@ public final class SwiftBuildSystemMessageHandler {
         // Track failed tasks.
         self.failedTasks.append(info.taskID)
 
-        // Check for existing diagnostics with matching taskID/taskSignature.
-        // If we've captured the compiler output with formatted diagnostics keyed by
-        // this task's signature, emit them.
-        // Note that this is a workaround instead of emitting directly from a `DiagnosticInfo`
-        // message, as here we receive the formatted code snippet directly from the compiler.
-        let diagnosticsBuffer = buildState.diagnostics(for: info)
-        if !diagnosticsBuffer.isEmpty {
-            diagnosticsBuffer.forEach({ emitInfoAsDiagnostic(info: $0) })
-        } else {
-            emitDiagnosticCompilerOutput(startedInfo, condition: .always)
-        }
+        // Emit diagnostics which were not part of the task's textual output, then the
+        // captured compiler output.
+        buildState.diagnostics(for: info).forEach({ emitInfoAsDiagnostic(info: $0) })
+        emitDiagnosticCompilerOutput(startedInfo, condition: .always)
 
         let message = "\(startedInfo.ruleInfo) failed with a nonzero exit code."
         // If we have the command line display string available, then we
