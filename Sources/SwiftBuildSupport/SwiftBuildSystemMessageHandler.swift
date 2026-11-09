@@ -625,7 +625,9 @@ extension SwiftBuildSystemMessageHandler.BuildState {
         subscript(key: SwiftBuildMessage.LocationContext2, default defaultValue: [SwiftBuildMessage.DiagnosticInfo]) -> [SwiftBuildMessage.DiagnosticInfo] {
             get { self[key] ?? defaultValue }
             set {
-                self[key, default: defaultValue]
+                if let taskSignature = key.taskSignature {
+                    self[taskSignature] = newValue
+                }
             }
         }
 
