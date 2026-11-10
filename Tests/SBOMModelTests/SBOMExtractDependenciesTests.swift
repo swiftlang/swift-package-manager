@@ -393,4 +393,87 @@ struct SBOMExtractDependenciesTests {
         let store = try SBOMTestStore.createSPMResolvedPackagesStore()
         try await self.verifyProductDependencies(graph: graph, store: store, filter: .package, product: "SwiftPMDataModel")
     }
+
+    // MARK: - Public Targets
+
+    private func extractPublicTargetsSBOM(
+        graph: ModulesGraph,
+        target: String? = nil,
+        filter: Filter = .all
+    ) async throws -> SBOMDocument {
+        let extractor = SBOMExtractor(
+            modulesGraph: graph,
+            dependencyGraph: nil,
+            store: try SBOMTestStore.createEmptyResolvedPackagesStore()
+        )
+        return try await extractor.extractSBOM(target: target, filter: filter)
+    }
+
+    private func relationshipMap(_ dependencies: SBOMDependencies) -> [String: Set<String>] {
+        Dictionary(uniqueKeysWithValues: (dependencies.relationships ?? []).map { relationship in
+            (relationship.parentID.value, Set(relationship.childrenID.map(\.value)))
+        })
+    }
+
+    @Test
+    func extractDependenciesWithPublicTargetDependency() async throws {
+        let graph = try SBOMTestModulesGraph.loadPublicTargetsModulesGraph()
+        let dependencies = try await self.extractPublicTargetsSBOM(graph: graph).dependencies
+
+        let fooLib = try #require(dependencies.components.first { $0.id.value == "foo:target:FooLib" })
+        #expect(fooLib.entity == .target)
+        #expect(fooLib.name == "FooLib")
+        #expect(fooLib.category == .library)
+        #expect(fooLib.scope == .runtime)
+        #expect(fooLib.purl.description == "pkg:swift/foo/foo:target:FooLib")
+
+        let componentIDs = Set(dependencies.components.map(\.id.value))
+        #expect(!componentIDs.contains("foo:target:FooHelper"))
+        #expect(!componentIDs.contains("bar:target:BarCore"))
+        #expect(!componentIDs.contains("bar:target:Bar"))
+
+        #expect(self.relationshipMap(dependencies) == [
+            "bar": ["bar:Bar", "foo"],
+            "bar:Bar": ["foo:target:FooLib"],
+            "foo": ["foo:target:FooLib"],
+        ])
+    }
+
+    @Test
+    func extractDependenciesForTarget() async throws {
+        let graph = try SBOMTestModulesGraph.loadPublicTargetsModulesGraph()
+        let dependencies = try await self.extractPublicTargetsSBOM(graph: graph, target: "Bar").dependencies
+
+        #expect(self.relationshipMap(dependencies) == [
+            "bar": ["bar:target:Bar", "foo"],
+            "bar:target:Bar": ["foo:target:FooLib"],
+            "foo": ["foo:target:FooLib"],
+        ])
+    }
+
+    @Test
+    func extractDependenciesForPackageVisibleTarget() async throws {
+        let graph = try SBOMTestModulesGraph.loadPublicTargetsModulesGraph()
+        let dependencies = try await self.extractPublicTargetsSBOM(graph: graph, target: "BarCore").dependencies
+
+        #expect(self.relationshipMap(dependencies) == ["bar": ["bar:target:BarCore"]])
+    }
+
+    @Test
+    func extractDependenciesForTargetWithProductFilter() async throws {
+        let graph = try SBOMTestModulesGraph.loadPublicTargetsModulesGraph()
+        let dependencies = try await self.extractPublicTargetsSBOM(graph: graph, target: "Bar", filter: .product).dependencies
+
+        #expect(Set(dependencies.components.map(\.id.value)) == ["bar:target:Bar", "foo:target:FooLib"])
+        #expect(self.relationshipMap(dependencies) == ["bar:target:Bar": ["foo:target:FooLib"]])
+    }
+
+    @Test
+    func extractDependenciesForTargetWithPackageFilter() async throws {
+        let graph = try SBOMTestModulesGraph.loadPublicTargetsModulesGraph()
+        let dependencies = try await self.extractPublicTargetsSBOM(graph: graph, target: "Bar", filter: .package).dependencies
+
+        #expect(Set(dependencies.components.map(\.id.value)) == ["bar", "bar:target:Bar", "foo"])
+        #expect(self.relationshipMap(dependencies) == ["bar": ["bar:target:Bar", "foo"]])
+    }
 }

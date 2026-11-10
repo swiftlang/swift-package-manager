@@ -13,9 +13,10 @@
 import _InternalTestSupport
 import Basics
 import Foundation
-import PackageGraph
+@_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly) import PackageGraph
 import PackageModel
 @testable import SBOMModel
+import Testing
 
 /// A test case that bundles a ModulesGraph with its expected test outcomes
 struct SBOMTestCase {
@@ -270,5 +271,60 @@ enum SBOMTestModulesGraph {
             modules: IdentifiableSet(resolvedModules),
             products: products
         )
+    }
+}
+
+extension SBOMTestModulesGraph {
+    static func loadPublicTargetsModulesGraph(
+        fooLibDependency: TargetDescription.Dependency = .target(name: "FooLib", package: "Foo", condition: nil)
+    ) throws -> ModulesGraph {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Foo/Sources/FooLib/src.swift",
+            "/Foo/Sources/FooHelper/src.swift",
+            "/Bar/Sources/Bar/main.swift",
+            "/Bar/Sources/BarCore/src.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    toolsVersion: .vNext,
+                    targets: [
+                        TargetDescription(
+                            name: "FooLib",
+                            dependencies: ["FooHelper"],
+                            type: .library(.dynamic),
+                            visibility: .public
+                        ),
+                        TargetDescription(name: "FooHelper"),
+                    ]
+                ),
+                Manifest.createRootManifest(
+                    displayName: "Bar",
+                    path: "/Bar",
+                    toolsVersion: .vNext,
+                    dependencies: [
+                        .localSourceControl(path: "/Foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [
+                        TargetDescription(
+                            name: "Bar",
+                            dependencies: ["BarCore", fooLibDependency],
+                            type: .executable,
+                            visibility: .public
+                        ),
+                        TargetDescription(name: "BarCore"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        expectNoDiagnostics(observability.diagnostics)
+        return graph
     }
 }

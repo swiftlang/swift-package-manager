@@ -35,8 +35,17 @@ extension SwiftPackageCommand {
         @Option(help: "The product to generate an SBOM for.")
         var product: String?
 
+        @Option(help: "The target to generate an SBOM for.")
+        var target: String?
+
         @OptionGroup(title: "Software Bill of Materials (SBOM)")
         var sbom: SBOMOptions
+
+        func validate() throws {
+            if self.product != nil && self.target != nil {
+                throw ValidationError("'--product' and '--target' cannot be specified together")
+            }
+        }
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             do {
@@ -57,6 +66,7 @@ extension SwiftPackageCommand {
                     store: resolvedPackagesStore,
                     filter: try self.sbom.sbomFilter,
                     product: self.product,
+                    target: self.target,
                     specs: specs.isEmpty ? Spec.allCases : specs,
                     dir: await SBOMCreator.resolveSBOMDirectory(from: self.sbom.sbomDirectory, withDefault: try await buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)),
                     observabilityScope: swiftCommandState.observabilityScope

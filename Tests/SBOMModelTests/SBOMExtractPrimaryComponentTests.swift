@@ -13,6 +13,7 @@
 import _InternalTestSupport
 import Basics
 import Foundation
+import PackageGraph
 import PackageModel
 @testable import SBOMModel
 import SourceControl
@@ -720,5 +721,73 @@ struct SBOMExtractPrimaryComponentTests {
             #expect(componentID.value == package.identity.description)
             #expect(!componentID.value.contains(":"), "Package ID should not contain colon")
         }
+    }
+
+    @Test
+    func extractPrimaryComponentForTarget() async throws {
+        let graph = try SBOMTestModulesGraph.loadPublicTargetsModulesGraph()
+        let extractor = SBOMExtractor(
+            modulesGraph: graph,
+            dependencyGraph: nil,
+            store: try SBOMTestStore.createEmptyResolvedPackagesStore()
+        )
+        let component = try await extractor.extractPrimaryComponent(target: "Bar")
+
+        #expect(component.id.value == "bar:target:Bar")
+        #expect(component.name == "Bar")
+        #expect(component.entity == .target)
+        #expect(component.category == .application)
+        #expect(component.scope == .runtime)
+    }
+
+    @Test
+    func extractPrimaryComponentForUnknownTarget() async throws {
+        let graph = try SBOMTestModulesGraph.loadPublicTargetsModulesGraph()
+        let extractor = SBOMExtractor(
+            modulesGraph: graph,
+            dependencyGraph: nil,
+            store: try SBOMTestStore.createEmptyResolvedPackagesStore()
+        )
+        await #expect {
+            try await extractor.extractPrimaryComponent(target: "Missing")
+        } throws: { error in
+            guard case SBOMExtractorError.targetNotFound(let targetName, let packageIdentity) = error else {
+                return false
+            }
+            return targetName == "Missing" && packageIdentity == "bar"
+        }
+    }
+
+    @Test
+    func extractPrimaryComponentForProductAndTarget() async throws {
+        let graph = try SBOMTestModulesGraph.loadPublicTargetsModulesGraph()
+        let extractor = SBOMExtractor(
+            modulesGraph: graph,
+            dependencyGraph: nil,
+            store: try SBOMTestStore.createEmptyResolvedPackagesStore()
+        )
+        await #expect {
+            try await extractor.extractPrimaryComponent(product: "Bar", target: "Bar")
+        } throws: { error in
+            guard case SBOMExtractorError.productAndTargetSpecified = error else {
+                return false
+            }
+            return true
+        }
+    }
+
+    @Test
+    func extractPackageComponentWithPublicTargets() async throws {
+        let graph = try SBOMTestModulesGraph.loadPublicTargetsModulesGraph()
+        let extractor = SBOMExtractor(
+            modulesGraph: graph,
+            dependencyGraph: nil,
+            store: try SBOMTestStore.createEmptyResolvedPackagesStore()
+        )
+        let fooPackage = try #require(graph.package(for: .plain("foo")))
+        let component = try await extractor.extractComponent(package: fooPackage)
+
+        #expect(component.category == .library)
+        #expect(component.components?.map(\.id.value) == ["foo:target:FooLib"])
     }
 }

@@ -42,7 +42,6 @@ internal enum SBOMGenerationError: Error, LocalizedError, CustomStringConvertibl
 /// Errors that can occur during the SBOM generation command
 package enum SBOMCommandError: Error, LocalizedError {
     case noSpecArg
-    case targetFlagNotSupported
     case invalidFilterValue(value: String)
     case invalidSpecValue(value: String)
     
@@ -50,8 +49,6 @@ package enum SBOMCommandError: Error, LocalizedError {
         switch self {
         case .noSpecArg:
             return "No SBOM specification argument provided. Use --sbom-spec or SWIFTPM_BUILD_SBOM_SPEC to specify the SBOM format."
-        case .targetFlagNotSupported:
-            return "--sbom-spec or SWIFTPM_BUILD_SBOM_SPEC cannot be used with --target flag"
         case .invalidFilterValue(let value):
             let validValues = Filter.allCases.map(\.rawValue).joined(separator: ", ")
             return "Invalid SBOM filter value '\(value)' in environment variable SWIFTPM_BUILD_SBOM_FILTER. Valid values are: \(validValues)"
@@ -117,6 +114,10 @@ internal enum SBOMExtractorError: Error, LocalizedError, CustomStringConvertible
     case noBuildGraph(context: String)
     /// Product not found in package
     case productNotFound(productName: String, packageIdentity: String)
+    /// Target not found in package
+    case targetNotFound(targetName: String, packageIdentity: String)
+    /// Both a product and a target were requested
+    case productAndTargetSpecified
     internal var errorDescription: String? {
         switch self {
         case .noRootPackage(let context):
@@ -125,6 +126,10 @@ internal enum SBOMExtractorError: Error, LocalizedError, CustomStringConvertible
             "No build graph available, cannot \(context)"
         case .productNotFound(let productName, let packageIdentity):
             "Product '\(productName)' not found in root package '\(packageIdentity)'"
+        case .targetNotFound(let targetName, let packageIdentity):
+            "Target '\(targetName)' not found in root package '\(packageIdentity)'"
+        case .productAndTargetSpecified:
+            "Cannot generate an SBOM for both a product and a target"
         }
     }
 
