@@ -276,42 +276,29 @@ extension PackagePIFProjectBuilder {
         ).pathString
 
         var cUmbrellaDeclaration: String? = nil
-        if let generatedFiles, let pluginGeneratedModuleMapPath = generatedFiles.moduleMaps.first {
-            // Like custom, except it was generated (FIXME: shouldn't it be the same as .custom?)
-            if generatedFiles.moduleMaps.count > 1 {
-                // Warn about ignored generated module maps if more than one
-                // TODO: Should this be an error, can we handle more than one?
-                let ignoredFiles = generatedFiles.moduleMaps.dropFirst()
-                pifBuilder.observabilityScope.emit(
-                    severity: .warning,
-                    message: "Plugins generated multiple module maps. Selected \(pluginGeneratedModuleMapPath) and ignored \(ignoredFiles.map(\.pathString).joined(separator: " "))"
-                )
-            }
+        if let generatedFiles, let pluginGeneratedModuleMapPath = generatedFiles.moduleMaps.first?.pathString {
             if case let .custom(customModuleMapPath) = sourceModule.moduleMapType {
-                // TODO: which one should win?
                 pifBuilder.observabilityScope.emit(
-                    severity: .warning,
-                    message: "Plugins generated module maps overrides source provided one. Selected \(pluginGeneratedModuleMapPath) and ignored \(customModuleMapPath)"
+                    severity: .error,
+                    message: "Multiple module maps found for target \(sourceModule.name): \(customModuleMapPath), \(generatedFiles.moduleMaps.map(\.pathString).joined(separator: ", "))"
                 )
+                return (nil, nil)
             }
-            let customModuleMapPathString = pluginGeneratedModuleMapPath.pathString
+            if generatedFiles.moduleMaps.count > 1 {
+                pifBuilder.observabilityScope.emit(
+                    severity: .error,
+                    message: "Multiple module maps found for target \(sourceModule.name): \(generatedFiles.moduleMaps.map(\.pathString).joined(separator: ", "))"
+                )
+                return (nil, nil)
+            }
             settings[.OTHER_SWIFT_FLAGS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
                 $0.append(contentsOf: [
                     "-import-underlying-module",
-                    "-Xcc", "-fmodule-map-file=\(customModuleMapPathString)",
+                    "-Xcc", "-fmodule-map-file=\(pluginGeneratedModuleMapPath)",
                 ])
             }
-            self.impartModuleMap(at: customModuleMapPathString, to: &impartedSettings)
-            // Override objc header dir to be our module map dir
-            settings[.SWIFT_OBJC_INTERFACE_HEADER_DIR] = pluginGeneratedModuleMapPath.parentDirectory.pathString
-            // TODO: should these next two steps be optional
-            // If the target has a public C interface, set the top-level module map contents and allow
-            // Swift Build to inject the submodule for the generated header.
-            settings[.SWIFT_INSTALL_OBJC_HEADER] = "YES"
-            // Opt into Swift Build extending these provided module map contents (the underlying C
-            // module) with the generated `.Swift` submodule, forming a single mixed-language module.
-            settings[.SWIFT_EXTEND_MODULEMAP_FILE_CONTENTS] = "YES"
-            return (nil, customModuleMapPathString)
+            self.impartModuleMap(at: pluginGeneratedModuleMapPath, to: &impartedSettings)
+            return (nil, pluginGeneratedModuleMapPath)
         } else {
             switch sourceModule.moduleMapType {
             case .umbrellaHeader(let path):
@@ -553,20 +540,27 @@ extension PackagePIFProjectBuilder {
             )
         } else {
             // Otherwise, this is a C library module and we generate a modulemap if one is already not provided.
-            if let pluginGeneratedModuleMapPath = generatedFiles.moduleMaps.first {
-                // Warn about ignored generated module maps if more than one
-                if generatedFiles.moduleMaps.count > 1 {
-                    let ignoredFiles = generatedFiles.moduleMaps.filter({ $0 != pluginGeneratedModuleMapPath })
+            if let pluginGeneratedModuleMapPath = generatedFiles.moduleMaps.first?.pathString {
+                if case let .custom(customModuleMapPath) = sourceModule.moduleMapType {
+                    moduleMapFileContents = nil
+                    moduleMapPath = nil
                     pifBuilder.observabilityScope.emit(
-                        severity: .warning,
-                        message: "Plugins generated multiple module maps. Selected \(pluginGeneratedModuleMapPath) and ignored \(ignoredFiles.map(\.pathString).joined(separator: " "))"
+                        severity: .error,
+                        message: "Multiple module maps found for target \(sourceModule.name): \(customModuleMapPath), \(generatedFiles.moduleMaps.map(\.pathString).joined(separator: ", "))"
                     )
+                } else if generatedFiles.moduleMaps.count > 1 {
+                    moduleMapFileContents = nil
+                    moduleMapPath = nil
+                    pifBuilder.observabilityScope.emit(
+                        severity: .error,
+                        message: "Multiple module maps found for target \(sourceModule.name): \(generatedFiles.moduleMaps.map(\.pathString).joined(separator: ", "))"
+                    )
+                } else {
+                    moduleMapFileContents = nil
+                    moduleMapPath = pluginGeneratedModuleMapPath
+                    impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(pluginGeneratedModuleMapPath)", "$(inherited)"]
+                    impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(pluginGeneratedModuleMapPath)", "$(inherited)"]
                 }
-                // The modulemap was already generated, we should explicitly impart it on dependents,
-                impartedSettings[.OTHER_CFLAGS] = ["-fmodule-map-file=\(pluginGeneratedModuleMapPath)", "$(inherited)"]
-                impartedSettings[.OTHER_SWIFT_FLAGS] = ["-Xcc", "-fmodule-map-file=\(pluginGeneratedModuleMapPath)", "$(inherited)"]
-                moduleMapFileContents = nil
-                moduleMapPath = pluginGeneratedModuleMapPath.pathString
             } else {
                 switch sourceModule.moduleMapType {
                 case nil, .some(.none):
