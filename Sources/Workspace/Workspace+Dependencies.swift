@@ -408,12 +408,18 @@ extension Workspace {
                 continue
             }
             contents[settings.path] = manifestContent
-            if let manifest = try? await self.loadManifest(
+            if let manifest = try? await self.manifestLoader.load(
+                packagePath: settings.path,
                 packageIdentity: settings.identity,
                 packageKind: .fileSystem(settings.path),
-                packagePath: settings.path,
                 packageLocation: settings.path.pathString,
-                observabilityScope: ObservabilitySystem.NOOP
+                packageVersion: nil,
+                currentToolsVersion: self.currentToolsVersion,
+                identityResolver: self.identityResolver,
+                dependencyMapper: self.dependencyMapper,
+                fileSystem: self.fileSystem,
+                observabilityScope: ObservabilitySystem.NOOP,
+                delegateQueue: .sharedConcurrent
             ) {
                 pending += manifest.dependencies
             }
