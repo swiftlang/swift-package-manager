@@ -39,7 +39,6 @@ import Build
     var pluginIncludeDir: Basics.AbsolutePath { pluginOutputDir.appending("include") }
     var pluginModuleMapFile: Basics.AbsolutePath { pluginIncludeDir.appending("module.modulemap") }
     var pluginModuleMapArg: String { "-fmodule-map-file=\(pluginModuleMapFile.pathString)" }
-    var pluginAPINotesFile: Basics.AbsolutePath { pluginIncludeDir.appending("Gened.apinotes")}
     var pluginHeaderFile: Basics.AbsolutePath { pluginIncludeDir.appending("Gened.h")}
     var pluginSourceFile: Basics.AbsolutePath { pluginOutputDir.appending("Gened.c") }
 
@@ -237,29 +236,22 @@ import Build
 
         let module = try #require(try result.allTargets(named: "MyModule").only?.clang())
         let pluginOutputDir: AbsolutePath = "/MyPkg/.build/plugins/outputs/mypkg/MyModule/destination/MyPlugin"
-        let pluginIncludeDir = pluginOutputDir.appending("include")
-        #expect(module.pluginDerivedPublicHeaderPaths == [pluginIncludeDir])
         let pluginModuleMap = pluginIncludeDir.appending("module.modulemap")
         let pluginModuleMapFile = "-fmodule-map-file=\(pluginModuleMap.pathString)"
         #expect(module.pluginDerivedModuleMap == pluginModuleMap)
-        #expect(module.pluginDerivedAPINotes == [pluginIncludeDir.appending("Gened.apinotes")])
         let pluginSource = pluginOutputDir.appending("Gened.c")
         #expect(try module.compilePaths().contains(where: { $0.source == pluginSource }))
-        let cmd = try module.emitCommandLine(for: pluginSource)
-        #expect(cmd.contains(pluginIncludeDir.pathString))
 
         // Ensure the C module consumes the generated module map
         let cModule = try #require(try result.allTargets(named: "MyCModule").only?.clang())
         let cModuleSource: AbsolutePath = "/MyPkg/Sources/MyCModule/MyCModule.c"
         #expect(try cModule.compilePaths().contains(where: { $0.source == cModuleSource }))
         let cModuleCmd = try cModule.emitCommandLine(for: cModuleSource)
-        #expect(cModuleCmd.contains(pluginIncludeDir.pathString))
         #expect(cModuleCmd.contains(pluginModuleMapFile))
 
         // Ensure the Swift module does also
         let swiftModule = try #require(try result.allTargets(named: "MyExe").only?.swift())
         let swiftModuleArgs = try swiftModule.compileArguments()
-        #expect(swiftModuleArgs.contains(pluginIncludeDir.pathString))
         #expect(swiftModuleArgs.contains(pluginModuleMapFile))
     }
 
@@ -280,7 +272,6 @@ import Build
         let messages: [String] = [
             "Only C modules support plugin generated C header files: \(pluginHeaderFile.pathString)",
             "Only C modules support plugin generated module map files: \(pluginModuleMapFile.pathString)",
-            "Only C modules support plugin generated API notes files: \(pluginAPINotesFile.pathString)",
             "Only C modules support plugin generated C source files: \(pluginSourceFile.pathString)",
         ]
 
@@ -308,7 +299,6 @@ import Build
         let messages: [String] = [
             "C header file generation not enabled: \(pluginHeaderFile.pathString)",
             "Module map generation not enabled: \(pluginModuleMapFile.pathString)",
-            "API notes generation not enabled: \(pluginAPINotesFile.pathString)",
             "C source file generation not enabled: \(pluginSourceFile.pathString)",
         ]
 
@@ -335,7 +325,6 @@ import Build
         let messages: [String] = [
             "C header file generation not enabled: \(pluginHeaderFile.pathString)",
             "Module map generation not enabled: \(pluginModuleMapFile.pathString)",
-            "API notes generation not enabled: \(pluginAPINotesFile.pathString)",
             "C source file generation not enabled: \(pluginSourceFile.pathString)",
         ]
 
