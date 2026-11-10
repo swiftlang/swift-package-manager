@@ -304,6 +304,78 @@ struct SwiftBuildSystemMessageHandlerTests {
         #expect(outputText.contains("error"))
     }
 
+    @Test
+    func structuredDiagnosticsDontSuppressOutputOnFailure() throws {
+        let messageHandler = self.messageHandler.warning
+
+        let events: [SwiftBuildMessage] = [
+            .taskStartedInfo(taskID: 1, taskSignature: "compile-c", ruleInfo: "CompileC c.o c.c"),
+            .diagnostic(
+                kind: .note,
+                locationContext: .task(taskID: 1, targetID: 1),
+                locationContext2: .init(taskSignature: "compile-c"),
+                message: "cache miss: mock-cache-key",
+                appendToOutputStream: true
+            ),
+            .outputInfo(
+                data: data("c.c:1:22: error: use of undeclared identifier 'undeclared_c'\n"),
+                locationContext: .task(taskID: 1, targetID: 1),
+                locationContext2: .init(targetID: 1, taskSignature: "compile-c")
+            ),
+            .taskCompleteInfo(taskID: 1, taskSignature: "compile-c", result: .failed),
+        ]
+
+        for event in events {
+            _ = try messageHandler.emitEvent(event)
+        }
+
+        let outputText = self.outputStream.bytes.description
+        #expect(outputText.contains("use of undeclared identifier 'undeclared_c'"))
+        try expectDiagnostics(observability.diagnostics, problemsOnly: false) { result in
+            result.check(diagnostic: .contains("cache miss: mock-cache-key"), severity: .info)
+            result.check(diagnostic: .contains("CompileC c.o c.c failed"), severity: .info)
+        }
+    }
+
+    @Test
+    func structuredDiagnosticsDontSuppressOutputOnSuccess() throws {
+        let messageHandler = self.messageHandler.warning
+
+        let events: [SwiftBuildMessage] = [
+            .taskStartedInfo(taskID: 1, taskSignature: "compile-swift"),
+            .diagnostic(
+                kind: .note,
+                locationContext: .task(taskID: 1, targetID: 1),
+                locationContext2: .init(taskSignature: "compile-swift"),
+                message: "replay cache miss",
+                appendToOutputStream: true
+            ),
+            .diagnostic(
+                kind: .warning,
+                locationContext: .task(taskID: 1, targetID: 1),
+                locationContext2: .init(taskSignature: "compile-swift"),
+                message: "variable 'x' was never used",
+                appendToOutputStream: false
+            ),
+            .outputInfo(
+                data: data("a.swift:1:5: warning: variable 'x' was never used\n"),
+                locationContext: .task(taskID: 1, targetID: 1),
+                locationContext2: .init(targetID: 1, taskSignature: "compile-swift")
+            ),
+            .taskCompleteInfo(taskID: 1, taskSignature: "compile-swift", result: .success),
+        ]
+
+        for event in events {
+            _ = try messageHandler.emitEvent(event)
+        }
+
+        let outputText = self.outputStream.bytes.description
+        #expect(outputText.contains("a.swift:1:5: warning: variable 'x' was never used"))
+        try expectDiagnostics(observability.diagnostics, problemsOnly: false) { result in
+            result.check(diagnostic: .contains("replay cache miss"), severity: .info)
+        }
+    }
+
     struct DiagnosticsOutputWhenSpeficyDiagnosticIsEmittedData: CustomTestStringConvertible {
 
         let id: String
