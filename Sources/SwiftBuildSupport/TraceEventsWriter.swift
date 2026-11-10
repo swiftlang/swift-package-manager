@@ -20,12 +20,16 @@ package final class TraceEventsWriter {
     package enum ArgValue: Codable, Equatable {
         case string(String)
         case int(Int)
+        case array([ArgValue])
+        case object([String: ArgValue])
 
         package func encode(to encoder: Encoder) throws {
             var container = encoder.singleValueContainer()
             switch self {
             case .string(let s): try container.encode(s)
             case .int(let i): try container.encode(i)
+            case .array(let a): try container.encode(a)
+            case .object(let o): try container.encode(o)
             }
         }
 
@@ -33,8 +37,12 @@ package final class TraceEventsWriter {
             let container = try decoder.singleValueContainer()
             if let i = try? container.decode(Int.self) {
                 self = .int(i)
+            } else if let s = try? container.decode(String.self) {
+                self = .string(s)
+            } else if let a = try? container.decode([ArgValue].self) {
+                self = .array(a)
             } else {
-                self = .string(try container.decode(String.self))
+                self = .object(try container.decode([String: ArgValue].self))
             }
         }
     }
@@ -115,6 +123,7 @@ package final class TraceEventsWriter {
     private var availableLanes: [LaneID] = []
     private var nextLane: LaneID = .firstTask
     private var taskStartTimes: [TaskID: ContinuousClock.Instant] = [:]
+    private var casOptionsByID: [Int: SwiftBuildMessage.CASOptionsInfo] = [:]
     private var needsComma: Bool = false
 
     package init(path: Basics.AbsolutePath) throws {
@@ -144,10 +153,16 @@ package final class TraceEventsWriter {
         taskStartTimes[taskID] = .now
     }
 
+    /// Records a CAS configuration so that cache keys referencing it can include its options.
+    package func casOptionsEmitted(_ info: SwiftBuildMessage.CASOptionsInfo) {
+        casOptionsByID[info.casOptionsID] = info
+    }
+
     package func taskCompleted(
         _ info: SwiftBuildMessage.TaskCompleteInfo,
         startedInfo: SwiftBuildMessage.TaskStartedInfo,
-        backtrace: String? = nil
+        backtrace: String? = nil,
+        cacheKeys: [SwiftBuildMessage.TaskCacheKeyInfo] = []
     ) {
         let taskID = TaskID(info.taskID)
         let endInstant = ContinuousClock.now
@@ -170,6 +185,9 @@ package final class TraceEventsWriter {
         }
         if let backtrace, !backtrace.isEmpty {
             args["backtrace"] = .string(backtrace)
+        }
+        if !cacheKeys.isEmpty {
+            args["cacheKeys"] = .array(cacheKeys.map(cacheKeyArg))
         }
         args["result"] = .string("\(info.result)")
         appendEvent(TraceEvent(
@@ -208,6 +226,30 @@ package final class TraceEventsWriter {
 
         fileHandle.write(Data("\n]\n".utf8))
         fileHandle.closeFile()
+    }
+
+    private func cacheKeyArg(_ info: SwiftBuildMessage.TaskCacheKeyInfo) -> ArgValue {
+        var arg: [String: ArgValue] = [
+            "cacheKey": .string(info.cacheKey),
+            "source": .string(info.source.rawValue),
+        ]
+        if let options = casOptionsByID[info.casOptionsID] {
+            arg["casOptions"] = casOptionsArg(options)
+        }
+        return .object(arg)
+    }
+
+    private func casOptionsArg(_ options: SwiftBuildMessage.CASOptionsInfo) -> ArgValue {
+        var arg: [String: ArgValue] = [
+            "casPath": .string(options.casPath),
+        ]
+        if let pluginPath = options.pluginPath {
+            arg["pluginPath"] = .string(pluginPath)
+        }
+        if let remoteServicePath = options.remoteServicePath {
+            arg["remoteServicePath"] = .string(remoteServicePath)
+        }
+        return .object(arg)
     }
 
     private func appendEvent(_ event: TraceEvent) {

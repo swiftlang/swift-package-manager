@@ -154,6 +154,69 @@ struct TraceEventsWriterTests {
         #expect(taskEvent.arguments?["description"] == .string("Compiling Foo.swift"))
         #expect(taskEvent.arguments?["commandLine"] == .string("/usr/bin/swiftc -c Foo.swift"))
         #expect(taskEvent.arguments?["result"] == .string("failed"))
+        #expect(taskEvent.arguments?["cacheKeys"] == nil)
+    }
+
+    @Test
+    func testArgsIncludeCacheKeys() throws {
+        let events = try buildTrace { writer in
+            writer.casOptionsEmitted(.init(
+                casOptionsID: 1,
+                casPath: "/tmp/cas",
+                pluginPath: "/tmp/libCASPlugin.dylib",
+                remoteServicePath: nil,
+                enableDiagnosticRemarks: true,
+                enableStrictCASErrors: false,
+                enableDetachedKeyQueries: true,
+                limitingStrategy: .maxSizeBytes(1024)
+            ))
+            writer.casOptionsEmitted(.init(
+                casOptionsID: 2,
+                casPath: "/tmp/other-cas",
+                pluginPath: nil,
+                remoteServicePath: "/tmp/remote.sock",
+                enableDiagnosticRemarks: false,
+                enableStrictCASErrors: true,
+                enableDetachedKeyQueries: false,
+                limitingStrategy: .maxPercentageOfAvailableSpace(50)
+            ))
+            writer.taskStarted(.init(taskID: 1))
+            writer.taskCompleted(
+                .init(taskID: 1, result: .success),
+                startedInfo: .init(taskID: 1, executionDescription: "Compiling Foo.swift"),
+                cacheKeys: [
+                    .init(taskID: 1, taskSignature: "", cacheKey: "llvmcas://1234", source: .swift, casOptionsID: 1),
+                    .init(taskID: 1, taskSignature: "", cacheKey: "llvmcas://5678", source: .buildSystem, casOptionsID: 2),
+                    .init(taskID: 1, taskSignature: "", cacheKey: "llvmcas://9abc", source: .clang, casOptionsID: 3),
+                ]
+            )
+        }
+
+        let taskEvent = try #require(events.first(where: { $0.phase == .complete }))
+
+        #expect(taskEvent.arguments?["cacheKeys"] == .array([
+            .object([
+                "cacheKey": .string("llvmcas://1234"),
+                "source": .string("swift"),
+                "casOptions": .object([
+                    "casPath": .string("/tmp/cas"),
+                    "pluginPath": .string("/tmp/libCASPlugin.dylib"),
+                ]),
+            ]),
+            .object([
+                "cacheKey": .string("llvmcas://5678"),
+                "source": .string("buildSystem"),
+                "casOptions": .object([
+                    "casPath": .string("/tmp/other-cas"),
+                    "remoteServicePath": .string("/tmp/remote.sock"),
+                ]),
+            ]),
+            // Options that were never reported are omitted rather than guessed.
+            .object([
+                "cacheKey": .string("llvmcas://9abc"),
+                "source": .string("clang"),
+            ]),
+        ]))
     }
 
     fileprivate func buildTrace(
