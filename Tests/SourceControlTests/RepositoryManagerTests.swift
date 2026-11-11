@@ -566,7 +566,7 @@ final class RepositoryManagerTests: XCTestCase {
                 for _ in 0 ..< concurrency {
                     group.addTask {
                         try await manager.lookup(
-                            package: PackageIdentity(path: dummyRepoPath),
+                            package: PURL.from(identity: PackageIdentity(path: dummyRepoPath)),
                             repository: dummyRepo,
                             updateStrategy: .always,
                             observabilityScope: observability.topScope
@@ -923,7 +923,7 @@ extension RepositoryManager {
         observabilityScope: ObservabilityScope
     ) async throws -> RepositoryHandle {
         try await self.lookup(
-            package: .init(url: SourceControlURL(repository.url)),
+            package: PURL.from(identity: PackageIdentity(url: SourceControlURL(repository.url))),
             repository: repository,
             updateStrategy: updateStrategy,
             observabilityScope: observabilityScope

@@ -83,7 +83,7 @@ extension Workspace {
 
         // Inform the delegate that we're about to start.
         delegate?.willCheckOut(
-            package: package.identity,
+            package: package.identity.packageIdentity,
             repository: repository.location.description,
             revision: checkoutState.description,
             at: checkoutPath
@@ -112,7 +112,7 @@ extension Workspace {
         // Inform the delegate that we're done.
         let duration = start.distance(to: .now())
         delegate?.didCheckOut(
-            package: package.identity,
+            package: package.identity.packageIdentity,
             repository: repository.location.description,
             revision: checkoutState.description,
             at: checkoutPath,
@@ -217,7 +217,7 @@ extension Workspace {
 
         // Inform the delegate that we're about to start.
         self.delegate?.willCreateWorkingCopy(
-            package: package.identity,
+            package: package.identity.packageIdentity,
             repository: handle.repository.location.description,
             at: checkoutPath
         )
@@ -229,7 +229,7 @@ extension Workspace {
         // Inform the delegate that we're done.
         let duration = start.distance(to: .now())
         self.delegate?.didCreateWorkingCopy(
-            package: package.identity,
+            package: package.identity.packageIdentity,
             repository: handle.repository.location.description,
             at: checkoutPath,
             duration: duration

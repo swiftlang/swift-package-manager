@@ -154,6 +154,6 @@ public struct MockPackage {
     public enum Location {
         case fileSystem(path: RelativePath)
         case sourceControl(url: SourceControlURL)
-        case registry(identity: PackageIdentity, alternativeURLs: [URL]?, metadata: RegistryReleaseMetadata?)
+        case registry(identity: PURL, alternativeURLs: [URL]?, metadata: RegistryReleaseMetadata?)
     }
 }

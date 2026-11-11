@@ -163,16 +163,16 @@ extension Workspace {
                     identity: .plain("swift-syntax"),
                     packageRefs: [
                         .init(
-                            identity: .plain("swift-syntax"),
+                            identity: PURL.from(identity: .plain("swift-syntax")),
                             kind: .remoteSourceControl("https://github.com/swiftlang/swift-syntax.git")
                         ),
                         // The old site that's being redirected but still in use.
                         .init(
-                            identity: .plain("swift-syntax"),
+                            identity: PURL.from(identity: .plain("swift-syntax")),
                             kind: .remoteSourceControl("https://github.com/apple/swift-syntax.git")
                         ),
                         .init(
-                            identity: .plain("swift-syntax"),
+                            identity: PURL.from(identity: .plain("swift-syntax")),
                             kind: .remoteSourceControl("git@github.com:swiftlang/swift-syntax.git")
                         ),
                     ]
@@ -542,7 +542,7 @@ extension Workspace {
 
         for prebuilt in prebuiltsManager.findPrebuilts(packages: try manifests.requiredPackages) {
             guard
-                let manifest = manifests.allDependencyManifests[prebuilt.identity],
+                let manifest = manifests.allDependencyManifests[PURL.from(identity: prebuilt.identity)],
                 let packageVersion = manifest.manifest.version,
                 let prebuiltManifest = try await prebuiltsManager
                     .downloadManifest(

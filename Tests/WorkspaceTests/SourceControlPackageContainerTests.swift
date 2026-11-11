@@ -38,14 +38,14 @@ private class MockRepository: Repository {
     init(fs: FileSystem, path: AbsolutePath, versions: [Version: Manifest]) {
         self.fs = fs
         self.location = .path(path)
-        self.packageRef = .localSourceControl(identity: PackageIdentity(path: path), path: path)
+        self.packageRef = .localSourceControl(identity: PURL.from(identity: PackageIdentity(path: path)), path: path)
         self.versions = versions
     }
 
     init(fs: FileSystem, url: SourceControlURL, versions: [Version: Manifest]) {
         self.fs = fs
         self.location = .url(url)
-        self.packageRef = .remoteSourceControl(identity: PackageIdentity(url: url), url: url)
+        self.packageRef = .remoteSourceControl(identity: PURL.from(identity: PackageIdentity(url: url)), url: url)
         self.versions = versions
     }
 
@@ -167,7 +167,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             customRepositoryManager: repositoryManager
         )
 
-        let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
+        let ref = PackageReference.localSourceControl(identity: PURL.from(identity: PackageIdentity(path: repoPath)), path: repoPath)
         let container = try await provider.getContainer(for: ref)
         let v = try await container.toolsVersionsAppropriateVersionsDescending()
         XCTAssertEqual(v, ["2.0.3", "1.0.3", "1.0.2", "1.0.1", "1.0.0"])
@@ -231,7 +231,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
         do {
             let provider = try createProvider(ToolsVersion(version: "4.0.0"))
-            let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
+            let ref = PackageReference.localSourceControl(identity: PURL.from(identity: PackageIdentity(path: repoPath)), path: repoPath)
             let container = try await provider.getContainer(for: ref)
             let v = try await container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(v, ["1.0.1"])
@@ -239,7 +239,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
         do {
             let provider = try createProvider(ToolsVersion(version: "4.2.0"))
-            let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
+            let ref = PackageReference.localSourceControl(identity: PURL.from(identity: PackageIdentity(path: repoPath)), path: repoPath)
             let container = try await provider.getContainer(for: ref) as! SourceControlPackageContainer
             XCTAssertTrue(container.validToolsVersionsCache.isEmpty)
             let v = try await container.toolsVersionsAppropriateVersionsDescending()
@@ -252,7 +252,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
 
         do {
             let provider = try createProvider(ToolsVersion(version: "3.0.0"))
-            let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
+            let ref = PackageReference.localSourceControl(identity: PURL.from(identity: PackageIdentity(path: repoPath)), path: repoPath)
             let container = try await provider.getContainer(for: ref)
             let v = try await container.toolsVersionsAppropriateVersionsDescending()
             XCTAssertEqual(v, [])
@@ -261,7 +261,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
         // Test that getting dependencies on a revision that has unsupported tools version is diagnosed properly.
         do {
             let provider = try createProvider(ToolsVersion(version: "4.0.0"))
-            let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
+            let ref = PackageReference.localSourceControl(identity: PURL.from(identity: PackageIdentity(path: repoPath)), path: repoPath)
             let container = try await provider.getContainer(for: ref) as! SourceControlPackageContainer
             let revision = try container.getRevision(forTag: "1.0.0")
             do {
@@ -372,7 +372,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             customRepositoryManager: repositoryManager
         )
 
-        let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
+        let ref = PackageReference.localSourceControl(identity: PURL.from(identity: PackageIdentity(path: repoPath)), path: repoPath)
         let container = try await provider.getContainer(for: ref)
         let v = try await container.toolsVersionsAppropriateVersionsDescending()
         XCTAssertEqual(v, ["1.0.4-alpha", "1.0.2-dev.2", "1.0.2-dev", "1.0.1", "1.0.0", "1.0.0-beta.1", "1.0.0-alpha.1"])
@@ -427,7 +427,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             customManifestLoader: MockManifestLoader(manifests: [:]),
             customRepositoryManager: repositoryManager
         )
-        let ref = PackageReference.localSourceControl(identity: PackageIdentity(path: repoPath), path: repoPath)
+        let ref = PackageReference.localSourceControl(identity: PURL.from(identity: PackageIdentity(path: repoPath)), path: repoPath)
         let container = try await provider.getContainer(for: ref)
         let v = try await container.toolsVersionsAppropriateVersionsDescending()
         XCTAssertEqual(v, ["2.0.1", "1.3.0", "1.2.0", "1.1.0", "1.0.4", "1.0.2", "1.0.1", "1.0.0"])
@@ -614,7 +614,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
             )
 
             // Get a hold of the container for the test package.
-            let packageRef = PackageReference.localSourceControl(identity: PackageIdentity(path: packageDir), path: packageDir)
+            let packageRef = PackageReference.localSourceControl(identity: PURL.from(identity: PackageIdentity(path: packageDir)), path: packageDir)
             let container = try await containerProvider.getContainer(for: packageRef) as! SourceControlPackageContainer
 
             // Simulate accessing a fictitious dependency on the `master` branch, and check that we get back the expected error.                //ignore-unacceptable-language
@@ -640,7 +640,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
     func testRepositoryContainerUpdateStrategy() async throws {
         try await testWithTemporaryDirectory { temporaryDirectory in
             let packageDirectory = temporaryDirectory.appending("MyPackage")
-            let package = PackageReference.localSourceControl(identity: PackageIdentity(path: packageDirectory), path: packageDirectory)
+            let package = PackageReference.localSourceControl(identity: PURL.from(identity: PackageIdentity(path: packageDirectory)), path: packageDirectory)
 
             try localFileSystem.createDirectory(packageDirectory)
             initGitRepo(packageDirectory)
@@ -780,7 +780,7 @@ final class SourceControlPackageContainerTests: XCTestCase {
                 customRepositoryManager: repositoryManager
             )
 
-            let packageReference = PackageReference.localSourceControl(identity: PackageIdentity(path: packageDirectory), path: packageDirectory)
+            let packageReference = PackageReference.localSourceControl(identity: PURL.from(identity: PackageIdentity(path: packageDirectory)), path: packageDirectory)
             let container = try await containerProvider.getContainer(for: packageReference)
 
             let forNothing = try await container.getDependencies(at: version, productFilter: .specific([]), ["default"])

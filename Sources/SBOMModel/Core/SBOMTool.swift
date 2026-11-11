@@ -10,6 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
+import struct PackageModel.PURL
+
 internal struct SBOMTool: Codable, Equatable {
     internal let id: SBOMIdentifier
     internal let name: String

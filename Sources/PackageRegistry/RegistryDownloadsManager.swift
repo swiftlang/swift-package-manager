@@ -85,7 +85,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
                 let start = DispatchTime.now()
                 do {
                     let result = try await self.downloadAndPopulateCache(
-                        package: package,
+                        package: PURL.from(identity: package),
                         version: version,
                         packagePath: packagePath,
                         relativePath: relativePath,
@@ -131,7 +131,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
     }
 
     private func downloadAndPopulateCache(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         packagePath: Basics.AbsolutePath,
         relativePath: Basics.RelativePath,
@@ -222,7 +222,7 @@ public class RegistryDownloadsManager: AsyncCancellable {
         @Sendable func updateDownloadProgress(downloaded: Int64, total: Int64?) {
             delegate?.emit {
                 $0.fetching(
-                    package: package,
+                    package: package.packageIdentity,
                     version: version,
                     bytesDownloaded: downloaded,
                     totalBytesToDownload: total

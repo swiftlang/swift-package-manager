@@ -15,9 +15,9 @@ import Foundation
 
 // TODO: refactor this when adding registry support
 public protocol IdentityResolver {
-    func resolveIdentity(for packageKind: PackageReference.Kind) throws -> PackageIdentity
-    func resolveIdentity(for url: SourceControlURL) throws -> PackageIdentity
-    func resolveIdentity(for path: AbsolutePath) throws -> PackageIdentity
+    func resolveIdentity(for packageKind: PackageReference.Kind) throws -> PURL
+    func resolveIdentity(for url: SourceControlURL) throws -> PURL
+    func resolveIdentity(for path: AbsolutePath) throws -> PURL
     func mappedLocation(for location: String) -> String
     func mappedIdentity(for identity: PackageIdentity) throws -> PackageIdentity
 }
@@ -34,7 +34,7 @@ public struct DefaultIdentityResolver: IdentityResolver {
         self.identityMapper = identityMapper
     }
 
-    public func resolveIdentity(for packageKind: PackageReference.Kind) throws -> PackageIdentity {
+    public func resolveIdentity(for packageKind: PackageReference.Kind) throws -> PURL {
         switch packageKind {
         case .root(let path):
             return try self.resolveIdentity(for: path)
@@ -49,21 +49,26 @@ public struct DefaultIdentityResolver: IdentityResolver {
         }
     }
 
-    public func resolveIdentity(for url: SourceControlURL) throws -> PackageIdentity {
+    public func resolveIdentity(for url: SourceControlURL) throws -> PURL {
         let location = self.mappedLocation(for: url.absoluteString)
         if let path = try? AbsolutePath(validating: location) {
-            return PackageIdentity(path: path)
+            // bp tbd
+            let id = PackageIdentity(path: path)
+            return PURL.from(identity: id)
         } else {
-            return PackageIdentity(url: SourceControlURL(location))
+            let id = PackageIdentity(url: SourceControlURL(location))
+            return PURL.from(identity: id)
         }
     }
 
-    public func resolveIdentity(for path: AbsolutePath) throws -> PackageIdentity {
+    public func resolveIdentity(for path: AbsolutePath) throws -> PURL {
         let location = self.mappedLocation(for: path.pathString)
         if let path = try? AbsolutePath(validating: location) {
-            return PackageIdentity(path: path)
+            let id = PackageIdentity(path: path)
+            return PURL.from(identity: id)
         } else {
-            return PackageIdentity(url: SourceControlURL(location))
+            let id = PackageIdentity(url: SourceControlURL(location))
+            return PURL.from(identity: id)
         }
     }
 

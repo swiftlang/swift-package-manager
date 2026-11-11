@@ -19,7 +19,8 @@ import TSCBasic
 /// A utility to compute the source/resource files of a target.
 public struct TargetSourcesBuilder {
     /// The package identity.
-    public let packageIdentity: PackageIdentity
+//    public let packageIdentity: PackageIdentity
+    public let packageIdentity: PURL
 
     /// The package kind.
     public let packageKind: PackageReference.Kind
@@ -62,7 +63,7 @@ public struct TargetSourcesBuilder {
 
     /// Create a new target builder.
     public init(
-        packageIdentity: PackageIdentity,
+        packageIdentity: PURL,
         packageKind: PackageReference.Kind,
         packagePath: Basics.AbsolutePath,
         target: TargetDescription,

@@ -43,6 +43,7 @@ import struct PackageGraph.Term
 import class PackageLoading.ManifestLoader
 import enum PackageModel.PackageDependency
 import struct PackageModel.PackageIdentity
+import struct PackageModel.PURL
 import struct PackageModel.PackageReference
 import enum PackageModel.ProductFilter
 import struct PackageModel.ToolsVersion
@@ -1156,7 +1157,7 @@ extension Workspace {
     ) async throws -> [(PackageReference, PackageStateChange)] {
         // Load `Package.resolved` store and managed dependencies.
         let resolvedPackagesStore = try self.resolvedPackagesStore.load()
-        var packageStateChanges: [PackageIdentity: (PackageReference, PackageStateChange)] = [:]
+        var packageStateChanges: [PURL: (PackageReference, PackageStateChange)] = [:]
 
         // Set the states from resolved dependencies results.
         for binding in resolvedDependencies {
@@ -1349,10 +1350,10 @@ extension Workspace {
                 case .version:
                     // Only remote packages need warming; a local one clobbers overrides.
                     guard case .remoteSourceControl(let resolvedURL) = resolved.packageRef.kind else { return nil }
-                    if locallyOverriddenIdentities.contains(resolved.packageRef.identity) {
+                    if locallyOverriddenIdentities.contains(resolved.packageRef.identity.packageIdentity) {
                         return nil // overridden to a local/non-remote dependency
                     }
-                    if let rootURL = rootRemoteLocations[resolved.packageRef.identity],
+                    if let rootURL = rootRemoteLocations[resolved.packageRef.identity.packageIdentity],
                        rootURL != resolvedURL.absoluteString {
                         // URL changed since Package.resolved; skip so the warm container can't pin the stale location.
                         observabilityScope.emit(
@@ -1383,7 +1384,7 @@ extension Workspace {
                 return nil
             case .exact, .range:
                 return PackageReference.remoteSourceControl(
-                    identity: settings.identity, url: url
+                    identity: PURL.from(identity: settings.identity), url: url
                 )
             }
         }
@@ -1489,9 +1490,9 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
     func willResolve(term: Term) {
         // this may be called multiple time by the resolver for various version ranges, but we only want to propagate
         // once since we report at package level
-        self.resolving.memoize(term.node.package.identity) {
+        self.resolving.memoize(term.node.package.identity.packageIdentity) {
             self.workspaceDelegate?.willComputeVersion(
-                package: term.node.package.identity,
+                package: term.node.package.identity.packageIdentity,
                 location: term.node.package.locationString
             )
             return true
@@ -1500,7 +1501,7 @@ private struct WorkspaceDependencyResolverDelegate: DependencyResolverDelegate {
 
     func didResolve(term: Term, version: Version, duration: DispatchTimeInterval) {
         self.workspaceDelegate?.didComputeVersion(
-            package: term.node.package.identity,
+            package: term.node.package.identity.packageIdentity,
             location: term.node.package.locationString,
             version: version.description,
             duration: duration

@@ -31,7 +31,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async throws {
         // Look up the dependency and check if we can edit it.
-        guard let dependency = await self.state.dependencies[.plain(packageIdentity)] else {
+        guard let dependency = await self.state.dependencies[PURL.from(name: packageIdentity.lowercased())] else {
             observabilityScope.emit(.dependencyNotFound(packageName: packageIdentity))
             return
         }
@@ -46,16 +46,16 @@ extension Workspace {
         case .sourceControlCheckout(let _checkoutState):
             checkoutState = _checkoutState
         case .edited:
-            observabilityScope.emit(error: "dependency '\(dependency.packageRef.identity)' already in edit mode")
+            observabilityScope.emit(error: "dependency '\(dependency.packageRef.identity.packageIdentity)' already in edit mode")
             return
         case .fileSystem:
-            observabilityScope.emit(error: "local dependency '\(dependency.packageRef.identity)' can't be edited")
+            observabilityScope.emit(error: "local dependency '\(dependency.packageRef.identity.packageIdentity)' can't be edited")
             return
         case .registryDownload:
-            observabilityScope.emit(error: "registry dependency '\(dependency.packageRef.identity)' can't be edited")
+            observabilityScope.emit(error: "registry dependency '\(dependency.packageRef.identity.packageIdentity)' can't be edited")
             return
         case .custom:
-            observabilityScope.emit(error: "custom dependency '\(dependency.packageRef.identity)' can't be edited")
+            observabilityScope.emit(error: "custom dependency '\(dependency.packageRef.identity.packageIdentity)' can't be edited")
             return
         }
 
@@ -77,7 +77,7 @@ extension Workspace {
             guard dependency.packageRef.canonicalLocation == manifest.canonicalPackageLocation else {
                 return observabilityScope
                     .emit(
-                        error: "package at '\(destination)' is \(dependency.packageRef.identity) but was expecting \(packageIdentity)"
+                        error: "package at '\(destination)' is \(dependency.packageRef.identity.packageIdentity) but was expecting \(packageIdentity)"
                     )
             }
 
@@ -216,7 +216,7 @@ extension Workspace {
             )
         } else {
             // The original dependency was removed, update the managed dependency state.
-            await self.state.remove(identity: dependency.packageRef.identity)
+            await self.state.remove(identity: dependency.packageRef.identity.packageIdentity)
             try await self.state.save()
         }
 

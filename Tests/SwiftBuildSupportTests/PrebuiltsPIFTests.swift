@@ -161,7 +161,7 @@ struct PrebuiltsPIFTests {
                 ),
             ],
             prebuilts: [
-                prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
+                PURL.from(identity: prebuiltLibrary.identity): prebuiltLibrary.products.reduce(into: [:]) {
                     $0[$1] = prebuiltLibrary
                 }
             ],
@@ -361,7 +361,7 @@ struct PrebuiltsPIFTests {
                     ]
                 )
             ],
-            prebuilts: [prebuiltLibrary.identity: prebuiltLibrary.products.reduce(into: [:]) {
+            prebuilts: [PURL.from(identity: prebuiltLibrary.identity): prebuiltLibrary.products.reduce(into: [:]) {
                 $0[$1] = prebuiltLibrary
             }],
             observabilityScope: observability.topScope

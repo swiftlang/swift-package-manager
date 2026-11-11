@@ -564,7 +564,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                     throw InternalError("underlying target type mismatch \(module)")
                 }
 
-                self.package = package.identity
+                self.package = package.identity.packageIdentity
                 self.moduleName = module.name
                 self.moduleC99Name = module.c99name
                 self.productNames = products.map(\.name)

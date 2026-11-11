@@ -189,7 +189,7 @@ public protocol ManifestLoaderDelegate: Sendable {
 extension ManifestLoaderProtocol {
     public func load(
         packagePath: AbsolutePath,
-        packageIdentity: PackageIdentity,
+        packageIdentity: PURL,
         packageKind: PackageReference.Kind,
         packageLocation: String,
         packageVersion: (version: Version?, revision: String?)?,
@@ -209,19 +209,19 @@ extension ManifestLoaderProtocol {
         let manifestToolsVersion = try ToolsVersionParser.parse(
             manifestPath: manifestPath,
             fileSystem: fileSystem,
-            packageIdentity: packageIdentity
+            packageIdentity: packageIdentity.packageIdentity
         )
         // validate the manifest tools-version against the toolchain tools-version
         try manifestToolsVersion.validateToolsVersion(
             currentToolsVersion,
-            packageIdentity: packageIdentity,
+            packageIdentity: packageIdentity.packageIdentity,
             packageVersion: packageVersion?.version?.description ?? packageVersion?.revision
         )
 
         return try await self.load(
             manifestPath: manifestPath,
             manifestToolsVersion: manifestToolsVersion,
-            packageIdentity: packageIdentity,
+            packageIdentity: packageIdentity.packageIdentity,
             packageKind: packageKind,
             packageLocation: packageLocation,
             packageVersion: packageVersion,

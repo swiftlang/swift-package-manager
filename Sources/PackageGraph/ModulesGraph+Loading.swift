@@ -26,11 +26,11 @@ extension ModulesGraph {
         root: PackageGraphRoot,
         identityResolver: IdentityResolver,
         additionalFileRules: [FileRuleDescription] = [],
-        externalManifests: OrderedCollections.OrderedDictionary<PackageIdentity, (manifest: Manifest, fs: FileSystem)>,
+        externalManifests: OrderedCollections.OrderedDictionary<PURL, (manifest: Manifest, fs: FileSystem)>,
         requiredDependencies: [PackageReference] = [],
         unsafeAllowedPackages: Set<PackageReference> = [],
-        binaryArtifacts: [PackageIdentity: [String: BinaryArtifact]],
-        prebuilts: [PackageIdentity: [String: PrebuiltLibrary]], // Product name to library mapping
+        binaryArtifacts: [PURL: [String: BinaryArtifact]],
+        prebuilts: [PURL: [String: PrebuiltLibrary]], // Product name to library mapping
         shouldCreateMultipleTestProducts: Bool = false,
         createREPLProduct: Bool = false,
         customPlatformsRegistry: PlatformRegistry? = .none,
@@ -53,7 +53,7 @@ extension ModulesGraph {
 
         // Construct the root dependencies set.
         let rootDependencies = Set(root.dependencies.compactMap {
-            manifestMap[$0.identity]?.manifest
+            manifestMap[PURL.from(identity: $0.identity)]?.manifest
         })
 
         let rootManifestNodes = try root.packages.map { identity, package in
@@ -68,9 +68,9 @@ extension ModulesGraph {
         }
         let rootDependencyNodes = try root.dependencies.lazy.filter { requiredDependencies.contains($0.packageRef) }
             .compactMap { dependency in
-                try manifestMap[dependency.identity].map {
+                try manifestMap[PURL.from(identity: dependency.identity)].map {
                     try GraphLoadingNode(
-                        identity: dependency.identity,
+                        identity: PURL.from(identity: dependency.identity),
                         manifest: $0.manifest,
                         productFilter: dependency.productFilter,
                         enabledTraits: enabledTraitsMap[$0.manifest]
@@ -83,27 +83,27 @@ extension ModulesGraph {
         }
 
         // Collect the manifests for which we are going to build packages.
-        var allNodes = OrderedDictionary<PackageIdentity, GraphLoadingNode>()
+        var allNodes = OrderedDictionary<PURL, GraphLoadingNode>()
 
-        let nodeSuccessorProvider = { (node: KeyedPair<GraphLoadingNode, PackageIdentity>) in
+        let nodeSuccessorProvider = { (node: KeyedPair<GraphLoadingNode, PURL>) in
             try (node.item.requiredDependencies + node.item.traitGuardedDependencies)
                 .compactMap { dependency -> KeyedPair<
                     GraphLoadingNode,
-                    PackageIdentity
+                    PURL
                 >? in
-                    return try manifestMap[dependency.identity].map { manifest, _ in
+                    return try manifestMap[PURL.from(identity: dependency.identity)].map { manifest, _ in
                         // We are going to check the conditionally enabled traits here and enable them if
                         // required. This checks the current node and then enables the conditional
                         // dependencies of the dependency node.
 
                         return try KeyedPair(
                             GraphLoadingNode(
-                                identity: dependency.identity,
+                                identity: PURL.from(identity: dependency.identity),
                                 manifest: manifest,
                                 productFilter: dependency.productFilter,
                                 enabledTraits: enabledTraitsMap[manifest]
                             ),
-                            key: dependency.identity
+                            key: PURL.from(identity: dependency.identity)
                         )
                     }
                 }
@@ -236,7 +236,7 @@ extension ModulesGraph {
 private func checkAllDependenciesAreUsed(
     packages: IdentifiableSet<ResolvedPackage>,
     _ rootPackages: [ResolvedPackage],
-    prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
+    prebuilts: [PURL: [String: PrebuiltLibrary]],
     observabilityScope: ObservabilityScope
 ) {
     for package in rootPackages {
@@ -321,7 +321,7 @@ private func checkAllDependenciesAreUsed(
             }
 
             if !dependencyIsUsed && !observabilityScope.errorsReportedInAnyScope {
-                packageDiagnosticsScope.emit(.unusedDependency(dependency.identity.description))
+                packageDiagnosticsScope.emit(.unusedDependency(dependency.identity.packageIdentity.description))
             }
         }
     }
@@ -385,12 +385,12 @@ private func createResolvedPackages(
     // FIXME: This shouldn't be needed once <rdar://problem/33693433> is fixed.
     root: PackageGraphRoot,
     unsafeAllowedPackages: Set<PackageReference>,
-    prebuilts: [PackageIdentity: [String: PrebuiltLibrary]],
+    prebuilts: [PURL: [String: PrebuiltLibrary]],
     platformRegistry: PlatformRegistry,
     platformVersionProvider: PlatformVersionProvider,
     fileSystem: FileSystem,
     /// The file systems of the packages that provide one of their own, keyed by package identity.
-    packageFileSystems: [PackageIdentity: FileSystem],
+    packageFileSystems: [PURL: FileSystem],
     observabilityScope: ObservabilityScope,
     productsFilter: ((Product) -> Bool)?,
     modulesFilter: ((Module) -> Bool)?
@@ -416,7 +416,7 @@ private func createResolvedPackages(
 
     // Create a map of package builders keyed by the package identity.
     // This is guaranteed to be unique so we can use spm_createDictionary
-    let packagesByIdentity: [PackageIdentity: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary {
+    let packagesByIdentity: [PURL: ResolvedPackageBuilder] = packageBuilders.spm_createDictionary {
         ($0.package.identity, $0)
     }
 
@@ -438,9 +438,9 @@ private func createResolvedPackages(
             metadata: package.diagnosticsMetadata
         )
 
-        var dependencies = OrderedCollections.OrderedDictionary<PackageIdentity, ResolvedPackageBuilder>()
+        var dependencies = OrderedCollections.OrderedDictionary<PURL, ResolvedPackageBuilder>()
         var dependenciesByNameForModuleDependencyResolution = [String: ResolvedPackageBuilder]()
-        var dependencyNamesForModuleDependencyResolutionOnly = [PackageIdentity: String]()
+        var dependencyNamesForModuleDependencyResolutionOnly = [PURL: String]()
 
         try package.manifest.dependenciesRequired(
             for: packageBuilder.productFilter,
@@ -449,7 +449,7 @@ private func createResolvedPackages(
             let dependencyPackageRef = dependency.packageRef
 
             // Otherwise, look it up by its identity.
-            if let resolvedPackage = packagesByIdentity[dependency.identity] {
+            if let resolvedPackage = packagesByIdentity[PURL.from(identity: dependency.identity)] {
                 // check if this resolved package already listed in the dependencies
                 // this means that the dependencies share the same identity
                 // FIXME: this works but the way we find out about this is based on a side effect, need to improve it
@@ -526,7 +526,7 @@ private func createResolvedPackages(
                 {
                     packageObservabilityScope
                         .emit(
-                            info: "dependency on '\(resolvedPackage.package.identity)' is represented by similar locations ('\(resolvedPackage.package.manifest.packageLocation)' and '\(dependencyPackageRef.locationString)') which are treated as the same canonical location '\(dependencyPackageRef.canonicalLocation)'."
+                            info: "dependency on '\(resolvedPackage.package.identity.packageIdentity)' is represented by similar locations ('\(resolvedPackage.package.manifest.packageLocation)' and '\(dependencyPackageRef.locationString)') which are treated as the same canonical location '\(dependencyPackageRef.canonicalLocation)'."
                         )
                 }
 
@@ -537,7 +537,7 @@ private func createResolvedPackages(
                         dependenciesByNameForModuleDependencyResolution[explicitDependencyName]
                     {
                         let error = PackageGraphError.dependencyAlreadySatisfiedByName(
-                            package: package.identity.description,
+                            package: package.identity.packageIdentity.description,
                             dependencyLocation: dependencyPackageRef.locationString,
                             otherDependencyURL: previouslyResolvedPackage.package.manifest.packageLocation,
                             name: explicitDependencyName
@@ -552,7 +552,7 @@ private func createResolvedPackages(
                     dependenciesByNameForModuleDependencyResolution[dependency.identity.description]
                 {
                     let error = PackageGraphError.dependencyAlreadySatisfiedByName(
-                        package: package.identity.description,
+                        package: package.identity.packageIdentity.description,
                         dependencyLocation: dependencyPackageRef.locationString,
                         otherDependencyURL: previouslyResolvedPackage.package.manifest.packageLocation,
                         name: dependency.identity.description
@@ -778,7 +778,7 @@ private func createResolvedPackages(
                     guard let referencedPackageDependency = (
                         packageBuilder.package.manifest.dependencies
                             .first { package in
-                                package.identity == referencedPackageIdentity
+                                PURL.from(identity: package.identity) == referencedPackageIdentity
                             }
                     ) else {
                         throw InternalError(
@@ -857,8 +857,8 @@ private func createResolvedPackages(
                 default:
                     observabilityScope.emit(
                         ModuleError.duplicateModules(
-                            package: potentiallyDuplicatePackage.key.package1.identity,
-                            otherPackage: potentiallyDuplicatePackage.key.package2.identity,
+                            package: potentiallyDuplicatePackage.key.package1.identity.packageIdentity,
+                            otherPackage: potentiallyDuplicatePackage.key.package2.identity.packageIdentity,
                             modules: potentiallyDuplicatePackage.value
                         )
                     )
@@ -871,7 +871,7 @@ private func createResolvedPackages(
             observabilityScope.emit(
                 ModuleError.duplicateModule(
                     moduleName: entry.key,
-                    packages: entry.value.map(\.identity)
+                    packages: entry.value.map(\.identity.packageIdentity)
                 )
             )
         }
@@ -1088,7 +1088,7 @@ private func prepareProductDependencyNotFoundError(
     dependency: Module.ProductReference,
     lookupByProductIDs: Bool
 ) -> PackageGraphError {
-    let packageName = packageBuilder.package.identity.description
+    let packageName = packageBuilder.package.identity.packageIdentity.description
     // Module's dependency is either a local module or a product from another package.
     // If dependency is a product from the current package, that's an incorrect
     // declaration of the dependency and we should show relevant error. Let's see
@@ -1146,7 +1146,7 @@ private func prepareProductDependencyNotFoundError(
                     let manifestProducts = packageDep.package.manifest.products.map(\.name)
                     let explicitProducts = packageDep.package.products.filter { manifestProducts.contains($0.name) }
                     let explicitIdsOrNames = Set(explicitProducts.map { lookupByProductIDs ? $0.identity : $0.name })
-                    return explicitIdsOrNames.map { ($0, packageDep.package.identity.description) }
+                    return explicitIdsOrNames.map { ($0, packageDep.package.identity.packageIdentity.description) }
                 }
         )
         bestMatchedProductName = bestMatch(for: dependency.name, from: Array(availableProducts.keys))
@@ -1166,7 +1166,7 @@ private func prepareProductDependencyNotFoundError(
         // Package is explicitly listed in the product dependency, we shall search
         // within the products from that package.
         let availableProducts = packageBuilder.dependencies
-            .filter { $0.package.identity.description == dependency.package }
+            .filter { $0.package.identity.packageIdentity.description == dependency.package }
             .flatMap { (packageDep: ResolvedPackageBuilder) -> [String] in
                 let manifestProducts = packageDep.package.manifest.products.map(\.name)
                 let explicitProducts = packageDep.package.products.filter { manifestProducts.contains($0.name) }
@@ -1236,8 +1236,8 @@ extension Product {
 }
 
 private class DuplicateProductsChecker {
-    var packageIDToBuilder = [PackageIdentity: ResolvedPackageBuilder]()
-    var checkedPkgIDs = [PackageIdentity]()
+    var packageIDToBuilder = [PURL: ResolvedPackageBuilder]()
+    var checkedPkgIDs = [PURL]()
 
     let moduleAliasingUsed: Bool
     let observabilityScope: ObservabilityScope
@@ -1252,12 +1252,12 @@ private class DuplicateProductsChecker {
     }
 
     func run(lookupByProductIDs: Bool = false, observabilityScope: ObservabilityScope) throws {
-        var productToPkgMap = [String: Set<PackageIdentity>]()
+        var productToPkgMap = [String: Set<PURL>]()
         for (pkgID, pkgBuilder) in self.packageIDToBuilder {
             let useProductIDs = pkgBuilder.package.manifest.disambiguateByProductIDs || lookupByProductIDs
             let depProductRefs = pkgBuilder.package.modules.map(\.dependencies).flatMap { $0 }.compactMap(\.product)
             for depRef in depProductRefs {
-                if let depPkg = depRef.package.map(PackageIdentity.plain) {
+                if let depPkg = depRef.package.map(PURL.from(name:)) {
                     if !self.checkedPkgIDs.contains(depPkg) {
                         self.checkedPkgIDs.append(depPkg)
                     }
@@ -1397,7 +1397,7 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
     }
 
     /// The reference to its package.
-    let packageIdentity: PackageIdentity
+    let packageIdentity: PURL
 
     /// The module reference.
     let module: Module
@@ -1445,7 +1445,7 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
     let platformVersionProvider: PlatformVersionProvider
 
     init(
-        packageIdentity: PackageIdentity,
+        packageIdentity: PURL,
         module: Module,
         observabilityScope: ObservabilityScope,
         platformVersionProvider: PlatformVersionProvider
@@ -1470,7 +1470,7 @@ private final class ResolvedModuleBuilder: ResolvedBuilder<ResolvedModule> {
             case .product(let productBuilder, let conditions):
                 try self.module.validateDependency(
                     product: productBuilder.product,
-                    productPackage: productBuilder.packageBuilder.package.identity
+                    productPackage: productBuilder.packageBuilder.package.identity.packageIdentity
                 )
                 let product = try productBuilder.construct()
                 if !productBuilder.packageBuilder.isAllowedToVendUnsafeProducts {
@@ -1549,7 +1549,7 @@ private final class ResolvedPackageBuilder: ResolvedBuilder<ResolvedPackage> {
 
     /// Map from package identity to the local name for module dependency resolution that has been given to that package
     /// through the dependency declaration.
-    var dependencyNamesForModuleDependencyResolutionOnly: [PackageIdentity: String] = [:]
+    var dependencyNamesForModuleDependencyResolutionOnly: [PURL: String] = [:]
 
     /// The defaultLocalization for this package.
     var defaultLocalization: String? = nil

@@ -152,7 +152,8 @@ public struct ResolvedModule {
         self.underlying.sources
     }
 
-    package let packageIdentity: PackageIdentity
+//    package let packageIdentity: PackageIdentity
+    package let packageIdentity: PURL
 
     /// The underlying module represented in this resolved module.
     public let underlying: Module
@@ -196,7 +197,7 @@ public struct ResolvedModule {
 
     /// Create a resolved module instance.
     public init(
-        packageIdentity: PackageIdentity,
+        packageIdentity: PURL,
         underlying: Module,
         dependencies: [ResolvedModule.Dependency],
         defaultLocalization: String? = nil,
@@ -255,7 +256,7 @@ extension ResolvedModule.Dependency: Identifiable {
         }
 
         let kind: Kind
-        let packageIdentity: PackageIdentity
+        let packageIdentity: PURL
         let name: String
     }
 
@@ -300,7 +301,7 @@ extension ResolvedModule: Identifiable {
         public var targetName: String { self.moduleName }
 
         public let moduleName: String
-        let packageIdentity: PackageIdentity
+        let packageIdentity: PURL
     }
 
     public var id: ID {

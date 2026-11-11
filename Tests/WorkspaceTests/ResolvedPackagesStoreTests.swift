@@ -31,11 +31,11 @@ final class ResolvedPackagesStoreTests: XCTestCase {
         do {
             let fooPath = AbsolutePath("/foo")
             let foo = PackageIdentity(path: fooPath)
-            let fooRef = PackageReference.localSourceControl(identity: foo, path: fooPath)
+            let fooRef = PackageReference.localSourceControl(identity: PURL.from(identity: foo), path: fooPath)
 
             let barPath = AbsolutePath("/bar")
             let bar = PackageIdentity(path: barPath)
-            let barRef = PackageReference.localSourceControl(identity: bar, path: barPath)
+            let barRef = PackageReference.localSourceControl(identity: PURL.from(identity: bar), path: barPath)
 
             var store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
             
@@ -45,7 +45,7 @@ final class ResolvedPackagesStoreTests: XCTestCase {
 
             let revision = UUID().uuidString
             let state = ResolvedPackagesStore.ResolutionState.version(v1, revision: revision)
-            store.track(packageRef: fooRef, state: state)
+            store.track(packageRef: fooRef, state: state, purl: fooRef.identity)
             try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
 
             XCTAssert(fs.exists(packageResolvedFile))
@@ -55,20 +55,21 @@ final class ResolvedPackagesStoreTests: XCTestCase {
             // Test basics on the store.
             for s in [store, store2] {
                 XCTAssert(s.resolvedPackages.count == 1)
-                XCTAssertEqual(s.resolvedPackages[bar], nil)
-                let fooResolution = s.resolvedPackages[foo]!
+                XCTAssertEqual(s.resolvedPackages[PURL.from(identity: bar)], nil)
+                let fooResolution = s.resolvedPackages[PURL.from(identity: foo)]!
                 XCTAssertEqual(fooResolution.packageRef, fooRef)
                 XCTAssertEqual(fooResolution.state, .version(v1, revision: revision))
                 XCTAssertEqual(fooResolution.state.description, v1.description)
             }
 
             // We should be able to resolve again.
-            store.track(packageRef: fooRef, state: state)
+            store.track(packageRef: fooRef, state: state, purl: fooRef.identity)
             store.track(
                 packageRef: fooRef,
-                state: .version("1.0.2", revision: revision)
+                state: .version("1.0.2", revision: revision),
+                purl: fooRef.identity
             )
-            store.track(packageRef: barRef, state: state)
+            store.track(packageRef: barRef, state: state, purl: barRef.identity)
             try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
 
             store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
@@ -85,13 +86,14 @@ final class ResolvedPackagesStoreTests: XCTestCase {
 
             var store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
             store.track(
-                packageRef: .localSourceControl(identity: identity, path: path),
-                state: .version("1.2.3", revision: revision)
+                packageRef: .localSourceControl(identity: PURL.from(identity: identity), path: path),
+                state: .version("1.2.3", revision: revision),
+                purl: PURL.from(identity: identity)
             )
             try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
             store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
-            let resolution = store.resolvedPackages[identity]!
+            let resolution = store.resolvedPackages[PURL.from(identity: identity)]!
             XCTAssertEqual(resolution.state, .version("1.2.3", revision: revision))
             XCTAssertEqual(resolution.state.description, "1.2.3")
         }
@@ -105,13 +107,14 @@ final class ResolvedPackagesStoreTests: XCTestCase {
 
             var store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
             store.track(
-                packageRef: .localSourceControl(identity: identity, path: path),
-                state: .branch(name: "develop", revision: revision)
+                packageRef: .localSourceControl(identity: PURL.from(identity: identity), path: path),
+                state: .branch(name: "develop", revision: revision),
+                purl: PURL.from(identity: identity)
             )
             try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
             store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
-            let resolution = store.resolvedPackages[identity]!
+            let resolution = store.resolvedPackages[PURL.from(identity: identity)]!
             XCTAssertEqual(resolution.state, .branch(name: "develop", revision: revision))
             XCTAssertEqual(resolution.state.description, "develop")
         }
@@ -125,13 +128,14 @@ final class ResolvedPackagesStoreTests: XCTestCase {
 
             var store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
             store.track(
-                packageRef: .localSourceControl(identity: identity, path: path),
-                state: .revision(revision)
+                packageRef: .localSourceControl(identity: PURL.from(identity: identity), path: path),
+                state: .revision(revision),
+                purl: PURL.from(identity: identity)
             )
             try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
             store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
-            let resolution = store.resolvedPackages[identity]!
+            let resolution = store.resolvedPackages[PURL.from(identity: identity)]!
             XCTAssertEqual(resolution.state, .revision(revision))
             XCTAssertEqual(resolution.state.description, revision)
         }
@@ -143,13 +147,14 @@ final class ResolvedPackagesStoreTests: XCTestCase {
 
             var store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
             store.track(
-                packageRef: .registry(identity: identity),
-                state: .version("1.2.3", revision: .none)
+                packageRef: .registry(identity: PURL.from(identity: identity)),
+                state: .version("1.2.3", revision: .none),
+                purl: PURL.from(identity: identity)
             )
             try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
             store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
 
-            let resolution = store.resolvedPackages[identity]!
+            let resolution = store.resolvedPackages[PURL.from(identity: identity)]!
             XCTAssertEqual(resolution.state, .version("1.2.3", revision: .none))
             XCTAssertEqual(resolution.state.description, "1.2.3")
         }
@@ -319,9 +324,9 @@ final class ResolvedPackagesStoreTests: XCTestCase {
 
         let fooPath = AbsolutePath("/foo")
         let foo = PackageIdentity(path: fooPath)
-        let fooRef = PackageReference.localSourceControl(identity: foo, path: fooPath)
+        let fooRef = PackageReference.localSourceControl(identity: PURL.from(identity: foo), path: fooPath)
         let revision = "81513c8fd220cf1ed1452b98060cd80d3725c5b7"
-        store.track(packageRef: fooRef, state: .version(v1, revision: revision))
+        store.track(packageRef: fooRef, state: .version(v1, revision: revision), purl: fooRef.identity)
 
         XCTAssert(!fs.exists(packageResolvedFile))
 
@@ -355,18 +360,27 @@ final class ResolvedPackagesStoreTests: XCTestCase {
 
         let store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
 
-        store.track(packageRef: .remoteSourceControl(identity: fooIdentity, url: fooMirroredURL),
-                  state: .version(v1, revision: "foo-revision"))
-        store.track(packageRef: .remoteSourceControl(identity: barIdentity, url: barMirroredURL),
-                  state: .version(v1, revision: "bar-revision"))
-        store.track(packageRef: .remoteSourceControl(identity: bazIdentity, url: bazURL),
-                  state: .version(v1, revision: "baz-revision"))
+        store.track(
+            packageRef: .remoteSourceControl(identity: PURL.from(identity: fooIdentity),url: fooMirroredURL),
+            state: .version(v1, revision: "foo-revision"),
+            purl: PURL.from(identity: fooIdentity),
+        )
+        store.track(
+            packageRef: .remoteSourceControl(identity: PURL.from(identity: barIdentity), url: barMirroredURL),
+            state: .version(v1, revision: "bar-revision"),
+            purl: PURL.from(identity: barIdentity)
+        )
+        store.track(
+            packageRef: .remoteSourceControl(identity: PURL.from(identity: bazIdentity), url: bazURL),
+            state: .version(v1, revision: "baz-revision"),
+            purl: PURL.from(identity: bazIdentity)
+        )
 
         XCTAssert(store.resolvedPackages.count == 3)
-        XCTAssertEqual(store.resolvedPackages[fooIdentity]!.packageRef.kind, .remoteSourceControl(fooMirroredURL))
-        XCTAssertEqual(store.resolvedPackages[barIdentity]!.packageRef.kind, .remoteSourceControl(barMirroredURL))
-        XCTAssertNil(store.resolvedPackages[barMirroredIdentity])
-        XCTAssertEqual(store.resolvedPackages[bazIdentity]!.packageRef.kind, .remoteSourceControl(bazURL))
+        XCTAssertEqual(store.resolvedPackages[PURL.from(identity: fooIdentity)]!.packageRef.kind, .remoteSourceControl(fooMirroredURL))
+        XCTAssertEqual(store.resolvedPackages[PURL.from(identity: barIdentity)]!.packageRef.kind, .remoteSourceControl(barMirroredURL))
+        XCTAssertNil(store.resolvedPackages[PURL.from(identity: barMirroredIdentity)])
+        XCTAssertEqual(store.resolvedPackages[PURL.from(identity: bazIdentity)]!.packageRef.kind, .remoteSourceControl(bazURL))
 
         try store.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         XCTAssert(fileSystem.exists(packageResolvedFile))
@@ -378,9 +392,9 @@ final class ResolvedPackagesStoreTests: XCTestCase {
         // Load the store again from disk, with no mirrors
         let store2 = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: .init())
         XCTAssert(store2.resolvedPackages.count == 3)
-        XCTAssertEqual(store2.resolvedPackages[fooIdentity]!.packageRef.kind, .remoteSourceControl(fooURL))
-        XCTAssertEqual(store2.resolvedPackages[barIdentity]!.packageRef.kind, .remoteSourceControl(barURL))
-        XCTAssertEqual(store2.resolvedPackages[bazIdentity]!.packageRef.kind, .remoteSourceControl(bazURL))
+        XCTAssertEqual(store2.resolvedPackages[PURL.from(identity: fooIdentity)]!.packageRef.kind, .remoteSourceControl(fooURL))
+        XCTAssertEqual(store2.resolvedPackages[PURL.from(identity: barIdentity)]!.packageRef.kind, .remoteSourceControl(barURL))
+        XCTAssertEqual(store2.resolvedPackages[PURL.from(identity: bazIdentity)]!.packageRef.kind, .remoteSourceControl(bazURL))
 
         // Load the store again from disk, with mirrors
         let store3 = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
@@ -407,12 +421,13 @@ final class ResolvedPackagesStoreTests: XCTestCase {
 
         let store1 = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
         store1.track(
-            packageRef: .remoteSourceControl(identity: fooIdentity, url: fooMirroredURL),
-            state: .version(v1, revision: "revision")
+            packageRef: .remoteSourceControl(identity: PURL.from(identity: fooIdentity), url: fooMirroredURL),
+            state: .version(v1, revision: "revision"),
+            purl: PURL.from(identity: fooIdentity)
         )
 
         XCTAssert(store1.resolvedPackages.count == 1)
-        XCTAssertEqual(store1.resolvedPackages[fooIdentity]!.packageRef.kind, .remoteSourceControl(fooMirroredURL))
+        XCTAssertEqual(store1.resolvedPackages[PURL.from(identity: fooIdentity)]!.packageRef.kind, .remoteSourceControl(fooMirroredURL))
 
         try store1.saveState(toolsVersion: ToolsVersion.current, originHash: .none)
         XCTAssert(fileSystem.exists(packageResolvedFile))
@@ -427,7 +442,7 @@ final class ResolvedPackagesStoreTests: XCTestCase {
         // Load the store again from disk, with no mirrors
         let store2 = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: .init())
         XCTAssert(store2.resolvedPackages.count == 1)
-        XCTAssertEqual(store2.resolvedPackages[fooIdentity]!.packageRef.kind, .remoteSourceControl(fooURL1))
+        XCTAssertEqual(store2.resolvedPackages[PURL.from(identity: fooIdentity)]!.packageRef.kind, .remoteSourceControl(fooURL1))
 
         // Load the store again from disk, with mirrors
         let store3 = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fileSystem, mirrors: mirrors)
@@ -534,7 +549,7 @@ final class ResolvedPackagesStoreTests: XCTestCase {
 
         let store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
         let identity = PackageIdentity.plain("scope.package")
-        let resolution = try XCTUnwrap(store.resolvedPackages[identity])
+        let resolution = try XCTUnwrap(store.resolvedPackages[PURL.from(identity: identity)])
 
         // originalLocation absent in old file — should have nil SCM URL
         XCTAssertNil(resolution.originalScmUrl)
@@ -567,7 +582,7 @@ final class ResolvedPackagesStoreTests: XCTestCase {
 
         let store = try ResolvedPackagesStore(packageResolvedFile: packageResolvedFile, workingDirectory: .root, fileSystem: fs, mirrors: .init())
         let identity = PackageIdentity.plain("apple.swift-argument-parser")
-        let resolution = try XCTUnwrap(store.resolvedPackages[identity])
+        let resolution = try XCTUnwrap(store.resolvedPackages[PURL.from(identity: identity)])
 
         if let scmURL = resolution.originalScmUrl {
             XCTAssertEqual(scmURL, SourceControlURL(scmURLString))
@@ -589,9 +604,10 @@ final class ResolvedPackagesStoreTests: XCTestCase {
             mirrors: .init()
         )
         store.track(
-            packageRef: .registry(identity: identity),
+            packageRef: .registry(identity: PURL.from(identity: identity)),
             state: .version("1.7.0", revision: .none),
-            scm: scmURL
+            scm: scmURL,
+            purl: PURL.from(identity: identity)
         )
         try store.saveState(toolsVersion: .current, originHash: .none)
 
@@ -602,7 +618,7 @@ final class ResolvedPackagesStoreTests: XCTestCase {
             fileSystem: fs,
             mirrors: .init()
         )
-        let resolution = try XCTUnwrap(store2.resolvedPackages[identity])
+        let resolution = try XCTUnwrap(store2.resolvedPackages[PURL.from(identity: identity)])
         XCTAssertEqual(resolution.originalScmUrl, scmURL)
 
         // Also verify the Package.resolved JSON contains the originalLocation field
@@ -623,9 +639,10 @@ final class ResolvedPackagesStoreTests: XCTestCase {
             mirrors: .init()
         )
         store.track(
-            packageRef: .registry(identity: identity),
-            state: .version("1.0.0", revision: .none)
+            packageRef: .registry(identity: PURL.from(identity: identity)),
+            state: .version("1.0.0", revision: .none),
             // no scm: parameter
+            purl: PURL.from(identity: identity)
         )
         try store.saveState(toolsVersion: .current, originHash: .none)
 
@@ -635,7 +652,7 @@ final class ResolvedPackagesStoreTests: XCTestCase {
             fileSystem: fs,
             mirrors: .init()
         )
-        let resolution = try XCTUnwrap(store2.resolvedPackages[identity])
+        let resolution = try XCTUnwrap(store2.resolvedPackages[PURL.from(identity: identity)])
         XCTAssertNil(resolution.originalScmUrl)
     }
 }

@@ -410,7 +410,7 @@ extension Workspace {
         observabilityScope: ObservabilityScope
     ) async throws -> AbsolutePath {
         let downloadPath = try await self.registryDownloadsManager.lookup(
-            package: package.identity,
+            package: package.identity.packageIdentity,
             version: version,
             observabilityScope: observabilityScope
         )
@@ -420,7 +420,7 @@ extension Workspace {
             debug: "adding '\(package.identity)' (\(package.locationString)) to managed dependencies",
             metadata: package.diagnosticsMetadata
         )
-        let scm = self.identityLookupCache.scmURL(for: package.identity)
+        let scm = self.identityLookupCache.scmURL(for: package.identity.packageIdentity)
         try await self.state.add(
             dependency: .registryDownload(
                 packageRef: package,
@@ -460,7 +460,7 @@ extension Workspace {
         try self.fileSystem.removeFileTree(downloadPath)
 
         // remove the local copy
-        try registryDownloadsManager.remove(package: dependency.packageRef.identity)
+        try registryDownloadsManager.remove(package: dependency.packageRef.identity.packageIdentity)
     }
 }
 
@@ -528,7 +528,7 @@ extension Workspace {
                 if case let .registry(id) = resolvedPackage.packageRef.kind,
                    let url = resolvedPackage.originalScmUrl
                 {
-                    self[storing: url] = .success(id)
+                    self[storing: url] = .success(id.packageIdentity)
                 }
             }
 

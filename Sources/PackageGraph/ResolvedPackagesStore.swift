@@ -27,7 +27,7 @@ public final class ResolvedPackagesStore {
     @available(*, deprecated, renamed: "ResolvedPackages", message: "Renamed for consistency with the actual name of the feature")
     public typealias Pins = ResolvedPackages
 
-    public typealias ResolvedPackages = [PackageIdentity: ResolvedPackagesStore.ResolvedPackage]
+    public typealias ResolvedPackages = [PURL: ResolvedPackagesStore.ResolvedPackage]
 
     @available(*, deprecated, renamed: "ResolvedPackage", message: "Renamed for consistency with the actual name of the feature")
     public typealias Pin = ResolvedPackage
@@ -36,16 +36,20 @@ public final class ResolvedPackagesStore {
         /// The package reference of the resolved dependency.
         public let packageRef: PackageReference
 
+        /// The package url, representing the identity of the resolved dependency.
+        public let purl: PURL
+
         /// The resolved state.
         public let state: ResolutionState
 
         /// The original source control URL for a registry package that was mapped from a source control package.
         public var originalScmUrl: SourceControlURL?
 
-        public init(packageRef: PackageReference, state: ResolutionState, originalScmUrl: SourceControlURL?) {
+        public init(packageRef: PackageReference, state: ResolutionState, originalScmUrl: SourceControlURL?, purl: PURL) {
             self.packageRef = packageRef
             self.state = state
             self.originalScmUrl = originalScmUrl
+            self.purl = purl
         }
     }
 
@@ -73,7 +77,7 @@ public final class ResolvedPackagesStore {
 
     /// storage
     private let storage: ResolvedPackagesStorage
-    private let _resolvedPackages: ThreadSafeKeyValueStore<PackageIdentity, ResolvedPackagesStore.ResolvedPackage>
+    private let _resolvedPackages: ThreadSafeKeyValueStore<PURL, ResolvedPackagesStore.ResolvedPackage>
     public let originHash: String?
 
     /// The current resolved packages.
@@ -135,11 +139,12 @@ public final class ResolvedPackagesStore {
     /// - Parameters:
     ///   - packageRef: The package reference to track.
     ///   - state: The state to track with.
-    public func track(packageRef: PackageReference, state: ResolutionState, scm: SourceControlURL? = nil) {
+    public func track(packageRef: PackageReference, state: ResolutionState, scm: SourceControlURL? = nil, purl: PURL) {
         self.add(.init(
             packageRef: packageRef,
             state: state,
-            originalScmUrl: scm
+            originalScmUrl: scm,
+            purl: purl
         ))
     }
 
@@ -212,9 +217,9 @@ private struct ResolvedPackagesStorage {
                 return (
                     resolvedPackages: try v1.object.pins
                         .map { try ResolvedPackagesStore.ResolvedPackage($0, mirrors: mirrors) }
-                        .reduce(into: [PackageIdentity: ResolvedPackagesStore.ResolvedPackage]()) { partial, iterator in
+                        .reduce(into: [PURL: ResolvedPackagesStore.ResolvedPackage]()) { partial, iterator in
                             if partial.keys.contains(iterator.packageRef.identity) {
-                                throw StringError("duplicated entry for package \"\(iterator.packageRef.identity)\"")
+                                throw StringError("duplicated entry for package \"\(iterator.packageRef.identity.packageIdentity)\"")
                             }
                             partial[iterator.packageRef.identity] = iterator
                         },
@@ -225,9 +230,9 @@ private struct ResolvedPackagesStorage {
                 return (
                     resolvedPackages: try v2.pins
                         .map { try ResolvedPackagesStore.ResolvedPackage($0, mirrors: mirrors) }
-                        .reduce(into: [PackageIdentity: ResolvedPackagesStore.ResolvedPackage]()) { partial, iterator in
+                        .reduce(into: [PURL: ResolvedPackagesStore.ResolvedPackage]()) { partial, iterator in
                             if partial.keys.contains(iterator.packageRef.identity) {
-                                throw StringError("duplicated entry for package \"\(iterator.packageRef.identity)\"")
+                                throw StringError("duplicated entry for package \"\(iterator.packageRef.identity.packageIdentity)\"")
                             }
                             partial[iterator.packageRef.identity] = iterator
                         },
@@ -238,9 +243,9 @@ private struct ResolvedPackagesStorage {
                 return (
                     resolvedPackages: try v3.pins
                         .map { try ResolvedPackagesStore.ResolvedPackage($0, mirrors: mirrors) }
-                        .reduce(into: [PackageIdentity: ResolvedPackagesStore.ResolvedPackage]()) { partial, iterator in
+                        .reduce(into: [PURL: ResolvedPackagesStore.ResolvedPackage]()) { partial, iterator in
                             if partial.keys.contains(iterator.packageRef.identity) {
-                                throw StringError("duplicated entry for package \"\(iterator.packageRef.identity)\"")
+                                throw StringError("duplicated entry for package \"\(iterator.packageRef.identity.packageIdentity)\"")
                             }
                             partial[iterator.packageRef.identity] = iterator
                         },
@@ -441,7 +446,7 @@ private struct ResolvedPackagesStorage {
         }
 
         struct Pin: Codable {
-            let identity: PackageIdentity
+            let identity: PURL
             let kind: Kind
             let location: String
             let originalLocation: String?
@@ -530,11 +535,12 @@ extension ResolvedPackagesStore.ResolvedPackage {
         // rdar://52529014, rdar://52529011: pin file should store the original location but remap when loading
         let location = mirrors.effective(for: pin.repositoryURL)
         let identity = PackageIdentity(urlString: location) // FIXME: pin store should also encode identity
+        let purl = PURL.from(identity: identity)
         var packageRef: PackageReference
         if let path = try? AbsolutePath(validating: location) {
-            packageRef = .localSourceControl(identity: identity, path: path)
+            packageRef = .localSourceControl(identity: purl, path: path)
         } else {
-            packageRef = .remoteSourceControl(identity: identity, url: SourceControlURL(location))
+            packageRef = .remoteSourceControl(identity: purl, url: SourceControlURL(location))
         }
         if let newName = pin.package {
             packageRef = packageRef.withName(newName)
@@ -542,7 +548,8 @@ extension ResolvedPackagesStore.ResolvedPackage {
         self.init(
             packageRef: packageRef,
             state: try .init(pin.state),
-            originalScmUrl: nil
+            originalScmUrl: nil,
+            purl: packageRef.identity
         )
     }
 }
@@ -582,7 +589,8 @@ extension ResolvedPackagesStore.ResolvedPackage {
         self.init(
             packageRef: packageRef,
             state: try .init(pin.state),
-            originalScmUrl: scm
+            originalScmUrl: scm,
+            purl: packageRef.identity
         )
     }
 }

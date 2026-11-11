@@ -583,7 +583,7 @@ extension PackagePIFProjectBuilder {
                 product: nil,
                 productName: sourceModule.name,
                 targetName: sourceModule.name,
-                packageIdentity: package.identity,
+                packageIdentity: package.identity.packageIdentity,
                 packageName: sourceModule.packageName,
                 createDylibForDynamicProducts: pifBuilder.createDylibForDynamicProducts,
                 installPath: "/usr/local/lib",

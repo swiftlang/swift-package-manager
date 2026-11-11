@@ -29,7 +29,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let sourceControlURL = SourceControlURL("https://example.com/mona/LinkedList.git")
 
         // Add fingerprints for mona.LinkedList
-        let package = PackageIdentity.plain("mona.LinkedList")
+        let package = PURL.from(name: "mona.LinkedList")
         try storage.put(
             package: package,
             version: Version("1.0.0"),
@@ -51,7 +51,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         )
 
         // Fingerprint for another package
-        let otherPackage = PackageIdentity.plain("other.LinkedList")
+        let otherPackage = PURL.from(name: "other.LinkedList")
         try storage.put(
             package: otherPackage,
             version: Version("1.0.0"),
@@ -108,7 +108,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
         let registryURL = URL("https://example.packages.com")
 
-        let package = PackageIdentity.plain("mona.LinkedList")
+        let package = PURL.from(name: "mona.LinkedList")
         try storage.put(
             package: package,
             version: Version("1.0.0"),
@@ -135,7 +135,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         }
 
         // No fingerprints found for the package
-        let otherPackage = PackageIdentity.plain("other.LinkedList")
+        let otherPackage = PURL.from(name: "other.LinkedList")
         await XCTAssertAsyncThrowsError(try storage.get(package: otherPackage, version: Version("1.0.0"))) { error in
             guard case PackageFingerprintStorageError.notFound = error else {
                 return XCTFail("Expected PackageFingerprintStorageError.notFound, got \(error)")
@@ -149,7 +149,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
         let registryURL = URL("https://example.packages.com")
 
-        let package = PackageIdentity.plain("mona.LinkedList")
+        let package = PURL.from(name: "mona.LinkedList")
         // Write registry checksum for v1.0.0
         try storage.put(
             package: package,
@@ -190,7 +190,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
         let sourceControlURL = SourceControlURL("https://example.com/mona/LinkedList.git")
         let packageRef = PackageReference.remoteSourceControl(
-            identity: PackageIdentity(url: sourceControlURL),
+            identity: PURL.from(identity: PackageIdentity(url: sourceControlURL)),
             url: sourceControlURL
         )
 
@@ -232,8 +232,8 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let barURL = SourceControlURL("https://example.com/bar/LinkedList.git")
 
         // foo and bar have the same identity `LinkedList`
-        let fooRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: fooURL), url: fooURL)
-        let barRef = PackageReference.remoteSourceControl(identity: PackageIdentity(url: barURL), url: barURL)
+        let fooRef = PackageReference.remoteSourceControl(identity: PURL.from(identity: PackageIdentity(url: fooURL)), url: fooURL)
+        let barRef = PackageReference.remoteSourceControl(identity: PURL.from(identity: PackageIdentity(url: barURL)), url: barURL)
 
         try storage.put(
             package: fooRef,
@@ -289,7 +289,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let storage = FilePackageFingerprintStorage(fileSystem: mockFileSystem, directoryPath: directoryPath)
 
         let sourceControlURL = SourceControlURL("https://example.com/mona/LinkedList.git")
-        let package = PackageIdentity.plain("mona.LinkedList")
+        let package = PURL.from(name: "mona.LinkedList")
         let fingerprintsPath = directoryPath.appending(package.fingerprintsFilename)
         let v1Fingerprints = """
         {
@@ -331,7 +331,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
         let sourceControlURL = SourceControlURL("https://example.com/mona/LinkedList.git")
 
         // Add fingerprints for 1.0.0 source archive/code
-        let package = PackageIdentity.plain("mona.LinkedList")
+        let package = PURL.from(name: "mona.LinkedList")
         try storage.put(
             package: package,
             version: Version("1.0.0"),
@@ -403,7 +403,7 @@ final class FilePackageFingerprintStorageTests: XCTestCase {
 
 extension PackageFingerprintStorage {
     fileprivate func get(
-        package: PackageIdentity,
+        package: PURL,
         version: Version
     ) throws -> [Fingerprint.Kind: [Fingerprint.ContentType: Fingerprint]] {
         try self.get(
@@ -414,7 +414,7 @@ extension PackageFingerprintStorage {
     }
 
     fileprivate func get(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         kind: Fingerprint.Kind,
         contentType: Fingerprint.ContentType
@@ -429,7 +429,7 @@ extension PackageFingerprintStorage {
     }
 
     fileprivate func put(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         fingerprint: Fingerprint
     ) throws {

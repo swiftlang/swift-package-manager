@@ -25,7 +25,7 @@ import protocol TSCBasic.HashAlgorithm
 import struct TSCUtility.Version
 
 fileprivate let registryURL = URL("https://packages.example.com")
-fileprivate let identity = PackageIdentity.plain("mona.LinkedList")
+fileprivate let identity = PURL.from(name: "mona.LinkedList")
 fileprivate let version = Version("1.1.1")
 fileprivate let packageURL = SourceControlURL("https://example.com/mona/LinkedList")
 fileprivate var releasesURL = URL("\(registryURL)/\(identity.registry!.scope)/\(identity.registry!.name)")
@@ -296,7 +296,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
         } throws: { error in
             if case RegistryError.failedRetrievingReleases(
                 registry: configuration.defaultRegistry!,
-                package: identity,
+                package: identity.packageIdentity,
                 error: RegistryError.packageNotFound
             ) = error {
                 return true
@@ -326,7 +326,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
             if case RegistryError
                 .failedRetrievingReleases(
                     registry: configuration.defaultRegistry!,
-                    package: identity,
+                    package: identity.packageIdentity,
                     error: RegistryError.serverError(
                         code: serverErrorHandler.errorCode,
                         details: serverErrorHandler.errorDescription
@@ -430,7 +430,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
 
         let metadataSync = try await withCheckedThrowingContinuation { continuation in
             return registryClient.getPackageVersionMetadata(
-                package: identity,
+                package: identity.packageIdentity,
                 version: version,
                 fileSystem: InMemoryFileSystem(),
                 observabilityScope: ObservabilitySystem.NOOP,
@@ -580,7 +580,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
             if case RegistryError
                 .failedRetrievingReleaseInfo(
                     registry: configuration.defaultRegistry!,
-                    package: identity,
+                    package: identity.packageIdentity,
                     version: version,
                     error: RegistryError.packageVersionNotFound
                 ) = error {
@@ -609,7 +609,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
             if case RegistryError
                 .failedRetrievingReleaseInfo(
                     registry: configuration.defaultRegistry!,
-                    package: identity,
+                    package: identity.packageIdentity,
                     version: version,
                     error: RegistryError.serverError(
                         code: serverErrorHandler.errorCode,
@@ -763,7 +763,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
 
         let availableManifestsSync = try await withCheckedThrowingContinuation { continuation in
             return registryClient.getAvailableManifests(
-                package: identity,
+                package: identity.packageIdentity,
                 version: version,
                 observabilityScope: ObservabilitySystem.NOOP,
                 callbackQueue: .sharedConcurrent,
@@ -1215,7 +1215,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
         } throws: { error in
             if case RegistryError.failedRetrievingManifest(
                 registry: configuration.defaultRegistry!,
-                package: identity,
+                package: identity.packageIdentity,
                 version: version,
                 error: RegistryError.packageVersionNotFound
             ) = error {
@@ -1273,7 +1273,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
         } throws: { error in
             if case RegistryError.failedRetrievingManifest(
                 registry: configuration.defaultRegistry!,
-                package: identity,
+                package: identity.packageIdentity,
                 version: version,
                 error: RegistryError.serverError(
                     code: serverErrorHandler.errorCode,
@@ -1413,7 +1413,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
         do {
             let manifestSync = try await withCheckedThrowingContinuation { continuation in
                 return registryClient.getManifestContent(
-                    package: identity,
+                    package: identity.packageIdentity,
                     version: version,
                     customToolsVersion: toolsVersion,
                     observabilityScope: ObservabilitySystem.NOOP,
@@ -1928,7 +1928,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
         } throws: { error in
             if case RegistryError.failedRetrievingManifest(
                 registry: configuration.defaultRegistry!,
-                package: identity,
+                package: identity.packageIdentity,
                 version: version,
                 error: RegistryError.packageVersionNotFound
             ) = error {
@@ -1986,7 +1986,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
         } throws: { error in
             if case RegistryError.failedRetrievingManifest(
                 registry: configuration.defaultRegistry!,
-                package: identity,
+                package: identity.packageIdentity,
                 version: version,
                 error: RegistryError.serverError(
                     code: serverErrorHandler.errorCode,
@@ -2156,7 +2156,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
         let syncPath = try! AbsolutePath(validating: "/\(identity)-\(version)-sync")
         try await withCheckedThrowingContinuation { continuation in
             registryClient.downloadSourceArchive(
-                package: identity,
+                package: identity.packageIdentity,
                 version: version,
                 destinationPath: syncPath,
                 progressHandler: nil,
@@ -2837,7 +2837,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
             if case RegistryError
                 .failedDownloadingSourceArchive(
                     registry: configuration.defaultRegistry!,
-                    package: identity,
+                    package: identity.packageIdentity,
                     version: version,
                     error: RegistryError.packageVersionNotFound
                 ) = error {
@@ -2911,7 +2911,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
             if case RegistryError
                 .failedDownloadingSourceArchive(
                     registry: configuration.defaultRegistry!,
-                    package: identity,
+                    package: identity.packageIdentity,
                     version: version,
                     error: RegistryError.serverError(code: serverErrorHandler.errorCode, details: serverErrorHandler.errorDescription)
                 ) = error {
@@ -3600,7 +3600,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
             let result = try await withCheckedThrowingContinuation { continuation in
                 return registryClient.publish(
                     registryURL: registryURL,
-                    packageIdentity: identity,
+                    packageIdentity: identity.packageIdentity,
                     packageVersion: version,
                     packageArchive: archivePath,
                     packageMetadata: metadataPath,
@@ -4578,7 +4578,7 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
 // MARK: - Sugar
 
 extension RegistryClient {
-    fileprivate func getPackageMetadata(package: PackageIdentity) async throws -> RegistryClient.PackageMetadata {
+    fileprivate func getPackageMetadata(package: PURL) async throws -> RegistryClient.PackageMetadata {
         try await self.getPackageMetadata(
             package: package,
             observabilityScope: ObservabilitySystem.NOOP
@@ -4586,7 +4586,7 @@ extension RegistryClient {
     }
 
     func getPackageVersionMetadata(
-        package: PackageIdentity,
+        package: PURL,
         version: Version
     ) async throws -> PackageVersionMetadata {
         try await self.getPackageVersionMetadata(
@@ -4610,7 +4610,7 @@ extension RegistryClient {
     }
 
     fileprivate func downloadSourceArchive(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         fileSystem: FileSystem,
         destinationPath: AbsolutePath,
@@ -4634,7 +4634,7 @@ extension RegistryClient {
     }
 
     fileprivate func getManifestContent(
-        package: PackageIdentity,
+        package: PURL,
         version: Version,
         customToolsVersion: ToolsVersion?
     ) async throws -> String {
@@ -4655,7 +4655,7 @@ extension RegistryClient {
 
     func publish(
         registryURL: URL,
-        packageIdentity: PackageIdentity,
+        packageIdentity: PURL,
         packageVersion: Version,
         packageArchive: AbsolutePath,
         packageMetadata: AbsolutePath?,

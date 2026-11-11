@@ -54,7 +54,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         // `signingEntity` meets requirement to be used for TOFU
         // (i.e., it's .recognized), so it should be saved to storage.
         let packageSigners = try signingEntityStorage.get(
-            package: package.underlying,
+            package: package.underlying.packageIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
@@ -85,7 +85,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // `signingEntity` is nil, so it should not be saved to storage.
         let packageSigners = try signingEntityStorage.get(
-            package: package.underlying,
+            package: package.underlying.packageIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertTrue(packageSigners.isEmpty)
@@ -120,7 +120,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // `signingEntity` is not .recognized, so it should not be saved to storage.
         let packageSigners = try signingEntityStorage.get(
-            package: package.underlying,
+            package: package.underlying.packageIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertTrue(packageSigners.isEmpty)
@@ -138,7 +138,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
+            [package.underlying.packageIdentity: PackageSigners(
                 expectedSigner: .none,
                 signers: [signingEntity: PackageSigner(
                     signingEntity: signingEntity,
@@ -182,7 +182,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
+            [package.underlying.packageIdentity: PackageSigners(
                 expectedSigner: .none,
                 signers: [existingSigningEntity: PackageSigner(
                     signingEntity: existingSigningEntity,
@@ -217,7 +217,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Storage should not be updated
         let packageSigners = try signingEntityStorage.get(
-            package: package.underlying,
+            package: package.underlying.packageIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
@@ -242,7 +242,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
+            [package.underlying.packageIdentity: PackageSigners(
                 expectedSigner: .none,
                 signers: [existingSigningEntity: PackageSigner(
                     signingEntity: existingSigningEntity,
@@ -278,7 +278,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Storage should not be updated
         let packageSigners = try signingEntityStorage.get(
-            package: package.underlying,
+            package: package.underlying.packageIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
@@ -297,7 +297,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
+            [package.underlying.packageIdentity: PackageSigners(
                 expectedSigner: .none,
                 signers: [existingSigningEntity: PackageSigner(
                     signingEntity: existingSigningEntity,
@@ -332,7 +332,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Storage should not be updated
         let packageSigners = try signingEntityStorage.get(
-            package: package.underlying,
+            package: package.underlying.packageIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
@@ -352,7 +352,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
+            [package.underlying.packageIdentity: PackageSigners(
                 expectedSigner: .none,
                 signers: [signingEntity: PackageSigner(
                     signingEntity: signingEntity,
@@ -379,7 +379,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Storage should be updated with version 1.1.1 added
         let packageSigners = try signingEntityStorage.get(
-            package: package.underlying,
+            package: package.underlying.packageIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
@@ -405,7 +405,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
+            [package.underlying.packageIdentity: PackageSigners(
                 expectedSigner: .none,
                 signers: [existingSigningEntity: PackageSigner(
                     signingEntity: existingSigningEntity,
@@ -448,7 +448,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Storage should not be updated
         let packageSigners = try signingEntityStorage.get(
-            package: package.underlying,
+            package: package.underlying.packageIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
@@ -474,7 +474,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
+            [package.underlying.packageIdentity: PackageSigners(
                 expectedSigner: .none,
                 signers: [existingSigningEntity: PackageSigner(
                     signingEntity: existingSigningEntity,
@@ -510,7 +510,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Storage should not be updated
         let packageSigners = try signingEntityStorage.get(
-            package: package.underlying,
+            package: package.underlying.packageIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
@@ -530,7 +530,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
+            [package.underlying.packageIdentity: PackageSigners(
                 expectedSigner: .none,
                 signers: [existingSigningEntity: PackageSigner(
                     signingEntity: existingSigningEntity,
@@ -558,7 +558,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Storage should not be updated
         let packageSigners = try signingEntityStorage.get(
-            package: package.underlying,
+            package: package.underlying.packageIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
@@ -578,7 +578,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
+            [package.underlying.packageIdentity: PackageSigners(
                 expectedSigner: .none,
                 signers: [existingSigningEntity: PackageSigner(
                     signingEntity: existingSigningEntity,
@@ -622,7 +622,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Storage should not be updated
         let packageSigners = try signingEntityStorage.get(
-            package: package.underlying,
+            package: package.underlying.packageIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
@@ -642,7 +642,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
+            [package.underlying.packageIdentity: PackageSigners(
                 expectedSigner: .none,
                 signers: [existingSigningEntity: PackageSigner(
                     signingEntity: existingSigningEntity,
@@ -679,7 +679,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Storage should not be updated
         let packageSigners = try signingEntityStorage.get(
-            package: package.underlying,
+            package: package.underlying.packageIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
@@ -699,7 +699,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         )
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
+            [package.underlying.packageIdentity: PackageSigners(
                 expectedSigner: .none,
                 signers: [existingSigningEntity: PackageSigner(
                     signingEntity: existingSigningEntity,
@@ -729,7 +729,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Storage should not be updated
         let packageSigners = try signingEntityStorage.get(
-            package: package.underlying,
+            package: package.underlying.packageIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
@@ -749,7 +749,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let expectedFromVersion = Version("1.5.0")
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
+            [package.underlying.packageIdentity: PackageSigners(
                 expectedSigner: (signingEntity: expectedSigningEntity, fromVersion: expectedFromVersion),
                 signers: [expectedSigningEntity: PackageSigner(
                     signingEntity: expectedSigningEntity,
@@ -777,7 +777,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Storage should be updated with v2.0.0 added
         let packageSigners = try signingEntityStorage.get(
-            package: package.underlying,
+            package: package.underlying.packageIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 1)
@@ -804,7 +804,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let expectedFromVersion = Version("1.5.0")
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
+            [package.underlying.packageIdentity: PackageSigners(
                 expectedSigner: (signingEntity: expectedSigningEntity, fromVersion: expectedFromVersion),
                 signers: [
                     expectedSigningEntity: PackageSigner(
@@ -840,7 +840,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Storage should be updated with v2.0.0 added
         let packageSigners = try signingEntityStorage.get(
-            package: package.underlying,
+            package: package.underlying.packageIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 2)
@@ -868,7 +868,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
         let expectedFromVersion = Version("1.5.0")
 
         let signingEntityStorage = MockPackageSigningEntityStorage(
-            [package.underlying: PackageSigners(
+            [package.underlying.packageIdentity: PackageSigners(
                 expectedSigner: (signingEntity: expectedSigningEntity, fromVersion: expectedFromVersion),
                 signers: [
                     expectedSigningEntity: PackageSigner(
@@ -920,7 +920,7 @@ final class PackageSigningEntityTOFUTests: XCTestCase {
 
         // Storage should not be updated
         let packageSigners = try signingEntityStorage.get(
-            package: package.underlying,
+            package: package.underlying.packageIdentity,
             observabilityScope: ObservabilitySystem.NOOP
         )
         XCTAssertEqual(packageSigners.signers.count, 2)

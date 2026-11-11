@@ -459,7 +459,7 @@ struct SBOMExtractComponentsTests {
         )
         
         // Setup registry package
-        let registryPackageIdentity: PackageIdentity = .plain("example.TestLibrary")
+        let registryPackageIdentity = PURL.from(name: "example.TestLibrary")
         let registryPackageVersion: Version = "1.0.0"
         let registryPackageSource = InMemoryRegistryPackageSource(
             fileSystem: fs,
@@ -472,7 +472,7 @@ struct SBOMExtractComponentsTests {
         
         // Add package to registry
         registry.addPackage(
-            identity: registryPackageIdentity,
+            identity: registryPackageIdentity.packageIdentity,
             versions: [registryPackageVersion],
             sourceControlURLs: [URL("https://github.com/example/TestLibrary")],
             source: registryPackageSource
@@ -484,13 +484,13 @@ struct SBOMExtractComponentsTests {
             type: .library
         )
         let registryProduct = try Product(
-            package: registryPackageIdentity,
+            package: registryPackageIdentity.packageIdentity,
             name: "TestLibrary",
             type: .library(.automatic),
             modules: [registryModule]
         )
         let registryPackage = SBOMTestModulesGraph.createPackage(
-            identity: registryPackageIdentity,
+            identity: registryPackageIdentity.packageIdentity,
             displayName: "TestLibrary",
             path: "/registry/TestLibrary",
             modules: [registryModule],
@@ -499,11 +499,11 @@ struct SBOMExtractComponentsTests {
         
         // Create resolved modules and products for registry package
         let registryResolvedModule = SBOMTestModulesGraph.createResolvedModule(
-            packageIdentity: registryPackageIdentity,
+            packageIdentity: registryPackageIdentity.packageIdentity,
             module: registryModule
         )
         let registryResolvedProduct = SBOMTestModulesGraph.createResolvedProduct(
-            packageIdentity: registryPackageIdentity,
+            packageIdentity: registryPackageIdentity.packageIdentity,
             product: registryProduct,
             modules: IdentifiableSet([registryResolvedModule])
         )
@@ -560,7 +560,7 @@ struct SBOMExtractComponentsTests {
             package: rootPackage,
             modules: IdentifiableSet([rootResolvedModule]),
             products: [rootResolvedProduct],
-            dependencies: [registryPackageIdentity]
+            dependencies: [registryPackageIdentity.packageIdentity]
         )
         
         let registryResolvedPackage = ResolvedPackage(
@@ -591,7 +591,8 @@ struct SBOMExtractComponentsTests {
         let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
         store.track(
             packageRef: registryPackageRef,
-            state: .version(registryPackageVersion, revision: "abc123")
+            state: .version(registryPackageVersion, revision: "abc123"),
+            purl: registryPackageRef.identity
         )
         
         // Extract components

@@ -96,7 +96,7 @@ extension ManifestLoader {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) async throws -> Manifest{
-        let packageIdentity: PackageIdentity
+        let packageIdentity: PURL
         let packageLocation: String
         switch packageKind {
         case .root(let path):
@@ -119,7 +119,7 @@ extension ManifestLoader {
         return try await self.load(
             manifestPath: manifestPath,
             manifestToolsVersion: manifestToolsVersion,
-            packageIdentity: packageIdentity,
+            packageIdentity: packageIdentity.packageIdentity,
             packageKind: packageKind,
             packageLocation: packageLocation,
             packageVersion: nil,
@@ -142,7 +142,7 @@ extension ManifestLoader {
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope
     ) async throws -> Manifest {
-        let packageIdentity: PackageIdentity
+        let packageIdentity: PURL
         let packageLocation: String
         switch packageKind {
         case .root(let path):

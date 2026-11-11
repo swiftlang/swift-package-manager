@@ -1457,7 +1457,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         let buildProduct = try XCTUnwrap(
             result.productMap[.init(
-                productID: .init(productName: "exe", packageIdentity: "Pkg"),
+                productID: .init(productName: "exe", packageIdentity: PURL.from(name: "Pkg")),
                 destination: .target
             )]
         )
@@ -7109,7 +7109,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
 
         switch try XCTUnwrap(
             result.plan.targetMap[.init(
-                moduleID: .init(moduleName: "ExtLib", packageIdentity: "ExtPkg"),
+                moduleID: .init(moduleName: "ExtLib", packageIdentity: PURL.from(name: "ExtPkg")),
                 destination: .target
             )]
         ) {
@@ -7276,7 +7276,7 @@ class BuildPlanTestCase: BuildSystemProviderTestCase {
         XCTAssertTrue(result.targetMap.values.contains { $0.module.name == "BarLogging" })
         let buildProduct = try XCTUnwrap(
             result.plan.productMap[.init(
-                productID: .init(productName: "exe", packageIdentity: "thisPkg"),
+                productID: .init(productName: "exe", packageIdentity: PURL.from(name: "thisPkg")),
                 destination: .target
             )]
         )

@@ -32,7 +32,7 @@ public struct PackageReference {
         case remoteSourceControl(SourceControlURL)
 
         /// A package from a registry.
-        case registry(PackageIdentity)
+        case registry(PURL)
 
         // FIXME: we should not need this once we migrate off URLs
         //@available(*, deprecated)
@@ -48,7 +48,7 @@ public struct PackageReference {
                 return url.absoluteString
             case .registry(let identity):
                 // FIXME: this is a placeholder
-                return identity.description
+                return identity.packageIdentity.description
             }
         }
 
@@ -93,7 +93,8 @@ public struct PackageReference {
     }
 
     /// The identity of the package.
-    public let identity: PackageIdentity
+//    public let identity: PackageIdentity
+    public let identity: PURL
 
     /// The name of the package, if available.
     // soft deprecated 11/21
@@ -119,6 +120,25 @@ public struct PackageReference {
 
     /// Create a package reference given its identity and kind.
     public init(identity: PackageIdentity, kind: Kind, name: String? = nil) {
+        self.identity = .from(identity: identity)
+        self.kind = kind
+        switch kind {
+        case .root(let path):
+            self.deprecatedName = name ?? PackageIdentityParser.computeDefaultName(fromPath: path)
+        case .fileSystem(let path):
+            self.deprecatedName = name ?? PackageIdentityParser.computeDefaultName(fromPath: path)
+        case .localSourceControl(let path):
+            self.deprecatedName = name ?? PackageIdentityParser.computeDefaultName(fromPath: path)
+        case .remoteSourceControl(let url):
+            self.deprecatedName = name ?? PackageIdentityParser.computeDefaultName(fromURL: url)
+        case .registry(let identity):
+            // FIXME: this is a placeholder
+            self.deprecatedName = name ?? identity.description
+        }
+    }
+
+    /// Create a package reference given its PURL and kind.
+    public init(identity: PURL, kind: Kind, name: String? = nil) {
         self.identity = identity
         self.kind = kind
         switch kind {
@@ -136,28 +156,29 @@ public struct PackageReference {
         }
     }
 
+
     /// Create a new package reference object with the given name.
     public func withName(_ newName: String) -> PackageReference {
-        return PackageReference(identity: self.identity, kind: self.kind, name: newName)
+        return PackageReference(identity: self.identity.packageIdentity, kind: self.kind, name: newName)
     }
 
-    public static func root(identity: PackageIdentity, path: AbsolutePath) -> PackageReference {
+    public static func root(identity: PURL, path: AbsolutePath) -> PackageReference {
         PackageReference(identity: identity, kind: .root(path))
     }
 
-    public static func fileSystem(identity: PackageIdentity, path: AbsolutePath) -> PackageReference {
+    public static func fileSystem(identity: PURL, path: AbsolutePath) -> PackageReference {
         PackageReference(identity: identity, kind: .fileSystem(path))
     }
 
-    public static func localSourceControl(identity: PackageIdentity, path: AbsolutePath) -> PackageReference {
+    public static func localSourceControl(identity: PURL, path: AbsolutePath) -> PackageReference {
         PackageReference(identity: identity, kind: .localSourceControl(path))
     }
 
-    public static func remoteSourceControl(identity: PackageIdentity, url: SourceControlURL) -> PackageReference {
+    public static func remoteSourceControl(identity: PURL, url: SourceControlURL) -> PackageReference {
         PackageReference(identity: identity, kind: .remoteSourceControl(url))
     }
 
-    public static func registry(identity: PackageIdentity) -> PackageReference {
+    public static func registry(identity: PURL) -> PackageReference {
         return PackageReference(identity: identity, kind: .registry(identity))
     }
 }
