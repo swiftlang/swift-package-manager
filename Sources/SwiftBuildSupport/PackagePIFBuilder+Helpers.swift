@@ -306,7 +306,7 @@ extension Sequence<PackageModel.PackageCondition> {
     func toPlatformFilter(toolsVersion: ToolsVersion) -> Set<ProjectModel.PlatformFilter> {
         return .init(self.flatMap { packageCondition -> [ProjectModel.PlatformFilter] in
             if let prebuiltsCondition = packageCondition.prebuiltsCondition,
-               let host = Platform.host,
+               let host = Platform.prebuiltsHost,
                let hostPlatform = try? ProjectModel.BuildSettings.Platform(from: host)
             {
                 return hostPlatform.toPlatformFilter().map {

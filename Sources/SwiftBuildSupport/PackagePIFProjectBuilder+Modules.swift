@@ -1191,7 +1191,7 @@ extension PackagePIFProjectBuilder {
             fatalError("Not a prebuilt target")
         }
 
-        guard let host = PackageModel.Platform.host else {
+        guard let host = PackageModel.Platform.prebuiltsHost else {
             fatalError("Host platform is nil")
         }
 

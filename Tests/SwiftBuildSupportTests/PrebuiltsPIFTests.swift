@@ -208,6 +208,49 @@ import _InternalTestSupport
         }
     }
 
+    // Test that having absolute and relative header paths don't overwrite eachother
+    @Test func multipleSettings() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: manifests(),
+            prebuilts: [prebuiltLibrary.identity: [prebuiltLibrary]],
+            observabilityScope: observability.topScope
+        )
+
+        let macroSupport = try #require(graph.allModules[.init(moduleName: "MacroSupport", packageIdentity: "swift-syntax")])
+        macroSupport.underlying.buildSettings.add(.init(values: ["bar"]), for: .SWIFT_INCLUDE_PATHS)
+        macroSupport.underlying.buildSettings.add(.init(values: ["foo"]), for: .HEADER_SEARCH_PATHS)
+
+        let pifBuilder: PIFBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root, addLocalRpaths: .always),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let targetMap = pif.workspace.projects.flatMap(\.underlying.targets).reduce(into: [:]) { $0[$1.common.name] = $1 }
+        let targetMacroSupport = try #require(targetMap["MacroSupport"])
+        for config in targetMacroSupport.common.buildConfigs {
+            let imparted = config.impartedBuildProperties
+            // Check that both relative and absolute paths made it
+            let swiftIncludes = try #require(imparted.settings[.SWIFT_INCLUDE_PATHS])
+            #expect(swiftIncludes.contains(prebuiltLibrary.path.appending("Modules").pathString))
+            #expect(swiftIncludes.contains(prebuiltLibrary.path.appending("bar").pathString))
+            let headerSearch = try #require(imparted.settings[.HEADER_SEARCH_PATHS])
+            for path in prebuiltLibrary.includePath.map({ prebuiltLibrary.checkoutPath.appending($0) }) {
+                #expect(headerSearch.contains(path.pathString))
+            }
+            #expect(headerSearch.contains(prebuiltLibrary.path.appending("foo").pathString))
+        }
+    }
+
     @Test func disabledWindowsDifferentArch() async throws {
         let observability = ObservabilitySystem.makeForTesting()
 
@@ -303,4 +346,5 @@ import _InternalTestSupport
         let targets = pif.workspace.projects.flatMap(\.underlying.targets)
         #expect(!targets.contains(where: { $0.common.name == "MacroSupport" }))
 */    }
+
 }
