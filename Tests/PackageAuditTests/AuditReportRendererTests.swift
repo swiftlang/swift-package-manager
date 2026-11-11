@@ -157,6 +157,45 @@ struct AuditReportRendererTests {
         #expect(verbose.contains("local dependency"))
     }
 
+    private func finding(_ id: String, _ severity: AdvisorySeverity, ignored: Bool) -> AuditFinding {
+        AuditFinding(
+            package: self.regexPackage,
+            advisory: OSVRecord(id: id),
+            severity: severity,
+            sources: [],
+            fixedVersions: [],
+            ignored: ignored
+        )
+    }
+
+    @Test
+    func verboseSummaryExcludesIgnoredFindings() {
+        let report = AuditReport(
+            scannedPackages: 5,
+            findings: [self.finding("A-1", .high, ignored: false), self.finding("A-2", .moderate, ignored: true)],
+            unchecked: []
+        )
+        let text = AuditReportRenderer.text(report, verbose: true)
+        #expect(text.contains("A-2"))
+        #expect(text.hasSuffix(
+            "Found 1 vulnerability (1 high) in 5 scanned packages.\n1 ignored advisory not counted.\n"
+        ))
+    }
+
+    @Test
+    func allIgnoredNonVerboseMentionsIgnored() {
+        let report = AuditReport(
+            scannedPackages: 5,
+            findings: [self.finding("A-1", .high, ignored: true), self.finding("A-2", .low, ignored: true)],
+            unchecked: []
+        )
+        #expect(AuditReportRenderer.text(report, verbose: false) == """
+        No known vulnerabilities found in 5 scanned packages.
+        2 ignored advisories not counted. Run with --verbose to show them.
+
+        """)
+    }
+
     @Test
     func jsonShape() throws {
         let ignored = AuditFinding(

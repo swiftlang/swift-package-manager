@@ -23,7 +23,7 @@ public enum AuditReportRenderer {
 
     // MARK: - Text
 
-    /// Ignored findings are shown (and counted) only when `verbose` is set.
+    /// Ignored findings are listed only when `verbose` is set; they are never counted in the summary.
     public static func text(_ report: AuditReport, verbose: Bool) -> String {
         let findings = report.findings.filter { verbose || !$0.ignored }
         var out = ""
@@ -34,18 +34,25 @@ public enum AuditReportRenderer {
         }
 
         let scanned = "\(report.scannedPackages) scanned \(report.scannedPackages == 1 ? "package" : "packages")"
-        if findings.isEmpty {
+        let counted = report.findings.filter { !$0.ignored }
+        if counted.isEmpty {
             out += "No known vulnerabilities found in \(scanned).\n"
         } else {
             var counts: [AdvisorySeverity: Int] = [:]
-            for finding in findings {
+            for finding in counted {
                 counts[finding.severity, default: 0] += 1
             }
             let breakdown = AdvisorySeverity.allCases
                 .compactMap { severity in counts[severity].map { "\($0) \(severity.rawValue)" } }
                 .joined(separator: ", ")
-            let total = Self.count(findings.count, "vulnerability", plural: "vulnerabilities")
+            let total = Self.count(counted.count, "vulnerability", plural: "vulnerabilities")
             out += "Found \(total) (\(breakdown)) in \(scanned).\n"
+        }
+
+        let ignoredCount = report.findings.count - counted.count
+        if ignoredCount > 0 {
+            out += "\(Self.count(ignoredCount, "ignored advisory", plural: "ignored advisories")) not counted."
+            out += verbose ? "\n" : " Run with --verbose to show them.\n"
         }
 
         if !report.unchecked.isEmpty {
