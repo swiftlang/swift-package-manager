@@ -948,6 +948,87 @@ struct PIFBuilderTests {
     }
 
     @Test
+    func dynamicVariantHasModuleAliases() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(
+            emptyFiles: [
+                "/MyPkg/Sources/MyLib/MyLib.swift",
+                "/DepPkg/Sources/Utils/Utils.swift",
+            ]
+        )
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createFileSystemManifest(
+                    displayName: "DepPkg",
+                    path: "/DepPkg",
+                    toolsVersion: .v6_2,
+                    products: [
+                        .init(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        .init(name: "Utils"),
+                    ]
+                ),
+                .createRootManifest(
+                    displayName: "MyPkg",
+                    path: "/MyPkg",
+                    toolsVersion: .v6_2,
+                    dependencies: [
+                        .localSourceControl(path: "/DepPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        .init(name: "MyLibProduct", type: .library(.automatic), targets: ["MyLib"]),
+                    ],
+                    targets: [
+                        .init(
+                            name: "MyLib",
+                            dependencies: [
+                                .product(name: "Utils", package: "DepPkg", moduleAliases: ["Utils": "DepUtils"]),
+                            ]
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root,
+                addLocalRpaths: .always,
+                shouldCreateDylibForDynamicProducts: false
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "MyPkg")
+
+        for isDynamicVariant in [false, true] {
+            let target = try #require(
+                project.underlying.targets.first {
+                    $0.common.name == "MyLib" && $0.common.id.value.hasSuffix("-dynamic") == isDynamicVariant
+                }
+            )
+            for configuration in BuildConfiguration.allCases {
+                #expect(
+                    try target.buildConfig(named: configuration).settings[.SWIFT_MODULE_ALIASES] == ["Utils=DepUtils"],
+                    "\(configuration): \(isDynamicVariant ? "dynamic" : "primary") variant of MyLib is missing module aliases"
+                )
+            }
+        }
+    }
+
+    @Test
     func binaryFrameworkProductWithStubTargetSynthesizesDisambiguatedDynamicVariant() async throws {
         let observability = ObservabilitySystem.makeForTesting()
 

@@ -1471,6 +1471,77 @@ struct PackageCommandTests {
     }
 
     @Test(
+        .requireSwift6_3,
+        .tags(
+            .Feature.Command.Package.DumpSymbolGraph,
+        ),
+        .requiresSymbolgraphExtract,
+        arguments: [BuildSystemProvider.Kind.swiftbuild],
+    )
+    func dumpSymbolGraphForCTargetsWithPrivateHeaders(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await testWithTemporaryDirectory { tmpPath in
+            let packageDir = tmpPath.appending(components: "MyPackage")
+            try localFileSystem.createDirectory(packageDir)
+            try localFileSystem.writeFileContents(
+                packageDir.appending(components: "Package.swift"),
+                string: """
+                    // swift-tools-version: 6.0
+                    import PackageDescription
+                    let package = Package(
+                        name: "MyPackage",
+                        targets: [
+                            .target(name: "PrivateHeader"),
+                            .target(name: "CustomModuleMap"),
+                        ]
+                    )
+                    """
+            )
+            let privateHeaderDir = packageDir.appending(components: "Sources", "PrivateHeader")
+            try localFileSystem.createDirectory(privateHeaderDir.appending("include"), recursive: true)
+            try localFileSystem.writeFileContents(privateHeaderDir.appending(components: "include", "PrivateHeader.h"), string: "int scaled(int x);\n")
+            try localFileSystem.writeFileContents(privateHeaderDir.appending("internal.h"), string: "static int unused = SCALE;\n")
+            try localFileSystem.writeFileContents(
+                privateHeaderDir.appending("PrivateHeader.c"),
+                string: "#define SCALE 2\n#include \"internal.h\"\nint scaled(int x) { return x * SCALE; }\n"
+            )
+            let customModuleMapDir = packageDir.appending(components: "Sources", "CustomModuleMap")
+            try localFileSystem.createDirectory(customModuleMapDir.appending("include"), recursive: true)
+            try localFileSystem.writeFileContents(customModuleMapDir.appending(components: "include", "CustomModuleMap.h"), string: "int doubled(int x);\n")
+            try localFileSystem.writeFileContents(customModuleMapDir.appending(components: "include", "excluded.h"), string: "static int unused = SCALE;\n")
+            try localFileSystem.writeFileContents(
+                customModuleMapDir.appending(components: "include", "module.modulemap"),
+                string: "module CustomModuleMap {\n    header \"CustomModuleMap.h\"\n    export *\n}\n"
+            )
+            try localFileSystem.writeFileContents(
+                customModuleMapDir.appending("CustomModuleMap.c"),
+                string: "#define SCALE 2\n#include \"excluded.h\"\nint doubled(int x) { return x * SCALE; }\n"
+            )
+
+            let outputDir = tmpPath.appending(components: "symbolgraphs")
+            try localFileSystem.createDirectory(outputDir)
+
+            try await execute(
+                ["dump-symbol-graph", "--output-dir", outputDir.pathString],
+                packagePath: packageDir,
+                configuration: .debug,
+                buildSystem: buildSystem,
+            )
+
+            let outputFiles = try localFileSystem.getDirectoryContents(outputDir)
+            for (moduleName, symbolName) in [("PrivateHeader", "scaled(_:)"), ("CustomModuleMap", "doubled(_:)")] {
+                let symbolGraphFile = try #require(
+                    outputFiles.first { $0.hasPrefix(moduleName) && $0.hasSuffix(".symbols.json") },
+                    "No symbol graph file found for target '\(moduleName)', dir contains: \(outputFiles)"
+                )
+                let symbolGraph: String = try localFileSystem.readFileContents(outputDir.appending(symbolGraphFile))
+                #expect(symbolGraph.contains(symbolName), "Expected '\(symbolName)' in the symbol graph for '\(moduleName)'")
+            }
+        }
+    }
+
+    @Test(
         .tags(
             .Feature.Command.Package.DumpSymbolGraph,
         ),
