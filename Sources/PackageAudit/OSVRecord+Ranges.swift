@@ -32,7 +32,10 @@ extension OSVRecord {
         return false
     }
 
-    /// Versions at which a vulnerability is fixed that are greater than `version`, ascending.
+    /// Every `fixed` version greater than `version` across all matching `SEMVER` ranges, ascending.
+    ///
+    /// Precondition: meant to be called for a version that `affects` returns true for;
+    /// it does not check that `version` is itself vulnerable.
     public func fixedVersions(after version: Version, packageName: String?) -> [Version] {
         var result = Set<Version>()
         for entry in self.matchingEntries(packageName: packageName) {

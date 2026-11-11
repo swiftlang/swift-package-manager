@@ -46,10 +46,47 @@ struct OSVRangeTests {
     func prereleaseAndLastAffected() throws {
         let r = record(ranges: [[Event(introduced: "2.0.0-alpha"), Event(lastAffected: "2.0.0-beta.2")]])
         #expect(r.affects(try #require(Version("2.0.0-beta.1")), packageName: nil))
+        #expect(r.affects(try #require(Version("2.0.0-beta.2")), packageName: nil))
+        #expect(!r.affects(try #require(Version("2.0.0-beta.3")), packageName: nil))
+        #expect(r.affects(try #require(Version("2.0.0-alpha")), packageName: nil))
+        #expect(!r.affects(Version(1, 9, 9), packageName: nil))
         #expect(!r.affects(Version(2, 0, 0), packageName: nil))
 
         let limited = record(ranges: [[Event(introduced: "0"), Event(limit: "3.0.0")]])
+        #expect(limited.affects(Version(2, 9, 9), packageName: nil))
         #expect(!limited.affects(Version(3, 0, 0), packageName: nil))
+        let ranges = limited.vulnerableRanges(packageName: nil)
+        #expect(ranges.count == 1)
+        #expect(ranges.first?.upperBound == Version(3, 0, 0))
+    }
+
+    @Test
+    func prereleaseOfFixedVersionIsAffected() throws {
+        let r = record(ranges: [[Event(introduced: "0"), Event(fixed: "1.4.3")]])
+        #expect(r.affects(try #require(Version("1.4.3-rc.1")), packageName: nil))
+    }
+
+    @Test
+    func nonSemverRangesAreSkipped() {
+        let affected = OSVRecord.Affected(
+            package: .init(ecosystem: "SwiftURL", name: "https://github.com/example/pkg.git"),
+            ranges: [.init(type: "GIT", events: [Event(introduced: "0"), Event(fixed: "1.0.0")])]
+        )
+        let r = OSVRecord(id: "TEST-2", affected: [affected])
+        #expect(!r.affects(Version(0, 5, 0), packageName: nil))
+        #expect(r.vulnerableRanges(packageName: nil).isEmpty)
+        #expect(r.fixedVersions(after: Version(0, 5, 0), packageName: nil).isEmpty)
+    }
+
+    @Test
+    func otherEcosystemDoesNotMatch() {
+        let affected = OSVRecord.Affected(
+            package: .init(ecosystem: "npm", name: "https://github.com/example/pkg.git"),
+            ranges: [.init(type: "SEMVER", events: [Event(introduced: "0"), Event(fixed: "1.0.0")])]
+        )
+        let r = OSVRecord(id: "TEST-3", affected: [affected])
+        #expect(!r.affects(Version(0, 5, 0), packageName: "https://github.com/example/pkg.git"))
+        #expect(r.affects(Version(0, 5, 0), packageName: nil))
     }
 
     @Test
