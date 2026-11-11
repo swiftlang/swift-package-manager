@@ -14,13 +14,17 @@ add_library(PackageAudit STATIC
   SwiftURLName.swift
   AdvisoryDatabase.swift
   OSVAPIDatabase.swift
-  OSVLocalDatabase.swift)
+  OSVLocalDatabase.swift
+  AuditedPackage.swift
+  PackageAuditor.swift
+  RegistryAdvisorySource.swift)
 target_link_libraries(PackageAudit PUBLIC
   TSCBasic
   TSCUtility
   Basics
   PackageGraph
-  PackageModel)
+  PackageModel
+  PackageRegistry)
 
 # NOTE(compnerd) workaround for CMake not setting up include flags yet
 set_target_properties(PackageAudit PROPERTIES
