@@ -1,5 +1,6 @@
 **/*.mlmodel
 **/*.pbxproj
+**/*.xcproj
 **/*.png
 **/*.xcworkspacedata
 **/Package.swift

@@ -133,7 +133,12 @@ let package = Package(
         ),
         .target(
             name: "MyAppCore",
-            dependencies: ["SwiftSDL"],
+            dependencies: [
+                "SwiftSDL",
+                // For testing purposes only
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+            ],
             cSettings: [
                 .headerSearchPath("../../SDL/include"),
             ]

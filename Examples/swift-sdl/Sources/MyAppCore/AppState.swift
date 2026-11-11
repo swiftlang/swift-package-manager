@@ -11,6 +11,9 @@
 //===----------------------------------------------------------------------===//
 import SwiftSDL
 import SDL3
+// For testing only
+import SwiftSyntax
+import SwiftParser
 
 @SDLApp
 final class MyApp {
@@ -35,6 +38,9 @@ final class MyApp {
         _ = SDL_SetRenderLogicalPresentation(renderer, logWidth, logHeight, SDL_LOGICAL_PRESENTATION_LETTERBOX)
 
         self.prevTime = SDL_GetTicks()
+
+        let parseTree = Parser.parse(source: "public var x = 6\n")
+        print(parseTree)
     }
 
     deinit {
