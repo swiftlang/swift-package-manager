@@ -123,7 +123,10 @@ public struct PackageAuditor {
         }
 
         var databaseResults: [AdvisoryQuery: [OSVRecord]] = [:]
-        let allQueries = Array(Set(plans.joined()))
+        let allQueries = Set(plans.joined()).sorted {
+            ($0.name, $0.version?.description ?? "", $0.commit ?? "")
+                < ($1.name, $1.version?.description ?? "", $1.commit ?? "")
+        }
         if let database = self.database, !allQueries.isEmpty {
             databaseResults = try await database.advisories(for: allQueries)
         }
@@ -142,14 +145,14 @@ public struct PackageAuditor {
                 for query in plans[index] {
                     guard let records = databaseResults[query] else { continue }
                     checked = true
-                    databaseHits += records.map { Hit(record: $0, source: database.displayName, packageName: query.name) }
+                    databaseHits += records.filter { Self.isRelevant($0, query: query, package: package) }.map { Hit(record: $0, source: database.displayName, packageName: query.name) }
                 }
             }
 
             if let records = registryResults[index] {
                 checked = true
                 let source = Self.registrySourceName(of: package)
-                registryHits += records.map { Hit(record: $0, source: source, packageName: nil) }
+                registryHits += records.filter { Self.isRelevant($0, query: nil, package: package) }.map { Hit(record: $0, source: source, packageName: nil) }
             }
 
             guard checked else {
@@ -216,6 +219,14 @@ public struct PackageAuditor {
         }
     }
 
+    /// Sources may return records that do not apply to the pinned version, so the client
+    /// evaluates the ranges itself. Commit queries are answered by the database and kept as is.
+    private static func isRelevant(_ record: OSVRecord, query: AdvisoryQuery?, package: AuditedPackage) -> Bool {
+        if let query, query.commit != nil { return true }
+        guard case .version(let pinned) = package.state else { return true }
+        return record.affects(pinned, packageName: query?.name)
+    }
+
     private static func registrySourceName(of package: AuditedPackage) -> String {
         if case .registry(_, let url) = package.kind, let url { return url.absoluteString }
         return "registry"
@@ -274,10 +285,20 @@ public struct PackageAuditor {
 
         var groups: [Group] = []
         for hit in hits where hit.record.withdrawn == nil {
+            // Grouping by any shared identifier (id or alias) is intentional: it is broader than
+            // the strict rule so records that only meet through a third record still collapse.
             let ids = Set([hit.record.id] + (hit.record.aliases ?? []))
-            if let index = groups.firstIndex(where: { !$0.ids.isDisjoint(with: ids) }) {
-                groups[index].members.append(hit)
-                groups[index].ids.formUnion(ids)
+            let overlapping = groups.indices.filter { !groups[$0].ids.isDisjoint(with: ids) }
+            if let first = overlapping.first {
+                // A hit may bridge several groups; merge them all into the earliest one,
+                // whose primary (a registry record when present) is kept.
+                for index in overlapping.dropFirst().reversed() {
+                    groups[first].members += groups[index].members
+                    groups[first].ids.formUnion(groups[index].ids)
+                    groups.remove(at: index)
+                }
+                groups[first].members.append(hit)
+                groups[first].ids.formUnion(ids)
             } else {
                 groups.append(Group(primary: hit, members: [hit], ids: ids))
             }

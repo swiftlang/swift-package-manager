@@ -49,6 +49,8 @@ public struct RegistryAdvisorySource: RegistryAdvisoryProvider {
             case .supported(let body):
                 return try JSONDecoder().decode(Response.self, from: body).advisories
             }
+        } catch is CancellationError {
+            throw CancellationError()
         } catch {
             throw AuditError.advisorySourceFailed(
                 source: "registry",

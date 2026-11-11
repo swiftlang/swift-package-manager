@@ -16,6 +16,8 @@ import PackageModel
 @testable import PackageAudit
 import Testing
 
+import struct TSCBasic.StringError
+
 import struct TSCUtility.Version
 
 private struct MockDatabase: AdvisoryDatabase {
@@ -189,6 +191,8 @@ struct PackageAuditorTests {
         let report = try await auditor(registry: .some(nil)).audit([registryPackage(repositoryURLs: [])])
         #expect(report.findings.isEmpty)
         #expect(report.unchecked.count == 1)
+        #expect(report.unchecked[0].reason.contains("registry does not provide advisories"))
+        #expect(report.unchecked[0].reason.contains("no repository URL"))
     }
 
     @Test func registrySupportedAndCleanIsChecked() async throws {
@@ -210,6 +214,68 @@ struct PackageAuditorTests {
             records: [name: [record("GHSA-1", withdrawn: "2024-01-01T00:00:00Z")]]
         ).audit([sourceControl(.version(v1))])
         #expect(report.findings.isEmpty)
+    }
+
+    @Test func registryRecordNotAffectingPinnedVersionIsDropped() async throws {
+        let report = try await auditor(
+            registry: ["mona.NetKit": [record("GHSA-1", fixed: "0.9.0")]]
+        ).audit([registryPackage(repositoryURLs: [])])
+        #expect(report.findings.isEmpty)
+        #expect(report.unchecked.isEmpty)
+        #expect(report.exitStatus(threshold: .low, failOnUnchecked: true) == 0)
+    }
+
+    @Test func databaseRecordNotAffectingPinnedVersionIsDropped() async throws {
+        let report = try await auditor(records: [name: [record("GHSA-1", fixed: "0.9.0")]])
+            .audit([sourceControl(.version(v1))])
+        #expect(report.findings.isEmpty)
+        #expect(report.unchecked.isEmpty)
+    }
+
+    @Test func bridgingRecordMergesGroupsTransitively() async throws {
+        let report = try await auditor(
+            records: [name: [record("GHSA-1", aliases: ["CVE-1", "GHSA-2"])]],
+            registry: ["mona.NetKit": [record("CVE-1", summary: "registry"), record("GHSA-2")]]
+        ).audit([registryPackage()])
+        #expect(report.findings.count == 1)
+        #expect(report.findings[0].advisory.id == "CVE-1")
+        #expect(report.findings[0].advisory.summary == "registry")
+        #expect(report.findings[0].sources.count == 2)
+    }
+
+    @Test func withdrawnRegistryRecordIgnored() async throws {
+        let report = try await auditor(
+            registry: ["mona.NetKit": [record("GHSA-1", withdrawn: "2024-01-01T00:00:00Z")]]
+        ).audit([registryPackage(repositoryURLs: [])])
+        #expect(report.findings.isEmpty)
+        #expect(report.unchecked.isEmpty)
+    }
+
+    @Test func noDatabaseLeavesSourceControlPackageUnchecked() async throws {
+        let report = try await PackageAuditor(database: nil, registry: nil, ignoredIDs: [])
+            .audit([sourceControl(.version(v1))])
+        #expect(report.findings.isEmpty)
+        #expect(report.unchecked.count == 1)
+        #expect(!report.unchecked[0].reason.isEmpty)
+    }
+
+    @Test func genericProviderErrorIsWrapped() async throws {
+        struct Failing: RegistryAdvisoryProvider {
+            func advisories(for identity: PackageIdentity, version: Version) async throws -> [OSVRecord]? {
+                throw StringError("boom")
+            }
+        }
+        let auditor = PackageAuditor(database: nil, registry: Failing(), ignoredIDs: [])
+        do {
+            _ = try await auditor.audit([registryPackage(repositoryURLs: [])])
+            Issue.record("expected audit to throw")
+        } catch let error as AuditError {
+            guard case .advisorySourceFailed = error else {
+                Issue.record("unexpected error \(error)")
+                return
+            }
+            #expect(error.description.contains("mona.NetKit"))
+        }
     }
 
     @Test func exitStatusRules() throws {
