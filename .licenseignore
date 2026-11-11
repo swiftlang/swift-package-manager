@@ -30,3 +30,4 @@ Utilities/build-using-self
 Utilities/new-bootstrap
 Utilities/test-toolchain
 Utilities/mk-toolchain/mk-toolchain
+Examples/swift-sdl/android.toolchain
