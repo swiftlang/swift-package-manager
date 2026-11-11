@@ -1258,6 +1258,9 @@ SHOULD respond with a status code of `404` (Not Found)
 or `501` (Not Implemented).
 A client MUST NOT interpret either response as the absence of advisories.
 
+Authentication and error responses for this endpoint
+follow the same conventions as the other endpoints.
+
 Advisories are authored and maintained by the server operator.
 This document does not define how a server obtains them.
 

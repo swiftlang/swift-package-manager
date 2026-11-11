@@ -30,6 +30,7 @@
     - [4.6.3. Synchronous and asynchronous publication](#463-synchronous-and-asynchronous-publication)
       - [4.6.3.1. Synchronous publication](#4631-synchronous-publication)
       - [4.6.3.2. Asynchronous publication](#4632-asynchronous-publication)
+  - [4.7. List package advisories](#47-list-package-advisories)
 - [5. Normative References](#5-normative-references)
 - [6. Informative References](#6-informative-references)
 - [Appendix A - OpenAPI Document](#appendix-a---openapi-document)
@@ -1298,6 +1299,9 @@ A server that does not implement this endpoint
 SHOULD respond with a status code of `404` (Not Found)
 or `501` (Not Implemented).
 A client MUST NOT interpret either response as the absence of advisories.
+
+Authentication and error responses for this endpoint
+follow the same conventions as the other endpoints.
 
 Advisories are authored and maintained by the server operator.
 This document does not define how a server obtains them.

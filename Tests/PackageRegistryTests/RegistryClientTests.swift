@@ -4798,7 +4798,35 @@ extension RegistryClient {
                 observabilityScope: ObservabilitySystem.NOOP
             )
         } throws: { error in
-            error is RegistryError
+            if case RegistryError.failedRetrievingAdvisories(_, let package, let inner) = error,
+               package == identity,
+               case RegistryError.serverError(let code, let details) = inner
+            {
+                return code == 500 && details == #"{"detail":"boom"}"#
+            }
+            return false
+        }
+    }
+
+    @Test func advisoriesUnavailableRegistryThrows() async throws {
+        let serverErrorHandler = UnavailableServerErrorHandler(registryURL: registryURL)
+        let registry = Registry(url: registryURL, supportsAvailability: true)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = registry
+        let client = makeRegistryClient(
+            configuration: configuration,
+            httpClient: HTTPClient(implementation: serverErrorHandler.handle)
+        )
+
+        await #expect {
+            try await client.getPackageAdvisories(
+                package: identity,
+                version: nil,
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+        } throws: { error in
+            if case RegistryError.registryNotAvailable(registry) = error { return true }
+            return false
         }
     }
 }
