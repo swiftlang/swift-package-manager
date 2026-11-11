@@ -240,15 +240,28 @@ extension Workspace {
             let manifestPath = try RelativePath(validating: "\(package.identity)/\(version)/\(manifestFile)")
             let destination = scratchPath.appending(manifestPath)
             let cacheDest = cachePath?.appending(manifestPath)
+            // Records that no prebuilt is published for this toolchain, so we don't keep trying to download it.
+            let notFoundMarker = destination.parentDirectory.appending("\(prebuiltName).notfound")
 
             func loadManifest() async throws -> PrebuiltsManifest? {
+                let signedManifest: SignedPrebuiltsManifest
                 do {
-                    let signedManifest = try JSONDecoder().decode(
+                    signedManifest = try JSONDecoder().decode(
                         path: destination,
                         fileSystem: fileSystem,
                         as: SignedPrebuiltsManifest.self
                     )
+                } catch {
+                    // redownload it
+                    observabilityScope.emit(
+                        info: "Failed to decode prebuilt manifest",
+                        underlyingError: error
+                    )
+                    try fileSystem.removeFileTree(destination)
+                    return nil
+                }
 
+                do {
                     // Check the signature
                     // Ignore errors coming from the certificate loading, that will shutdown the build
                     // instead of letting it continue with build from source.
@@ -275,7 +288,7 @@ extension Workspace {
                 } catch {
                     // redownload it
                     observabilityScope.emit(
-                        info: "Failed to decode prebuilt manifest",
+                        warning: "Prebuilt manifest \(manifestFile) for \(package.identity) failed validation, building it from source",
                         underlyingError: error
                     )
                     try fileSystem.removeFileTree(destination)
@@ -298,8 +311,8 @@ extension Workspace {
                 if let manifest = try? await loadManifest() {
                     return manifest
                 }
-            } else if fileSystem.exists(destination.parentDirectory) {
-                // We tried previously and were not able to find the manifest.
+            } else if fileSystem.exists(notFoundMarker) {
+                // We tried previously and the server didn't have the manifest.
                 // Don't try again to avoid excessive server traffic
                 return nil
             }
@@ -336,13 +349,21 @@ extension Workspace {
                         // TODO: send to delegate
                     }
                 } catch {
-                    observabilityScope.emit(
-                        info: "Prebuilt \(manifestFile)",
-                        underlyingError: error
-                    )
-                    // Create an empty manifest so we don't keep trying to download it
-                    let manifest = PrebuiltsManifest(libraries: [])
-                    try? fileSystem.writeFileContents(destination, data: JSONEncoder().encode(manifest))
+                    try? fileSystem.removeFileTree(destination)
+                    if case HTTPClientError.badResponseStatusCode(404) = error {
+                        // There's no prebuilt for this toolchain.
+                        observabilityScope.emit(
+                            info: "Prebuilt \(manifestFile)",
+                            underlyingError: error
+                        )
+                        try? fileSystem.writeFileContents(notFoundMarker, bytes: [])
+                    } else {
+                        // Try again next time, e.g. once the network allows the download.
+                        observabilityScope.emit(
+                            warning: "Failed to download prebuilt manifest \(manifestURL.absoluteString) for \(package.identity), building it from source",
+                            underlyingError: error
+                        )
+                    }
                     return nil
                 }
             }
@@ -459,7 +480,7 @@ extension Workspace {
                             }
                         } catch {
                             observabilityScope.emit(
-                                info: "Prebuilt artifact \(artifactFile)",
+                                warning: "Failed to download prebuilt \(artifactURL.absoluteString) for \(package.identity), building it from source",
                                 underlyingError: error
                             )
                             self.delegate?.didDownloadPrebuilt(
@@ -475,7 +496,9 @@ extension Workspace {
                         if try !check(path: destination, checksum: library.checksum) {
                             let errorString =
                                 "Prebuilt artifact \(artifactFile) checksum mismatch"
-                            observabilityScope.emit(info: errorString)
+                            observabilityScope.emit(
+                                warning: "Prebuilt \(artifactURL.absoluteString) for \(package.identity) failed its checksum, building it from source"
+                            )
                             self.delegate?.didDownloadPrebuilt(
                                 for: package.identity,
                                 from: artifactURL.absoluteString,

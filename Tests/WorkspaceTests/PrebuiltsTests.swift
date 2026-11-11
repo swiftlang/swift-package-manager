@@ -223,6 +223,203 @@ final class PrebuiltsTests: XCTestCase {
         }
     }
 
+    func testManifestDownloadFailureWarnsAndIsRetried() async throws {
+        let sandbox = AbsolutePath("/tmp/ws")
+        let fs = InMemoryFileSystem()
+        let artifact = Data()
+
+        try await with(fileSystem: fs, artifact: artifact, swiftSyntaxVersion: "600.0.1") { manifest, rootCertPath, rootPackage, swiftSyntax in
+            let manifestData = try JSONEncoder().encode(manifest)
+            let blocked = SendableBox(true)
+
+            let httpClient = HTTPClient { request, progressHandler in
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion).json" {
+                    if await blocked.value {
+                        // For example, a proxy that rejects the download.
+                        return HTTPClientResponse(statusCode: 403)
+                    }
+                    try fileSystem.writeFileContents(destination, data: manifestData)
+                    return .okay()
+                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport.zip" {
+                    try fileSystem.writeFileContents(destination, data: artifact)
+                    return .okay()
+                } else {
+                    XCTFail("Unexpected URL \(request.url)")
+                    return .notFound()
+                }
+            }
+
+            let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
+                completion(.success(()))
+            })
+
+            let workspace = try await MockWorkspace(
+                sandbox: sandbox,
+                fileSystem: fs,
+                roots: [
+                    rootPackage
+                ],
+                packages: [
+                    swiftSyntax
+                ],
+                prebuiltsManager: .init(
+                    swiftVersion: swiftVersion,
+                    httpClient: httpClient,
+                    archiver: archiver,
+                    hostPlatform: .macos_universal,
+                    rootCertPath: rootCertPath
+                ),
+            )
+
+            try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
+                XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
+                XCTAssertTrue(diagnostics.contains(where: {
+                    $0.severity == .warning && $0.message.hasPrefix("Failed to download prebuilt manifest https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion).json for swift-syntax, building it from source")
+                }))
+                let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
+                try checkSettings(rootPackage, "FooMacros", usePrebuilt: false)
+            }
+
+            // Once the download is allowed, the next resolution uses the prebuilt.
+            await blocked.set(false)
+
+            try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
+                XCTAssertTrue(diagnostics.filter({ $0.severity == .error || $0.severity == .warning }).isEmpty)
+                let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
+                try checkSettings(rootPackage, "FooMacros", usePrebuilt: true)
+            }
+        }
+    }
+
+    func testManifestOfOtherToolchainIsDownloaded() async throws {
+        let sandbox = AbsolutePath("/tmp/ws")
+        let fs = InMemoryFileSystem()
+        let artifact = Data()
+        let otherSwiftVersion = "\(self.swiftVersion)-other"
+
+        try await with(fileSystem: fs, artifact: artifact, swiftSyntaxVersion: "600.0.1") { manifest, rootCertPath, rootPackage, swiftSyntax in
+            let manifestData = try JSONEncoder().encode(manifest)
+            let otherManifestFetched = SendableBox(false)
+
+            let httpClient = HTTPClient { request, progressHandler in
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion).json" {
+                    try fileSystem.writeFileContents(destination, data: manifestData)
+                    return .okay()
+                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport.zip" {
+                    try fileSystem.writeFileContents(destination, data: artifact)
+                    return .okay()
+                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(otherSwiftVersion).json" {
+                    await otherManifestFetched.set(true)
+                    return .notFound()
+                } else {
+                    XCTFail("Unexpected URL \(request.url)")
+                    return .notFound()
+                }
+            }
+
+            let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
+                completion(.success(()))
+            })
+
+            let workspace = try await MockWorkspace(
+                sandbox: sandbox,
+                fileSystem: fs,
+                roots: [
+                    rootPackage
+                ],
+                packages: [
+                    swiftSyntax
+                ],
+                prebuiltsManager: .init(
+                    swiftVersion: otherSwiftVersion,
+                    httpClient: httpClient,
+                    archiver: archiver,
+                    hostPlatform: .macos_universal,
+                    rootCertPath: rootCertPath
+                ),
+            )
+
+            // The workspace was resolved with another toolchain before.
+            let previousManifest = sandbox.appending(components: ".build", "prebuilts", "swift-syntax", "600.0.1", "\(self.swiftVersion).json")
+            try fs.createDirectory(previousManifest.parentDirectory, recursive: true)
+            try fs.writeFileContents(previousManifest, data: manifestData)
+
+            try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
+                XCTAssertTrue(diagnostics.filter({ $0.severity == .error || $0.severity == .warning }).isEmpty)
+            }
+
+            // The first toolchain's manifest in the same directory doesn't stop looking for the other toolchain's.
+            let fetched = await otherManifestFetched.value
+            XCTAssertTrue(fetched)
+        }
+    }
+
+    func testArtifactDownloadFailureWarns() async throws {
+        let sandbox = AbsolutePath("/tmp/ws")
+        let fs = InMemoryFileSystem()
+        let artifact = Data()
+
+        try await with(fileSystem: fs, artifact: artifact, swiftSyntaxVersion: "600.0.1") { manifest, rootCertPath, rootPackage, swiftSyntax in
+            let manifestData = try JSONEncoder().encode(manifest)
+
+            let httpClient = HTTPClient { request, progressHandler in
+                guard case .download(let fileSystem, let destination) = request.kind else {
+                    throw StringError("invalid request \(request.kind)")
+                }
+
+                if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion).json" {
+                    try fileSystem.writeFileContents(destination, data: manifestData)
+                    return .okay()
+                } else if request.url == "https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport.zip" {
+                    return HTTPClientResponse(statusCode: 403)
+                } else {
+                    XCTFail("Unexpected URL \(request.url)")
+                    return .notFound()
+                }
+            }
+
+            let archiver = MockArchiver(handler: { _, archivePath, destination, completion in
+                XCTFail("Unexpected call to archiver")
+                completion(.success(()))
+            })
+
+            let workspace = try await MockWorkspace(
+                sandbox: sandbox,
+                fileSystem: fs,
+                roots: [
+                    rootPackage
+                ],
+                packages: [
+                    swiftSyntax
+                ],
+                prebuiltsManager: .init(
+                    swiftVersion: swiftVersion,
+                    httpClient: httpClient,
+                    archiver: archiver,
+                    hostPlatform: .macos_universal,
+                    rootCertPath: rootCertPath
+                ),
+            )
+
+            try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
+                XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
+                XCTAssertTrue(diagnostics.contains(where: {
+                    $0.severity == .warning && $0.message.hasPrefix("Failed to download prebuilt https://download.swift.org/prebuilts/swift-syntax/600.0.1/\(self.swiftVersion)-MacroSupport.zip for swift-syntax, building it from source")
+                }))
+                let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
+                try checkSettings(rootPackage, "FooMacros", usePrebuilt: false)
+            }
+        }
+    }
+
     func testVersionChange() async throws {
         let sandbox = AbsolutePath("/tmp/ws")
         let fs = InMemoryFileSystem()
@@ -732,7 +929,7 @@ final class PrebuiltsTests: XCTestCase {
 
             try await workspace.checkPackageGraph(roots: ["Foo"]) { modulesGraph, diagnostics in
                 XCTAssertTrue(diagnostics.filter({ $0.severity == .error }).isEmpty)
-                XCTAssertTrue(diagnostics.contains(where: { $0.message == "Failed to decode prebuilt manifest: invalidSignature" }))
+                XCTAssertTrue(diagnostics.contains(where: { $0.severity == .warning && $0.message.hasPrefix("Prebuilt manifest \(self.swiftVersion).json for swift-syntax failed validation, building it from source") && $0.message.hasSuffix("invalidSignature") }))
                 let rootPackage = try XCTUnwrap(modulesGraph.rootPackages.first)
                 try checkSettings(rootPackage, "FooMacros", usePrebuilt: false)
                 try checkSettings(rootPackage, "FooTests", usePrebuilt: false)
