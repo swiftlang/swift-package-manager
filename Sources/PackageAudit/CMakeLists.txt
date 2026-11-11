@@ -8,7 +8,10 @@
 
 add_library(PackageAudit STATIC
   OSVRecord.swift
-  OSVRecord+Ranges.swift)
+  OSVRecord+Ranges.swift
+  AdvisorySeverity.swift
+  CVSSv3.swift
+  SwiftURLName.swift)
 target_link_libraries(PackageAudit PUBLIC
   TSCBasic
   TSCUtility
