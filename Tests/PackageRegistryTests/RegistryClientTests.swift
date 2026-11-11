@@ -4686,6 +4686,123 @@ extension RegistryClient {
     }
 }
 
+@Suite("Registry Advisories") struct RegistryAdvisories {
+    private static let advisoriesBody = #"{"advisories":[{"id":"GHSA-xxxx-yyyy-zzzz"}]}"#
+    private static let advisoriesURL = URL("\(registryURL)/mona/LinkedList/advisories?version=1.1.1")
+    private static let advisoriesNoVersionURL = URL("\(registryURL)/mona/LinkedList/advisories")
+
+    private static func response(
+        _ body: String,
+        statusCode: Int = 200,
+        contentVersion: String = "1"
+    ) -> HTTPClient.Response {
+        .init(
+            statusCode: statusCode,
+            headers: .init([
+                .init(name: "Content-Type", value: "application/json"),
+                .init(name: "Content-Version", value: contentVersion),
+            ]),
+            body: Data(body.utf8)
+        )
+    }
+
+    private func makeClient(
+        authorizationProvider: AuthorizationProvider? = .none,
+        configure: (inout RegistryConfiguration) -> Void = { _ in },
+        handler: @escaping HTTPClient.Implementation
+    ) -> RegistryClient {
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+        configure(&configuration)
+        return makeRegistryClient(
+            configuration: configuration,
+            httpClient: HTTPClient(implementation: handler),
+            authorizationProvider: authorizationProvider
+        )
+    }
+
+    @Test func advisoriesSuccess() async throws {
+        let token = "top-sekret"
+        let handler: HTTPClient.Implementation = { request, _ in
+            #expect(request.method == .get)
+            #expect(request.url == Self.advisoriesURL)
+            #expect(request.headers.get("Accept").first == "application/vnd.swift.registry.v1+json")
+            #expect(request.headers.get("Authorization").first == "Bearer \(token)")
+            return Self.response(Self.advisoriesBody)
+        }
+        let client = makeClient(
+            authorizationProvider: TestProvider(map: [registryURL.host!: ("token", token)]),
+            configure: { $0.registryAuthentication[registryURL.host!] = .init(type: .token) },
+            handler: handler
+        )
+
+        let result = try await client.getPackageAdvisories(
+            package: identity,
+            version: Version(1, 1, 1),
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+        guard case .supported(let body) = result else {
+            Issue.record("expected .supported, got \(result)")
+            return
+        }
+        #expect(String(decoding: body, as: UTF8.self) == Self.advisoriesBody)
+    }
+
+    @Test func advisoriesWithoutVersionOmitsQuery() async throws {
+        let handler: HTTPClient.Implementation = { request, _ in
+            #expect(request.url == Self.advisoriesNoVersionURL)
+            #expect(request.url.query == nil)
+            return Self.response(Self.advisoriesBody)
+        }
+        let client = makeClient(handler: handler)
+
+        let result = try await client.getPackageAdvisories(
+            package: identity,
+            version: nil,
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+        guard case .supported = result else {
+            Issue.record("expected .supported, got \(result)")
+            return
+        }
+    }
+
+    @Test(arguments: [404, 501])
+    func advisoriesMissingEndpointIsUnsupported(statusCode: Int) async throws {
+        let handler: HTTPClient.Implementation = { _, _ in
+            Self.response("", statusCode: statusCode)
+        }
+        let client = makeClient(handler: handler)
+
+        let result = try await client.getPackageAdvisories(
+            package: identity,
+            version: Version(1, 1, 1),
+            observabilityScope: ObservabilitySystem.NOOP
+        )
+        guard case .unsupported = result else {
+            Issue.record("expected .unsupported, got \(result)")
+            return
+        }
+    }
+
+    @Test func advisoriesServerErrorThrows() async throws {
+        let handler: HTTPClient.Implementation = { _, _ in
+            Self.response(#"{"detail":"boom"}"#, statusCode: 500)
+        }
+        let client = makeClient(handler: handler)
+
+        await #expect {
+            _ = try await client.getPackageAdvisories(
+                package: identity,
+                version: Version(1, 1, 1),
+                observabilityScope: ObservabilitySystem.NOOP
+            )
+        } throws: { error in
+            error is RegistryError
+        }
+    }
+}
+
 func makeRegistryClient(
     configuration: RegistryConfiguration,
     httpClient: HTTPClient,
