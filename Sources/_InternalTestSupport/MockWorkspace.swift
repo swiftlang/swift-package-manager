@@ -610,6 +610,7 @@ public final class MockWorkspace {
     public func checkPackageGraph(
         roots: [String] = [],
         dependencies: [PackageDependency] = [],
+        explicitProduct: String? = nil,
         forceResolvedVersions: Bool = false,
         expectedSigningEntities: [PackageIdentity: RegistryReleaseMetadata.SigningEntity] = [:],
         _ result: (ModulesGraph, [Basics.Diagnostic]) throws -> Void
@@ -622,6 +623,7 @@ public final class MockWorkspace {
         do {
             let graph = try await workspace.loadPackageGraph(
                 rootInput: rootInput,
+                explicitProduct: explicitProduct,
                 forceResolvedVersions: forceResolvedVersions,
                 expectedSigningEntities: expectedSigningEntities,
                 observabilityScope: observability.topScope
