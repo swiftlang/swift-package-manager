@@ -65,11 +65,13 @@ let package = Package(
                 "SwiftSDLMacros",
             ],
             cSettings: [
-                .headerSearchPath("../../SDL/include"),
+                .headerSearchPath("../../SDL/include", usage: .public),
             ],
             linkerSettings: [
                 .linkedLibrary("SDL3"),
-                .unsafeFlags(["-L", "SDL/build-android"], .when(platforms: [.android])),
+                .librarySearchPath("../../SDL/build-macos", .when(platforms: [.macOS])),
+                .librarySearchPath("../../SDL/build-ios", .when(platforms: [.iOS])),
+                .librarySearchPath("../../SDL/build-android", .when(platforms: [.android])),
 
                 .linkedFramework("CoreMedia", .when(platforms: [.macOS, .iOS])),
                 .linkedFramework("CoreVideo", .when(platforms: [.macOS, .iOS])),
@@ -127,19 +129,10 @@ let package = Package(
         .target(
             name: "MyAppCore",
             dependencies: ["SwiftSDL"],
-            cSettings: [
-                .headerSearchPath("../../SDL/include"),
-            ]
         ),
         .executableTarget(
             name: "MyAppExe",
             dependencies: ["MyAppCore"],
-            cSettings: [
-                .headerSearchPath("../../SDL/include"),
-            ],
-            linkerSettings: [
-                .unsafeFlags(["-L", "SDL/build-macos"], .when(platforms: [.macOS])),
-            ]
         ),
     ]
 )

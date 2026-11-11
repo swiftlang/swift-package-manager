@@ -24,10 +24,24 @@ extension Serialization.BuildSettingCondition {
     }
 }
 
+extension Serialization.BuildSettingUsage {
+    init(_ usage: PackageDescription.BuildSettingUsage) {
+        switch usage {
+        case .public:
+            self = .public
+        case .private:
+            self = .private
+        case .interface:
+            self = .interface
+        }
+    }
+}
+
 extension Serialization.BuildSettingData {
     init(_ settingsData: PackageDescription.BuildSettingData) {
         self.name = settingsData.name
         self.value = settingsData.value
+        self.usage = settingsData.usage.map { .init($0) }
         self.condition = settingsData.condition.map { .init($0) }
     }
 }

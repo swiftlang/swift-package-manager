@@ -32,6 +32,7 @@ public enum BuildSettings {
         public static let OTHER_LDFLAGS: Declaration = .init("OTHER_LDFLAGS")
         public static let LINK_LIBRARIES: Declaration = .init("LINK_LIBRARIES")
         public static let LINK_FRAMEWORKS: Declaration = .init("LINK_FRAMEWORKS")
+        public static let LIBRARY_SEARCH_PATH: Declaration = .init("LIBRARY_SEARCH_PATH")
 
         // Prebuilts settings.
         public static let PREBUILT_INCLUDE_PATHS: Declaration = .init("PREBUILT_INCLUDE_PATHS")
@@ -57,8 +58,16 @@ public enum BuildSettings {
 
     /// An individual build setting assignment.
     public struct Assignment: Equatable, Hashable {
+        public enum Usage: Equatable, Hashable {
+            case `public`
+            case `private`
+            case interface
+        }
+
         /// The assignment value.
         public var values: [String]
+
+        public var usage: Usage?
 
         public var conditions: [PackageCondition]
 
@@ -69,11 +78,13 @@ public enum BuildSettings {
         public init(default: Bool = false) {
             self.conditions = []
             self.values = []
+            self.usage = nil
             self.default = `default`
         }
 
-        public init(values: [String] = [], conditions: [PackageCondition] = []) {
+        public init(values: [String] = [], usage: Usage? = nil, conditions: [PackageCondition] = []) {
             self.values = values
+            self.usage = nil
             self.default = false // TODO(franz): Check again
             self.conditions = conditions
         }

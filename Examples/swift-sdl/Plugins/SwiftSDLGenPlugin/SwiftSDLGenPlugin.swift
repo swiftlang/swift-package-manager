@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 import PackagePlugin
+import Foundation
 
 @main
 struct SwiftSDLGenPlugin: BuildToolPlugin {
@@ -25,6 +26,11 @@ struct SwiftSDLGenPlugin: BuildToolPlugin {
         let apinotesFile = workDir.appending(path: "SwiftSDL.apinotes")
         let sdlIncludeDir = context.package.directoryURL.appending(components: "SDL", "include")
 
+        var environment = ["HOME": ProcessInfo.processInfo.environment["HOME"]!]
+        if let developerDir = ProcessInfo.processInfo.environment["DEVELOPER_DIR"] {
+            environment["DEVELOPER_DIR"] = developerDir
+        }
+
         return [
             .buildCommand(
                 displayName: "SDL API Generator",
@@ -36,6 +42,7 @@ struct SwiftSDLGenPlugin: BuildToolPlugin {
                     "--apinotes-file", apinotesFile.path,
                     "--header-path", sdlIncludeDir.path
                 ],
+                environment: environment,
                 outputFiles: [
                     moduleMap,
                     headerFile,

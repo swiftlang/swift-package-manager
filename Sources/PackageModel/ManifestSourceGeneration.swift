@@ -493,7 +493,11 @@ fileprivate extension SourceCodeFragment {
             }
         }
     }
-    
+
+    init(from usage: TargetBuildSettingDescription.Usage) {
+        self.init(enum: "usage", string: usage.rawValue)
+    }
+
     /// Instantiates a SourceCodeFragment to represent a single package condition.
     init(from condition: PackageConditionDescription) {
         var params: [SourceCodeFragment] = []
@@ -657,7 +661,21 @@ fileprivate extension SourceCodeFragment {
         var params: [SourceCodeFragment] = []
 
         switch setting.kind {
-        case .headerSearchPath(let value), .linkedLibrary(let value), .linkedFramework(let value), .enableUpcomingFeature(let value), .enableExperimentalFeature(let value):
+        case .headerSearchPath(let value, let usage):
+            params.append(SourceCodeFragment(string: value))
+            params.append(SourceCodeFragment(from: usage))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
+        case .librarySearchPath(let value, let usage):
+            params.append(SourceCodeFragment(string: value))
+            params.append(SourceCodeFragment(from: usage))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
+        case .linkedLibrary(let value), .linkedFramework(let value), .enableUpcomingFeature(let value), .enableExperimentalFeature(let value):
             params.append(SourceCodeFragment(string: value))
             if let condition = setting.condition {
                 params.append(SourceCodeFragment(from: condition))
@@ -1202,6 +1220,8 @@ extension TargetBuildSettingDescription.Kind {
             return "linkedLibrary"
         case .linkedFramework:
             return "linkedFramework"
+        case .librarySearchPath:
+            return "librarySearchPath"
         case .unsafeFlags:
             return "unsafeFlags"
         case .interoperabilityMode:
