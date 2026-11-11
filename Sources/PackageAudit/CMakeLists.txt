@@ -17,7 +17,8 @@ add_library(PackageAudit STATIC
   OSVLocalDatabase.swift
   AuditedPackage.swift
   PackageAuditor.swift
-  RegistryAdvisorySource.swift)
+  RegistryAdvisorySource.swift
+  AuditReportRenderer.swift)
 target_link_libraries(PackageAudit PUBLIC
   TSCBasic
   TSCUtility
