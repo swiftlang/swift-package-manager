@@ -28,6 +28,7 @@ public final class SwiftBuildSystemMessageHandler {
     private let logLevel: Basics.Diagnostic.Severity
     private var buildState: BuildState = .init()
     private let enableBacktraces: Bool
+    private let enableCacheKeyReporting: Bool
     private let buildDelegate: SPMBuildCore.BuildSystemDelegate?
     private var traceEventsWriter: TraceEventsWriter?
 
@@ -57,6 +58,7 @@ public final class SwiftBuildSystemMessageHandler {
         outputStream: OutputByteStream,
         logLevel: Basics.Diagnostic.Severity,
         enableBacktraces: Bool = false,
+        enableCacheKeyReporting: Bool = false,
         buildDelegate: SPMBuildCore.BuildSystemDelegate? = nil,
         traceEventsFilePath: Basics.AbsolutePath? = nil
     )
@@ -70,6 +72,7 @@ public final class SwiftBuildSystemMessageHandler {
             normalizeStep: false
         )
         self.enableBacktraces = enableBacktraces
+        self.enableCacheKeyReporting = enableCacheKeyReporting
         self.buildDelegate = buildDelegate
         if let traceEventsFilePath {
             do {
@@ -272,10 +275,15 @@ public final class SwiftBuildSystemMessageHandler {
                 ? self.renderTaskBacktrace(for: startedInfo)
                 : nil
 
+            let cacheKeys = self.enableCacheKeyReporting
+                ? buildState.removeCacheKeys(for: info)
+                : []
+
             traceEventsWriter?.taskCompleted(
                 info,
                 startedInfo: startedInfo,
-                backtrace: renderedBacktrace
+                backtrace: renderedBacktrace,
+                cacheKeys: cacheKeys
             )
 
             // Handler for task output, handling failures if applicable.
@@ -295,6 +303,14 @@ public final class SwiftBuildSystemMessageHandler {
         case .backtraceFrame(let info):
             if self.enableBacktraces {
                 buildState.collectedBacktraceFrames.add(frame: info)
+            }
+        case .casOptions(let info):
+            if self.enableCacheKeyReporting {
+                traceEventsWriter?.casOptionsEmitted(info)
+            }
+        case .taskCacheKey(let info):
+            if self.enableCacheKeyReporting {
+                buildState.appendCacheKey(info)
             }
         case .targetComplete(let info):
             _ = try buildState.completed(target: info)
@@ -351,6 +367,17 @@ extension SwiftBuildSystemMessageHandler {
 
         // Backtrace frames
         internal var collectedBacktraceFrames = SWBBuildOperationCollectedBacktraceFrames()
+
+        // Compilation cache keys, by task ID
+        private var cacheKeysByTaskID: [Int: [SwiftBuild.SwiftBuildMessage.TaskCacheKeyInfo]] = [:]
+
+        mutating func appendCacheKey(_ info: SwiftBuild.SwiftBuildMessage.TaskCacheKeyInfo) {
+            cacheKeysByTaskID[info.taskID, default: []].append(info)
+        }
+
+        mutating func removeCacheKeys(for task: SwiftBuild.SwiftBuildMessage.TaskCompleteInfo) -> [SwiftBuild.SwiftBuildMessage.TaskCacheKeyInfo] {
+            cacheKeysByTaskID.removeValue(forKey: task.taskID) ?? []
+        }
 
         /// Registers the start of a build task, validating that the task hasn't already been started.
         /// - Parameter task: The task start information containing task ID and signature

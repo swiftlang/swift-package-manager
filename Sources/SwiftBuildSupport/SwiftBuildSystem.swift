@@ -362,6 +362,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         self.buildParameters.outputParameters.enableTaskBacktraces
     }
 
+    public var enableTaskCacheKeyReporting: Bool {
+        self.buildParameters.outputParameters.traceEventsFilePath != nil
+            && self.buildParameters.buildCaching.enabled == true
+            && self.buildParameters.buildCaching.enableDiagnosticRemarks == true
+    }
+
     public init(
         buildParameters: BuildParameters,
         hostBuildParameters: BuildParameters,
@@ -681,6 +687,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 outputStream: self.outputStream,
                 logLevel: self.logLevel,
                 enableBacktraces: self.enableTaskBacktraces,
+                enableCacheKeyReporting: self.enableTaskCacheKeyReporting,
                 buildDelegate: self.delegate,
                 traceEventsFilePath: self.buildParameters.outputParameters.traceEventsFilePath
             )
@@ -1179,6 +1186,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         request.hideShellScriptEnvironment = true
         request.showNonLoggedProgress = true
         request.recordBuildBacktraces = buildParameters.outputParameters.enableTaskBacktraces
+        if self.enableTaskCacheKeyReporting {
+            request.enableTaskCacheKeyReporting = true
+        }
         request.schedulerLaneWidthOverride = buildParameters.workers
 
         // Override the arena. We need to apply the arena info to both the request-global build
