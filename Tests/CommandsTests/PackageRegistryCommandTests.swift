@@ -484,7 +484,6 @@ struct PackageRegistryCommandTests {
     func archiving(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
-        let config = BuildConfiguration.debug
         let observability = ObservabilitySystem.makeForTesting()
 
         let packageIdentity = PackageIdentity.plain("org.package")
@@ -627,9 +626,9 @@ struct PackageRegistryCommandTests {
 
             let extractedPath = try await validatePackageArchive(at: archivePath)
             for name in secretFiles {
-                expectFileDoesNotExists(at: extractedPath.appending(component: name))
+                expectFileDoesNotExist(at: extractedPath.appending(component: name))
             }
-            expectFileDoesNotExists(at: extractedPath.appending(components: "Sources", "api.key"))
+            expectFileDoesNotExist(at: extractedPath.appending(components: "Sources", "api.key"))
         }
 
         // git repo: .gitattributes export-ignore must be honored
@@ -674,7 +673,7 @@ struct PackageRegistryCommandTests {
             let extractedPath = try await validatePackageArchive(at: archivePath)
             // `git archive` honors `export-ignore` for the file contents but still emits an
             // empty directory entry for `secret/`, so only its contents must be excluded.
-            expectFileDoesNotExists(at: extractedPath.appending(components: "secret", "data.txt"))
+            expectFileDoesNotExist(at: extractedPath.appending(components: "secret", "data.txt"))
             let secretDirectory = extractedPath.appending(component: "secret")
             if localFileSystem.isDirectory(secretDirectory) {
                 #expect(try localFileSystem.getDirectoryContents(secretDirectory).isEmpty)
@@ -720,9 +719,9 @@ struct PackageRegistryCommandTests {
 
             let extractedPath = try await validatePackageArchive(at: archivePath)
             for name in secretFiles {
-                expectFileDoesNotExists(at: extractedPath.appending(component: name))
+                expectFileDoesNotExist(at: extractedPath.appending(component: name))
             }
-            expectFileDoesNotExists(at: extractedPath.appending(components: "Sources", "api.key"))
+            expectFileDoesNotExist(at: extractedPath.appending(components: "Sources", "api.key"))
         }
 
         @discardableResult
