@@ -115,6 +115,7 @@ extension Tag.Feature {
 }
 
 extension Tag.Feature.SDK {
+    @Tag public static var Apple: Tag
     @Tag public static var StaticLinux: Tag
     @Tag public static var Android: Tag
     @Tag public static var WebAssembly: Tag

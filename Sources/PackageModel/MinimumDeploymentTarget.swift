@@ -113,7 +113,7 @@ private extension PackageModel.Platform {
         case .watchOS:
             return ("watchos", "WATCHOS")
         case .visionOS:
-            return ("xros", "XROS")
+            return ("xros", "VISIONOS") // `vtool -show-build` prints "VISIONOS", not "XROS".
         case .driverKit:
             return nil // DriverKit does not support XCTest.
         default:
