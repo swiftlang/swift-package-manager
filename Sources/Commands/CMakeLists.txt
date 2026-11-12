@@ -58,6 +58,7 @@ add_library(Commands
   XUnitXMLMerger.swift
   Utilities/APIDigester.swift
   Utilities/Audit/AuditInputBuilder.swift
+  Utilities/Audit/FixClassifier.swift
   Utilities/DependenciesSerializer.swift
   Utilities/DescribedPackage.swift
   Utilities/DOTManifestSerializer.swift
