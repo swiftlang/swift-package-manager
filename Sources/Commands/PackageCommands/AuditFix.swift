@@ -105,7 +105,7 @@ extension SwiftPackageCommand.Audit {
                 guard let changes, !scope.errorsReported else {
                     throw ExitCode.failure
                 }
-                for line in Self.updateLines(changes, oldPins: oldPins, report: report, verb: "Would update") {
+                for line in Self.updateLines(changes, oldPins: oldPins, report: report, dryRun: true) {
                     self.say(line)
                 }
             }
@@ -158,7 +158,7 @@ extension SwiftPackageCommand.Audit {
             for change in plan.manifestChanges {
                 self.say("Changed requirement on \(change.location) in \(change.manifestPath.basename): \(change.from) -> \(change.to)")
             }
-            for line in Self.updateLines(changes, oldPins: oldPins, report: report, verb: "Updated") {
+            for line in Self.updateLines(changes, oldPins: oldPins, report: report, dryRun: false) {
                 self.say(line)
             }
 
@@ -241,19 +241,30 @@ extension SwiftPackageCommand.Audit {
             return restored
         }
 
-        /// Lines describing the version changes in `changes`, relative to `oldPins`.
-        private static func updateLines(
+        /// Lines describing the changes to `Package.resolved` in `changes`, relative to `oldPins`.
+        ///
+        /// Moving a package to a newer version within its requirements can add or remove transitive dependencies,
+        /// so those are listed as well.
+        static func updateLines(
             _ changes: [(PackageReference, Workspace.PackageStateChange)],
             oldPins: ResolvedPackagesStore.ResolvedPackages,
             report: AuditReport,
-            verb: String
+            dryRun: Bool
         ) -> [String] {
             changes.compactMap { reference, change in
-                guard case .updated(let state) = change, case .version(let new) = state.requirement else {
+                let location = Self.location(of: reference, report: report)
+                let old = oldPins[reference.identity].map { " \($0.state)" } ?? ""
+                switch change {
+                case .updated(let state):
+                    guard case .version(let new) = state.requirement else { return nil }
+                    return "\(dryRun ? "Would update" : "Updated") \(location)\(old) -> \(new) (Package.resolved)"
+                case .added(let state):
+                    return "\(dryRun ? "Would add" : "Added") \(location) \(state.requirement.prettyPrinted) (Package.resolved)"
+                case .removed:
+                    return "\(dryRun ? "Would remove" : "Removed") \(location)\(old) (Package.resolved)"
+                case .unchanged:
                     return nil
                 }
-                let old = oldPins[reference.identity].map { " \($0.state)" } ?? ""
-                return "\(verb) \(Self.location(of: reference, report: report))\(old) -> \(new) (Package.resolved)"
             }
         }
 

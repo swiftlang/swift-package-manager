@@ -129,6 +129,10 @@ Would update https://github.com/example/RegEx 1.4.2 -> 1.4.3 (Package.resolved)
 Cannot fix mona.NetKit 2.8.0: the patched version 3.0.0 is outside the requirement in Package.swift; re-run with --allow-manifest-changes --allow-major-upgrades to update it.
 ```
 
+A newer version of a package can depend on packages that the pinned version did not, or no longer depend on some,
+even within the current requirements. The packages added to or removed from `Package.resolved` this way are listed as
+well (`Would add ...`, `Would remove ...`), and those added are covered by the audit that runs after the fix.
+
 With `--format json`, the planned and applied changes are written to standard error, so that standard output holds
 only the JSON report of the remaining findings (with `--dry-run`, of the current findings).
 
