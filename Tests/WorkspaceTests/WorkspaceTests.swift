@@ -1761,24 +1761,23 @@ final class WorkspaceTests: XCTestCase {
         _ workspace: MockWorkspace,
         roots: [String],
         unpinning packages: [PackageIdentity],
-        extraConstraints: [PackageContainerConstraint]
+        extraDependencies: [MockDependency] = []
     ) async throws -> (Result<[(PackageReference, Workspace.PackageStateChange)], any Error>, [Basics.Diagnostic]) {
         let rootInput = try PackageGraphRootInput(
             packages: workspace.rootPaths(for: roots),
+            dependencies: extraDependencies.map {
+                try $0.convert(baseURL: workspace.packagesDir, identityResolver: DefaultIdentityResolver())
+            },
             traitConfiguration: workspace.traitConfiguration
         )
         let observability = ObservabilitySystem.makeForTesting()
         let result = try await workspace.getOrCreateWorkspace().resolveDryRun(
             root: rootInput,
             unpinning: packages,
-            extraConstraints: extraConstraints,
             observabilityScope: observability.topScope
         )
         return (result, observability.diagnostics)
     }
-
-    /// Every release version. `VersionSetSpecifier.any.difference(_:)` traps, so exclusions start from an explicit range.
-    private static let allVersions = VersionSetSpecifier.range(Version(0, 0, 0)..<Version(Int.max, 0, 0))
 
     /// Creates a mock workspace whose root depends on `Foo` (`1.0.0..<2.0.0`) and,
     /// optionally, `Bar` (`1.0.0..<2.0.0`), then pins every dependency at `1.0.0`.
@@ -1843,7 +1842,7 @@ final class WorkspaceTests: XCTestCase {
         return workspace
     }
 
-    func testResolveDryRunExcludingVulnerableVersion() async throws {
+    func testResolveDryRunUpdatesUnpinnedPackage() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
         let workspace = try await makeDryRunWorkspace(
@@ -1856,17 +1855,11 @@ final class WorkspaceTests: XCTestCase {
 
         let fooPath = sandbox.appending(components: ["pkgs", "Foo"])
         let fooRef = PackageReference.localSourceControl(identity: PackageIdentity(path: fooPath), path: fooPath)
-        let excludeVulnerable = PackageContainerConstraint(
-            package: fooRef,
-            requirement: .versionSet(Self.allVersions.difference(.range("1.0.0"..<"1.0.1"))),
-            products: .nothing
-        )
 
         let (result, diagnostics) = try await resolveDryRun(
             workspace,
             roots: ["Root"],
-            unpinning: [fooRef.identity],
-            extraConstraints: [excludeVulnerable]
+            unpinning: [fooRef.identity]
         )
         XCTAssertNoDiagnostics(diagnostics)
 
@@ -1898,18 +1891,15 @@ final class WorkspaceTests: XCTestCase {
 
         let fooPath = sandbox.appending(components: ["pkgs", "Foo"])
         let fooRef = PackageReference.localSourceControl(identity: PackageIdentity(path: fooPath), path: fooPath)
-        // The only fixed version (2.0.0) is outside the root's 1.0.0..<2.0.0 requirement.
-        let excludeVulnerable = PackageContainerConstraint(
-            package: fooRef,
-            requirement: .versionSet(Self.allVersions.difference(.range("1.0.0"..<"2.0.0"))),
-            products: .nothing
-        )
 
+        // The extra requirement on 2.0.0 conflicts with the root's 1.0.0..<2.0.0 requirement.
         let (result, diagnostics) = try await resolveDryRun(
             workspace,
             roots: ["Root"],
             unpinning: [fooRef.identity],
-            extraConstraints: [excludeVulnerable]
+            extraDependencies: [
+                .sourceControl(path: "./Foo", requirement: .exact("2.0.0"), products: .specific(["Foo"])),
+            ]
         )
 
         guard case .failure = result else {
@@ -1935,17 +1925,11 @@ final class WorkspaceTests: XCTestCase {
 
         let fooPath = sandbox.appending(components: ["pkgs", "Foo"])
         let fooRef = PackageReference.localSourceControl(identity: PackageIdentity(path: fooPath), path: fooPath)
-        let excludeVulnerable = PackageContainerConstraint(
-            package: fooRef,
-            requirement: .versionSet(Self.allVersions.difference(.range("1.0.0"..<"1.0.1"))),
-            products: .nothing
-        )
 
         let (result, diagnostics) = try await resolveDryRun(
             workspace,
             roots: ["Root"],
-            unpinning: [fooRef.identity],
-            extraConstraints: [excludeVulnerable]
+            unpinning: [fooRef.identity]
         )
         XCTAssertNoDiagnostics(diagnostics)
 

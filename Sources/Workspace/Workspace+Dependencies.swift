@@ -1116,8 +1116,8 @@ extension Workspace {
         }
     }
 
-    /// Resolves the dependencies of `root` as `_updateDependencies(dryRun: true)` would, with
-    /// `extraConstraints` added and every pin except those of `packages` kept.
+    /// Resolves the dependencies of `root` as `_updateDependencies(dryRun: true)` would, with every pin except
+    /// those of `packages` kept.
     ///
     /// `Package.resolved` and the workspace's resolution state are not changed by the resolution result.
     /// As with `update --dry-run`, loading manifests may still create caches, fetch repositories, and
@@ -1133,7 +1133,6 @@ extension Workspace {
     package func resolveDryRun(
         root: PackageGraphRootInput,
         unpinning packages: [PackageIdentity],
-        extraConstraints: [PackageContainerConstraint],
         observabilityScope: ObservabilityScope
     ) async throws -> Result<[(PackageReference, Workspace.PackageStateChange)], any Error> {
         // Create cache directories.
@@ -1164,7 +1163,6 @@ extension Workspace {
 
         let constraints = currentManifests.editedPackagesConstraints
             + (try graphRoot.constraints(self.enabledTraitsMap))
-            + extraConstraints
         let resolvedPackages = resolvedPackagesStore.resolvedPackages.filter { !packages.contains($0.key) }
 
         let result: Result<[DependencyResolverBinding], any Error>

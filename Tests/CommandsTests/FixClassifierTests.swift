@@ -24,6 +24,7 @@ import PackageGraph
 @testable
 import Commands
 
+import struct TSCBasic.StringError
 import struct TSCUtility.Version
 
 struct FixClassifierTests {
@@ -128,106 +129,86 @@ struct FixClassifierTests {
         #expect(report.findings.map(\.fixClassification) == [.upstream(blockedBy: [])])
     }
 
-    // MARK: - Exclusion constraint
-
     @Test
-    func excludingConstraintRemovesTheUnionOfVulnerableRangesAndThePin() throws {
-        let package = AuditedPackage(
-            identity: "foo",
-            kind: .sourceControl(url: "https://example.com/org/foo.git"),
-            state: .version("1.0.0")
+    func notUpdateWhenUpdatingWouldNotLeaveTheVulnerableRange() async throws {
+        // Updating Foo, as `audit fix` does, only reaches 1.0.1, which is still vulnerable. Only a downgrade to
+        // 0.9.0 avoids the advisory, which an update never does, so the finding must not be classified as `.update`.
+        let fixture = try await self.makeFixture(
+            rootDependencies: [.sourceControl(path: "./Foo", requirement: .range("0.9.0" ..< "2.0.0"))],
+            packages: [Self.leaf("Foo", versions: ["0.9.0", "1.0.0", "1.0.1"])],
+            pins: ["Foo"]
         )
-        let name = "example.com/org/foo"
-        let findings = [
-            Self.finding(package, Self.advisory(id: "A-1", name: name, ranges: [("1.0.0", "1.0.2"), ("1.0.1", "1.1.0")])),
-            Self.finding(package, Self.advisory(id: "A-2", name: name, ranges: [("1.1.0", "1.2.0"), ("2.0.0", "2.1.0")])),
-            // Ranges for other packages in the same record are not excluded.
-            Self.finding(package, OSVRecord(id: "A-3", affected: [
-                Self.advisory(id: "A-3", name: name, ranges: [("1.0.0", "1.0.2")]).affected![0],
-                Self.advisory(id: "A-3", name: "example.com/org/other", ranges: [("3.0.0", "4.0.0")]).affected![0],
-            ])),
-        ]
-        let reference = PackageReference.remoteSourceControl(
-            identity: "foo",
-            url: SourceControlURL("https://example.com/org/foo.git")
-        )
-
-        let constraint = FixClassifier.excludingConstraint(for: reference, findings: findings)
-
-        #expect(constraint.package == reference)
-        #expect(constraint.products == .nothing)
-        guard case .versionSet(let set) = constraint.requirement else {
-            Issue.record("expected a version set, got \(constraint.requirement)")
-            return
-        }
-        for allowed in ["0.9.0", "1.2.0", "1.9.9", "2.1.0", "3.5.0", "100.0.0"] {
-            #expect(set.contains(Version(stringLiteral: allowed)), "\(allowed) should be allowed")
-        }
-        for excluded in ["1.0.0", "1.0.1", "1.0.5", "1.1.3", "2.0.0", "2.0.9"] {
-            #expect(!set.contains(Version(stringLiteral: excluded)), "\(excluded) should be excluded")
-        }
-    }
-
-    @Test
-    func excludingConstraintUsesEveryEntryOfRegistryRecords() throws {
-        let package = AuditedPackage(
-            identity: "acme.foo",
-            kind: .registry(identity: "acme.foo", registryURL: nil),
-            state: .version("1.0.0")
-        )
-        // Registry records are scoped to the package and need not name it.
-        let record = OSVRecord(
-            id: "A-1",
-            affected: [.init(ranges: [.init(type: "SEMVER", events: [.init(introduced: "0"), .init(fixed: "1.5.0")])])]
-        )
-        let reference = PackageReference.registry(identity: "acme.foo")
-
-        let constraint = FixClassifier.excludingConstraint(for: reference, findings: [Self.finding(package, record)])
-
-        guard case .versionSet(let set) = constraint.requirement else {
-            Issue.record("expected a version set, got \(constraint.requirement)")
-            return
-        }
-        #expect(!set.contains("1.4.0"))
-        #expect(set.contains("1.5.0"))
-    }
-
-    @Test
-    func excludingConstraintExcludesVersionsBelowTheFixWhenNoRangeApplies() throws {
-        let package = AuditedPackage(
-            identity: "foo",
-            kind: .sourceControl(url: "https://example.com/org/foo.git"),
-            state: .version("1.0.0")
-        )
-        // The record only lists affected versions explicitly; the fix comes from elsewhere.
-        let record = OSVRecord(id: "A-1", affected: [
-            .init(package: .init(ecosystem: "SwiftURL", name: "example.com/org/foo"), versions: ["1.0.0"]),
+        let advisory = OSVRecord(id: "A-1", affected: [
+            .init(ranges: [.init(type: "SEMVER", events: [.init(introduced: "1.0.0"), .init(fixed: "1.1.0")])]),
         ])
-        let finding = AuditFinding(
-            package: package,
-            advisory: record,
-            severity: .low,
-            sources: ["test"],
-            fixedVersions: ["1.5.0", "2.0.0"],
-            ignored: false
-        )
-        let reference = PackageReference.remoteSourceControl(
-            identity: "foo",
-            url: SourceControlURL("https://example.com/org/foo.git")
+
+        let report = try await fixture.classify(["foo": [advisory]])
+
+        #expect(report.findings.map(\.fixClassification) == [.upstream(blockedBy: [])])
+    }
+
+    // MARK: - Branch and revision pins
+
+    @Test
+    func manifestWhenARootDependsOnABranchOfTheVulnerablePackage() async throws {
+        let fixture = try await self.makeFixture(
+            rootDependencies: [.sourceControl(path: "./Foo", requirement: .branch("develop"))],
+            packages: [Self.leaf("Foo", versions: ["develop"])],
+            pins: ["Foo"],
+            pinRequirement: .branch("develop")
         )
 
-        let constraint = FixClassifier.excludingConstraint(for: reference, findings: [finding])
+        let report = try await fixture.classify(["foo": [Self.advisory(id: "A-1", fixed: "1.0.1")]])
 
-        guard case .versionSet(let set) = constraint.requirement else {
-            Issue.record("expected a version set, got \(constraint.requirement)")
-            return
-        }
-        for excluded in ["0.1.0", "1.0.0", "1.2.0", "1.4.9"] {
-            #expect(!set.contains(Version(stringLiteral: excluded)), "\(excluded) should be excluded")
-        }
-        for allowed in ["1.5.0", "1.6.0", "2.0.0"] {
-            #expect(set.contains(Version(stringLiteral: allowed)), "\(allowed) should be allowed")
-        }
+        #expect(report.findings.map(\.package.state) == [.revision(try fixture.pinnedRevision("foo"))])
+        #expect(report.findings.map(\.fixedVersions) == [["1.0.1"]])
+        #expect(report.findings.map(\.fixClassification) == [.manifest])
+    }
+
+    @Test
+    func upstreamWhenAnIntermediateDependsOnABranchOfTheVulnerablePackage() async throws {
+        let fixture = try await self.makeFixture(
+            rootDependencies: [.sourceControl(path: "./PatternMatcher", requirement: .branch("develop"))],
+            packages: [
+                try MockPackage(
+                    name: "PatternMatcher",
+                    targets: [MockTarget(name: "PatternMatcher", dependencies: ["RegEx"])],
+                    products: [MockProduct(name: "PatternMatcher", modules: ["PatternMatcher"])],
+                    dependencies: [.sourceControl(path: "./RegEx", requirement: .branch("develop"))],
+                    versions: ["develop"]
+                ),
+                Self.leaf("RegEx", versions: ["develop"]),
+            ],
+            pins: ["PatternMatcher", "RegEx"],
+            pinRequirement: .branch("develop")
+        )
+
+        let report = try await fixture.classify(["regex": [Self.advisory(id: "A-1", fixed: "2.0.0")]])
+
+        #expect(report.findings.map(\.fixClassification) == [.upstream(blockedBy: ["PatternMatcher"])])
+    }
+
+    // MARK: - Failures
+
+    @Test
+    func classificationFailureLeavesFindingsUnclassifiedWithOneWarning() async throws {
+        let fixture = try await self.makeFixture(
+            rootDependencies: [.sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"))],
+            packages: [Self.leaf("Foo", versions: ["1.0.0", "1.0.1"])],
+            pins: ["Foo"]
+        )
+
+        // A root that cannot be loaded makes every dry run fail, as an unreachable dependency would offline.
+        let (report, diagnostics) = try await fixture.classifyReturningDiagnostics(
+            ["foo": [Self.advisory(id: "A-1", fixed: "1.0.1"), Self.advisory(id: "A-2", fixed: "1.0.1")]],
+            rootPaths: [AbsolutePath("/tmp/ws/roots/Missing")]
+        )
+
+        #expect(report.findings.map(\.fixClassification) == [nil, nil])
+        #expect(!diagnostics.contains { $0.severity == .error }, "\(diagnostics)")
+        let warnings = diagnostics.filter { $0.severity == .warning }
+        #expect(warnings.count == 1, "\(diagnostics)")
+        #expect(warnings.first?.message.hasPrefix("could not determine how to fix foo: ") == true, "\(warnings)")
     }
 
     // MARK: - Fixtures
@@ -235,6 +216,17 @@ struct FixClassifierTests {
     private struct Fixture {
         let workspace: MockWorkspace
         let graph: ModulesGraph
+
+        func pinnedRevision(_ identity: String) throws -> String {
+            let pin = try workspace.getOrCreateWorkspace().resolvedPackagesStore.load()
+                .resolvedPackages[PackageIdentity.plain(identity)]
+            switch pin?.state {
+            case .branch(_, let revision)?, .revision(let revision)?:
+                return revision
+            default:
+                throw StringError("\(identity) is not pinned to a revision: \(String(describing: pin?.state))")
+            }
+        }
 
         func pinnedVersion(_ identity: String) throws -> Version? {
             let pin = try workspace.getOrCreateWorkspace().resolvedPackagesStore.load()
@@ -245,6 +237,17 @@ struct FixClassifierTests {
 
         /// Audits the graph against `advisories` (keyed by identity) and classifies the result.
         func classify(_ advisories: [String: [OSVRecord]], ignoredIDs: Set<String> = []) async throws -> AuditReport {
+            let (report, diagnostics) = try await self.classifyReturningDiagnostics(advisories, ignoredIDs: ignoredIDs)
+            #expect(!diagnostics.contains { $0.severity == .error || $0.severity == .warning }, "\(diagnostics)")
+            return report
+        }
+
+        /// Like `classify`, but with a custom root and returning the diagnostics emitted to the command scope.
+        func classifyReturningDiagnostics(
+            _ advisories: [String: [OSVRecord]],
+            ignoredIDs: Set<String> = [],
+            rootPaths: [AbsolutePath]? = nil
+        ) async throws -> (AuditReport, [Basics.Diagnostic]) {
             let ws = try workspace.getOrCreateWorkspace()
             let packages = AuditInputBuilder.makePackages(graph: graph, resolvedPackages: try ws.resolvedPackagesStore.load())
 
@@ -269,7 +272,7 @@ struct FixClassifierTests {
 
             let observability = ObservabilitySystem.makeForTesting()
             let root = try PackageGraphRootInput(
-                packages: workspace.rootPaths(for: ["Root"]),
+                packages: rootPaths ?? workspace.rootPaths(for: ["Root"]),
                 traitConfiguration: workspace.traitConfiguration
             )
             let classified = try await FixClassifier(
@@ -278,17 +281,17 @@ struct FixClassifierTests {
                 graph: graph,
                 observabilityScope: observability.topScope
             ).classify(report)
-            #expect(!observability.diagnostics.contains { $0.severity == .error }, "\(observability.diagnostics)")
-            return classified
+            return (classified, observability.diagnostics)
         }
     }
 
-    /// Creates a workspace with a single `Root` package, pins each package in `pins` at 1.0.0,
+    /// Creates a workspace with a single `Root` package, pins each package in `pins` with `pinRequirement`,
     /// and loads the graph without the pinning constraints.
     private func makeFixture(
         rootDependencies: [MockDependency],
         packages: [MockPackage],
-        pins: [String]
+        pins: [String],
+        pinRequirement: SourceControlRequirement = .exact("1.0.0")
     ) async throws -> Fixture {
         let fs = InMemoryFileSystem()
         // Each root dependency vends a product named like its directory.
@@ -310,7 +313,7 @@ struct FixClassifierTests {
         )
 
         let pinningDependencies: [MockDependency] = pins.map {
-            .sourceControl(path: "./\($0)", requirement: .exact("1.0.0"), products: .specific([$0]))
+            .sourceControl(path: "./\($0)", requirement: pinRequirement, products: .specific([$0]))
         }
         try await workspace.checkPackageGraph(roots: ["Root"], deps: pinningDependencies) { _, diagnostics in
             #expect(!diagnostics.contains { $0.severity == .error }, "\(diagnostics)")
@@ -350,10 +353,13 @@ struct FixClassifierTests {
     }
 
     fileprivate static func finding(_ package: AuditedPackage, _ record: OSVRecord, ignored: Bool = false) -> AuditFinding {
-        var fixed: [Version] = []
+        // Computed as `PackageAuditor` does.
+        let name: String? = record.affected?.first?.package?.name
+        let fixed: [Version]
         if case .version(let pinned) = package.state {
-            let name: String? = record.affected?.first?.package?.name
             fixed = record.fixedVersions(after: pinned, packageName: name)
+        } else {
+            fixed = record.fixedVersions(packageName: name)
         }
         return AuditFinding(
             package: package,

@@ -37,11 +37,18 @@ extension OSVRecord {
     /// Precondition: meant to be called for a version that `affects` returns true for;
     /// it does not check that `version` is itself vulnerable.
     public func fixedVersions(after version: Version, packageName: String?) -> [Version] {
+        self.fixedVersions(packageName: packageName).filter { $0 > version }
+    }
+
+    /// Every `fixed` version across all matching `SEMVER` ranges, ascending and without duplicates.
+    ///
+    /// Used for packages pinned to a revision, where no pinned version tells which fixes are newer.
+    public func fixedVersions(packageName: String?) -> [Version] {
         var result = Set<Version>()
         for entry in self.matchingEntries(packageName: packageName) {
             for range in entry.semverRanges {
                 for event in range.events {
-                    if let fixed = event.fixed.flatMap({ Version($0) }), fixed > version {
+                    if let fixed = event.fixed.flatMap({ Version($0) }) {
                         result.insert(fixed)
                     }
                 }
@@ -52,7 +59,7 @@ extension OSVRecord {
 
     /// The vulnerable intervals of all matching `SEMVER` ranges, in declaration order.
     /// An inclusive upper bound (`last_affected`) is represented by the next possible version.
-    public func vulnerableRanges(packageName: String?) -> [Swift.Range<Version>] {
+    func vulnerableRanges(packageName: String?) -> [Swift.Range<Version>] {
         self.matchingEntries(packageName: packageName)
             .flatMap(\.semverRanges)
             .flatMap(\.intervals)

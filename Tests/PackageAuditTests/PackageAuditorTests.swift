@@ -139,8 +139,36 @@ struct PackageAuditorTests {
         let report = try await auditor(records: ["\(name)@abc": [record("GHSA-1")]])
             .audit([sourceControl(.revision("abc"))])
         #expect(report.findings.map(\.advisory.id) == ["GHSA-1"])
-        #expect(report.findings[0].fixedVersions.isEmpty)
+        #expect(report.findings[0].fixedVersions == [Version(1, 0, 5)])
         #expect(report.unchecked.isEmpty)
+    }
+
+    @Test func revisionPinListsEveryFixOfTheMatchingEntries() async throws {
+        // Without a pinned version, every `fixed` event of the package's entries is a candidate patch.
+        let advisory = OSVRecord(
+            id: "GHSA-1",
+            affected: [
+                .init(
+                    package: .init(ecosystem: "SwiftURL", name: name),
+                    ranges: [
+                        .init(type: "SEMVER", events: [.init(introduced: "2.0.0"), .init(fixed: "2.0.1")]),
+                        .init(type: "SEMVER", events: [.init(introduced: "0"), .init(fixed: "1.0.5")]),
+                    ]
+                ),
+                .init(
+                    package: .init(ecosystem: "SwiftURL", name: name),
+                    ranges: [.init(type: "SEMVER", events: [.init(introduced: "0"), .init(fixed: "1.0.5")])]
+                ),
+                // Fixes of other packages are not listed.
+                .init(
+                    package: .init(ecosystem: "SwiftURL", name: "github.com/mona/Other"),
+                    ranges: [.init(type: "SEMVER", events: [.init(introduced: "0"), .init(fixed: "9.0.0")])]
+                ),
+            ]
+        )
+        let report = try await auditor(records: ["\(name)@abc": [advisory]])
+            .audit([sourceControl(.revision("abc"))])
+        #expect(report.findings.map(\.fixedVersions) == [[Version(1, 0, 5), Version(2, 0, 1)]])
     }
 
     @Test func revisionPinUncheckedWhenLocalDatabase() async throws {

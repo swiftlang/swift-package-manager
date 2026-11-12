@@ -20,16 +20,14 @@ import struct TSCUtility.Version
 
 /// Determines how each finding of an audit report can be fixed.
 struct FixClassifier {
-    /// Every version, including prereleases. `VersionSetSpecifier.any.difference(_:)` traps,
-    /// so exclusions start from this explicit range.
-    private static let allVersions = VersionSetSpecifier.range(Self.lowestVersion ..< Version(Int.max, 0, 0))
-    private static let lowestVersion = Version(0, 0, 0, prereleaseIdentifiers: ["0"])
-
     private let workspace: Workspace
     private let root: PackageGraphRootInput
     private let graph: ModulesGraph
     private let observabilityScope: ObservabilityScope
 
+    /// - Parameter observabilityScope: Receives a warning for each package whose fix could not be determined.
+    ///   The dry-run resolutions report to a separate observability system, so that their failures (for example
+    ///   when offline) do not fail the command.
     init(
         workspace: Workspace,
         root: PackageGraphRootInput,
@@ -42,9 +40,9 @@ struct FixClassifier {
         self.observabilityScope = observabilityScope
     }
 
-    /// Returns `report` with `fixClassification` set on every non-ignored finding.
+    /// Returns `report` with `fixClassification` set on every non-ignored finding whose fix could be determined.
     ///
-    /// Findings of the same package share one dry-run resolution that excludes all of their vulnerable versions.
+    /// Findings of the same package share one dry-run resolution equivalent to `swift package update <package>`.
     /// Dry runs are performed one after another since `Workspace.resolveDryRun` is not safe to call concurrently.
     func classify(_ report: AuditReport) async throws -> AuditReport {
         var result = report
@@ -74,14 +72,22 @@ struct FixClassifier {
 
             let findings = fixable.map { report.findings[$0] }
             let classification: FixClassification
-            if let reference = pins[identity]?.packageRef,
-               try await self.updateResolves(reference, findings: findings) {
-                classification = .update
+            if case .version = findings[0].package.state {
+                var updateFixes = false
+                do {
+                    if let pin = pins[identity] {
+                        updateFixes = try await self.updateFixes(pin.packageRef, findings: findings)
+                    }
+                } catch let error as ClassificationFailure {
+                    // The findings stay unclassified rather than failing the audit.
+                    self.observabilityScope.emit(warning: "could not determine how to fix \(identity): \(error.reason)")
+                    continue
+                }
+                classification = updateFixes
+                    ? .update
+                    : self.requirementClassification(of: identity, fixedVersions: findings.map(\.fixedVersions))
             } else {
-                classification = self.requirementClassification(
-                    of: identity,
-                    fixedVersions: findings.map(\.fixedVersions)
-                )
+                classification = self.unversionedClassification(of: identity)
             }
             for index in fixable {
                 result.findings[index].fixClassification = classification
@@ -90,65 +96,76 @@ struct FixClassifier {
         return result
     }
 
-    /// A constraint that allows any version of `package` outside the vulnerable ranges of `findings`
-    /// and other than their pinned version. All `findings` must be of the same package.
-    static func excludingConstraint(for package: PackageReference, findings: [AuditFinding]) -> PackageContainerConstraint {
-        var vulnerable: [Range<Version>] = []
-        for finding in findings {
-            let ranges = self.vulnerableRanges(of: finding)
-            if ranges.isEmpty, let lowestFixed = finding.fixedVersions.min() {
-                // Without ranges, only versions from the lowest fix on are known not to be vulnerable.
-                vulnerable.append(Self.lowestVersion ..< lowestFixed)
-            } else {
-                vulnerable += ranges
-            }
-        }
-        // `difference` expects sorted, disjoint ranges, which `union(from:)` produces.
-        var allowed = Self.allVersions.difference(.union(from: vulnerable))
-        // The pinned version is vulnerable even if no range covers it (e.g. it is only listed explicitly).
-        if case .version(let pinned)? = findings.first?.package.state {
-            allowed = allowed.difference(.exact(pinned))
-        }
-        return PackageContainerConstraint(package: package, requirement: .versionSet(allowed), products: .nothing)
+    private struct ClassificationFailure: Error {
+        let reason: String
     }
 
-    /// The vulnerable ranges of a finding's advisory that apply to its package.
+    /// Whether `swift package update <package>` would move the package to a version that none of `findings`
+    /// affects, as `swift package audit fix` updates it that way.
     ///
-    /// Database records are matched by the package's normalized repository URLs. Registry records are scoped to
-    /// the package and need not name it, so when none of their entries match by name all entries are used.
-    private static func vulnerableRanges(of finding: AuditFinding) -> [Range<Version>] {
-        let urls: [String]
+    /// Throws `ClassificationFailure` when the dry run cannot be performed or reports errors.
+    private func updateFixes(_ package: PackageReference, findings: [AuditFinding]) async throws -> Bool {
+        let errors = ThreadSafeArrayStore<String>()
+        let scope = ObservabilitySystem({ _, diagnostic in
+            if diagnostic.severity == .error {
+                errors.append(diagnostic.message)
+            }
+        }).topScope
+
+        let result: Result<[(PackageReference, Workspace.PackageStateChange)], any Error>
+        do {
+            result = try await self.workspace.resolveDryRun(
+                root: self.root,
+                unpinning: [package.identity],
+                observabilityScope: scope
+            )
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            throw ClassificationFailure(reason: errors.get().first ?? error.interpolationDescription)
+        }
+        if let error = errors.get().first {
+            throw ClassificationFailure(reason: error)
+        }
+
+        guard case .success(let changes) = result else {
+            return false
+        }
+        switch changes.first(where: { $0.0.identity == package.identity })?.1 {
+        case .added(let state)?, .updated(let state)?:
+            guard case .version(let version) = state.requirement else { return false }
+            return !findings.contains { Self.isAffected($0, version: version) }
+        case .unchanged?, .removed?, nil:
+            // The package stays at its vulnerable pin.
+            return false
+        }
+    }
+
+    /// Whether the advisory of `finding` affects `version` of its package.
+    ///
+    /// Registry records are scoped to the package and need not name it, so for registry packages every entry is
+    /// considered.
+    private static func isAffected(_ finding: AuditFinding, version: Version) -> Bool {
         switch finding.package.kind {
         case .sourceControl(let url):
-            urls = [url]
+            guard let name = SwiftURLName.normalize(url) else { return true }
+            return finding.advisory.affects(version, packageName: name)
         case .registry:
-            urls = finding.package.repositoryURLs
+            return finding.advisory.affects(version, packageName: nil)
         case .local:
-            urls = []
-        }
-        let ranges = urls.compactMap(SwiftURLName.normalize).flatMap {
-            finding.advisory.vulnerableRanges(packageName: $0)
-        }
-        if ranges.isEmpty, case .registry = finding.package.kind {
-            return finding.advisory.vulnerableRanges(packageName: nil)
-        }
-        return ranges
-    }
-
-    /// Whether unpinning the package and resolving without its vulnerable versions succeeds.
-    private func updateResolves(_ package: PackageReference, findings: [AuditFinding]) async throws -> Bool {
-        let result = try await self.workspace.resolveDryRun(
-            root: self.root,
-            unpinning: [package.identity],
-            extraConstraints: [Self.excludingConstraint(for: package, findings: findings)],
-            observabilityScope: self.observabilityScope.makeChildScope(
-                description: "Classifying fix for \(package.identity)"
-            )
-        )
-        if case .success = result {
             return true
         }
-        return false
+    }
+
+    /// Classifies a package pinned to a branch or revision, which is only fixed by requiring a patched version.
+    ///
+    /// A root that depends on it can change its requirement; otherwise the packages depending on it must.
+    private func unversionedClassification(of identity: PackageIdentity) -> FixClassification {
+        let parents = self.graph.packages.filter { $0.dependencies.contains(identity) }
+        if parents.contains(where: { self.graph.isRootPackage($0) }) {
+            return .manifest
+        }
+        return .upstream(blockedBy: Self.sortedUnique(parents.map(\.manifest.displayName)))
     }
 
     /// Classifies a package that cannot be fixed by an update alone, from the requirements declared on it.

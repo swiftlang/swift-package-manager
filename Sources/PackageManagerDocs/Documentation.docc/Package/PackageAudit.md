@@ -107,8 +107,8 @@ Each package with findings at or above the severity threshold is handled accordi
 - With `--allow-manifest-changes`, a requirement in the root `Package.swift` that excludes every patched version has
   its lower bound raised to the lowest patched version, keeping the kind of requirement (`from:`,
   `.upToNextMinor(from:)`, `exact:`, or a range). If the change crosses a major version, `--allow-major-upgrades` is
-  also required. A requirement that cannot be edited safely, for example because it is not written as a string
-  literal, is reported and left unchanged.
+  also required. A requirement that cannot be edited safely, for example because it is a branch or revision
+  requirement or is not written as a string literal, is reported and left unchanged.
 - Packages whose patched versions are excluded by another dependency, or that have no patched version, are reported
   and left unchanged.
 

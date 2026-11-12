@@ -311,9 +311,12 @@ public struct PackageAuditor {
             }
 
             var fixed = Set<Version>()
-            if case .version(let pinned) = package.state {
-                for member in group.members {
+            for member in group.members {
+                if case .version(let pinned) = package.state {
                     fixed.formUnion(member.record.fixedVersions(after: pinned, packageName: member.packageName))
+                } else {
+                    // Without a pinned version, every fix of the package is a candidate.
+                    fixed.formUnion(member.record.fixedVersions(packageName: member.packageName))
                 }
             }
 
