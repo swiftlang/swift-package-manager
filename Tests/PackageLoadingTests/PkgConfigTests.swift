@@ -105,7 +105,7 @@ class PkgConfigTests: XCTestCase {
             }
         }
 
-        // Pc file with prohibited flags.
+        // Pc file with a still-prohibited flag. Allowed flags are kept.
         try Environment.makeCustom(["PKG_CONFIG_PATH": inputsDir.pathString]) {
             for result in try pkgConfigArgs(
                 for: SystemLibraryModule(pkgConfig: "Bar"),
@@ -120,7 +120,7 @@ class PkgConfigTests: XCTestCase {
                 XCTAssertFalse(result.couldNotFindConfigFile)
                 switch result.error {
                 case PkgConfigError.prohibitedFlags(let desc)?:
-                    XCTAssertEqual(desc, "-DDenyListed")
+                    XCTAssertEqual(desc, "-werror")
                 default:
                     XCTFail("unexpected error \(result.error.debugDescription)")
                 }
@@ -142,7 +142,7 @@ class PkgConfigTests: XCTestCase {
                 XCTAssertFalse(result.couldNotFindConfigFile)
                 switch result.error {
                 case PkgConfigError.prohibitedFlags(let desc)?:
-                    XCTAssertEqual(desc, "-DDenyListed")
+                    XCTAssertEqual(desc, "-werror")
                 default:
                     XCTFail("unexpected error \(result.error.debugDescription)")
                 }
@@ -166,7 +166,7 @@ class PkgConfigTests: XCTestCase {
             XCTAssertFalse(result.couldNotFindConfigFile)
         }
 
-        // Pc file with prohibited flags.
+        // Pc file with a still-prohibited flag. Allowed flags are kept.
         for result in try pkgConfigArgs(
             for: SystemLibraryModule(pkgConfig: "Bar"),
             pkgConfigDirectories: [inputsDir],
@@ -180,7 +180,7 @@ class PkgConfigTests: XCTestCase {
             XCTAssertFalse(result.couldNotFindConfigFile)
             switch result.error {
             case PkgConfigError.prohibitedFlags(let desc)?:
-                XCTAssertEqual(desc, "-DDenyListed")
+                XCTAssertEqual(desc, "-werror")
             default:
                 XCTFail("unexpected error \(result.error.debugDescription)")
             }
@@ -201,10 +201,26 @@ class PkgConfigTests: XCTestCase {
             XCTAssertFalse(result.couldNotFindConfigFile)
             switch result.error {
             case PkgConfigError.prohibitedFlags(let desc)?:
-                XCTAssertEqual(desc, "-DDenyListed")
+                XCTAssertEqual(desc, "-werror")
             default:
                 XCTFail("unexpected error \(result.error.debugDescription)")
             }
+        }
+    }
+
+    func testDefineFlagIsAllowed() throws {
+        for result in try pkgConfigArgs(
+            for: SystemLibraryModule(pkgConfig: "Define"),
+            pkgConfigDirectories: [inputsDir],
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        ) {
+            XCTAssertEqual(result.pkgConfigName, "Define")
+            XCTAssertEqual(result.cFlags, ["-I/path/to/inc", "-DFOO"])
+            XCTAssertEqual(result.libs, ["-L/usr/da/lib", "-lfoo"])
+            XCTAssertNil(result.provider)
+            XCTAssertNil(result.error)
+            XCTAssertFalse(result.couldNotFindConfigFile)
         }
     }
 
