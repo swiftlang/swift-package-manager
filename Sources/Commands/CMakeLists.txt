@@ -19,6 +19,7 @@ add_library(Commands
   PackageCommands/AddTargetPlugin.swift
   PackageCommands/APIDiff.swift
   PackageCommands/ArchiveSource.swift
+  PackageCommands/Audit.swift
   PackageCommands/AuditBinaryArtifact.swift
   PackageCommands/BuildServer.swift
   PackageCommands/CompletionCommand.swift

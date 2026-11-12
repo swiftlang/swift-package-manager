@@ -8834,4 +8834,238 @@ struct PackageCommandTests {
             }
         }
     }
+
+    @Suite(
+        .tags(
+            .Feature.Command.Package.Audit,
+        ),
+    )
+    struct AuditCommandTests {
+        private struct Outcome {
+            var status: Int32
+            var stdout: String
+            var stderr: String
+        }
+
+        /// Runs `swift package` and returns its exit status instead of throwing on a non-zero one.
+        private func run(_ args: [String], packagePath: AbsolutePath) async throws -> Outcome {
+            do {
+                let (stdout, stderr) = try await execute(
+                    args,
+                    packagePath: packagePath,
+                    configuration: .debug,
+                    buildSystem: .swiftbuild,
+                )
+                return Outcome(status: 0, stdout: stdout, stderr: stderr)
+            } catch SwiftPMError.executionFailure(let error as NonZeroExitError, let stdout, let stderr) {
+                guard case .exited(let code) = error.terminationStatus else { throw error }
+                return Outcome(status: code, stdout: stdout, stderr: stderr)
+            }
+        }
+
+        /// Prepares the `Audit` fixture so that `Root` pins `Dep` at 1.0.0 while 1.0.1 is available,
+        /// and the OSV directory holds an advisory naming `Dep` that is fixed in 1.0.1.
+        ///
+        /// The body receives the root package path and the `file://` URL of the OSV directory.
+        private func withVulnerableFixture(
+            _ body: (AbsolutePath, String) async throws -> Void
+        ) async throws {
+            try await fixture(name: "Audit") { fixturePath in
+                let root = fixturePath.appending(components: "Vulnerable", "Root")
+                let dep = fixturePath.appending(components: "Vulnerable", "Dep")
+                initGitRepo(dep, tags: ["1.0.0"])
+                try await execute(["resolve"], packagePath: root, configuration: .debug, buildSystem: .swiftbuild)
+                try GitRepository(path: dep).tag(name: "1.0.1")
+
+                // A local source control dependency is named by its absolute path without the leading `/`.
+                let resolved = try #require(
+                    try JSONSerialization.jsonObject(
+                        with: Data(localFileSystem.readFileContents(root.appending("Package.resolved")).contents)
+                    ) as? [String: Any]
+                )
+                let pins = try #require(resolved["pins"] as? [[String: Any]])
+                let location = try #require(pins.first?["location"] as? String)
+                let packageName = String(location.drop(while: { $0 == "/" }))
+
+                let osvDirectory = fixturePath.appending("osv")
+                let record = osvDirectory.appending("GHSA-test-0001.json")
+                let template: String = try localFileSystem.readFileContents(record)
+                try localFileSystem.writeFileContents(
+                    record,
+                    string: template.replacingOccurrences(of: "DEP_PACKAGE_NAME", with: packageName)
+                )
+                try await body(root, "file://" + osvDirectory.pathString)
+            }
+        }
+
+        @Test
+        func auditReportsFindingAndExits2() async throws {
+            try await withVulnerableFixture { root, osvURL in
+                let outcome = try await self.run(["audit", "--advisory-database", osvURL], packagePath: root)
+                #expect(outcome.status == 2, "stderr: \(outcome.stderr)")
+                #expect(outcome.stdout.contains("GHSA-test-0001"))
+                #expect(outcome.stdout.contains("Fixed in  1.0.1"))
+                #expect(outcome.stdout.contains("Run `swift package audit fix`"))
+            }
+        }
+
+        @Test
+        func auditJSON() async throws {
+            try await withVulnerableFixture { root, osvURL in
+                let outcome = try await self.run(
+                    ["audit", "--advisory-database", osvURL, "--format", "json"],
+                    packagePath: root
+                )
+                #expect(outcome.status == 2, "stderr: \(outcome.stderr)")
+                let object = try #require(
+                    try JSONSerialization.jsonObject(with: Data(outcome.stdout.utf8)) as? [String: Any]
+                )
+                let findings = try #require(object["findings"] as? [[String: Any]])
+                #expect(findings.count == 1)
+                let advisory = try #require(findings.first?["advisory"] as? [String: Any])
+                #expect(advisory["id"] as? String == "GHSA-test-0001")
+            }
+        }
+
+        @Test
+        func auditThresholdCritical() async throws {
+            try await withVulnerableFixture { root, osvURL in
+                let outcome = try await self.run(
+                    ["audit", "--advisory-database", osvURL, "--severity-threshold", "critical"],
+                    packagePath: root
+                )
+                #expect(outcome.status == 0, "stderr: \(outcome.stderr)")
+                #expect(outcome.stdout.contains("GHSA-test-0001"))
+            }
+        }
+
+        @Test
+        func auditIgnore() async throws {
+            try await withVulnerableFixture { root, osvURL in
+                let outcome = try await self.run(
+                    ["audit", "--advisory-database", osvURL, "--ignore", "GHSA-test-0001"],
+                    packagePath: root
+                )
+                #expect(outcome.status == 0, "stderr: \(outcome.stderr)")
+            }
+        }
+
+        @Test
+        func auditSeverityThresholdUnknownIsRejected() async throws {
+            try await withVulnerableFixture { root, osvURL in
+                let outcome = try await self.run(
+                    ["audit", "--advisory-database", osvURL, "--severity-threshold", "unknown"],
+                    packagePath: root
+                )
+                #expect(outcome.status != 0)
+                #expect(outcome.status != 2)
+                #expect(outcome.stderr.contains("--severity-threshold"))
+            }
+        }
+
+        @Test
+        func auditBothNoFlagsIsValidationError() async throws {
+            try await withVulnerableFixture { root, _ in
+                let outcome = try await self.run(
+                    ["audit", "--no-advisory-database", "--no-registry-advisories"],
+                    packagePath: root
+                )
+                #expect(outcome.status != 0)
+                #expect(outcome.status != 2)
+                #expect(outcome.stderr.contains("--no-advisory-database"))
+                #expect(outcome.stderr.contains("--no-registry-advisories"))
+            }
+        }
+
+        @Test
+        func auditUncheckedLocal() async throws {
+            try await fixture(name: "Audit") { fixturePath in
+                let root = fixturePath.appending(components: "LocalDependency", "Root")
+                let osvURL = "file://" + fixturePath.appending("osv").pathString
+
+                let lenient = try await self.run(["audit", "--advisory-database", osvURL], packagePath: root)
+                #expect(lenient.status == 0, "stderr: \(lenient.stderr)")
+                #expect(lenient.stdout.contains("1 package could not be checked"))
+
+                let strict = try await self.run(
+                    ["audit", "--advisory-database", osvURL, "--fail-on-unchecked"],
+                    packagePath: root
+                )
+                #expect(strict.status == 2, "stderr: \(strict.stderr)")
+            }
+        }
+
+        @Test
+        func auditUsesConfiguredAdvisoryDatabase() async throws {
+            try await withVulnerableFixture { root, osvURL in
+                try await execute(
+                    ["config", "set-advisory-database", osvURL],
+                    packagePath: root,
+                    configuration: .debug,
+                    buildSystem: .swiftbuild,
+                )
+                let outcome = try await self.run(["audit"], packagePath: root)
+                #expect(outcome.status == 2, "stderr: \(outcome.stderr)")
+                #expect(outcome.stdout.contains("GHSA-test-0001"))
+            }
+        }
+
+        @Test
+        func configAdvisoryDatabaseCommands() async throws {
+            try await fixture(name: "Audit") { fixturePath in
+                let root = fixturePath.appending(components: "LocalDependency", "Root")
+                let sharedConfig = fixturePath.appending("shared-config")
+                let configArgs = ["--config-path", sharedConfig.pathString]
+                let localFile = root.appending(components: ".swiftpm", "configuration", "audit.json")
+                let sharedFile = sharedConfig.appending("audit.json")
+
+                // Nothing configured: the default database.
+                var outcome = try await self.run(configArgs + ["config", "get-advisory-database"], packagePath: root)
+                #expect(outcome.stdout == "https://api.osv.dev\n")
+
+                outcome = try await self.run(
+                    configArgs + ["config", "set-advisory-database", "https://shared.example.com", "--global"],
+                    packagePath: root
+                )
+                #expect(outcome.status == 0, "stderr: \(outcome.stderr)")
+                #expect(localFileSystem.exists(sharedFile))
+                outcome = try await self.run(configArgs + ["config", "get-advisory-database"], packagePath: root)
+                #expect(outcome.stdout == "https://shared.example.com\n")
+
+                outcome = try await self.run(
+                    configArgs + ["config", "set-advisory-database", "file:///x"],
+                    packagePath: root
+                )
+                #expect(outcome.status == 0, "stderr: \(outcome.stderr)")
+                #expect(localFileSystem.exists(localFile))
+                outcome = try await self.run(configArgs + ["config", "get-advisory-database"], packagePath: root)
+                #expect(outcome.stdout == "file:///x\n")
+                outcome = try await self.run(
+                    configArgs + ["config", "get-advisory-database", "--global"],
+                    packagePath: root
+                )
+                #expect(outcome.stdout == "https://shared.example.com\n")
+
+                outcome = try await self.run(configArgs + ["config", "unset-advisory-database"], packagePath: root)
+                #expect(outcome.status == 0, "stderr: \(outcome.stderr)")
+                #expect(!localFileSystem.exists(localFile))
+                outcome = try await self.run(configArgs + ["config", "get-advisory-database"], packagePath: root)
+                #expect(outcome.stdout == "https://shared.example.com\n")
+
+                outcome = try await self.run(
+                    configArgs + ["config", "unset-advisory-database", "--global"],
+                    packagePath: root
+                )
+                #expect(outcome.status == 0, "stderr: \(outcome.stderr)")
+                #expect(!localFileSystem.exists(sharedFile))
+
+                outcome = try await self.run(
+                    configArgs + ["config", "set-advisory-database", "http://insecure.example.com"],
+                    packagePath: root
+                )
+                #expect(outcome.status != 0)
+                #expect(!localFileSystem.exists(localFile))
+            }
+        }
+    }
 }
