@@ -2203,12 +2203,13 @@ struct TestCommandTests {
 
             #expect(error == ExitCode.failure, "Expected ExitCode.failure, got \(String(describing: error))")
 
-            // The output stream is written to asynchronously on a DispatchQueue and can
-            // receive output after the command has thrown.
-            let found = try await waitForOutputStreamToContain(outputStream, "--debugger")
+            // Diagnostics are written on a background queue; reading the stream before
+            // they drain races the write and can lose it.
+            state.waitForObservabilityEvents(timeout: .now() + .seconds(5))
+            let output = outputStream.bytes.description
             #expect(
-                found,
-                "Expected validation error to surface via the command pipeline, got: \(outputStream.bytes.description)"
+                output.contains("--debugger"),
+                "Expected validation error to surface via the command pipeline, got: \(output)"
             )
         }
 
