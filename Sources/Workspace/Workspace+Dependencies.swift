@@ -1119,9 +1119,17 @@ extension Workspace {
     /// Resolves the dependencies of `root` as `_updateDependencies(dryRun: true)` would, with
     /// `extraConstraints` added and every pin except those of `packages` kept.
     ///
-    /// Nothing is written: no checkouts, no `Package.resolved`, no workspace state.
+    /// `Package.resolved` and the workspace's resolution state are not changed by the resolution result.
+    /// As with `update --dry-run`, loading manifests may still create caches, fetch repositories, and
+    /// repair managed dependencies (e.g. restore missing checkouts).
+    ///
     /// A resolver failure is returned as `.failure` rather than emitted to `observabilityScope`;
     /// failures before resolution (e.g. loading manifests) are thrown.
+    ///
+    /// - Precondition: `observabilityScope` has no previously reported errors, since errors reported to it are
+    ///   treated as failures of this call; use a dedicated child scope per call.
+    /// - Important: Not safe to call concurrently on the same `Workspace` (it sets `activeResolver` and may
+    ///   mutate workspace state while loading manifests).
     package func resolveDryRun(
         root: PackageGraphRootInput,
         unpinning packages: [PackageIdentity],
