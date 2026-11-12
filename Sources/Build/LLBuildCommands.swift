@@ -245,12 +245,6 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
             ""
         }
 
-        var needsAsyncMainWorkaround = false
-        if buildParameters.triple.isLinux() {
-            // FIXME: work around crash on Amazon Linux 2 when main function is async (rdar://128303921)
-            needsAsyncMainWorkaround = true
-        }
-
         stream.send(
             #"""
             #if canImport(Testing)
@@ -280,22 +274,11 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
                     return "xctest"
                 }
 
-                #if \#(needsAsyncMainWorkaround)
-                @_silgen_name("$ss13_runAsyncMainyyyyYaKcF")
-                private static func _runAsyncMain(_ asyncFun: @Sendable @escaping () async throws -> ())
-                #endif
-
-                static func main() \#(needsAsyncMainWorkaround ? "" : "async") {
+                static func main() async {
                     let testingLibrary = Self.testingLibrary()
                     #if canImport(Testing)
                     if testingLibrary == "swift-testing" {
-                        #if \#(needsAsyncMainWorkaround)
-                        _runAsyncMain {
-                            await Testing.__swiftPMEntryPoint() as Never
-                        }
-                        #else
                         await Testing.__swiftPMEntryPoint() as Never
-                        #endif
                     }
                     #endif
                     #if \#(isXCTMainAvailable)
