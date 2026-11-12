@@ -230,45 +230,6 @@ struct SwiftCommandStateTestSuites {
             #expect(resourceValues.isExcludedFromBackup == true)
         }
     }
-
-    @Test(
-        .tags(
-            .TestSize.small,
-        ),
-    )
-    func workspaceForAnotherRootUsesCommandRegistryCredentials() async throws {
-        try await withTemporaryDirectory { tmpDir in
-            let netrc = tmpDir.appending("netrc")
-            try localFileSystem.writeFileContents(netrc, string: "machine registry.example.com login user password secret\n")
-            // --netrc makes registries use netrc over the keychain on macOS
-            let state = try SwiftCommandState.makeMockState(
-                options: GlobalOptions.parse(["--package-path", tmpDir.pathString, "--netrc-file", netrc.pathString, "--netrc"]),
-            )
-
-            let workspace = try state.makeWorkspace(forRootPackage: tmpDir.appending("Baseline"))
-
-            let header = workspace.registryClient.authorizationProvider?(URL("https://registry.example.com"))
-            #expect(header == "Basic dXNlcjpzZWNyZXQ=")
-        }
-    }
-
-    @Test(
-        .tags(
-            .TestSize.small,
-        ),
-    )
-    func workspaceForAnotherRootUsesCommandWorkspaceConfiguration() async throws {
-        try await withTemporaryDirectory { tmpDir in
-            let state = try SwiftCommandState.makeMockState(
-                options: GlobalOptions.parse(["--package-path", tmpDir.pathString, "--default-registry-url", "https://registry.example.com"]),
-            )
-
-            let workspace = try state.makeWorkspace(forRootPackage: tmpDir.appending("Baseline"))
-
-            #expect(workspace.configuration.defaultRegistry?.url == URL("https://registry.example.com"))
-            #expect(workspace.location.scratchDirectory == tmpDir.appending(components: "Baseline", ".build"))
-        }
-    }
 }
 
 final class SwiftCommandStateTests: XCTestCase {
@@ -793,4 +754,32 @@ final class SwiftCommandStateTests: XCTestCase {
         }
     }
 
+    func testWorkspaceForAnotherRootUsesCommandRegistryCredentials() async throws {
+        try await withTemporaryDirectory { tmpDir in
+            let netrc = tmpDir.appending("netrc")
+            try localFileSystem.writeFileContents(netrc, string: "machine registry.example.com login user password secret\n")
+            // --netrc makes registries use netrc over the keychain on macOS
+            let state = try SwiftCommandState.makeMockState(
+                options: GlobalOptions.parse(["--package-path", tmpDir.pathString, "--netrc-file", netrc.pathString, "--netrc"]),
+            )
+
+            let workspace = try state.makeWorkspace(forRootPackage: tmpDir.appending("Baseline"))
+
+            let header = workspace.registryClient.authorizationProvider?(URL("https://registry.example.com"))
+            XCTAssertEqual(header, "Basic dXNlcjpzZWNyZXQ=")
+        }
+    }
+
+    func testWorkspaceForAnotherRootUsesCommandWorkspaceConfiguration() async throws {
+        try await withTemporaryDirectory { tmpDir in
+            let state = try SwiftCommandState.makeMockState(
+                options: GlobalOptions.parse(["--package-path", tmpDir.pathString, "--default-registry-url", "https://registry.example.com"]),
+            )
+
+            let workspace = try state.makeWorkspace(forRootPackage: tmpDir.appending("Baseline"))
+
+            XCTAssertEqual(workspace.configuration.defaultRegistry?.url, URL("https://registry.example.com"))
+            XCTAssertEqual(workspace.location.scratchDirectory, tmpDir.appending(components: "Baseline", ".build"))
+        }
+    }
 }
