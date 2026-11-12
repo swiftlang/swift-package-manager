@@ -605,6 +605,7 @@ let package = Package(
                 "BinarySymbols",
                 "Build",
                 "CoreCommands",
+                "PackageAudit",
                 "PackageGraph",
                 "SBOMModel",
                 "SourceControl",
