@@ -1,4 +1,4 @@
-// swift-tools-version:6.1
+// swift-tools-version:6.2
 
 //===----------------------------------------------------------------------===//
 //
@@ -36,17 +36,10 @@ if let resourceDirPath = ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RP
 }
 
 // Common experimental flags to be added to all targets.
-let commonExperimentalFeatures: [SwiftSetting] = [
+let commonFeatures: [SwiftSetting] = [
+    .enableExperimentalFeature("StrictConcurrency"),
     .enableExperimentalFeature("MemberImportVisibility"),
 ]
-
-// Certain targets fail to compile with MemberImportVisibility enabled on 6.0.3
-// but work with >=6.1. These targets opt in to using `swift6CompatibleExperimentalFeatures`.
-#if swift(>=6.1)
-let swift6CompatibleExperimentalFeatures = commonExperimentalFeatures
-#else
-let swift6CompatibleExperimentalFeatures: [SwiftSetting] = []
-#endif
 
 /** SwiftPMDataModel is the subset of SwiftPM product that includes just its data model.
  This allows some clients (such as IDEs) that use SwiftPM's data model but not its build system
@@ -58,10 +51,14 @@ let swiftPMDataModelProduct = (
     targets: [
         "PackageCollections",
         "PackageCollectionsModel",
+        "PackageCollectionsSigning",
+        "PackageFingerprint",
         "PackageGraph",
         "PackageLoading",
         "PackageMetadata",
         "PackageModel",
+        "PackageRegistry",
+        "PackageSigning",
         "SourceControl",
         "Workspace",
     ]
@@ -76,10 +73,9 @@ let swiftPMDataModelProduct = (
 let swiftPMProduct = (
     name: "SwiftPM",
     targets: swiftPMDataModelProduct.targets + [
-        "Build",
-        "LLBuildManifest",
+        "SPMBuildCore",
         "SourceKitLSPAPI",
-        "SPMLLBuild",
+        "SwiftBuildSupport",
     ]
 )
 
@@ -226,7 +222,7 @@ let package = Package(
             // AppleProductTypes library when they import it without further
             // messing with the manifest loader.
             dependencies: ["PackageDescription"],
-            swiftSettings: commonExperimentalFeatures + [
+            swiftSettings: commonFeatures + [
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"], .when(platforms: [.macOS])),
                 .unsafeFlags(["-Xfrontend", "-module-link-name", "-Xfrontend", "AppleProductTypes"])
@@ -243,7 +239,7 @@ let package = Package(
                 "SPMBuildCore",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
+            swiftSettings: commonFeatures + [
                 .enableExperimentalFeature("AccessLevelOnImport"),
             ]
         ),
@@ -256,7 +252,7 @@ let package = Package(
             name: "_AsyncFileSystem",
             dependencies: swiftSystemDeps,
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
+            swiftSettings: commonFeatures + [
                 .enableExperimentalFeature("StrictConcurrency"),
                 .enableExperimentalFeature("AccessLevelOnImport"),
                 .enableExperimentalFeature("InternalImportsByDefault"),
@@ -273,7 +269,7 @@ let package = Package(
                 .product(name: "Subprocess", package: "swift-subprocess"),
             ] + swiftToolchainSQLiteDeps + swiftSystemDeps + swiftToolsCoreSupportAutoDeps,
             exclude: ["CMakeLists.txt", "Vendor/README.md"],
-            swiftSettings: swift6CompatibleExperimentalFeatures + [
+            swiftSettings: commonFeatures + [
                 .enableExperimentalFeature("StrictConcurrency"),
                 .enableExperimentalFeature("AccessLevelOnImport"),
             ]
@@ -284,7 +280,7 @@ let package = Package(
             name: "LLBuildManifest",
             dependencies: ["Basics"],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         .target(
@@ -298,7 +294,7 @@ let package = Package(
                 "PackageSigning",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         .target(
@@ -309,7 +305,7 @@ let package = Package(
                 "PackageModel",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         .target(
@@ -317,7 +313,7 @@ let package = Package(
             name: "SPMLLBuild",
             dependencies: ["Basics"],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         .target(
@@ -329,7 +325,7 @@ let package = Package(
                 ["SwiftDiagnostics", "SwiftIDEUtils", "SwiftParser", "SwiftSyntax"]
             ),
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         .target(
@@ -340,7 +336,7 @@ let package = Package(
                 .product(name: "Subprocess", package: "swift-subprocess"),
             ] + swiftSystemDeps + swiftTSCBasicsDeps,
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         // MARK: Project Model
@@ -350,7 +346,7 @@ let package = Package(
             name: "PackageModel",
             dependencies: ["Basics"],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: swift6CompatibleExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         .target(
@@ -362,7 +358,7 @@ let package = Package(
                 .copy("CycloneDX/Resources/cyclonedx-1.7.schema.json"),
                 .copy("SPDX/Resources/spdx-3.0.1.schema.json"),
             ],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         .target(
@@ -374,7 +370,7 @@ let package = Package(
                 "SourceControl",
             ],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         // MARK: Package Dependency Resolution
@@ -389,7 +385,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         // MARK: Package Collections
@@ -402,7 +398,7 @@ let package = Package(
                 "Formats/v1.md",
                 "CMakeLists.txt",
             ],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         .target(
@@ -416,7 +412,7 @@ let package = Package(
                 "SourceControl",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: swift6CompatibleExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         .target(
@@ -427,7 +423,7 @@ let package = Package(
                 "PackageCollectionsModel",
             ] + swiftCryptoDeps,
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         .target(
@@ -437,7 +433,7 @@ let package = Package(
                 "PackageModel",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         .target(
@@ -448,7 +444,7 @@ let package = Package(
                 "PackageModel",
             ] + swiftCryptoDeps,
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         // MARK: Documentation
@@ -469,7 +465,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
         .target(
             /** Builds Modules and Products */
@@ -484,7 +480,7 @@ let package = Package(
                 "DriverSupport",
             ] + swiftDriverDeps,
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
         .target(
             name: "DriverSupport",
@@ -493,7 +489,7 @@ let package = Package(
                 "PackageModel",
             ] + swiftDriverDeps,
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
         .target(
             /** Support for building using Xcode's build system */
@@ -504,7 +500,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
         .target(
             name: "SwiftBuildSupport",
@@ -513,7 +509,7 @@ let package = Package(
                 "PackageGraph",
             ],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
         .target(
             /** High level functionality */
@@ -530,7 +526,7 @@ let package = Package(
                 .product(name: "OrderedCollections", package: "swift-collections"),
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
         .target(
             // ** High level interface for package discovery */
@@ -542,7 +538,7 @@ let package = Package(
                 "PackageRegistry",
                 "PackageSigning",
             ],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         // MARK: BSP
@@ -583,7 +579,7 @@ let package = Package(
                 "SBOMModel",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         .target(
@@ -607,7 +603,7 @@ let package = Package(
                 "SwiftPMBuildServer",
             ] + swiftSystemDeps + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftRefactor"]),
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: swift6CompatibleExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         .target(
@@ -621,7 +617,7 @@ let package = Package(
                 "PackageModel",
             ],
             exclude: ["CMakeLists.txt", "README.md"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         .target(
@@ -638,7 +634,7 @@ let package = Package(
             exclude: [
                 "CMakeLists.txt",
             ],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         .target(
@@ -659,7 +655,7 @@ let package = Package(
                 "Workspace",
             ],
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
 
         .target(
@@ -669,7 +665,7 @@ let package = Package(
                 "Basics",
             ] + swiftCryptoDeps,
             exclude: ["CMakeLists.txt"],
-            swiftSettings: [
+            swiftSettings: commonFeatures + [
                 .enableExperimentalFeature("StrictConcurrency=complete"),
             ]
         ),
@@ -774,7 +770,7 @@ let package = Package(
             name: "PackageDescription",
             path: "Sources/Runtimes/PackageDescription",
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
+            swiftSettings: commonFeatures + [
                 .define("USE_IMPL_ONLY_IMPORTS"),
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
@@ -789,7 +785,7 @@ let package = Package(
             name: "PackagePlugin",
             path: "Sources/Runtimes/PackagePlugin",
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
+            swiftSettings: commonFeatures + [
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
             ],
@@ -803,7 +799,7 @@ let package = Package(
             dependencies: ["PackageDescription"],
             path: "Sources/Runtimes/CompilerPluginSupport",
             exclude: ["CMakeLists.txt"],
-            swiftSettings: commonExperimentalFeatures + [
+            swiftSettings: commonFeatures + [
                 .unsafeFlags(["-package-description-version", "999.0"]),
                 .unsafeFlags(["-enable-library-evolution"]),
             ]
@@ -938,7 +934,7 @@ let package = Package(
         .testTarget(
             name: "PackageGraphTests",
             dependencies: ["PackageGraph", "_InternalTestSupport"],
-            swiftSettings: commonExperimentalFeatures
+            swiftSettings: commonFeatures,
         ),
         .testTarget(
             name: "PackageGraphPerformanceTests",
@@ -1046,7 +1042,7 @@ let package = Package(
             name: "package-info",
             dependencies: ["Workspace"],
             path: "Examples/package-info/Sources/package-info"
-        )
+        ),
     ],
     swiftLanguageModes: [.v5]
 )
