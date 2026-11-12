@@ -233,14 +233,16 @@ class GitRepositoryTests: XCTestCase {
     /// `Inputs`, which has known commit hashes. See the `construct.sh` script
     /// contained within it for more information.
     func testRawRepository() async throws {
-        try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8385: test repository has non-portable file names")
         try XCTSkipOnWindows(because: "https://github.com/swiftlang/swift-package-manager/issues/8564", skipSelfHostedCI: true)
 
         try await testWithTemporaryDirectory { path in
             // Unarchive the static test repository.
             let inputArchivePath = AbsolutePath(#file).parentDirectory.appending(components: "Inputs", "TestRepo.tgz")
 #if os(Windows)
-            try await AsyncProcess.checkNonZeroExit(args: "tar.exe", "-x", "-v", "-C", path.pathString, "-f", inputArchivePath.pathString)
+            // The checked-out files in funny-names have characters Windows doesn't allow in
+            // file names. The test reads that directory from the object database only, so
+            // leave the working-tree copies out.
+            try await AsyncProcess.checkNonZeroExit(args: "tar.exe", "-x", "-v", "--exclude", "*/funny-names/*", "-C", path.pathString, "-f", inputArchivePath.pathString)
 #else
             try await AsyncProcess.checkNonZeroExit(args: "tar", "--no-same-owner", "-x", "-v", "-C", path.pathString, "-f", inputArchivePath.pathString)
 #endif
