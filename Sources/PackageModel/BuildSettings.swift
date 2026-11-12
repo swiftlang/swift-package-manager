@@ -85,7 +85,7 @@ public enum BuildSettings {
 
         public init(values: [String] = [], usage: Usage? = nil, conditions: [PackageCondition] = []) {
             self.values = values
-            self.usage = nil
+            self.usage = usage
             self.default = false // TODO(franz): Check again
             self.conditions = conditions
         }
