@@ -87,6 +87,7 @@ extension SwiftPackageCommand {
         static let configuration = CommandConfiguration(
             commandName: "audit",
             abstract: "Check dependencies for known security vulnerabilities.",
+            subcommands: [Fix.self],
             helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
         )
 
@@ -100,10 +101,19 @@ extension SwiftPackageCommand {
         var options: AuditOptions
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            let (report, _, _) = try await Self.runAudit(options: self.options, swiftCommandState: swiftCommandState)
+            let (report, _, _, _) = try await Self.runAudit(options: self.options, swiftCommandState: swiftCommandState)
+            try Self.printReport(report, options: self.options, swiftCommandState: swiftCommandState)
+            try Self.exitForReport(report, options: self.options, swiftCommandState: swiftCommandState)
+        }
 
+        /// Writes `report` to standard output in the requested format.
+        static func printReport(
+            _ report: AuditReport,
+            options: AuditOptions,
+            swiftCommandState: SwiftCommandState
+        ) throws {
             var output: String
-            switch self.options.format {
+            switch options.format {
             case .text:
                 output = AuditReportRenderer.text(report, verbose: swiftCommandState.logLevel <= .info)
             case .json:
@@ -114,11 +124,18 @@ extension SwiftPackageCommand {
             }
             stdoutStream.send(output)
             stdoutStream.flush()
+        }
 
+        /// Throws the exit status for `report`, if it is not 0.
+        static func exitForReport(
+            _ report: AuditReport,
+            options: AuditOptions,
+            swiftCommandState: SwiftCommandState
+        ) throws {
             // Findings are reported through the exit status rather than as errors, which would force status 1.
             let status = report.exitStatus(
-                threshold: self.options.severityThreshold,
-                failOnUnchecked: self.options.failOnUnchecked
+                threshold: options.severityThreshold,
+                failOnUnchecked: options.failOnUnchecked
             )
             if swiftCommandState.observabilityScope.errorsReported {
                 throw ExitCode.failure
@@ -131,11 +148,12 @@ extension SwiftPackageCommand {
         /// Loads the package graph (with all traits enabled where `Package.resolved` allows), audits its resolved
         /// packages and classifies how each finding can be fixed.
         ///
+        /// Returns the report with the graph, workspace and root input it was produced from.
         /// Failures of any advisory source or of the classification are thrown.
         static func runAudit(
             options: AuditOptions,
             swiftCommandState: SwiftCommandState
-        ) async throws -> (AuditReport, ModulesGraph, Workspace) {
+        ) async throws -> (AuditReport, ModulesGraph, Workspace, PackageGraphRootInput) {
             let (graph, workspace, root) = try await Self.loadGraph(swiftCommandState: swiftCommandState)
 
             let packages = AuditInputBuilder.makePackages(
@@ -176,7 +194,7 @@ extension SwiftPackageCommand {
                 observabilityScope: swiftCommandState.observabilityScope
             ).classify(report)
 
-            return (classified, graph, workspace)
+            return (classified, graph, workspace, root)
         }
 
         /// Loads the graph to audit without changing `Package.resolved`.

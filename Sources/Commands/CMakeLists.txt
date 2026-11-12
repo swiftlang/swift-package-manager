@@ -20,6 +20,7 @@ add_library(Commands
   PackageCommands/APIDiff.swift
   PackageCommands/ArchiveSource.swift
   PackageCommands/Audit.swift
+  PackageCommands/AuditFix.swift
   PackageCommands/AuditBinaryArtifact.swift
   PackageCommands/BuildServer.swift
   PackageCommands/CompletionCommand.swift

@@ -88,6 +88,45 @@ With `--global`, `set-advisory-database` and `unset-advisory-database` change th
 package's. `get-advisory-database` prints the database that `swift package audit` uses when no
 `--advisory-database` option is passed; with `--global`, the package's setting is not considered.
 
+### Fixing vulnerabilities
+
+`swift package audit fix` audits the package, then upgrades the vulnerable dependencies it can:
+
+```
+package audit fix [--dry-run]
+  [--allow-manifest-changes]
+  [--allow-major-upgrades]
+  [<options of swift package audit>]
+```
+
+Each package with findings at or above the severity threshold is handled according to its fix classification:
+
+- Packages that can be fixed within the current requirements are updated, with the same semantics as
+  `swift package update <package>`. Only `Package.resolved` changes.
+- With `--allow-manifest-changes`, a requirement in the root `Package.swift` that excludes every patched version has
+  its lower bound raised to the lowest patched version, keeping the kind of requirement (`from:`,
+  `.upToNextMinor(from:)`, `exact:`, or a range). If the change crosses a major version, `--allow-major-upgrades` is
+  also required. A requirement that cannot be edited safely, for example because it is not written as a string
+  literal, is reported and left unchanged.
+- Packages whose patched versions are excluded by another dependency, or that have no patched version, are reported
+  and left unchanged.
+
+The command then audits the package again, prints the changes it made and the remaining findings, and sets its exit
+status from the remaining findings, as `swift package audit` does. If updating the dependencies fails, `Package.swift`
+and `Package.resolved` are restored to their previous contents and the command fails with status 1.
+
+With `--dry-run`, nothing is written: the command prints the planned changes and sets its exit status from the
+current findings.
+
+```
+$ swift package audit fix --dry-run
+Would update https://github.com/example/RegEx 1.4.2 -> 1.4.3 (Package.resolved)
+Cannot fix mona.NetKit 2.8.0: the patched version 3.0.0 is outside the requirement in Package.swift; re-run with --allow-manifest-changes --allow-major-upgrades to update it.
+```
+
+With `--format json`, the planned and applied changes are written to standard error, so that standard output holds
+only the JSON report of the remaining findings (with `--dry-run`, of the current findings).
+
 ## Options
 
 | Option | Description |
@@ -101,3 +140,13 @@ package's. `get-advisory-database` prints the database that `swift package audit
 | `--no-registry-advisories` | Do not query package registries for advisories. |
 
 `--no-advisory-database` and `--no-registry-advisories` cannot be used together.
+
+### Options of `swift package audit fix`
+
+`swift package audit fix` accepts all the options above, and:
+
+| Option | Description |
+| --- | --- |
+| `--dry-run` | Show the planned changes without applying them. |
+| `--allow-manifest-changes` | Allow changing dependency requirements in the root `Package.swift`. |
+| `--allow-major-upgrades` | With `--allow-manifest-changes`, allow requirement changes that cross a major version. |

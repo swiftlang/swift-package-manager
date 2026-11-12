@@ -8876,12 +8876,31 @@ struct PackageCommandTests {
         private func withVulnerableFixture(
             _ body: (AbsolutePath, String) async throws -> Void
         ) async throws {
+            try await self.withDependencyFixture(
+                "Vulnerable",
+                osvDirectory: ["osv"],
+                release: { dep in try GitRepository(path: dep).tag(name: "1.0.1") },
+                body
+            )
+        }
+
+        /// Prepares the `<name>/Root` package of the `Audit` fixture so that it pins `<name>/Dep` at 1.0.0, then
+        /// calls `release` with the path of `Dep` to publish later versions, and substitutes the name of `Dep` into
+        /// the OSV records in `osvDirectory` (path components relative to the fixture).
+        ///
+        /// The body receives the root package path and the `file://` URL of the OSV directory.
+        fileprivate func withDependencyFixture(
+            _ name: String,
+            osvDirectory osvComponents: [String],
+            release: (AbsolutePath) throws -> Void,
+            _ body: (AbsolutePath, String) async throws -> Void
+        ) async throws {
             try await fixture(name: "Audit") { fixturePath in
-                let root = fixturePath.appending(components: "Vulnerable", "Root")
-                let dep = fixturePath.appending(components: "Vulnerable", "Dep")
+                let root = fixturePath.appending(components: name, "Root")
+                let dep = fixturePath.appending(components: name, "Dep")
                 initGitRepo(dep, tags: ["1.0.0"])
                 try await execute(["resolve"], packagePath: root, configuration: .debug, buildSystem: .swiftbuild)
-                try GitRepository(path: dep).tag(name: "1.0.1")
+                try release(dep)
 
                 // A local source control dependency is named by its absolute path without the leading `/`.
                 let resolved = try #require(
@@ -8893,13 +8912,15 @@ struct PackageCommandTests {
                 let location = try #require(pins.first?["location"] as? String)
                 let packageName = String(location.drop(while: { $0 == "/" }))
 
-                let osvDirectory = fixturePath.appending("osv")
-                let record = osvDirectory.appending("GHSA-test-0001.json")
-                let template: String = try localFileSystem.readFileContents(record)
-                try localFileSystem.writeFileContents(
-                    record,
-                    string: template.replacingOccurrences(of: "DEP_PACKAGE_NAME", with: packageName)
-                )
+                let osvDirectory = fixturePath.appending(components: osvComponents)
+                for file in try localFileSystem.getDirectoryContents(osvDirectory) where file.hasSuffix(".json") {
+                    let record = osvDirectory.appending(file)
+                    let template: String = try localFileSystem.readFileContents(record)
+                    try localFileSystem.writeFileContents(
+                        record,
+                        string: template.replacingOccurrences(of: "DEP_PACKAGE_NAME", with: packageName)
+                    )
+                }
                 try await body(root, "file://" + osvDirectory.pathString)
             }
         }
@@ -9127,6 +9148,183 @@ struct PackageCommandTests {
                 )
                 #expect(outcome.status != 0)
                 #expect(!localFileSystem.exists(localFile))
+            }
+        }
+
+        @Suite("AuditFix")
+        struct AuditFixTests {
+            private let audit = AuditCommandTests()
+
+            private struct Snapshot: Equatable {
+                var manifest: ByteString
+                var resolved: ByteString?
+
+                init(_ root: AbsolutePath) throws {
+                    self.manifest = try localFileSystem.readFileContents(root.appending("Package.swift"))
+                    let resolvedFile = root.appending("Package.resolved")
+                    self.resolved = localFileSystem.exists(resolvedFile)
+                        ? try localFileSystem.readFileContents(resolvedFile)
+                        : nil
+                }
+            }
+
+            /// The version `Package.resolved` pins for the only dependency.
+            private func pinnedVersion(_ root: AbsolutePath) throws -> String? {
+                let object = try JSONSerialization.jsonObject(
+                    with: Data(localFileSystem.readFileContents(root.appending("Package.resolved")).contents)
+                ) as? [String: Any]
+                let pins = object?["pins"] as? [[String: Any]]
+                let state = pins?.first?["state"] as? [String: Any]
+                return state?["version"] as? String
+            }
+
+            private func manifest(_ root: AbsolutePath) throws -> String {
+                try localFileSystem.readFileContents(root.appending("Package.swift"))
+            }
+
+            /// `ManifestFix`: `Root` requires `Dep` `.upToNextMinor(from: "1.0.0")`; the advisory is fixed in 1.1.0.
+            private func withManifestFixFixture(_ body: (AbsolutePath, String) async throws -> Void) async throws {
+                try await self.audit.withDependencyFixture(
+                    "ManifestFix",
+                    osvDirectory: ["ManifestFix", "osv"],
+                    release: { dep in try GitRepository(path: dep).tag(name: "1.1.0") },
+                    body
+                )
+            }
+
+            /// `MajorFix`: `Root` requires `Dep` `from: "1.0.0"`; the advisory is fixed in 2.0.0. With
+            /// `brokenRelease`, the manifest of `Dep` 2.0.0 does not compile.
+            private func withMajorFixFixture(
+                brokenRelease: Bool = false,
+                _ body: (AbsolutePath, String) async throws -> Void
+            ) async throws {
+                try await self.audit.withDependencyFixture(
+                    "MajorFix",
+                    osvDirectory: ["MajorFix", "osv"],
+                    release: { dep in
+                        let repository = GitRepository(path: dep)
+                        if brokenRelease {
+                            try localFileSystem.writeFileContents(
+                                dep.appending("Package.swift"),
+                                string: "// swift-tools-version:5.9\nimport PackageDescription\nlet package = Package(\n"
+                            )
+                            try repository.stageEverything()
+                            try repository.commit(message: "Break the manifest")
+                        }
+                        try repository.tag(name: "2.0.0")
+                    },
+                    body
+                )
+            }
+
+            @Test
+            func fixUpdatesWithinRange() async throws {
+                try await self.audit.withVulnerableFixture { root, osvURL in
+                    let before = try Snapshot(root)
+                    let outcome = try await self.audit.run(["audit", "fix", "--advisory-database", osvURL], packagePath: root)
+                    #expect(outcome.status == 0, "stdout: \(outcome.stdout)\nstderr: \(outcome.stderr)")
+                    #expect(outcome.stdout.contains("Updated"))
+                    #expect(try self.pinnedVersion(root) == "1.0.1")
+                    #expect(try Snapshot(root).manifest == before.manifest)
+                }
+            }
+
+            @Test
+            func fixDryRunWritesNothing() async throws {
+                try await self.audit.withVulnerableFixture { root, osvURL in
+                    let before = try Snapshot(root)
+                    let outcome = try await self.audit.run(
+                        ["audit", "fix", "--dry-run", "--advisory-database", osvURL],
+                        packagePath: root
+                    )
+                    #expect(outcome.status == 2, "stdout: \(outcome.stdout)\nstderr: \(outcome.stderr)")
+                    #expect(outcome.stdout.contains("Would update"))
+                    #expect(outcome.stdout.contains("1.0.0 -> 1.0.1 (Package.resolved)"))
+                    #expect(try Snapshot(root) == before)
+                }
+            }
+
+            @Test
+            func fixJSONKeepsStandardOutputValid() async throws {
+                try await self.audit.withVulnerableFixture { root, osvURL in
+                    let outcome = try await self.audit.run(
+                        ["audit", "fix", "--dry-run", "--format", "json", "--advisory-database", osvURL],
+                        packagePath: root
+                    )
+                    #expect(outcome.status == 2, "stderr: \(outcome.stderr)")
+                    let object = try #require(
+                        try JSONSerialization.jsonObject(with: Data(outcome.stdout.utf8)) as? [String: Any]
+                    )
+                    #expect((object["findings"] as? [Any])?.count == 1)
+                    #expect(outcome.stderr.contains("Would update"))
+                }
+            }
+
+            @Test
+            func fixManifestRequiresFlag() async throws {
+                try await self.withManifestFixFixture { root, osvURL in
+                    let before = try Snapshot(root)
+                    let refused = try await self.audit.run(["audit", "fix", "--advisory-database", osvURL], packagePath: root)
+                    #expect(refused.status == 2, "stdout: \(refused.stdout)\nstderr: \(refused.stderr)")
+                    #expect(refused.stdout.contains("re-run with --allow-manifest-changes to update it"))
+                    #expect(!refused.stdout.contains("--allow-major-upgrades"))
+                    #expect(try Snapshot(root) == before)
+
+                    let fixed = try await self.audit.run(
+                        ["audit", "fix", "--allow-manifest-changes", "--advisory-database", osvURL],
+                        packagePath: root
+                    )
+                    #expect(fixed.status == 0, "stdout: \(fixed.stdout)\nstderr: \(fixed.stderr)")
+                    #expect(fixed.stdout.contains("Changed requirement on"))
+                    #expect(try self.manifest(root).contains(#".package(url: "../Dep", .upToNextMinor(from: "1.1.0")),"#))
+                    #expect(try self.pinnedVersion(root) == "1.1.0")
+                }
+            }
+
+            @Test
+            func fixMajorRequiresFlag() async throws {
+                try await self.withMajorFixFixture { root, osvURL in
+                    let before = try Snapshot(root)
+                    let refused = try await self.audit.run(
+                        ["audit", "fix", "--allow-manifest-changes", "--advisory-database", osvURL],
+                        packagePath: root
+                    )
+                    #expect(refused.status == 2, "stdout: \(refused.stdout)\nstderr: \(refused.stderr)")
+                    #expect(refused.stdout.contains("re-run with --allow-major-upgrades to update it"))
+                    #expect(try Snapshot(root) == before)
+
+                    let dryRun = try await self.audit.run(["audit", "fix", "--dry-run", "--advisory-database", osvURL], packagePath: root)
+                    #expect(dryRun.status == 2)
+                    #expect(
+                        dryRun.stdout.contains("re-run with --allow-manifest-changes --allow-major-upgrades to update it"),
+                        "stdout: \(dryRun.stdout)"
+                    )
+
+                    let fixed = try await self.audit.run(
+                        ["audit", "fix", "--allow-manifest-changes", "--allow-major-upgrades", "--advisory-database", osvURL],
+                        packagePath: root
+                    )
+                    #expect(fixed.status == 0, "stdout: \(fixed.stdout)\nstderr: \(fixed.stderr)")
+                    #expect(try self.manifest(root).contains(#".package(url: "../Dep", from: "2.0.0"),"#))
+                    #expect(try self.pinnedVersion(root) == "2.0.0")
+                }
+            }
+
+            @Test
+            func rollsBackOnResolutionFailure() async throws {
+                try await self.withMajorFixFixture(brokenRelease: true) { root, osvURL in
+                    let before = try Snapshot(root)
+                    let outcome = try await self.audit.run(
+                        ["audit", "fix", "--allow-manifest-changes", "--allow-major-upgrades", "--advisory-database", osvURL],
+                        packagePath: root
+                    )
+                    #expect(outcome.status == 1, "stdout: \(outcome.stdout)\nstderr: \(outcome.stderr)")
+                    // The failure must come from the update, after the manifest was edited.
+                    #expect(outcome.stderr.contains("Restored Package.resolved and Package.swift"), "stderr: \(outcome.stderr)")
+                    let after = try Snapshot(root)
+                    #expect(after.manifest == before.manifest)
+                    #expect(after.resolved == before.resolved)
+                }
             }
         }
     }
