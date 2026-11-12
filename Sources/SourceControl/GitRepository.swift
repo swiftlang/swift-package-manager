@@ -949,7 +949,7 @@ public final class GitRepository: Repository, WorkingCheckout {
         return try !self.isBare()
     }
 
-    /// Checks if the repository uses Git LFS by examining .gitattributes
+    /// Checks if the repository uses Git LFS by examining its .gitattributes files
     /// - Returns: true if the repository has LFS-tracked files
     func hasLFSTrackedFiles() throws -> Bool {
         try self.lock.withLock {
@@ -963,24 +963,49 @@ public final class GitRepository: Repository, WorkingCheckout {
         }
     }
 
+    /// Whether any `.gitattributes` file in `treeish` assigns the LFS filter. The rules need not be
+    /// at the root: Git applies a `.gitattributes` file to its own directory and below, and
+    /// `git lfs track` run from a subdirectory writes its rule there.
     private func gitAttributesTrackLFS(at treeish: String) throws -> Bool {
+        let tree: String
         do {
-            let output = try callGit(
-                "cat-file", "-p", "\(treeish):.gitattributes",
-                failureMessage: "Failed to read .gitattributes"
+            // Read the committed tree, which also works in a bare repository and before checkout.
+            tree = try self.callGit(
+                "ls-tree", "-r", "-z", treeish,
+                failureMessage: "Couldn’t list the files of '\(treeish)'"
             )
-            return output.components(separatedBy: "\n").contains { line in
+        } catch is GitRepositoryError {
+            // For example, `HEAD` of a repository without commits.
+            return false
+        }
+        // Compare paths as UTF-8: large packages list tens of thousands of entries, and as Characters,
+        // a `/` that follows a prepended scalar such as U+0600 isn't a Character of its own.
+        let fileName = Array(".gitattributes".utf8)
+        for entry in tree.utf8.split(separator: 0) where entry.suffix(fileName.count).elementsEqual(fileName) {
+            // Each entry is `<mode> <type> <object>\t<path>`.
+            guard let tab = entry.firstIndex(of: UInt8(ascii: "\t")) else { continue }
+            let fields = Substring(entry[..<tab]).split(separator: " ")
+            let path = entry[entry.index(after: tab)...]
+            guard fields.count == 3, fields[1] == "blob",
+                  path.split(separator: UInt8(ascii: "/")).last?.elementsEqual(fileName) == true
+            else { continue }
+
+            let attributes = try self.callGit(
+                "cat-file", "blob", String(fields[2]),
+                failureMessage: "Couldn’t read '\(Substring(path))' in '\(treeish)'"
+            )
+            let assignsLFSFilter = attributes.components(separatedBy: "\n").contains { line in
                 let trimmed = line.trimmingCharacters(in: .whitespaces)
                 guard !trimmed.isEmpty, !trimmed.hasPrefix("#") else {
                     return false
                 }
                 return trimmed.split(whereSeparator: \.isWhitespace).contains { $0 == "filter=lfs" }
             }
-        } catch let error as CancellationError {
-            throw error
-        } catch is GitRepositoryError {
-            return false
+            if assignsLFSFilter {
+                return true
+            }
         }
+        return false
     }
 
     func hasLFSTrackedFiles() async throws -> Bool {
