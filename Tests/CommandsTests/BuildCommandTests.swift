@@ -1741,7 +1741,7 @@ struct BuildCommandTestCases {
                     )
 
                     let swiftGetVersionFilePath = try findSwiftGetVersionFile()
-                    let actualVersion = try String(contentsOfFile: swiftGetVersionFilePath.pathString).spm_chomp()
+                    let actualVersion = try String(contentsOfFile: swiftGetVersionFilePath.pathString, encoding: .utf8).spm_chomp()
                     #expect(actualVersion == "1.0")
                 }
 
@@ -1764,7 +1764,7 @@ struct BuildCommandTestCases {
                     )
 
                     let swiftGetVersionFilePath = try findSwiftGetVersionFile()
-                    let actualVersion = try String(contentsOfFile: swiftGetVersionFilePath.pathString).spm_chomp()
+                    let actualVersion = try String(contentsOfFile: swiftGetVersionFilePath.pathString, encoding: .utf8).spm_chomp()
                     #expect(actualVersion == "1.0")
                 }
 
@@ -1788,7 +1788,7 @@ struct BuildCommandTestCases {
                     )
 
                     let swiftGetVersionFilePath = try findSwiftGetVersionFile()
-                    let actualVersion = try String(contentsOfFile: swiftGetVersionFilePath.pathString).spm_chomp()
+                    let actualVersion = try String(contentsOfFile: swiftGetVersionFilePath.pathString, encoding: .utf8).spm_chomp()
                     #expect(actualVersion == "2.0")
                 }
             } when: {
@@ -2435,13 +2435,8 @@ struct BuildCommandTestCases {
                     .parentDirectory // Products
                     .parentDirectory // out
                     .appending(component: "Intermediates.noindex")
-                var foundFiles: [String] = []
-                if let enumerator = FileManager.default.enumerator(atPath: intermediatesRoot.pathString) {
-                    for case let file as String in enumerator {
-                        if file.hasSuffix(".sil") || file.hasSuffix(".ll") || file.hasSuffix(".opt.yaml") {
-                            foundFiles.append(file)
-                        }
-                    }
+                let foundFiles = try walk(intermediatesRoot).filter { path in
+                    [".sil", ".ll", ".opt.yaml"].contains { path.pathString.hasSuffix($0) }
                 }
                 #expect(!foundFiles.isEmpty, "Should have supplementary output files (.sil, .ll, .opt.yaml) under \(intermediatesRoot)")
             }
@@ -2557,7 +2552,7 @@ struct BuildSBOMCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftBuild(
+            let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 extraArgs: ["--sbom-spec", "cyclonedx"],
                 buildSystem: buildSystem,
@@ -2575,7 +2570,7 @@ struct BuildSBOMCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftBuild(
+            let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 extraArgs: ["--sbom-spec", "spdx"],
                 buildSystem: buildSystem,
@@ -2612,7 +2607,7 @@ struct BuildSBOMCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftBuild(
+            let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 extraArgs: ["--sbom-spec", "cyclonedx", "--product", "Foo"],
                 buildSystem: buildSystem,
@@ -2629,7 +2624,7 @@ struct BuildSBOMCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftBuild(
+            let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-spec", "spdx"],
                 buildSystem: buildSystem,
@@ -2647,7 +2642,7 @@ struct BuildSBOMCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftBuild(
+            let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 extraArgs: [],
                 env: ["SWIFTPM_BUILD_SBOM_SPEC": "cyclonedx"],
@@ -2666,7 +2661,7 @@ struct BuildSBOMCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftBuild(
+            let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 extraArgs: [],
                 env: ["SWIFTPM_BUILD_SBOM_SPEC": "cyclonedx,spdx"],
@@ -2714,7 +2709,7 @@ struct BuildSBOMCommandTests {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let customSBOMDir = fixturePath.appending("env-sboms")
 
-            let (stdout, stderr) = try await executeSwiftBuild(
+            let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 extraArgs: [],
                 env: [
@@ -2741,7 +2736,7 @@ struct BuildSBOMCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftBuild(
+            let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 extraArgs: [],
                 env: [
@@ -2763,7 +2758,7 @@ struct BuildSBOMCommandTests {
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
-            let (stdout, stderr) = try await executeSwiftBuild(
+            let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 extraArgs: ["--sbom-spec", "spdx"],
                 env: ["SWIFTPM_BUILD_SBOM_SPEC": "cyclonedx"],
@@ -2790,7 +2785,7 @@ struct BuildSBOMCommandTests {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             let customSBOMDir = fixturePath.appending("all-env-sboms")
 
-            let (stdout, stderr) = try await executeSwiftBuild(
+            let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 extraArgs: [],
                 env: [
@@ -2937,7 +2932,7 @@ struct BuildSBOMCommandTests {
     ) async throws {
         try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
             // Valid CLI flag should override invalid environment variable
-            let (stdout, stderr) = try await executeSwiftBuild(
+            let (stdout, _) = try await executeSwiftBuild(
                 fixturePath,
                 extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-filter", "product"],
                 env: [
