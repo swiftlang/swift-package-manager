@@ -163,7 +163,10 @@ def dump_process_tree() -> None:
             "-NoProfile",
             "-Command",
             "Get-CimInstance Win32_Process | Sort-Object CreationDate | "
-            "ForEach-Object { '{0} ppid={1} started={2} {3} :: {4}' -f $_.ProcessId, $_.ParentProcessId, $_.CreationDate, $_.Name, $_.CommandLine }",
+            # threads/handles/cpu_ms (user+kernel, converted from 100ns units) distinguish blocked-on-I/O from busy or starved processes
+            "ForEach-Object { '{0} ppid={1} started={2} threads={3} handles={4} cpu_ms={5} ws_mb={6} {7} :: {8}' -f "
+            "$_.ProcessId, $_.ParentProcessId, $_.CreationDate, $_.ThreadCount, $_.HandleCount, "
+            "[int](([uint64]$_.UserModeTime + [uint64]$_.KernelModeTime) / 10000), [int]($_.WorkingSetSize / 1MB), $_.Name, $_.CommandLine }",
         ]
     else:
         cmd = ["ps", "-eo", "pid,ppid,etime,args"]
