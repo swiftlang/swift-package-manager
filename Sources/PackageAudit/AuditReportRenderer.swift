@@ -130,6 +130,10 @@ public enum AuditReportRenderer {
             }
             return line
         case .upstream(let blockedBy):
+            guard !blockedBy.isEmpty else {
+                // No specific dependency was found to exclude the patched versions.
+                return "No resolution avoids the vulnerable versions within current requirements; try `swift package update`"
+            }
             return "Blocked by \(blockedBy.joined(separator: ", "))"
         case .none:
             return "No patched version is available"

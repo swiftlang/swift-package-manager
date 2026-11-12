@@ -128,6 +128,10 @@ struct AuditReportRendererTests {
         }
         #expect(render(.upstream(blockedBy: ["A", "B"]), fixed: [Version(1, 4, 3)])
             .contains("Fix       Blocked by A, B\n"))
+        // No specific blocker was found.
+        #expect(render(.upstream(blockedBy: []), fixed: [Version(1, 4, 3)]).contains(
+            "Fix       No resolution avoids the vulnerable versions within current requirements; try `swift package update`\n"
+        ))
         #expect(render(FixClassification.none, fixed: []).contains("Fix       No patched version is available\n"))
         #expect(!render(FixClassification.none, fixed: []).contains("Fixed in"))
         // Same major: no suffix.

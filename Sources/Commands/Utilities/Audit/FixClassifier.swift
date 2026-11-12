@@ -22,9 +22,8 @@ import struct TSCUtility.Version
 struct FixClassifier {
     /// Every version, including prereleases. `VersionSetSpecifier.any.difference(_:)` traps,
     /// so exclusions start from this explicit range.
-    private static let allVersions = VersionSetSpecifier.range(
-        Version(0, 0, 0, prereleaseIdentifiers: ["0"]) ..< Version(Int.max, 0, 0)
-    )
+    private static let allVersions = VersionSetSpecifier.range(Self.lowestVersion ..< Version(Int.max, 0, 0))
+    private static let lowestVersion = Version(0, 0, 0, prereleaseIdentifiers: ["0"])
 
     private let workspace: Workspace
     private let root: PackageGraphRootInput
@@ -74,13 +73,15 @@ struct FixClassifier {
             guard !fixable.isEmpty else { continue }
 
             let findings = fixable.map { report.findings[$0] }
-            let fixedVersions = Set(findings.flatMap(\.fixedVersions))
             let classification: FixClassification
             if let reference = pins[identity]?.packageRef,
                try await self.updateResolves(reference, findings: findings) {
                 classification = .update
             } else {
-                classification = self.requirementClassification(of: identity, fixedVersions: fixedVersions)
+                classification = self.requirementClassification(
+                    of: identity,
+                    fixedVersions: findings.map(\.fixedVersions)
+                )
             }
             for index in fixable {
                 result.findings[index].fixClassification = classification
@@ -92,8 +93,18 @@ struct FixClassifier {
     /// A constraint that allows any version of `package` outside the vulnerable ranges of `findings`
     /// and other than their pinned version. All `findings` must be of the same package.
     static func excludingConstraint(for package: PackageReference, findings: [AuditFinding]) -> PackageContainerConstraint {
+        var vulnerable: [Range<Version>] = []
+        for finding in findings {
+            let ranges = self.vulnerableRanges(of: finding)
+            if ranges.isEmpty, let lowestFixed = finding.fixedVersions.min() {
+                // Without ranges, only versions from the lowest fix on are known not to be vulnerable.
+                vulnerable.append(Self.lowestVersion ..< lowestFixed)
+            } else {
+                vulnerable += ranges
+            }
+        }
         // `difference` expects sorted, disjoint ranges, which `union(from:)` produces.
-        var allowed = Self.allVersions.difference(.union(from: findings.flatMap(self.vulnerableRanges(of:))))
+        var allowed = Self.allVersions.difference(.union(from: vulnerable))
         // The pinned version is vulnerable even if no range covers it (e.g. it is only listed explicitly).
         if case .version(let pinned)? = findings.first?.package.state {
             allowed = allowed.difference(.exact(pinned))
@@ -141,10 +152,17 @@ struct FixClassifier {
     }
 
     /// Classifies a package that cannot be fixed by an update alone, from the requirements declared on it.
+    ///
+    /// `fixedVersions` holds the patched versions of each fixable finding. A version requirement blocks the fix
+    /// if it contains none of the patched versions of at least one finding.
     private func requirementClassification(
         of identity: PackageIdentity,
-        fixedVersions: Set<Version>
+        fixedVersions: [[Version]]
     ) -> FixClassification {
+        func blocks(_ set: VersionSetSpecifier) -> Bool {
+            fixedVersions.contains { fixes in !fixes.contains(where: { set.contains($0) }) }
+        }
+
         let parents = self.graph.packages.filter { $0.dependencies.contains(identity) }
 
         var blockingRoots: [String] = []
@@ -152,7 +170,7 @@ struct FixClassifier {
             guard let requirement = Self.requirement(of: parent, on: identity) else { continue }
             switch requirement {
             case .versions(let set):
-                if !fixedVersions.contains(where: { set.contains($0) }) {
+                if blocks(set) {
                     return .manifest
                 }
             case .other:
@@ -168,7 +186,7 @@ struct FixClassifier {
         let blocking = intermediates.filter { parent in
             switch Self.requirement(of: parent, on: identity) {
             case .versions(let set):
-                return !fixedVersions.contains(where: { set.contains($0) })
+                return blocks(set)
             case .other:
                 return true
             case nil:

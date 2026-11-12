@@ -98,6 +98,36 @@ struct FixClassifierTests {
         #expect(report.findings.map(\.fixClassification) == [FixClassification.none, nil])
     }
 
+    @Test
+    func manifestWhenTheRootRequirementExcludesEveryPatchOfOneFinding() async throws {
+        let fixture = try await self.makeFixture(
+            rootDependencies: [.sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"))],
+            packages: [Self.leaf("Foo", versions: ["1.0.0", "1.0.1", "2.0.0"])],
+            pins: ["Foo"]
+        )
+
+        // A is fixed within 1.x, but B only in 2.0.0, which the root requirement excludes.
+        let report = try await fixture.classify(
+            ["foo": [Self.advisory(id: "A-1", fixed: "1.0.1"), Self.advisory(id: "A-2", fixed: "2.0.0")]]
+        )
+
+        #expect(report.findings.map(\.fixClassification) == [.manifest, .manifest])
+    }
+
+    @Test
+    func upstreamWithoutBlockerWhenNoRequirementExcludesThePatch() async throws {
+        // The advisory names 1.0.1 as fixed, but that version is not tagged.
+        let fixture = try await self.makeFixture(
+            rootDependencies: [.sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0"))],
+            packages: [Self.leaf("Foo", versions: ["1.0.0"])],
+            pins: ["Foo"]
+        )
+
+        let report = try await fixture.classify(["foo": [Self.advisory(id: "A-1", fixed: "1.0.1")]])
+
+        #expect(report.findings.map(\.fixClassification) == [.upstream(blockedBy: [])])
+    }
+
     // MARK: - Exclusion constraint
 
     @Test
@@ -112,7 +142,10 @@ struct FixClassifierTests {
             Self.finding(package, Self.advisory(id: "A-1", name: name, ranges: [("1.0.0", "1.0.2"), ("1.0.1", "1.1.0")])),
             Self.finding(package, Self.advisory(id: "A-2", name: name, ranges: [("1.1.0", "1.2.0"), ("2.0.0", "2.1.0")])),
             // Ranges for other packages in the same record are not excluded.
-            Self.finding(package, Self.advisory(id: "A-3", name: "example.com/org/other", ranges: [("3.0.0", "4.0.0")])),
+            Self.finding(package, OSVRecord(id: "A-3", affected: [
+                Self.advisory(id: "A-3", name: name, ranges: [("1.0.0", "1.0.2")]).affected![0],
+                Self.advisory(id: "A-3", name: "example.com/org/other", ranges: [("3.0.0", "4.0.0")]).affected![0],
+            ])),
         ]
         let reference = PackageReference.remoteSourceControl(
             identity: "foo",
@@ -157,6 +190,44 @@ struct FixClassifierTests {
         }
         #expect(!set.contains("1.4.0"))
         #expect(set.contains("1.5.0"))
+    }
+
+    @Test
+    func excludingConstraintExcludesVersionsBelowTheFixWhenNoRangeApplies() throws {
+        let package = AuditedPackage(
+            identity: "foo",
+            kind: .sourceControl(url: "https://example.com/org/foo.git"),
+            state: .version("1.0.0")
+        )
+        // The record only lists affected versions explicitly; the fix comes from elsewhere.
+        let record = OSVRecord(id: "A-1", affected: [
+            .init(package: .init(ecosystem: "SwiftURL", name: "example.com/org/foo"), versions: ["1.0.0"]),
+        ])
+        let finding = AuditFinding(
+            package: package,
+            advisory: record,
+            severity: .low,
+            sources: ["test"],
+            fixedVersions: ["1.5.0", "2.0.0"],
+            ignored: false
+        )
+        let reference = PackageReference.remoteSourceControl(
+            identity: "foo",
+            url: SourceControlURL("https://example.com/org/foo.git")
+        )
+
+        let constraint = FixClassifier.excludingConstraint(for: reference, findings: [finding])
+
+        guard case .versionSet(let set) = constraint.requirement else {
+            Issue.record("expected a version set, got \(constraint.requirement)")
+            return
+        }
+        for excluded in ["0.1.0", "1.0.0", "1.2.0", "1.4.9"] {
+            #expect(!set.contains(Version(stringLiteral: excluded)), "\(excluded) should be excluded")
+        }
+        for allowed in ["1.5.0", "1.6.0", "2.0.0"] {
+            #expect(set.contains(Version(stringLiteral: allowed)), "\(allowed) should be allowed")
+        }
     }
 
     // MARK: - Fixtures
