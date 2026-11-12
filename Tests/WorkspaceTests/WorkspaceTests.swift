@@ -1756,6 +1756,213 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    /// Calls `Workspace.resolveDryRun` on a mock workspace and returns the result with the emitted diagnostics.
+    private func resolveDryRun(
+        _ workspace: MockWorkspace,
+        roots: [String],
+        unpinning packages: [PackageIdentity],
+        extraConstraints: [PackageContainerConstraint]
+    ) async throws -> (Result<[(PackageReference, Workspace.PackageStateChange)], any Error>, [Basics.Diagnostic]) {
+        let rootInput = try PackageGraphRootInput(
+            packages: workspace.rootPaths(for: roots),
+            traitConfiguration: workspace.traitConfiguration
+        )
+        let observability = ObservabilitySystem.makeForTesting()
+        let result = try await workspace.getOrCreateWorkspace().resolveDryRun(
+            root: rootInput,
+            unpinning: packages,
+            extraConstraints: extraConstraints,
+            observabilityScope: observability.topScope
+        )
+        return (result, observability.diagnostics)
+    }
+
+    /// Every release version. `VersionSetSpecifier.any.difference(_:)` traps, so exclusions start from an explicit range.
+    private static let allVersions = VersionSetSpecifier.range(Version(0, 0, 0)..<Version(Int.max, 0, 0))
+
+    /// Creates a mock workspace whose root depends on `Foo` (`1.0.0..<2.0.0`) and,
+    /// optionally, `Bar` (`1.0.0..<2.0.0`), then pins every dependency at `1.0.0`.
+    private func makeDryRunWorkspace(
+        sandbox: AbsolutePath,
+        fs: InMemoryFileSystem,
+        fooVersions: [String],
+        withBar: Bool = false
+    ) async throws -> MockWorkspace {
+        var rootDependencies: [MockDependency] = [
+            .sourceControl(path: "./Foo", requirement: .upToNextMajor(from: "1.0.0")),
+        ]
+        var rootTargetDependencies: [TargetDescription.Dependency] = ["Foo"]
+        var packages: [MockPackage] = try [
+            MockPackage(
+                name: "Foo",
+                targets: [MockTarget(name: "Foo")],
+                products: [MockProduct(name: "Foo", modules: ["Foo"])],
+                versions: fooVersions.map { $0 }
+            ),
+        ]
+        var pinningDeps: [MockDependency] = [
+            .sourceControl(path: "./Foo", requirement: .exact("1.0.0"), products: .specific(["Foo"])),
+        ]
+        if withBar {
+            rootDependencies.append(.sourceControl(path: "./Bar", requirement: .upToNextMajor(from: "1.0.0")))
+            rootTargetDependencies.append("Bar")
+            try packages.append(
+                MockPackage(
+                    name: "Bar",
+                    targets: [MockTarget(name: "Bar")],
+                    products: [MockProduct(name: "Bar", modules: ["Bar"])],
+                    versions: ["1.0.0", "1.1.0"]
+                )
+            )
+            pinningDeps.append(
+                .sourceControl(path: "./Bar", requirement: .exact("1.0.0"), products: .specific(["Bar"]))
+            )
+        }
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [MockTarget(name: "Root", dependencies: rootTargetDependencies)],
+                    products: [MockProduct(name: "Root", modules: ["Root"])],
+                    dependencies: rootDependencies
+                ),
+            ],
+            packages: packages
+        )
+
+        // Pin every dependency at 1.0.0.
+        try await workspace.checkPackageGraph(roots: ["Root"], deps: pinningDeps) { _, diagnostics in
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+        return workspace
+    }
+
+    func testResolveDryRunExcludingVulnerableVersion() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let workspace = try await makeDryRunWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            fooVersions: ["1.0.0", "1.0.1", "1.1.0"]
+        )
+        let resolvedFile = sandbox.appending("Package.resolved")
+        let resolvedBefore: ByteString = try fs.readFileContents(resolvedFile)
+
+        let fooPath = sandbox.appending(components: ["pkgs", "Foo"])
+        let fooRef = PackageReference.localSourceControl(identity: PackageIdentity(path: fooPath), path: fooPath)
+        let excludeVulnerable = PackageContainerConstraint(
+            package: fooRef,
+            requirement: .versionSet(Self.allVersions.difference(.range("1.0.0"..<"1.0.1"))),
+            products: .nothing
+        )
+
+        let (result, diagnostics) = try await resolveDryRun(
+            workspace,
+            roots: ["Root"],
+            unpinning: [fooRef.identity],
+            extraConstraints: [excludeVulnerable]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let changes = try result.get()
+        let fooChange = try XCTUnwrap(changes.first { $0.0.identity == fooRef.identity })
+        guard case .updated(let state) = fooChange.1 else {
+            return XCTFail("expected foo to be updated, got \(fooChange.1)")
+        }
+        XCTAssertEqual(state.requirement, .version("1.1.0"))
+
+        // Nothing must have been written.
+        let resolvedAfter: ByteString = try fs.readFileContents(resolvedFile)
+        XCTAssertEqual(resolvedBefore, resolvedAfter)
+        await workspace.checkManagedDependencies { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+    }
+
+    func testResolveDryRunUnresolvable() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let workspace = try await makeDryRunWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            fooVersions: ["1.0.0", "2.0.0"]
+        )
+        let resolvedFile = sandbox.appending("Package.resolved")
+        let resolvedBefore: ByteString = try fs.readFileContents(resolvedFile)
+
+        let fooPath = sandbox.appending(components: ["pkgs", "Foo"])
+        let fooRef = PackageReference.localSourceControl(identity: PackageIdentity(path: fooPath), path: fooPath)
+        // The only fixed version (2.0.0) is outside the root's 1.0.0..<2.0.0 requirement.
+        let excludeVulnerable = PackageContainerConstraint(
+            package: fooRef,
+            requirement: .versionSet(Self.allVersions.difference(.range("1.0.0"..<"2.0.0"))),
+            products: .nothing
+        )
+
+        let (result, diagnostics) = try await resolveDryRun(
+            workspace,
+            roots: ["Root"],
+            unpinning: [fooRef.identity],
+            extraConstraints: [excludeVulnerable]
+        )
+
+        guard case .failure = result else {
+            return XCTFail("expected resolution to fail, got \(result)")
+        }
+        // Resolver failures are returned, not emitted.
+        XCTAssertFalse(diagnostics.contains { $0.severity == .error }, "unexpected errors: \(diagnostics)")
+        let resolvedAfter: ByteString = try fs.readFileContents(resolvedFile)
+        XCTAssertEqual(resolvedBefore, resolvedAfter)
+    }
+
+    func testResolveDryRunKeepsOtherPins() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+        let workspace = try await makeDryRunWorkspace(
+            sandbox: sandbox,
+            fs: fs,
+            fooVersions: ["1.0.0", "1.1.0"],
+            withBar: true
+        )
+        let resolvedFile = sandbox.appending("Package.resolved")
+        let resolvedBefore: ByteString = try fs.readFileContents(resolvedFile)
+
+        let fooPath = sandbox.appending(components: ["pkgs", "Foo"])
+        let fooRef = PackageReference.localSourceControl(identity: PackageIdentity(path: fooPath), path: fooPath)
+        let excludeVulnerable = PackageContainerConstraint(
+            package: fooRef,
+            requirement: .versionSet(Self.allVersions.difference(.range("1.0.0"..<"1.0.1"))),
+            products: .nothing
+        )
+
+        let (result, diagnostics) = try await resolveDryRun(
+            workspace,
+            roots: ["Root"],
+            unpinning: [fooRef.identity],
+            extraConstraints: [excludeVulnerable]
+        )
+        XCTAssertNoDiagnostics(diagnostics)
+
+        let changes = try result.get()
+        let fooChange = try XCTUnwrap(changes.first { $0.0.identity == fooRef.identity })
+        guard case .updated(let state) = fooChange.1 else {
+            return XCTFail("expected foo to be updated, got \(fooChange.1)")
+        }
+        XCTAssertEqual(state.requirement, .version("1.1.0"))
+        // Bar has a newer version available but stays at its pin.
+        let barChange = try XCTUnwrap(changes.first { $0.0.identity.description == "bar" })
+        XCTAssertEqual(barChange.1, .unchanged)
+
+        let resolvedAfter: ByteString = try fs.readFileContents(resolvedFile)
+        XCTAssertEqual(resolvedBefore, resolvedAfter)
+    }
+
     func testPartialUpdate() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
