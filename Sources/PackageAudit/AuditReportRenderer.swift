@@ -74,7 +74,10 @@ public enum AuditReportRenderer {
         var lines: [(String, String)] = []
 
         var idLine = advisory.id
-        if let aliases = advisory.aliases, !aliases.isEmpty {
+        // Only CVE and GHSA aliases are shown in text; downstream distribution
+        // identifiers can number in the dozens. JSON output keeps every alias.
+        let aliases = (advisory.aliases ?? []).filter { $0.hasPrefix("CVE-") || $0.hasPrefix("GHSA-") }
+        if !aliases.isEmpty {
             idLine += " (\(aliases.joined(separator: ", ")))"
         }
         if finding.ignored {
@@ -106,7 +109,7 @@ public enum AuditReportRenderer {
         if let fix = Self.fixLine(for: finding) {
             lines.append(("Fix", fix))
         }
-        lines.append(("More info", Self.moreInfo(for: advisory)))
+        lines.append(("More info", Self.moreInfo(for: finding)))
 
         return lines
             .map { label, value in
@@ -140,12 +143,23 @@ public enum AuditReportRenderer {
         }
     }
 
-    private static func moreInfo(for advisory: OSVRecord) -> String {
+    private static func moreInfo(for finding: AuditFinding) -> String {
+        let advisory = finding.advisory
+        let osvLink = "https://osv.dev/vulnerability/\(advisory.id)"
+        // Advisories published only by a registry may not exist on osv.dev, so
+        // link to the registry's own reference; otherwise use the stable OSV page.
+        guard Self.isRegistryOnly(finding) else { return osvLink }
         let references = advisory.references ?? []
         if let reference = references.first(where: { $0.type == "ADVISORY" }) ?? references.first {
             return reference.url
         }
-        return "https://osv.dev/vulnerability/\(advisory.id)"
+        return osvLink
+    }
+
+    private static func isRegistryOnly(_ finding: AuditFinding) -> Bool {
+        guard case .registry(_, let registryURL) = finding.package.kind else { return false }
+        let registryNames = Set(["registry", registryURL?.absoluteString].compactMap { $0 })
+        return !finding.sources.isEmpty && finding.sources.allSatisfy { registryNames.contains($0) }
     }
 
     private static func count(_ n: Int, _ singular: String, plural: String? = nil) -> String {

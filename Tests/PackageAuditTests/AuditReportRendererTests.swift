@@ -303,4 +303,50 @@ struct AuditReportRendererTests {
         #expect(json.contains("\"kind\" : \"localSourceControl\""))
         #expect(json.contains("\"revision\" : \"abc123\""))
     }
+
+    @Test
+    func textShowsOnlyCVEAndGHSAAliases() {
+        let finding = AuditFinding(
+            package: self.regexPackage,
+            advisory: OSVRecord(
+                id: "GHSA-qppj-fm5r-hxr3",
+                aliases: ["BIT-envoy-2023-44487", "CVE-2023-44487", "GHSA-aaaa-bbbb-cccc", "BIT-nginx-2023-44487"],
+                summary: "HTTP/2 Stream Cancellation Attack"
+            ),
+            severity: .moderate,
+            sources: ["https://api.osv.dev"],
+            fixedVersions: [Version(1, 28, 0)],
+            ignored: false,
+            fixClassification: nil
+        )
+        let report = AuditReport(scannedPackages: 1, findings: [finding], unchecked: [])
+        let text = AuditReportRenderer.text(report, verbose: false)
+        #expect(text.hasPrefix("Moderate  GHSA-qppj-fm5r-hxr3 (CVE-2023-44487, GHSA-aaaa-bbbb-cccc)\n"))
+        #expect(!text.contains("BIT-"))
+        // The JSON output keeps every alias.
+        #expect((try? AuditReportRenderer.json(report))?.contains("BIT-envoy-2023-44487") == true)
+    }
+
+    @Test
+    func textMoreInfoPrefersOSVForDatabaseFindings() {
+        let finding = AuditFinding(
+            package: self.regexPackage,
+            advisory: OSVRecord(
+                id: "GHSA-ccw9-q5h2-8c2w",
+                summary: "Denial of service",
+                references: [
+                    .init(type: "ADVISORY", url: "https://nvd.nist.gov/vuln/detail/CVE-2022-24666"),
+                    .init(type: "WEB", url: "https://example.com/other"),
+                ]
+            ),
+            severity: .high,
+            sources: ["https://api.osv.dev"],
+            fixedVersions: [Version(1, 19, 2)],
+            ignored: false,
+            fixClassification: nil
+        )
+        let report = AuditReport(scannedPackages: 1, findings: [finding], unchecked: [])
+        let text = AuditReportRenderer.text(report, verbose: false)
+        #expect(text.contains("More info https://osv.dev/vulnerability/GHSA-ccw9-q5h2-8c2w\n"))
+    }
 }
