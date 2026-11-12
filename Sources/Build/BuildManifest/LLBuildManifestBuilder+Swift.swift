@@ -296,7 +296,7 @@ extension LLBuildManifestBuilder {
             }
         }
 
-        for binaryPath in target.libraryBinaryPaths {
+        for binaryPath in target.libraryBinaryPaths.sorted() {
             let path = target.buildParameters.destinationPath(forBinaryAt: binaryPath)
             if self.fileSystem.isDirectory(binaryPath) {
                 inputs.append(directory: path)
@@ -306,7 +306,7 @@ extension LLBuildManifestBuilder {
         }
 
         // Make sure the windows DLLs get copied over
-        for binaryPath in target.windowsDLLBinaryPaths {
+        for binaryPath in target.windowsDLLBinaryPaths.sorted() {
             let path = target.buildParameters.destinationPath(forBinaryAt: binaryPath)
             if self.fileSystem.isDirectory(binaryPath) {
                 inputs.append(directory: path)
