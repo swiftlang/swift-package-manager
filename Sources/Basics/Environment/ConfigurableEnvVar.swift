@@ -11,7 +11,6 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import struct Basics.EnvironmentKey
 
 package enum ConfigurableEnvVar: String, CaseIterable {
     /// SBOM specification(s) to generate (comma-separated list)
