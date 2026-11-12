@@ -8839,6 +8839,10 @@ struct PackageCommandTests {
         .tags(
             .Feature.Command.Package.Audit,
         ),
+        .skipHostOS(
+            .windows,
+            because: "The fixtures build `file://` URLs and manifests from POSIX paths; not yet verified on Windows."
+        ),
     )
     struct AuditCommandTests {
         private struct Outcome {
@@ -8921,7 +8925,7 @@ struct PackageCommandTests {
                         string: template.replacingOccurrences(of: "DEP_PACKAGE_NAME", with: packageName)
                     )
                 }
-                try await body(root, "file://" + osvDirectory.pathString)
+                try await body(root, osvDirectory.asURL.absoluteString)
             }
         }
 
@@ -9035,7 +9039,7 @@ struct PackageCommandTests {
                 let emptyDatabase = fixturePath.appending("empty-osv")
                 try localFileSystem.createDirectory(emptyDatabase)
                 let outcome = try await self.run(
-                    ["audit", "--advisory-database", "file://" + emptyDatabase.pathString],
+                    ["audit", "--advisory-database", emptyDatabase.asURL.absoluteString],
                     packagePath: root
                 )
                 #expect(outcome.status == 0, "stderr: \(outcome.stderr)")
@@ -9064,7 +9068,7 @@ struct PackageCommandTests {
         func auditUncheckedLocal() async throws {
             try await fixture(name: "Audit") { fixturePath in
                 let root = fixturePath.appending(components: "LocalDependency", "Root")
-                let osvURL = "file://" + fixturePath.appending("osv").pathString
+                let osvURL = fixturePath.appending("osv").asURL.absoluteString
 
                 let lenient = try await self.run(["audit", "--advisory-database", osvURL], packagePath: root)
                 #expect(lenient.status == 0, "stderr: \(lenient.stderr)")
@@ -9401,7 +9405,7 @@ struct PackageCommandTests {
                     )
 
                     let outcome = try await self.audit.run(
-                        ["audit", "fix", "--advisory-database", "file://" + osvDirectory.pathString],
+                        ["audit", "fix", "--advisory-database", osvDirectory.asURL.absoluteString],
                         packagePath: root
                     )
                     #expect(outcome.status == 0, "stdout: \(outcome.stdout)\nstderr: \(outcome.stderr)")

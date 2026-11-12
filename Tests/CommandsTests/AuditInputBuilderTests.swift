@@ -123,13 +123,28 @@ struct AuditInputBuilderTests {
             state: .branch(name: "main", revision: "deadbeef")
         )
 
+        // A local repository whose path needs escaping in a URL.
+        store.track(
+            packageRef: .localSourceControl(identity: .plain("escaped"), path: "/Repos #1/D"),
+            state: .version(Version(1, 0, 0), revision: "def")
+        )
+
         let packages = AuditInputBuilder.makePackages(graph: graph, resolvedPackages: store)
         let byID = Dictionary(uniqueKeysWithValues: packages.map { ($0.identity, $0) })
 
         #expect(byID[.plain("root")] == nil)
 
+        let escaped = try #require(byID[.plain("escaped")])
+        guard case .sourceControl(let escapedURL) = escaped.kind else {
+            Issue.record("expected a source control package, got \(escaped.kind)")
+            return
+        }
+        let parsed = try #require(URL(string: escapedURL))
+        #expect(parsed.isFileURL)
+        #expect(try AbsolutePath(validating: parsed.path) == AbsolutePath("/Repos #1/D"))
+
         let c = try #require(byID[.plain("c")])
-        #expect(c.kind == .sourceControl(url: "file:///C"))
+        #expect(c.kind == .sourceControl(url: URL(fileURLWithPath: AbsolutePath("/C").pathString, isDirectory: false).absoluteString))
         #expect(c.state == .version(Version(1, 2, 3)))
         #expect(Set(c.paths) == [["Root", "A", "C"], ["Root", "B", "C"]])
         #expect(c.paths.count == 2)

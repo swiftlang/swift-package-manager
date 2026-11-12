@@ -74,7 +74,8 @@ where !graph.isRootPackage(package) {
         case .fileSystem(let path):
             return .local(path: path)
         case .localSourceControl(let path):
-            return .sourceControl(url: "file://" + path.pathString)
+            // `URL(fileURLWithPath:)` produces a valid file URL on every platform (e.g. `file:///C:/...` on Windows).
+            return .sourceControl(url: URL(fileURLWithPath: path.pathString, isDirectory: false).absoluteString)
         case .remoteSourceControl(let url):
             return .sourceControl(url: url.absoluteString)
         case .registry(let identity):

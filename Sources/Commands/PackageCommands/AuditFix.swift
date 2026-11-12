@@ -462,7 +462,10 @@ extension SwiftPackageCommand.Audit.Fix {
         case .sourceControl(let url):
             var locators = [DependencyLocator.url(url)]
             // Local repositories are located by a `file://` URL or an absolute path.
-            let pathString = url.hasPrefix("file://") ? String(url.dropFirst("file://".count)) : url
+            var pathString = url
+            if let fileURL = URL(string: url), fileURL.isFileURL {
+                pathString = fileURL.withUnsafeFileSystemRepresentation { $0.map { String(cString: $0) } } ?? fileURL.path
+            }
             if let path = try? AbsolutePath(validating: pathString),
                let resolvedPath = try? resolveSymlinks(path),
                let resolvedDirectory = try? resolveSymlinks(manifestDirectory)
