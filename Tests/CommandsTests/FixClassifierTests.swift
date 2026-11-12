@@ -211,10 +211,26 @@ struct FixClassifierTests {
         #expect(warnings.first?.message.hasPrefix("could not determine how to fix foo: ") == true, "\(warnings)")
     }
 
+    @Test
+    func resolverConflictMeansAnUpdateCannotFix() throws {
+        let result: Result<[(PackageReference, Workspace.PackageStateChange)], any Error> =
+            .failure(PubGrubDependencyResolver.PubGrubError.unresolvable("foo 1.0.1 is excluded"))
+        #expect(try FixClassifier.changes(from: result) == nil)
+    }
+
+    @Test
+    func otherResolutionFailuresAreNotTreatedAsUnfixable() {
+        // e.g. a repository that cannot be fetched while offline
+        let result: Result<[(PackageReference, Workspace.PackageStateChange)], any Error> =
+            .failure(StringError("failed to fetch https://example.com/foo.git"))
+        #expect(throws: (any Error).self) { try FixClassifier.changes(from: result) }
+    }
+
     // MARK: - Fixtures
 
     private struct Fixture {
         let workspace: MockWorkspace
+        let fileSystem: InMemoryFileSystem
         let graph: ModulesGraph
 
         func pinnedRevision(_ identity: String) throws -> String {
@@ -324,7 +340,7 @@ struct FixClassifierTests {
             #expect(!diagnostics.contains { $0.severity == .error }, "\(diagnostics)")
             loaded = graph
         }
-        return Fixture(workspace: workspace, graph: try #require(loaded))
+        return Fixture(workspace: workspace, fileSystem: fs, graph: try #require(loaded))
     }
 
     private static func leaf(_ name: String, versions: [String]) -> MockPackage {

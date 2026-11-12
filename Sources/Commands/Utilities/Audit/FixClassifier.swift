@@ -128,7 +128,7 @@ struct FixClassifier {
             throw ClassificationFailure(reason: error)
         }
 
-        guard case .success(let changes) = result else {
+        guard let changes = try Self.changes(from: result) else {
             return false
         }
         switch changes.first(where: { $0.0.identity == package.identity })?.1 {
@@ -138,6 +138,23 @@ struct FixClassifier {
         case .unchanged?, .removed?, nil:
             // The package stays at its vulnerable pin.
             return false
+        }
+    }
+
+    /// The package state changes of a dry run, or `nil` when the requirements rule out every resolution.
+    ///
+    /// Only a resolver conflict means an update cannot fix the package. Any other failure, such as a repository
+    /// that cannot be fetched offline, says nothing about it and throws instead.
+    static func changes(
+        from result: Result<[(PackageReference, Workspace.PackageStateChange)], any Error>
+    ) throws -> [(PackageReference, Workspace.PackageStateChange)]? {
+        switch result {
+        case .success(let changes):
+            return changes
+        case .failure(is PubGrubDependencyResolver.PubGrubError):
+            return nil
+        case .failure(let error):
+            throw ClassificationFailure(reason: error.interpolationDescription)
         }
     }
 
