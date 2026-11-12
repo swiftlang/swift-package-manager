@@ -54,4 +54,22 @@ public enum SwiftURLName {
         let name = [host.lowercased(), path].filter { !$0.isEmpty }.joined(separator: "/")
         return name.isEmpty ? nil : name
     }
+
+    /// The last path component of a normalized name, or nil if `name` has a single component.
+    ///
+    /// Some `SwiftURL` records in public databases name the package by this bare repository name
+    /// instead of the full `host/path` name.
+    public static func repositoryName(of name: String) -> String? {
+        guard let slash = name.lastIndex(of: "/") else { return nil }
+        let last = name[name.index(after: slash)...]
+        return last.isEmpty ? nil : String(last)
+    }
+
+    /// Whether `url` is the repository named by the normalized `name`, or a page within it.
+    /// Hosts that serve repositories treat paths case-insensitively, so the comparison does too.
+    public static func url(_ url: String, isWithinRepository name: String) -> Bool {
+        guard let normalized = self.normalize(url)?.lowercased() else { return false }
+        let repository = name.lowercased()
+        return normalized == repository || normalized.hasPrefix(repository + "/")
+    }
 }

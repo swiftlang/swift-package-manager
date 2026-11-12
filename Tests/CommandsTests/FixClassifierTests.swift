@@ -48,6 +48,20 @@ struct FixClassifierTests {
     }
 
     @Test
+    func bareNameRecordIsEvaluatedAgainstTheUpdatedVersion() async throws {
+        // 1.0.1 is still affected by the record, which names the package by its bare repository name.
+        let fixture = try await self.makeFixture(
+            rootDependencies: [.sourceControl(path: "./Foo", requirement: .upToNextMinor(from: "1.0.0"))],
+            packages: [Self.leaf("Foo", versions: ["1.0.0", "1.0.1", "1.1.0"])],
+            pins: ["Foo"]
+        )
+
+        let report = try await fixture.classify(["foo": [Self.advisory(id: "A-1", name: "Foo", ranges: [("0", "1.1.0")])]])
+
+        #expect(report.findings.map(\.fixClassification) == [.manifest])
+    }
+
+    @Test
     func manifestWhenTheRootRequirementExcludesEveryPatchedVersion() async throws {
         let fixture = try await self.makeFixture(
             rootDependencies: [.sourceControl(path: "./Foo", requirement: .upToNextMinor(from: "1.0.0"))],
@@ -275,10 +289,13 @@ struct FixClassifierTests {
                         Issue.record("unexpected package kind \(package.kind)")
                         continue
                     }
+                    // Entries that already name a package are kept, to model records using another name shape.
                     var named = record
                     named.affected = record.affected?.map { entry in
                         var entry = entry
-                        entry.package = .init(ecosystem: "SwiftURL", name: name)
+                        if entry.package == nil {
+                            entry.package = .init(ecosystem: "SwiftURL", name: name)
+                        }
                         return entry
                     }
                     findings.append(FixClassifierTests.finding(package, named, ignored: ignoredIDs.contains(record.id)))

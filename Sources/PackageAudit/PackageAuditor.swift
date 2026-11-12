@@ -112,9 +112,15 @@ public struct PackageAuditor {
         let packageName: String?
     }
 
+    /// A database query, and for a query by bare repository name, the full name its records must reference.
+    private struct PlannedQuery {
+        let query: AdvisoryQuery
+        let corroboratingRepository: String?
+    }
+
     public func audit(_ packages: [AuditedPackage]) async throws -> AuditReport {
         // Plan the database queries of every package up front so they go out as one batch.
-        var plans: [[AdvisoryQuery]] = []
+        var plans: [[PlannedQuery]] = []
         var unsupportedReason: [Int: String] = [:]
         for (index, package) in packages.enumerated() {
             let (queries, reason) = self.databaseQueries(for: package)
@@ -123,7 +129,7 @@ public struct PackageAuditor {
         }
 
         var databaseResults: [AdvisoryQuery: [OSVRecord]] = [:]
-        let allQueries = Set(plans.joined()).sorted {
+        let allQueries = Set(plans.joined().map(\.query)).sorted {
             ($0.name, $0.version?.description ?? "", $0.commit ?? "")
                 < ($1.name, $1.version?.description ?? "", $1.commit ?? "")
         }
@@ -142,10 +148,16 @@ public struct PackageAuditor {
             var checked = false
 
             if let database = self.database {
-                for query in plans[index] {
+                for planned in plans[index] {
+                    let query = planned.query
                     guard let records = databaseResults[query] else { continue }
                     checked = true
-                    databaseHits += records.filter { Self.isRelevant($0, query: query, package: package) }.map { Hit(record: $0, source: database.displayName, packageName: query.name) }
+                    databaseHits += records
+                        .filter { Self.isRelevant($0, query: query, package: package) }
+                        .filter { record in
+                            planned.corroboratingRepository.map { Self.references(record, repository: $0) } ?? true
+                        }
+                        .map { Hit(record: $0, source: database.displayName, packageName: query.name) }
                 }
             }
 
@@ -175,7 +187,7 @@ public struct PackageAuditor {
     // MARK: - Planning
 
     /// The database queries for a package, plus the reason none could be made (if empty).
-    private func databaseQueries(for package: AuditedPackage) -> ([AdvisoryQuery], String?) {
+    private func databaseQueries(for package: AuditedPackage) -> ([PlannedQuery], String?) {
         guard let database = self.database else { return ([], "advisory database disabled") }
 
         let urls: [String]
@@ -195,12 +207,20 @@ public struct PackageAuditor {
 
         switch package.state {
         case .version(let version):
-            return (names.map { AdvisoryQuery(name: $0, version: version) }, nil)
+            var planned = names.map { PlannedQuery(query: AdvisoryQuery(name: $0, version: version), corroboratingRepository: nil) }
+            // Some records name the package by its bare repository name. That name is not unique, so its
+            // records only count when they reference the package's repository.
+            for name in names {
+                guard let bare = SwiftURLName.repositoryName(of: name), !names.contains(bare) else { continue }
+                planned.append(PlannedQuery(query: AdvisoryQuery(name: bare, version: version), corroboratingRepository: name))
+            }
+            return (planned, nil)
         case .revision(let commit):
             guard database.supportsCommitQueries else {
                 return ([], "\(database.displayName) cannot be queried by commit and the dependency is pinned to a revision")
             }
-            return (names.map { AdvisoryQuery(name: $0, commit: commit) }, nil)
+            // Commit queries match by commit, so the bare repository name would add nothing.
+            return (names.map { PlannedQuery(query: AdvisoryQuery(name: $0, commit: commit), corroboratingRepository: nil) }, nil)
         case .none:
             return ([], "dependency is not pinned to a version or revision")
         }
@@ -225,6 +245,10 @@ public struct PackageAuditor {
         if let query, query.commit != nil { return true }
         guard case .version(let pinned) = package.state else { return true }
         return record.affects(pinned, packageName: query?.name)
+    }
+
+    private static func references(_ record: OSVRecord, repository: String) -> Bool {
+        (record.references ?? []).contains { SwiftURLName.url($0.url, isWithinRepository: repository) }
     }
 
     private static func registrySourceName(of package: AuditedPackage) -> String {

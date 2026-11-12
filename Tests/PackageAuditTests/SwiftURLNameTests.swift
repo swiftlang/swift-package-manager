@@ -39,4 +39,24 @@ struct SwiftURLNameTests {
         #expect(SwiftURLName.normalize("/local/path") == nil)
         #expect(SwiftURLName.normalize("file:///tmp/Dep") == "tmp/Dep")
     }
+
+    @Test
+    func repositoryName() {
+        #expect(SwiftURLName.repositoryName(of: "github.com/apple/swift-nio-http2") == "swift-nio-http2")
+        #expect(SwiftURLName.repositoryName(of: "swift-nio-http2") == nil)
+    }
+
+    @Test
+    func urlWithinRepository() {
+        let name = "github.com/apple/swift-nio-http2"
+        #expect(SwiftURLName.url("https://github.com/apple/swift-nio-http2", isWithinRepository: name))
+        #expect(SwiftURLName.url("https://github.com/Apple/swift-nio-http2.git", isWithinRepository: name))
+        #expect(SwiftURLName.url(
+            "https://github.com/apple/swift-nio-http2/security/advisories/GHSA-q3g2-m552-3r9c",
+            isWithinRepository: name
+        ))
+        #expect(!SwiftURLName.url("https://github.com/apple/swift-nio-http2-extras", isWithinRepository: name))
+        #expect(!SwiftURLName.url("https://github.com/someone/swift-nio-http2", isWithinRepository: name))
+        #expect(!SwiftURLName.url("https://nvd.nist.gov/vuln/detail/CVE-2026-64785", isWithinRepository: name))
+    }
 }

@@ -161,12 +161,14 @@ struct FixClassifier {
     /// Whether the advisory of `finding` affects `version` of its package.
     ///
     /// Registry records are scoped to the package and need not name it, so for registry packages every entry is
-    /// considered.
+    /// considered. Database records may name the package by its bare repository name, which is checked as well.
     private static func isAffected(_ finding: AuditFinding, version: Version) -> Bool {
         switch finding.package.kind {
         case .sourceControl(let url):
             guard let name = SwiftURLName.normalize(url) else { return true }
-            return finding.advisory.affects(version, packageName: name)
+            return [name, SwiftURLName.repositoryName(of: name)].compactMap { $0 }.contains {
+                finding.advisory.affects(version, packageName: $0)
+            }
         case .registry:
             return finding.advisory.affects(version, packageName: nil)
         case .local:

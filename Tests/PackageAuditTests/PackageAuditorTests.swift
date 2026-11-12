@@ -78,6 +78,18 @@ private func record(
     )
 }
 
+/// A record naming the package by its bare repository name, as some GHSA-derived SwiftURL records do.
+private func bareNameRecord(_ id: String, reference: String?) -> OSVRecord {
+    OSVRecord(
+        id: id,
+        affected: [.init(
+            package: .init(ecosystem: "SwiftURL", name: "NetKit"),
+            ranges: [.init(type: "SEMVER", events: [.init(introduced: "0"), .init(fixed: "1.2.0")])]
+        )],
+        references: reference.map { [.init(type: "PACKAGE", url: $0)] }
+    )
+}
+
 private let name = "github.com/mona/NetKit"
 private let url = "https://github.com/mona/NetKit.git"
 private let v1 = Version(1, 0, 0)
@@ -116,13 +128,40 @@ struct PackageAuditorTests {
         let report = try await auditor(records: [name: [record("GHSA-1")]], recorder: recorder)
             .audit([sourceControl(.version(v1))])
 
-        #expect(recorder.all == [[AdvisoryQuery(name: name, version: v1)]])
+        // The bare repository name is also queried, as some SwiftURL records use it.
+        #expect(recorder.all == [[AdvisoryQuery(name: "NetKit", version: v1), AdvisoryQuery(name: name, version: v1)]])
         #expect(report.scannedPackages == 1)
         #expect(report.findings.map(\.advisory.id) == ["GHSA-1"])
         #expect(report.findings[0].sources == ["mock-db"])
         #expect(report.findings[0].fixedVersions == [Version(1, 0, 5)])
         #expect(report.findings[0].severity == .high)
         #expect(report.unchecked.isEmpty)
+    }
+
+    @Test func bareNameRecordReferencingTheRepositoryIsReported() async throws {
+        let report = try await auditor(records: ["NetKit": [bareNameRecord(
+            "GHSA-B", reference: "https://github.com/mona/NetKit/security/advisories/GHSA-B"
+        )]]).audit([sourceControl(.version(v1))])
+
+        #expect(report.findings.map(\.advisory.id) == ["GHSA-B"])
+        #expect(report.findings[0].fixedVersions == [Version(1, 2, 0)])
+    }
+
+    @Test func bareNameRecordOfAnotherRepositoryIsDropped() async throws {
+        let report = try await auditor(records: ["NetKit": [
+            bareNameRecord("GHSA-B", reference: "https://github.com/someone-else/NetKit"),
+            bareNameRecord("GHSA-C", reference: "https://github.com/mona/NetKitExtras"),
+            bareNameRecord("GHSA-D", reference: nil),
+        ]]).audit([sourceControl(.version(v1))])
+
+        #expect(report.findings.isEmpty)
+        #expect(report.unchecked.isEmpty)
+    }
+
+    @Test func revisionPinDoesNotQueryTheBareName() async throws {
+        let recorder = QueryRecorder()
+        _ = try await auditor(recorder: recorder).audit([sourceControl(.revision("abc"))])
+        #expect(recorder.all == [[AdvisoryQuery(name: name, commit: "abc")]])
     }
 
     @Test func databaseQueriesAreBatchedOnce() async throws {
@@ -132,7 +171,7 @@ struct PackageAuditorTests {
         )
         _ = try await auditor(recorder: recorder).audit([sourceControl(.version(v1)), other])
         #expect(recorder.all.count == 1)
-        #expect(recorder.all[0].count == 2)
+        #expect(recorder.all[0].count == 4)
     }
 
     @Test func revisionPinUsesCommitQueryWhenSupported() async throws {

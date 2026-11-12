@@ -32,7 +32,9 @@ command warns that they were not audited.
 Advisories come from two sources, and findings from both are merged:
 
 - An OSV-compatible database, queried with the `SwiftURL` ecosystem for source control dependencies and for the
-  repository URLs of registry dependencies. The default database is `https://api.osv.dev`.
+  repository URLs of registry dependencies. The default database is `https://api.osv.dev`. Records that name a
+  package by its bare repository name (such as `swift-nio-http2`) are also found, and are reported only when they
+  reference the dependency's repository.
 - The package registry that provided a registry dependency, if it publishes advisories.
 
 Branch- and revision-based dependencies can only be checked by a database that supports commit queries, and local
