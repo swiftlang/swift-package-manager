@@ -12,7 +12,10 @@
 
 import Testing
 import Foundation
+import NIOSSL
+import SwiftASN1
 import Vapor
+import X509
 @testable import RegistryExample
 
 @Suite("TLS configuration")
@@ -26,6 +29,17 @@ struct ConfigureTLSTests {
             keyPath: "/nonexistent/key.pem"
         )
         #expect(app.http.server.configuration.tlsConfiguration == nil)
+    }
+
+    @Test func `missing cert + key files install no client certificate collector`() async throws {
+        let app = try await Application.make(.testing)
+        defer { Task { try? await app.asyncShutdown() } }
+        try configureTLS(
+            app,
+            certPath: "/nonexistent/cert.pem",
+            keyPath: "/nonexistent/key.pem"
+        )
+        #expect(app.http.server.configuration.customCertificateVerifyCallbackWithMetadata == nil)
     }
 
     @Test func `valid cert + key enables TLS on localhost:8000`() async throws {
@@ -42,6 +56,20 @@ struct ConfigureTLSTests {
         #expect(app.http.server.configuration.hostname == "localhost")
         #expect(app.http.server.configuration.port == 8000)
         #expect(app.http.server.configuration.tlsConfiguration?.minimumTLSVersion == .tlsv12)
+    }
+
+    @Test func `valid cert + key request a client certificate without requiring one`() async throws {
+        let (certPath, keyPath, cleanup) = try generateSelfSignedCert()
+        defer { cleanup() }
+
+        let app = try await Application.make(.testing)
+        app.logger.logLevel = .warning
+        defer { Task { try? await app.asyncShutdown() } }
+
+        try configureTLS(app, certPath: certPath, keyPath: keyPath)
+
+        #expect(app.http.server.configuration.tlsConfiguration?.certificateVerification == .optionalVerification)
+        #expect(app.http.server.configuration.customCertificateVerifyCallbackWithMetadata != nil)
     }
 
     @Test func `malformed cert throws`() async throws {
