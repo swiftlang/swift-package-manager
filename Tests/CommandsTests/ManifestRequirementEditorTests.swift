@@ -248,6 +248,58 @@ struct ManifestRequirementEditorTests {
         }
     }
 
+    @Test func unparseableLowerBoundIsUnsupported() throws {
+        #expect(throws: ManifestRequirementEditError.unsupportedRequirement("1.0")) {
+            try rewrite(manifest(#".package(url: "\#(Self.url)", from: "1.0")"#), to: "1.2.3")
+        }
+        #expect(throws: ManifestRequirementEditError.unsupportedRequirement("latest")) {
+            try rewrite(manifest(#".package(url: "\#(Self.url)", "latest"..<"2.0.0")"#), to: "1.2.3")
+        }
+    }
+
+    @Test func pathDependencyNeverMatches() throws {
+        #expect(throws: ManifestRequirementEditError.dependencyNotFound) {
+            try rewrite(manifest(#".package(path: "../foo")"#), .url("../foo"), to: "1.2.3")
+        }
+    }
+
+    @Test func interpolatedVersionIsNonLiteral() throws {
+        #expect(throws: ManifestRequirementEditError.nonLiteralRequirement) {
+            try rewrite(manifest(#".package(url: "\#(Self.url)", from: "\(major).0.0")"#), to: "1.2.3")
+        }
+    }
+
+    @Test func sameDependencyInConditionalCompilationIsAmbiguous() throws {
+        let source = """
+            import PackageDescription
+
+            #if os(Linux)
+            let deps: [Package.Dependency] = [.package(url: "\(Self.url)", from: "1.0.0")]
+            #else
+            let deps: [Package.Dependency] = [.package(url: "\(Self.url)", from: "1.1.0")]
+            #endif
+            let package = Package(name: "App", dependencies: deps)
+            """
+        #expect(throws: ManifestRequirementEditError.ambiguousDependency) {
+            try rewrite(source, to: "1.2.3")
+        }
+    }
+
+    @Test func rangeLowerBoundAlreadySatisfiedProducesNoEdit() throws {
+        let source = manifest(#".package(url: "\#(Self.url)", "1.3.0"..<"2.0.0")"#)
+        let syntax = Parser.parse(source: source)
+        let edits = try ManifestRequirementEditor.raiseLowerBound(in: syntax, of: .url(Self.url), to: "1.2.3")
+        #expect(edits.isEmpty)
+    }
+
+    @Test func closedRangeWithVersionEqualToUpperBoundStaysValid() throws {
+        try expectRewrite(
+            #".package(url: "\#(Self.url)", "1.0.0"..."1.5.0")"#,
+            #".package(url: "\#(Self.url)", "1.5.0"..."1.5.0")"#,
+            to: "1.5.0"
+        )
+    }
+
     @Test func revisionIsUnsupported() throws {
         #expect(throws: ManifestRequirementEditError.unsupportedRequirement("revision")) {
             try rewrite(manifest(#".package(url: "\#(Self.url)", .revision("abc123"))"#), to: "1.2.3")

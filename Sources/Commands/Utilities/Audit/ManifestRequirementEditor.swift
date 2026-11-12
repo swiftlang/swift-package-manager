@@ -37,7 +37,8 @@ enum ManifestRequirementEditor {
     /// Returns edits that raise the lower bound of `dependency`'s requirement to `version`,
     /// keeping the kind of requirement. Only the version string literals are replaced, so
     /// surrounding formatting and comments are preserved. Returns no edits when the
-    /// requirement's lower bound is already at or above `version`.
+    /// requirement's lower bound is already at or above `version`, and throws
+    /// `unsupportedRequirement` when that bound is not a valid version.
     ///
     /// The whole file is searched for the `.package(...)` call, so dependencies declared in
     /// a variable outside of `Package(...)` are found too. Exactly one call must match.
@@ -147,7 +148,7 @@ enum ManifestRequirementEditor {
         let lower = try self.versionLiteral(lowerExpression)
         let upper = try self.versionLiteral(upperExpression)
 
-        if let current = Version(lower.text), current >= version {
+        if try self.parsedVersion(lower.text) >= version {
             return []
         }
         var edits = [self.replace(lower.literal, with: version)]
@@ -165,10 +166,19 @@ enum ManifestRequirementEditor {
 
     private static func lowerBoundEdit(_ expression: ExprSyntax, raisingTo version: Version) throws -> [SourceEdit] {
         let current = try self.versionLiteral(expression)
-        if let currentVersion = Version(current.text), currentVersion >= version {
+        if try self.parsedVersion(current.text) >= version {
             return []
         }
         return [self.replace(current.literal, with: version)]
+    }
+
+    /// Parses an existing bound. An unparseable bound is rejected rather than replaced,
+    /// since it cannot be shown that replacing it would not lower the requirement.
+    private static func parsedVersion(_ text: String) throws -> Version {
+        guard let version = Version(text) else {
+            throw ManifestRequirementEditError.unsupportedRequirement(text)
+        }
+        return version
     }
 
     /// Extracts a plain string literal (no interpolation) used as a version.
