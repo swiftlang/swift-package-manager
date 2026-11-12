@@ -48,7 +48,7 @@ package struct RemoveSwiftSDK: SwiftSDKSubcommand {
         } else {
             let bundleStore = SwiftSDKBundleStore(
                 swiftSDKsDirectory: swiftSDKsDirectory,
-                hostToolchainBinDir: hostToolchain.swiftCompilerPath.parentDirectory,
+                hostToolchainBinDir: hostToolchain.resolvedSwiftCompilerBinDir,
                 fileSystem: self.fileSystem,
                 observabilityScope: observabilityScope,
                 outputHandler: { print($0) }
