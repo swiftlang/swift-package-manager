@@ -51,7 +51,7 @@ The package manager uses git tags, interpreted as a semantic version, to identif
 
 Use the version requirement when you declare the dependency to limit what the package manager can choose.
 The version requirement can be a range of possible semantic versions, a specific semantic version, a branch name, or a commit hash.
-The API reference documentation for [Package.Dependency](https://docs.swift.org/swiftpm/documentation/packagedescription/package/dependency) defines the methods to use.
+The API reference documentation for [Package.Dependency](https://docs.swift.org/latest/documentation/packagedescription/package/dependency) defines the methods to use.
 
 ### Packages with Traits
 
