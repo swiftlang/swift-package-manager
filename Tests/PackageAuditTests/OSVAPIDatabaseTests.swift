@@ -49,11 +49,12 @@ struct OSVAPIDatabaseTests {
 
     private func database(
         _ recorder: Recorder,
+        configuration: HTTPClientConfiguration = .init(),
         handler: @escaping @Sendable (HTTPClientRequest) throws -> HTTPClientResponse
     ) -> OSVAPIDatabase {
         OSVAPIDatabase(
             baseURL: self.base,
-            httpClient: HTTPClient(implementation: { request, _ in
+            httpClient: HTTPClient(configuration: configuration, implementation: { request, _ in
                 recorder.add(request)
                 return try handler(request)
             })
@@ -230,7 +231,10 @@ struct OSVAPIDatabaseTests {
     @Test
     func httpErrorThrows() async throws {
         let recorder = Recorder()
-        let db = self.database(recorder) { _ in .init(statusCode: 500, headers: .init(), body: nil) }
+        // Without retries, the failure is reported right away instead of after the default backoff.
+        let db = self.database(recorder, configuration: .init(retryStrategy: nil)) { _ in
+            .init(statusCode: 500, headers: .init(), body: nil)
+        }
         let query = AdvisoryQuery(name: "x/a", version: Version(1, 0, 0))
         await #expect {
             try await db.advisories(for: [query])

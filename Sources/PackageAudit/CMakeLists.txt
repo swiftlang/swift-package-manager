@@ -23,7 +23,6 @@ target_link_libraries(PackageAudit PUBLIC
   TSCBasic
   TSCUtility
   Basics
-  PackageGraph
   PackageModel
   PackageRegistry)
 

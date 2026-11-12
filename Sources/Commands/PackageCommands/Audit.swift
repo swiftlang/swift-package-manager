@@ -246,12 +246,21 @@ extension SwiftPackageCommand {
                 }
                 reason = errors.get().first ?? "unknown error"
             } catch {
-                reason = errors.get().first ?? error.interpolationDescription
+                reason = try Self.allTraitsFallbackReason(for: error, collectedErrors: errors.get())
             }
             swiftCommandState.observabilityScope.emit(
                 warning: "dependencies used only with traits that are not enabled were not audited, since the package graph with all traits enabled could not be loaded from '\(workspace.location.resolvedVersionsFile.basename)' without changing it: \(reason)"
             )
             return (graph, workspace, root)
+        }
+
+        /// The reason to report when loading the graph with all traits enabled threw `error`.
+        /// Cancellation is not a reason to fall back and is rethrown.
+        static func allTraitsFallbackReason(for error: any Error, collectedErrors: [String]) throws -> String {
+            if error is CancellationError {
+                throw error
+            }
+            return collectedErrors.first ?? error.interpolationDescription
         }
 
         /// The advisory database to query: `--advisory-database`, then the package's configuration, then the

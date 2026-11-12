@@ -9155,6 +9155,24 @@ struct PackageCommandTests {
             }
         }
 
+        @Test
+        func allTraitsFallbackRethrowsCancellation() throws {
+            // Cancelling the command must not turn into the "not audited" warning and an audit of the other graph.
+            #expect(throws: CancellationError.self) {
+                try SwiftPackageCommand.Audit.allTraitsFallbackReason(for: CancellationError(), collectedErrors: [])
+            }
+            #expect(
+                try SwiftPackageCommand.Audit.allTraitsFallbackReason(
+                    for: StringError("thrown"),
+                    collectedErrors: ["emitted"]
+                ) == "emitted"
+            )
+            #expect(
+                try SwiftPackageCommand.Audit.allTraitsFallbackReason(for: StringError("thrown"), collectedErrors: [])
+                    == "thrown"
+            )
+        }
+
         @Suite("AuditFix")
         struct AuditFixTests {
             private let audit = AuditCommandTests()

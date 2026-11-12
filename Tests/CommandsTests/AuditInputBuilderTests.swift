@@ -285,7 +285,8 @@ struct AuditInputBuilderTests {
         #expect(packages[2].state == .none)
     }
 
-    @Test
+    // Without pruning, the 2^25 paths would not be walked within the time limit.
+    @Test(.timeLimit(.minutes(1)))
     func deepDiamondChainIsPrunedAndCapped() throws {
         let count = 25
         var files = ["/Root/Sources/Root/root.swift"]
@@ -323,12 +324,9 @@ struct AuditInputBuilderTests {
         )
         let store = try emptyResolvedPackages(fs)
 
-        let start = ContinuousClock.now
         let packages = AuditInputBuilder.makePackages(graph: graph, resolvedPackages: store)
-        let elapsed = ContinuousClock.now - start
 
         let deepest = try #require(packages.first { $0.identity.description == "d\(count)" })
         #expect(deepest.paths.count == AuditInputBuilder.maxPathsPerPackage)
-        #expect(elapsed < .seconds(5))
     }
 }

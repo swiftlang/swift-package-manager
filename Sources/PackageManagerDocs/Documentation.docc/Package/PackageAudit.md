@@ -63,6 +63,7 @@ With `--format json`, the command writes a single JSON object to standard output
 | 0 | No findings at or above the threshold, and (with `--fail-on-unchecked`) every package was checked |
 | 1 | The command failed, for example because of a network error or an invalid configuration (SwiftPM's usual failure status) |
 | 2 | Findings at or above the threshold, or unchecked packages with `--fail-on-unchecked` |
+| 64 | Invalid arguments, for example passing both `--no-advisory-database` and `--no-registry-advisories` (the usage error status of Swift Argument Parser) |
 
 Advisories with an unknown severity meet any threshold, so that a missing severity never hides a finding. Ignored
 advisories never affect the exit status.
@@ -116,9 +117,9 @@ The command then audits the package again, prints the changes it made and the re
 status from the remaining findings, as `swift package audit` does. If updating the dependencies fails, `Package.swift`
 and `Package.resolved` are restored to their previous contents and the command fails with status 1.
 
-With `--dry-run`, nothing is written, not even a `Package.resolved` that resolving the dependencies to audit them
-would otherwise create or update: the command prints the planned changes and sets its exit status from the current
-findings.
+With `--dry-run`, `Package.swift` and `Package.resolved` are not changed, not even a `Package.resolved` that resolving
+the dependencies to audit them would otherwise create or update; repository checkouts and caches may still be fetched.
+The command prints the planned changes and sets its exit status from the current findings.
 
 ```
 $ swift package audit fix --dry-run

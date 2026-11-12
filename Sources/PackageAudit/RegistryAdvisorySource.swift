@@ -13,7 +13,7 @@
 import Basics
 import Foundation
 import PackageModel
-@preconcurrency import PackageRegistry
+import PackageRegistry
 
 import struct TSCUtility.Version
 
@@ -24,7 +24,10 @@ public protocol RegistryAdvisoryProvider: Sendable {
 }
 
 /// Reads advisories from a registry's `advisories` endpoint.
-public struct RegistryAdvisorySource: RegistryAdvisoryProvider {
+///
+/// `RegistryClient` is not declared `Sendable`. Sharing it across tasks is safe here because it is only used through
+/// its async API, which synchronizes access to the client's mutable state internally.
+public struct RegistryAdvisorySource: RegistryAdvisoryProvider, @unchecked Sendable {
     private struct Response: Decodable {
         let advisories: [OSVRecord]
     }
