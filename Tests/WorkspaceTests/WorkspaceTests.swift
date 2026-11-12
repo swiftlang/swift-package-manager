@@ -7273,6 +7273,82 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testLocalArtifactIsZipArchive() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "ReproTarget",
+                            type: .binary,
+                            path: "ArtifactBundles/Repro.artifactbundle"
+                        ),
+                    ]
+                ),
+            ]
+        )
+
+        let rootPath = try workspace.pathToRoot(withName: "Root")
+        let a1Path = rootPath.appending(components: "ArtifactBundles", "Repro.artifactbundle")
+        try fs.createDirectory(a1Path.parentDirectory, recursive: true)
+        try fs.writeFileContents(a1Path, bytes: ByteString([0x50, 0x4B, 0x03, 0x04, 0x00, 0x00]))
+
+        await workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(
+                    diagnostic: .contains(
+                        "local binary target 'ReproTarget' at '\(a1Path)' is a ZIP archive, but has extension '.artifactbundle'; ZIP archives must end in '.zip' (e.g. 'Repro.artifactbundle.zip'), while '.artifactbundle' must be an uncompressed directory."
+                    ),
+                    severity: .error
+                )
+            }
+        }
+    }
+
+    func testLocalArtifactIsFileNotDirectory() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(
+                            name: "ReproTarget",
+                            type: .binary,
+                            path: "ArtifactBundles/NotZip.artifactbundle"
+                        ),
+                    ]
+                ),
+            ]
+        )
+
+        let rootPath = try workspace.pathToRoot(withName: "Root")
+        let a1Path = rootPath.appending(components: "ArtifactBundles", "NotZip.artifactbundle")
+        try fs.createDirectory(a1Path.parentDirectory, recursive: true)
+        try fs.writeFileContents(a1Path, bytes: ByteString([0x00, 0x01, 0x02, 0x03]))
+
+        await workspace.checkPackageGraphFailure(roots: ["Root"]) { diagnostics in
+            testDiagnostics(diagnostics) { result in
+                result.check(
+                    diagnostic: .contains(
+                        "local binary target 'ReproTarget' at '\(a1Path)' is a file, but binary artifacts ending in '.artifactbundle' must be uncompressed directories."
+                    ),
+                    severity: .error
+                )
+            }
+        }
+    }
+
     func testArtifactDownloadHappyPath() async throws {
         let sandbox = AbsolutePath("/tmp/ws/")
         let fs = InMemoryFileSystem()
