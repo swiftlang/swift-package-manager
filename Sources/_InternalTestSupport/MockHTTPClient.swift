@@ -14,7 +14,7 @@ import Basics
 
 extension HTTPClient {
     public static func mock(fileSystem: FileSystem) -> HTTPClient {
-        HTTPClient { request, _ in
+        HTTPClient(configuration: .init(retryStrategy: nil)) { request, _ in
             switch request.kind {
             case.generic:
                 return .okay(body: request.url.absoluteString)

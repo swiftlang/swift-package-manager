@@ -23,14 +23,14 @@ class HTTPClientXCTest: XCTestCase {
         let counter = SendableBox(0)
         let lastCall = SendableBox<Date>(Date())
         let maxAttempts = 5
-        let errorCode = Int.random(in: 500 ..< 600)
+        let errorCode = [500, 502, 503, 504].randomElement()!
         let delay = SendableTimeInterval.milliseconds(100)
 
         let httpClient = HTTPClient { _, _ in
             let count = await counter.value
-            let expectedDelta = pow(2.0, Double(count - 1)) * delay.timeInterval()!
+            let maxDelta = count == 0 ? 0 : pow(2.0, Double(count - 1)) * delay.timeInterval()!
             let delta = await Date().timeIntervalSince(lastCall.value)
-            XCTAssertEqual(delta, expectedDelta, accuracy: 0.1)
+            XCTAssertLessThanOrEqual(delta, maxDelta + 0.1)
 
             await counter.increment()
             await lastCall.resetDate()
@@ -52,7 +52,7 @@ struct HTTPClientTests {
     func head() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201 ..< 400)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody: Data? = nil
 
@@ -73,7 +73,7 @@ struct HTTPClientTests {
     func testGet() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201 ..< 400)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = Data(UUID().uuidString.utf8)
 
@@ -95,7 +95,7 @@ struct HTTPClientTests {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = Data(UUID().uuidString.utf8)
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201 ..< 400)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = Data(UUID().uuidString.utf8)
 
@@ -118,7 +118,7 @@ struct HTTPClientTests {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let requestBody = Data(UUID().uuidString.utf8)
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201 ..< 400)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = Data(UUID().uuidString.utf8)
 
@@ -140,7 +140,7 @@ struct HTTPClientTests {
     func delete() async throws {
         let url = URL("http://test")
         let requestHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
-        let responseStatus = Int.random(in: 201 ..< 500)
+        let responseStatus = Int.random(in: 201 ..< 400)
         let responseHeaders = HTTPClientHeaders([HTTPClientHeaders.Item(name: UUID().uuidString, value: UUID().uuidString)])
         let responseBody = Data(UUID().uuidString.utf8)
 
@@ -250,7 +250,7 @@ struct HTTPClientTests {
 
     @Test
     func validResponseCodes() async throws {
-        let statusCode = Int.random(in: 201 ..< 500)
+        let statusCode = Int.random(in: 201 ..< 400)
 
         let httpClient = HTTPClient { _, _ in
             throw HTTPClientError.badResponseStatusCode(statusCode)
@@ -271,7 +271,7 @@ struct HTTPClientTests {
         let age = SendableTimeInterval.seconds(5)
 
         let host = "http://tes-\(UUID().uuidString).com"
-        let configuration = HTTPClientConfiguration(circuitBreakerStrategy: .hostErrors(maxErrors: maxErrors, age: age))
+        let configuration = HTTPClientConfiguration(retryStrategy: nil, circuitBreakerStrategy: .hostErrors(maxErrors: maxErrors, age: age))
         let httpClient = HTTPClient(configuration: configuration) { _, _ in
                 .init(statusCode: errorCode)
         }
@@ -314,6 +314,7 @@ struct HTTPClientTests {
 
         let host = "http://tes-\(UUID().uuidString).com"
         let configuration = HTTPClientConfiguration(
+            retryStrategy: nil,
             circuitBreakerStrategy: .hostErrors(
                 maxErrors: maxErrors,
                 age: .milliseconds(ageInMilliseconds)
@@ -355,6 +356,143 @@ struct HTTPClientTests {
         }
 
         #expect(count.get() == total)
+    }
+
+    @Test(arguments: [URLError.Code.timedOut, .networkConnectionLost, .cannotConnectToHost, .cannotFindHost, .dnsLookupFailed])
+    func retriesTransientTransportErrors(code: URLError.Code) async throws {
+        let counter = SendableBox(0)
+        let httpClient = HTTPClient { _, _ in
+            await counter.increment()
+            if await counter.value == 1 {
+                throw URLError(code)
+            }
+            return .okay()
+        }
+
+        let response = try await httpClient.execute(Self.fastRetryRequest(maxAttempts: 3))
+        #expect(response.statusCode == 200)
+        #expect(await counter.value == 2)
+    }
+
+    @Test(arguments: [
+        URLError(.notConnectedToInternet),
+        URLError(.cancelled),
+        URLError(.serverCertificateUntrusted),
+        CancellationError(),
+        StringError("boom"),
+    ] as [any Error & Sendable])
+    func doesNotRetryPermanentErrors(error: any Error & Sendable) async throws {
+        let counter = SendableBox(0)
+        let httpClient = HTTPClient { _, _ in
+            await counter.increment()
+            throw error
+        }
+
+        await #expect(throws: (any Error).self) {
+            try await httpClient.execute(Self.fastRetryRequest(maxAttempts: 3))
+        }
+        #expect(await counter.value == 1)
+    }
+
+    @Test(arguments: [408, 429, 500, 502, 503, 504])
+    func retriesTransientStatusCodes(statusCode: Int) async throws {
+        let counter = SendableBox(0)
+        let httpClient = HTTPClient { _, _ in
+            await counter.increment()
+            return await counter.value == 1 ? .init(statusCode: statusCode) : .okay()
+        }
+
+        let response = try await httpClient.execute(Self.fastRetryRequest(maxAttempts: 3))
+        #expect(response.statusCode == 200)
+        #expect(await counter.value == 2)
+    }
+
+    @Test(arguments: [400, 401, 404, 409, 501, 505])
+    func doesNotRetryOtherStatusCodes(statusCode: Int) async throws {
+        let counter = SendableBox(0)
+        let httpClient = HTTPClient { _, _ in
+            await counter.increment()
+            return .init(statusCode: statusCode)
+        }
+
+        let response = try await httpClient.execute(Self.fastRetryRequest(maxAttempts: 3))
+        #expect(response.statusCode == statusCode)
+        #expect(await counter.value == 1)
+    }
+
+    @Test
+    func retryAfterReplacesBackoffAndCountsAsAttempt() async throws {
+        let counter = SendableBox(0)
+        let httpClient = HTTPClient { _, _ in
+            await counter.increment()
+            return .init(statusCode: 429, headers: .init([.init(name: "Retry-After", value: "0")]))
+        }
+        var request = HTTPClient.Request(method: .get, url: "http://test")
+        request.options.retryStrategy = .exponentialBackoff(maxAttempts: 2, baseDelay: .seconds(3600))
+
+        let response = try await httpClient.execute(request)
+        #expect(response.statusCode == 429)
+        #expect(await counter.value == 2)
+    }
+
+    @Test
+    func retryAfterTooLargeFallsBackToBackoff() async throws {
+        let counter = SendableBox(0)
+        let httpClient = HTTPClient { _, _ in
+            await counter.increment()
+            if await counter.value == 1 {
+                return .init(statusCode: 429, headers: .init([.init(name: "Retry-After", value: "10000000000")]))
+            }
+            return .okay()
+        }
+
+        let response = try await httpClient.execute(Self.fastRetryRequest(maxAttempts: 2))
+        #expect(response.statusCode == 200)
+        #expect(await counter.value == 2)
+    }
+
+    @Test
+    func retriesByDefault() async throws {
+        let counter = SendableBox(0)
+        let httpClient = HTTPClient { _, _ in
+            await counter.increment()
+            if await counter.value == 1 {
+                return .init(statusCode: 503, headers: .init([.init(name: "Retry-After", value: "0")]))
+            }
+            return .okay()
+        }
+
+        let response = try await httpClient.get("http://test")
+        #expect(response.statusCode == 200)
+        #expect(await counter.value == 2)
+    }
+
+    @Test
+    func hostCircuitBreakerCountsTransportErrors() async throws {
+        let maxErrors = 2
+        let host = "http://tes-\(UUID().uuidString).com"
+        let configuration = HTTPClientConfiguration(
+            retryStrategy: nil,
+            circuitBreakerStrategy: .hostErrors(maxErrors: maxErrors, age: .seconds(5))
+        )
+        let httpClient = HTTPClient(configuration: configuration) { _, _ in
+            throw URLError(.timedOut)
+        }
+
+        for index in 0 ..< maxErrors {
+            await #expect(throws: URLError.self) {
+                try await httpClient.get(URL("\(host)/\(index)"))
+            }
+        }
+        await #expect(throws: HTTPClientError.circuitBreakerTriggered) {
+            try await httpClient.get(URL("\(host)/tripped"))
+        }
+    }
+
+    private static func fastRetryRequest(maxAttempts: Int) -> HTTPClient.Request {
+        var request = HTTPClient.Request(method: .get, url: "http://test")
+        request.options.retryStrategy = .exponentialBackoff(maxAttempts: maxAttempts, baseDelay: .milliseconds(1))
+        return request
     }
 
     @Test

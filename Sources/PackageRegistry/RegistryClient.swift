@@ -1320,13 +1320,16 @@ public final class RegistryClient: AsyncCancellable {
         let start = DispatchTime.now()
         observabilityScope.emit(info: "publishing \(packageIdentity) \(packageVersion) to \(url)")
 
+        var options = self.defaultRequestOptions(timeout: timeout)
+        // A retry after a timed-out upload the registry already accepted would fail with a misleading conflict.
+        options.retryStrategy = .never
         let response: HTTPClient.Response
         do {
             response = try await self.httpClient.put(
                 url,
                 body: body,
                 headers: headers,
-                options: self.defaultRequestOptions(timeout: timeout)
+                options: options
             )
         } catch let error where !(error is _Concurrency.CancellationError) {
             throw RegistryError.failedPublishing(error)

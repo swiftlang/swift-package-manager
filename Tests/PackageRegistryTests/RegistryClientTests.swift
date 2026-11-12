@@ -310,7 +310,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
             url: releasesURL,
-            errorCode: Int.random(in: 405 ..< 500),
+            errorCode: Int.random(in: 430 ..< 500),
             errorDescription: UUID().uuidString
         )
 
@@ -593,7 +593,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
             url: releaseURL,
-            errorCode: Int.random(in: 405 ..< 500),
+            errorCode: Int.random(in: 430 ..< 500),
             errorDescription: UUID().uuidString
         )
 
@@ -1228,7 +1228,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
             url: manifestURL,
-            errorCode: Int.random(in: 405 ..< 500),
+            errorCode: Int.random(in: 430 ..< 500),
             errorDescription: UUID().uuidString
         )
 
@@ -1941,7 +1941,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
             url: manifestURL,
-            errorCode: Int.random(in: 405 ..< 500),
+            errorCode: Int.random(in: 430 ..< 500),
             errorDescription: UUID().uuidString
         )
 
@@ -2850,7 +2850,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
             url: downloadURL,
-            errorCode: Int.random(in: 405 ..< 500),
+            errorCode: Int.random(in: 430 ..< 500),
             errorDescription: UUID().uuidString
         )
 
@@ -3162,7 +3162,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let serverErrorHandler = ServerErrorHandler(
             method: .get,
             url: identifiersURL,
-            errorCode: Int.random(in: 405 ..< 500), // avoid 404 since it is not considered an error
+            errorCode: Int.random(in: 430 ..< 500), // avoid 404 since it is not considered an error
             errorDescription: UUID().uuidString
         )
 
@@ -3616,6 +3616,41 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         }
     }
 
+    @Test func publishIsNotRetried() async throws {
+        let counter = SendableBox(0)
+        let handler: HTTPClient.Implementation = { _, _ in
+            await counter.increment()
+            throw URLError(.timedOut)
+        }
+
+        try await withTemporaryDirectory { temporaryDirectory in
+            let archivePath = temporaryDirectory.appending("\(identity)-\(version).zip")
+            try localFileSystem.writeFileContents(archivePath, string: UUID().uuidString)
+
+            var configuration = RegistryConfiguration()
+            configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+            let registryClient = makeRegistryClient(
+                configuration: configuration,
+                httpClient: HTTPClient(implementation: handler)
+            )
+
+            await #expect(throws: (any Error).self) {
+                try await registryClient.publish(
+                    registryURL: registryURL,
+                    packageIdentity: identity,
+                    packageVersion: version,
+                    packageArchive: archivePath,
+                    packageMetadata: .none,
+                    signature: .none,
+                    metadataSignature: .none,
+                    signatureFormat: .none,
+                    fileSystem: localFileSystem
+                )
+            }
+        }
+        #expect(await counter.value == 1)
+    }
+
     @Test func publishAsync() async throws {
         let expectedLocation =
         URL("https://\(registryURL)/status\(identity.registry!.scope)/\(identity.registry!.name)/\(version)")
@@ -3930,7 +3965,7 @@ fileprivate var availabilityURL = URL("\(registryURL)/availability")
         let serverErrorHandler = ServerErrorHandler(
             method: .put,
             url: publishURL,
-            errorCode: Int.random(in: 405 ..< 500),
+            errorCode: Int.random(in: 430 ..< 500),
             errorDescription: UUID().uuidString
         )
 
