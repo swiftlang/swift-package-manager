@@ -50,6 +50,19 @@ public struct Platform: Equatable, Hashable, Codable, Sendable {
     public static let wasi: Platform = Platform(name: "wasi", oldestSupportedVersion: .unknown)
     public static let openbsd: Platform = Platform(name: "openbsd", oldestSupportedVersion: .unknown)
     public static let freebsd: Platform = Platform(name: "freebsd", oldestSupportedVersion: .unknown)
+
+    /// The current host if it supports prebuilts.
+    public static var prebuiltsHost: Platform? {
+        #if os(macOS)
+        .macOS
+        #elseif os(Linux)
+        .linux
+        #elseif os(Windows)
+        .windows
+        #else
+        nil
+        #endif
+    }
 }
 
 /// Represents a named group of platforms

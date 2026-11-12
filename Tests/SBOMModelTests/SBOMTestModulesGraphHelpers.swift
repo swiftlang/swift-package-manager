@@ -183,7 +183,6 @@ enum SBOMTestModulesGraph {
             dependencies: dependencies,
             defaultLocalization: nil,
             supportedPlatforms: supportedPlatforms,
-            platformConstraint: .all,
             platformVersionProvider: PlatformVersionProvider(implementation: .minimumDeploymentTargetDefault)
         )
     }
