@@ -37,7 +37,14 @@ internal struct SBOMEncoder {
     }
 
     internal func encodeSBOM(spec: SBOMSpec, outputDir: AbsolutePath, filter: Filter = .all, fileSystem: any FileSystem = localFileSystem) async throws -> AbsolutePath {
-        let timestamp = ISO8601DateFormatter().string(from: Date()).replacingOccurrences(of: ":", with: "_")
+        let timestamp: String
+        if let metadataTimestamp = self.sbom.metadata.timestamp {
+            timestamp = metadataTimestamp.replacingOccurrences(of: ":", with: "_")
+        } else {
+            let formatter = ISO8601DateFormatter()
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            timestamp = formatter.string(from: Date()).replacingOccurrences(of: ":", with: "_")
+        }
         let filename = "\(spec.concreteSpec)-\(spec.versionString)-\(self.sbom.primaryComponent.name)-\(self.sbom.primaryComponent.version.revision)-\(filter)-\(timestamp).json"
         let outputPath = outputDir.appending(component: filename)
         let encoded = try await encodeSBOMData(spec: spec)

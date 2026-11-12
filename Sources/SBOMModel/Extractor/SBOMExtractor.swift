@@ -49,19 +49,31 @@ internal struct SBOMExtractor {
     }
 
     internal func extractMetadata() async throws -> SBOMMetadata {
-        SBOMMetadata(
-            timestamp: Date().ISO8601Format(),
+        let timestamp: String
+        if let sourceDateEpochString = Environment.current["SOURCE_DATE_EPOCH"],
+           let epochSeconds = Int64(sourceDateEpochString) {
+            let date = Date(timeIntervalSince1970: TimeInterval(epochSeconds))
+            let formatter = ISO8601DateFormatter()
+            formatter.timeZone = TimeZone(secondsFromGMT: 0)
+            timestamp = formatter.string(from: date)
+        } else {
+            timestamp = Date().ISO8601Format()
+        }
+
+        let toolVersion = SwiftVersion.current.displayString
+        return SBOMMetadata(
+            timestamp: timestamp,
             creators: [
                 SBOMTool(
-                    id: SBOMIdentifier.generate(),
+                    id: SBOMIdentifier.generate(from: "swift-package-manager:\(toolVersion)"),
                     name: "swift-package-manager",
-                    version: SwiftVersion.current.displayString,
+                    version: toolVersion,
                     purl: PURL(
                         scheme: "pkg",
                         type: "swift",
                         namespace: "github.com/swiftlang",
                         name: "swift-package-manager",
-                        version: SwiftVersion.current.displayString
+                        version: toolVersion
                     ),
                     licenses: [
                         SBOMLicense(
@@ -305,11 +317,17 @@ internal struct SBOMExtractor {
     }
 
     internal func extractSBOM(product: String? = nil, filter: Filter = .all) async throws -> SBOMDocument {
-        try await SBOMDocument(
-            id: SBOMIdentifier.generate(),
+        let primaryComponent = try await self.extractPrimaryComponent(product: product)
+        let dependencies = try await extractDependencies(product: product, filter: filter)
+        let depSummary = dependencies.components.map { "\($0.id.value)@\($0.version.revision)" }.sorted().joined(separator: ";")
+        let docSeed = "\(primaryComponent.id.value)@\(primaryComponent.version.revision):\(filter.rawValue):\(depSummary)"
+        let documentID = SBOMIdentifier.generate(from: docSeed)
+
+        return try await SBOMDocument(
+            id: documentID,
             metadata: self.extractMetadata(),
-            primaryComponent: self.extractPrimaryComponent(product: product), // either a root package or a product of the root package
-            dependencies: extractDependencies(product: product, filter: filter)
+            primaryComponent: primaryComponent,
+            dependencies: dependencies
         )
     }
 }

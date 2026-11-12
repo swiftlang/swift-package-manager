@@ -167,4 +167,37 @@ struct SBOMExtractTests {
 
         #expect(id1 != id2, "Each call should generate a unique ID")
     }
+
+    @Test("generateSBOMID from seed generates deterministic RFC 4122 UUID")
+    func generateSBOMIDFromSeedGeneratesDeterministicUUID() async throws {
+        let seed = "my-package@1.0.0:all"
+        let id1 = SBOMIdentifier.generate(from: seed)
+        let id2 = SBOMIdentifier.generate(from: seed)
+        let idDifferent = SBOMIdentifier.generate(from: "other-package@2.0.0:all")
+
+        #expect(id1 == id2, "Identical seed must produce identical identifier")
+        #expect(id1 != idDifferent, "Different seeds must produce different identifiers")
+
+        #expect(id1.value.hasPrefix("urn:uuid:"))
+        let uuidString = String(id1.value.dropFirst("urn:uuid:".count))
+        guard let parsedUUID = UUID(uuidString: uuidString) else {
+            Issue.record("Identifier \(id1.value) must be a valid UUID")
+            return
+        }
+        #expect(uuidString == uuidString.lowercased(), "UUID should be lowercase")
+        #expect(parsedUUID.uuidString.lowercased() == uuidString)
+    }
+
+    @Test("extractSBOM produces deterministic document id across repeated extractions")
+    func extractSBOMProducesDeterministicDocumentID() async throws {
+        let graph = try SBOMTestModulesGraph.createSPMModulesGraph()
+        let store = try SBOMTestStore.createSPMResolvedPackagesStore()
+        let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+
+        let sbom1 = try await extractor.extractSBOM()
+        let sbom2 = try await extractor.extractSBOM()
+
+        #expect(sbom1.id == sbom2.id, "Document ID must be stable across extractions for unchanged graph")
+        #expect(sbom1.metadata.creators?[0].id == sbom2.metadata.creators?[0].id, "Creator tool ID must be stable")
+    }
 }
