@@ -122,6 +122,16 @@ extension Workspace {
             self.sharedConfigurationDirectory.map { DefaultLocations.buildCacheConfigurationFile(at: $0) }
         }
 
+        /// Path to the local audit configuration.
+        public var localAuditConfigurationFile: AbsolutePath {
+            DefaultLocations.auditConfigurationFile(at: self.localConfigurationDirectory)
+        }
+
+        /// Path to the shared audit configuration.
+        public var sharedAuditConfigurationFile: AbsolutePath? {
+            self.sharedConfigurationDirectory.map { DefaultLocations.auditConfigurationFile(at: $0) }
+        }
+
         // security locations
 
         /// Path to the shared fingerprints directory.
@@ -258,6 +268,14 @@ extension Workspace {
 
         public static func buildCacheConfigurationFile(at path: AbsolutePath) -> AbsolutePath {
             path.appending("build-cache-config.json")
+        }
+
+        public static func auditConfigurationFile(forRootPackage rootPath: AbsolutePath) -> AbsolutePath {
+            self.auditConfigurationFile(at: self.configurationDirectory(forRootPackage: rootPath))
+        }
+
+        public static func auditConfigurationFile(at path: AbsolutePath) -> AbsolutePath {
+            path.appending("audit.json")
         }
 
         public static func manifestsDirectory(at path: AbsolutePath) -> AbsolutePath {
@@ -875,6 +893,151 @@ extension Workspace.Configuration {
                     enablePrefixMapping: self.prefixMapping
                 )
             }
+        }
+    }
+}
+
+// MARK: - Audit
+
+extension Workspace.Configuration {
+    /// Manages the local and shared `swift package audit` configuration, merging
+    /// them so that values set locally take precedence over shared ones.
+    public final class Audit {
+        /// The persisted audit settings.
+        public struct Settings: Codable, Equatable {
+            /// The URL of the OSV-compatible advisory database to query.
+            public var advisoryDatabase: String?
+
+            public init(advisoryDatabase: String? = nil) {
+                self.advisoryDatabase = advisoryDatabase
+            }
+
+            var isEmpty: Bool {
+                self.advisoryDatabase == nil
+            }
+        }
+
+        private let localStorage: AuditStorage?
+        private let sharedStorage: AuditStorage?
+
+        private var _settings = Settings()
+        private let lock = NSLock()
+
+        /// The effective, merged settings.
+        public var settings: Settings {
+            self.lock.withLock {
+                self._settings
+            }
+        }
+
+        /// The effective advisory database URL, if one is configured.
+        public var advisoryDatabase: String? {
+            self.settings.advisoryDatabase
+        }
+
+        /// Initialize the audit configuration.
+        ///
+        /// - Parameters:
+        ///   - fileSystem: The file system to use.
+        ///   - localAuditFile: Path to the package's audit configuration file, if any.
+        ///   - sharedAuditFile: Path to the shared audit configuration file, if any.
+        public init(
+            fileSystem: FileSystem,
+            localAuditFile: AbsolutePath?,
+            sharedAuditFile: AbsolutePath?
+        ) throws {
+            self.localStorage = localAuditFile.map { .init(path: $0, fileSystem: fileSystem) }
+            self.sharedStorage = sharedAuditFile.map { .init(path: $0, fileSystem: fileSystem) }
+            try self.compute()
+        }
+
+        @discardableResult
+        public func updateLocal(handler: (inout Settings) throws -> Void) throws -> Settings {
+            guard let localStorage else {
+                throw InternalError("local audit configuration unexpectedly missing")
+            }
+            try localStorage.update(handler: handler)
+            try self.compute()
+            return self.settings
+        }
+
+        @discardableResult
+        public func updateShared(handler: (inout Settings) throws -> Void) throws -> Settings {
+            guard let sharedStorage else {
+                throw InternalError("shared audit configuration not configured")
+            }
+            try sharedStorage.update(handler: handler)
+            try self.compute()
+            return self.settings
+        }
+
+        // mutating the state we hold; access should be done using a lock
+        private func compute() throws {
+            let shared = try self.sharedStorage?.load() ?? Settings()
+            let local = try self.localStorage?.load() ?? Settings()
+            self.lock.withLock {
+                self._settings = Settings(advisoryDatabase: local.advisoryDatabase ?? shared.advisoryDatabase)
+            }
+        }
+    }
+}
+
+extension Workspace.Configuration {
+    struct AuditStorage {
+        private let path: AbsolutePath
+        private let fileSystem: FileSystem
+
+        init(path: AbsolutePath, fileSystem: FileSystem) {
+            self.path = path
+            self.fileSystem = fileSystem
+        }
+
+        func load() throws -> Audit.Settings {
+            guard self.fileSystem.exists(self.path) else {
+                return Audit.Settings()
+            }
+            return try self.fileSystem.withLock(on: self.path.parentDirectory, type: .shared) {
+                try Self.load(self.path, fileSystem: self.fileSystem)
+            }
+        }
+
+        func update(handler: (inout Audit.Settings) throws -> Void) throws {
+            if !self.fileSystem.exists(self.path.parentDirectory) {
+                try self.fileSystem.createDirectory(self.path.parentDirectory, recursive: true)
+            }
+            try self.fileSystem.withLock(on: self.path.parentDirectory, type: .exclusive) {
+                let settings = try Self.load(self.path, fileSystem: self.fileSystem)
+                var updatedSettings = settings
+                try handler(&updatedSettings)
+                if updatedSettings != settings {
+                    try Self.save(updatedSettings, to: self.path, fileSystem: self.fileSystem)
+                }
+            }
+        }
+
+        private static func load(_ path: AbsolutePath, fileSystem: FileSystem) throws -> Audit.Settings {
+            guard fileSystem.exists(path) else {
+                return Audit.Settings()
+            }
+            let decoder = JSONDecoder.makeWithDefaults()
+            return try decoder.decode(path: path, fileSystem: fileSystem, as: Audit.Settings.self)
+        }
+
+        private static func save(_ settings: Audit.Settings, to path: AbsolutePath, fileSystem: FileSystem) throws {
+            // Remove the file entirely when there is nothing left to persist.
+            if settings.isEmpty {
+                if fileSystem.exists(path) {
+                    try fileSystem.removeFileTree(path)
+                }
+                return
+            }
+
+            let encoder = JSONEncoder.makeWithDefaults()
+            let data = try encoder.encode(settings)
+            if !fileSystem.exists(path.parentDirectory) {
+                try fileSystem.createDirectory(path.parentDirectory, recursive: true)
+            }
+            try fileSystem.writeFileContents(path, data: data)
         }
     }
 }

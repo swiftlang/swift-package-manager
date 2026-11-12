@@ -261,6 +261,7 @@ A server MUST respond to the following endpoints:
 | [\[4\]](<doc:#4.4.-Download-source-archive>) | `GET`  | `/{scope}/{name}/{version}.zip`                           | Download source archive for a package release     |
 | [\[5\]](<doc:#4.5.-Lookup-package-identifiers-registered-for-a-URL>) | `GET`  | `/identifiers{?url}`                                      | Lookup package identifiers registered for a URL   |
 | [\[6\]](<doc:#4.6.-Create-a-package-release>) | `PUT`  | `/{scope}/{name}/{version}`                               | Create a package release                          |
+| [\[7\]](<doc:#4.7.-List-package-advisories>) | `GET`  | `/{scope}/{name}/advisories{?version}`                    | List security advisories for a package (OPTIONAL) |
 
 A server SHOULD also respond to `HEAD` requests
 for each of the specified endpoints.
@@ -1180,6 +1181,96 @@ the server SHOULD try publishing that release again.
 A server MAY refuse to fulfill a subsequent request to publish a package release
 by responding with a status code of `409` (Conflict).
 
+<a name="endpoint-7"></a>
+
+#### 4.7. List package advisories
+
+A server MAY implement this endpoint.
+A client MAY send a `GET` request
+for a URI matching the expression `/{scope}/{name}/advisories{?version}`
+to retrieve the security advisories that a server publishes for a package.
+A client SHOULD set the `Accept` header with the value
+`application/vnd.swift.registry.v1+json`.
+
+```http
+GET /mona/LinkedList/advisories?version=1.1.1 HTTP/1.1
+Host: packages.example.com
+Accept: application/vnd.swift.registry.v1+json
+```
+
+A client MAY provide a `version` query parameter
+with the package version of interest.
+When it is specified,
+a server MAY respond with only the advisories that affect that version.
+When it is omitted,
+a server SHOULD respond with all advisories for the package.
+
+If the server implements this endpoint,
+it SHOULD respond with a status code of `200` (OK),
+the `Content-Type` header `application/json`,
+and a JSON document containing the advisories for the package.
+The response body MUST contain an array of advisory objects
+nested at a top-level `advisories` key.
+The array is empty if the server has no advisories for the package.
+
+```http
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Version: 1
+
+{
+    "advisories": [
+        {
+            "id": "GHSA-yyyy-yyyy-yyyy",
+            "aliases": ["CVE-2026-23456"],
+            "summary": "Improper certificate validation in LinkedList",
+            "affected": [
+                {
+                    "ranges": [
+                        {
+                            "type": "SEMVER",
+                            "events": [
+                                { "introduced": "0" },
+                                { "fixed": "3.0.0" }
+                            ]
+                        }
+                    ]
+                }
+            ],
+            "severity": [
+                { "type": "CVSS_V3", "score": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:N/A:N" }
+            ],
+            "references": [
+                { "type": "ADVISORY", "url": "https://example.com/advisories/GHSA-yyyy-yyyy-yyyy" }
+            ]
+        }
+    ]
+}
+```
+
+Each advisory object is an [OSV] record.
+Because the request is already scoped to one package,
+a server is NOT REQUIRED to include `affected[].package` in these records,
+and a client evaluates only the `ranges` and `versions` fields of `affected`.
+
+A server that does not implement this endpoint
+SHOULD respond with a status code of `404` (Not Found)
+or `501` (Not Implemented).
+Because the path of this endpoint overlaps with
+`/{scope}/{name}/{version}`,
+a server that does not implement it
+may instead respond with `400` (Bad Request)
+or `405` (Method Not Allowed).
+A client treats a `400`, `404`, `405`, or `501` response
+as the endpoint not being supported,
+and MUST NOT interpret any of these responses as the absence of advisories.
+
+Authentication and error responses for this endpoint
+follow the same conventions as the other endpoints.
+
+Advisories are authored and maintained by the server operator.
+This document does not define how a server obtains them.
+
 ### 5. Normative References
 
 * [RFC 2119]: Key words for use in RFCs to Indicate Requirement Levels
@@ -1199,6 +1290,7 @@ by responding with a status code of `409` (Conflict).
 * [RFC 7578]: Returning Values from Forms: multipart/form-data
 * [RFC 7807]: Problem Details for HTTP APIs
 * [RFC 8288]: Web Linking
+* [OSV]: Open Source Vulnerability schema
 * [SemVer]: Semantic Versioning
 
 ### 6. Informative References
@@ -1233,6 +1325,7 @@ by responding with a status code of `409` (Conflict).
 [RFC 7230]: https://tools.ietf.org/html/rfc7230 "Hypertext Transfer Protocol (HTTP/1.1): Message Syntax and Routing"
 [RFC 7231]: https://tools.ietf.org/html/rfc7231 "Hypertext Transfer Protocol (HTTP/1.1): Semantics and Content"
 [RFC 7233]: https://tools.ietf.org/html/rfc7233 "Hypertext Transfer Protocol (HTTP/1.1): Range Requests"
+[OSV]: https://ossf.github.io/osv-schema/ "Open Source Vulnerability schema"
 [RFC 7234]: https://tools.ietf.org/html/rfc7234 "Hypertext Transfer Protocol (HTTP/1.1): Caching"
 [RFC 7240]: https://tools.ietf.org/html/rfc7240 "Prefer Header for HTTP"
 [RFC 7578]: https://tools.ietf.org/html/rfc7578 "Returning Values from Forms: multipart/form-data"
