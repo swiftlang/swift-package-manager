@@ -24,28 +24,7 @@ enum GenError: Error {
 }
 
 @main
-struct SwiftSDLStub: AsyncParsableCommand {
-    func run() async throws {
-        print("Do nothing for now")
-    }
-}
-
 struct SwiftSDLGenerator: AsyncParsableCommand {
-    @Option(help: "The SDK to use when running the Swift interface generator")
-    var sdk: FilePath
-
-    @Option(help: "The triple")
-    var triple: Triple
-
-    @Option(help: "toolchain")
-    var toolchain: FilePath
-
-    @Option(help: "swift resource dir")
-    var swiftResourceDir: FilePath
-
-    @Option(help: "clang resource dir")
-    var clangResourceDir: FilePath
-
     @Option(help: "Generated modulemap file")
     var modulemapFile: FilePath
 
@@ -63,7 +42,7 @@ struct SwiftSDLGenerator: AsyncParsableCommand {
 
     func run() async throws {
         let moduleMap = """
-        module SwiftSDL3 [system] {
+        module SwiftSDL [system] {
             header "SDL.h"
             export *
         }
@@ -122,7 +101,7 @@ struct SwiftSDLGenerator: AsyncParsableCommand {
         let sourceFileSyntax = try await parseInterface(
             headerPaths: headerPath,
             moduleDir: modulemapFile.removingLastComponent(),
-            moduleName: "SwiftSDL3"
+            moduleName: "SwiftSDL"
         )
         let syntaxText = String(describing: sourceFileSyntax)
         let syntaxFile = headerFile.removingLastComponent().appending("syntax.txt")
@@ -292,7 +271,7 @@ struct SwiftSDLGenerator: AsyncParsableCommand {
 
         // TODO: Generate an API header to help with the Swift bindings
         let apiNotes = """
-        Name: SwiftSDL3
+        Name: SwiftSDL
         Functions:\n
         """ + functions.map { function in
             let name = function.name.text

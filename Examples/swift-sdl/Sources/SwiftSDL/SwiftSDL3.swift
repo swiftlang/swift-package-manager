@@ -9,7 +9,6 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import SDL3
 
 public protocol SwiftSDLApp {
     static var initFlags: SDL_InitFlags { get }

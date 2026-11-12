@@ -443,14 +443,6 @@ struct PackagePIFProjectBuilder {
                 )
 
                 generatedFiles.add(files)
-                if !files.headers.isEmpty {
-                    // Capture the public include directory if there were header files generated there
-                    // Hardcoding as the default for now
-                    let publicDir = command.pluginOutputDir.appending(ClangModule.defaultPublicHeadersComponent)
-                    if files.headers.contains(where: { $0.isDescendantOfOrEqual(to: publicDir) }) {
-                        generatedFiles.publicHeaderPaths.append(publicDir)
-                    }
-                }
             }
 
             let files = self.process(

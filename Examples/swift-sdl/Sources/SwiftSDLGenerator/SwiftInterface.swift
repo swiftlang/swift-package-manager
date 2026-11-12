@@ -26,41 +26,31 @@ extension SwiftSDLGenerator {
         moduleDir: FilePath,
         moduleName: String
     ) async throws -> SourceFileSyntax {
-        var synthArgs: [String] = [
+        guard let sdkPath = try await Subprocess.run(
+            .name("xcrun"),
+            arguments: ["--show-sdk-path"],
+            output: .string(limit: .max),
+            error: .currentStandardError
+        ).standardOutput?.trimmingCharacters(in: .whitespacesAndNewlines) else {
+            fatalError("No SDK path")
+        }
+
+        let args = [
+            "swift-synthesize-interface",
             "-I", moduleDir.string,
             "-module-name", moduleName,
-            "-target", triple.description,
-        ]
-
-        #if os(macos)
-        let executable: Executable = .name("xcrun")
-        synthArgs = ["swift-synthesize-interface"] + synthArgs
-        #else
-        let executable: Executable = .path(toolchain.appending("usr/bin/swift-synthesize-interface"))
-        #endif
-
-        if sdk.string != "none" {
-            synthArgs += ["-sdk", sdk.string]
-        }
-
-        if clangResourceDir.string != "none" {
-            synthArgs += ["-Xcc", "-resource-dir", "-Xcc", clangResourceDir.string]
-        }
-
-        if swiftResourceDir.string != "none" {
-            synthArgs += ["-resource-dir", swiftResourceDir.string]
-        }
-
-        for headerPath in headerPaths {
-            synthArgs += ["-I", headerPath.string]
-        }
+            "-target", "arm64-apple-macosx15.0",
+            "-sdk", sdkPath
+        ] + headerPaths.flatMap { ["-I", $0.string] }
 
         guard let interface = try await Subprocess.run(
-            executable,
-            arguments: .init(synthArgs),
+            .name("xcrun"),
+            arguments: .init(args),
             output: .string(limit: .max),
-            error: .currentStandardError).standardOutput
-        else { fatalError() }
+            error: .currentStandardError
+        ).standardOutput else {
+             fatalError("No Swift Interface")
+        }
 
         return Parser.parse(source: interface)
     }

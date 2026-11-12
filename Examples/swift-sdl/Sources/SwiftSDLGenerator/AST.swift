@@ -31,14 +31,11 @@ public class ASTNode: Codable {
 
 // Utility to create a clang AST from the module's umbrella header file
 public func loadAST(headerPaths: [FilePath], headerFile: FilePath) async throws -> ASTNode {
-    var clangArgs: [String] = [
+    let clangArgs = [
         "-Xclang", "-ast-dump=json", "-fsyntax-only",
+    ] + headerPaths.flatMap { ["-I", $0.string ]} + [
+        headerFile.string
     ]
-
-    for headerPath in headerPaths {
-        clangArgs += ["-I", headerPath.string]
-    }
-    clangArgs += [headerFile.string]
 
     let clangOutput = try await run(
         .name("clang"), 

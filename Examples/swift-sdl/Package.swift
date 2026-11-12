@@ -1,4 +1,4 @@
-// swift-tools-version: 6.4
+// swift-tools-version: 999.0
 //===----------------------------------------------------------------------===//
 //
 // This source file is part of the Swift open source project
@@ -36,14 +36,42 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-system", from: "1.5.0"),
     ],
     targets: [
+        .plugin(
+            name: "SwiftSDLGenPlugin",
+            capability: .buildTool,
+            dependencies: ["SwiftSDLGenerator"]
+        ),
+        .executableTarget(
+            name: "SwiftSDLGenerator",
+            dependencies: [
+                .product(name: "ArgumentParser", package: "swift-argument-parser"),
+                .product(name: "Subprocess", package: "swift-subprocess"),
+                .product(name: "SystemPackage", package: "swift-system"),
+                .product(name: "SwiftSyntax", package: "swift-syntax"),
+                .product(name: "SwiftParser", package: "swift-syntax"),
+            ]
+        ),
+        .macro(
+            name: "SwiftSDLMacros",
+            dependencies: [
+                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
+                .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
+                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
+            ]
+        ),
         .target(
-            name: "SDL3",
+            name: "SwiftSDL",
+            dependencies: [
+                "SwiftSDLMacros",
+            ],
             cSettings: [
-                .headerSearchPath("../../SDL/include"),
+                .headerSearchPath("../../SDL/include", usage: .public),
             ],
             linkerSettings: [
                 .linkedLibrary("SDL3"),
-                .unsafeFlags(["-L", "SDL/build-android"], .when(platforms: [.android])),
+                .librarySearchPath("../../SDL/build-macos", .when(platforms: [.macOS])),
+                .librarySearchPath("../../SDL/build-ios", .when(platforms: [.iOS])),
+                .librarySearchPath("../../SDL/build-android", .when(platforms: [.android])),
 
                 .linkedFramework("CoreMedia", .when(platforms: [.macOS, .iOS])),
                 .linkedFramework("CoreVideo", .when(platforms: [.macOS, .iOS])),
@@ -93,39 +121,6 @@ let package = Package(
                 .linkedLibrary("setupapi", .when(platforms: [.windows])),
                 .linkedLibrary("shell32", .when(platforms: [.windows])),
                 .linkedLibrary("dinput8", .when(platforms: [.windows])),
-            ]
-        ),
-        .plugin(
-            name: "SwiftSDLGenPlugin",
-            capability: .buildTool,
-            dependencies: ["SwiftSDLGenerator"]
-        ),
-        .executableTarget(
-            name: "SwiftSDLGenerator",
-            dependencies: [
-                .product(name: "ArgumentParser", package: "swift-argument-parser"),
-                .product(name: "Subprocess", package: "swift-subprocess"),
-                .product(name: "SystemPackage", package: "swift-system"),
-                .product(name: "SwiftSyntax", package: "swift-syntax"),
-                .product(name: "SwiftParser", package: "swift-syntax"),
-            ]
-        ),
-        .macro(
-            name: "SwiftSDLMacros",
-            dependencies: [
-                .product(name: "SwiftSyntaxMacros", package: "swift-syntax"),
-                .product(name: "SwiftSyntaxBuilder", package: "swift-syntax"),
-                .product(name: "SwiftCompilerPlugin", package: "swift-syntax"),
-            ]
-        ),
-        .target(
-            name: "SwiftSDL",
-            dependencies: [
-                "SDL3",
-                "SwiftSDLMacros",
-            ],
-            cSettings: [
-                .headerSearchPath("../../SDL/include"),
             ],
             plugins: [
                 "SwiftSDLGenPlugin",
@@ -133,25 +128,11 @@ let package = Package(
         ),
         .target(
             name: "MyAppCore",
-            dependencies: [
-                "SwiftSDL",
-                // For testing purposes only
-                .product(name: "SwiftSyntax", package: "swift-syntax"),
-                .product(name: "SwiftParser", package: "swift-syntax"),
-            ],
-            cSettings: [
-                .headerSearchPath("../../SDL/include"),
-            ]
+            dependencies: ["SwiftSDL"],
         ),
         .executableTarget(
             name: "MyAppExe",
             dependencies: ["MyAppCore"],
-            cSettings: [
-                .headerSearchPath("../../SDL/include"),
-            ],
-            linkerSettings: [
-                .unsafeFlags(["-L", "SDL/build-macos"], .when(platforms: [.macOS])),
-            ]
         ),
     ]
 )

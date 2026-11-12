@@ -1212,11 +1212,21 @@ public final class PackageBuilder {
 
             let decl: BuildSettings.Declaration
             let values: [String]
+            var settingUsage: BuildSettings.Assignment.Usage? = nil
 
             // Compute appropriate declaration for the setting.
             switch setting.kind {
-            case .headerSearchPath(let value):
+            case .headerSearchPath(let value, let usage):
                 values = [value]
+
+                switch usage {
+                case .public:
+                    settingUsage = .public
+                case .private:
+                    settingUsage = .private
+                case .interface:
+                    settingUsage = .interface
+                }
 
                 switch setting.tool {
                 case .c, .cxx:
@@ -1262,6 +1272,32 @@ public final class PackageBuilder {
                     throw InternalError("unexpected tool for setting type \(setting)")
                 case .linker:
                     decl = .LINK_FRAMEWORKS
+                }
+
+            case .librarySearchPath(let value, let usage):
+                values = [value]
+
+                switch usage {
+                case .public:
+                    settingUsage = .public
+                case .private:
+                    settingUsage = .private
+                case .interface:
+                    settingUsage = .interface
+                }
+
+                switch setting.tool {
+                case .linker:
+                    decl = .LIBRARY_SEARCH_PATH
+                case .c, .cxx, .swift:
+                    throw InternalError("unexpected tool for setting type \(setting)")
+                }
+
+                // Ensure that the search path is contained within the package.
+                _ = try RelativePath(validating: value)
+                let path = try AbsolutePath(validating: value, relativeTo: targetRoot)
+                guard path.isDescendantOfOrEqual(to: self.packagePath) else {
+                    throw ModuleError.invalidHeaderSearchPath(value)
                 }
 
             case .interoperabilityMode(let lang):
@@ -1480,6 +1516,7 @@ public final class PackageBuilder {
             // Create an assignment for this setting.
             var assignment = BuildSettings.Assignment()
             assignment.values = values
+            assignment.usage = settingUsage
             assignment.conditions = self.buildConditions(from: setting.condition)
 
             // Finally, add the assignment to the assignment table.

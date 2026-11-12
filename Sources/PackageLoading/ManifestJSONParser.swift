@@ -710,7 +710,7 @@ extension PlatformDescription {
 }
 
 extension TargetBuildSettingDescription.Kind {
-    static func from(_ name: String, values: [String]) throws -> Self {
+    static func from(_ name: String, values: [String], usage: Serialization.BuildSettingUsage?) throws -> Self {
         // Diagnose invalid values.
         for item in values {
             let groups = ManifestJSONParser.invalidValueRegex.matchGroups(in: item).flatMap{ $0 }
@@ -720,12 +720,23 @@ extension TargetBuildSettingDescription.Kind {
             }
         }
 
+        let settingUsage: TargetBuildSettingDescription.Usage? = switch usage {
+        case .public:
+            .public
+        case .private:
+            .private
+        case .interface:
+            .interface
+        case .none:
+            nil
+        }
+
         switch name {
         case "headerSearchPath":
             guard let value = values.first else {
                 throw InternalError("invalid (empty) build settings value")
             }
-            return .headerSearchPath(value)
+            return .headerSearchPath(value, settingUsage ?? .private)
         case "define":
             guard let value = values.first else {
                 throw InternalError("invalid (empty) build settings value")
@@ -741,6 +752,11 @@ extension TargetBuildSettingDescription.Kind {
                 throw InternalError("invalid (empty) build settings value")
             }
             return .linkedFramework(value)
+        case "librarySearchPath":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            return .librarySearchPath(value, settingUsage ?? .public)
         case "interoperabilityMode":
             guard let rawLang = values.first else {
                 throw InternalError("invalid (empty) build settings value")
@@ -855,7 +871,7 @@ extension TargetBuildSettingDescription.Setting {
     init(_ setting: Serialization.CSetting) throws {
         self.init(
             tool: .c,
-            kind: try .from(setting.data.name, values: setting.data.value),
+            kind: try .from(setting.data.name, values: setting.data.value, usage: setting.data.usage),
             condition: setting.data.condition.map { .init($0) }
         )
     }
@@ -863,7 +879,7 @@ extension TargetBuildSettingDescription.Setting {
     init(_ setting: Serialization.CXXSetting) throws {
         self.init(
             tool: .cxx,
-            kind: try .from(setting.data.name, values: setting.data.value),
+            kind: try .from(setting.data.name, values: setting.data.value, usage: setting.data.usage),
             condition: setting.data.condition.map { .init($0) }
         )
     }
@@ -871,7 +887,7 @@ extension TargetBuildSettingDescription.Setting {
     init(_ setting: Serialization.LinkerSetting) throws {
         self.init(
             tool: .linker,
-            kind: try .from(setting.data.name, values: setting.data.value),
+            kind: try .from(setting.data.name, values: setting.data.value, usage: setting.data.usage),
             condition: setting.data.condition.map { .init($0) }
         )
     }
@@ -879,7 +895,7 @@ extension TargetBuildSettingDescription.Setting {
     init(_ setting: Serialization.SwiftSetting) throws {
         self.init(
             tool: .swift,
-            kind: try .from(setting.data.name, values: setting.data.value),
+            kind: try .from(setting.data.name, values: setting.data.value, usage: setting.data.usage),
             condition: setting.data.condition.map { .init($0) }
         )
     }

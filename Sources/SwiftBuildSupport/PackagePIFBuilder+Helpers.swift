@@ -387,7 +387,7 @@ extension PackageModel.BuildSettings.Declaration {
             true
 
         // Linker.
-        case .OTHER_LDFLAGS, .LINK_LIBRARIES, .LINK_FRAMEWORKS:
+        case .OTHER_LDFLAGS, .LINK_LIBRARIES, .LINK_FRAMEWORKS, .LIBRARY_SEARCH_PATH:
             true
 
         default:
@@ -725,7 +725,7 @@ extension PackageGraph.ResolvedModule {
     /// Collect the build settings defined in the package manifest.
     /// Some of them apply *only* to the target itself, while others are also imparted to clients.
     /// Note that the platform is *optional*; unconditional settings have no platform condition.
-     func computeAllBuildSettings(observabilityScope: ObservabilityScope, forRemotePackage: Bool) throws -> AllBuildSettings {
+    func computeAllBuildSettings(observabilityScope: ObservabilityScope, forRemotePackage: Bool) throws -> AllBuildSettings {
         var allSettings = AllBuildSettings()
 
         for (declaration, settingsAssigments) in self.underlying.buildSettings.assignments.sorted(by: { $0.key < $1.key }) {
@@ -745,6 +745,10 @@ extension PackageGraph.ResolvedModule {
                     singleValueSetting = nil
                     multipleValueSetting = .OTHER_LDFLAGS
                     values = settingAssignment.values.map { "-l\($0)" }
+                case .LIBRARY_SEARCH_PATH:
+                    singleValueSetting = nil
+                    multipleValueSetting = .OTHER_LDFLAGS
+                    values = try settingAssignment.values.flatMap { ["-L", try self.sourceDirAbsolutePath.appending(.init(validating: $0)).pathString] }
                 case .HEADER_SEARCH_PATHS:
                     singleValueSetting = nil
                     multipleValueSetting = .HEADER_SEARCH_PATHS
@@ -807,27 +811,40 @@ extension PackageGraph.ResolvedModule {
                     }
 
                     for configuration in configurations {
-                        if type == .prebuilt {
-                            // Impart all the settings for prebuilts
-                            if let multipleValueSetting {
-                                allSettings.impartedMultipleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
-                            } else if let singleValueSetting {
-                                allSettings.impartedSingleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][singleValueSetting] = values.only
-                            }
-                        } else {
-                            // Handle imparted settings for OTHER_LDFLAGS and prebuilts include paths (always multiple values)
-                            // TODO: Do we realy need to impart OTHER_LDFLAGS?
-                            if let multipleValueSetting = multipleValueSetting, multipleValueSetting == .OTHER_LDFLAGS {
-                                allSettings.impartedMultipleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
+                        // If usage is set, use that
+                        if let usage = settingAssignment.usage {
+                            if usage == .private || usage == .public {
+                                if let multipleValueSetting {
+                                    allSettings.targetMultipleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
+                                } else if let singleValueSetting, let singleValue = values.only {
+                                    allSettings.targetSingleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][singleValueSetting] = singleValue
+                                }
                             }
 
-                            if let multipleValueSetting = multipleValueSetting {
-                                // Handle multiple value settings
-                                allSettings.targetMultipleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
-                            } else if let singleValueSetting = singleValueSetting, let singleValue = values.only {
-                                // Handle single value settings
-                                allSettings.targetSingleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][singleValueSetting] = singleValue
+                            if usage == .interface || usage == .public {
+                                if let multipleValueSetting {
+                                    allSettings.impartedMultipleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
+                                } else if let singleValueSetting, let singleValue = values.only {
+                                    allSettings.impartedSingleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][singleValueSetting] = singleValue
+                                }
                             }
+
+                            continue
+                        }
+
+                        // Handle imparted settings for OTHER_LDFLAGS and prebuilts include paths (always multiple values)
+                        // TODO: Do we realy need to impart OTHER_LDFLAGS?
+                        // TODO: Doing that for the PREBUILT_LIBRARIES was causing duplicate library warnings.
+                        if let multipleValueSetting = multipleValueSetting, multipleValueSetting == .OTHER_LDFLAGS {
+                            allSettings.impartedMultipleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
+                        }
+
+                        if let multipleValueSetting = multipleValueSetting {
+                            // Handle multiple value settings
+                            allSettings.targetMultipleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][multipleValueSetting, default: []].append(contentsOf: values)
+                        } else if let singleValueSetting = singleValueSetting, let singleValue = values.only {
+                            // Handle single value settings
+                            allSettings.targetSingleValueSettings[configuration, default: [:]][pifPlatform, default: [:]][singleValueSetting] = singleValue
                         }
                     }
                 }
