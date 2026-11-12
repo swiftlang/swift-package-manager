@@ -55,6 +55,13 @@ public final class UserToolchain: Toolchain {
         }
     }
 
+    package var runtimeResourcePath: AbsolutePath? {
+        guard let path: String = try? self.targetInfo?.get("paths").get("runtimeResourcePath") else {
+            return nil
+        }
+        return try? AbsolutePath(validating: path)
+    }
+
     /// Path containing Swift resources for dynamic linking.
     public var swiftResourcesPath: AbsolutePath? {
         swiftSDK.pathsConfiguration.swiftResourcesPath

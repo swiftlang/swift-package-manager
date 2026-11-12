@@ -1597,7 +1597,7 @@ struct MiscellaneousTestCase {
         .tags(
             .Feature.Command.Build,
         ),
-        .skipHostOS(.windows, because: "libFuzzer is not included in the Windows distribution"),
+        .requiresFuzzerSanitizerSupport,
     )
     func libFuzzerSupport() async throws {
         try await withKnownIssue(isIntermittent: true) {

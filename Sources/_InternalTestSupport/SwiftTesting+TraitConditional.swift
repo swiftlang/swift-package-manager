@@ -78,6 +78,12 @@ extension Trait where Self == Testing.ConditionTrait {
         }
     }
 
+    public static var requiresFuzzerSanitizerSupport: Self {
+        enabled("skipping because the toolchain does not ship the libFuzzer runtime") {
+            (try? UserToolchain.default)?.supportsFuzzerSanitizer() ?? false
+        }
+    }
+
     public static var requiresGeneratedHeaderUnderlyingModuleIncludeBase: Self {
         return Self.requiresFrontEndFlags(flags: ["-generated-header-underlying-module-include-base"])
     }
