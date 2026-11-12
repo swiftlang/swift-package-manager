@@ -22,10 +22,39 @@ public struct PlatformRegistry {
     /// The mapping of platforms to their name.
     public let platformByName: [String: Platform]
 
-    /// Create a registry with the given list of platforms.
-    init(platforms: [Platform] = PlatformRegistry._knownPlatforms) {
+    /// The list of known platform groups.
+    public let knownPlatformGroups: [PlatformGroup]
+
+    /// The mapping of platform groups to their name.
+    public let platformGroupByName: [String: PlatformGroup]
+
+    /// Create a registry with the given list of platforms and platform groups.
+    init(
+        platforms: [Platform] = PlatformRegistry._knownPlatforms,
+        platformGroups: [PlatformGroup] = PlatformRegistry._knownPlatformGroups
+    ) {
         self.knownPlatforms = platforms
         self.platformByName = Dictionary(uniqueKeysWithValues: knownPlatforms.map({ ($0.name, $0) }))
+        self.knownPlatformGroups = platformGroups
+        self.platformGroupByName = Dictionary(uniqueKeysWithValues: knownPlatformGroups.map({ ($0.name, $0) }))
+    }
+
+    /// The platforms named by the given platform or platform group name.
+    public func platforms(named name: String) -> [Platform] {
+        if let group = self.platformGroupByName[name] {
+            group.platforms
+        } else if let platform = self.platformByName[name] {
+            [platform]
+        } else {
+            [.custom(name: name, oldestSupportedVersion: .unknown)]
+        }
+    }
+
+    /// The static list of known platform groups.
+    private static var _knownPlatformGroups: [PlatformGroup] {
+        [
+            .anyAppleOS,
+        ]
     }
 
     /// The static list of known platforms.

@@ -1311,6 +1311,87 @@ struct BuildCommandTestCases {
         .tags(
             .Feature.CommandLineArguments.BuildSystem,
         ),
+    )
+    func buildCacheKeysInTraceEvents() async throws {
+        let config = BuildConfiguration.debug
+        let buildSystem = BuildSystemProvider.Kind.swiftbuild
+        let fs = localFileSystem
+
+        try await testWithTemporaryDirectory { tmpDir in
+            let packageRoot = tmpDir.appending("CacheApp")
+            let casPath = tmpDir.appending("build-cache")
+
+            try fs.createDirectory(packageRoot.appending(components: "Sources", "CApp", "include"), recursive: true)
+            try fs.createDirectory(packageRoot.appending(components: "Sources", "App"), recursive: true)
+            try fs.writeFileContents(
+                packageRoot.appending("Package.swift"),
+                string: """
+                // swift-tools-version:5.9
+                import PackageDescription
+                let package = Package(
+                    name: "CacheApp",
+                    targets: [
+                        .executableTarget(name: "App", dependencies: ["CApp"]),
+                        .target(name: "CApp"),
+                    ]
+                )
+                """
+            )
+            try fs.writeFileContents(
+                packageRoot.appending(components: "Sources", "CApp", "add.c"),
+                string: """
+                #include "add.h"
+                int add(int a, int b) { return a + b; }
+                """
+            )
+            try fs.writeFileContents(
+                packageRoot.appending(components: "Sources", "CApp", "include", "add.h"),
+                string: "int add(int a, int b);\n"
+            )
+            try fs.writeFileContents(
+                packageRoot.appending(components: "Sources", "App", "main.swift"),
+                string: """
+                import CApp
+                print(add(2, 3))
+                """
+            )
+
+            func cacheKeysInTrace(diagnosticRemarks: Bool) async throws -> [[String: Any]] {
+                let traceFile = tmpDir.appending("trace.json")
+                try await execute(
+                    [
+                        "--enable-build-caching",
+                        diagnosticRemarks ? "--enable-build-cache-diagnostic-remarks" : "--disable-build-cache-diagnostic-remarks",
+                        "--build-cache-path", casPath.pathString,
+                        "--trace-events-file", traceFile.pathString,
+                    ],
+                    packagePath: packageRoot,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                let data: Data = try fs.readFileContents(traceFile)
+                let events = try #require(try JSONSerialization.jsonObject(with: data) as? [[String: Any]])
+                return events.flatMap { event -> [[String: Any]] in
+                    let args = event["args"] as? [String: Any]
+                    return args?["cacheKeys"] as? [[String: Any]] ?? []
+                }
+            }
+
+            #expect(try await cacheKeysInTrace(diagnosticRemarks: false).isEmpty)
+
+            try await executeSwiftPackage(packageRoot, extraArgs: ["clean"], buildSystem: buildSystem)
+
+            let cacheKeys = try await cacheKeysInTrace(diagnosticRemarks: true)
+            let sources = Set(cacheKeys.compactMap { $0["source"] as? String })
+            #expect(sources.contains("swift"))
+            #expect(sources.contains("clang"))
+        }
+    }
+
+    @Test(
+        .tags(
+            .Feature.CommandLineArguments.BuildSystem,
+        ),
         .issue("https://github.com/swiftlang/swift-package-manager/issues/10712", relationship: .defect),
     )
     func buildCachePrefixMapping() async throws {

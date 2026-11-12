@@ -638,6 +638,40 @@ struct PIFBuilderTests {
         }
     }
 
+    @Test func anyAppleOSPlatformGroup() async throws {
+        try await withGeneratedPIF(fromFixture: "PIFBuilder/AnyAppleOS") { pif, observabilitySystem, fixturePath in
+            #expect(!observabilitySystem.diagnostics.contains { $0.severity == .error })
+
+            let project = try pif.workspace.project(named: "AnyAppleOS")
+
+            for configuration in BuildConfiguration.allCases {
+                let projectConfig = try project.buildConfig(named: configuration)
+                #expect(projectConfig.settings[.MACOSX_DEPLOYMENT_TARGET] == "27.0")
+                #expect(projectConfig.settings[.IPHONEOS_DEPLOYMENT_TARGET] == "26.0")
+                #expect(projectConfig.settings[.IPHONEOS_DEPLOYMENT_TARGET, .macCatalyst] == "26.0")
+                #expect(projectConfig.settings[.TVOS_DEPLOYMENT_TARGET] == "26.0")
+                #expect(projectConfig.settings[.WATCHOS_DEPLOYMENT_TARGET] == "26.0")
+                #expect(projectConfig.settings[.XROS_DEPLOYMENT_TARGET] == "26.0")
+                #expect(projectConfig.settings[.DRIVERKIT_DEPLOYMENT_TARGET] != "26.0")
+
+                let targetConfig = try project
+                    .target(id: "PACKAGE-TARGET:AnyAppleOS")
+                    .buildConfig(named: configuration)
+                for platform in ProjectModel.BuildSettings.Platform.allCases {
+                    let conditions = targetConfig.settings[.SWIFT_ACTIVE_COMPILATION_CONDITIONS, platform]
+                    switch platform {
+                    case .macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .xrOS:
+                        #expect(conditions == ["$(inherited)", "APPLE", "APPLE_OR_LINUX"], "for platform \(platform)")
+                    case .linux:
+                        #expect(conditions == ["$(inherited)", "APPLE_OR_LINUX"], "for platform \(platform)")
+                    case .driverKit, .android, .windows, .wasi, .openbsd, .freebsd, ._iOSDevice:
+                        #expect(conditions == nil, "for platform \(platform)")
+                    }
+                }
+            }
+        }
+    }
+
     @Test func platformCCLibrary() async throws {
         try await withGeneratedPIF(fromFixture: "PIFBuilder/CCPackage") { pif, observabilitySystem, fixturePath in
             let releaseConfig = try pif.workspace
@@ -910,6 +944,87 @@ struct PIFBuilderTests {
                 impartedModuleMaps == [writtenModuleMap],
                 "\(configuration): primary target imparts \(impartedModuleMaps) but dynamic variant writes \(writtenModuleMap)"
             )
+        }
+    }
+
+    @Test
+    func dynamicVariantHasModuleAliases() async throws {
+        let observability = ObservabilitySystem.makeForTesting()
+
+        let fs = InMemoryFileSystem(
+            emptyFiles: [
+                "/MyPkg/Sources/MyLib/MyLib.swift",
+                "/DepPkg/Sources/Utils/Utils.swift",
+            ]
+        )
+
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                .createFileSystemManifest(
+                    displayName: "DepPkg",
+                    path: "/DepPkg",
+                    toolsVersion: .v6_2,
+                    products: [
+                        .init(name: "Utils", type: .library(.automatic), targets: ["Utils"]),
+                    ],
+                    targets: [
+                        .init(name: "Utils"),
+                    ]
+                ),
+                .createRootManifest(
+                    displayName: "MyPkg",
+                    path: "/MyPkg",
+                    toolsVersion: .v6_2,
+                    dependencies: [
+                        .localSourceControl(path: "/DepPkg", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    products: [
+                        .init(name: "MyLibProduct", type: .library(.automatic), targets: ["MyLib"]),
+                    ],
+                    targets: [
+                        .init(
+                            name: "MyLib",
+                            dependencies: [
+                                .product(name: "Utils", package: "DepPkg", moduleAliases: ["Utils": "DepUtils"]),
+                            ]
+                        ),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+
+        let pifBuilder = PIFBuilder(
+            graph: graph,
+            parameters: try PIFBuilderParameters.constructDefaultParametersForTesting(
+                temporaryDirectory: AbsolutePath.root,
+                addLocalRpaths: .always,
+                shouldCreateDylibForDynamicProducts: false
+            ),
+            fileSystem: fs,
+            observabilityScope: observability.topScope
+        )
+
+        let (pif, _) = try await pifBuilder.constructPIF(
+            buildParameters: mockBuildParameters(destination: .host, buildSystemKind: .swiftbuild)
+        )
+        #expect(!observability.hasErrorDiagnostics)
+
+        let project = try pif.workspace.project(named: "MyPkg")
+
+        for isDynamicVariant in [false, true] {
+            let target = try #require(
+                project.underlying.targets.first {
+                    $0.common.name == "MyLib" && $0.common.id.value.hasSuffix("-dynamic") == isDynamicVariant
+                }
+            )
+            for configuration in BuildConfiguration.allCases {
+                #expect(
+                    try target.buildConfig(named: configuration).settings[.SWIFT_MODULE_ALIASES] == ["Utils=DepUtils"],
+                    "\(configuration): \(isDynamicVariant ? "dynamic" : "primary") variant of MyLib is missing module aliases"
+                )
+            }
         }
     }
 

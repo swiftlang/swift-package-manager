@@ -3438,6 +3438,48 @@ struct PackageBuilderTests {
     }
 
     @Test
+    func testAnyAppleOSInConditionals() throws {
+        let fs = InMemoryFileSystem(emptyFiles: "/Sources/Foo/Foo.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "Foo",
+            path: .root,
+            targets: [
+                try TargetDescription(
+                    name: "Foo",
+                    settings: [
+                        .init(tool: .swift, kind: .define("APPLE"), condition: .init(platformNames: ["anyappleos"])),
+                        .init(tool: .swift, kind: .define("APPLE_OR_LINUX"), condition: .init(platformNames: ["linux", "anyappleos", "macos"])),
+                    ]
+                )
+            ]
+        )
+
+        var appleAssignment = BuildSettings.Assignment()
+        appleAssignment.values = ["APPLE"]
+        appleAssignment.conditions = [PackageCondition(platforms: [.macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .visionOS])]
+
+        var appleOrLinuxAssignment = BuildSettings.Assignment()
+        appleOrLinuxAssignment.values = ["APPLE_OR_LINUX"]
+        appleOrLinuxAssignment.conditions = [PackageCondition(platforms: [.linux, .macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .visionOS])]
+
+        var versionAssignment = BuildSettings.Assignment(default: true)
+        versionAssignment.values = ["4"]
+
+        var settings = BuildSettings.AssignmentTable()
+        settings.add(appleAssignment, for: .SWIFT_ACTIVE_COMPILATION_CONDITIONS)
+        settings.add(appleOrLinuxAssignment, for: .SWIFT_ACTIVE_COMPILATION_CONDITIONS)
+        settings.add(versionAssignment, for: .SWIFT_VERSION)
+
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("Foo") { module in
+                module.check(c99name: "Foo", type: .library)
+                module.check(buildSettings: settings)
+            }
+        }
+    }
+
+    @Test
     func testSwiftLanguageVersionPerTarget() throws {
         let fs = InMemoryFileSystem(emptyFiles:
             "/Sources/foo/foo.swift",

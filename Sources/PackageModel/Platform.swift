@@ -51,7 +51,47 @@ public struct Platform: Equatable, Hashable, Codable, Sendable {
     public static let openbsd: Platform = Platform(name: "openbsd", oldestSupportedVersion: .unknown)
     public static let freebsd: Platform = Platform(name: "freebsd", oldestSupportedVersion: .unknown)
 
+    /// The current host if it supports prebuilts.
+    public static var prebuiltsHost: Platform? {
+        #if os(macOS)
+        .macOS
+        #elseif os(Linux)
+        .linux
+        #elseif os(Windows)
+        .windows
+        #else
+        nil
+        #endif
+    }
+}
 
+/// Represents a named group of platforms
+public struct PlatformGroup: Equatable, Hashable, Sendable {
+    /// The name of the group.
+    public let name: String
+
+    /// The name of the group as spelled in the PackageDescription API.
+    public let displayName: String
+
+    /// The platforms in the group.
+    public let platforms: [Platform]
+
+    /// The oldest version version supported by the group as a whole.
+    public let oldestSupportedVersion: PlatformVersion
+
+    public init(name: String, displayName: String, platforms: [Platform], oldestSupportedVersion: PlatformVersion) {
+        self.name = name
+        self.displayName = displayName
+        self.platforms = platforms
+        self.oldestSupportedVersion = oldestSupportedVersion
+    }
+
+    public static let anyAppleOS: PlatformGroup = PlatformGroup(
+        name: "anyappleos",
+        displayName: "anyAppleOS",
+        platforms: [.macOS, .macCatalyst, .iOS, .tvOS, .watchOS, .visionOS],
+        oldestSupportedVersion: "26.0"
+    )
 }
 
 /// Represents a platform supported by a target.

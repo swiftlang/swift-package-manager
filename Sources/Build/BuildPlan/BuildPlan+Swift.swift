@@ -41,18 +41,6 @@ extension BuildPlan {
                     "-Xcc", "-fmodule-map-file=\(moduleMap.pathString)",
                     "-Xcc", "-I", "-Xcc", target.clangTarget.includeDir.pathString,
                 ]
-            case let target as SwiftModule:
-                // Copy include paths over if needed
-                let targetPaths = Set(swiftTarget.target.underlying.buildSettings.assignments[.PREBUILT_INCLUDE_PATHS]?.flatMap(\.values) ?? [])
-                if let assignment = target.buildSettings.assignments[.PREBUILT_INCLUDE_PATHS] {
-                    for path in assignment.flatMap(\.values) {
-                        if !prebuiltPaths.contains(path), !targetPaths.contains(path) {
-                            swiftTarget.additionalFlags += ["-I", path]
-                        }
-                        // Dedup the path
-                        prebuiltPaths.insert(path)
-                    }
-                }
             case let target as SystemLibraryModule:
                 swiftTarget.additionalFlags += ["-Xcc", "-fmodule-map-file=\(target.moduleMapPath.pathString)"]
                 swiftTarget.additionalFlags += try pkgConfig(for: target).cFlags

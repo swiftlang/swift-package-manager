@@ -362,6 +362,12 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         self.buildParameters.outputParameters.enableTaskBacktraces
     }
 
+    public var enableTaskCacheKeyReporting: Bool {
+        self.buildParameters.outputParameters.traceEventsFilePath != nil
+            && self.buildParameters.buildCaching.enabled == true
+            && self.buildParameters.buildCaching.enableDiagnosticRemarks == true
+    }
+
     public init(
         buildParameters: BuildParameters,
         hostBuildParameters: BuildParameters,
@@ -681,13 +687,16 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
                 outputStream: self.outputStream,
                 logLevel: self.logLevel,
                 enableBacktraces: self.enableTaskBacktraces,
+                enableCacheKeyReporting: self.enableTaskCacheKeyReporting,
                 buildDelegate: self.delegate,
                 traceEventsFilePath: self.buildParameters.outputParameters.traceEventsFilePath
             )
 
             do {
                 try await withSession(service: service, name: self.buildParameters.pifManifest.pathString, toolchain: self.buildParameters.toolchain, packageManagerResourcesDirectory: self.packageManagerResourcesDirectory) { session, _ in
-                    self.outputStream.send("Building for \(self.buildParameters.configuration.buildFor)...\n")
+                    if !self.logLevel.isQuiet {
+                        self.outputStream.send("Building for \(self.buildParameters.configuration.buildFor)...\n")
+                    }
 
                     // Load the workspace, and set the system information to the default
                     do {
@@ -977,6 +986,7 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         settings["LM_SKIP_METADATA_EXTRACTION"] = "YES"
         if let symbolGraphOptions {
             settings["RUN_SYMBOL_GRAPH_EXTRACT"] = "YES"
+            settings["DOCC_EXTRACT_ONLY_SWIFT_INFO_FOR_OBJC_SYMBOLS"] = "YES"
 
             if symbolGraphOptions.prettyPrint {
                 settings["DOCC_PRETTY_PRINT"] = "YES"
@@ -1176,6 +1186,9 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         request.hideShellScriptEnvironment = true
         request.showNonLoggedProgress = true
         request.recordBuildBacktraces = buildParameters.outputParameters.enableTaskBacktraces
+        if self.enableTaskCacheKeyReporting {
+            request.enableTaskCacheKeyReporting = true
+        }
         request.schedulerLaneWidthOverride = buildParameters.workers
 
         // Override the arena. We need to apply the arena info to both the request-global build

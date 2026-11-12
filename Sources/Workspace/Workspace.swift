@@ -1032,18 +1032,16 @@ extension Workspace {
                 )
             }
 
-        let prebuilts: [PackageIdentity: [String: PrebuiltLibrary]] = await self.state.prebuilts.reduce(into: .init()) {
+        let prebuilts: [PackageIdentity: [PrebuiltLibrary]] = await self.state.prebuilts.reduce(into: .init()) {
             let prebuilt = PrebuiltLibrary(
                 identity: $1.identity,
                 libraryName: $1.libraryName,
                 path: $1.path,
                 checkoutPath: $1.checkoutPath,
                 products: $1.products,
-                includePath: $1.includePath,
-                cModules: $1.cModules)
-            for product in $1.products {
-                $0[$1.identity, default: [:]][product] = prebuilt
-            }
+                includePath: $1.includePath
+            )
+            $0[$1.identity, default: []].append(prebuilt)
         }
 
         // Load the graph.

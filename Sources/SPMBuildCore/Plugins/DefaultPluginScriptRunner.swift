@@ -529,6 +529,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                 catch {
                     print("error while trying to read message from plugin: \(error.interpolationDescription)")
                 }
+                // The reads above block, so getting here means EOF (or an unreadable stream). Stop monitoring:
+                // a read source on a closed pipe keeps firing until it is cancelled (on Linux since
+                // swift-corelibs-libdispatch#971), which would spin a dispatch worker for the rest of the build.
+                fileHandle.readabilityHandler = nil
             }
         }
         process.standardOutput = stdoutPipe
@@ -546,7 +550,14 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
         stderrPipe.fileHandleForReading.readabilityHandler = { fileHandle in
             // Read and pass on any available free-form text output from the plugin.
             // We need the lock since we could run concurrently with the termination handler.
-            stderrLock.withLock { stderrHandler(fileHandle.availableData) }
+            stderrLock.withLock {
+                let data = fileHandle.availableData
+                // Empty data means EOF; stop monitoring so the read source doesn't keep firing.
+                if data.isEmpty {
+                    fileHandle.readabilityHandler = nil
+                }
+                stderrHandler(data)
+            }
         }
         process.standardError = stderrPipe
 
@@ -609,6 +620,10 @@ public struct DefaultPluginScriptRunner: PluginScriptRunner, Cancellable {
                     handler(handle)
                 }
                 messagesContinuation.finish()
+
+                // Both pipes are drained; make sure neither read source stays armed after the plugin exits.
+                handle.readabilityHandler = nil
+                stderrPipe.fileHandleForReading.readabilityHandler = nil
 
                 // Compute a result based on how the process ended. We report an error if it ended with a signal.
                 if process.terminationReason == .uncaughtSignal {
