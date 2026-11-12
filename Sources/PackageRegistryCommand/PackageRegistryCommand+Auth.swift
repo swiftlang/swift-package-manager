@@ -118,7 +118,7 @@ extension PackageRegistryCommand {
             abstract: "Log in to a registry."
         )
 
-        static let maxPasswordLength = 512
+        static let maxPasswordLength = 1024
         // Define a larger buffer size so it reads more than allowed;
         // this way, you can tell if the entered password is over the length
         // limit. One space is for \0, and another is for the "overflowing" character.
