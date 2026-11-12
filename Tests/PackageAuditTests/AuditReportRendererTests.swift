@@ -250,6 +250,44 @@ struct AuditReportRendererTests {
     }
 
     @Test
+    func jsonAdvisoryIsTheSourceRecord() throws {
+        // Fields the client does not model must be kept, at the top level and nested.
+        let source = #"""
+        {"id":"GHSA-raw","schema_version":"1.6.0","modified":"2026-01-01T00:00:00Z","summary":"s",
+         "affected":[{"package":{"ecosystem":"SwiftURL","name":"github.com/example/regex","purl":"pkg:swift/x"},
+          "ranges":[{"type":"SEMVER","events":[{"introduced":"0"},{"fixed":"1.4.3"}]}],
+          "ecosystem_specific":{"flags":[1,2.5,true,null,"x"],"big":9007199254740993}}],
+         "database_specific":{"severity":"HIGH","cwe_ids":["CWE-1333"]}}
+        """#
+        struct Wrapper: Decodable { let advisories: [OSVRecord] }
+        let decoder = JSONDecoder()
+        let records = [
+            try decoder.decode(OSVRecord.self, from: Data(source.utf8)),
+            // Registry responses nest the records.
+            try decoder.decode(Wrapper.self, from: Data(#"{"advisories":[\#(source)]}"#.utf8)).advisories[0],
+        ]
+        let expected = try #require(JSONSerialization.jsonObject(with: Data(source.utf8)) as? NSDictionary)
+
+        for record in records {
+            #expect(record.databaseSpecific?.severity == "HIGH")
+            let finding = AuditFinding(
+                package: self.regexPackage,
+                advisory: record,
+                severity: .high,
+                sources: [],
+                fixedVersions: [Version(1, 4, 3)],
+                ignored: false
+            )
+            let json = try AuditReportRenderer.json(AuditReport(scannedPackages: 1, findings: [finding], unchecked: []))
+            let object = try #require(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
+            let findings = try #require(object["findings"] as? [[String: Any]])
+            let advisory = try #require(findings.first?["advisory"] as? NSDictionary)
+            #expect(advisory.isEqual(expected), "\(advisory)")
+            #expect(json.contains("9007199254740993"))
+        }
+    }
+
+    @Test
     func jsonFileURLIsLocalSourceControl() throws {
         let package = AuditedPackage(
             identity: .plain("mirror"),

@@ -13,7 +13,9 @@
 import Foundation
 
 /// A vulnerability record in the Open Source Vulnerability (OSV) schema.
-/// Unknown keys in the source JSON are ignored.
+///
+/// Only the fields the client evaluates are modeled. A decoded record keeps its source JSON, including fields that are
+/// not modeled, and encodes as that JSON so that reports can show the record as published.
 public struct OSVRecord: Codable, Equatable, Sendable {
     public var id: String
     public var aliases: [String]?
@@ -24,6 +26,9 @@ public struct OSVRecord: Codable, Equatable, Sendable {
     public var severity: [Severity]?
     public var references: [Reference]?
     public var databaseSpecific: DatabaseSpecific?
+
+    /// The JSON this record was decoded from, if any. Not considered for equality.
+    private(set) var sourceJSON: JSONValue?
 
     enum CodingKeys: String, CodingKey {
         case id, aliases, summary, details, withdrawn, affected, severity, references
@@ -50,6 +55,50 @@ public struct OSVRecord: Codable, Equatable, Sendable {
         self.severity = severity
         self.references = references
         self.databaseSpecific = databaseSpecific
+        self.sourceJSON = nil
+    }
+
+    public init(from decoder: any Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        self.id = try container.decode(String.self, forKey: .id)
+        self.aliases = try container.decodeIfPresent([String].self, forKey: .aliases)
+        self.summary = try container.decodeIfPresent(String.self, forKey: .summary)
+        self.details = try container.decodeIfPresent(String.self, forKey: .details)
+        self.withdrawn = try container.decodeIfPresent(String.self, forKey: .withdrawn)
+        self.affected = try container.decodeIfPresent([Affected].self, forKey: .affected)
+        self.severity = try container.decodeIfPresent([Severity].self, forKey: .severity)
+        self.references = try container.decodeIfPresent([Reference].self, forKey: .references)
+        self.databaseSpecific = try container.decodeIfPresent(DatabaseSpecific.self, forKey: .databaseSpecific)
+        self.sourceJSON = try JSONValue(from: decoder)
+    }
+
+    public func encode(to encoder: any Encoder) throws {
+        if let sourceJSON = self.sourceJSON {
+            try sourceJSON.encode(to: encoder)
+            return
+        }
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(self.id, forKey: .id)
+        try container.encodeIfPresent(self.aliases, forKey: .aliases)
+        try container.encodeIfPresent(self.summary, forKey: .summary)
+        try container.encodeIfPresent(self.details, forKey: .details)
+        try container.encodeIfPresent(self.withdrawn, forKey: .withdrawn)
+        try container.encodeIfPresent(self.affected, forKey: .affected)
+        try container.encodeIfPresent(self.severity, forKey: .severity)
+        try container.encodeIfPresent(self.references, forKey: .references)
+        try container.encodeIfPresent(self.databaseSpecific, forKey: .databaseSpecific)
+    }
+
+    public static func == (lhs: OSVRecord, rhs: OSVRecord) -> Bool {
+        lhs.id == rhs.id
+            && lhs.aliases == rhs.aliases
+            && lhs.summary == rhs.summary
+            && lhs.details == rhs.details
+            && lhs.withdrawn == rhs.withdrawn
+            && lhs.affected == rhs.affected
+            && lhs.severity == rhs.severity
+            && lhs.references == rhs.references
+            && lhs.databaseSpecific == rhs.databaseSpecific
     }
 
     public struct Affected: Codable, Equatable, Sendable {
@@ -133,6 +182,53 @@ public struct OSVRecord: Codable, Equatable, Sendable {
 
         public init(severity: String? = nil) {
             self.severity = severity
+        }
+    }
+}
+
+/// An arbitrary JSON value, used to keep a record's source JSON.
+enum JSONValue: Codable, Equatable, Sendable {
+    case null
+    case bool(Bool)
+    case integer(Int64)
+    case unsignedInteger(UInt64)
+    case number(Double)
+    case string(String)
+    case array([JSONValue])
+    case object([String: JSONValue])
+
+    init(from decoder: any Decoder) throws {
+        let container = try decoder.singleValueContainer()
+        if container.decodeNil() {
+            self = .null
+        } else if let value = try? container.decode(Bool.self) {
+            self = .bool(value)
+        } else if let value = try? container.decode(Int64.self) {
+            self = .integer(value)
+        } else if let value = try? container.decode(UInt64.self) {
+            self = .unsignedInteger(value)
+        } else if let value = try? container.decode(Double.self) {
+            self = .number(value)
+        } else if let value = try? container.decode(String.self) {
+            self = .string(value)
+        } else if let value = try? container.decode([JSONValue].self) {
+            self = .array(value)
+        } else {
+            self = .object(try container.decode([String: JSONValue].self))
+        }
+    }
+
+    func encode(to encoder: any Encoder) throws {
+        var container = encoder.singleValueContainer()
+        switch self {
+        case .null: try container.encodeNil()
+        case .bool(let value): try container.encode(value)
+        case .integer(let value): try container.encode(value)
+        case .unsignedInteger(let value): try container.encode(value)
+        case .number(let value): try container.encode(value)
+        case .string(let value): try container.encode(value)
+        case .array(let value): try container.encode(value)
+        case .object(let value): try container.encode(value)
         }
     }
 }

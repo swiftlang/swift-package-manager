@@ -1060,9 +1060,11 @@ public final class RegistryClient: AsyncCancellable {
     }
 
     /// Fetches the raw advisories document for a package, optionally scoped to one version.
-    /// Registries that do not implement the endpoint (404 or 501) yield `.unsupported`.
+    /// Registries that do not implement the endpoint yield `.unsupported`: besides 404 and 501, such registries
+    /// may answer 400 or 405, since the path overlaps `/{scope}/{name}/{version}`.
     /// An unavailable registry (failed availability check) is an operational failure and throws
-    /// `RegistryError.registryNotAvailable`; only a 404/501 from the advisories endpoint itself means `.unsupported`.
+    /// `RegistryError.registryNotAvailable`; only a 400/404/405/501 from the advisories endpoint itself means
+    /// `.unsupported`.
     /// The body is returned undecoded so that this module does not depend on the audit model.
     public func getPackageAdvisories(
         package: PackageIdentity,
@@ -1110,7 +1112,10 @@ public final class RegistryClient: AsyncCancellable {
                 throw wrapWithAdvisoriesFailed(RegistryError.invalidResponse)
             }
             return .supported(body: body)
-        case 404, 501:
+        case 400, 404, 405, 501:
+            observabilityScope.emit(
+                debug: "registry at '\(registry.url)' does not support advisories for \(package) (HTTP status \(response.statusCode))"
+            )
             return .unsupported
         default:
             throw wrapWithAdvisoriesFailed(self.unexpectedStatusError(response, expectedStatus: [200]))
@@ -1925,7 +1930,6 @@ extension RegistryClient {
 
     public enum Capability: String, Hashable, Sendable, CaseIterable {
         case search
-        case advisories
     }
 }
 

@@ -4767,22 +4767,30 @@ extension RegistryClient {
         }
     }
 
-    @Test(arguments: [404, 501])
+    // The path overlaps `/{scope}/{name}/{version}`, so registries without the endpoint may answer 400 or 405.
+    @Test(arguments: [400, 404, 405, 501])
     func advisoriesMissingEndpointIsUnsupported(statusCode: Int) async throws {
         let handler: HTTPClient.Implementation = { _, _ in
             Self.response("", statusCode: statusCode)
         }
         let client = makeClient(handler: handler)
+        let observability = ObservabilitySystem.makeForTesting()
 
         let result = try await client.getPackageAdvisories(
             package: identity,
             version: Version(1, 1, 1),
-            observabilityScope: ObservabilitySystem.NOOP
+            observabilityScope: observability.topScope
         )
         guard case .unsupported = result else {
             Issue.record("expected .unsupported, got \(result)")
             return
         }
+        let debug = observability.diagnostics.filter { $0.severity == .debug }.map(\.message)
+        #expect(
+            debug.contains { $0.contains("does not support advisories") && $0.contains("\(statusCode)") },
+            "\(observability.diagnostics)"
+        )
+        #expect(!observability.diagnostics.contains { $0.severity == .error || $0.severity == .warning }, "\(observability.diagnostics)")
     }
 
     @Test func advisoriesServerErrorThrows() async throws {

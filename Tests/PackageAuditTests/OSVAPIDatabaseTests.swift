@@ -34,6 +34,12 @@ struct OSVAPIDatabaseTests {
         var vulnPaths: [String] { self.requests.filter { $0.url.path.hasPrefix("/v1/vulns/") }.map(\.url.path) }
     }
 
+    private final class Counter: @unchecked Sendable {
+        private let lock = NSLock()
+        private var value = 0
+        func next() -> Int { self.lock.withLock { self.value += 1; return self.value } }
+    }
+
     private let base = URL(string: "https://osv.example.com")!
 
     private func json(_ object: Any) -> HTTPClientResponse {
@@ -130,6 +136,65 @@ struct OSVAPIDatabaseTests {
         #expect(result.count == 1001)
         #expect(result[queries[0]]?.map(\.id) == ["V-page1", "V-page2"])
         #expect(result[queries[1000]] == [])
+    }
+
+    @Test
+    func repeatedPageTokenStopsPagination() async throws {
+        let recorder = Recorder()
+        // A server that answers every page with the token it was sent would otherwise be queried forever.
+        let db = self.database(recorder) { request in
+            if request.url.path == "/v1/querybatch" {
+                return self.json(["results": [["vulns": [["id": "V-1"]], "next_page_token": "tok"]]])
+            }
+            return self.vulnResponse(for: request)
+        }
+        let query = AdvisoryQuery(name: "x/a", version: Version(1, 0, 0))
+        await #expect {
+            try await db.advisories(for: [query])
+        } throws: { error in
+            guard case AuditError.advisorySourceFailed(_, _, let underlying) = error else { return false }
+            return underlying.contains("page token")
+        }
+        #expect(recorder.batchBodies.count == 2)
+    }
+
+    @Test
+    func paginationIsCappedAtOneHundredFollowUpRounds() async throws {
+        let recorder = Recorder()
+        let counter = Counter()
+        // A new token on every page never repeats, so only the round limit stops it.
+        let db = self.database(recorder) { request in
+            if request.url.path == "/v1/querybatch" {
+                return self.json(["results": [["next_page_token": "tok-\(counter.next())"]]])
+            }
+            return self.vulnResponse(for: request)
+        }
+        let query = AdvisoryQuery(name: "x/a", version: Version(1, 0, 0))
+        await #expect {
+            try await db.advisories(for: [query])
+        } throws: { error in
+            guard case AuditError.advisorySourceFailed(_, _, let underlying) = error else { return false }
+            return underlying.contains("100")
+        }
+        // The initial request and 100 follow-up rounds.
+        #expect(recorder.batchBodies.count == 101)
+    }
+
+    @Test
+    func recordIDIsPercentEncodedInThePath() async throws {
+        let recorder = Recorder()
+        let db = self.database(recorder) { request in
+            if request.url.path == "/v1/querybatch" {
+                return self.json(["results": [["vulns": [["id": "A/../B?c#d e"]]]]])
+            }
+            return self.json(["id": "A/../B?c#d e"])
+        }
+        let query = AdvisoryQuery(name: "x/a", version: Version(1, 0, 0))
+        let result = try await db.advisories(for: [query])
+
+        let fetched = recorder.requests.filter { $0.method == .get }.map(\.url.absoluteString)
+        #expect(fetched == ["https://osv.example.com/v1/vulns/A%2F..%2FB%3Fc%23d%20e"])
+        #expect(result[query]?.map(\.id) == ["A/../B?c#d e"])
     }
 
     @Test

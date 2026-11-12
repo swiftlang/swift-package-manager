@@ -20,6 +20,8 @@ import struct TSCUtility.Version
 public struct OSVAPIDatabase: AdvisoryDatabase {
     /// The server limits a batch to this many queries.
     static let maxBatchSize = 1000
+    /// Follow-up rounds for paginated results after which the server is considered misbehaving.
+    static let maxPaginationRounds = 100
 
     private let baseURL: URL
     private let httpClient: HTTPClient
@@ -44,7 +46,16 @@ public struct OSVAPIDatabase: AdvisoryDatabase {
         // Queries still to send, each with the page token of its next page.
         var pending: [(query: AdvisoryQuery, pageToken: String?)] = unique.map { ($0, nil) }
 
+        var rounds = 0
         while !pending.isEmpty {
+            if rounds > Self.maxPaginationRounds {
+                throw AuditError.advisorySourceFailed(
+                    source: self.displayName,
+                    package: nil,
+                    underlying: "results were still paginated after \(Self.maxPaginationRounds) follow-up requests"
+                )
+            }
+            rounds += 1
             var next: [(query: AdvisoryQuery, pageToken: String?)] = []
             for start in stride(from: 0, to: pending.count, by: Self.maxBatchSize) {
                 let chunk = Array(pending[start ..< min(start + Self.maxBatchSize, pending.count)])
@@ -52,6 +63,14 @@ public struct OSVAPIDatabase: AdvisoryDatabase {
                 for (entry, result) in zip(chunk, results) {
                     idsByQuery[entry.query, default: []].append(contentsOf: (result.vulns ?? []).map(\.id))
                     if let token = result.nextPageToken, !token.isEmpty {
+                        // The same token again would request the same page forever.
+                        guard token != entry.pageToken else {
+                            throw AuditError.advisorySourceFailed(
+                                source: self.displayName,
+                                package: entry.query.name,
+                                underlying: "the server returned the page token it was sent ('\(token)')"
+                            )
+                        }
                         next.append((entry.query, token))
                     }
                 }
@@ -109,7 +128,21 @@ public struct OSVAPIDatabase: AdvisoryDatabase {
     }
 
     private func fetchRecord(id: String) async throws -> OSVRecord {
-        let url = self.baseURL.appendingPathComponent("v1/vulns/\(id)")
+        // The id comes from the server; encode it as a single path segment.
+        var allowed = CharacterSet.urlPathAllowed
+        allowed.remove("/")
+        guard let encodedID = id.addingPercentEncoding(withAllowedCharacters: allowed),
+              var components = URLComponents(
+                  url: self.baseURL.appendingPathComponent("v1/vulns"),
+                  resolvingAgainstBaseURL: false
+              )
+        else {
+            throw AuditError.advisorySourceFailed(source: self.displayName, package: nil, underlying: "invalid advisory id '\(id)'")
+        }
+        components.percentEncodedPath += "/" + encodedID
+        guard let url = components.url else {
+            throw AuditError.advisorySourceFailed(source: self.displayName, package: nil, underlying: "invalid advisory id '\(id)'")
+        }
         return try await self.send(package: nil) {
             try await self.httpClient.get(url, headers: Self.headers)
         }

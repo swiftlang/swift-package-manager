@@ -1256,7 +1256,14 @@ and a client evaluates only the `ranges` and `versions` fields of `affected`.
 A server that does not implement this endpoint
 SHOULD respond with a status code of `404` (Not Found)
 or `501` (Not Implemented).
-A client MUST NOT interpret either response as the absence of advisories.
+Because the path of this endpoint overlaps with
+`/{scope}/{name}/{version}`,
+a server that does not implement it
+may instead respond with `400` (Bad Request)
+or `405` (Method Not Allowed).
+A client treats a `400`, `404`, `405`, or `501` response
+as the endpoint not being supported,
+and MUST NOT interpret any of these responses as the absence of advisories.
 
 Authentication and error responses for this endpoint
 follow the same conventions as the other endpoints.
