@@ -51,58 +51,96 @@ extension SwiftPackageCommand.Audit {
         var allowMajorUpgrades: Bool = false
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            let (report, graph, workspace, root) = try await SwiftPackageCommand.Audit.runAudit(
+            // Changes are resolved and applied with the package's own traits, as `swift package update` does;
+            // the graph with all traits enabled is only used to audit and classify.
+            let workspace = try swiftCommandState.getActiveWorkspace()
+            let root = try swiftCommandState.getWorkspaceRoot()
+            guard self.dryRun else {
+                try await self.fix(workspace: workspace, root: root, swiftCommandState: swiftCommandState)
+                return
+            }
+
+            // Auditing resolves the dependencies, which can write `Package.resolved`; a dry run must not.
+            let snapshot = try FileSnapshot(
+                path: workspace.location.resolvedVersionsFile,
+                fileSystem: swiftCommandState.fileSystem
+            )
+            defer {
+                Self.restore([snapshot], fileSystem: swiftCommandState.fileSystem, swiftCommandState: swiftCommandState)
+            }
+            try await self.planChanges(workspace: workspace, root: root, swiftCommandState: swiftCommandState)
+        }
+
+        /// Writes progress and plan lines; in JSON mode to standard error, so that standard output holds only the
+        /// JSON report.
+        private func say(_ line: String) {
+            let stream: WritableByteStream = self.options.format == .json ? stderrStream : stdoutStream
+            stream.send(line + "\n")
+            stream.flush()
+        }
+
+        /// Prints the changes `fix` would make and exits according to the current report.
+        private func planChanges(
+            workspace: Workspace,
+            root: PackageGraphRootInput,
+            swiftCommandState: SwiftCommandState
+        ) async throws {
+            let (report, graph, _) = try await SwiftPackageCommand.Audit.runAudit(
                 options: self.options,
                 swiftCommandState: swiftCommandState
             )
-            // Keep standard output a single JSON document in JSON mode.
-            let progress: WritableByteStream = self.options.format == .json ? stderrStream : stdoutStream
-            func say(_ line: String) {
-                progress.send(line + "\n")
-                progress.flush()
-            }
+            let plan = try self.makePlan(report: report, graph: graph, fileSystem: swiftCommandState.fileSystem)
+            let oldPins = try workspace.resolvedPackagesStore.load().resolvedPackages
 
+            if !plan.updates.isEmpty {
+                let scope = swiftCommandState.observabilityScope.makeChildScope(
+                    description: "Planning dependency updates"
+                )
+                let changes = try await workspace.updateDependencies(
+                    root: root,
+                    packages: plan.updates.map(\.identity.description),
+                    dryRun: true,
+                    observabilityScope: scope
+                )
+                guard let changes, !scope.errorsReported else {
+                    throw ExitCode.failure
+                }
+                for line in Self.updateLines(changes, oldPins: oldPins, report: report, verb: "Would update") {
+                    self.say(line)
+                }
+            }
+            for change in plan.manifestChanges {
+                self.say("Would change requirement on \(change.location) in \(change.manifestPath.basename): \(change.from) -> \(change.to)")
+            }
+            for line in plan.skipped {
+                self.say(line)
+            }
+            if plan.isEmpty {
+                self.say("Nothing to fix.")
+            }
+            if self.options.format == .json {
+                try SwiftPackageCommand.Audit.printReport(report, options: self.options, swiftCommandState: swiftCommandState)
+            }
+            try SwiftPackageCommand.Audit.exitForReport(report, options: self.options, swiftCommandState: swiftCommandState)
+        }
+
+        /// Applies the fixes, audits again and exits according to the remaining report.
+        private func fix(
+            workspace: Workspace,
+            root: PackageGraphRootInput,
+            swiftCommandState: SwiftCommandState
+        ) async throws {
+            let (report, graph, _) = try await SwiftPackageCommand.Audit.runAudit(
+                options: self.options,
+                swiftCommandState: swiftCommandState
+            )
             let plan = try self.makePlan(report: report, graph: graph, fileSystem: swiftCommandState.fileSystem)
             let oldPins = try workspace.resolvedPackagesStore.load().resolvedPackages
             let updateIdentities = plan.updates.map(\.identity.description)
                 + plan.manifestChanges.map(\.package.identity.description)
 
-            if self.dryRun {
-                if !plan.updates.isEmpty {
-                    let scope = swiftCommandState.observabilityScope.makeChildScope(
-                        description: "Planning dependency updates"
-                    )
-                    let changes = try await workspace.updateDependencies(
-                        root: root,
-                        packages: plan.updates.map(\.identity.description),
-                        dryRun: true,
-                        observabilityScope: scope
-                    )
-                    guard let changes, !scope.errorsReported else {
-                        throw ExitCode.failure
-                    }
-                    for line in Self.updateLines(changes, oldPins: oldPins, report: report, verb: "Would update") {
-                        say(line)
-                    }
-                }
-                for change in plan.manifestChanges {
-                    say("Would change requirement on \(change.location) in \(change.manifestPath.basename): \(change.from) -> \(change.to)")
-                }
-                for line in plan.skipped {
-                    say(line)
-                }
-                if plan.isEmpty {
-                    say("Nothing to fix.")
-                }
-                if self.options.format == .json {
-                    try SwiftPackageCommand.Audit.printReport(report, options: self.options, swiftCommandState: swiftCommandState)
-                }
-                try SwiftPackageCommand.Audit.exitForReport(report, options: self.options, swiftCommandState: swiftCommandState)
-                return
-            }
-
             for line in plan.skipped {
-                say(line)
+                self.say(line)
             }
             guard !updateIdentities.isEmpty else {
                 try SwiftPackageCommand.Audit.printReport(report, options: self.options, swiftCommandState: swiftCommandState)
@@ -118,13 +156,13 @@ extension SwiftPackageCommand.Audit {
                 swiftCommandState: swiftCommandState
             )
             for change in plan.manifestChanges {
-                say("Changed requirement on \(change.location) in \(change.manifestPath.basename): \(change.from) -> \(change.to)")
+                self.say("Changed requirement on \(change.location) in \(change.manifestPath.basename): \(change.from) -> \(change.to)")
             }
             for line in Self.updateLines(changes, oldPins: oldPins, report: report, verb: "Updated") {
-                say(line)
+                self.say(line)
             }
 
-            let (remaining, _, _, _) = try await SwiftPackageCommand.Audit.runAudit(
+            let (remaining, _, _) = try await SwiftPackageCommand.Audit.runAudit(
                 options: self.options,
                 swiftCommandState: swiftCommandState
             )
@@ -133,7 +171,7 @@ extension SwiftPackageCommand.Audit {
         }
 
         /// Applies the manifest edits of `plan`, then updates `packages`. On any failure, the manifests and
-        /// `Package.resolved` are restored to their previous contents and the failure is rethrown.
+        /// `Package.resolved` are restored to their previous contents and the original failure is rethrown.
         private func apply(
             _ plan: Plan,
             packages: [String],
@@ -142,16 +180,11 @@ extension SwiftPackageCommand.Audit {
             swiftCommandState: SwiftCommandState
         ) async throws -> [(PackageReference, Workspace.PackageStateChange)] {
             let fileSystem = swiftCommandState.fileSystem
-            let resolvedFile = workspace.location.resolvedVersionsFile
-            var snapshots: [AbsolutePath: ByteString?] = [:]
-            for path in Set(plan.manifestChanges.map(\.manifestPath)) {
-                snapshots.updateValue(try fileSystem.readFileContents(path), forKey: path)
+            var snapshots: [FileSnapshot] = []
+            for path in Set(plan.manifestChanges.map(\.manifestPath)).sorted() {
+                snapshots.append(try FileSnapshot(path: path, fileSystem: fileSystem))
             }
-            // A missing `Package.resolved` is recorded as `nil`, so that restoring it deletes the file.
-            snapshots.updateValue(
-                fileSystem.exists(resolvedFile) ? try fileSystem.readFileContents(resolvedFile) : nil,
-                forKey: resolvedFile
-            )
+            snapshots.append(try FileSnapshot(path: workspace.location.resolvedVersionsFile, fileSystem: fileSystem))
 
             do {
                 for (path, manifest) in plan.manifests where !manifest.edits.isEmpty {
@@ -175,17 +208,37 @@ extension SwiftPackageCommand.Audit {
                 }
                 return changes
             } catch {
-                for (path, contents) in snapshots {
-                    if let contents {
-                        try fileSystem.writeFileContents(path, bytes: contents)
-                    } else if fileSystem.exists(path) {
-                        try fileSystem.removeFileTree(path)
-                    }
+                let restored = Self.restore(snapshots, fileSystem: fileSystem, swiftCommandState: swiftCommandState)
+                if !restored.isEmpty {
+                    stderrStream.send(
+                        "Restored \(restored.map(\.pathString).joined(separator: ", ")) since the dependencies could not be updated.\n"
+                    )
+                    stderrStream.flush()
                 }
-                stderrStream.send("Restored \(snapshots.keys.map(\.basename).sorted().joined(separator: " and ")) since the dependencies could not be updated.\n")
-                stderrStream.flush()
                 throw error
             }
+        }
+
+        /// Restores each snapshot independently, reporting the ones that fail. Returns the restored paths.
+        @discardableResult
+        private static func restore(
+            _ snapshots: [FileSnapshot],
+            fileSystem: any FileSystem,
+            swiftCommandState: SwiftCommandState
+        ) -> [AbsolutePath] {
+            var restored: [AbsolutePath] = []
+            for snapshot in snapshots {
+                do {
+                    if try snapshot.restore(fileSystem: fileSystem) {
+                        restored.append(snapshot.path)
+                    }
+                } catch {
+                    swiftCommandState.observabilityScope.emit(
+                        error: "could not restore '\(snapshot.path)': \(error.interpolationDescription)"
+                    )
+                }
+            }
+            return restored
         }
 
         /// Lines describing the version changes in `changes`, relative to `oldPins`.
@@ -214,6 +267,31 @@ extension SwiftPackageCommand.Audit {
             default: return reference.locationString
             }
         }
+    }
+}
+
+// MARK: - Snapshots
+
+/// The contents of a file, or its absence, to put back after a failed or dry run.
+private struct FileSnapshot {
+    let path: AbsolutePath
+    let contents: ByteString?
+
+    init(path: AbsolutePath, fileSystem: any FileSystem) throws {
+        self.path = path
+        self.contents = fileSystem.exists(path) ? try fileSystem.readFileContents(path) : nil
+    }
+
+    /// Puts the file back as it was. Returns whether it had changed.
+    func restore(fileSystem: any FileSystem) throws -> Bool {
+        let current: ByteString? = fileSystem.exists(self.path) ? try fileSystem.readFileContents(self.path) : nil
+        guard current != self.contents else { return false }
+        if let contents = self.contents {
+            try fileSystem.writeFileContents(self.path, bytes: contents)
+        } else {
+            try fileSystem.removeFileTree(self.path)
+        }
+        return true
     }
 }
 

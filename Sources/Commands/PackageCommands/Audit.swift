@@ -101,7 +101,7 @@ extension SwiftPackageCommand {
         var options: AuditOptions
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
-            let (report, _, _, _) = try await Self.runAudit(options: self.options, swiftCommandState: swiftCommandState)
+            let (report, _, _) = try await Self.runAudit(options: self.options, swiftCommandState: swiftCommandState)
             try Self.printReport(report, options: self.options, swiftCommandState: swiftCommandState)
             try Self.exitForReport(report, options: self.options, swiftCommandState: swiftCommandState)
         }
@@ -148,12 +148,11 @@ extension SwiftPackageCommand {
         /// Loads the package graph (with all traits enabled where `Package.resolved` allows), audits its resolved
         /// packages and classifies how each finding can be fixed.
         ///
-        /// Returns the report with the graph, workspace and root input it was produced from.
         /// Failures of any advisory source or of the classification are thrown.
         static func runAudit(
             options: AuditOptions,
             swiftCommandState: SwiftCommandState
-        ) async throws -> (AuditReport, ModulesGraph, Workspace, PackageGraphRootInput) {
+        ) async throws -> (AuditReport, ModulesGraph, Workspace) {
             let (graph, workspace, root) = try await Self.loadGraph(swiftCommandState: swiftCommandState)
 
             let packages = AuditInputBuilder.makePackages(
@@ -194,7 +193,7 @@ extension SwiftPackageCommand {
                 observabilityScope: swiftCommandState.observabilityScope
             ).classify(report)
 
-            return (classified, graph, workspace, root)
+            return (classified, graph, workspace)
         }
 
         /// Loads the graph to audit without changing `Package.resolved`.

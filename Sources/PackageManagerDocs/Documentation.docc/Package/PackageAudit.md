@@ -102,7 +102,8 @@ package audit fix [--dry-run]
 Each package with findings at or above the severity threshold is handled according to its fix classification:
 
 - Packages that can be fixed within the current requirements are updated, with the same semantics as
-  `swift package update <package>`. Only `Package.resolved` changes.
+  `swift package update <package>`, including the package's own trait configuration. Only `Package.resolved`
+  changes.
 - With `--allow-manifest-changes`, a requirement in the root `Package.swift` that excludes every patched version has
   its lower bound raised to the lowest patched version, keeping the kind of requirement (`from:`,
   `.upToNextMinor(from:)`, `exact:`, or a range). If the change crosses a major version, `--allow-major-upgrades` is
@@ -115,8 +116,9 @@ The command then audits the package again, prints the changes it made and the re
 status from the remaining findings, as `swift package audit` does. If updating the dependencies fails, `Package.swift`
 and `Package.resolved` are restored to their previous contents and the command fails with status 1.
 
-With `--dry-run`, nothing is written: the command prints the planned changes and sets its exit status from the
-current findings.
+With `--dry-run`, nothing is written, not even a `Package.resolved` that resolving the dependencies to audit them
+would otherwise create or update: the command prints the planned changes and sets its exit status from the current
+findings.
 
 ```
 $ swift package audit fix --dry-run
