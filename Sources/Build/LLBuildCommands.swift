@@ -274,7 +274,7 @@ final class TestEntryPointCommand: CustomLLBuildCommand, TestBuildCommand {
                     return "xctest"
                 }
 
-                nonisolated(nonsending) static func main() async {
+                static func main() async {
                     let testingLibrary = Self.testingLibrary()
                     #if canImport(Testing)
                     if testingLibrary == "swift-testing" {
