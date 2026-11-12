@@ -1,0 +1,4 @@
+Name: DiamondTop
+Cflags: -I/path/to/top/include
+Libs: -L/path/to/top/lib
+Requires: DiamondLeft DiamondRight
