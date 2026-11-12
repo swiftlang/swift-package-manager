@@ -30,7 +30,8 @@ enum AuditInputBuilder {
 
         var result: [AuditedPackage] = []
 
-        for package in graph.packages where !graph.isRootPackage(package) {
+        for package in graph.packages.sorted(by: { $0.identity.description < $1.identity.description })
+where !graph.isRootPackage(package) {
             let pin = pins[package.identity]
             let kind: PackageReference.Kind = pin?.packageRef.kind ?? package.manifest.packageKind
             guard let auditKind = self.auditKind(for: kind, package: package) else { continue }
@@ -109,10 +110,15 @@ enum AuditInputBuilder {
                 else { continue }
 
                 let nextTrail = trail + [dependency]
-                if (result[identity]?.count ?? 0) < self.maxPathsPerPackage {
+                let alreadyCapped = (result[identity]?.count ?? 0) >= self.maxPathsPerPackage
+                if !alreadyCapped {
                     result[identity, default: []].append(nextTrail.map(\.manifest.displayName))
                 }
-                walk(dependency, trail: nextTrail)
+                // Once a package has the maximum number of paths, its descendants already have at least that many
+                // (the graph is walked acyclically), so descending again would only re-do capped work.
+                if !alreadyCapped {
+                    walk(dependency, trail: nextTrail)
+                }
             }
         }
 

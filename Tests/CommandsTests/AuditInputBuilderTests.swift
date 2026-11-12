@@ -205,4 +205,115 @@ struct AuditInputBuilderTests {
         let opt = try #require(allPackages.first { $0.identity == .plain("opt") })
         #expect(opt.paths == [["Root", "Opt"]])
     }
+
+    @Test
+    func statesRemoteSourceControlAndDeterministicOrder() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Root/Sources/Root/root.swift",
+            "/Zed/Sources/Zed/z.swift",
+            "/Remote/Sources/Remote/r.swift",
+            "/Branchy/Sources/Branchy/b.swift"
+        )
+        let remoteURL = SourceControlURL("https://github.com/example/remote.git")
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Root",
+                    path: "/Root",
+                    dependencies: [
+                        .localSourceControl(path: "/Zed", requirement: .upToNextMajor(from: "1.0.0")),
+                        .remoteSourceControl(url: remoteURL, requirement: .upToNextMajor(from: "1.0.0")),
+                        .localSourceControl(path: "/Branchy", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    targets: [TargetDescription(name: "Root")]
+                ),
+                Manifest.createLocalSourceControlManifest(
+                    displayName: "Zed", path: "/Zed", targets: [TargetDescription(name: "Zed")]
+                ),
+                Manifest.createRemoteSourceControlManifest(
+                    displayName: "Remote", url: remoteURL, path: "/Remote",
+                    targets: [TargetDescription(name: "Remote")]
+                ),
+                Manifest.createLocalSourceControlManifest(
+                    displayName: "Branchy", path: "/Branchy", targets: [TargetDescription(name: "Branchy")]
+                ),
+            ],
+            observabilityScope: ObservabilitySystem.makeForTesting().topScope
+        )
+
+        let store = try emptyResolvedPackages(fs)
+        store.track(
+            packageRef: .localSourceControl(identity: .plain("branchy"), path: "/Branchy"),
+            state: .branch(name: "main", revision: "cafe")
+        )
+        store.track(
+            packageRef: .remoteSourceControl(identity: .plain("remote"), url: remoteURL),
+            state: .revision("f00d")
+        )
+        store.track(
+            packageRef: .remoteSourceControl(
+                identity: .plain("aaa-gone"),
+                url: SourceControlURL("https://github.com/example/aaa-gone.git")
+            ),
+            state: .revision("1111")
+        )
+
+        let packages = AuditInputBuilder.makePackages(graph: graph, resolvedPackages: store)
+        // Graph packages sorted by identity first, then pins that are not in the graph.
+        #expect(packages.map(\.identity.description) == ["branchy", "remote", "zed", "aaa-gone"])
+
+        #expect(packages[0].state == .revision("cafe"))
+        #expect(packages[1].kind == .sourceControl(url: remoteURL.absoluteString))
+        #expect(packages[1].state == .revision("f00d"))
+        #expect(packages[2].state == .none)
+    }
+
+    @Test
+    func deepDiamondChainIsPrunedAndCapped() throws {
+        let count = 25
+        var files = ["/Root/Sources/Root/root.swift"]
+        var manifests = [Manifest]()
+        func dep(_ name: String) -> PackageDependency {
+            .localSourceControl(path: AbsolutePath("/\(name)"), requirement: .upToNextMajor(from: "1.0.0"))
+        }
+        func add(_ name: String, _ deps: [String]) throws {
+            files.append("/\(name)/Sources/\(name)/x.swift")
+            manifests.append(try Manifest.createLocalSourceControlManifest(
+                displayName: name,
+                path: AbsolutePath("/\(name)"),
+                dependencies: deps.map(dep),
+                targets: [TargetDescription(name: name)]
+            ))
+        }
+        manifests.append(try Manifest.createRootManifest(
+            displayName: "Root",
+            path: "/Root",
+            dependencies: [dep("D0")],
+            targets: [TargetDescription(name: "Root")]
+        ))
+        for i in 0..<count {
+            try add("D\(i)", ["L\(i)", "R\(i)"])
+            try add("L\(i)", ["D\(i + 1)"])
+            try add("R\(i)", ["D\(i + 1)"])
+        }
+        try add("D\(count)", [])
+
+        let fs = InMemoryFileSystem(emptyFiles: files)
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: manifests,
+            observabilityScope: ObservabilitySystem.makeForTesting().topScope
+        )
+        let store = try emptyResolvedPackages(fs)
+
+        let start = ContinuousClock.now
+        let packages = AuditInputBuilder.makePackages(graph: graph, resolvedPackages: store)
+        let elapsed = ContinuousClock.now - start
+
+        let deepest = try #require(packages.first { $0.identity.description == "d\(count)" })
+        #expect(deepest.paths.count == AuditInputBuilder.maxPathsPerPackage)
+        #expect(elapsed < .seconds(5))
+    }
 }
