@@ -128,33 +128,15 @@ extension SwiftPackageCommand {
             }
         }
 
-        /// Loads the package graph with all traits enabled, audits its resolved packages and classifies how each
-        /// finding can be fixed.
+        /// Loads the package graph (with all traits enabled where `Package.resolved` allows), audits its resolved
+        /// packages and classifies how each finding can be fixed.
         ///
         /// Failures of any advisory source or of the classification are thrown.
         static func runAudit(
             options: AuditOptions,
             swiftCommandState: SwiftCommandState
         ) async throws -> (AuditReport, ModulesGraph, Workspace) {
-            // `getActiveWorkspace(enableAllTraits:)` only enables all traits on an already created workspace.
-            _ = try swiftCommandState.getActiveWorkspace()
-            let workspace = try swiftCommandState.getActiveWorkspace(enableAllTraits: true)
-            let workspaceRoot = try swiftCommandState.getWorkspaceRoot()
-            let root = PackageGraphRootInput(
-                packages: workspaceRoot.packages,
-                dependencies: workspaceRoot.dependencies,
-                traitConfiguration: .enableAllTraits
-            )
-
-            let graphScope = swiftCommandState.observabilityScope.makeChildScope(description: "Loading Package Graph")
-            let graph = try await workspace.loadPackageGraph(
-                rootInput: root,
-                forceResolvedVersions: swiftCommandState.options.resolver.forceResolvedVersions,
-                observabilityScope: graphScope
-            )
-            guard !graphScope.errorsReported else {
-                throw ExitCode.failure
-            }
+            let (graph, workspace, root) = try await Self.loadGraph(swiftCommandState: swiftCommandState)
 
             let packages = AuditInputBuilder.makePackages(
                 graph: graph,
@@ -195,6 +177,64 @@ extension SwiftPackageCommand {
             ).classify(report)
 
             return (classified, graph, workspace)
+        }
+
+        /// Loads the graph to audit without changing `Package.resolved`.
+        ///
+        /// Dependencies are first resolved as for any other command, with the package's own trait configuration.
+        /// The graph with all traits enabled is then loaded from `Package.resolved` alone, so that dependencies only
+        /// used with other traits are audited when they are pinned, but never pinned by audit. If that is not
+        /// possible (for example because such a dependency is not pinned), the first graph is audited instead.
+        private static func loadGraph(
+            swiftCommandState: SwiftCommandState
+        ) async throws -> (ModulesGraph, Workspace, PackageGraphRootInput) {
+            let workspace = try swiftCommandState.getActiveWorkspace()
+            let root = try swiftCommandState.getWorkspaceRoot()
+
+            let graphScope = swiftCommandState.observabilityScope.makeChildScope(description: "Loading Package Graph")
+            let graph = try await workspace.loadPackageGraph(
+                rootInput: root,
+                forceResolvedVersions: swiftCommandState.options.resolver.forceResolvedVersions,
+                observabilityScope: graphScope
+            )
+            guard !graphScope.errorsReported else {
+                throw ExitCode.failure
+            }
+
+            // `getActiveWorkspace(enableAllTraits:)` only enables all traits once the workspace has been created,
+            // which happened above.
+            let allTraitsWorkspace = try swiftCommandState.getActiveWorkspace(enableAllTraits: true)
+            let allTraitsRoot = PackageGraphRootInput(
+                packages: root.packages,
+                dependencies: root.dependencies,
+                traitConfiguration: .enableAllTraits
+            )
+            // Failures of this attempt are expected and must not fail the command, so they are collected in a
+            // separate observability system instead of the command's.
+            let errors = ThreadSafeArrayStore<String>()
+            let allTraitsScope = ObservabilitySystem({ _, diagnostic in
+                if diagnostic.severity == .error {
+                    errors.append(diagnostic.message)
+                }
+            }).topScope
+            var reason: String
+            do {
+                let allTraitsGraph = try await allTraitsWorkspace.loadPackageGraph(
+                    rootInput: allTraitsRoot,
+                    forceResolvedVersions: true,
+                    observabilityScope: allTraitsScope
+                )
+                if !allTraitsScope.errorsReported {
+                    return (allTraitsGraph, allTraitsWorkspace, allTraitsRoot)
+                }
+                reason = errors.get().first ?? "unknown error"
+            } catch {
+                reason = errors.get().first ?? error.interpolationDescription
+            }
+            swiftCommandState.observabilityScope.emit(
+                warning: "dependencies used only with traits that are not enabled were not audited, since the package graph with all traits enabled could not be loaded from '\(workspace.location.resolvedVersionsFile.basename)' without changing it: \(reason)"
+            )
+            return (graph, workspace, root)
         }
 
         /// The advisory database to query: `--advisory-database`, then the package's configuration, then the

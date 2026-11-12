@@ -25,7 +25,9 @@ advisories for each resolved package version, and reports the findings. If the d
 yet, the command resolves them first. It does not build anything.
 
 The graph is loaded with all traits enabled, and platform conditions are not evaluated, so dependencies that are only
-used in another configuration are audited too.
+used in another configuration are audited too. The command never changes `Package.resolved` to do so: dependencies
+that are only used with traits that are not enabled are audited when they are already pinned, and otherwise the
+command warns that they were not audited.
 
 Advisories come from two sources, and findings from both are merged:
 

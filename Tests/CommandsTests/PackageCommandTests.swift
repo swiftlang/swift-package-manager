@@ -8848,10 +8848,16 @@ struct PackageCommandTests {
         }
 
         /// Runs `swift package` and returns its exit status instead of throwing on a non-zero one.
+        ///
+        /// The shared configuration directory is placed next to the package unless the arguments pass one, so that
+        /// the developer's own configuration is never read.
         private func run(_ args: [String], packagePath: AbsolutePath) async throws -> Outcome {
+            let configArgs = args.contains("--config-path")
+                ? []
+                : ["--config-path", packagePath.parentDirectory.appending("shared-config").pathString]
             do {
                 let (stdout, stderr) = try await execute(
-                    args,
+                    configArgs + args,
                     packagePath: packagePath,
                     configuration: .debug,
                     buildSystem: .swiftbuild,
@@ -8957,8 +8963,7 @@ struct PackageCommandTests {
                     ["audit", "--advisory-database", osvURL, "--severity-threshold", "unknown"],
                     packagePath: root
                 )
-                #expect(outcome.status != 0)
-                #expect(outcome.status != 2)
+                #expect(outcome.status == 64)
                 #expect(outcome.stderr.contains("--severity-threshold"))
             }
         }
@@ -8970,11 +8975,68 @@ struct PackageCommandTests {
                     ["audit", "--no-advisory-database", "--no-registry-advisories"],
                     packagePath: root
                 )
-                #expect(outcome.status != 0)
-                #expect(outcome.status != 2)
+                #expect(outcome.status == 64)
                 #expect(outcome.stderr.contains("--no-advisory-database"))
                 #expect(outcome.stderr.contains("--no-registry-advisories"))
             }
+        }
+
+        @Test
+        func auditSourceFailureExits1() async throws {
+            try await withVulnerableFixture { root, osvURL in
+                let missing = osvURL + "-does-not-exist"
+                let outcome = try await self.run(["audit", "--advisory-database", missing], packagePath: root)
+                #expect(outcome.status == 1, "stderr: \(outcome.stderr)")
+                #expect(!outcome.stdout.contains("GHSA-test-0001"))
+                #expect(!outcome.stdout.contains("could not be checked"))
+                #expect(outcome.stderr.contains("does-not-exist"))
+            }
+        }
+
+        /// Resolves the `TraitGated` fixture, with `resolveArgs` passed to `swift package resolve`, then audits it
+        /// against an empty database and checks that `Package.resolved` is unchanged. Returns the audit outcome and
+        /// the contents of `Package.resolved`.
+        private func auditTraitGatedFixture(resolveArgs: [String]) async throws -> (Outcome, String) {
+            try await fixture(name: "Audit") { fixturePath in
+                let root = fixturePath.appending(components: "TraitGated", "Root")
+                for name in ["Base", "Gated"] {
+                    initGitRepo(fixturePath.appending(components: "TraitGated", name), tags: ["1.0.0"])
+                }
+                try await execute(
+                    resolveArgs + ["resolve"],
+                    packagePath: root,
+                    configuration: .debug,
+                    buildSystem: .swiftbuild
+                )
+                let resolvedFile = root.appending("Package.resolved")
+                let before: ByteString = try localFileSystem.readFileContents(resolvedFile)
+
+                let emptyDatabase = fixturePath.appending("empty-osv")
+                try localFileSystem.createDirectory(emptyDatabase)
+                let outcome = try await self.run(
+                    ["audit", "--advisory-database", "file://" + emptyDatabase.pathString],
+                    packagePath: root
+                )
+                #expect(outcome.status == 0, "stderr: \(outcome.stderr)")
+
+                let after: ByteString = try localFileSystem.readFileContents(resolvedFile)
+                #expect(before == after, "Package.resolved changed:\n\(before.validDescription ?? "")\n---\n\(after.validDescription ?? "")")
+                return (outcome, after.validDescription ?? "")
+            }
+        }
+
+        @Test
+        func auditDoesNotPinTraitGatedDependencies() async throws {
+            let (outcome, resolved) = try await self.auditTraitGatedFixture(resolveArgs: [])
+            #expect(!resolved.contains("\"gated\""))
+            #expect(outcome.stderr.contains("traits that are not enabled were not audited"))
+        }
+
+        @Test
+        func auditUsesAllTraitsGraphWhenPinned() async throws {
+            let (outcome, resolved) = try await self.auditTraitGatedFixture(resolveArgs: ["--enable-all-traits"])
+            #expect(resolved.contains("\"gated\""))
+            #expect(!outcome.stderr.contains("were not audited"), "stderr: \(outcome.stderr)")
         }
 
         @Test
