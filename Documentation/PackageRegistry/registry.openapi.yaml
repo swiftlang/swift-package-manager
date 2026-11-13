@@ -350,6 +350,47 @@ paths:
           $ref: '#/components/responses/UnsupportedMediaType'
         '429':
           $ref: '#/components/responses/TooManyRequests'
+  '/{scope}/{name}/advisories':
+    parameters:
+      - $ref: '#/components/parameters/Scope'
+      - $ref: '#/components/parameters/PackageName'
+      - name: version
+        in: query
+        required: false
+        description: Limit the advisories to those that affect this package version
+        schema:
+          type: string
+          example: '1.1.1'
+    get:
+      tags:
+        - Packages
+      summary: List security advisories for a package
+      description: |-
+        Support for this endpoint is optional.
+        A server that does not implement it responds with `404` or `501`.
+      operationId: listPackageAdvisories
+      responses:
+        '200':
+          description: Retrieve the security advisories published for a package
+          headers:
+            Content-Version:
+              $ref: '#/components/headers/ContentVersion'
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/Advisories'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '415':
+          $ref: '#/components/responses/UnsupportedMediaType'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '501':
+          description: The server does not implement this optional endpoint
   '/login':
     post:
       tags:
@@ -689,6 +730,23 @@ components:
         - version
         - resources
         - metadata
+    Advisories:
+      type: object
+      properties:
+        advisories:
+          type: array
+          description: OSV records for the package
+          items:
+            type: object
+            additionalProperties: true
+            properties:
+              id:
+                type: string
+                example: 'GHSA-yyyy-yyyy-yyyy'
+            required:
+              - id
+      required:
+        - advisories
     Identifier:
       type: string
       example: 'mona.LinkedList'

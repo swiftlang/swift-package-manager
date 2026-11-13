@@ -186,6 +186,7 @@ extension Tag.Feature.Command.Package {
     @Tag public static var AddDependency: Tag
     @Tag public static var AddProduct: Tag
     @Tag public static var ArchiveSource: Tag
+    @Tag public static var Audit: Tag
     @Tag public static var AddSetting: Tag
     @Tag public static var AddTarget: Tag
     @Tag public static var AddTargetDependency: Tag
