@@ -108,6 +108,9 @@ public enum ModuleError: Swift.Error {
     /// A library target with no sources declares a plugin usage.
     case pluginUsageInEmptyLibraryTarget(String)
 
+    /// Multiple library targets without a sources directory are not allowed when the package has loose sources.
+    case ambiguousLooseSourcesOwner(targets: [String], directory: String)
+
     /// Indicates several targets with the same name exist in a registry and scm package
     case duplicateModulesScmAndRegistry(
         registryPackage: PackageIdentity.RegistryIdentity,
@@ -183,6 +186,9 @@ extension ModuleError: CustomStringConvertible {
             return "library target '\(target)' has no sources or dependencies"
         case .pluginUsageInEmptyLibraryTarget(let target):
             return "library target '\(target)' has no sources directory, so it may not use plugins"
+        case .ambiguousLooseSourcesOwner(let targets, let directory):
+            let targetsDescription = targets.sorted().map { "'\($0)'" }.joined(separator: ", ")
+            return "library targets \(targetsDescription) have no directory under '\(directory)', so it is ambiguous which one owns the source files located in '\(directory)'; set the 'path' property of the library target which has sources"
         case .duplicateModules(let package, let otherPackage, let targets):
             var targetsDescription = "'\(targets.sorted().prefix(3).joined(separator: "', '"))'"
             if targets.count > 3 {
@@ -640,10 +646,26 @@ public final class PackageBuilder {
             // entire predefined target directory.
             if self.manifest.toolsVersion >= .v5_9 {
                 if hasNoDirectory(target) {
+                    let validExtensions = SupportedLanguageExtension.validExtensions(
+                        toolsVersion: self.manifest.toolsVersion
+                    )
                     let hasLooseSources = predefinedDir.contents.contains {
-                        self.fileSystem.isFile(predefinedDir.path.appending(component: $0))
+                        let entry = predefinedDir.path.appending(component: $0)
+                        guard let ext = entry.extension, validExtensions.contains(ext) else {
+                            return false
+                        }
+                        return self.fileSystem.isFile(entry)
                     }
                     if commonTargetsOfSimilarType == 0 && hasLooseSources {
+                        let candidates = self.manifest
+                            .targetsWithCommonSourceRoot(type: target.type)
+                            .filter(hasNoDirectory)
+                        guard candidates.count == 1 else {
+                            throw ModuleError.ambiguousLooseSourcesOwner(
+                                targets: candidates.map(\.name),
+                                directory: predefinedDir.path.basename
+                            )
+                        }
                         return predefinedDir.path
                     }
                 } else if commonTargetsOfSimilarType == 1 {

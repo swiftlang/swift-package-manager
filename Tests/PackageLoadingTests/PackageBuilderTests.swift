@@ -3443,6 +3443,92 @@ struct PackageBuilderTests {
     }
 
     @Test
+    func libraryTargetClaimsLooseSources() throws {
+        let fs = InMemoryFileSystem(emptyFiles: "/Sources/Core.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .vNext,
+            targets: [
+                try TargetDescription(name: "Core", type: .library(.automatic)),
+            ]
+        )
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("Core") { module in
+                module.check(c99name: "Core", type: .library(libraryType: .automatic))
+                module.checkSources(root: "/Sources", paths: "Core.swift")
+            }
+        }
+    }
+
+    @Test
+    func multipleLibraryTargetsWithoutDirectoriesDoNotShareLooseSources() throws {
+        let fs = InMemoryFileSystem(emptyFiles: "/Sources/Core.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .vNext,
+            targets: [
+                try TargetDescription(name: "Core", type: .library(.automatic)),
+                try TargetDescription(name: "CoreDynamic", dependencies: ["Core"], type: .library(.dynamic)),
+            ]
+        )
+        try PackageBuilderTester(manifest, in: fs) { _, diagnostics in
+            diagnostics.check(
+                diagnostic: "library targets 'Core', 'CoreDynamic' have no directory under 'Sources', so it is ambiguous which one owns the source files located in 'Sources'; set the 'path' property of the library target which has sources",
+                severity: .error
+            )
+        }
+    }
+
+    @Test
+    func libraryTargetWithExplicitPathOwnsLooseSourcesBesideAggregate() throws {
+        let fs = InMemoryFileSystem(emptyFiles: "/Sources/Core.swift")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .vNext,
+            targets: [
+                try TargetDescription(name: "Core", path: "Sources", type: .library(.automatic)),
+                try TargetDescription(name: "CoreDynamic", dependencies: ["Core"], type: .library(.dynamic)),
+            ]
+        )
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("Core") { module in
+                module.check(c99name: "Core", type: .library(libraryType: .automatic))
+                module.checkSources(root: "/Sources", paths: "Core.swift")
+            }
+            try package.checkModule("CoreDynamic") { module in
+                module.check(type: .libraryAggregate(libraryType: .dynamic))
+                module.check(targetDependencies: ["Core"])
+            }
+        }
+    }
+
+    @Test
+    func libraryTargetWithoutDirectoryIgnoresLooseNonSourceFiles() throws {
+        let fs = InMemoryFileSystem(emptyFiles: "/Sources/README.md")
+
+        let manifest = Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .vNext,
+            targets: [
+                try TargetDescription(
+                    name: "Aggregate",
+                    dependencies: [.product(name: "Bam", package: nil)],
+                    type: .library(.automatic)
+                ),
+            ]
+        )
+        try PackageBuilderTester(manifest, in: fs) { package, _ in
+            try package.checkModule("Aggregate") { module in
+                module.check(type: .libraryAggregate(libraryType: .automatic))
+                module.check(productDependencies: [.init(name: "Bam", package: nil)])
+            }
+        }
+    }
+
+    @Test
     func testCustomPlatformInConditionals() throws {
         let fs = InMemoryFileSystem(emptyFiles: "/Sources/Foo/Best.swift")
 
