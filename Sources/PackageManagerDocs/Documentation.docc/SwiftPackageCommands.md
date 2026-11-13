@@ -66,6 +66,9 @@ Overview of package manager commands here...
 ### Generating SBOMs
 - <doc:PackageGenerateSBOM>
 
+### Auditing dependencies
+- <doc:PackageAudit>
+
 ### Experimental commands
 - <doc:PackageExperimentalInstall>
 - <doc:PackageExperimentalUninstall>

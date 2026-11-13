@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.6.0",
+  "id": "GHSA-test-0001",
+  "modified": "2026-01-01T00:00:00Z",
+  "published": "2026-01-01T00:00:00Z",
+  "aliases": ["CVE-2026-0001"],
+  "summary": "Test vulnerability in Dep",
+  "affected": [
+    {
+      "package": {
+        "ecosystem": "SwiftURL",
+        "name": "DEP_PACKAGE_NAME"
+      },
+      "ranges": [
+        {
+          "type": "SEMVER",
+          "events": [
+            { "introduced": "0" },
+            { "fixed": "1.0.1" }
+          ]
+        }
+      ]
+    }
+  ],
+  "references": [
+    { "type": "ADVISORY", "url": "https://example.com/advisories/GHSA-test-0001" }
+  ],
+  "database_specific": {
+    "severity": "HIGH"
+  }
+}
