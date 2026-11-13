@@ -97,7 +97,7 @@ extension PackagePIFProjectBuilder {
         var aggregatedModules: [PackageGraph.ResolvedModule] = []
         var nonMemberDependencies: [PackageGraph.ResolvedModule.Dependency] = []
         for dependency in libraryModule.dependencies {
-            if let module = dependency.module, module.type != .plugin, module.type != .systemModule {
+            if let module = dependency.module, ResolvedModule.isLibraryAggregateMember(module) {
                 aggregatedModules.append(module)
             } else {
                 nonMemberDependencies.append(dependency)

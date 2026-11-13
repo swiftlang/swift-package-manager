@@ -345,7 +345,11 @@ extension ModulesGraph {
 extension ResolvedModule {
     var apiDigesterModules: [ResolvedModule] {
         if self.type.isLibraryAggregate {
-            self.dependencies.compactMap(\.module)
+            // An aggregate's API is that of its members from the same package, including the members of
+            // any nested aggregates. Members from other packages are part of those packages' API.
+            self.dependencies.compactMap(\.module).filter {
+                ResolvedModule.isLibraryAggregateMember($0) && $0.packageIdentity == self.packageIdentity
+            }.flatMap(\.apiDigesterModules)
         } else {
             [self]
         }
