@@ -356,7 +356,7 @@ let package = Package(
         .target(
             /** Security advisory (OSV) model and auditing support */
             name: "PackageAudit",
-            dependencies: ["Basics", "PackageModel"],
+            dependencies: ["Basics", "PackageModel", "PackageRegistry"],
             exclude: ["CMakeLists.txt"],
             swiftSettings: commonExperimentalFeatures
         ),
@@ -980,7 +980,7 @@ let package = Package(
         ),
         .testTarget(
             name: "PackageAuditTests",
-            dependencies: ["PackageAudit", "_InternalTestSupport"]
+            dependencies: ["PackageAudit", "PackageRegistry", "_InternalTestSupport"]
         ),
         .testTarget(
             name: "PackageRegistryTests",
