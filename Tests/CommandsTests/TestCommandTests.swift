@@ -2172,6 +2172,19 @@ struct TestCommandTests {
             return output.contains("--label")
         }()
 
+        static let lldbCanLaunchProcesses: Bool = {
+            guard ProcessInfo.hostOperatingSystem == .linux else {
+                return true
+            }
+            guard let lldbPath = try? UserToolchain.default.getLLDB().pathString,
+                  let result = try? AsyncProcess.popen(arguments: [lldbPath, "-b", "-o", "run", "--", "/bin/true"])
+            else {
+                return false
+            }
+            let output = ((try? result.utf8Output()) ?? "") + ((try? result.utf8stderrOutput()) ?? "")
+            return !output.contains("personality set failed")
+        }()
+
         private func execute(
             _ args: [String],
             packagePath: AbsolutePath? = nil,
@@ -2614,6 +2627,10 @@ struct TestCommandTests {
 
         @Test(
             .issue("https://github.com/swiftlang/swift-package-manager/issues/10684", relationship: .defect),
+            .enabled(
+                if: LLDBTests.lldbCanLaunchProcesses,
+                "lldb cannot launch processes in this env"
+            ),
             arguments: SupportedBuildSystemOnAllPlatforms, ["XCTestCalculatorTests/testAdditionPasses", "calculatorAdditionPasses()"],
         )
         func lldbRunExecutesTestsSuccessfully(buildSystem: BuildSystemProvider.Kind, test: String) async throws {
