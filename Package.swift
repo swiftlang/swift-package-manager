@@ -605,6 +605,7 @@ let package = Package(
                 "BinarySymbols",
                 "Build",
                 "CoreCommands",
+                "PackageAudit",
                 "PackageGraph",
                 "SBOMModel",
                 "SourceControl",
@@ -1116,7 +1117,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "_InternalTestSupport",
                 "Workspace",
                 "dummy-swiftc",
-            ]
+            ] + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftParser", "SwiftSyntax"])
         ),
         .testTarget(
             name: "SwiftPMBuildServerTests",

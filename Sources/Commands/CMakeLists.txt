@@ -57,6 +57,7 @@ add_library(Commands
   FileContentsMerger.swift
   XUnitXMLMerger.swift
   Utilities/APIDigester.swift
+  Utilities/Audit/ManifestRequirementEditor.swift
   Utilities/DependenciesSerializer.swift
   Utilities/DescribedPackage.swift
   Utilities/DOTManifestSerializer.swift
@@ -80,6 +81,7 @@ target_link_libraries(Commands PUBLIC
   Build
   CoreCommands
   LLBuildManifest
+  PackageAudit
   PackageGraph
   SBOMModel
   SourceControl
