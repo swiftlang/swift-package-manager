@@ -599,6 +599,16 @@ struct PackagePIFProjectBuilder {
                 log(.debug, indent: 1, "Added use of binary library '\(binaryTarget.artifactPath)'")
                 continue
             }
+            if module.type == .prebuilt {
+                // Do not link prebuilt targets. That is handled in their imparted settings.
+                target.common.addDependency(
+                    on: module.pifTargetGUID,
+                    platformFilters: [],
+                    linkProduct: false
+                )
+                log(.debug, indent: 1, "Added dependency on target '\(module.pifTargetGUID)'")
+                continue
+            }
             // We add these as linked dependencies; because the product type is `.packageProduct`,
             // SwiftBuild won't actually link them, but will instead impart linkage to any clients that
             // link against the package product.
