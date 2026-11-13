@@ -354,6 +354,14 @@ let package = Package(
         ),
 
         .target(
+            /** Security advisory (OSV) model and auditing support */
+            name: "PackageAudit",
+            dependencies: ["Basics", "PackageModel"],
+            exclude: ["CMakeLists.txt"],
+            swiftSettings: commonExperimentalFeatures
+        ),
+
+        .target(
             /** SBOM (Software Bill of Materials) model objects */
             name: "SBOMModel",
             dependencies: ["Basics", "PackageCollections", "PackageGraph", "PackageModel", "SourceControl", "SwiftBuildSupport"],
@@ -597,6 +605,7 @@ let package = Package(
                 "BinarySymbols",
                 "Build",
                 "CoreCommands",
+                "PackageAudit",
                 "PackageGraph",
                 "SBOMModel",
                 "SourceControl",
@@ -971,6 +980,10 @@ let package = Package(
             dependencies: ["PackagePlugin", "_InternalTestSupport"]
         ),
         .testTarget(
+            name: "PackageAuditTests",
+            dependencies: ["PackageAudit", "_InternalTestSupport"]
+        ),
+        .testTarget(
             name: "PackageRegistryTests",
             dependencies: ["_InternalTestSupport", "PackageRegistry"]
         ),
@@ -1104,7 +1117,7 @@ if ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] ==
                 "_InternalTestSupport",
                 "Workspace",
                 "dummy-swiftc",
-            ]
+            ] + swiftSyntaxDependencies(["SwiftIDEUtils", "SwiftParser", "SwiftSyntax"])
         ),
         .testTarget(
             name: "SwiftPMBuildServerTests",
