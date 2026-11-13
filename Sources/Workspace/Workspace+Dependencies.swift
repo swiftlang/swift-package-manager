@@ -47,6 +47,7 @@ import struct PackageModel.PackageReference
 import enum PackageModel.ProductFilter
 import struct PackageModel.ToolsVersion
 import struct SourceControl.Revision
+import enum TSCUtility.Diagnostics
 import struct TSCUtility.Version
 import struct PackageModel.TargetDescription
 import struct PackageModel.TraitDescription
@@ -131,50 +132,18 @@ extension Workspace {
 
         let updateResults: [DependencyResolverBinding]
         if skipUpdateForResolvedPackages && !self.configuration.skipDependenciesUpdates {
-            let localProvider = ResolverPrecomputationProvider(
-                root: graphRoot,
+            guard let result = try await self.solveKeepingResolvedPackages(
+                graphRoot: graphRoot,
                 dependencyManifests: currentManifests,
-                currentToolsVersion: self.currentToolsVersion,
-                allowedLocalPackageIdentities: Set(resolvedPackages.keys),
-                fallbackProvider: self.packageContainerProvider
-            )
-            let resolver = try self.createResolver(
-                provider: localProvider,
                 resolvedPackages: resolvedPackages,
-                skipUpdateForResolvedPackages: true,
+                constraints: updateConstraints,
                 observabilityScope: observabilityScope
-            )
-            self.activeResolver = resolver
-
-            os_signpost(.begin, name: SignpostName.pubgrub)
-            let initialResult = await resolver.solve(constraints: updateConstraints)
-            os_signpost(.end, name: SignpostName.pubgrub)
-
-            self.activeResolver = nil
-
-            guard !observabilityScope.errorsReported else {
+            ) else {
                 return nil
             }
-
-            switch initialResult {
+            switch result {
             case .success(let bindings):
                 updateResults = bindings
-            case .failure(let error) where Self.canRetryPartialUpdateWithRefreshedContainers(error):
-                observabilityScope.emit(
-                    debug: "partial update could not be resolved using pinned dependency metadata alone; retrying with refreshed package containers"
-                )
-
-                let retryResolver = try self.createResolver(
-                    resolvedPackages: resolvedPackages,
-                    observabilityScope: observabilityScope
-                )
-                self.activeResolver = retryResolver
-                updateResults = await self.resolveDependencies(
-                    resolver: retryResolver,
-                    constraints: updateConstraints,
-                    observabilityScope: observabilityScope
-                )
-                self.activeResolver = nil
             case .failure(let error):
                 observabilityScope.emit(error)
                 return nil
@@ -1145,6 +1114,147 @@ extension Workspace {
                 return false
             }
         }
+    }
+
+    /// Resolves the dependencies of `root` as `_updateDependencies(dryRun: true)` would, with every pin except
+    /// those of `packages` kept.
+    ///
+    /// `Package.resolved` and the workspace's resolution state are not changed by the resolution result.
+    /// As with `update --dry-run`, loading manifests may still create caches, fetch repositories, and
+    /// repair managed dependencies (e.g. restore missing checkouts).
+    ///
+    /// A resolver failure is returned as `.failure` rather than emitted to `observabilityScope`;
+    /// failures before resolution (e.g. loading manifests) are thrown.
+    ///
+    /// - Precondition: `observabilityScope` has no previously reported errors, since errors reported to it are
+    ///   treated as failures of this call; use a dedicated child scope per call.
+    /// - Important: Not safe to call concurrently on the same `Workspace` (it sets `activeResolver` and may
+    ///   mutate workspace state while loading manifests).
+    package func resolveDryRun(
+        root: PackageGraphRootInput,
+        unpinning packages: [PackageIdentity],
+        observabilityScope: ObservabilityScope
+    ) async throws -> Result<[(PackageReference, Workspace.PackageStateChange)], any Error> {
+        // Create cache directories.
+        self.createCacheDirectories(observabilityScope: observabilityScope)
+
+        // Load the root manifests and currently checked out manifests.
+        let rootManifests = try await self.loadRootManifests(
+            packages: root.packages,
+            observabilityScope: observabilityScope
+        )
+        let graphRoot = try PackageGraphRoot(
+            input: root,
+            manifests: rootManifests,
+            dependencyMapper: self.dependencyMapper,
+            observabilityScope: observabilityScope,
+            enabledTraitsMap: self.enabledTraitsMap
+        )
+        let currentManifests = try await self.loadDependencyManifests(
+            root: graphRoot,
+            observabilityScope: observabilityScope
+        )
+        let resolvedPackagesStore = try self.resolvedPackagesStore.load()
+
+        // The specific diagnostics have already been emitted.
+        guard !observabilityScope.errorsReported else {
+            throw Diagnostics.fatalError
+        }
+
+        let constraints = currentManifests.editedPackagesConstraints
+            + (try graphRoot.constraints(self.enabledTraitsMap))
+        let resolvedPackages = resolvedPackagesStore.resolvedPackages.filter { !packages.contains($0.key) }
+
+        let result: Result<[DependencyResolverBinding], any Error>
+        if !self.configuration.skipDependenciesUpdates {
+            guard let solved = try await self.solveKeepingResolvedPackages(
+                graphRoot: graphRoot,
+                dependencyManifests: currentManifests,
+                resolvedPackages: resolvedPackages,
+                constraints: constraints,
+                observabilityScope: observabilityScope
+            ) else {
+                throw Diagnostics.fatalError
+            }
+            result = solved
+        } else {
+            let resolver = try self.createResolver(
+                resolvedPackages: resolvedPackages,
+                observabilityScope: observabilityScope
+            )
+            self.activeResolver = resolver
+            os_signpost(.begin, name: SignpostName.pubgrub)
+            result = await resolver.solve(constraints: constraints)
+            os_signpost(.end, name: SignpostName.pubgrub)
+            self.activeResolver = nil
+        }
+
+        switch result {
+        case .success(let bindings):
+            return .success(try await self.computePackageStateChanges(
+                root: graphRoot,
+                resolvedDependencies: bindings,
+                updateBranches: true,
+                observabilityScope: observabilityScope
+            ))
+        case .failure(let error):
+            return .failure(error)
+        }
+    }
+
+    /// Solves `constraints` serving the `resolvedPackages` from their local manifests where possible, and
+    /// retries with refreshed package containers if that local shortcut is insufficient.
+    ///
+    /// Returns `nil` if errors were reported to `observabilityScope` during the initial resolution.
+    private func solveKeepingResolvedPackages(
+        graphRoot: PackageGraphRoot,
+        dependencyManifests: DependencyManifests,
+        resolvedPackages: ResolvedPackagesStore.ResolvedPackages,
+        constraints: [PackageContainerConstraint],
+        observabilityScope: ObservabilityScope
+    ) async throws -> Result<[DependencyResolverBinding], any Error>? {
+        let localProvider = ResolverPrecomputationProvider(
+            root: graphRoot,
+            dependencyManifests: dependencyManifests,
+            currentToolsVersion: self.currentToolsVersion,
+            allowedLocalPackageIdentities: Set(resolvedPackages.keys),
+            fallbackProvider: self.packageContainerProvider
+        )
+        let resolver = try self.createResolver(
+            provider: localProvider,
+            resolvedPackages: resolvedPackages,
+            skipUpdateForResolvedPackages: true,
+            observabilityScope: observabilityScope
+        )
+        self.activeResolver = resolver
+
+        os_signpost(.begin, name: SignpostName.pubgrub)
+        let initialResult = await resolver.solve(constraints: constraints)
+        os_signpost(.end, name: SignpostName.pubgrub)
+
+        self.activeResolver = nil
+
+        guard !observabilityScope.errorsReported else {
+            return nil
+        }
+
+        guard case .failure(let error) = initialResult, Self.canRetryPartialUpdateWithRefreshedContainers(error) else {
+            return initialResult
+        }
+        observabilityScope.emit(
+            debug: "partial update could not be resolved using pinned dependency metadata alone; retrying with refreshed package containers"
+        )
+
+        let retryResolver = try self.createResolver(
+            resolvedPackages: resolvedPackages,
+            observabilityScope: observabilityScope
+        )
+        self.activeResolver = retryResolver
+        os_signpost(.begin, name: SignpostName.pubgrub)
+        let retryResult = await retryResolver.solve(constraints: constraints)
+        os_signpost(.end, name: SignpostName.pubgrub)
+        self.activeResolver = nil
+        return retryResult
     }
 
     /// Computes states of the packages based on last stored state.
