@@ -981,7 +981,14 @@ public final class PackageBuilder {
         // The name of the bundle, if one is being generated.
         let potentialBundleName = self.manifest.displayName + "_" + potentialModule.name
 
-        if sources.relativePaths.isEmpty && resources.isEmpty && headers.isEmpty {
+        // Plugins can supply all of a target's Swift sources. Keep the target in the graph
+        // so its plugins can run before deciding whether there is anything to compile.
+        let mayGenerateSwiftSources = manifestTarget.pluginUsages?.isEmpty == false
+            && [.regular, .executable, .test].contains(potentialModule.type)
+            && sources.relativePaths.isEmpty && headers.isEmpty
+            && !self.fileSystem.exists(publicHeadersPath)
+
+        if sources.relativePaths.isEmpty && resources.isEmpty && headers.isEmpty && !mayGenerateSwiftSources {
             return nil
         }
         try self.validateSourcesOverlapping(forTarget: potentialModule.name, sources: sources.paths)
@@ -1026,7 +1033,7 @@ public final class PackageBuilder {
         }
 
         // Create and return the right kind of target depending on what kind of sources we found.
-        if sources.hasSwiftSources {
+        if sources.hasSwiftSources || mayGenerateSwiftSources {
             var clangModuleInfo: ClangModuleInfo? = nil
             // If this is a mixed source target, we also need to compute the clang module info.
             let hasPublicHeaders = self.fileSystem.exists(publicHeadersPath)
