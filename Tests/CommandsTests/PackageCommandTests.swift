@@ -9172,5 +9172,285 @@ struct PackageCommandTests {
                     == "thrown"
             )
         }
+
+        @Suite("AuditFix")
+        struct AuditFixTests {
+            private let audit = AuditCommandTests()
+
+            private struct Snapshot: Equatable {
+                var manifest: ByteString
+                var resolved: ByteString?
+
+                init(_ root: AbsolutePath) throws {
+                    self.manifest = try localFileSystem.readFileContents(root.appending("Package.swift"))
+                    let resolvedFile = root.appending("Package.resolved")
+                    self.resolved = localFileSystem.exists(resolvedFile)
+                        ? try localFileSystem.readFileContents(resolvedFile)
+                        : nil
+                }
+            }
+
+            /// The version `Package.resolved` pins for the only dependency.
+            private func pinnedVersion(_ root: AbsolutePath) throws -> String? {
+                let object = try JSONSerialization.jsonObject(
+                    with: Data(localFileSystem.readFileContents(root.appending("Package.resolved")).contents)
+                ) as? [String: Any]
+                let pins = object?["pins"] as? [[String: Any]]
+                let state = pins?.first?["state"] as? [String: Any]
+                return state?["version"] as? String
+            }
+
+            private func manifest(_ root: AbsolutePath) throws -> String {
+                try localFileSystem.readFileContents(root.appending("Package.swift"))
+            }
+
+            /// `ManifestFix`: `Root` requires `Dep` `.upToNextMinor(from: "1.0.0")`; the advisory is fixed in 1.1.0.
+            private func withManifestFixFixture(_ body: (AbsolutePath, String) async throws -> Void) async throws {
+                try await self.audit.withDependencyFixture(
+                    "ManifestFix",
+                    osvDirectory: ["ManifestFix", "osv"],
+                    release: { dep in try GitRepository(path: dep).tag(name: "1.1.0") },
+                    body
+                )
+            }
+
+            /// `MajorFix`: `Root` requires `Dep` `from: "1.0.0"`; the advisory is fixed in 2.0.0. With
+            /// `brokenRelease`, the manifest of `Dep` 2.0.0 does not compile.
+            private func withMajorFixFixture(
+                brokenRelease: Bool = false,
+                _ body: (AbsolutePath, String) async throws -> Void
+            ) async throws {
+                try await self.audit.withDependencyFixture(
+                    "MajorFix",
+                    osvDirectory: ["MajorFix", "osv"],
+                    release: { dep in
+                        let repository = GitRepository(path: dep)
+                        if brokenRelease {
+                            try localFileSystem.writeFileContents(
+                                dep.appending("Package.swift"),
+                                string: "// swift-tools-version:5.9\nimport PackageDescription\nlet package = Package(\n"
+                            )
+                            try repository.stageEverything()
+                            try repository.commit(message: "Break the manifest")
+                        }
+                        try repository.tag(name: "2.0.0")
+                    },
+                    body
+                )
+            }
+
+            @Test
+            func fixUpdatesWithinRange() async throws {
+                try await self.audit.withVulnerableFixture { root, osvURL in
+                    let before = try Snapshot(root)
+                    let outcome = try await self.audit.run(["audit", "fix", "--advisory-database", osvURL], packagePath: root)
+                    #expect(outcome.status == 0, "stdout: \(outcome.stdout)\nstderr: \(outcome.stderr)")
+                    #expect(outcome.stdout.contains("Updated"))
+                    #expect(try self.pinnedVersion(root) == "1.0.1")
+                    #expect(try Snapshot(root).manifest == before.manifest)
+                }
+            }
+
+            @Test
+            func fixDryRunWritesNothing() async throws {
+                try await self.audit.withVulnerableFixture { root, osvURL in
+                    let before = try Snapshot(root)
+                    let outcome = try await self.audit.run(
+                        ["audit", "fix", "--dry-run", "--advisory-database", osvURL],
+                        packagePath: root
+                    )
+                    #expect(outcome.status == 2, "stdout: \(outcome.stdout)\nstderr: \(outcome.stderr)")
+                    #expect(outcome.stdout.contains("Would update"))
+                    #expect(outcome.stdout.contains("1.0.0 -> 1.0.1 (Package.resolved)"))
+                    #expect(try Snapshot(root) == before)
+                }
+            }
+
+            @Test
+            func fixJSONKeepsStandardOutputValid() async throws {
+                try await self.audit.withVulnerableFixture { root, osvURL in
+                    let outcome = try await self.audit.run(
+                        ["audit", "fix", "--dry-run", "--format", "json", "--advisory-database", osvURL],
+                        packagePath: root
+                    )
+                    #expect(outcome.status == 2, "stderr: \(outcome.stderr)")
+                    let object = try #require(
+                        try JSONSerialization.jsonObject(with: Data(outcome.stdout.utf8)) as? [String: Any]
+                    )
+                    #expect((object["findings"] as? [Any])?.count == 1)
+                    #expect(outcome.stderr.contains("Would update"))
+                }
+            }
+
+            @Test
+            func fixManifestRequiresFlag() async throws {
+                try await self.withManifestFixFixture { root, osvURL in
+                    let before = try Snapshot(root)
+                    let refused = try await self.audit.run(["audit", "fix", "--advisory-database", osvURL], packagePath: root)
+                    #expect(refused.status == 2, "stdout: \(refused.stdout)\nstderr: \(refused.stderr)")
+                    #expect(refused.stdout.contains("re-run with --allow-manifest-changes to update it"))
+                    #expect(!refused.stdout.contains("--allow-major-upgrades"))
+                    #expect(try Snapshot(root) == before)
+
+                    let fixed = try await self.audit.run(
+                        ["audit", "fix", "--allow-manifest-changes", "--advisory-database", osvURL],
+                        packagePath: root
+                    )
+                    #expect(fixed.status == 0, "stdout: \(fixed.stdout)\nstderr: \(fixed.stderr)")
+                    #expect(fixed.stdout.contains("Changed requirement on"))
+                    #expect(try self.manifest(root).contains(#".package(url: "../Dep", .upToNextMinor(from: "1.1.0")),"#))
+                    #expect(try self.pinnedVersion(root) == "1.1.0")
+                }
+            }
+
+            @Test
+            func fixMajorRequiresFlag() async throws {
+                try await self.withMajorFixFixture { root, osvURL in
+                    let before = try Snapshot(root)
+                    let refused = try await self.audit.run(
+                        ["audit", "fix", "--allow-manifest-changes", "--advisory-database", osvURL],
+                        packagePath: root
+                    )
+                    #expect(refused.status == 2, "stdout: \(refused.stdout)\nstderr: \(refused.stderr)")
+                    #expect(refused.stdout.contains("re-run with --allow-major-upgrades to update it"))
+                    #expect(try Snapshot(root) == before)
+
+                    let dryRun = try await self.audit.run(["audit", "fix", "--dry-run", "--advisory-database", osvURL], packagePath: root)
+                    #expect(dryRun.status == 2)
+                    #expect(
+                        dryRun.stdout.contains("re-run with --allow-manifest-changes --allow-major-upgrades to update it"),
+                        "stdout: \(dryRun.stdout)"
+                    )
+
+                    let fixed = try await self.audit.run(
+                        ["audit", "fix", "--allow-manifest-changes", "--allow-major-upgrades", "--advisory-database", osvURL],
+                        packagePath: root
+                    )
+                    #expect(fixed.status == 0, "stdout: \(fixed.stdout)\nstderr: \(fixed.stderr)")
+                    #expect(try self.manifest(root).contains(#".package(url: "../Dep", from: "2.0.0"),"#))
+                    #expect(try self.pinnedVersion(root) == "2.0.0")
+                }
+            }
+
+            @Test
+            func fixJSONAfterApplyingKeepsStandardOutputValid() async throws {
+                try await self.audit.withVulnerableFixture { root, osvURL in
+                    let outcome = try await self.audit.run(
+                        ["audit", "fix", "--format", "json", "--advisory-database", osvURL],
+                        packagePath: root
+                    )
+                    #expect(outcome.status == 0, "stdout: \(outcome.stdout)\nstderr: \(outcome.stderr)")
+                    let object = try #require(
+                        try JSONSerialization.jsonObject(with: Data(outcome.stdout.utf8)) as? [String: Any]
+                    )
+                    #expect((object["findings"] as? [Any])?.isEmpty == true)
+                    #expect(outcome.stderr.contains("Updated"))
+                    #expect(try self.pinnedVersion(root) == "1.0.1")
+                }
+            }
+
+            @Test
+            func fixDryRunDoesNotCreateResolvedFile() async throws {
+                try await self.audit.withVulnerableFixture { root, osvURL in
+                    let resolvedFile = root.appending("Package.resolved")
+                    try localFileSystem.removeFileTree(resolvedFile)
+                    let outcome = try await self.audit.run(
+                        ["audit", "fix", "--dry-run", "--advisory-database", osvURL],
+                        packagePath: root
+                    )
+                    // The checkout still holds 1.0.0, so resolving pins the vulnerable version.
+                    #expect(outcome.status == 2, "stdout: \(outcome.stdout)\nstderr: \(outcome.stderr)")
+                    #expect(outcome.stdout.contains("Would update"))
+                    #expect(!localFileSystem.exists(resolvedFile))
+                }
+            }
+
+            @Test
+            func fixDryRunKeepsStaleResolvedFile() async throws {
+                try await self.audit.withVulnerableFixture { root, osvURL in
+                    // Without pins, resolving rewrites the file.
+                    let resolvedFile = root.appending("Package.resolved")
+                    try localFileSystem.writeFileContents(
+                        resolvedFile,
+                        string: #"{ "originHash" : "stale", "pins" : [ ], "version" : 3 }"# + "\n"
+                    )
+                    let before = try Snapshot(root)
+                    let outcome = try await self.audit.run(
+                        ["audit", "fix", "--dry-run", "--advisory-database", osvURL],
+                        packagePath: root
+                    )
+                    #expect(outcome.status == 2, "stdout: \(outcome.stdout)\nstderr: \(outcome.stderr)")
+                    #expect(outcome.stdout.contains("Would update"))
+                    #expect(try Snapshot(root) == before)
+                }
+            }
+
+            /// Fixing must resolve like `swift package update`, with the package's own traits: the all-traits graph
+            /// is only used to audit, so a dependency used only with a disabled trait is not kept pinned.
+            @Test
+            func fixUsesThePackagesOwnTraits() async throws {
+                try await fixture(name: "Audit") { fixturePath in
+                    let root = fixturePath.appending(components: "TraitGated", "Root")
+                    let base = fixturePath.appending(components: "TraitGated", "Base")
+                    for name in ["Base", "Gated"] {
+                        initGitRepo(fixturePath.appending(components: "TraitGated", name), tags: ["1.0.0"])
+                    }
+                    try await execute(
+                        ["--enable-all-traits", "resolve"],
+                        packagePath: root,
+                        configuration: .debug,
+                        buildSystem: .swiftbuild
+                    )
+                    try GitRepository(path: base).tag(name: "1.0.1")
+
+                    let resolvedFile = root.appending("Package.resolved")
+                    let resolved: String = try localFileSystem.readFileContents(resolvedFile)
+                    #expect(resolved.contains("\"gated\""))
+                    let object = try #require(
+                        try JSONSerialization.jsonObject(with: Data(resolved.utf8)) as? [String: Any]
+                    )
+                    let pins = try #require(object["pins"] as? [[String: Any]])
+                    let location = try #require(pins.first { $0["identity"] as? String == "base" }?["location"] as? String)
+                    let osvDirectory = fixturePath.appending(components: "TraitGated", "osv")
+                    let record = osvDirectory.appending("GHSA-test-0004.json")
+                    let template: String = try localFileSystem.readFileContents(record)
+                    try localFileSystem.writeFileContents(
+                        record,
+                        string: template.replacingOccurrences(
+                            of: "DEP_PACKAGE_NAME",
+                            with: String(location.drop(while: { $0 == "/" }))
+                        )
+                    )
+
+                    let outcome = try await self.audit.run(
+                        ["audit", "fix", "--advisory-database", osvDirectory.asURL.absoluteString],
+                        packagePath: root
+                    )
+                    #expect(outcome.status == 0, "stdout: \(outcome.stdout)\nstderr: \(outcome.stderr)")
+                    let after: String = try localFileSystem.readFileContents(resolvedFile)
+                    #expect(after.contains("\"1.0.1\""), "Package.resolved:\n\(after)")
+                    #expect(!after.contains("\"gated\""), "Package.resolved:\n\(after)")
+                }
+            }
+
+            @Test
+            func rollsBackOnResolutionFailure() async throws {
+                try await self.withMajorFixFixture(brokenRelease: true) { root, osvURL in
+                    let before = try Snapshot(root)
+                    let outcome = try await self.audit.run(
+                        ["audit", "fix", "--allow-manifest-changes", "--allow-major-upgrades", "--advisory-database", osvURL],
+                        packagePath: root
+                    )
+                    #expect(outcome.status == 1, "stdout: \(outcome.stdout)\nstderr: \(outcome.stderr)")
+                    // The failure must come from the update, after the manifest was edited.
+                    let restored = outcome.stderr.split(separator: "\n").first { $0.hasPrefix("Restored ") } ?? ""
+                    // Only files that changed are restored; resolution failed before writing Package.resolved.
+                    #expect(restored.contains(root.appending("Package.swift").pathString), "stderr: \(outcome.stderr)")
+                    let after = try Snapshot(root)
+                    #expect(after.manifest == before.manifest)
+                    #expect(after.resolved == before.resolved)
+                }
+            }
+        }
     }
 }

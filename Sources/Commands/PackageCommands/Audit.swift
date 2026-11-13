@@ -87,6 +87,7 @@ extension SwiftPackageCommand {
         static let configuration = CommandConfiguration(
             commandName: "audit",
             abstract: "Check dependencies for known security vulnerabilities.",
+            subcommands: [Fix.self],
             helpNames: [.short, .long, .customLong("help", withSingleDash: true)]
         )
 
