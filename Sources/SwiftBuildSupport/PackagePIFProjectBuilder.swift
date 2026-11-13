@@ -23,6 +23,7 @@ import class PackageModel.BinaryModule
 import class PackageModel.Manifest
 import struct PackageModel.Platform
 import class PackageModel.Product
+import struct PackageModel.PackageIdentity
 import struct PackageModel.Resource
 import struct PackageModel.ToolsVersion
 
@@ -65,8 +66,8 @@ struct PackagePIFProjectBuilder {
     /// Current set of names of any package products that are explicitly declared dynamic libraries.
     private let dynamicLibraryProductNames: Set<String>
 
-    /// Module names that are direct dependencies of dynamic library products.
-    /// These modules should be compiled without static linking on Windows.
+    /// Module names that are direct dependencies of dynamic library products, or which are linked into
+    /// dynamic library targets. These modules should be compiled without static linking on Windows.
     var modulesInDynamicLibraries: Set<String> = []
 
     /// Module names that are direct dependencies of automatic libraries which may be
@@ -169,6 +170,55 @@ struct PackagePIFProjectBuilder {
         self.deploymentTargets = deploymentTargets
         self.dynamicLibraryProductNames = dynamicLibraryProductNames
         self.builtModulesAndProducts = []
+        self.modulesInDynamicLibraries = Self.sourceModulesLinkedIntoDynamicLibraryTargets(
+            in: allPackages,
+            from: package.identity
+        )
+    }
+
+    private static func sourceModulesLinkedIntoDynamicLibraryTargets(
+        in packages: some Collection<PackageGraph.ResolvedPackage>,
+        from packageIdentity: PackageIdentity
+    ) -> Set<String> {
+        var result: Set<String> = []
+        var visited: Set<PackageGraph.ResolvedModule.ID> = []
+
+        func addLinkedModules(dependenciesOf module: PackageGraph.ResolvedModule) {
+            for member in module.dependencies.compactMap(\.module)
+                where PackageGraph.ResolvedModule.isLibraryAggregateMember(member)
+            {
+                guard visited.insert(member.id).inserted else { continue }
+                switch member.type {
+                case .library(libraryType: .dynamic), .libraryAggregate(libraryType: .dynamic):
+                    continue
+                case .libraryAggregate:
+                    addLinkedModules(dependenciesOf: member)
+                default:
+                    if member.isSourceModule && member.packageIdentity == packageIdentity {
+                        result.insert(member.name)
+                    }
+                }
+            }
+        }
+
+        for package in packages {
+            for module in package.modules {
+                switch module.type {
+                case .libraryAggregate(libraryType: .dynamic):
+                    visited = []
+                    addLinkedModules(dependenciesOf: module)
+                case .library(libraryType: .dynamic):
+                    if module.packageIdentity == packageIdentity {
+                        result.insert(module.name)
+                    }
+                    visited = []
+                    addLinkedModules(dependenciesOf: module)
+                default:
+                    continue
+                }
+            }
+        }
+        return result
     }
 
     // MARK: - Handling Resources
