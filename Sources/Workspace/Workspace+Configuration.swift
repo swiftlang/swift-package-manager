@@ -572,15 +572,12 @@ extension Workspace.Configuration {
             try self.lock.withLock {
                 self._mirrors.removeAll()
 
-                // prefer local mirrors to shared ones
-                if let local = try self.localMirrors?.get(), !local.isEmpty {
-                    try self._mirrors.append(contentsOf: local)
-                    return
+                if let shared = try self.sharedMirrors?.get() {
+                    try self._mirrors.append(contentsOf: shared)
                 }
 
-                // use shared if local was not found or empty
-                if let shared = try self.sharedMirrors?.get(), !shared.isEmpty {
-                    try self._mirrors.append(contentsOf: shared)
+                if let local = try self.localMirrors?.get() {
+                    try self._mirrors.append(contentsOf: local)
                 }
             }
         }
