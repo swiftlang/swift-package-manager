@@ -52,6 +52,7 @@ import class PackageModel.SystemLibraryModule
 import struct PackageModel.ToolsVersion
 import struct PackageModel.TraitCondition
 
+import struct PackageGraph.ModulesGraph
 import struct PackageGraph.ResolvedModule
 import struct PackageGraph.ResolvedPackage
 import struct PackageGraph.ResolvedProduct
@@ -1010,17 +1011,70 @@ extension PackageGraph.ResolvedProduct {
     }
 }
 
+enum LinkageDependencyTraversal {
+    /// Follow the dependencies of every module which does not produce its own linked image, regardless of tools
+    /// version.
+    case transitive
+
+    /// Follow dependencies according to the tools version of the package declaring each module.
+    ///
+    /// Beginning with tools version 999, clients must directly depend on their linkage dependencies, but automatic library targets are recursively expanded.
+    case declared(ModulesGraph)
+
+    func requiresExplicitLinkageDependencies(_ module: ResolvedModule) -> Bool {
+        switch self {
+        case .transitive:
+            false
+        case .declared(let modulesGraph):
+            modulesGraph.package(for: module).map { $0.manifest.toolsVersion >= .vNext } ?? false
+        }
+    }
+}
+
 extension PackageGraph.ResolvedModule {
     func recursivelyTraverseTransitiveLinkageDependencies(
-        includeDependenciesOfMacros: Set<ResolvedModule.ID>,
+        testableDependencies: Set<ResolvedModule.ID>,
+        traversal: LinkageDependencyTraversal,
         toolsVersion: ToolsVersion,
         with block: (ResolvedModule.Dependency, Set<ProjectModel.PlatformFilter>) -> Void
     ) {
         [self].recursivelyTraverseTransitiveLinkageDependencies(
-            includeDependenciesOfMacros: includeDependenciesOfMacros,
+            testableDependencies: testableDependencies,
+            traversal: traversal,
             toolsVersion: toolsVersion,
             with: block
         )
+    }
+
+    func stopsLinkageTraversal(
+        testableDependencies: Set<ResolvedModule.ID>,
+        traversal: LinkageDependencyTraversal
+    ) -> Bool {
+        switch self.type {
+        case .macro:
+            // Macros run at compile time and their dependencies should not be linked into the client,
+            // unless a client includes their testable variant.
+            !testableDependencies.contains(self.id)
+        case .plugin:
+            // Plugins run at build time and their dependencies should not be linked into the client.
+            true
+        case .library(libraryType: .static), .library(libraryType: .dynamic), .libraryAggregate:
+            // A library with explicit linkage incorporates its dependencies, which should not be
+            // linked independently.
+            true
+        case .library(libraryType: .object), .test:
+            // A plain target or test support module does not produce a linked image, so in newer tools
+            // versions none of its dependencies are linkage dependencies.
+            traversal.requiresExplicitLinkageDependencies(self)
+        case .executable, .snippet:
+            // Executables' dependencies should not be linked into the client,
+            // unless a client includes their testable variant.
+            traversal.requiresExplicitLinkageDependencies(self) && !testableDependencies.contains(self.id)
+        case .library(libraryType: .automatic), .binary, .systemModule, .prebuilt:
+            // An automatic library with sources groups itself with its linkage dependencies, which clients
+            // link individually.
+            false
+        }
     }
 
     func addParseAsLibrarySettings(to settings: inout BuildSettings, toolsVersion: ToolsVersion, fileSystem: FileSystem) {
@@ -1098,12 +1152,14 @@ extension Collection<PackageGraph.ResolvedModule> {
     /// Recursively applies a block to each of the linkage dependencies of the given module, in topological sort order.
     /// Each module or product dependency is visited only once.
     func recursivelyTraverseTransitiveLinkageDependencies(
-        includeDependenciesOfMacros: Set<ResolvedModule.ID>,
+        testableDependencies: Set<ResolvedModule.ID>,
+        traversal: LinkageDependencyTraversal,
         toolsVersion: ToolsVersion,
         with block: (ResolvedModule.Dependency, Set<ProjectModel.PlatformFilter>) -> Void
     ) {
         self.flatMap(\.dependencies).recursivelyTraverseTransitiveLinkageDependencies(
-            includeDependenciesOfMacros: includeDependenciesOfMacros,
+            testableDependencies: testableDependencies,
+            traversal: traversal,
             toolsVersion: toolsVersion,
             with: block
         )
@@ -1114,27 +1170,13 @@ extension Collection<PackageGraph.ResolvedModule.Dependency> {
     /// Recursively applies a block to each of the linkage dependencies of the given dependencies, in topological sort order.
     /// Each module or product dependency is visited only once.
     func recursivelyTraverseTransitiveLinkageDependencies(
-        includeDependenciesOfMacros: Set<ResolvedModule.ID>,
+        testableDependencies: Set<ResolvedModule.ID>,
+        traversal: LinkageDependencyTraversal,
         toolsVersion: ToolsVersion,
         with block: (ResolvedModule.Dependency, Set<ProjectModel.PlatformFilter>) -> Void
     ) {
-        // Do not traverse into *macro*, *plugin*, or explicitly linked *library* dependencies unless explicitly requested.
         func stopsTraversal(_ moduleDependency: ResolvedModule) -> Bool {
-            switch moduleDependency.type {
-            case .macro:
-                // Macros run at compile time and their dependencies should not be linked into the client,
-                // unless a client includes their testable variant.
-                !includeDependenciesOfMacros.contains(moduleDependency.id)
-            case .plugin:
-                // Plugins run at build time and their dependencies should not be linked into the client.
-                true
-            case .library(libraryType: .static), .library(libraryType: .dynamic), .libraryAggregate:
-                // A library with explicit linkage incorporates its dependencies, which should not be
-                // linked independently.
-                true
-            default:
-                false
-            }
+            moduleDependency.stopsLinkageTraversal(testableDependencies: testableDependencies, traversal: traversal)
         }
 
         // First determine the set of transitive linkage dependencies.

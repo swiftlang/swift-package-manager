@@ -214,7 +214,7 @@ struct LibraryTargetPIFTests {
     }
 
     @Test
-    func aggregateLibraryTargetWithTransitiveObjectDeps() async throws {
+    func aggregateLibraryTargetDoesNotLinkTransitiveObjectDeps() async throws {
         let project = try await makeProject(
             files: [
                 "/LibraryTargets/Sources/Leaf/Leaf.swift",
@@ -227,8 +227,209 @@ struct LibraryTargetPIFTests {
             ]
         )
         let target = try project.requireStandardTarget(named: "Aggregate")
-        let dependencyIDs = target.common.dependencies.map(\.targetId.value)
-        #expect(dependencyIDs.contains("PACKAGE-TARGET:Member"))
+        #expect(target.linkedTargetIDs.contains("PACKAGE-TARGET:Member"))
+        #expect(!target.linkedTargetIDs.contains("PACKAGE-TARGET:Leaf"))
+    }
+
+    @Test
+    func aggregateLibraryTargetLinksDependenciesOfAutomaticLibraryTargets() async throws {
+        let project = try await makeProject(
+            files: [
+                "/LibraryTargets/Sources/Leaf/Leaf.swift",
+                "/LibraryTargets/Sources/Core/Core.swift",
+                "/LibraryTargets/Sources/AutoLib/AutoLib.swift",
+            ],
+            targets: [
+                TargetDescription(name: "Leaf"),
+                TargetDescription(name: "Core", dependencies: ["Leaf"]),
+                TargetDescription(name: "AutoLib", dependencies: ["Core"], type: .library(.automatic)),
+                TargetDescription(name: "Aggregate", dependencies: ["AutoLib"], type: .library(.static)),
+            ]
+        )
+        let linked = try project.requireStandardTarget(named: "Aggregate").linkedTargetIDs
+        #expect(linked.contains("PACKAGE-TARGET:AutoLib"))
+        #expect(linked.contains("PACKAGE-TARGET:Core"))
+        #expect(!linked.contains("PACKAGE-TARGET:Leaf"))
+    }
+
+    @Test
+    func libraryTargetWithSourcesDoesNotLinkTransitiveObjectDeps() async throws {
+        let project = try await makeProject(
+            files: [
+                "/LibraryTargets/Sources/Leaf/Leaf.swift",
+                "/LibraryTargets/Sources/Core/Core.swift",
+                "/LibraryTargets/Sources/Lib/Lib.swift",
+            ],
+            targets: [
+                TargetDescription(name: "Leaf"),
+                TargetDescription(name: "Core", dependencies: ["Leaf"]),
+                TargetDescription(name: "Lib", dependencies: ["Core"], type: .library(.dynamic)),
+            ]
+        )
+        let linked = try project.requireStandardTarget(named: "Lib").linkedTargetIDs
+        #expect(linked.contains("PACKAGE-TARGET:Core"))
+        #expect(!linked.contains("PACKAGE-TARGET:Leaf"))
+    }
+
+    @Test
+    func executableDoesNotLinkTransitiveObjectDeps() async throws {
+        let project = try await makeProject(
+            files: [
+                "/LibraryTargets/Sources/Leaf/Leaf.swift",
+                "/LibraryTargets/Sources/Core/Core.swift",
+                "/LibraryTargets/Sources/Tool/main.swift",
+            ],
+            targets: [
+                TargetDescription(name: "Leaf"),
+                TargetDescription(name: "Core", dependencies: ["Leaf"]),
+                TargetDescription(name: "Tool", dependencies: ["Core"], type: .executable),
+            ]
+        )
+        let linked = try project.requireStandardTarget(named: "Tool-product").linkedTargetIDs
+        #expect(linked.contains("PACKAGE-TARGET:Core"))
+        #expect(!linked.contains("PACKAGE-TARGET:Leaf"))
+    }
+
+    @Test
+    func olderToolsVersionExecutableLinksTransitiveObjectDeps() async throws {
+        let project = try await makeProject(
+            files: [
+                "/LibraryTargets/Sources/Leaf/Leaf.swift",
+                "/LibraryTargets/Sources/Core/Core.swift",
+                "/LibraryTargets/Sources/Tool/main.swift",
+            ],
+            toolsVersion: .v6_2,
+            targets: [
+                TargetDescription(name: "Leaf"),
+                TargetDescription(name: "Core", dependencies: ["Leaf"]),
+                TargetDescription(name: "Tool", dependencies: ["Core"], type: .executable),
+            ]
+        )
+        let linked = try project.requireStandardTarget(named: "Tool-product").linkedTargetIDs
+        #expect(linked.contains("PACKAGE-TARGET:Core"))
+        #expect(linked.contains("PACKAGE-TARGET:Leaf"))
+    }
+
+    @Test
+    func executableLinksDependenciesOfNestedAutomaticLibraryTargets() async throws {
+        let project = try await makeProject(
+            files: [
+                "/LibraryTargets/Sources/Leaf/Leaf.swift",
+                "/LibraryTargets/Sources/Core/Core.swift",
+                "/LibraryTargets/Sources/InnerLib/InnerLib.swift",
+                "/LibraryTargets/Sources/OuterLib/OuterLib.swift",
+                "/LibraryTargets/Sources/Tool/main.swift",
+            ],
+            targets: [
+                TargetDescription(name: "Leaf"),
+                TargetDescription(name: "Core", dependencies: ["Leaf"]),
+                TargetDescription(name: "InnerLib", dependencies: ["Core"], type: .library(.automatic)),
+                TargetDescription(name: "OuterLib", dependencies: ["InnerLib"], type: .library(.automatic)),
+                TargetDescription(name: "Tool", dependencies: ["OuterLib"], type: .executable),
+            ]
+        )
+        let linked = try project.requireStandardTarget(named: "Tool-product").linkedTargetIDs
+        #expect(linked.contains("PACKAGE-TARGET:OuterLib"))
+        #expect(linked.contains("PACKAGE-TARGET:InnerLib"))
+        #expect(linked.contains("PACKAGE-TARGET:Core"))
+        #expect(!linked.contains("PACKAGE-TARGET:Leaf"))
+    }
+
+    @Test
+    func testLinksDependenciesOfTestableExecutable() async throws {
+        let project = try await makeProject(
+            files: [
+                "/LibraryTargets/Sources/Leaf/Leaf.swift",
+                "/LibraryTargets/Sources/Core/Core.swift",
+                "/LibraryTargets/Sources/Tool/main.swift",
+                "/LibraryTargets/Tests/ToolTests/ToolTests.swift",
+            ],
+            targets: [
+                TargetDescription(name: "Leaf"),
+                TargetDescription(name: "Core", dependencies: ["Leaf"]),
+                TargetDescription(name: "Tool", dependencies: ["Core"], type: .executable),
+                TargetDescription(name: "ToolTests", dependencies: ["Tool"], type: .test),
+            ]
+        )
+        let linked = try project.requireStandardTarget(productType: .unitTest).linkedTargetIDs
+        #expect(linked.contains { $0.hasPrefix("PACKAGE-TARGET:Tool") && $0.hasSuffix("-testable") })
+        #expect(linked.contains("PACKAGE-TARGET:Core"))
+        #expect(!linked.contains("PACKAGE-TARGET:Leaf"))
+    }
+
+    @Test
+    func executableDoesNotLinkDependenciesOfExecutableDependency() async throws {
+        let project = try await makeProject(
+            files: [
+                "/LibraryTargets/Sources/Core/Core.swift",
+                "/LibraryTargets/Sources/Tool/main.swift",
+                "/LibraryTargets/Sources/OtherTool/main.swift",
+            ],
+            targets: [
+                TargetDescription(name: "Core"),
+                TargetDescription(name: "Tool", dependencies: ["Core"], type: .executable),
+                TargetDescription(name: "OtherTool", dependencies: ["Tool"], type: .executable),
+            ]
+        )
+        let linked = try project.requireStandardTarget(named: "OtherTool-product").linkedTargetIDs
+        #expect(!linked.contains("PACKAGE-TARGET:Core"))
+    }
+
+    @Test
+    func productInNewerToolsVersionLinksOnlyItsTargets() async throws {
+        let project = try await makeProject(
+            files: [
+                "/LibraryTargets/Sources/Leaf/Leaf.swift",
+                "/LibraryTargets/Sources/Core/Core.swift",
+            ],
+            targets: [
+                TargetDescription(name: "Leaf"),
+                TargetDescription(name: "Core", dependencies: ["Leaf"]),
+            ],
+            products: [
+                try ProductDescription(name: "CoreProduct", type: .library(.static), targets: ["Core"]),
+            ]
+        )
+        let linked = try project.requireStandardTarget(named: "CoreProduct-product").linkedTargetIDs
+        #expect(linked.contains("PACKAGE-TARGET:Core"))
+        #expect(!linked.contains("PACKAGE-TARGET:Leaf"))
+    }
+
+    @Test(arguments: [ProductType.LibraryType.static, .automatic])
+    func productFromOlderToolsVersionLinksTransitiveDependencies(libraryType: ProductType.LibraryType) async throws {
+        let project = try await makeProject(
+            files: [
+                "/LibraryTargets/Sources/Tool/main.swift",
+                "/Dep/Sources/Leaf/Leaf.swift",
+                "/Dep/Sources/Core/Core.swift",
+            ],
+            targets: [
+                TargetDescription(
+                    name: "Tool",
+                    dependencies: [.product(name: "CoreProduct", package: "Dep")],
+                    type: .executable
+                ),
+            ],
+            dependencies: [.fileSystem(path: "/Dep")],
+            dependencyManifests: [
+                Manifest.createFileSystemManifest(
+                    displayName: "Dep",
+                    path: "/Dep",
+                    toolsVersion: .v6_2,
+                    products: [
+                        try ProductDescription(name: "CoreProduct", type: .library(libraryType), targets: ["Core"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Leaf"),
+                        TargetDescription(name: "Core", dependencies: ["Leaf"]),
+                    ],
+                ),
+            ],
+            projectName: "Dep"
+        )
+        let product = try project.requireStandardTarget(named: "CoreProduct-product")
+        let dependencyIDs = product.common.dependencies.map(\.targetId.value)
+        #expect(dependencyIDs.contains("PACKAGE-TARGET:Core"))
         #expect(dependencyIDs.contains("PACKAGE-TARGET:Leaf"))
     }
 

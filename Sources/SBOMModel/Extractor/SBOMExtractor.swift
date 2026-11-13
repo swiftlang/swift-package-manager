@@ -91,7 +91,7 @@ internal struct SBOMExtractor {
         switch module.type {
         case .executable:
             .application
-        case .library, .libraryAggregate, .systemModule, .test, .binary, .plugin, .snippet, .macro:
+        case .library, .libraryAggregate, .systemModule, .test, .binary, .plugin, .snippet, .macro, .prebuilt:
             .library
         }
     }

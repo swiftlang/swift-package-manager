@@ -111,6 +111,7 @@ extension PackagePIFProjectBuilder {
         self.addTransitiveLinkageDependencies(
             ofModulesComprising: aggregatedModules,
             additionalDependencies: nonMemberDependencies,
+            traversal: .declared(self.modulesGraph),
             to: targetKeyPath,
             settings: &settings
         )

@@ -642,6 +642,7 @@ struct PackagePIFProjectBuilder {
     mutating func addTransitiveLinkageDependencies(
         ofModulesComprising modules: some Collection<PackageGraph.ResolvedModule>,
         additionalDependencies: [PackageGraph.ResolvedModule.Dependency] = [],
+        traversal: LinkageDependencyTraversal,
         to targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
         settings: inout ProjectModel.BuildSettings
     ) {
@@ -650,9 +651,12 @@ struct PackagePIFProjectBuilder {
         let comprisingModuleNames = Set(modules.map(\.name))
         let toolsVersion = package.manifest.toolsVersion
 
-        let rootDependencies = modules.flatMap(\.dependencies) + additionalDependencies
+        let rootDependencies = modules.flatMap { module in
+            module.stopsLinkageTraversal(testableDependencies: [], traversal: traversal) ? [] : module.dependencies
+        } + additionalDependencies
         rootDependencies.recursivelyTraverseTransitiveLinkageDependencies(
-            includeDependenciesOfMacros: [],
+            testableDependencies: [],
+            traversal: traversal,
             toolsVersion: toolsVersion
         ) { dependency, dependencyPlatformFilters in
             switch dependency {

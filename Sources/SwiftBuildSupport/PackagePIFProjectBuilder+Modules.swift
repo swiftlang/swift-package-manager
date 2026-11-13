@@ -67,7 +67,8 @@ extension PackagePIFProjectBuilder {
         var pluginTarget = self.project[keyPath: pluginTargetKeyPath]
         let mainModuleProducts = self.package.products.filter(\.isMainModuleProduct)
         pluginModule.recursivelyTraverseTransitiveLinkageDependencies(
-            includeDependenciesOfMacros: [],
+            testableDependencies: [],
+            traversal: .transitive,
             toolsVersion: self.package.manifest.toolsVersion
         ) { dependency, dependencyPlatformFilters in
             switch dependency {
@@ -893,8 +894,14 @@ extension PackagePIFProjectBuilder {
         }
         var moduleTarget = self.project[keyPath: sourceModuleTargetKeyPath]
         let moduleMainProducts = self.package.products.filter(\.isMainModuleProduct)
+        let linkageTraversal: LinkageDependencyTraversal = if shouldLinkProduct && targetSuffix != .dynamic {
+            .declared(self.modulesGraph)
+        } else {
+            .transitive
+        }
         sourceModule.recursivelyTraverseTransitiveLinkageDependencies(
-            includeDependenciesOfMacros: [],
+            testableDependencies: [],
+            traversal: linkageTraversal,
             toolsVersion: self.package.manifest.toolsVersion
         ) { dependency, dependencyPlatformFilters in
             switch dependency {

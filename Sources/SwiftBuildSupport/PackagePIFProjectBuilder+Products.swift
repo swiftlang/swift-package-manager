@@ -419,25 +419,27 @@ extension PackagePIFProjectBuilder {
         // Handle the main target's dependencies (and link against them).
         var mainModuleTarget = self.project[keyPath: mainModuleTargetKeyPath]
 
-        // A test target links the testable variant of any macro that is a direct dependency, so that the macro's
-        // implementation can be unit tested. For such macros we also need to traverse into (and link) the macro's own
-        // dependencies. Macros which are transitive dependencies do not link the testable variant.
-        let directMacroDependencyIDs: Set<ResolvedModule.ID>
+        // A test target links the testable variant of any macro or executable that is a direct dependency, so that
+        // its implementation can be unit tested. For such modules we also need to traverse into (and link) the
+        // module's own dependencies. Macros and executables which are transitive dependencies do not link the
+        // testable variant.
+        let testableDependencyIDs: Set<ResolvedModule.ID>
         if product.type == .test {
-            directMacroDependencyIDs = Set(mainModule.dependencies.compactMap { dependency in
-                // Macros are always represented by a target in the manifest, so a product dependency can never
-                // be a direct dependency on a macro implementation.
-                guard case .module(let moduleDependency, _) = dependency, moduleDependency.type == .macro else {
+            testableDependencyIDs = Set(mainModule.dependencies.compactMap { dependency in
+                guard case .module(let moduleDependency, _) = dependency,
+                      [.macro, .executable].contains(moduleDependency.type)
+                else {
                     return nil
                 }
                 return moduleDependency.id
             })
         } else {
-            directMacroDependencyIDs = []
+            testableDependencyIDs = []
         }
 
         mainModule.recursivelyTraverseTransitiveLinkageDependencies(
-            includeDependenciesOfMacros: directMacroDependencyIDs,
+            testableDependencies: testableDependencyIDs,
+            traversal: .declared(self.modulesGraph),
             toolsVersion: self.package.manifest.toolsVersion
         ) { dependency, dependencyPlatformFilters in
             switch dependency {
@@ -484,7 +486,7 @@ extension PackagePIFProjectBuilder {
                     )
                     log(.debug, indent: 1, "Added dependency on product '\(dependencyId)'")
 
-                    if directMacroDependencyIDs.contains(moduleDependency.id) {
+                    if testableDependencyIDs.contains(moduleDependency.id) {
                         mainModuleTarget.common.addDependency(
                             on: moduleDependency.pifTargetGUID(suffix: .testable),
                             platformFilters: dependencyPlatformFilters,
@@ -819,6 +821,7 @@ extension PackagePIFProjectBuilder {
         // against them).
         self.addTransitiveLinkageDependencies(
             ofModulesComprising: product.modules,
+            traversal: targetSuffix == .dynamic ? .transitive : .declared(self.modulesGraph),
             to: libraryUmbrellaTargetKeyPath,
             settings: &settings
         )
