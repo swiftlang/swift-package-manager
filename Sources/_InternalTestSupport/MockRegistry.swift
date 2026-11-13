@@ -34,6 +34,7 @@ public class MockRegistry {
     private var packageVersions = [PackageIdentity: [String: InMemoryRegistryPackageSource]]()
     private var packagesSourceControlURLs = [PackageIdentity: [URL]]()
     private var sourceControlURLs = [URL: PackageIdentity]()
+    private var advisoryBodies = [PackageIdentity: Data]()
     private let packagesLock = NSLock()
 
     public init(
@@ -114,6 +115,13 @@ public class MockRegistry {
         }
     }
 
+    /// Registers the raw advisories document served for the package. Packages without one get a 404.
+    public func addAdvisories(identity: PackageIdentity, body: Data) {
+        self.packagesLock.withLock {
+            self.advisoryBodies[identity] = body
+        }
+    }
+
     @Sendable func httpHandler(
         request: HTTPClient.Request,
         progress: HTTPClient.ProgressHandler?
@@ -149,6 +157,9 @@ public class MockRegistry {
                 throw StringError("invalid url query: \(query)")
             }
             return try self.getIdentifiers(url: sourceControlURL)
+        case 3 where routeComponents[2] == "advisories" || routeComponents[2].hasPrefix("advisories?"):
+            let package = PackageIdentity.plain(routeComponents[0 ... 1].joined(separator: "."))
+            return self.getAdvisories(packageIdentity: package)
         case 2:
             let package = PackageIdentity.plain(routeComponents.joined(separator: "."))
             return try self.getPackageMetadata(packageIdentity: package)
@@ -168,6 +179,17 @@ public class MockRegistry {
         default:
             throw StringError("unknown request \(request.url)")
         }
+    }
+
+    private func getAdvisories(packageIdentity: PackageIdentity) -> HTTPClientResponse {
+        guard let body = self.packagesLock.withLock({ self.advisoryBodies[packageIdentity] }) else {
+            return .notFound()
+        }
+
+        var headers = HTTPClientHeaders()
+        headers.add(name: "Content-Version", value: "1")
+        headers.add(name: "Content-Type", value: "application/json")
+        return HTTPClientResponse(statusCode: 200, headers: headers, body: body)
     }
 
     private func getPackageMetadata(packageIdentity: PackageIdentity) throws -> HTTPClientResponse {
