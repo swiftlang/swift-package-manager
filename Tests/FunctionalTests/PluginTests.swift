@@ -33,6 +33,33 @@ import Foundation
 )
 struct PluginTests {
     @Test(
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/8061", relationship: .verifies),
+        .requiresSwiftConcurrencySupport,
+        arguments: SupportedBuildSystemOnAllPlatforms
+    )
+    func testPluginGeneratedOnlyTargets(buildSystem: BuildSystemProvider.Kind) async throws {
+        try await fixture(name: "Miscellaneous/Plugins/GeneratedOnlyTargets") { fixturePath in
+            let (_, diagnostics) = try await executeSwiftTest(fixturePath, buildSystem: buildSystem)
+            #expect(!diagnostics.contains("Source files for target"))
+
+            let (generatedExecutable, _) = try await executeSwiftRun(
+                fixturePath, "GeneratedExecutable", buildSystem: buildSystem
+            )
+            #expect(generatedExecutable.trimmingCharacters(in: .whitespacesAndNewlines) == "42")
+
+            let (consumer, _) = try await executeSwiftRun(fixturePath, "Runner", buildSystem: buildSystem)
+            #expect(consumer.trimmingCharacters(in: .whitespacesAndNewlines) == "42")
+
+            try localFileSystem.writeFileContents(
+                fixturePath.appending(components: "Sources", "GeneratedLibrary", "answer.ts"),
+                string: "43\n"
+            )
+            let (rebuiltConsumer, _) = try await executeSwiftRun(fixturePath, "Runner", buildSystem: buildSystem)
+            #expect(rebuiltConsumer.trimmingCharacters(in: .whitespacesAndNewlines) == "43")
+        }
+    }
+
+    @Test(
         .requiresSwiftConcurrencySupport,
         .tags(
             .Feature.Command.Build,
