@@ -184,9 +184,13 @@ struct PackagePIFProjectBuilder {
         var visited: Set<PackageGraph.ResolvedModule.ID> = []
 
         func addLinkedModules(dependenciesOf module: PackageGraph.ResolvedModule) {
-            for member in module.dependencies.compactMap(\.module)
+            for case .module(let member, let conditions) in module.dependencies
                 where PackageGraph.ResolvedModule.isLibraryAggregateMember(member)
             {
+                let isLinkedOnWindows = conditions.allSatisfy {
+                    $0.platformsCondition?.platforms.contains(.windows) ?? true
+                }
+                guard isLinkedOnWindows else { continue }
                 guard visited.insert(member.id).inserted else { continue }
                 switch member.type {
                 case .library(libraryType: .dynamic), .libraryAggregate(libraryType: .dynamic):
@@ -633,18 +637,27 @@ struct PackagePIFProjectBuilder {
     mutating func addLinkedDependencies(
         onModulesComprising modules: some Collection<PackageGraph.ResolvedModule>,
         to targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
-        embedResources: Bool
+        embedResources: Bool,
+        platformFilters: [PackageGraph.ResolvedModule.ID: Set<ProjectModel.PlatformFilter>] = [:]
     ) {
         var target = self.project[keyPath: targetKeyPath]
 
         for module in modules {
+            let moduleFilters = platformFilters[module.id] ?? []
+
             // Binary targets are special in that they are just linked, not built.
             if let binaryTarget = module.underlying as? BinaryModule {
                 let binaryFileRef = self.binaryGroup.addFileReference { id in
                     FileReference(id: id, path: binaryTarget.artifactPath.pathString)
                 }
                 target.addLibrary { id in
-                    BuildFile(id: id, fileRef: binaryFileRef, codeSignOnCopy: true, removeHeadersOnCopy: true)
+                    BuildFile(
+                        id: id,
+                        fileRef: binaryFileRef,
+                        platformFilters: moduleFilters,
+                        codeSignOnCopy: true,
+                        removeHeadersOnCopy: true
+                    )
                 }
                 log(.debug, indent: 1, "Added use of binary library '\(binaryTarget.artifactPath)'")
                 continue
@@ -653,7 +666,7 @@ struct PackagePIFProjectBuilder {
                 // Do not link prebuilt targets. That is handled in their imparted settings.
                 target.common.addDependency(
                     on: module.pifTargetGUID,
-                    platformFilters: [],
+                    platformFilters: moduleFilters,
                     linkProduct: false
                 )
                 log(.debug, indent: 1, "Added dependency on target '\(module.pifTargetGUID)'")
@@ -664,7 +677,7 @@ struct PackagePIFProjectBuilder {
             // link against the package product.
             target.common.addDependency(
                 on: module.pifTargetGUID,
-                platformFilters: [],
+                platformFilters: moduleFilters,
                 linkProduct: true
             )
             log(.debug, indent: 1, "Added linked dependency on target '\(module.pifTargetGUID)'")
@@ -675,7 +688,7 @@ struct PackagePIFProjectBuilder {
             // here so that we can embed resources into dynamic targets.
             target.common.addDependency(
                 on: pifTargetIdForResourceBundle(module.name),
-                platformFilters: []
+                platformFilters: platformFilters[module.id] ?? []
             )
 
             let packageName = self.package.name
@@ -701,6 +714,7 @@ struct PackagePIFProjectBuilder {
 
     mutating func addTransitiveLinkageDependencies(
         ofModulesComprising modules: some Collection<PackageGraph.ResolvedModule>,
+        comprisingDependencies: [PackageGraph.ResolvedModule.Dependency]? = nil,
         additionalDependencies: [PackageGraph.ResolvedModule.Dependency] = [],
         traversal: LinkageDependencyTraversal,
         to targetKeyPath: WritableKeyPath<ProjectModel.Project, ProjectModel.Target>,
@@ -711,9 +725,17 @@ struct PackagePIFProjectBuilder {
         let comprisingModuleNames = Set(modules.map(\.name))
         let toolsVersion = package.manifest.toolsVersion
 
-        let rootDependencies = modules.flatMap { module in
-            module.stopsLinkageTraversal(testableDependencies: [], traversal: traversal) ? [] : module.dependencies
-        } + additionalDependencies
+        let rootDependencies: [PackageGraph.ResolvedModule.Dependency]
+        let skippedModuleIDs: Set<PackageGraph.ResolvedModule.ID>
+        if let comprisingDependencies {
+            rootDependencies = comprisingDependencies + additionalDependencies
+            skippedModuleIDs = Set(modules.map(\.id))
+        } else {
+            rootDependencies = modules.flatMap { module in
+                module.stopsLinkageTraversal(testableDependencies: [], traversal: traversal) ? [] : module.dependencies
+            } + additionalDependencies
+            skippedModuleIDs = []
+        }
         rootDependencies.recursivelyTraverseTransitiveLinkageDependencies(
             testableDependencies: [],
             traversal: traversal,
@@ -721,6 +743,8 @@ struct PackagePIFProjectBuilder {
         ) { dependency, dependencyPlatformFilters in
             switch dependency {
             case .module(let moduleDependency, _):
+                if skippedModuleIDs.contains(moduleDependency.id) { return }
+
                 // This assertion is temporarily disabled since we may see targets from
                 // _other_ packages, but this should be resolved; see rdar://95467710.
                 /* assert(moduleDependency.packageName == self.package.name) */

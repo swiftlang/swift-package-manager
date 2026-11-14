@@ -95,23 +95,41 @@ extension PackagePIFProjectBuilder {
         settings[.USES_SWIFTPM_UNSAFE_FLAGS] = recordUsesUnsafeFlags ? "YES" : "NO"
 
         var aggregatedModules: [PackageGraph.ResolvedModule] = []
+        var memberDependencies: [PackageGraph.ResolvedModule.Dependency] = []
         var nonMemberDependencies: [PackageGraph.ResolvedModule.Dependency] = []
         for dependency in libraryModule.dependencies {
             if let module = dependency.module, ResolvedModule.isLibraryAggregateMember(module) {
                 aggregatedModules.append(module)
+                memberDependencies.append(dependency)
             } else {
                 nonMemberDependencies.append(dependency)
             }
         }
+
+        let traversal = LinkageDependencyTraversal.declared(self.modulesGraph)
+        let memberIDs = Set(aggregatedModules.map(\.id))
+        var memberPlatformFilters: [PackageGraph.ResolvedModule.ID: Set<ProjectModel.PlatformFilter>] = [:]
+        (memberDependencies + nonMemberDependencies).recursivelyTraverseTransitiveLinkageDependencies(
+            testableDependencies: [],
+            traversal: traversal,
+            toolsVersion: package.manifest.toolsVersion
+        ) { dependency, platformFilters in
+            if case .module(let module, _) = dependency, memberIDs.contains(module.id) {
+                memberPlatformFilters[module.id] = platformFilters
+            }
+        }
+
         self.addLinkedDependencies(
             onModulesComprising: aggregatedModules,
             to: targetKeyPath,
-            embedResources: false
+            embedResources: false,
+            platformFilters: memberPlatformFilters
         )
         self.addTransitiveLinkageDependencies(
             ofModulesComprising: aggregatedModules,
+            comprisingDependencies: memberDependencies,
             additionalDependencies: nonMemberDependencies,
-            traversal: .declared(self.modulesGraph),
+            traversal: traversal,
             to: targetKeyPath,
             settings: &settings
         )

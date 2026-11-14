@@ -252,6 +252,162 @@ struct LibraryTargetPIFTests {
         #expect(!linked.contains("PACKAGE-TARGET:Leaf"))
     }
 
+    private static let linuxOnly = PackageConditionDescription(platformNames: ["linux"])
+
+    private static func platformFilters(
+        from target: ProjectModel.Target,
+        to targetID: String
+    ) throws -> Set<ProjectModel.PlatformFilter> {
+        try #require(
+            target.common.dependencies.only { $0.targetId.value == targetID },
+            "expected exactly one dependency of '\(target.common.name)' on '\(targetID)'"
+        ).platformFilters
+    }
+
+    private static func linkedPlatformFilters(
+        from target: ProjectModel.Target,
+        to targetID: String
+    ) throws -> Set<ProjectModel.PlatformFilter> {
+        let files = target.common.buildPhases.flatMap { phase -> [ProjectModel.BuildFile] in
+            guard case .frameworks(let frameworks) = phase else { return [] }
+            return frameworks.common.files
+        }
+        return try #require(
+            files.only {
+                if case .targetProduct(let id) = $0.ref { id.value == targetID } else { false }
+            },
+            "expected '\(target.common.name)' to link '\(targetID)' exactly once"
+        ).platformFilters
+    }
+
+    @Test(arguments: [ProductType.LibraryType.static, .dynamic, .automatic])
+    func aggregateLibraryTargetMemberKeepsPlatformCondition(libraryType: ProductType.LibraryType) async throws {
+        let project = try await makeProject(
+            files: [
+                "/LibraryTargets/Sources/Core/Core.swift",
+                "/LibraryTargets/Sources/LinuxSupport/LinuxSupport.swift",
+                "/LibraryTargets/Sources/LinuxLeaf/LinuxLeaf.swift",
+            ],
+            targets: [
+                TargetDescription(name: "Core"),
+                TargetDescription(name: "LinuxLeaf"),
+                TargetDescription(name: "LinuxSupport", dependencies: ["LinuxLeaf"], type: .library(.automatic)),
+                TargetDescription(
+                    name: "Aggregate",
+                    dependencies: [
+                        "Core",
+                        .target(name: "LinuxSupport", condition: Self.linuxOnly),
+                    ],
+                    type: .library(libraryType)
+                ),
+            ]
+        )
+        let aggregate = try project.requireStandardTarget(named: "Aggregate")
+        func isLinuxOnly(_ filters: Set<ProjectModel.PlatformFilter>) -> Bool {
+            !filters.isEmpty && filters.allSatisfy { $0.platform == "linux" && !$0.exclude }
+        }
+
+        let memberFilters = try Self.platformFilters(from: aggregate, to: "PACKAGE-TARGET:LinuxSupport")
+        #expect(isLinuxOnly(memberFilters), "\(memberFilters)")
+        #expect(try Self.linkedPlatformFilters(from: aggregate, to: "PACKAGE-TARGET:LinuxSupport") == memberFilters)
+
+        let leafFilters = try Self.platformFilters(from: aggregate, to: "PACKAGE-TARGET:LinuxLeaf")
+        #expect(isLinuxOnly(leafFilters), "\(leafFilters)")
+        #expect(try Self.linkedPlatformFilters(from: aggregate, to: "PACKAGE-TARGET:LinuxLeaf") == leafFilters)
+
+        // Unconditional members are unaffected.
+        #expect(try Self.platformFilters(from: aggregate, to: "PACKAGE-TARGET:Core").isEmpty)
+        #expect(try Self.linkedPlatformFilters(from: aggregate, to: "PACKAGE-TARGET:Core").isEmpty)
+    }
+
+    @Test
+    func aggregateLibraryTargetMembersWithDifferentPlatformConditions() async throws {
+        let project = try await makeProject(
+            files: [
+                "/LibraryTargets/Sources/MacOnly/MacOnly.swift",
+                "/LibraryTargets/Sources/LinuxOnly/LinuxOnly.swift",
+                "/LibraryTargets/Sources/Common/Common.swift",
+                "/LibraryTargets/Sources/MacLeaf/MacLeaf.swift",
+                "/LibraryTargets/Sources/LinuxLeaf/LinuxLeaf.swift",
+                "/LibraryTargets/Sources/CommonLeaf/CommonLeaf.swift",
+                "/LibraryTargets/Sources/Shared/Shared.swift",
+            ],
+            targets: [
+                TargetDescription(name: "MacLeaf"),
+                TargetDescription(name: "LinuxLeaf"),
+                TargetDescription(name: "CommonLeaf"),
+                TargetDescription(name: "Shared"),
+                TargetDescription(name: "MacOnly", dependencies: ["MacLeaf", "Shared"], type: .library(.automatic)),
+                TargetDescription(name: "LinuxOnly", dependencies: ["LinuxLeaf", "Shared"], type: .library(.automatic)),
+                TargetDescription(name: "Common", dependencies: ["CommonLeaf", "Shared"], type: .library(.automatic)),
+                TargetDescription(
+                    name: "Aggregate",
+                    dependencies: [
+                        .target(name: "MacOnly", condition: PackageConditionDescription(platformNames: ["macos"])),
+                        .target(name: "LinuxOnly", condition: Self.linuxOnly),
+                        "Common",
+                    ],
+                    type: .library(.dynamic)
+                ),
+            ]
+        )
+        let aggregate = try project.requireStandardTarget(named: "Aggregate")
+
+        func filters(to name: String) throws -> Set<ProjectModel.PlatformFilter> {
+            let filters = try Self.platformFilters(from: aggregate, to: "PACKAGE-TARGET:\(name)")
+            #expect(
+                try Self.linkedPlatformFilters(from: aggregate, to: "PACKAGE-TARGET:\(name)") == filters,
+                "linked filters for '\(name)' should match its dependency filters"
+            )
+            return filters
+        }
+        func isOnly(_ platform: String, _ filters: Set<ProjectModel.PlatformFilter>) -> Bool {
+            !filters.isEmpty && filters.allSatisfy { $0.platform == platform && !$0.exclude }
+        }
+
+        let macFilters = try filters(to: "MacOnly")
+        #expect(isOnly("macos", macFilters), "\(macFilters)")
+        let macLeafFilters = try filters(to: "MacLeaf")
+        #expect(isOnly("macos", macLeafFilters), "\(macLeafFilters)")
+
+        let linuxFilters = try filters(to: "LinuxOnly")
+        #expect(isOnly("linux", linuxFilters), "\(linuxFilters)")
+        let linuxLeafFilters = try filters(to: "LinuxLeaf")
+        #expect(isOnly("linux", linuxLeafFilters), "\(linuxLeafFilters)")
+
+        #expect(try filters(to: "Common").isEmpty)
+        #expect(try filters(to: "CommonLeaf").isEmpty)
+
+        #expect(try filters(to: "Shared").isEmpty)
+    }
+
+    @Test
+    func aggregateLibraryTargetMemberReachedUnconditionallyIsLinkedUnconditionally() async throws {
+        let project = try await makeProject(
+            files: [
+                "/LibraryTargets/Sources/Shared/Shared.swift",
+                "/LibraryTargets/Sources/AutoLib/AutoLib.swift",
+            ],
+            targets: [
+                TargetDescription(name: "Shared"),
+                TargetDescription(name: "AutoLib", dependencies: ["Shared"], type: .library(.automatic)),
+                TargetDescription(
+                    name: "Aggregate",
+                    dependencies: [
+                        "AutoLib",
+                        .target(name: "Shared", condition: Self.linuxOnly),
+                    ],
+                    type: .library(.dynamic)
+                ),
+            ]
+        )
+        let aggregate = try project.requireStandardTarget(named: "Aggregate")
+
+        #expect(try Self.platformFilters(from: aggregate, to: "PACKAGE-TARGET:Shared").isEmpty)
+        #expect(try Self.linkedPlatformFilters(from: aggregate, to: "PACKAGE-TARGET:Shared").isEmpty)
+        #expect(try Self.linkedPlatformFilters(from: aggregate, to: "PACKAGE-TARGET:AutoLib").isEmpty)
+    }
+
     @Test
     func libraryTargetWithSourcesDoesNotLinkTransitiveObjectDeps() async throws {
         let project = try await makeProject(
