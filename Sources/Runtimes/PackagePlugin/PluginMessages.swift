@@ -136,6 +136,12 @@ enum HostToPluginMessage: Codable {
                 let directoryId: URL.Id
                 let dependencies: [Dependency]
                 let info: TargetInfo
+                let visibility: Visibility
+
+                enum Visibility: String, Codable {
+                    case `public`
+                    case `package`
+                }
 
                 /// A dependency on either a target or a product in the wire structure.
                 /// All references to other entities are ID their numbers.
@@ -188,12 +194,22 @@ enum HostToPluginMessage: Codable {
                         compilerFlags: [String],
                         linkerFlags: [String])
 
+                    case libraryInfo(
+                        kind: LibraryKind)
+
                     enum SourceModuleKind: String, Codable {
                         case generic
                         case executable
                         case snippet
                         case test
                         case macro
+                        case library
+                    }
+
+                    enum LibraryKind: String, Codable {
+                        case `static`
+                        case `dynamic`
+                        case automatic
                     }
 
                     enum BinaryArtifactKind: Codable {

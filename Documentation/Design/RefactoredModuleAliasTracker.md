@@ -10,6 +10,17 @@ The new model seeks to accurately group and represent this relational data in a 
 
 The key data models in this new tracker are the following:
 
+### **PublicComponent**
+
+```swift
+enum PublicComponent: Hashable {
+    case product(identity: String, name: String)
+    case publicTarget(ModuleAlias.ModuleAliasID)
+}
+```
+
+A public component represents either a product or target with `visibility: .public`, which are the two components of a package a dependent package may reference.
+
 ### **ModuleAlias**
 
 ```swift
@@ -26,9 +37,9 @@ public class ModuleAlias: Identifiable {
 
 This structure aims to represent a single module being aliased; it references its canonical origin (package, module) and tracks any link in the chain of aliasing that is identified. The end result should enforce a singular alias chain comprised of all the `Alias`es that have been added to it, with a single "terminal" alias (i.e. the final name for which the module is being aliased to).
 
-### **ProductModules**
+### **PublicComponentModules**
 
-This structure represents a single unique product from a package, and all of its relationships with other modules and products across the package graph. Namely, it recognizes which modules it vends directly (i.e. the modules it explicitly declares that it exports), the modules it transitively depends on within the same package, cross-package modules that it depends on, cross-package products it depends on, and finally the products across the entire package graph that depend on it. The benefit provided by this model is that we will have quick and immediate access (O(1)) when inquiring about whether a given module/product is at all related in any meaningful way to this product. Additionally, it provides an easy mechanism to identify possible conflicts with module aliasing (e.g. colliding module names).
+This structure represents a single unique public component (product or public target) from a package, and all of its relationships with other modules and public components across the package graph. Namely, it recognizes which modules it vends directly (i.e. the modules it explicitly declares that it exports), the modules it transitively depends on within the same package, cross-package modules that it depends on, cross-package products it depends on, and finally the products across the entire package graph that depend on it. The benefit provided by this model is that we will have quick and immediate access (O(1)) when inquiring about whether a given module/product is at all related in any meaningful way to this product. Additionally, it provides an easy mechanism to identify possible conflicts with module aliasing (e.g. colliding module names).
 
 ### **ModuleInfo**
 
@@ -48,21 +59,21 @@ The tracker's initializer runs through the following stages sequentially:
 
 1. **Build the product and package module maps**
 
-For each package, `addProductAndPackageModules` computes a mapping of the available modules in a given package, as well as the modules that a product within that package vends. The `packageModules` map stored in the `ModuleAliasTracker` is keyed by a package's `PackageIdentity`, and returns a set of `ModuleInfo`. Similarly, the tracker stores a `productModules` mapping which is keyed by a product's identity (via `ProductModules.ID`) and returns the `ProductModules` struct representing that product and carries the intra-package module dependencies for it.
+For each package, `addPublicComponentAndPackageModules` computes a mapping of the available modules in a given package, as well as the modules that each public component (product or public target) within that package vends. The `packageModules` map stored in the `ModuleAliasTracker` is keyed by a package's `PackageIdentity`, and returns a set of `ModuleInfo`. Similarly, the tracker stores a `publicComponentModules` mapping which is keyed by a `PublicComponent` and returns the `PublicComponentModules` struct representing that public component and carries the intra-package module dependencies for it. Once every package has been added, `computeAllChildPublicComponents` resolves the cross-package public components (via `.product` and `.externalModule` dependencies) that each public component depends on.
 
 2. **Compute full module reachability**
 
-After stage 1, all products for every package will have a `ProductModules` struct representing (at this moment) its intra-package module dependencies. This second stage serves as a mechanism to compute the fuller dependency graph relationships between all modules and products in the graph. For every product, `computeAllReachableModules` will compute all intra- and cross-package module dependencies, storing the distance of that module dependency relative to the level of the product's package node in the dependency graph.
+After stage 1, all public components for every package will have a `PublicComponentModules` struct representing (at this moment) its intra-package module dependencies. This second stage serves as a mechanism to compute the fuller dependency graph relationships between all modules and public components in the graph. For every public component, `computeAllReachableModules` will compute all intra- and cross-package module dependencies, storing the distance of that module dependency relative to the level of the public component's package node in the dependency graph.
 
-Afterwards, the `ProductModules` `crossPackageReachableModules` will be populated and keyed by `PackageIdentity`, for which it will return a set of modules that are reachable by that product via other packages. In parallel, `reachableModulesByName` is constructed with the intent to be keyed by a module name, for which a set of `ReachableModule`s are returned that have that same name.
+Afterwards, the `PublicComponentModules` `crossPackageReachableModules` will be populated and keyed by `PackageIdentity`, for which it will return a set of modules that are reachable by that public component via other packages. In parallel, `reachableModulesByName` is constructed with the intent to be keyed by a module name, for which a set of `ReachableModule`s are returned that have that same name.
 
 3. **Compute reverse dependent products**
 
-This next stage establishes a reverse relationship between all the products in the dependency graph. `computeAllDependentProducts` will mirror the previous stage but in reverse, where for every product it will compute every other product that depends on it.
+This next stage establishes a reverse relationship between all the public components in the dependency graph. `computeAllDependentPublicComponents` will mirror the previous stage but in reverse, where for every public component it will compute every other public component that depends on it.
 
 4. **Register declared aliases**
 
-Once the full graph's products and modules relationships have been established, the tracker moves on to record all the module aliases that it finds (`addAliases`). To do so, it iterates over every module's dependencies to detect product dependencies (`.product(..., moduleAliases: [...])`) that declare a module alias. Afterwards, it will resolve which canonical module object the alias refers to (`resolveModule`), and it will record every intermediary module alias (if applicable) in a `ModuleAlias` model.
+Once the full graph's products and modules relationships have been established, the tracker moves on to record all the module aliases that it finds (`addAliases`). To do so, it iterates over every module's dependencies to detect product or public target dependencies (`.product(..., moduleAliases: [...])` or `.target(..., package: ..., moduleAliases: [...])`) that declare a module alias. Afterwards, it will resolve which canonical module object the alias refers to (`resolveModule`), and it will record every intermediary module alias (if applicable) in a `ModuleAlias` model.
 
 Module aliases cannot yet be disambiguated at this stage, therefore the `ModuleAlias` will store every link in each detected module alias chain to later be resolved.
 

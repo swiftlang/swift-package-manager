@@ -26,7 +26,7 @@ package enum Filter: String, Codable, Equatable, CaseIterable {
     package var defaultValueDescription: String {
         switch self {
         case .all: "Include all entities in the SBOM"
-        case .product: "Only include product information and product dependencies"
+        case .product: "Only include product and target information and their dependencies"
         case .package: "Only include package information and package dependencies"
         }
     }
@@ -45,6 +45,7 @@ package struct SBOMInput {
     package let store: ResolvedPackagesStore
     package let filter: Filter
     package let product: String?
+    package let target: String?
     
     // Fields for SBOMEncoder
     package let specs: [Spec]
@@ -62,6 +63,7 @@ package struct SBOMInput {
         store: ResolvedPackagesStore,
         filter: Filter,
         product: String?,
+        target: String? = nil,
         specs: [Spec],
         dir: AbsolutePath,
         observabilityScope: ObservabilityScope,
@@ -72,6 +74,7 @@ package struct SBOMInput {
         self.store = store
         self.filter = filter
         self.product = product
+        self.target = target
         self.specs = specs
         self.dir = dir
         self.observabilityScope = observabilityScope

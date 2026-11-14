@@ -194,6 +194,7 @@ struct CycloneDXConverterTests {
         arguments: [
             (SBOMComponent.Entity.package, SBOMComponent.Entity.package.rawValue),
             (.product, SBOMComponent.Entity.product.rawValue),
+            (.target, SBOMComponent.Entity.target.rawValue),
         ]
     )
     func convertToComponentWithEntity(

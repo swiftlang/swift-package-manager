@@ -41,8 +41,8 @@ struct AllFilterStrategy: SBOMFilterStrategy {
 /// Filter strategy that only includes product-level components and relationships
 struct ProductFilterStrategy: SBOMFilterStrategy {
     func shouldIncludeComponent(_ component: SBOMComponent, primaryComponent: SBOMComponent) -> Bool {
-        // Always include products
-        if component.entity == .product {
+        // Always include products and targets
+        if component.entity.isExposedToDependentPackages {
             return true
         }
         // If the primary component is a package, also include that root package so that the primary component can connect to the products
@@ -59,9 +59,9 @@ struct ProductFilterStrategy: SBOMFilterStrategy {
     ) -> Bool {
         // prevent self-referential dependencies
         guard parent != child else { return false } 
-        if child.entity == .product {
-            // if the primary component is a product, then include product-product relationships
-            if parent.entity == .product {
+        if child.entity.isExposedToDependentPackages {
+            // if the primary component is a product or target, then include relationships between them
+            if parent.entity.isExposedToDependentPackages {
                 return true
             }
             // if the primary component is a package, then need to also include root-package-to-root-product relationship(s) for a full graph
@@ -80,9 +80,9 @@ struct PackageFilterStrategy: SBOMFilterStrategy {
         if component.entity == .package {
             return true
         }
-        // If the primary component is a product, also include that product
-        // This allows package-to-product relationships when the root is a product
-        if primaryComponent.entity == .product && component.id == primaryComponent.id {
+        // If the primary component is a product or target, also include it
+        // This allows package-to-product relationships when the root is a product or target
+        if primaryComponent.entity.isExposedToDependentPackages && component.id == primaryComponent.id {
             return true
         }
         return false
@@ -100,8 +100,8 @@ struct PackageFilterStrategy: SBOMFilterStrategy {
             if child.entity == .package {
                 return true
             }
-            // If the primary component is a product, then include package-to-product relationship for a full graph
-            if primaryComponent.entity == .product && child.id == primaryComponent.id {
+            // If the primary component is a product or target, then include package-to-product relationship for a full graph
+            if primaryComponent.entity.isExposedToDependentPackages && child.id == primaryComponent.id {
                 return true
             }
         }

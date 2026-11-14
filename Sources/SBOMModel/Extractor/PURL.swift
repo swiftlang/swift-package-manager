@@ -78,19 +78,42 @@ extension PURL {
     }
 
     internal static func from(product: ResolvedProduct, version: SBOMComponent.Version) async -> PURL {
+        await self.from(
+            componentName: product.name,
+            componentID: SBOMExtractor.extractComponentID(from: product),
+            packageIdentity: product.packageIdentity,
+            version: version
+        )
+    }
+
+    internal static func from(module: ResolvedModule, version: SBOMComponent.Version) async -> PURL {
+        await self.from(
+            componentName: "target:\(module.underlying.declaredName)",
+            componentID: SBOMExtractor.extractComponentID(from: module),
+            packageIdentity: module.packageIdentity,
+            version: version
+        )
+    }
+
+    private static func from(
+        componentName: String,
+        componentID: SBOMIdentifier,
+        packageIdentity: PackageIdentity,
+        version: SBOMComponent.Version
+    ) async -> PURL {
         let namespace = await extractNamespace(from: version)
         let qualifiers = await extractQualifiers(from: version)
 
         let name: String
         if let registryPackageName = version.entry?.name.description {
-            name = "\(registryPackageName):\(product.name)"
+            name = "\(registryPackageName):\(componentName)"
         } else {
-            name = SBOMExtractor.extractComponentID(from: product).value
+            name = componentID.value
         }
         return PURL(
             scheme: "pkg",
             type: "swift",
-            namespace: (namespace == nil && qualifiers?["path"] == nil) ? product.packageIdentity.description : namespace,
+            namespace: (namespace == nil && qualifiers?["path"] == nil) ? packageIdentity.description : namespace,
             name: name,
             version: version.revision,
             qualifiers: qualifiers

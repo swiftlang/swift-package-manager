@@ -81,7 +81,19 @@ internal struct SBOMExtractor {
         if productCategories.contains(.executable) {
             return .application
         }
+        if Self.extractPublicModules(from: package).contains(where: { $0.type == .executable }) {
+            return .application
+        }
         return .library
+    }
+
+    internal static func extractCategory(from module: ResolvedModule) throws -> SBOMComponent.Category {
+        switch module.type {
+        case .executable:
+            .application
+        case .library, .libraryAggregate, .systemModule, .test, .binary, .plugin, .snippet, .macro, .prebuilt:
+            .library
+        }
     }
 
     internal static func extractCategory(from product: ResolvedProduct) throws -> SBOMComponent.Category {
@@ -102,6 +114,10 @@ internal struct SBOMExtractor {
         }
         let allModulesAreTests = product.modules.allSatisfy { $0.type == .test }
         return allModulesAreTests ? .test : .runtime
+    }
+
+    internal static func extractScope(from module: ResolvedModule) throws -> SBOMComponent.Scope {
+        module.type == .test ? .test : .runtime
     }
 
     internal static func extractScope(from package: ResolvedPackage) throws -> SBOMComponent.Scope {
@@ -229,11 +245,27 @@ internal struct SBOMExtractor {
         SBOMIdentifier(value: "\(product.packageIdentity):\(product.name)")
     }
 
+    internal static func extractComponentID(from module: ResolvedModule) -> SBOMIdentifier {
+        SBOMIdentifier(value: "\(module.packageIdentity):target:\(module.underlying.declaredName)")
+    }
+
+    /// The public targets of a package which aren't already part of one of its products.
+    internal static func extractPublicModules(from package: ResolvedPackage) -> [ResolvedModule] {
+        let productModules = Set(package.products.flatMap { $0.modules.map(\.id) })
+        return package.modules
+            .filter { $0.underlying.visibility == .public && !productModules.contains($0.id) }
+            .sorted { $0.name < $1.name }
+    }
+
     private func extractProductsFromPackage(package: ResolvedPackage) async throws -> [SBOMComponent] {
         var productComponents: [SBOMComponent] = []
         for product in package.products {
             let productComponent = try await extractComponent(product: product)
             productComponents.append(productComponent)
+        }
+        for module in Self.extractPublicModules(from: package) {
+            let moduleComponent = try await extractComponent(module: module)
+            productComponents.append(moduleComponent)
         }
         return productComponents
     }
@@ -286,30 +318,86 @@ internal struct SBOMExtractor {
         return component
     }
 
-    internal func extractPrimaryComponent(product: String? = nil) async throws -> SBOMComponent {
+    internal func extractComponent(module: ResolvedModule) async throws -> SBOMComponent {
+        let declaredName = module.underlying.declaredName
+        if let cached = await caches.component.getTarget(module.packageIdentity, targetName: declaredName) {
+            return cached
+        }
+
+        let versionInfo = try await extractComponentVersionInfo(from: module.packageIdentity)
+        let component = try await SBOMComponent(
+            category: Self.extractCategory(from: module),
+            id: Self.extractComponentID(from: module),
+            purl: PURL.from(module: module, version: versionInfo.version),
+            name: declaredName,
+            version: versionInfo.version,
+            originator: versionInfo.originator,
+            description: nil,
+            scope: Self.extractScope(from: module),
+            entity: .target
+        )
+
+        await self.caches.component.setTarget(module.packageIdentity, targetName: declaredName, component: component)
+
+        return component
+    }
+
+    internal func extractComponent(_ reference: DependencyReference) async throws -> SBOMComponent {
+        switch reference {
+        case .product(let product):
+            try await self.extractComponent(product: product)
+        case .module(let module):
+            try await self.extractComponent(module: module)
+        }
+    }
+
+    /// Finds the product or target of the root package that an SBOM is being generated for, if any.
+    internal func extractPrimaryReference(product: String? = nil, target: String? = nil) throws -> DependencyReference? {
         guard let rootPackage = modulesGraph.rootPackages.first else {
             throw SBOMExtractorError.noRootPackage(context: "determine primary component for SBOM")
         }
-        // product of root package
-        if let productName = product {
+        switch (product, target) {
+        case (.some, .some):
+            throw SBOMExtractorError.productAndTargetSpecified
+        case (let productName?, nil):
             guard let resolvedProduct = rootPackage.products.first(where: { $0.name == productName }) else {
                 throw SBOMExtractorError.productNotFound(
                     productName: productName,
                     packageIdentity: rootPackage.identity.description
                 )
             }
-            return try await self.extractComponent(product: resolvedProduct)
+            return .product(resolvedProduct)
+        case (nil, let targetName?):
+            guard let resolvedModule = rootPackage.modules.first(where: { $0.name == targetName }) else {
+                throw SBOMExtractorError.targetNotFound(
+                    targetName: targetName,
+                    packageIdentity: rootPackage.identity.description
+                )
+            }
+            return .module(resolvedModule)
+        case (nil, nil):
+            return nil
+        }
+    }
+
+    internal func extractPrimaryComponent(product: String? = nil, target: String? = nil) async throws -> SBOMComponent {
+        guard let rootPackage = modulesGraph.rootPackages.first else {
+            throw SBOMExtractorError.noRootPackage(context: "determine primary component for SBOM")
+        }
+        // product or target of root package
+        if let reference = try self.extractPrimaryReference(product: product, target: target) {
+            return try await self.extractComponent(reference)
         }
         // root package
         return try await self.extractComponent(package: rootPackage)
     }
 
-    internal func extractSBOM(product: String? = nil, filter: Filter = .all) async throws -> SBOMDocument {
+    internal func extractSBOM(product: String? = nil, target: String? = nil, filter: Filter = .all) async throws -> SBOMDocument {
         try await SBOMDocument(
             id: SBOMIdentifier.generate(),
             metadata: self.extractMetadata(),
-            primaryComponent: self.extractPrimaryComponent(product: product), // either a root package or a product of the root package
-            dependencies: extractDependencies(product: product, filter: filter)
+            primaryComponent: self.extractPrimaryComponent(product: product, target: target), // a root package, or a product or target of the root package
+            dependencies: extractDependencies(product: product, target: target, filter: filter)
         )
     }
 }

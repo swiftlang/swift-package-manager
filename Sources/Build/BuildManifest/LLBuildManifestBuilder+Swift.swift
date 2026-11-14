@@ -164,7 +164,7 @@ extension LLBuildManifestBuilder {
         inputs: [Node],
         cmdOutputs: [Node]
     ) throws {
-        let isLibrary = target.target.type == .library || target.target.type == .test
+        let isLibrary = target.target.type.isLibrary || target.target.type == .test
         let cmdName = target.getCommandName()
 
         self.manifest.addWriteSourcesFileListCommand(sources: target.sources, sourcesFileListPath: target.sourcesFileListPath)

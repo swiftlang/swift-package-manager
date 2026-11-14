@@ -22,7 +22,7 @@ public typealias ResolvedTarget = ResolvedModule
 public struct ResolvedModule {
     /// Represents dependency of a resolved module.
     public enum Dependency {
-        /// Direct dependency of the module. This module is in the same package and should be statically linked.
+        /// The module depends on this module.
         case module(_ module: ResolvedModule, conditions: [PackageCondition])
 
         /// The module depends on this product.
@@ -304,3 +304,20 @@ extension ResolvedModule: Identifiable {
 
 @available(*, unavailable, message: "Use `Identifiable` conformance or `IdentifiableSet` instead")
 extension ResolvedModule: Hashable {}
+
+extension ResolvedModule {
+    /// Whether a module dependency of a library aggregate module is one of its members, which are linked
+    /// into it.
+    ///
+    /// Only library, binary and prebuilt modules are members of an aggregate. Dependencies on executables,
+    /// macros, tests and plugins are not linkage dependencies of a library, and system modules contribute
+    /// only the linker settings they impart.
+    package static func isLibraryAggregateMember(_ module: ResolvedModule) -> Bool {
+        switch module.type {
+        case .library, .libraryAggregate, .binary, .prebuilt:
+            true
+        case .executable, .snippet, .macro, .test, .plugin, .systemModule:
+            false
+        }
+    }
+}

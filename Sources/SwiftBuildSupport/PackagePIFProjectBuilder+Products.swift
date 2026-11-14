@@ -419,25 +419,28 @@ extension PackagePIFProjectBuilder {
         // Handle the main target's dependencies (and link against them).
         var mainModuleTarget = self.project[keyPath: mainModuleTargetKeyPath]
 
-        // A test target links the testable variant of any macro that is a direct dependency, so that the macro's
-        // implementation can be unit tested. For such macros we also need to traverse into (and link) the macro's own
-        // dependencies. Macros which are transitive dependencies do not link the testable variant.
-        let directMacroDependencyIDs: Set<ResolvedModule.ID>
+        // A test target links the testable variant of any macro or executable that is a direct dependency, so that
+        // its implementation can be unit tested. For such modules we also need to traverse into (and link) the
+        // module's own dependencies. Macros and executables which are transitive dependencies do not link the
+        // testable variant.
+        let testableDependencyIDs: Set<ResolvedModule.ID>
         if product.type == .test {
-            directMacroDependencyIDs = Set(mainModule.dependencies.compactMap { dependency in
-                // Macros are always represented by a target in the manifest, so a product dependency can never
-                // be a direct dependency on a macro implementation.
-                guard case .module(let moduleDependency, _) = dependency, moduleDependency.type == .macro else {
+            testableDependencyIDs = Set(mainModule.dependencies.compactMap { dependency in
+                guard case .module(let moduleDependency, _) = dependency,
+                      [.macro, .executable].contains(moduleDependency.type)
+                else {
                     return nil
                 }
                 return moduleDependency.id
             })
         } else {
-            directMacroDependencyIDs = []
+            testableDependencyIDs = []
         }
 
+        let traversal = LinkageDependencyTraversal.declared(self.modulesGraph)
         mainModule.recursivelyTraverseTransitiveLinkageDependencies(
-            includeDependenciesOfMacros: directMacroDependencyIDs,
+            testableDependencies: testableDependencyIDs,
+            traversal: traversal,
             toolsVersion: self.package.manifest.toolsVersion
         ) { dependency, dependencyPlatformFilters in
             switch dependency {
@@ -484,7 +487,7 @@ extension PackagePIFProjectBuilder {
                     )
                     log(.debug, indent: 1, "Added dependency on product '\(dependencyId)'")
 
-                    if directMacroDependencyIDs.contains(moduleDependency.id) {
+                    if testableDependencyIDs.contains(moduleDependency.id) {
                         mainModuleTarget.common.addDependency(
                             on: moduleDependency.pifTargetGUID(suffix: .testable),
                             platformFilters: dependencyPlatformFilters,
@@ -512,8 +515,15 @@ extension PackagePIFProjectBuilder {
                     }
 
                     // If we're linking against an executable and the tools version is new enough,
-                    // we also link against a testable version of the executable.
-                    if product.type == .test, self.package.manifest.toolsVersion >= .v5_5 {
+                    // we also link against a testable version of the executable. Only do so when the
+                    // executable's own dependencies are linked too, which in newer tools versions requires
+                    // it to be a direct dependency; otherwise the testable variant would fail to link.
+                    if product.type == .test, self.package.manifest.toolsVersion >= .v5_5,
+                       !moduleDependency.stopsLinkageTraversal(
+                           testableDependencies: testableDependencyIDs,
+                           traversal: traversal
+                       )
+                    {
                         let moduleDependencyGUID = moduleDependency.pifTargetGUID(suffix: .testable)
                         mainModuleTarget.common.addDependency(
                             on: moduleDependencyGUID,
@@ -524,7 +534,7 @@ extension PackagePIFProjectBuilder {
                         log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependencyGUID)'")
                     }
 
-                case .library, .test:
+                case .library, .test, .libraryAggregate:
                     let dependencyGUID = moduleDependency.pifTargetGUID
                     mainModuleTarget.common.addDependency(
                         on: dependencyGUID,
@@ -576,7 +586,11 @@ extension PackagePIFProjectBuilder {
         var releaseSettings: ProjectModel.BuildSettings = settings
 
         // Apply target-specific build settings defined in the manifest.
-        let allBuildSettings = try mainModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
+        let allBuildSettings = try mainModule.computeAllBuildSettings(
+            observabilityScope: pifBuilder.observabilityScope,
+            forRemotePackage: pifBuilder.delegate.isRemote,
+            toolsVersion: package.manifest.toolsVersion
+        )
 
         // Apply settings using the convenience methods
         allBuildSettings.apply(to: &debugSettings, for: .debug)
@@ -743,64 +757,11 @@ extension PackagePIFProjectBuilder {
         }
 
         // Add linked dependencies on the *targets* that comprise the product.
-        var libraryUmbrellaTargetForModules = self.project[keyPath: libraryUmbrellaTargetKeyPath]
-        for module in product.modules {
-            // Binary targets are special in that they are just linked, not built.
-            if let binaryTarget = module.underlying as? BinaryModule {
-                let binaryFileRef = self.binaryGroup.addFileReference { id in
-                    FileReference(id: id, path: binaryTarget.artifactPath.pathString)
-                }
-                libraryUmbrellaTargetForModules.addLibrary { id in
-                    BuildFile(id: id, fileRef: binaryFileRef, codeSignOnCopy: true, removeHeadersOnCopy: true)
-                }
-                log(.debug, indent: 1, "Added use of binary library '\(binaryTarget.artifactPath)'")
-            } else if module.type == .prebuilt {
-                // Do not link prebuilt targets. That is handled in their imparted settings.
-                libraryUmbrellaTargetForModules.common.addDependency(
-                    on: module.pifTargetGUID,
-                    platformFilters: [],
-                    linkProduct: false
-                )
-                log(.debug, indent: 1, "Added dependency on target '\(module.pifTargetGUID)'")
-            } else {
-                // We add these as linked dependencies; because the product type is `.packageProduct`,
-                // SwiftBuild won't actually link them, but will instead impart linkage to any clients that
-                // link against the package product.
-                libraryUmbrellaTargetForModules.common.addDependency(
-                    on: module.pifTargetGUID,
-                    platformFilters: [],
-                    linkProduct: true
-                )
-                log(.debug, indent: 1, "Added linked dependency on target '\(module.pifTargetGUID)'")
-            }
-        }
-
-        for module in product.modules where module.underlying.isSourceModule && module.resources.hasContent {
-            // FIXME: Find a way to determine whether a module has generated resources
-            // here so that we can embed resources into dynamic targets.
-            libraryUmbrellaTargetForModules.common.addDependency(
-                on: pifTargetIdForResourceBundle(module.name),
-                platformFilters: []
-            )
-
-            let packageName = self.package.name
-            let fileRef = self.project.mainGroup.addFileReference { id in
-                FileReference(id: id, path: "$(CONFIGURATION_BUILD_DIR)/\(packageName)_\(module.name).bundle")
-            }
-            if embedResources {
-                libraryUmbrellaTargetForModules.addResourceFile { id in
-                    BuildFile(id: id, fileRef: fileRef)
-                }
-                log(.debug, indent: 1, "Added use of resource bundle '\(fileRef.path)'")
-            } else {
-                log(
-                    .debug,
-                    indent: 1,
-                    "Ignored resource bundle '\(fileRef.path)' because resource embedding is disabled"
-                )
-            }
-        }
-        self.project[keyPath: libraryUmbrellaTargetKeyPath] = libraryUmbrellaTargetForModules
+        self.addLinkedDependencies(
+            onModulesComprising: product.modules,
+            to: libraryUmbrellaTargetKeyPath,
+            embedResources: embedResources
+        )
 
         var settings: ProjectModel.BuildSettings = package.underlying.packageBaseBuildSettings
         settings[.BUILD_SERVER_PROTOCOL_TARGET_DISPLAY_NAME] = product.name
@@ -866,108 +827,12 @@ extension PackagePIFProjectBuilder {
         // Handle the dependencies of the targets in the product
         // (and link against them, which in the case of a package product, really just means that clients should link
         // against them).
-        var libraryUmbrellaTarget = self.project[keyPath: libraryUmbrellaTargetKeyPath]
-        let mainModuleProducts = package.products.filter(\.isMainModuleProduct)
-        product.modules.recursivelyTraverseTransitiveLinkageDependencies(
-            includeDependenciesOfMacros: [],
-            toolsVersion: package.manifest.toolsVersion
-        ) { dependency, dependencyPlatformFilters in
-            switch dependency {
-            case .module(let moduleDependency, _):
-                // This assertion is temporarily disabled since we may see targets from
-                // _other_ packages, but this should be resolved; see rdar://95467710.
-                /* assert(moduleDependency.packageName == self.package.name) */
-
-                if moduleDependency.type == .systemModule {
-                    log(.debug, indent: 1, "Noted use of system module '\(moduleDependency.name)'")
-                    return
-                }
-
-                if let binaryTarget = moduleDependency.underlying as? BinaryModule {
-                    let binaryFileRef = self.binaryGroup.addFileReference { id in
-                        FileReference(id: id, path: binaryTarget.artifactPath.pathString)
-                    }
-                    libraryUmbrellaTarget.addLibrary { id in
-                        BuildFile(
-                            id: id,
-                            fileRef: binaryFileRef,
-                            platformFilters: dependencyPlatformFilters,
-                            codeSignOnCopy: true,
-                            removeHeadersOnCopy: true
-                        )
-                    }
-                    log(.debug, indent: 1, "Added use of binary library '\(binaryTarget.path)'")
-                    return
-                }
-
-                if moduleDependency.type == .plugin {
-                    let dependencyId = moduleDependency.pifTargetGUID
-                    libraryUmbrellaTarget.common.addDependency(
-                        on: dependencyId,
-                        platformFilters: dependencyPlatformFilters,
-                        linkProduct: false
-                    )
-                    log(.debug, indent: 1, "Added use of plugin target '\(dependencyId)'")
-                    return
-                }
-
-                // If this dependency is already present in the product's module target then don't re-add it.
-                if product.modules.contains(where: { $0.name == moduleDependency.name }) { return }
-
-                // For executable targets, add a build time dependency on the product.
-                // FIXME: Maybe we should we do this at the libSwiftPM level.
-                if moduleDependency.isExecutable {
-                    if let product = moduleDependency
-                        .productRepresentingDependencyOfBuildPlugin(in: mainModuleProducts)
-                    {
-                        libraryUmbrellaTarget.common.addDependency(
-                            on: product.pifTargetGUID,
-                            platformFilters: dependencyPlatformFilters,
-                            linkProduct: false
-                        )
-                        log(.debug, indent: 1, "Added dependency on product '\(product.pifTargetGUID)'")
-                        return
-                    } else {
-                        log(
-                            .debug,
-                            indent: 1,
-                            "Could not find a build plugin product to depend on for target '\(product.pifTargetGUID)'"
-                        )
-                    }
-                }
-
-                libraryUmbrellaTarget.common.addDependency(
-                    on: moduleDependency.pifTargetGUID,
-                    platformFilters: dependencyPlatformFilters,
-                    linkProduct: true
-                )
-                log(.debug, indent: 1, "Added linked dependency on target '\(moduleDependency.pifTargetGUID)'")
-
-            case .product(let productDependency, _):
-                // Do not add a dependency for binary-only executable products since they are not part of the build.
-                if productDependency.isBinaryOnlyExecutableProduct {
-                    return
-                }
-
-                if !pifBuilder.delegate.shouldSuppressProductDependency(
-                    product: productDependency.underlying,
-                    buildSettings: &settings
-                ) {
-                    let shouldLinkProduct = productDependency.isLinkable
-                    libraryUmbrellaTarget.common.addDependency(
-                        on: productDependency.pifTargetGUID,
-                        platformFilters: dependencyPlatformFilters,
-                        linkProduct: shouldLinkProduct
-                    )
-                    log(
-                        .debug,
-                        indent: 1,
-                        "Added \(shouldLinkProduct ? "linked" : "") dependency on product '\(productDependency.pifTargetGUID)'"
-                    )
-                }
-            }
-        }
-        self.project[keyPath: libraryUmbrellaTargetKeyPath] = libraryUmbrellaTarget
+        self.addTransitiveLinkageDependencies(
+            ofModulesComprising: product.modules,
+            traversal: targetSuffix == .dynamic ? .transitive : .declared(self.modulesGraph),
+            to: libraryUmbrellaTargetKeyPath,
+            settings: &settings
+        )
 
         // For *registry* packages, vend any registry release metadata to the build system.
         if let metadata = package.registryMetadata,
@@ -1217,7 +1082,11 @@ extension PackagePIFProjectBuilder {
         // of e.g. linker settings specify a linked library external to the package.
         var debugSettings: ProjectModel.BuildSettings = settings
         var releaseSettings: ProjectModel.BuildSettings = settings
-        let allBuildSettings = try unitTestModule.computeAllBuildSettings(observabilityScope: pifBuilder.observabilityScope, forRemotePackage: pifBuilder.delegate.isRemote)
+        let allBuildSettings = try unitTestModule.computeAllBuildSettings(
+            observabilityScope: pifBuilder.observabilityScope,
+            forRemotePackage: pifBuilder.delegate.isRemote,
+            toolsVersion: package.manifest.toolsVersion
+        )
         allBuildSettings.apply(to: &debugSettings, for: .debug)
         allBuildSettings.apply(to: &releaseSettings, for: .release)
 
