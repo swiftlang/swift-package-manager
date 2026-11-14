@@ -437,9 +437,10 @@ extension PackagePIFProjectBuilder {
             testableDependencyIDs = []
         }
 
+        let traversal = LinkageDependencyTraversal.declared(self.modulesGraph)
         mainModule.recursivelyTraverseTransitiveLinkageDependencies(
             testableDependencies: testableDependencyIDs,
-            traversal: .declared(self.modulesGraph),
+            traversal: traversal,
             toolsVersion: self.package.manifest.toolsVersion
         ) { dependency, dependencyPlatformFilters in
             switch dependency {
@@ -514,8 +515,15 @@ extension PackagePIFProjectBuilder {
                     }
 
                     // If we're linking against an executable and the tools version is new enough,
-                    // we also link against a testable version of the executable.
-                    if product.type == .test, self.package.manifest.toolsVersion >= .v5_5 {
+                    // we also link against a testable version of the executable. Only do so when the
+                    // executable's own dependencies are linked too, which in newer tools versions requires
+                    // it to be a direct dependency; otherwise the testable variant would fail to link.
+                    if product.type == .test, self.package.manifest.toolsVersion >= .v5_5,
+                       !moduleDependency.stopsLinkageTraversal(
+                           testableDependencies: testableDependencyIDs,
+                           traversal: traversal
+                       )
+                    {
                         let moduleDependencyGUID = moduleDependency.pifTargetGUID(suffix: .testable)
                         mainModuleTarget.common.addDependency(
                             on: moduleDependencyGUID,

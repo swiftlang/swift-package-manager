@@ -513,6 +513,78 @@ struct LibraryTargetPIFTests {
         #expect(!linked.contains("PACKAGE-TARGET:Leaf"))
     }
 
+    private static func isTestableVariant(of name: String) -> (String) -> Bool {
+        { $0.hasPrefix("PACKAGE-TARGET:\(name)") && $0.hasSuffix("-testable") }
+    }
+
+    /// A test target depending on an executable, which itself depends on another executable.
+    private static func executableChainProject(
+        _ test: LibraryTargetPIFTests,
+        toolsVersion: ToolsVersion
+    ) async throws -> ProjectModel.Target {
+        let project = try await test.makeProject(
+            files: [
+                "/LibraryTargets/Sources/Core/Core.swift",
+                "/LibraryTargets/Sources/Helper/main.swift",
+                "/LibraryTargets/Sources/Tool/main.swift",
+                "/LibraryTargets/Tests/ToolTests/ToolTests.swift",
+            ],
+            toolsVersion: toolsVersion,
+            targets: [
+                TargetDescription(name: "Core"),
+                TargetDescription(name: "Helper", dependencies: ["Core"], type: .executable),
+                TargetDescription(name: "Tool", dependencies: ["Helper"], type: .executable),
+                TargetDescription(name: "ToolTests", dependencies: ["Tool"], type: .test),
+            ]
+        )
+        return try project.requireStandardTarget(productType: .unitTest)
+    }
+
+    @Test
+    func testDoesNotLinkTestableVariantOfTransitiveExecutable() async throws {
+        let test = try await Self.executableChainProject(self, toolsVersion: .vNext)
+        let linked = test.linkedTargetIDs
+
+        #expect(linked.contains(where: Self.isTestableVariant(of: "Tool")))
+        #expect(!test.common.dependencies.map(\.targetId.value).contains(where: Self.isTestableVariant(of: "Helper")))
+        #expect(!linked.contains(where: Self.isTestableVariant(of: "Helper")))
+        #expect(!linked.contains("PACKAGE-TARGET:Core"))
+    }
+
+    @Test
+    func olderToolsVersionTestLinksTestableVariantOfTransitiveExecutable() async throws {
+        let test = try await Self.executableChainProject(self, toolsVersion: .v6_0)
+        let linked = test.linkedTargetIDs
+        #expect(linked.contains(where: Self.isTestableVariant(of: "Tool")))
+        #expect(linked.contains(where: Self.isTestableVariant(of: "Helper")))
+        #expect(linked.contains("PACKAGE-TARGET:Core"))
+    }
+
+    @Test
+    func testDoesNotLinkTestableVariantOfExecutableBehindAutomaticLibraryTarget() async throws {
+        let project = try await makeProject(
+            files: [
+                "/LibraryTargets/Sources/Core/Core.swift",
+                "/LibraryTargets/Sources/Tool/main.swift",
+                "/LibraryTargets/Sources/AutoLib/AutoLib.swift",
+                "/LibraryTargets/Tests/AutoLibTests/AutoLibTests.swift",
+            ],
+            targets: [
+                TargetDescription(name: "Core"),
+                TargetDescription(name: "Tool", dependencies: ["Core"], type: .executable),
+                TargetDescription(name: "AutoLib", dependencies: ["Tool"], type: .library(.automatic)),
+                TargetDescription(name: "AutoLibTests", dependencies: ["AutoLib"], type: .test),
+            ]
+        )
+        let test = try project.requireStandardTarget(productType: .unitTest)
+        let linked = test.linkedTargetIDs
+
+        #expect(linked.contains("PACKAGE-TARGET:AutoLib"))
+        #expect(!test.common.dependencies.map(\.targetId.value).contains(where: Self.isTestableVariant(of: "Tool")))
+        #expect(!linked.contains(where: Self.isTestableVariant(of: "Tool")))
+        #expect(!linked.contains("PACKAGE-TARGET:Core"))
+    }
+
     @Test
     func executableDoesNotLinkDependenciesOfExecutableDependency() async throws {
         let project = try await makeProject(
