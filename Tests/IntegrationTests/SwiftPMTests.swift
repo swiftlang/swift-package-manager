@@ -24,16 +24,13 @@ import struct SPMBuildCore.BuildSystemProvider
 private struct SwiftPMTests {
     @Test(
         .requireHostOS(.macOS),
+        .issue("https://github.com/swiftlang/swift-package-manager/issues/10679", relationship: .verifies),
         arguments: [
             BuildSystemProvider.Kind.native,
             .swiftbuild,
         ],
     )
     func binaryTargets(buildSystem: BuildSystemProvider.Kind) async throws {
-        try await withKnownIssue(
-            "because https://github.com/swiftlang/swift-package-manager/issues/10679",
-            isIntermittent: true,
-        ) {
         try await binaryTargetsFixture { fixturePath in
             do {
                 let runOutput = try await executeSwiftRun(
@@ -86,7 +83,6 @@ private struct SwiftPMTests {
                     == "d1f202b1bfe04dea30b2bc4038f8059dcd75a5a176f1d81fcaedb6d3597d1158"
                 )
             }
-        }
         }
     }
 
