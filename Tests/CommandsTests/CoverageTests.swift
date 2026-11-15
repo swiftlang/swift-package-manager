@@ -501,8 +501,6 @@ struct CoverageTests {
                     ] + testData.formats.flatMap({ ["--coverage-format", $0.rawValue] }),
                     buildSystem: buildSystem,
                 )
-                // `testData.expected` always uses `/` as the path separator; normalize the
-                // actual output the same way so the comparison is platform-independent.
                 let actual = stdout.trimmingCharacters(in: .whitespacesAndNewlines)
 
                 #expect(actual == updatedExpected, "stdout: \(stdout)\n\nstderr: \(stderr)")
@@ -648,7 +646,6 @@ struct CoverageTests {
     @Suite
     struct XcovArgumentsTests {
         @Test(
-            .issue("https://github.com/swiftlang/swift-package-manager/issues/10722", relationship: .defect),
             arguments: SupportedBuildSystemOnAllPlatforms, [
                 (
                     XcovArgs: [
@@ -699,31 +696,18 @@ struct CoverageTests {
                     buildSystem: buildSystem,
                 )
 
-                let htmlCommandRegex = try Regex("debug: Calling HTML: .*llvm-cov show.*\(xcovData.expectedHtmlReportCmd).*")
-                let jsonCommandRegex = try Regex("debug: Calling JSON: .*llvm-cov export.*\(xcovData.expectedJsonReportCmd).*")
-                withKnownIssue(
-                    "https://github.com/swiftlang/swift-package-manager/issues/10722",
-                    isIntermittent: true,
-                ) {
+                let htmlCommandRegex = try Regex("debug: Calling HTML: .*\(executableName("llvm-cov")) show.*\(xcovData.expectedHtmlReportCmd).*")
+                let jsonCommandRegex = try Regex("debug: Calling JSON: .*\(executableName("llvm-cov")) export.*\(xcovData.expectedJsonReportCmd).*")
+
                 #expect(
                     stderr.contains(htmlCommandRegex) == true,
                     "Did not find HTML command",
                 )
-                } when: {
-                    ProcessInfo.hostOperatingSystem == .windows
-                }
 
-                withKnownIssue(
-                    "https://github.com/swiftlang/swift-package-manager/issues/10722",
-                    isIntermittent: true,
-                ) {
                 #expect(
                     stderr.contains(jsonCommandRegex) == true,
                     "Did not find JSON command",
                 )
-                } when: {
-                    ProcessInfo.hostOperatingSystem == .windows
-                }
             }
         }
 

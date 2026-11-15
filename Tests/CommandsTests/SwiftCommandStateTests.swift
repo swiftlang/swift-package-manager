@@ -570,12 +570,11 @@ final class SwiftCommandStateTests: XCTestCase {
     }
 
     func testToolchainOption() async throws {
-        try XCTSkipOnWindows(because: #"https://github.com/swiftlang/swift-package-manager/issues/8660, threw error \"toolchain is invalid: could not find CLI tool `swiftc` at any of these directories: [<AbsolutePath:\"\usr\bin\">]\", needs investigation"#)
         let customTargetToolchain = AbsolutePath("/path/to/toolchain")
-        let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
-        let hostArPath = AbsolutePath("/usr/bin/ar")
-        let targetSwiftcPath = customTargetToolchain.appending(components: ["usr", "bin", "swiftc"])
-        let targetArPath = customTargetToolchain.appending(components: ["usr", "bin", "llvm-ar"])
+        let hostSwiftcPath = AbsolutePath("/usr/bin/\(executableName("swiftc"))")
+        let hostArPath = AbsolutePath("/usr/bin/\(executableName("ar"))")
+        let targetSwiftcPath = customTargetToolchain.appending(components: ["usr", "bin", executableName("swiftc")])
+        let targetArPath = customTargetToolchain.appending(components: ["usr", "bin", executableName("llvm-ar")])
 
         let fs = InMemoryFileSystem(emptyFiles: [
             "/Pkg/Sources/exe/main.swift",
@@ -632,17 +631,16 @@ final class SwiftCommandStateTests: XCTestCase {
 
         let arguments = try plan.buildProducts.compactMap { $0 as? Build.ProductBuildDescription }.first?.linkArguments() ?? []
 
-        XCTAssertMatch(arguments, [.contains("/path/to/toolchain")])
+        XCTAssertMatch(arguments, [.contains(customTargetToolchain.pathString)])
     }
 
     func testToolsetOption() throws {
-        try XCTSkipOnWindows(because: #"https://github.com/swiftlang/swift-package-manager/issues/8660. threw error \"toolchain is invalid: could not find CLI tool `swiftc` at any of these directories: [<AbsolutePath:\"\usr\bin\">]\", needs investigation"#)
         let targetToolchainPath = "/path/to/toolchain"
         let customTargetToolchain = AbsolutePath(targetToolchainPath)
-        let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
-        let hostArPath = AbsolutePath("/usr/bin/ar")
-        let targetSwiftcPath = customTargetToolchain.appending(components: ["swiftc"])
-        let targetArPath = customTargetToolchain.appending(components: ["llvm-ar"])
+        let hostSwiftcPath = AbsolutePath("/usr/bin/\(executableName("swiftc"))")
+        let hostArPath = AbsolutePath("/usr/bin/\(executableName("ar"))")
+        let targetSwiftcPath = customTargetToolchain.appending(components: [executableName("swiftc")])
+        let targetArPath = customTargetToolchain.appending(components: [executableName("llvm-ar")])
 
         let fs = InMemoryFileSystem(emptyFiles: [
             hostSwiftcPath.pathString,
@@ -673,24 +671,23 @@ final class SwiftCommandStateTests: XCTestCase {
         let targetToolchain = try swiftCommandState.getTargetToolchain()
 
         XCTAssertEqual(
-            targetToolchain.swiftSDK.toolset.rootPaths,
-            [customTargetToolchain] + hostToolchain.swiftSDK.toolset.rootPaths
+            targetToolchain.swiftSDK.toolset.rootPaths.map(withoutDrive),
+            ([customTargetToolchain] + hostToolchain.swiftSDK.toolset.rootPaths).map(withoutDrive)
         )
-        XCTAssertEqual(targetToolchain.swiftCompilerPath, targetSwiftcPath)
-        XCTAssertEqual(targetToolchain.librarianPath, targetArPath)
+        XCTAssertEqual(withoutDrive(targetToolchain.swiftCompilerPath), withoutDrive(targetSwiftcPath))
+        XCTAssertEqual(withoutDrive(targetToolchain.librarianPath), withoutDrive(targetArPath))
     }
 
     func testMultipleToolsets() throws {
-        try XCTSkipOnWindows(because: #"https://github.com/swiftlang/swift-package-manager/issues/8660, threw error \"toolchain is invalid: could not find CLI tool `swiftc` at any of these directories: [<AbsolutePath:\"\usr\bin\">]\", needs investigation"#)
         let targetToolchainPath1 = "/path/to/toolchain1"
         let customTargetToolchain1 = AbsolutePath(targetToolchainPath1)
         let targetToolchainPath2 = "/path/to/toolchain2"
         let customTargetToolchain2 = AbsolutePath(targetToolchainPath2)
-        let hostSwiftcPath = AbsolutePath("/usr/bin/swiftc")
-        let hostArPath = AbsolutePath("/usr/bin/ar")
-        let targetSwiftcPath = customTargetToolchain1.appending(components: ["swiftc"])
-        let targetArPath = customTargetToolchain1.appending(components: ["llvm-ar"])
-        let targetClangPath = customTargetToolchain2.appending(components: ["clang"])
+        let hostSwiftcPath = AbsolutePath("/usr/bin/\(executableName("swiftc"))")
+        let hostArPath = AbsolutePath("/usr/bin/\(executableName("ar"))")
+        let targetSwiftcPath = customTargetToolchain1.appending(components: [executableName("swiftc")])
+        let targetArPath = customTargetToolchain1.appending(components: [executableName("llvm-ar")])
+        let targetClangPath = customTargetToolchain2.appending(components: [executableName("clang")])
 
         let fs = InMemoryFileSystem(emptyFiles: [
             hostSwiftcPath.pathString,
@@ -731,12 +728,12 @@ final class SwiftCommandStateTests: XCTestCase {
         let targetToolchain = try swiftCommandState.getTargetToolchain()
 
         XCTAssertEqual(
-            targetToolchain.swiftSDK.toolset.rootPaths,
-            [customTargetToolchain2, customTargetToolchain1] + hostToolchain.swiftSDK.toolset.rootPaths
+            targetToolchain.swiftSDK.toolset.rootPaths.map(withoutDrive),
+            ([customTargetToolchain2, customTargetToolchain1] + hostToolchain.swiftSDK.toolset.rootPaths).map(withoutDrive)
         )
-        XCTAssertEqual(targetToolchain.swiftCompilerPath, targetSwiftcPath)
-        XCTAssertEqual(try targetToolchain.getClangCompiler(), targetClangPath)
-        XCTAssertEqual(targetToolchain.librarianPath, targetArPath)
+        XCTAssertEqual(withoutDrive(targetToolchain.swiftCompilerPath), withoutDrive(targetSwiftcPath))
+        XCTAssertEqual(withoutDrive(try targetToolchain.getClangCompiler()), withoutDrive(targetClangPath))
+        XCTAssertEqual(withoutDrive(targetToolchain.librarianPath), withoutDrive(targetArPath))
     }
 
     func testPackagePathWithMissingFolder() async throws {
@@ -758,4 +755,15 @@ final class SwiftCommandStateTests: XCTestCase {
         }
     }
 
+}
+
+/// On Windows the toolchain code resolves drive-less paths such as `\path\to\toolchain` against the current
+/// drive (`C:\path\to\toolchain`), so compare paths without a leading drive.
+private func withoutDrive(_ path: AbsolutePath) -> String {
+    let string = path.pathString
+    let characters = Array(string)
+    if characters.count >= 2, characters[1] == ":" {
+        return String(string.dropFirst(2))
+    }
+    return string
 }
