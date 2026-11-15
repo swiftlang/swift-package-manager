@@ -58,14 +58,6 @@ public struct MinimumDeploymentTarget {
         return nil
     }
 
-    /// Temporary hard-coded minimum deployment targets for test targets.
-    static func absoluteXCTestMinimumDeploymentTarget(platform: PackageModel.Platform) -> PlatformVersion? {
-        if platform == .macOS {
-            return PlatformVersion("14.0")
-        }
-        return nil
-    }
-
     static func computeXCTestMinimumDeploymentTarget(with runResult: AsyncProcessResult, platform: PackageModel.Platform) throws -> PlatformVersion? {
         guard let output = try runResult.utf8Output().spm_chuzzle() else { return nil }
         let sdkPath = try Basics.AbsolutePath(validating: output)
@@ -74,7 +66,6 @@ public struct MinimumDeploymentTarget {
         let targets = [
             try computeMinimumDeploymentTarget(of: xcTestPath, platform: platform),
             try computeMinimumDeploymentTarget(of: swiftTestingPath, platform: platform),
-            absoluteXCTestMinimumDeploymentTarget(platform: platform),
         ]
         return targets.compactMap(\.self).max()
     }
