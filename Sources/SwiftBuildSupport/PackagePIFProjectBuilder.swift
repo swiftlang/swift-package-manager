@@ -232,6 +232,8 @@ struct PackagePIFProjectBuilder {
         settings[.EXECUTABLE_NAME] = ""
         settings[.GENERATE_INFOPLIST_FILE] = "YES"
         settings[.PACKAGE_RESOURCE_TARGET_KIND] = "resource"
+        // Don't strip binaries that happen to be resources.
+        settings[.COPY_PHASE_STRIP] = "NO"
 
         settings[.COREML_COMPILER_CONTAINER] = "swift-package"
         settings[.COREML_CODEGEN_LANGUAGE] = "None"

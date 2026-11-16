@@ -841,6 +841,9 @@ let package = Package(
                 .product(name: "Subprocess", package: "swift-subprocess"),
                 "Workspace",
             ] + swiftTSCTestSupportDeps,
+            resources: [
+                .copy("Fixtures"),
+            ],
         ),
         .target(
             /** SwiftPM internal test suite support library */
