@@ -108,7 +108,15 @@ import SwiftBuild
                     ),
                     inputFiles: inFiles,
                     outputFiles: outFiles
-                )
+                ),
+                .defineSettings(settings: [
+                    .init(
+                        name: "headerSearchPath",
+                        value: ["include"],
+                        usage: .public,
+                        condition: nil
+                    )
+                ]),
             ]
         }
 
@@ -178,6 +186,10 @@ import SwiftBuild
             for config in module.common.buildConfigs {
                 let impartedSwiftFlags = try #require(config.impartedBuildProperties.settings[.OTHER_SWIFT_FLAGS])
                 #expect(impartedSwiftFlags.contains(pluginModuleMapArg))
+
+                let impartedHeaderPaths = try #require(config.impartedBuildProperties.settings[.HEADER_SEARCH_PATHS])
+                let headerPath = pluginOutputDir.appending(component: "include")
+                #expect(impartedHeaderPaths.contains(headerPath.pathString))
 
                 let swiftFlags = try #require(config.settings[.OTHER_SWIFT_FLAGS])
                 #expect(swiftFlags.contains(pluginModuleMapArg))
@@ -254,6 +266,10 @@ import SwiftBuild
 
                 let impartedSwiftFlags = try #require(config.impartedBuildProperties.settings[.OTHER_SWIFT_FLAGS])
                 #expect(impartedSwiftFlags.contains(pluginModuleMapArg))
+
+                let impartedHeaderPaths = try #require(config.impartedBuildProperties.settings[.HEADER_SEARCH_PATHS])
+                let headerPath = pluginOutputDir.appending(component: "include")
+                #expect(impartedHeaderPaths.contains(headerPath.pathString))
 
                 let moduleMapPath = try #require(config.settings[.MODULEMAP_PATH])
                 #expect(moduleMapPath == pluginModuleMapFile.pathString)

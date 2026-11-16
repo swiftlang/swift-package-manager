@@ -54,6 +54,13 @@ public enum Command {
         outputFiles: [URL] = []
     )
 
+    /// Returns a set of build settings to be applied to the target.
+    @available(_PackageDescription, introduced: 999.0)
+    case settings(
+        cSettings: [CSetting] = [],
+        cxxSettings: [CXXSetting] = []
+    )
+
     /// Returns a command that runs unconditionally before every build.
     ///
     /// Prebuild commands can have a significant performance impact

@@ -205,6 +205,11 @@ extension Plugin {
             for command in generatedCommands {
                 switch command {
 
+                case .settings(let cSettings, let cxxSettings):
+                    let settings: [PluginToHostMessage.BuildSetting] = cSettings.map({ .init(data: $0.data) }) + cxxSettings.map({ .init(data: $0.data) })
+                    let message = PluginToHostMessage.defineSettings(settings: settings)
+                    try pluginHostConnection.sendMessage(message)
+
                 case .buildCommand(let displayName, let executable, let arguments, let environment, let inputFiles, let outputFiles):
                     let command = PluginToHostMessage.CommandConfiguration(
                         displayName: displayName,
@@ -286,6 +291,11 @@ extension Plugin {
             // Send each of the generated commands to the host.
             for command in record.generatedCommands {
                 switch command {
+
+                case .settings(let cSettings, let cxxSettings):
+                    let settings: [PluginToHostMessage.BuildSetting] = cSettings.map({ .init(data: $0.data) }) + cxxSettings.map({ .init(data: $0.data) })
+                    let message = PluginToHostMessage.defineSettings(settings: settings)
+                    try pluginHostConnection.sendMessage(message)
 
                 case let .buildCommand(name, exec, args, env, inputs, outputs):
                     let command = PluginToHostMessage.CommandConfiguration(
@@ -641,5 +651,34 @@ fileprivate struct LibraryHandle: @unchecked Sendable {
     @usableFromInline
     internal init(rawValue: PlatformHandle) {
         self.rawValue = rawValue
+    }
+}
+
+extension PluginToHostMessage.BuildSetting {
+    init(data: BuildSettingData) {
+        self.name = data.name
+        self.value = data.value
+        self.usage = data.usage.map { .init(usage: $0) }
+        self.condition = data.condition.map { .init(condition: $0) }
+    }
+}
+
+extension PluginToHostMessage.BuildSettingUsage {
+    init(usage: BuildSettingUsage) {
+        self = switch usage {
+        case .public:
+            .public
+        case .private:
+            .private
+        case .interface:
+            .interface
+        }
+    }
+}
+
+extension PluginToHostMessage.BuildSettingCondition {
+    init(condition: BuildSettingCondition) {
+        self.platforms = condition.platforms?.map { .init(name: $0.name) }
+        self.config = condition.config.map { .init(config: $0.config) }
     }
 }

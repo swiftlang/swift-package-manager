@@ -359,10 +359,28 @@ public struct CXXSetting: Sendable {
     ///   - path: The path of the directory that contains the headers. The path is
     ///   relative to the target's directory.
     ///   - condition: A condition that restricts the application of the build setting.
-    @available(_PackageDescription, introduced: 5.0)
+    @available(_PackageDescription, introduced: 5.0, obsoleted: 999.0)
     public static func headerSearchPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> CXXSetting {
         return CXXSetting(name: "headerSearchPath", value: [path], condition: condition)
     }
+
+    /// Provides a header search path relative to the target's directory.
+    ///
+    /// Use this setting to add a search path for headers for your target
+    /// and it's link dependencies. You can't use absolute paths and
+    /// the path must be a directory inside the package.
+    ///
+    /// - Since: First available in PackageDescription 6.5.
+    ///
+    /// - Parameters:
+    ///   - path: The path of the directory that contains the headers. The path is relative to the target's directory.
+    ///   - usage: Where the path is used either by the target itself, it's transitive link dependencies or both.
+    ///   - condition: A condition that restricts the use of the build setting.
+    @available(_PackageDescription, introduced: 999.0)
+    public static func headerSearchPath(_ path: String, usage: BuildSettingUsage, _ condition: BuildSettingCondition? = nil) -> CXXSetting {
+        return CXXSetting(name: "headerSearchPath", value: [path], usage: usage, condition: condition)
+    }
+
 
     /// Defines a value for a macro.
     ///
