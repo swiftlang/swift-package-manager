@@ -56,7 +56,7 @@ public enum Command {
 
     /// Returns a set of build settings to be applied to the target.
     @available(_PackageDescription, introduced: 999.0)
-    case settings(
+    case buildSettings(
         cSettings: [CSetting] = [],
         cxxSettings: [CXXSetting] = []
     )

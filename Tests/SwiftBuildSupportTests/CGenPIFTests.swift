@@ -35,6 +35,7 @@ import SwiftBuild
     var pluginModuleMapArg: String { "-fmodule-map-file=\(pluginModuleMapFile.pathString)" }
     var pluginHeaderFile: Basics.AbsolutePath { pluginIncludeDir.appending("Gened.h")}
     var pluginSourceFile: Basics.AbsolutePath { pluginOutputDir.appending("Gened.c") }
+    var pluginHeaderPath: Basics.AbsolutePath { pluginOutputDir.appending("include") }
 
     func setup(
         toolsVersion: ToolsVersion,
@@ -188,8 +189,7 @@ import SwiftBuild
                 #expect(impartedSwiftFlags.contains(pluginModuleMapArg))
 
                 let impartedHeaderPaths = try #require(config.impartedBuildProperties.settings[.HEADER_SEARCH_PATHS])
-                let headerPath = pluginOutputDir.appending(component: "include")
-                #expect(impartedHeaderPaths.contains(headerPath.pathString))
+                #expect(impartedHeaderPaths.contains(pluginHeaderPath.pathString))
 
                 let swiftFlags = try #require(config.settings[.OTHER_SWIFT_FLAGS])
                 #expect(swiftFlags.contains(pluginModuleMapArg))
@@ -197,6 +197,9 @@ import SwiftBuild
 
                 let moduleMapPath = try #require(config.settings[.MODULEMAP_PATH])
                 #expect(moduleMapPath == pluginModuleMapFile.pathString)
+
+                let headerPaths = try #require(config.settings[.HEADER_SEARCH_PATHS])
+                #expect(headerPaths.contains(pluginHeaderPath.pathString))
             }
 
             // Make sure our generated source is included
@@ -268,11 +271,13 @@ import SwiftBuild
                 #expect(impartedSwiftFlags.contains(pluginModuleMapArg))
 
                 let impartedHeaderPaths = try #require(config.impartedBuildProperties.settings[.HEADER_SEARCH_PATHS])
-                let headerPath = pluginOutputDir.appending(component: "include")
-                #expect(impartedHeaderPaths.contains(headerPath.pathString))
+                #expect(impartedHeaderPaths.contains(pluginHeaderPath.pathString))
 
                 let moduleMapPath = try #require(config.settings[.MODULEMAP_PATH])
                 #expect(moduleMapPath == pluginModuleMapFile.pathString)
+
+                let headerPaths = try #require(config.settings[.HEADER_SEARCH_PATHS])
+                #expect(headerPaths.contains(pluginHeaderPath.pathString))
             }
 
             // Make sure our generated source is included
