@@ -128,6 +128,26 @@ extension UserToolchain {
         }
     }
 
+    public func supportsFuzzerSanitizer() -> Bool {
+        guard let resourcePath = self.runtimeResourcePath else {
+            return false
+        }
+        let triple = self.targetTriple
+        let clangLibPath: AbsolutePath
+        let runtimeName: String
+        if triple.isDarwin(), let platform = triple.darwinPlatform {
+            clangLibPath = resourcePath.appending(components: "clang", "lib", "darwin")
+            runtimeName = "libclang_rt.fuzzer_\(platform.libraryNameSuffix).a"
+        } else if triple.isLinux() {
+            let environment = triple.environment == .android ? "-android" : ""
+            clangLibPath = resourcePath.appending(components: "clang", "lib", "linux")
+            runtimeName = "libclang_rt.fuzzer-\(triple.archName)\(environment).a"
+        } else {
+            return false
+        }
+        return localFileSystem.exists(clangLibPath.appending(runtimeName))
+    }
+
     /// Helper function to determine whether we should run SDK-dependent tests.
     public func supportsSDKDependentTests() -> Bool {
         return ProcessInfo.processInfo.environment["SWIFTCI_DISABLE_SDK_DEPENDENT_TESTS"] == nil
