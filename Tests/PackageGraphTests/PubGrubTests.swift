@@ -3266,14 +3266,13 @@ final class PubGrubBacktrackTests: XCTestCase {
             "d": (.versionSet(.exact("1.0.6-prerelease-1")), .specific(["d"]))
         ])
 
-        // FIXME: This should produce a valid solution but cannot at the
-        // moment because "1.0.4"..<"2.0.0" doesn't support pre-release versions
-        // and there is no way to infer it.
+        // The exact pre-release is inside "1.0.4"..<"2.0.0" by version ordering, the same as the equivalent
+        // single-version range below, so both forms of the root requirement produce the same solution.
         let resultWithExact = await resolver.solve(constraints: exactDependencies)
-        XCTAssertMatch(
-            resultWithExact.errorMsg,
-            .contains("Dependencies could not be resolved because root depends on 'd' 1.0.6-prerelease-1")
-        )
+        AssertResult(resultWithExact, [
+            ("c", .version("1.0.0")),
+            ("d", .version("1.0.6-prerelease-1"))
+        ])
 
         let rangeDependency = try builder.create(dependencies: [
             "c": (.versionSet(.exact("1.0.0")), .specific(["c"])),
@@ -3353,6 +3352,42 @@ final class PubGrubBacktrackTests: XCTestCase {
         await AssertResult(resolver.solve(constraints: dependencies2), [
             ("a", .version("1.0.0")),
             ("b", .version("1.9.9-prerelease-20240702"))
+        ])
+    }
+
+    // https://github.com/swiftlang/swift-package-manager/issues/10763
+    func testPrereleaseRootRequirementWithSharedDependencyNewMajor() async throws {
+        try builder.serve("logging", at: "1.0.0")
+        try builder.serve("logging", at: "2.0.0")
+
+        try builder.serve("core", at: "1.0.0", with: [
+            "core": [
+                "logging": (.versionSet(.range("1.0.0"..<"2.0.0")), .specific(["logging"]))
+            ]
+        ])
+        try builder.serve("core", at: "1.1.0-next.1", with: [
+            "core": [
+                "logging": (.versionSet(.range("1.0.0"..<"2.0.0")), .specific(["logging"]))
+            ]
+        ])
+
+        try builder.serve("metadata", at: "1.0.0", with: [
+            "metadata": [
+                "core": (.versionSet(.range("1.0.0"..<"2.0.0")), .specific(["core"]))
+            ]
+        ])
+
+        let resolver = builder.create()
+        let dependencies = try builder.create(dependencies: [
+            "core": (.versionSet(.range("1.1.0-next.1"..<"2.0.0")), .specific(["core"])),
+            "logging": (.versionSet(.range("1.0.0"..<"3.0.0")), .specific(["logging"])),
+            "metadata": (.versionSet(.range("1.0.0"..<"2.0.0")), .specific(["metadata"]))
+        ])
+
+        await AssertResult(resolver.solve(constraints: dependencies), [
+            ("core", .version("1.1.0-next.1")),
+            ("logging", .version("1.0.0")),
+            ("metadata", .version("1.0.0"))
         ])
     }
 }

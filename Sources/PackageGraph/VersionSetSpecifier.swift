@@ -199,12 +199,12 @@ extension VersionSetSpecifier {
             }
             return .empty
         case (.exact(let v), _):
-            if rhs.contains(v) {
+            if rhs.containsInSetArithmetic(v) {
                 return self
             }
             return .empty
         case (_, .exact(let v)):
-            if contains(v) {
+            if containsInSetArithmetic(v) {
                 return rhs
             }
             return .empty
@@ -270,12 +270,12 @@ extension VersionSetSpecifier {
             return self
 
         case (.exact(let lhs), .range(let rhs)):
-            if rhs.contains(version: lhs) {
+            if rhs.containsInSetArithmetic(lhs) {
                 return .empty
             }
             return .exact(lhs)
         case (.range(let lhs), .exact(let rhs)):
-            if !lhs.contains(version: rhs) {
+            if !lhs.containsInSetArithmetic(rhs) {
                 return .range(lhs)
             }
 
@@ -298,7 +298,7 @@ extension VersionSetSpecifier {
 
             for range in ranges {
                 // FIXME: is this worth merging with the logic in (range, exact) case above?
-                if !range.contains(version: exact) {
+                if !range.containsInSetArithmetic(exact) {
                     result.append(range)
                 } else if range.lowerBound == exact {
                     if range.lowerBound == range.upperBound {
@@ -319,7 +319,7 @@ extension VersionSetSpecifier {
 
         case (.exact(let exact), .ranges(let ranges)):
             for range in ranges {
-                if range.contains(version: exact) {
+                if range.containsInSetArithmetic(exact) {
                     return .empty
                 }
             }
@@ -571,5 +571,34 @@ fileprivate extension Version {
             prereleaseIdentifiers: [],
             buildMetadataIdentifiers: self.buildMetadataIdentifiers
         )
+    }
+}
+
+extension VersionSetSpecifier {
+    /// Membership by version ordering alone, for set operations.
+    ///
+    /// `contains(_:)` applies the pre-release selection rules, so it reports that `1.0.0..<2.0.0` does not
+    /// contain `1.1.0-next.1`. Range-to-range operations compare bounds instead, and `.exact(v)` is equal to
+    /// `v..<v.nextPatch()`. Set operations that involve `.exact` must use the same ordering so that both
+    /// representations of a single version give the same result.
+    fileprivate func containsInSetArithmetic(_ version: Version) -> Bool {
+        switch self {
+        case .empty:
+            false
+        case .any:
+            true
+        case .exact(let exact):
+            exact == version
+        case .range(let range):
+            range.containsInSetArithmetic(version)
+        case .ranges(let ranges):
+            ranges.contains(where: { $0.containsInSetArithmetic(version) })
+        }
+    }
+}
+
+extension Range<Version> {
+    fileprivate func containsInSetArithmetic(_ version: Version) -> Bool {
+        self.lowerBound <= version && version < self.upperBound
     }
 }
