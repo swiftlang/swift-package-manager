@@ -387,7 +387,7 @@ extension PackageModel.BuildSettings.Declaration {
             true
 
         // Linker.
-        case .OTHER_LDFLAGS, .LINK_LIBRARIES, .LINK_FRAMEWORKS, .LIBRARY_SEARCH_PATH:
+        case .OTHER_LDFLAGS, .LINK_LIBRARIES, .LINK_FRAMEWORKS, .LIBRARY_SEARCH_PATH, .FRAMEWORK_SEARCH_PATH:
             true
 
         default:
@@ -749,6 +749,10 @@ extension PackageGraph.ResolvedModule {
                     singleValueSetting = nil
                     multipleValueSetting = .OTHER_LDFLAGS
                     values = try settingAssignment.values.flatMap { ["-L", try self.sourceDirAbsolutePath.appending(.init(validating: $0)).pathString] }
+                case .FRAMEWORK_SEARCH_PATH:
+                    singleValueSetting = nil
+                    multipleValueSetting = .OTHER_LDFLAGS
+                    values = try settingAssignment.values.flatMap { ["-F", try self.sourceDirAbsolutePath.appending(.init(validating: $0)).pathString] }
                 case .HEADER_SEARCH_PATHS:
                     singleValueSetting = nil
                     multipleValueSetting = .HEADER_SEARCH_PATHS

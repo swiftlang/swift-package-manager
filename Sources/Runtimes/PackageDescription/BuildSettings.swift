@@ -860,6 +860,11 @@ public struct LinkerSetting: Sendable {
         return LinkerSetting(name: "linkedLibrary", value: [library], condition: condition)
     }
 
+    @available(_PackageDescription, introduced: 999.0)
+    public static func librarySearchPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
+        return LinkerSetting(name: "librarySearchPath", value: [path], usage: .public, condition: condition)
+    }
+
     /// Declares linkage to a system framework.
     ///
     /// This setting is most useful when the framework can't be linked
@@ -877,8 +882,8 @@ public struct LinkerSetting: Sendable {
     }
 
     @available(_PackageDescription, introduced: 999.0)
-    public static func librarySearchPath(_ path: String, usage: BuildSettingUsage = .public, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
-        return LinkerSetting(name: "librarySearchPath", value: [path], usage: usage, condition: condition)
+    public static func frameworkSearchPath(_ path: String, _ condition: BuildSettingCondition? = nil) -> LinkerSetting {
+        return LinkerSetting(name: "frameworkSearchPath", value: [path], usage: .public, condition: condition)
     }
 
     /// Sets unsafe flags to pass arbitrary command-line flags to the

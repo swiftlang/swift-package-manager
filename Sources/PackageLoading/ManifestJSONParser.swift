@@ -747,16 +747,21 @@ extension TargetBuildSettingDescription.Kind {
                 throw InternalError("invalid (empty) build settings value")
             }
             return .linkedLibrary(value)
-        case "linkedFramework":
-            guard let value = values.first else {
-                throw InternalError("invalid (empty) build settings value")
-            }
-            return .linkedFramework(value)
         case "librarySearchPath":
             guard let value = values.first else {
                 throw InternalError("invalid (empty) build settings value")
             }
             return .librarySearchPath(value, settingUsage ?? .public)
+        case "linkedFramework":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            return .linkedFramework(value)
+        case "frameworkSearchPath":
+            guard let value = values.first else {
+                throw InternalError("invalid (empty) build settings value")
+            }
+            return .frameworkSearchPath(value, settingUsage ?? .public)
         case "interoperabilityMode":
             guard let rawLang = values.first else {
                 throw InternalError("invalid (empty) build settings value")

@@ -675,6 +675,13 @@ fileprivate extension SourceCodeFragment {
                 params.append(SourceCodeFragment(from: condition))
             }
             self.init(enum: setting.kind.name, subnodes: params)
+        case .frameworkSearchPath(let value, let usage):
+            params.append(SourceCodeFragment(string: value))
+            params.append(SourceCodeFragment(from: usage))
+            if let condition = setting.condition {
+                params.append(SourceCodeFragment(from: condition))
+            }
+            self.init(enum: setting.kind.name, subnodes: params)
         case .linkedLibrary(let value), .linkedFramework(let value), .enableUpcomingFeature(let value), .enableExperimentalFeature(let value):
             params.append(SourceCodeFragment(string: value))
             if let condition = setting.condition {
@@ -1222,6 +1229,8 @@ extension TargetBuildSettingDescription.Kind {
             return "linkedFramework"
         case .librarySearchPath:
             return "librarySearchPath"
+        case .frameworkSearchPath:
+            return "frameworkSearchPath"
         case .unsafeFlags:
             return "unsafeFlags"
         case .interoperabilityMode:
