@@ -24,6 +24,7 @@ import _InternalTestSupport
 import XCTest
 
 import ArgumentParser
+import Foundation
 import class TSCBasic.BufferedOutputByteStream
 import protocol TSCBasic.OutputByteStream
 import enum TSCBasic.SystemError
@@ -93,6 +94,24 @@ struct SwiftCommandStateTestSuites {
             contents == "\(buildData.buildSystem)",
             "Actual is not as expected",
         )
+    }
+
+    @Test(
+        .tags(
+            .TestSize.small,
+        ),
+        .enabled(if: ProcessInfo.hostOperatingSystem == .macOS),
+    )
+    func excludeFromBackupMarksDirectoryAsExcluded() async throws {
+        try await withTemporaryDirectory { tmpDir in
+            let scratchDirectory = tmpDir.appending(".build")
+            try localFileSystem.createDirectory(scratchDirectory, recursive: true)
+
+            #expect(excludeFromBackups(directory: scratchDirectory))
+
+            let resourceValues = try scratchDirectory.asURL.resourceValues(forKeys: [.isExcludedFromBackupKey])
+            #expect(resourceValues.isExcludedFromBackup == true)
+        }
     }
 }
 
