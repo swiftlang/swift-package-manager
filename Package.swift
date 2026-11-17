@@ -1165,20 +1165,20 @@ if ProcessInfo.processInfo.environment["SWIFTPM_LLBUILD_FWK"] == nil {
 
 if ProcessInfo.processInfo.environment["SWIFTCI_USE_LOCAL_DEPS"] == nil {
     package.dependencies += [
-        // These need to match the versions in the swiftlang/swift repo,
+        // The minimum versions need to match the versions in the swiftlang/swift repo,
         // utils/update_checkout/update-checkout-config.json
         // They are used to build the official swift toolchain.
         .package(url: "https://github.com/swiftlang/swift-syntax.git", branch: relatedDependenciesBranch),
-        .package(url: "https://github.com/apple/swift-argument-parser.git", revision: "1.8.2"),
+        .package(url: "https://github.com/apple/swift-argument-parser.git", from: "1.8.2"),
         .package(url: "https://github.com/swiftlang/swift-subprocess.git", from: "1.0.0"),
-        .package(url: "https://github.com/apple/swift-collections.git", revision: "1.1.6"),
-        .package(url: "https://github.com/apple/swift-certificates.git", revision: "1.10.1"),
+        .package(url: "https://github.com/apple/swift-collections.git", from: "1.1.6"),
+        .package(url: "https://github.com/apple/swift-certificates.git", from: "1.10.1"),
     ]
     if !useSystemSDKDeps {
         package.dependencies += [
-            .package(url: "https://github.com/apple/swift-crypto.git", revision: "3.12.5"),
-            .package(url: "https://github.com/apple/swift-system.git", revision: "1.8.1"),
-            .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", revision: "1.0.9"),
+            .package(url: "https://github.com/apple/swift-crypto.git", from: "3.12.5"),
+            .package(url: "https://github.com/apple/swift-system.git", from: "1.8.1"),
+            .package(url: "https://github.com/swiftlang/swift-toolchain-sqlite.git", from: "1.0.9"),
         ]
     }
     if !swiftDriverDeps.isEmpty {
