@@ -1,6 +1,6 @@
 # Configuring build caching
 
-Reuse compilation results across branches, worktrees, and continuous integration builds to speed up repeated builds.
+Reuse compilation results across branches, worktrees, and continuous integration runs to speed up repeated builds.
 
 ## Overview
 
@@ -98,7 +98,7 @@ A percentage must be between `0` and `100`. Add `--global` to apply the limit to
 
 ### Find out why a build missed the cache
 
-If a cached build is slower than you expect, some tasks can miss the cache.
+If a cached build is slower than you expect, some tasks may have had unexpected cache misses.
 Use diagnostic remarks to report cache hits and misses in the build log.
 
 To see the remarks:
