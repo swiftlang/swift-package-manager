@@ -26,8 +26,8 @@ These values aren't allowed to avoid confusion with the default traits that a pa
 
 ### Declare traits
 
-Create a trait to define additional functionality, and define it in the [traits](https://docs.swift.org/swiftpm/documentation/packagedescription/package/traits) property of the package manifest.
-Use [`.default(enabledTraits:)`](https://docs.swift.org/swiftpm/documentation/packagedescription/trait/default(enabledtraits:)) to provide the set of traits that the package uses by default.
+Create a trait to define additional functionality, and define it in the [traits](https://docs.swift.org/latest/documentation/packagedescription/package/traits) property of the package manifest.
+Use [`.default(enabledTraits:)`](https://docs.swift.org/latest/documentation/packagedescription/trait/default(enabledtraits:)) to provide the set of traits that the package uses by default.
 If you don't define a default set of traits to enable, Swift Package Manager enables no traits by default.
 
 The following example illustrates a single trait, `FeatureA`, that is enabled by default:
