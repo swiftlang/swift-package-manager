@@ -12,7 +12,6 @@
 
 import PackageModel
 
-import func TSCBasic.topologicalSort
 import struct Basics.IdentifiableSet
 
 @available(*, deprecated, renamed: "ResolvedModule")
@@ -88,12 +87,12 @@ public struct ResolvedModule {
 
     /// Returns the recursive dependencies, across the whole package-graph.
     public func recursiveDependencies() throws -> [Dependency] {
-        try topologicalSort(self.dependencies) { $0.dependencies }
+        try topologicalSortIdentifiable(self.dependencies) { $0.dependencies }
     }
 
     /// Returns the recursive module dependencies, across the whole package-graph.
     public func recursiveModuleDependencies() throws -> [ResolvedModule] {
-        try topologicalSort(self.dependencies) { $0.dependencies }.compactMap { $0.module }
+        try topologicalSortIdentifiable(self.dependencies) { $0.dependencies }.compactMap { $0.module }
     }
 
     /// Returns the recursive dependencies, across the whole modules graph, which satisfy the input build environment,
@@ -101,7 +100,7 @@ public struct ResolvedModule {
     /// - Parameters:
     ///     - environment: The build environment to use to filter dependencies on.
     public func recursiveDependencies(satisfying environment: BuildEnvironment) throws -> [Dependency] {
-        try topologicalSort(dependencies(satisfying: environment)) { dependency in
+        try topologicalSortIdentifiable(dependencies(satisfying: environment)) { dependency in
             dependency.dependencies.filter { $0.satisfies(environment) }
         }
     }
