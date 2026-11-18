@@ -769,7 +769,7 @@ extension PackageGraph.ResolvedModule {
                     values = try settingAssignment.values
                         .map { try RelativePath(validating: $0) }
                         .map { self.sourceDirAbsolutePath.appending($0).pathString }
-                 case .ABSOLUTE_SWIFT_INCLUDE_PATHS:
+                case .ABSOLUTE_SWIFT_INCLUDE_PATHS:
                     singleValueSetting = nil
                     multipleValueSetting = .SWIFT_INCLUDE_PATHS
                     values = settingAssignment.values

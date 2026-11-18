@@ -205,7 +205,7 @@ extension Plugin {
             for command in generatedCommands {
                 switch command {
 
-                case .settings(let cSettings, let cxxSettings):
+                case .buildSettings(let cSettings, let cxxSettings):
                     let settings: [PluginToHostMessage.BuildSetting] = cSettings.map({ .init(data: $0.data) }) + cxxSettings.map({ .init(data: $0.data) })
                     let message = PluginToHostMessage.defineSettings(settings: settings)
                     try pluginHostConnection.sendMessage(message)
@@ -292,7 +292,7 @@ extension Plugin {
             for command in record.generatedCommands {
                 switch command {
 
-                case .settings(let cSettings, let cxxSettings):
+                case .buildSettings(let cSettings, let cxxSettings):
                     let settings: [PluginToHostMessage.BuildSetting] = cSettings.map({ .init(data: $0.data) }) + cxxSettings.map({ .init(data: $0.data) })
                     let message = PluginToHostMessage.defineSettings(settings: settings)
                     try pluginHostConnection.sendMessage(message)
