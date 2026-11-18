@@ -82,7 +82,7 @@ jobs:
   integration-tests:
     name: Integration Tests
     needs: [soundness]
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.18
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.19
     with:
       enable_linux_checks: false
       enable_windows_checks: false
