@@ -518,9 +518,15 @@ def install_swiftpm(prefix, args, bin_dir):
     install_dylib(args, "PackagePlugin", dest, ["PackagePlugin"], bin_dir)
 
     # Install resource bundles produced during the build.
+    excluded_bundle_names = ["SwiftPM__InternalTestSupport"]
     for file in os.listdir(bin_dir):
-        if file.endswith('.bundle') or file.endswith('.resources'):
-            install_binary(args, file, os.path.join(os.path.join(prefix, "share"), "pm"), bin_dir)
+        name, ext = os.path.splitext(file)
+        if ext not in ('.bundle', '.resources'):
+            continue
+        if name in excluded_bundle_names:
+            logging.info("Skipping installation of test-only resource bundle %s", file)
+            continue
+        install_binary(args, file, os.path.join(os.path.join(prefix, "share"), "pm"), bin_dir)
 
 
 # Helper function that installs a dynamic library and a set of modules to a particular directory.
