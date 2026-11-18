@@ -34,7 +34,8 @@ public final class BinaryModule: Module {
         name: String,
         kind: Kind,
         path: AbsolutePath,
-        origin: Origin
+        origin: Origin,
+        visibility: TargetDescription.TargetVisibility = .package
     ) {
         self.origin = origin
         self.kind = kind
@@ -50,7 +51,8 @@ public final class BinaryModule: Module {
             buildSettingsDescription: [],
             pluginUsages: [],
             usesUnsafeFlags: false,
-            implicit: false
+            implicit: false,
+            visibility: visibility
         )
     }
 

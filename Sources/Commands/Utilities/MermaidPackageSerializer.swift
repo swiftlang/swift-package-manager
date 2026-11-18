@@ -117,6 +117,13 @@ extension MermaidPackageSerializer.Node {
             )
         case let .module(target, _):
             self.init(target: target)
+        case let .externalModule(module, _):
+            self.init(
+                id: "target:\(module.name)",
+                title: module.name,
+                border: .roundedCorners,
+                subgraph: module.package
+            )
         }
     }
 }

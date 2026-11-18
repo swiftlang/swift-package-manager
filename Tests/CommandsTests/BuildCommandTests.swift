@@ -2625,6 +2625,29 @@ struct BuildSBOMCommandTests {
     @Test(
         arguments: SupportedBuildSystemOnAllPlatforms,
     )
+    func buildWithSBOMSpecAndTarget(
+        buildSystem: BuildSystemProvider.Kind,
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let sbomDirectory = fixturePath.appending("sboms")
+            let (stdout, _) = try await executeSwiftBuild(
+                fixturePath,
+                extraArgs: ["--sbom-spec", "cyclonedx", "--sbom-output-dir", sbomDirectory.pathString, "--target", "Foo"],
+                buildSystem: buildSystem,
+            )
+            #expect(stdout.contains("SBOMs created"))
+            try verifySBOMCreated(in: stdout, expectedCount: 1, expectedDirectory: sbomDirectory, message: "should produce 1 CycloneDX SBOM")
+
+            let sbomFiles = try localFileSystem.getDirectoryContents(sbomDirectory).filter { $0.hasSuffix(".json") }
+            let sbomFile = try #require(sbomFiles.first)
+            let contents: String = try localFileSystem.readFileContents(sbomDirectory.appending(sbomFile))
+            #expect(contents.contains("simple:target:Foo"))
+        }
+    }
+
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms,
+    )
     func buildWithMultipleSBOMSpecs(
         buildSystem: BuildSystemProvider.Kind,
     ) async throws {

@@ -104,6 +104,10 @@ enum SBOMTestStore {
         )
     }
 
+    package static func createEmptyResolvedPackagesStore() throws -> ResolvedPackagesStore {
+        try self.createBaseStore(filename: "Package.resolved")
+    }
+
     private static func createBaseStore(filename: String) throws -> ResolvedPackagesStore {
         let fs = InMemoryFileSystem()
         let packageResolvedFile = AbsolutePath("/tmp/\(filename)")

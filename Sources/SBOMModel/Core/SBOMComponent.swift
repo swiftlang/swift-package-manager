@@ -26,7 +26,15 @@ internal struct SBOMComponent: Codable, Equatable, Hashable, Comparable {
     
     internal enum Entity: String, Codable, Equatable {
         case product = "swift-product"
+        case target = "swift-target"
         case package = "swift-package"
+
+        internal var isExposedToDependentPackages: Bool {
+            switch self {
+            case .product, .target: true
+            case .package: false
+            }
+        }
     }
 
     // Specifies the commit or registry entry that is used for the version

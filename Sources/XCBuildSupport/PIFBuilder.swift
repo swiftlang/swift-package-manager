@@ -416,6 +416,8 @@ final class PackagePIFProjectBuilder: PIFProjectBuilder {
             return
         case .prebuilt:
             fatalError("TODO")
+        case .libraryAggregate:
+            throw StringError(LibraryModule.unsupportedMessage(target.name))
         }
     }
 
@@ -1615,7 +1617,7 @@ extension ProductType {
         case .test:
             .test
         case .library:
-            .library
+            .library(libraryType: .object)
         case .plugin:
             .plugin
         case .macro:

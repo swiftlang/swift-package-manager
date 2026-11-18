@@ -87,6 +87,7 @@ internal struct PluginContextDeserializer {
             }
         }
         let directory = try self.url(for: wireTarget.directoryId)
+        let visibility = TargetVisibility(wireTarget.visibility)
         let target: Target
         switch wireTarget.info {
         
@@ -119,7 +120,8 @@ internal struct PluginContextDeserializer {
                 linkedLibraries: linkedLibraries,
                 linkedFrameworks: linkedFrameworks,
                 pluginGeneratedSources: pluginGeneratedSources,
-                pluginGeneratedResources: pluginGeneratedResources
+                pluginGeneratedResources: pluginGeneratedResources,
+                visibility: visibility
             )
 
         case let .clangSourceModuleInfo(moduleName, kind, sourceFiles, preprocessorDefinitions, headerSearchPaths, publicHeadersDirId, linkedLibraries, linkedFrameworks):
@@ -155,7 +157,8 @@ internal struct PluginContextDeserializer {
                 linkedLibraries: linkedLibraries,
                 linkedFrameworks: linkedFrameworks,
                 pluginGeneratedSources: pluginGeneratedSources,
-                pluginGeneratedResources: pluginGeneratedResources
+                pluginGeneratedResources: pluginGeneratedResources,
+                visibility: visibility
             )
 
         case let .mixedSourceModuleInfo(moduleName, kind, sourceFiles, compilationConditions, preprocessorDefinitions, headerSearchPaths, publicHeadersDirId, linkedLibraries, linkedFrameworks):
@@ -191,7 +194,8 @@ internal struct PluginContextDeserializer {
                 linkedLibraries: linkedLibraries,
                 linkedFrameworks: linkedFrameworks,
                 pluginGeneratedSources: pluginGeneratedSources,
-                pluginGeneratedResources: pluginGeneratedResources
+                pluginGeneratedResources: pluginGeneratedResources,
+                visibility: visibility
             )
 
         case let .binaryArtifactInfo(kind, origin, artifactId):
@@ -219,7 +223,8 @@ internal struct PluginContextDeserializer {
                 kind: artifactKind,
                 origin: artifactOrigin,
                 artifact: Path(url: artifact),
-                artifactURL: artifact)
+                artifactURL: artifact,
+                visibility: visibility)
 
         case let .systemLibraryInfo(pkgConfig, compilerFlags, linkerFlags):
             target = try SystemLibraryTarget(
@@ -230,7 +235,27 @@ internal struct PluginContextDeserializer {
                 dependencies: dependencies,
                 pkgConfig: pkgConfig,
                 compilerFlags: compilerFlags,
-                linkerFlags: linkerFlags)
+                linkerFlags: linkerFlags,
+                visibility: visibility)
+
+        case let .libraryInfo(kind):
+            let libraryKind: ConcreteLibraryTarget.LibraryKind
+            switch kind {
+            case .static:
+                libraryKind = .static
+            case .dynamic:
+                libraryKind = .dynamic
+            case .automatic:
+                libraryKind = .automatic
+            }
+            target = try ConcreteLibraryTarget(
+                id: String(id),
+                name: wireTarget.name,
+                directory: Path(url: directory),
+                directoryURL: directory,
+                dependencies: dependencies,
+                kind: libraryKind,
+                visibility: visibility)
         }
         
         targetsById[id] = target
@@ -419,6 +444,19 @@ fileprivate extension ModuleKind {
             self = .test
         case .macro:
             self = .macro
+        case .library:
+            self = .library
+        }
+    }
+}
+
+fileprivate extension TargetVisibility {
+    init(_ visibility: WireInput.Target.Visibility) {
+        switch visibility {
+        case .public:
+            self = .public
+        case .package:
+            self = .package
         }
     }
 }

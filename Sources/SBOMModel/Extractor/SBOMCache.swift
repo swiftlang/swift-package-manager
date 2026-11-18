@@ -51,10 +51,22 @@ internal struct ProductCacheKey: Hashable {
     }
 }
 
+/// Key for target cache entries
+internal struct TargetCacheKey: Hashable {
+    internal let packageIdentity: PackageIdentity
+    internal let targetName: String
+
+    internal init(packageIdentity: PackageIdentity, targetName: String) {
+        self.packageIdentity = packageIdentity
+        self.targetName = targetName
+    }
+}
+
 /// Cache for storing extracted components (to avoid redundant extraction)
 internal actor SBOMComponentCache {
     private var packageCache: [PackageIdentity: SBOMComponent] = [:]
     private var productCache: [ProductCacheKey: SBOMComponent] = [:]
+    private var targetCache: [TargetCacheKey: SBOMComponent] = [:]
 
     internal func getPackage(_ identity: PackageIdentity) -> SBOMComponent? {
         self.packageCache[identity]
@@ -72,6 +84,16 @@ internal actor SBOMComponentCache {
     internal func setProduct(_ packageIdentity: PackageIdentity, productName: String, component: SBOMComponent) {
         let key = ProductCacheKey(packageIdentity: packageIdentity, productName: productName)
         self.productCache[key] = component
+    }
+
+    internal func getTarget(_ packageIdentity: PackageIdentity, targetName: String) -> SBOMComponent? {
+        let key = TargetCacheKey(packageIdentity: packageIdentity, targetName: targetName)
+        return self.targetCache[key]
+    }
+
+    internal func setTarget(_ packageIdentity: PackageIdentity, targetName: String, component: SBOMComponent) {
+        let key = TargetCacheKey(packageIdentity: packageIdentity, targetName: targetName)
+        self.targetCache[key] = component
     }
 }
 

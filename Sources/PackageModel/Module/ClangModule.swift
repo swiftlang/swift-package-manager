@@ -86,7 +86,8 @@ public final class ClangModule: Module {
         buildSettings: BuildSettings.AssignmentTable = .init(),
         buildSettingsDescription: [TargetBuildSettingDescription.Setting] = [],
         usesUnsafeFlags: Bool,
-        implicit: Bool
+        implicit: Bool,
+        visibility: TargetDescription.TargetVisibility = .package
     ) throws {
         guard includeDir.isDescendantOfOrEqual(to: sources.root) else {
             throw StringError("\(includeDir) should be contained in the source root \(sources.root)")
@@ -114,7 +115,8 @@ public final class ClangModule: Module {
             buildSettingsDescription: buildSettingsDescription,
             pluginUsages: [],
             usesUnsafeFlags: usesUnsafeFlags,
-            implicit: implicit
+            implicit: implicit,
+            visibility: visibility
         )
     }
 }

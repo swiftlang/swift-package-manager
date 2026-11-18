@@ -266,9 +266,6 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
         _ buildSystem: any BuildSystem,
         _ buildResult: BuildResult) async throws {
         do {
-            guard try self.options.sbom.sbomSpecs.isEmpty || options.target == nil else {
-                throw SBOMModel.SBOMCommandError.targetFlagNotSupported
-            }
             let workspace = try swiftCommandState.getActiveWorkspace()
             let packageGraph = try await buildSystem.getPackageGraph()
             let resolvedPackagesStore = try workspace.resolvedPackagesStore.load()
@@ -278,6 +275,7 @@ public struct SwiftBuildCommand: AsyncSwiftCommand {
                 store: resolvedPackagesStore,
                 filter: try self.options.sbom.sbomFilter,
                 product: options.product,
+                target: options.target,
                 specs: try self.options.sbom.sbomSpecs,
                 dir: await SBOMCreator.resolveSBOMDirectory(from: self.options.sbom.sbomDirectory, withDefault: try await buildSystem.buildProductsPath(for: swiftCommandState.productsBuildParameters)),
                 observabilityScope: swiftCommandState.observabilityScope

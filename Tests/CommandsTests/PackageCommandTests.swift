@@ -8729,16 +8729,25 @@ struct PackageCommandTests {
         ) async throws {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 let config = BuildConfiguration.debug
-                await expectThrowsCommandExecutionError(
-                    try await execute(
-                        ["generate-sbom", "--sbom-spec", "cyclonedx", "--target", "Foo"],
-                        packagePath: fixturePath,
-                        configuration: config,
-                        buildSystem: buildSystem,
-                    )
-                ) { error in
-                    #expect(error.stderr.contains("Unknown option '--target'"))
-                }
+                let (stdout, _) = try await execute(
+                    ["generate-sbom", "--sbom-spec", "cyclonedx", "--target", "Foo"],
+                    packagePath: fixturePath,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                #expect(stdout.contains("SBOMs created"))
+
+                let prefix = " SBOM at "
+                let range = try #require(stdout.range(of: prefix), "Could not find '\(prefix)' in output")
+                let endRange = try #require(stdout[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
+                let pathString = String(stdout[range.upperBound..<endRange.upperBound])
+                let sbomPath = try AbsolutePath(validating: pathString)
+
+                #expect(localFileSystem.exists(sbomPath))
+                let filesInDirectory = try localFileSystem.getDirectoryContents(sbomPath.parentDirectory)
+                #expect(filesInDirectory.count == 1, "should only produce 1 CycloneDX SBOM")
+                let contents: String = try localFileSystem.readFileContents(sbomPath)
+                #expect(contents.contains("simple:target:Foo"))
             }
         }
 
@@ -8778,15 +8787,45 @@ struct PackageCommandTests {
         ) async throws {
             try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
                 let config = BuildConfiguration.debug
+                let (stdout, _) = try await execute(
+                    ["generate-sbom", "--sbom-spec", "spdx", "--target", "Foo"],
+                    packagePath: fixturePath,
+                    configuration: config,
+                    buildSystem: buildSystem,
+                )
+                #expect(stdout.contains("SBOMs created"))
+
+                let prefix = " SBOM at "
+                let range = try #require(stdout.range(of: prefix), "Could not find '\(prefix)' in output")
+                let endRange = try #require(stdout[range.upperBound...].range(of: ".json"), "Could not find '.json' in output")
+                let pathString = String(stdout[range.upperBound..<endRange.upperBound])
+                let sbomPath = try AbsolutePath(validating: pathString)
+
+                #expect(localFileSystem.exists(sbomPath))
+                let filesInDirectory = try localFileSystem.getDirectoryContents(sbomPath.parentDirectory)
+                #expect(filesInDirectory.count == 1, "should only produce 1 SPDX SBOM")
+                let contents: String = try localFileSystem.readFileContents(sbomPath)
+                #expect(contents.contains("simple:target:Foo"))
+            }
+        }
+
+        @Test(
+            arguments: SupportedBuildSystemOnAllPlatforms,
+        )
+        func generateSBOMWithProductAndTarget(
+            buildSystem: BuildSystemProvider.Kind,
+        ) async throws {
+            try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+                let config = BuildConfiguration.debug
                 await expectThrowsCommandExecutionError(
                     try await execute(
-                        ["generate-sbom", "--sbom-spec", "spdx", "--target", "Foo"],
+                        ["generate-sbom", "--sbom-spec", "spdx", "--product", "Foo", "--target", "Foo"],
                         packagePath: fixturePath,
                         configuration: config,
                         buildSystem: buildSystem,
                     )
                 ) { error in
-                    #expect(error.stderr.contains("Unknown option '--target'"))
+                    #expect(error.stderr.contains("'--product' and '--target' cannot be specified together"))
                 }
             }
         }

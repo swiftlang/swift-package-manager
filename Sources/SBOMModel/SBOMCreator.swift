@@ -73,6 +73,7 @@ package struct SBOMCreator {
         
         let sbom = try await extractor.extractSBOM(
             product: input.product,
+            target: input.target,
             filter: input.filter
         )
         

@@ -326,4 +326,37 @@ struct SBOMFilterStrategyTests {
         #expect(productStrategy.shouldTrackRelationship(parent: product1, child: product2, primaryComponent: primaryPackage))
         #expect(!packageStrategy.shouldTrackRelationship(parent: product1, child: product2, primaryComponent: primaryPackage))
     }
+
+    // MARK: - Target Tests
+
+    @Test
+    func productFilterIncludesTargets() {
+        let strategy = ProductFilterStrategy()
+        let primaryPackage = createTestComponent(id: "root", name: "Root", entity: .package)
+        let primaryTarget = createTestComponent(id: "root:target:Main", name: "Main", entity: .target)
+
+        let product = createTestComponent(id: "pkg1:prod1", name: "Product1", entity: .product)
+        let target = createTestComponent(id: "pkg1:target:Lib", name: "Lib", entity: .target)
+
+        #expect(strategy.shouldIncludeComponent(target, primaryComponent: primaryPackage))
+        #expect(strategy.shouldIncludeComponent(target, primaryComponent: primaryTarget))
+        #expect(strategy.shouldTrackRelationship(parent: primaryTarget, child: target, primaryComponent: primaryTarget))
+        #expect(strategy.shouldTrackRelationship(parent: primaryTarget, child: product, primaryComponent: primaryTarget))
+        #expect(strategy.shouldTrackRelationship(parent: product, child: target, primaryComponent: primaryTarget))
+        #expect(strategy.shouldTrackRelationship(parent: primaryPackage, child: target, primaryComponent: primaryPackage))
+    }
+
+    @Test
+    func packageFilterIncludesPrimaryTarget() {
+        let strategy = PackageFilterStrategy()
+        let primaryTarget = createTestComponent(id: "root:target:Main", name: "Main", entity: .target)
+
+        let rootPackage = createTestComponent(id: "root", name: "Root", entity: .package)
+        let otherTarget = createTestComponent(id: "pkg1:target:Lib", name: "Lib", entity: .target)
+
+        #expect(strategy.shouldIncludeComponent(primaryTarget, primaryComponent: primaryTarget))
+        #expect(!strategy.shouldIncludeComponent(otherTarget, primaryComponent: primaryTarget))
+        #expect(strategy.shouldTrackRelationship(parent: rootPackage, child: primaryTarget, primaryComponent: primaryTarget))
+        #expect(!strategy.shouldTrackRelationship(parent: rootPackage, child: otherTarget, primaryComponent: primaryTarget))
+    }
 }

@@ -168,7 +168,7 @@ fileprivate extension Module.Kind {
         switch self {
         case .executable:
             return "executables"
-        case .library:
+        case .library, .libraryAggregate:
             return "libraries"
         case .systemModule:
             return "system modules"

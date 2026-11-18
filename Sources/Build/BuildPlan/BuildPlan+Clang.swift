@@ -35,7 +35,7 @@ extension BuildPlan {
                     }
                 }
 
-            case let target as ClangModule where target.type == .library:
+            case let target as ClangModule where target.type.isLibrary:
                 // Setup search paths for C dependencies:
                 clangTarget.additionalFlags += ["-I", target.includeDir.pathString]
 

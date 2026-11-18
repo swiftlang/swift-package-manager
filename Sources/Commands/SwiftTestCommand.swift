@@ -1236,11 +1236,9 @@ public struct SwiftTestCommand: AsyncSwiftCommand {
         testProducts: [BuiltTestProduct],
         packageGraph: ModulesGraph,
     ) async throws -> [AbsolutePath] {
-        let coverableKinds = Module.Kind.allCases.filter { $0.isCoverable }
-
         var sourceFiles = Set<AbsolutePath>()
         for package in packageGraph.rootPackages {
-            for module in package.modules where coverableKinds.contains(module.type) {
+            for module in package.modules where module.type.isCoverable {
                 sourceFiles.formUnion(module.sources.paths)
             }
         }
@@ -1343,9 +1341,9 @@ fileprivate extension Module.Kind {
     var isCoverable: Bool {
         switch self {
         case .executable, .library, .macro, .plugin:
-            return true
-        case .test, .snippet, .binary, .systemModule, .prebuilt:
-            return false
+                return true
+        case .test, .snippet, .binary, .systemModule, .libraryAggregate, .prebuilt:
+                return false
         }
     }
 }

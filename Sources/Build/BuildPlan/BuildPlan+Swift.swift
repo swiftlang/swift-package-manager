@@ -28,7 +28,7 @@ extension BuildPlan {
         var prebuiltPaths = Set<String>()
         for case .module(let dependency, let description) in swiftTarget.recursiveLinkDependencies(using: self) {
             switch dependency.underlying {
-            case let underlyingTarget as ClangModule where underlyingTarget.type == .library:
+            case let underlyingTarget as ClangModule where underlyingTarget.type.isLibrary:
                 guard case let .clang(target)? = description else {
                     throw InternalError("unexpected clang target \(underlyingTarget)")
                 }

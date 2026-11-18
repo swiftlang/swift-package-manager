@@ -34,7 +34,7 @@ extension LLBuildManifestBuilder {
         }
 
         func addStaticTargetInputs(_ description: ModuleBuildDescription?) {
-            if case .swift(let desc) = description, desc.target.type == .library {
+            if case .swift(let desc) = description, desc.target.type.isLibrary {
                 inputs.append(file: desc.moduleOutputPath)
             }
         }

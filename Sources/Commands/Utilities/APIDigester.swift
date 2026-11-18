@@ -319,12 +319,40 @@ extension BuildParameters {
 extension ModulesGraph {
     /// The list of modules that should be used as an input to the API digester.
     var apiDigesterModules: [String] {
-        self.rootPackages
+        let productModules = self.rootPackages
             .flatMap(\.products)
             .filter { $0.type.isLibrary }
             .flatMap(\.modules)
+
+        let libraryTargetModules = self.rootPackages
+            .flatMap(\.modules)
+            .filter {
+                switch ($0.type, $0.underlying.visibility) {
+                case (.library, .public), (.libraryAggregate, .public):
+                    true
+                default:
+                    false
+                }
+            }
+            .flatMap(\.apiDigesterModules)
+
+        return (productModules + libraryTargetModules)
             .filter { $0.underlying is SwiftModule }
-            .map { $0.c99name }
+            .map(\.c99name)
+    }
+}
+
+extension ResolvedModule {
+    var apiDigesterModules: [ResolvedModule] {
+        if self.type.isLibraryAggregate {
+            // An aggregate's API is that of its members from the same package, including the members of
+            // any nested aggregates. Members from other packages are part of those packages' API.
+            self.dependencies.compactMap(\.module).filter {
+                ResolvedModule.isLibraryAggregateMember($0) && $0.packageIdentity == self.packageIdentity
+            }.flatMap(\.apiDigesterModules)
+        } else {
+            [self]
+        }
     }
 }
 
