@@ -644,6 +644,7 @@ public actor SwiftPMBuildServer: QueueBasedMessageHandler {
                         data: WorkDoneProgressTask(title: "SwiftPM: Reloading Package").encodeToLSPAny()
                     )
                 )
+                buildSystem.invalidatePackageGraphCache()
                 let result = try await buildSystem.generatePIFAndAccompanyingMetadata(preserveStructure: false)
                 try localFileSystem.writeIfChanged(path: buildSystem.buildParameters.pifManifest, string: result.pif)
                 self.pifGenerationInputs = result.inputs

@@ -1078,6 +1078,8 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
         // Optionally also set the list of architectures to build for.
         if let architectures = buildParameters.architectures, !architectures.isEmpty {
             settings["ARCHS"] = architectures.joined(separator: " ")
+            // When the user explicitly specifies the architectures, don't build module-only archs too.
+            settings["SWIFT_DISABLE_MODULE_ONLY_ARCHS"] = "YES"
         } else {
             // If the user did not explicitly specify a list of architectures, build only the active arch.
             // We may want to consider building universal binaries by default in Apple-platform release builds
@@ -1500,14 +1502,18 @@ public final class SwiftBuildSystem: SPMBuildCore.BuildSystem {
     }
 
     public func generatePIFAndAccompanyingMetadata(preserveStructure: Bool) async throws -> PIFGenerationResult {
-        pifBuilder = .init()
-        packageGraph = .init()
         let pifBuilder = try await getPIFBuilder()
         return try await pifBuilder.generatePIF(
             preservePIFModelStructure: preserveStructure,
             printPIFManifestGraphviz: buildParameters.printPIFManifestGraphviz,
             buildParameters: buildParameters
         )
+    }
+
+    /// Drop the cached package graph so the next PIF generation reloads it.
+    public func invalidatePackageGraphCache() {
+        pifBuilder = .init()
+        packageGraph = .init()
     }
 
     public func generatePIF(preserveStructure: Bool) async throws -> String {

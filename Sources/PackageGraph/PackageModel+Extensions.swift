@@ -39,27 +39,34 @@ extension Manifest {
         productFilter: ProductFilter,
         _ enabledTraits: EnabledTraits = ["default"]
     ) throws -> [PackageContainerConstraint] {
-        return try self.dependenciesRequired(for: productFilter, enabledTraits).map({ dependency in
-            let setter: EnabledTrait.Setter = .package(.init(identity: self.packageIdentity, name: self.displayName))
-            let enabledTraitsSet: EnabledTraits
-            if let dependencyTraits = dependency.traits {
-                let explicitlyEnabledTraits = dependencyTraits.filter {
-                    guard let condition = $0.condition else { return true }
-                    return condition.isSatisfied(by: enabledTraits.names)
-                }.map(\.name)
-                enabledTraitsSet = EnabledTraits(explicitlyEnabledTraits, setBy: setter)
-            } else {
-                // Implicit default traits requested by parent.
-                enabledTraitsSet = EnabledTraits(["default"], setBy: setter)
-            }
+        return try self.dependenciesRequired(for: productFilter, enabledTraits).map {
+            try self.constraint(on: $0, enabledTraits)
+        }
+    }
 
-            return PackageContainerConstraint(
-                package: dependency.packageRef,
-                requirement: try dependency.toConstraintRequirement(),
-                products: dependency.productFilter,
-                enabledTraits: enabledTraitsSet
-            )
-        })
+    /// Constructs constraints of every declared dependency, including those no target uses, to carry
+    /// the traits this package asks of them.
+    public func dependencyTraitRequests(_ enabledTraits: EnabledTraits) throws -> [PackageContainerConstraint] {
+        try self.dependencies.map { try self.constraint(on: $0, enabledTraits) }
+    }
+
+    private func constraint(on dependency: PackageDependency, _ enabledTraits: EnabledTraits) throws -> PackageContainerConstraint {
+        let setter: EnabledTrait.Setter = .package(.init(identity: self.packageIdentity, name: self.displayName))
+        let enabledTraitsSet: EnabledTraits
+        if let dependencyTraits = dependency.traits {
+            let explicitlyEnabledTraits = dependencyTraits.filter { $0.isEnabled(by: enabledTraits) }.map(\.name)
+            enabledTraitsSet = EnabledTraits(explicitlyEnabledTraits, setBy: setter)
+        } else {
+            // Implicit default traits requested by parent.
+            enabledTraitsSet = EnabledTraits(["default"], setBy: setter)
+        }
+
+        return PackageContainerConstraint(
+            package: dependency.packageRef,
+            requirement: try dependency.toConstraintRequirement(),
+            products: dependency.productFilter,
+            enabledTraits: enabledTraitsSet
+        )
     }
 }
 
