@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
     name: Build
-    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.18
+    uses: swiftlang/github-workflows/.github/workflows/swift_package_test.yml@0.0.19
     with:
       enable_cross_pr_testing: true
       linux_os_versions: '["amazonlinux2023", "bookworm", "noble", "jammy", "rhel-ubi9"]'
