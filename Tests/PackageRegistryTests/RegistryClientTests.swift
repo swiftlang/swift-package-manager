@@ -3469,6 +3469,30 @@ fileprivate var searchURL = URL("\(registryURL)/search?q=foo&limit=20&offset=0")
         }
     }
 
+    @Test func bypassesURLCache() async throws {
+        let loginURL = URL("\(registryURL)/login")
+
+        let handler: HTTPClient.Implementation = { request, _ in
+            #expect(request.options.cachePolicy == .never)
+            return .init(
+                statusCode: 200,
+                headers: .init([
+                    .init(name: "Content-Version", value: "1"),
+                ])
+            )
+        }
+
+        let httpClient = HTTPClient(implementation: handler)
+        var configuration = RegistryConfiguration()
+        configuration.defaultRegistry = Registry(url: registryURL, supportsAvailability: false)
+
+        let registryClient = makeRegistryClient(
+            configuration: configuration,
+            httpClient: httpClient
+        )
+        try await registryClient.login(loginURL: loginURL)
+    }
+
     @Test func handlesMissingCredentials() async throws {
         let loginURL = URL("\(registryURL)/login")
 

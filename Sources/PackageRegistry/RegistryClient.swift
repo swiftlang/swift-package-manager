@@ -1066,8 +1066,11 @@ public final class RegistryClient: AsyncCancellable {
     ) async throws {
         let wrapWithLoginFailed: (Error) -> Error = { RegistryError.loginFailed(url: loginURL, error: $0) }
 
+        var request = HTTPClient.Request(method: .post, url: loginURL)
+        request.options.cachePolicy = .never
+
         let response = try await self.send(
-            HTTPClient.Request(method: .post, url: loginURL),
+            request,
             intent: "logging-in",
             timeout: timeout,
             observabilityScope: observabilityScope,
