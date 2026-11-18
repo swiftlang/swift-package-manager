@@ -18,6 +18,7 @@ import TSCBasic
 import protocol Basics.FileSystem
 import class Basics.ObservabilityScope
 import struct Basics.IdentifiableSet
+import class Basics.ThreadSafeKeyValueStore
 
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no modules.
@@ -126,27 +127,34 @@ public struct ModulesGraph {
     /// in the graph due to loading errors. This does not include the root packages.
     public let requiredDependencies: [PackageReference]
 
+    /// Memoized `rootModuleIDs(satisfying:)` results. Root packages are immutable, so entries never go stale.
+    private let rootModuleIDsCache = ThreadSafeKeyValueStore<BuildEnvironment, Set<ResolvedModule.ID>>()
+
     /// Returns true if a given module is present in root packages and is not excluded for the given build environment.
     public func isInRootPackages(_ module: ResolvedModule, satisfying buildEnvironment: BuildEnvironment) -> Bool {
-        // FIXME: This can be easily cached.
-        return rootPackages.reduce(
-            into: IdentifiableSet<ResolvedModule>()
-        ) { (accumulator: inout IdentifiableSet<ResolvedModule>, package: ResolvedPackage) in
-            let allDependencies = package.modules.flatMap { $0.dependencies }
-            let unsatisfiedDependencies = allDependencies.filter { !$0.satisfies(buildEnvironment) }
-            let unsatisfiedDependencyModules = unsatisfiedDependencies.compactMap { (
-                dep: ResolvedModule.Dependency
-            ) -> ResolvedModule? in
-                switch dep {
-                case .module(let moduleDependency, _):
-                    return moduleDependency
-                default:
-                    return nil
+        self.rootModuleIDsCache.memoize(buildEnvironment) {
+            self.rootModuleIDs(satisfying: buildEnvironment)
+        }.contains(module.id)
+    }
+
+    /// IDs of root-package modules not excluded for `buildEnvironment`. A module is excluded if any
+    /// dependency on it from its package is unsatisfied, even when others are satisfied.
+    private func rootModuleIDs(satisfying buildEnvironment: BuildEnvironment) -> Set<ResolvedModule.ID> {
+        var result = Set<ResolvedModule.ID>()
+        for package in self.rootPackages {
+            var unsatisfied = Set<ResolvedModule.ID>()
+            for module in package.modules {
+                for dependency in module.dependencies where !dependency.satisfies(buildEnvironment) {
+                    if case .module(let dependencyModule, _) = dependency {
+                        unsatisfied.insert(dependencyModule.id)
+                    }
                 }
             }
-
-            accumulator.formUnion(IdentifiableSet(package.modules).subtracting(unsatisfiedDependencyModules))
-        }.contains(id: module.id)
+            for module in package.modules where !unsatisfied.contains(module.id) {
+                result.insert(module.id)
+            }
+        }
+        return result
     }
 
     public func isRootPackage(_ package: ResolvedPackage) -> Bool {

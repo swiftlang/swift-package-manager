@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 /// A build environment with which to evaluate conditions.
-public struct BuildEnvironment {
+public struct BuildEnvironment: Hashable, Sendable {
     public let platform: Platform
     public let configuration: BuildConfiguration?
 

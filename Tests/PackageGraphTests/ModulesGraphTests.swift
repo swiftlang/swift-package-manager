@@ -2389,6 +2389,77 @@ struct ModulesGraphTests {
         }
     }
 
+    @Test
+    func isInRootPackagesHonoursConditionsPerBuildEnvironment() throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+                "/Foo/Sources/Foo/source.swift",
+            "/Foo/Sources/Bar/source.swift",
+            "/Foo/Sources/Baz/source.swift",
+            "/Foo/Sources/Qux/source.swift",
+            "/Biz/Sources/Biz/source.swift"
+        )
+
+        let observability = ObservabilitySystem.makeForTesting()
+        let graph = try loadModulesGraph(
+            fileSystem: fs,
+            manifests: [
+                Manifest.createRootManifest(
+                    displayName: "Foo",
+                    path: "/Foo",
+                    dependencies: [
+                        .fileSystem(path: "/Biz"),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Foo", dependencies: [
+                            .target(name: "Bar", condition: PackageConditionDescription(platformNames: ["linux"], config: nil)),
+                            .target(name: "Baz", condition: PackageConditionDescription(platformNames: [], config: "debug")),
+                            .product(name: "Biz", package: "Biz"),
+                        ]),
+                        TargetDescription(name: "Bar"),
+                        TargetDescription(name: "Baz"),
+                        TargetDescription(name: "Qux", dependencies: ["Baz"]),
+                    ],
+                    traits: []
+                ),
+                Manifest.createLocalSourceControlManifest(
+                    displayName: "Biz",
+                    path: "/Biz",
+                    products: [
+                        ProductDescription(name: "Biz", type: .library(.automatic), targets: ["Biz"]),
+                    ],
+                    targets: [
+                        TargetDescription(name: "Biz"),
+                    ]
+                ),
+            ],
+            observabilityScope: observability.topScope
+        )
+        expectNoDiagnostics(observability.diagnostics)
+
+        func module(_ name: String) throws -> ResolvedModule {
+            try #require(graph.module(for: name))
+        }
+        let linuxDebug = BuildEnvironment(platform: .linux, configuration: .debug)
+        let macOSDebug = BuildEnvironment(platform: .macOS, configuration: .debug)
+        let macOSRelease = BuildEnvironment(platform: .macOS, configuration: .release)
+        let expected: [(BuildEnvironment, [String: Bool])] = [
+            (linuxDebug, ["Foo": true, "Bar": true, "Baz": true, "Qux": true, "Biz": false]),
+            (macOSDebug, ["Foo": true, "Bar": false, "Baz": true, "Qux": true, "Biz": false]),
+            (macOSRelease, ["Foo": true, "Bar": false, "Baz": false, "Qux": true, "Biz": false]),
+        ]
+
+        let copy = graph
+        for _ in 0..<2 {
+            for (environment, modules) in expected + expected.reversed() {
+                for (name, isRoot) in modules {
+                    #expect(graph.isInRootPackages(try module(name), satisfying: environment) == isRoot, "\(name) in \(environment)")
+                    #expect(copy.isInRootPackages(try module(name), satisfying: environment) == isRoot, "\(name) in \(environment) (copy)")
+                }
+            }
+        }
+    }
+
     @Test(
         .requiresTargetBasedDependencyResolution,
     )
