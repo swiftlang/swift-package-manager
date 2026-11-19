@@ -35,7 +35,7 @@ extension PackageRegistryCommand {
         @Argument(help: "Search query (free text and/or qualifiers like author:\"Mona\", scope:apple).")
         var query: [String] = []
 
-        @Option(help: "Maximum results to return (1-100).")
+        @Option(help: "Maximum results to request; the registry may return fewer.")
         var limit: Int = 20
 
         @Option(help: "Number of results to skip.")
@@ -46,6 +46,15 @@ extension PackageRegistryCommand {
 
         @Flag(help: "Output results as JSON.")
         var json: Bool = false
+
+        func validate() throws {
+            guard self.limit >= 1 else {
+                throw ArgumentParser.ValidationError("--limit must be at least 1")
+            }
+            guard self.offset >= 0 else {
+                throw ArgumentParser.ValidationError("--offset must not be negative")
+            }
+        }
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             let configuration = try PackageRegistryCommand.getRegistriesConfig(
@@ -141,12 +150,15 @@ extension PackageRegistryCommand {
             let multiRegistry = successes.count > 1
             let items = Self.interleavePairs(successes)
             let totalSum = successes.reduce(0) { $0 + $1.1.total }
+            let paging = Self.reportedPaging(successes)
 
             if self.json {
                 try printJSON(
                     items: items,
                     multiRegistry: multiRegistry,
-                    total: totalSum
+                    total: totalSum,
+                    offset: paging.offset,
+                    limit: paging.limit
                 )
             } else if items.isEmpty {
                 print("No packages matched your query.")
@@ -190,6 +202,16 @@ extension PackageRegistryCommand {
             return merged
         }
 
+        /// The paging values registries actually used, which may differ from the request if a registry clamped `limit`.
+        static func reportedPaging(
+            _ successes: [(Registry, RegistryClient.SearchResults)]
+        ) -> (offset: Int, limit: Int) {
+            (
+                offset: successes.first?.1.offset ?? 0,
+                limit: successes.map(\.1.limit).max() ?? 0
+            )
+        }
+
         private func printText(
             items: [(registry: Registry, result: RegistryClient.SearchResults.Result)],
             multiRegistry: Bool
@@ -206,7 +228,9 @@ extension PackageRegistryCommand {
         private func printJSON(
             items: [(registry: Registry, result: RegistryClient.SearchResults.Result)],
             multiRegistry: Bool,
-            total: Int
+            total: Int,
+            offset: Int,
+            limit: Int
         ) throws {
             let encoder = JSONEncoder.makeWithDefaults()
             encoder.outputFormatting.insert(.sortedKeys)
@@ -223,8 +247,8 @@ extension PackageRegistryCommand {
                     )
                 },
                 total: total,
-                offset: self.offset,
-                limit: self.limit
+                offset: offset,
+                limit: limit
             )
             let data = try encoder.encode(payload)
             if let string = String(data: data, encoding: .utf8) {
