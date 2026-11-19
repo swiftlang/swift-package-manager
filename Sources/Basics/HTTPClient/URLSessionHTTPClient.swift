@@ -65,6 +65,7 @@ final class URLSessionHTTPClient: Sendable {
                     task: dataTask,
                     urlRequest: urlRequest,
                     authorizationProvider: request.options.authorizationProvider,
+                    cachePolicy: request.options.cachePolicy,
                     progress: progress,
                     completion: { continuation.resume(with: $0) }
                 )
@@ -103,6 +104,7 @@ final class URLSessionHTTPClient: Sendable {
                 task: dataTask,
                 urlRequest: urlRequest,
                 authorizationProvider: request.options.authorizationProvider,
+                cachePolicy: .useProtocolCachePolicy,
                 progress: progress,
                 completion: completion
             )
@@ -131,6 +133,7 @@ private final class DataTaskManager: NSObject, URLSessionDataDelegate {
         task: URLSessionDataTask,
         urlRequest: URLRequest,
         authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?,
+        cachePolicy: HTTPClientRequest.CachePolicy,
         progress: LegacyHTTPClient.ProgressHandler?,
         completion: @escaping LegacyHTTPClient.CompletionHandler
     ) {
@@ -139,7 +142,8 @@ private final class DataTaskManager: NSObject, URLSessionDataDelegate {
             progressHandler: progress,
             dataTaskManager: self,
             completionHandler: completion,
-            authorizationProvider: authorizationProvider
+            authorizationProvider: authorizationProvider,
+            cachePolicy: cachePolicy
         )
     }
 
@@ -198,6 +202,18 @@ private final class DataTaskManager: NSObject, URLSessionDataDelegate {
 
     public func urlSession(
         _ session: URLSession,
+        dataTask: URLSessionDataTask,
+        willCacheResponse proposedResponse: CachedURLResponse,
+        completionHandler: @escaping (CachedURLResponse?) -> Void
+    ) {
+        guard let task = self.tasks[dataTask.taskIdentifier], task.cachePolicy == .useProtocolCachePolicy else {
+            return completionHandler(nil)
+        }
+        completionHandler(proposedResponse)
+    }
+
+    public func urlSession(
+        _ session: URLSession,
         task: URLSessionTask,
         willPerformHTTPRedirection response: HTTPURLResponse,
         newRequest request: URLRequest,
@@ -223,6 +239,7 @@ private final class DataTaskManager: NSObject, URLSessionDataDelegate {
         let dataTaskManager: DataTaskManager
         let progressHandler: LegacyHTTPClient.ProgressHandler?
         let authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
+        let cachePolicy: HTTPClientRequest.CachePolicy
 
         var response: HTTPURLResponse?
         var expectedContentLength: Int64?
@@ -233,13 +250,15 @@ private final class DataTaskManager: NSObject, URLSessionDataDelegate {
             progressHandler: LegacyHTTPClient.ProgressHandler?,
             dataTaskManager: DataTaskManager,
             completionHandler: @escaping LegacyHTTPClient.CompletionHandler,
-            authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?
+            authorizationProvider: LegacyHTTPClientConfiguration.AuthorizationProvider?,
+            cachePolicy: HTTPClientRequest.CachePolicy
         ) {
             self.task = task
             self.progressHandler = progressHandler
             self.dataTaskManager = dataTaskManager
             self.completionHandler = completionHandler
             self.authorizationProvider = authorizationProvider
+            self.cachePolicy = cachePolicy
         }
     }
 }
@@ -426,6 +445,18 @@ extension URLRequest {
         self.httpBody = request.body
         if let interval = request.options.timeout?.timeInterval() {
             self.timeoutInterval = interval
+        }
+        self.cachePolicy = request.options.cachePolicy.urlRequestCachePolicy
+    }
+}
+
+extension HTTPClientRequest.CachePolicy {
+    fileprivate var urlRequestCachePolicy: URLRequest.CachePolicy {
+        switch self {
+        case .useProtocolCachePolicy:
+            return .useProtocolCachePolicy
+        case .never:
+            return .reloadIgnoringLocalCacheData
         }
     }
 }

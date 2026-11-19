@@ -75,6 +75,11 @@ public struct HTTPClientRequest: Sendable {
         case download(fileSystem: FileSystem, destination: AbsolutePath)
     }
 
+    public enum CachePolicy: Sendable {
+        case useProtocolCachePolicy
+        case never
+    }
+
     public struct Options: Sendable {
         public var addUserAgent: Bool
         public var validResponseCodes: [Int]?
@@ -83,6 +88,7 @@ public struct HTTPClientRequest: Sendable {
         public var authorizationProvider: HTTPClientConfiguration.AuthorizationProvider?
         public var retryStrategy: HTTPClientRetryStrategy?
         public var circuitBreakerStrategy: HTTPClientCircuitBreakerStrategy?
+        public var cachePolicy: CachePolicy
 
         public init() {
             self.addUserAgent = true
@@ -92,6 +98,7 @@ public struct HTTPClientRequest: Sendable {
             self.authorizationProvider = .none
             self.retryStrategy = .none
             self.circuitBreakerStrategy = .none
+            self.cachePolicy = .useProtocolCachePolicy
         }
     }
 }
