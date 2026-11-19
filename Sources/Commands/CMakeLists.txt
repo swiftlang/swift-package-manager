@@ -19,6 +19,8 @@ add_library(Commands
   PackageCommands/AddTargetPlugin.swift
   PackageCommands/APIDiff.swift
   PackageCommands/ArchiveSource.swift
+  PackageCommands/Audit.swift
+  PackageCommands/AuditFix.swift
   PackageCommands/AuditBinaryArtifact.swift
   PackageCommands/BuildServer.swift
   PackageCommands/CompletionCommand.swift
@@ -57,6 +59,9 @@ add_library(Commands
   FileContentsMerger.swift
   XUnitXMLMerger.swift
   Utilities/APIDigester.swift
+  Utilities/Audit/AuditInputBuilder.swift
+  Utilities/Audit/FixClassifier.swift
+  Utilities/Audit/ManifestRequirementEditor.swift
   Utilities/DependenciesSerializer.swift
   Utilities/DescribedPackage.swift
   Utilities/DOTManifestSerializer.swift
@@ -80,6 +85,7 @@ target_link_libraries(Commands PUBLIC
   Build
   CoreCommands
   LLBuildManifest
+  PackageAudit
   PackageGraph
   SBOMModel
   SourceControl
