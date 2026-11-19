@@ -100,6 +100,43 @@ private func readpassword(_ prompt: String) throws -> String {
 
 extension PackageRegistryCommand {
     struct Login: AsyncSwiftCommand {
+        private enum ClientIdentitySource: Hashable {
+            case files(certificate: AbsolutePath, privateKey: AbsolutePath)
+            case keychainCommonName(String)
+            case keychainHash(String)
+        }
+
+        // MARK: Login helpers
+
+        /// Returns registry configuration given login state
+        /// A unit test helper
+        func authentication(
+            for registryURL: URL,
+            fileSystem: FileSystem
+        ) throws -> RegistryConfiguration.Authentication {
+            let identity = try Self.clientIdentitySource(
+                certificatePath: self.certificatePath,
+                privateKeyPath: self.privateKeyPath,
+                commonName: self.identityCommonName,
+                hash: self.identityHash
+            ).map { try Self.resolveClientIdentity($0, fileSystem: fileSystem) }
+
+            return Self.loginAuthentication(
+                identity: identity,
+                credentialProvided: self.credentialProvided,
+                usernameProvided: self.username != nil,
+                loginAPIPath: Self.loginAPIPath(from: registryURL)
+            )
+        }
+
+        /// The `url` can either be the base URL of the registry, in which case the login API
+        /// is assumed to be at /login, or the full URL of the login API.
+        private static func loginAPIPath(from registryURL: URL) -> String? {
+            guard !registryURL.path.isEmpty, registryURL.path != "/" else {
+                return nil
+            }
+            return registryURL.path
+        }
 
         static func loginURL(from registryURL: URL, loginAPIPath: String?) throws -> URL {
             // The login URL must be HTTPS.
@@ -114,6 +151,115 @@ extension PackageRegistryCommand {
             return loginURL
         }
 
+        private static func clientIdentitySource(
+            certificatePath: AbsolutePath?,
+            privateKeyPath: AbsolutePath?,
+            commonName: String?,
+            hash: String?
+        ) throws -> ClientIdentitySource? {
+            guard (certificatePath == nil) == (privateKeyPath == nil) else {
+                throw ValidationError.incompleteClientCertificate
+            }
+
+            let certificateAndKey = certificatePath.flatMap { certificate in
+                privateKeyPath.map { ClientIdentitySource.files(certificate: certificate, privateKey: $0) }
+            }
+
+            let sources: [ClientIdentitySource] = [
+                certificateAndKey,
+                commonName.map { .keychainCommonName($0) },
+                hash.map { .keychainHash($0) },
+            ].compactMap { $0 }
+
+            guard sources.count <= 1 else {
+                throw ValidationError.multipleClientIdentities
+            }
+
+            return sources.first
+        }
+
+        /// If a credential was provided and an identity, return a registry configuration that includes both
+        /// SPM will read the configuration and know to send the credential over mTLS
+        /// This allows registries to support cert-bound tokens
+        /// https://www.rfc-editor.org/info/rfc8705/#section-3
+        private static func loginAuthentication(
+            identity: RegistryConfiguration.Identity?,
+            credentialProvided: Bool,
+            usernameProvided: Bool,
+            loginAPIPath: String?
+        ) -> RegistryConfiguration.Authentication {
+            let credentialType: RegistryConfiguration.AuthenticationType = usernameProvided ? .basic : .token
+
+            guard let identity else {
+                return .init(type: credentialType, loginAPIPath: loginAPIPath)
+            }
+            guard credentialProvided else {
+                return .init(type: .mtls, loginAPIPath: loginAPIPath, identity: identity)
+            }
+            return .init(type: credentialType, loginAPIPath: loginAPIPath, identity: identity)
+        }
+
+        private static func resolveClientIdentity(
+            _ source: ClientIdentitySource,
+            fileSystem: FileSystem
+        ) throws -> RegistryConfiguration.Identity {
+            switch source {
+            case .files(let certificate, let privateKey):
+                return try Self.validatedFilesIdentity(
+                    certificate: certificate,
+                    privateKey: privateKey,
+                    fileSystem: fileSystem
+                )
+            case .keychainCommonName(let commonName):
+                return try Self.keychainIdentity(commonName: commonName)
+            case .keychainHash(let hash):
+                return try Self.keychainIdentity(hash: hash)
+            }
+        }
+
+        private static func validatedFilesIdentity(
+            certificate: AbsolutePath,
+            privateKey: AbsolutePath,
+            fileSystem: FileSystem
+        ) throws -> RegistryConfiguration.Identity {
+            let identity = RegistryConfiguration.Identity.files(
+                certificatePath: certificate.pathString,
+                privateKeyPath: privateKey.pathString
+            )
+
+            _ = try RegistryClientIdentityResolver(fileSystem: fileSystem).resolve(identity)
+
+            return identity
+        }
+
+        private static func keychainIdentity(commonName: String) throws -> RegistryConfiguration.Identity {
+            #if os(macOS)
+            switch try KeychainIdentityStore().findIdentity(matching: .commonName(commonName)) {
+            case .found(_, let attributes):
+                return .keychain(commonName: commonName, hash: attributes.hash)
+            case .notFound:
+                throw ValidationError.identityCommonNameNotFound(commonName)
+            case .ambiguous(let matches):
+                throw ValidationError.ambiguousIdentityCommonName(commonName, matches)
+            }
+            #else
+            throw ValidationError.keychainUnavailable
+            #endif
+        }
+
+        private static func keychainIdentity(hash: String) throws -> RegistryConfiguration.Identity {
+            #if os(macOS)
+            switch try KeychainIdentityStore().findIdentity(matching: .hash(hash)) {
+            case .found(_, let attributes):
+                return .keychain(commonName: attributes.commonName ?? "", hash: attributes.hash)
+            case .notFound, .ambiguous:
+                throw ValidationError.identityHashNotFound(hash)
+            }
+            #else
+            throw ValidationError.keychainUnavailable
+            #endif
+        }
+
         static let configuration = CommandConfiguration(
             abstract: "Log in to a registry."
         )
@@ -123,6 +269,8 @@ extension PackageRegistryCommand {
         // this way, you can tell if the entered password is over the length
         // limit. One space is for \0, and another is for the "overflowing" character.
         static let passwordBufferSize = Self.maxPasswordLength + 2
+
+        // MARK: Login arguments
 
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
@@ -152,9 +300,91 @@ extension PackageRegistryCommand {
         @Flag(help: "Write to the .netrc file without asking for confirmation.")
         var noConfirm: Bool = false
 
+        @Option(
+            name: .customLong("cert"),
+            help: "Path to the client certificate to present to the registry."
+        )
+        var certificatePath: AbsolutePath?
+
+        @Option(
+            name: .customLong("key"),
+            help: "Path to the private key of the client certificate."
+        )
+        var privateKeyPath: AbsolutePath?
+
+        @Option(
+            name: .customLong("identity-common-name"),
+            help: "Common Name of a client identity in the keychain."
+        )
+        var identityCommonName: String?
+
+        @Option(
+            name: .customLong("identity-hash"),
+            help: "SHA-1 hash of a client identity in the keychain."
+        )
+        var identityHash: String?
+
         private static let PLACEHOLDER_TOKEN_USER = "token"
 
+        private var credentialProvided: Bool {
+            self.username != nil || self.token != nil || self.tokenFilePath != nil
+        }
+
+        // MARK: Login logic
+
         func run(_ swiftCommandState: SwiftCommandState) async throws {
+            // The authorization configuration is in the user-level registries configuration only.
+            let configuration = try getRegistriesConfig(swiftCommandState, global: true)
+
+            // Compute and validate the registry URL.
+            guard let registryURL = self.registryURL ?? configuration.configuration.defaultRegistry?.url else {
+                throw ValidationError.unknownRegistry
+            }
+
+            try registryURL.validateRegistryURL()
+
+            let authentication = try self.authentication(
+                for: registryURL,
+                fileSystem: swiftCommandState.fileSystem
+            )
+
+            let loginURL = try Self.loginURL(from: registryURL, loginAPIPath: authentication.loginAPIPath)
+
+            // mTLS auth does not require writing credentials to disk
+            // Handle this case early, then return so the `authorizationProvider` is always used
+            if authentication.type == .mtls {
+                var registryConfiguration = configuration.configuration
+                try registryConfiguration.add(authentication: authentication, for: registryURL)
+
+                let registryClient = RegistryClient(
+                    configuration: registryConfiguration,
+                    fingerprintStorage: .none,
+                    fingerprintCheckingMode: .strict,
+                    skipSignatureValidation: false,
+                    signingEntityStorage: .none,
+                    signingEntityCheckingMode: .strict,
+                    authorizationProvider: .none,
+                    delegate: .none,
+                    checksumAlgorithm: SHA256()
+                )
+
+                try await registryClient.login(
+                    loginURL: loginURL,
+                    timeout: .seconds(5),
+                    observabilityScope: swiftCommandState.observabilityScope
+                )
+
+                print("Login successful.")
+
+                let update: (inout RegistryConfiguration) throws -> Void = { configuration in
+                    try configuration.add(authentication: authentication, for: registryURL)
+                }
+                try configuration.updateShared(with: update)
+
+                print("Registry configuration updated.")
+                return
+            }
+
             // You need to be able to read/write credentials.
             // Make sure the credentials store is available before proceeding.
             let authorizationProvider: AuthorizationProvider?
@@ -170,24 +400,11 @@ extension PackageRegistryCommand {
                 throw ValidationError.unknownCredentialStore
             }
 
-            // The authorization configuration is in the user-level registries configuration only.
-            let configuration = try getRegistriesConfig(swiftCommandState, global: true)
-
-            // Compute and validate the registry URL.
-            guard let registryURL = self.registryURL ?? configuration.configuration.defaultRegistry?.url else {
-                throw ValidationError.unknownRegistry
-            }
-
-            try registryURL.validateRegistryURL()
-
-            let authenticationType: RegistryConfiguration.AuthenticationType
             let storeUsername: String
             let storePassword: String
             var saveChanges = true
 
             if let username {
-                authenticationType = .basic
-
                 storeUsername = username
                 if let password {
                     // User provided password
@@ -203,8 +420,6 @@ extension PackageRegistryCommand {
                     storePassword = try readpassword("Enter password for '\(storeUsername)': ")
                 }
             } else {
-                authenticationType = .token
-
                 // All token authentication accounts have the same placeholder value.
                 storeUsername = Self.PLACEHOLDER_TOKEN_USER
                 if let token {
@@ -239,19 +454,9 @@ extension PackageRegistryCommand {
                 persist: false
             )
 
-            // The `url` can either be the base URL of the registry, in which case the login API
-            // is assumed to be at /login, or the full URL of the login API.
-            var loginAPIPath: String?
-            if !registryURL.path.isEmpty, registryURL.path != "/" {
-                loginAPIPath = registryURL.path
-            }
-
-            let loginURL = try Self.loginURL(from: registryURL, loginAPIPath: loginAPIPath)
-
-
             // Build a `RegistryConfiguration` with the given authentication settings.
             var registryConfiguration = configuration.configuration
-            try registryConfiguration.add(authentication: .init(type: authenticationType, loginAPIPath: loginAPIPath), for: registryURL)
+            try registryConfiguration.add(authentication: authentication, for: registryURL)
 
             // Build a `RegistryClient` to test login credentials (fingerprints aren't applicable in this case).
             let registryClient = RegistryClient(
@@ -318,7 +523,7 @@ extension PackageRegistryCommand {
 
             // Update the user-level registry configuration file.
             let update: (inout RegistryConfiguration) throws -> Void = { configuration in
-                try configuration.add(authentication: .init(type: authenticationType, loginAPIPath: loginAPIPath), for: registryURL)
+                try configuration.add(authentication: authentication, for: registryURL)
             }
             try configuration.updateShared(with: update)
 
@@ -331,6 +536,7 @@ extension PackageRegistryCommand {
             abstract: "Log out from a registry."
         )
 
+        // Logout Arguments
         @OptionGroup(visibility: .hidden)
         var globalOptions: GlobalOptions
 
@@ -340,6 +546,8 @@ extension PackageRegistryCommand {
         var registryURL: URL? {
             self.url
         }
+
+        // MARK: Logout logic
 
         func run(_ swiftCommandState: SwiftCommandState) async throws {
             // The authorization configuration is in the user-level registries configuration only.
@@ -352,6 +560,24 @@ extension PackageRegistryCommand {
 
             try registryURL.validateRegistryURL()
 
+            if try configuration.configuration.authentication(for: registryURL)?.type != .mtls {
+                try await self.removeCredentials(registryURL: registryURL, swiftCommandState: swiftCommandState)
+            }
+
+            // Update the user-level registry configuration file.
+            let update: (inout RegistryConfiguration) throws -> Void = { configuration in
+                configuration.removeAuthentication(for: registryURL)
+            }
+            try configuration.updateShared(with: update)
+
+            print("Registry configuration updated.")
+            print("Logout successful.")
+        }
+
+        private func removeCredentials(
+            registryURL: URL,
+            swiftCommandState: SwiftCommandState
+        ) async throws {
             // You need to be able to read/write credentials.
             guard let authorizationProvider = try swiftCommandState.getRegistryAuthorizationProvider(
                 additionalRegistryURLs: [registryURL]
@@ -369,15 +595,6 @@ extension PackageRegistryCommand {
             } else {
                 print("netrc file not updated. Please remove credentials from the file manually.")
             }
-
-            // Update the user-level registry configuration file.
-            let update: (inout RegistryConfiguration) throws -> Void = { configuration in
-                configuration.removeAuthentication(for: registryURL)
-            }
-            try configuration.updateShared(with: update)
-
-            print("Registry configuration updated.")
-            print("Logout successful.")
         }
     }
 }

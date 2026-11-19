@@ -101,6 +101,8 @@ public final class RegistryClient: AsyncCancellable {
                     return "Basic \(authorizationData.base64EncodedString())"
                 case .token: // `user` value is irrelevant in this case
                     return "Bearer \(password)"
+                case .mtls:
+                    return .none
                 case nil:
                     if user == "token" {
                         return "Bearer \(password)"
@@ -114,8 +116,10 @@ public final class RegistryClient: AsyncCancellable {
             self.authorizationProvider = .none
         }
 
-        self.httpClient = customHTTPClient ?? HTTPClient(
-            configuration: .init(maxConcurrentRequestsPerHost: Self.defaultMaxConcurrentRequestsPerHost)
+        self.httpClient = customHTTPClient ?? RegistryHTTPClientProvider.makeHTTPClient(
+            configuration: configuration,
+            httpClientConfiguration: .init(maxConcurrentRequestsPerHost: Self.defaultMaxConcurrentRequestsPerHost),
+            fileSystem: localFileSystem
         )
         self.archiverProvider = customArchiverProvider ?? { fileSystem in UniversalArchiver(fileSystem) }
         self.fingerprintStorage = fingerprintStorage
