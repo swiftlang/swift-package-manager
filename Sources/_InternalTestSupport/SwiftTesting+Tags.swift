@@ -201,6 +201,8 @@ extension Tag.Feature.Command.Package {
     @Tag public static var DumpSymbolGraph: Tag
     @Tag public static var Edit: Tag
     @Tag public static var ExperimentalApiDiff: Tag
+    @Tag public static var ExperimentalInstall: Tag
+    @Tag public static var ExperimentalUninstall: Tag
     @Tag public static var GenerateSBOM: Tag
     @Tag public static var Init: Tag
     @Tag public static var Migrate: Tag
