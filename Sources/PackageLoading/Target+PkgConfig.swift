@@ -13,6 +13,7 @@
 import Basics
 import PackageModel
 import Foundation
+import OrderedCollections
 
 import class Basics.AsyncProcess
 import struct TSCBasic.RegEx
@@ -113,7 +114,10 @@ public func pkgConfigArgs(
             // Set the error if there are any disallowed flags.
             var error: Swift.Error?
             if !filtered.disallowed.isEmpty {
-                error = PkgConfigError.prohibitedFlags(filtered.disallowed.joined(separator: ", "))
+                // A .pc file is read again for each path through Requires, so the
+                // same flag (for example -pthread from glib-2.0.pc) can be dropped
+                // many times. Name each dropped flag one time.
+                error = PkgConfigError.prohibitedFlags(OrderedSet(filtered.disallowed).joined(separator: ", "))
             }
 
             result = PkgConfigResult(
