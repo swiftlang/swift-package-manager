@@ -28,10 +28,14 @@ package func containsAtMain(fileSystem: FileSystem, path: AbsolutePath) throws -
         if line.hasPrefix("/*") {
             multilineComment = true
         }
-        if line.hasSuffix("*/") {
-            multilineComment = false
-        }
         if multilineComment {
+            if let closeRange = line.range(of: "*/") {
+                multilineComment = false
+                let afterComment = String(line[closeRange.upperBound...]).trimmingCharacters(in: .whitespaces)
+                if afterComment.hasPrefix("@main") {
+                    return true
+                }
+            }
             continue
         }
         if line.hasPrefix("@main") {
