@@ -10,6 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+import Basics
 import Foundation
 @testable import SBOMModel
 import Testing
@@ -46,5 +47,22 @@ struct SBOMExtractMetadataTests {
         let license = licenses[0]
         #expect(license.name == "Apache-2.0")
         #expect(license.url == "http://swift.org/LICENSE.txt")
+    }
+
+    @Test("extractMetadata honors SOURCE_DATE_EPOCH")
+    func extractMetadataHonorsSourceDateEpoch() async throws {
+        try await Environment.makeCustom(["SOURCE_DATE_EPOCH": "1730337918"]) {
+            let graph = try SBOMTestModulesGraph.createSimpleModulesGraph()
+            let store = try SBOMTestStore.createSimpleResolvedPackagesStore()
+            let extractor = SBOMExtractor(modulesGraph: graph, dependencyGraph: nil, store: store)
+            let metadata = try await extractor.extractMetadata()
+
+            let timestamp = try #require(metadata.timestamp)
+            #expect(timestamp == "2024-10-31T01:25:18Z")
+
+            let creators = try #require(metadata.creators)
+            let creator = creators[0]
+            #expect(creator.id.value.hasPrefix("urn:uuid:"))
+        }
     }
 }

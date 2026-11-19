@@ -119,7 +119,7 @@ internal struct SPDXConverter {
         )
         elements.append(creationInfo)
 
-        let spdxSBOMID = SBOMIdentifier.generate().value
+        let spdxSBOMID = SBOMIdentifier.generate(from: "\(document.id.value):spdx:sbom").value
         let profileConformance = ["core", "software"]
 
         let primaryComponentID = self.generateSPDXID(document.primaryComponent.id.value)

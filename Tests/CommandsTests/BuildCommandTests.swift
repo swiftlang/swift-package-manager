@@ -3029,6 +3029,49 @@ struct BuildSBOMCommandTests {
         }
     }
 
+    @Test(
+        arguments: SupportedBuildSystemOnAllPlatforms, ["cyclonedx", "spdx"]
+    )
+    func sbomReproducibilityWithSourceDateEpoch(
+        buildSystem: BuildSystemProvider.Kind,
+        sbomSpec: String
+    ) async throws {
+        try await fixture(name: "DependencyResolution/Internal/Simple") { fixturePath in
+            let customSBOMDir = fixturePath.appending("reproducibility-epoch-\(sbomSpec)")
+
+            // Generate first SBOM with SOURCE_DATE_EPOCH
+            let (_, _) = try await executeSwiftBuild(
+                fixturePath,
+                extraArgs: ["--sbom-spec", sbomSpec, "--sbom-output-dir", customSBOMDir.pathString],
+                env: ["SOURCE_DATE_EPOCH": "1730337918"],
+                buildSystem: buildSystem
+            )
+
+            let sbomFiles1 = try getSBOMFiles(in: customSBOMDir)
+            #expect(sbomFiles1.count == 1, "Expected exactly 1 SBOM file after first generation")
+            let content1 = try readSBOMContent(at: sbomFiles1[0])
+
+            // Small delay to ensure timestamp would have differed without SOURCE_DATE_EPOCH
+            try await Task.sleep(for: .seconds(1))
+
+            // Generate second SBOM with same SOURCE_DATE_EPOCH
+            let (_, _) = try await executeSwiftBuild(
+                fixturePath,
+                extraArgs: ["--sbom-spec", sbomSpec, "--sbom-output-dir", customSBOMDir.pathString],
+                env: ["SOURCE_DATE_EPOCH": "1730337918"],
+                buildSystem: buildSystem
+            )
+
+            // When SOURCE_DATE_EPOCH is set, the filename timestamp is pinned, so the second run writes the same filename
+            let sbomFiles2 = try getSBOMFiles(in: customSBOMDir)
+            #expect(sbomFiles2.count == 1, "Expected exactly 1 SBOM file because filename timestamp is pinned by SOURCE_DATE_EPOCH")
+            let content2 = try readSBOMContent(at: sbomFiles2[0])
+
+            // Byte-for-byte identical content without normalization
+            #expect(content1 == content2, "SBOMs must be byte-for-byte identical when SOURCE_DATE_EPOCH is set")
+        }
+    }
+
     /// Generates an SBOM in the specified output directory
     private func generateSBOM(
         fixturePath: AbsolutePath,
