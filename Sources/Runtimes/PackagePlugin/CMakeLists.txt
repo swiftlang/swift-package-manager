@@ -8,6 +8,7 @@
 
 add_library(PackagePlugin
   ArgumentExtractor.swift
+  BuildSettings.swift
   Command.swift
   Context.swift
   Diagnostics.swift

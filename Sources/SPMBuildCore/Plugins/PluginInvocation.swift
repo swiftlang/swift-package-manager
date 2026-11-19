@@ -331,6 +331,10 @@ extension PluginModule {
                     }
                     return nil
 
+                case .defineSettings(let settings):
+                    self.invocationDelegate.pluginDefinedSettings(settings: settings.map { .init(setting: $0) })
+                    return nil
+
                 case .buildOperationRequest(let subset, let parameters):
                     do {
                         let result = try await self.invocationDelegate.pluginRequestedBuildOperation(
@@ -471,6 +475,27 @@ extension PluginModule {
             diagnostics.append(.error(invocationError))
         }
 
+        if case let .createBuildToolCommands(package: _, target: target, pluginGeneratedSources: _, pluginGeneratedResources: _) = action {
+            for setting in delegate.buildSettings {
+                switch setting.name {
+                case "headerSearchPath":
+                    guard let pathStr = setting.value.first else {
+                        break
+                    }
+                    let path = try RelativePath(validating: pathStr)
+                    let value = outputDirectory.appending(path).pathString
+                    let assignment = PackageModel.BuildSettings.Assignment(
+                        values: [value],
+                        usage: setting.usage,
+                        conditions: setting.conditions
+                    )
+                    target.underlying.buildSettings.add(assignment, for: .ABSOLUTE_HEADER_SEARCH_PATHS)
+                default:
+                    break
+                }
+            }
+        }
+
         return BuildToolPluginInvocationResult(
             plugin: self,
             pluginOutputDirectory: outputDirectory,
@@ -536,14 +561,6 @@ extension ModulesGraph {
                 observabilityScope: observabilityScope
             )
             generatedFiles.add(files)
-            if !files.headers.isEmpty {
-                // Capture the public include directory if there were header files generated there
-                // Hardcoding as the default for now
-                let publicDir = result.pluginOutputDirectory.appending(ClangModule.defaultPublicHeadersComponent)
-                if files.headers.contains(where: { $0.isDescendantOfOrEqual(to: publicDir) }) {
-                    generatedFiles.publicHeaderPaths.append(publicDir)
-                }
-            }
         }
 
         // Add any derived files that were discovered from output directories of prebuild commands.
@@ -561,9 +578,6 @@ extension ModulesGraph {
             }
             if !files.moduleMaps.isEmpty {
                 observabilityScope.emit(warning: "Module map generation not supported in prebuilt commands: \(target.name)")
-            }
-            if !files.apiNotes.isEmpty {
-                observabilityScope.emit(warning: "API note generation not supported in prebuilt commands: \(target.name)")
             }
             generatedFiles.add(GeneratedFiles(sources: files.sources, resources: files.resources))
         }
@@ -661,6 +675,13 @@ public extension ResolvedModule {
         }
 
         return tools
+    }
+
+    func addSettings(
+        outputDir: AbsolutePath,
+        settings: [PluginBuildSetting]
+    ) {
+
     }
 }
 
@@ -766,6 +787,9 @@ public protocol PluginInvocationDelegate {
     /// Called when a plugin defines a prebuild command through the PackagePlugin APIs.
     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool
 
+    /// Called when a plugin requests build settings to be applied to the target
+    func pluginDefinedSettings(settings: [PluginBuildSetting])
+
     /// Called when a plugin requests a build operation through the PackagePlugin APIs.
     func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters) async throws -> PluginInvocationBuildResult
 
@@ -785,6 +809,7 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
     var diagnostics = [Basics.Diagnostic]()
     var buildCommands = [BuildToolPluginInvocationResult.BuildCommand]()
     var prebuildCommands = [BuildToolPluginInvocationResult.PrebuildCommand]()
+    var buildSettings = [PluginBuildSetting]()
 
     package init(
         fileSystem: FileSystem,
@@ -869,6 +894,10 @@ final class DefaultPluginInvocationDelegate: PluginInvocationDelegate {
             outputFilesDirectory: outputFilesDirectory
         ))
         return true
+    }
+
+    func pluginDefinedSettings(settings: [PluginBuildSetting]) {
+        self.buildSettings = settings
     }
 }
 
@@ -984,11 +1013,27 @@ public struct PluginInvocationTestResult {
     }
 }
 
+public struct PluginBuildSetting {
+    public let name: String
+    public let value: [String]
+    public let usage: BuildSettings.Assignment.Usage?
+    public let conditions: [PackageCondition]
+
+    init(setting: PluginToHostMessage.BuildSetting) {
+        self.name = setting.name
+        self.value = setting.value
+        self.usage = setting.usage.map { .init(usage: $0) }
+        self.conditions = .init(condition: setting.condition)
+    }
+}
+
 public extension PluginInvocationDelegate {
     func pluginDefinedBuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, inputFiles: [AbsolutePath], outputFiles: [AbsolutePath]) {
     }
     func pluginDefinedPrebuildCommand(displayName: String?, executable: AbsolutePath, arguments: [String], environment: [String: String], workingDirectory: AbsolutePath?, outputFilesDirectory: AbsolutePath) -> Bool {
         return true
+    }
+    func pluginDefinedSettings(settings: [PluginBuildSetting]) {
     }
     func pluginRequestedBuildOperation(subset: PluginInvocationBuildSubset, parameters: PluginInvocationBuildParameters) async throws -> PluginInvocationBuildResult {
         throw StringError("unimplemented")
@@ -1217,5 +1262,44 @@ extension ObservabilityMetadata {
 
     enum PluginNameKey: Key {
         typealias Value = String
+    }
+}
+
+extension BuildSettings.Assignment.Usage {
+    init(usage: PluginToHostMessage.BuildSettingUsage) {
+        self = switch usage {
+        case .public:
+            .public
+        case .private:
+            .private
+        case .interface:
+            .interface
+        }
+    }
+}
+
+extension [PackageCondition] {
+    init(condition: PluginToHostMessage.BuildSettingCondition?) {
+        self.init()
+        if let conditionPlatforms = condition?.platforms {
+            let platforms = conditionPlatforms.map {
+                PlatformRegistry.default.platformByName[$0.name]
+                    ?? PackageModel.Platform.custom(name: $0.name, oldestSupportedVersion: .unknown)
+            }
+            self.append(.init(platforms: platforms))
+        }
+
+        if let conditionConfig = condition?.config {
+            let config: BuildConfiguration = switch conditionConfig.config {
+            case "debug":
+                .debug
+            case "release":
+                .release
+            default:
+                // Default to debug in case it is something different
+                .debug
+            }
+            self.append(.init(configuration: config))
+        }
     }
 }

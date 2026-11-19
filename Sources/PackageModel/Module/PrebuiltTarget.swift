@@ -24,21 +24,33 @@ public final class PrebuiltTarget: Module {
 
         // Add modules path
         buildSettings.add(
-            .init(values: [prebuilt.path.appending("Modules").pathString]),
+            .init(
+                values: [prebuilt.path.appending("Modules").pathString],
+                usage: .public
+            ),
             for: .ABSOLUTE_SWIFT_INCLUDE_PATHS
         )
 
         // Add C header paths
         buildSettings.add(
-            .init(values: prebuilt.includePath.map({
-                prebuilt.checkoutPath.appending($0).pathString
-            })),
+            .init(
+                values: prebuilt.includePath.map({
+                    prebuilt.checkoutPath.appending($0).pathString
+                }),
+                usage: .public
+            ),
             for: .ABSOLUTE_HEADER_SEARCH_PATHS
         )
 
         // Add library. The build must copy it to the shared library path so there is
         // no need to add in the library path.
-        buildSettings.add(.init(values: [prebuilt.libraryName]), for: .LINK_LIBRARIES)
+        buildSettings.add(
+            .init(
+                values: [prebuilt.libraryName],
+                usage: .public
+            ),
+            for: .LINK_LIBRARIES
+        )
 
         super.init(
             name: prebuilt.libraryName,

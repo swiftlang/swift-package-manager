@@ -363,7 +363,35 @@ enum PluginToHostMessage: Codable {
             var environment: [String: String]
             var workingDirectory: URL?
         }
-    
+
+    case defineSettings(settings: [BuildSetting])
+
+        struct Platform: Codable {
+            let name: String
+        }
+
+        struct BuildConfiguration: Codable {
+            let config: String
+        }
+
+        struct BuildSettingCondition: Codable {
+            let platforms: [Platform]?
+            let config: BuildConfiguration?
+        }
+
+        enum BuildSettingUsage: Codable {
+            case `private`
+            case `public`
+            case interface
+        }
+
+        struct BuildSetting: Codable {
+            let name: String
+            let value: [String]
+            let usage: BuildSettingUsage?
+            let condition: BuildSettingCondition?
+        }
+
     /// The plugin is requesting that a build operation be run.
     case buildOperationRequest(subset: BuildSubset, parameters: BuildParameters)
     
