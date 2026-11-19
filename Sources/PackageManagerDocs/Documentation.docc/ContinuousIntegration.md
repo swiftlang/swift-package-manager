@@ -27,6 +27,10 @@ You may also need to set up a `known_hosts` file in the `~/.ssh` directory of th
 CI services like [Jenkins](https://www.jenkins.io/doc/book/using/using-credentials), [Github Action](https://docs.github.com/en/free-pro-team@latest/actions/reference/authentication-in-a-workflow), [TravisCI](https://docs.travis-ci.com/user/private-dependencies), and [CircleCI](https://circleci.com/docs/2.0/gh-bb-integration/#security) provide ways to set up SSH keys or other techniques to access private repositories.
 Since Package manager uses git to clone the repositories there's no additional setup required; Package manager honors the machine's SSH and Git configuration.
 
+One exception: unless `GIT_SSH_COMMAND` is already set, Package manager runs git with `GIT_SSH_COMMAND` set to `ssh -oBatchMode=yes`, so that git fails instead of waiting for a password.
+Git gives that variable precedence over the `core.sshCommand` setting, so a `core.sshCommand` in your Git configuration is ignored.
+To use a specific key or SSH option, set `GIT_SSH_COMMAND` in the environment instead, for example `GIT_SSH_COMMAND="ssh -i ~/.ssh/ci_key -oBatchMode=yes" swift build`.
+
 ## Using xcodebuild
 
 When building on macOS based CI hosts you can use the command-line tool `xcodebuild`.
