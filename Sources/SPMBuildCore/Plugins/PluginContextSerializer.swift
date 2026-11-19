@@ -155,10 +155,9 @@ internal struct PluginContextSerializer {
                         metadata: .pkgConfig(pcFile: result.pkgConfigName, targetName: target.name)
                     )
                 }
-                else {
-                    cFlags += result.cFlags
-                    ldFlags += result.libs
-                }
+                // Keep allowlisted flags when another flag was prohibited, matching the build path.
+                cFlags += result.cFlags
+                ldFlags += result.libs
             }
 
             targetInfo = .systemLibraryInfo(

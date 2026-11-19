@@ -44,6 +44,23 @@ final class PkgConfigAllowlistTests: XCTestCase {
         XCTAssertEqual(result.1, ["-L/usr/lib/Cellar/gtk+3/3.18.9/lib", "-lgtk-3", "-module-name", "-lcool", "ok", "name"])
     }
 
+    func testDefineFlagsAreAllowed() throws {
+        let attached = try allowlist(pcFile: "dummy", flags: (["-I/x", "-DFOO=1"], []))
+        XCTAssertEqual(attached.cFlags, ["-I/x", "-DFOO=1"])
+        XCTAssertEqual(attached.disallowed, [])
+
+        // Split form must keep its value and must not be treated like the `-w` special case.
+        let split = try allowlist(pcFile: "dummy", flags: (["-D", "FOO", "-I/x"], []))
+        XCTAssertEqual(split.cFlags, ["-D", "FOO", "-I/x"])
+        XCTAssertEqual(split.disallowed, [])
+
+        let disallowed = try allowlist(
+            pcFile: "dummy",
+            flags: (["-werror", "-module-name", "x", "-L/hello"], [])
+        ).disallowed
+        XCTAssertEqual(disallowed, ["-werror", "-module-name", "x", "-L/hello"])
+    }
+
     func testPathSDKPaths() throws {
         let flags = ["-I/opt/homebrew/Cellar/cairo/1.16.0_5/include/cairo", "-I/Library/Developer/CommandLineTools/SDKs/MacOSX13.sdk/usr/include/ffi"]
         let sdk = AbsolutePath("/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX13.3.sdk")
