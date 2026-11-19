@@ -23,6 +23,69 @@ import Testing
     )
 )
 struct PackageBuilderTests {
+    @Test(arguments: [TargetDescription.TargetKind.regular, .executable, .test], [false, true])
+    func testPluginGeneratedOnlySwiftTarget(kind: TargetDescription.TargetKind, externalPlugin: Bool) throws {
+        let root: AbsolutePath = kind == .test ? "/Tests/Generated" : "/Sources/Generated"
+        let input = root.appending("answer.ts")
+        let fs = InMemoryFileSystem(emptyFiles: input.pathString, "/Plugins/Generator/plugin.swift")
+        let manifest = try Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .v6_0,
+            targets: [
+                TargetDescription(
+                    name: "Generated",
+                    type: kind,
+                    pluginUsages: [.plugin(name: "Generator", package: externalPlugin ? "generator" : nil)]
+                ),
+                TargetDescription(name: "Generator", type: .plugin, pluginCapability: .buildTool),
+            ]
+        )
+        try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            diagnostics.checkIsEmpty()
+            try package.checkModule("Generated") { module in
+                #expect(module.target is SwiftModule)
+                module.check(type: kind == .test ? .test : kind == .executable ? .executable : .library)
+                module.checkSources(root: root.pathString)
+                #expect(module.target.others == [input])
+                module.check(dependencies: ["Generator"])
+            }
+            try package.checkModule("Generator")
+            if kind == .executable {
+                package.checkProduct("Generated")
+            } else if kind == .test {
+                package.checkProduct("pkgPackageTests")
+            }
+        }
+    }
+
+    @Test(arguments: ["source.c", "include/source.h"])
+    func testPluginDoesNotChangeClangTargetKind(input: String) throws {
+        let fs = InMemoryFileSystem(
+            emptyFiles:
+            "/Sources/Generated/\(input)",
+            "/Sources/Generated/include/source.h",
+            "/Plugins/Generator/plugin.swift"
+        )
+        let manifest = try Manifest.createRootManifest(
+            displayName: "pkg",
+            toolsVersion: .v6_0,
+            targets: [
+                TargetDescription(
+                    name: "Generated",
+                    pluginUsages: [.plugin(name: "Generator", package: nil)]
+                ),
+                TargetDescription(name: "Generator", type: .plugin, pluginCapability: .buildTool),
+            ]
+        )
+        try PackageBuilderTester(manifest, in: fs) { package, diagnostics in
+            diagnostics.checkIsEmpty()
+            try package.checkModule("Generated") { module in
+                #expect(module.target is ClangModule)
+            }
+            try package.checkModule("Generator")
+        }
+    }
+
     @Test
     func testDotFilesAreIgnored() throws {
         let fs = InMemoryFileSystem(emptyFiles:
