@@ -14,8 +14,6 @@ import Basics
 import Foundation
 import TSCBasic
 
-import class Basics.AsyncProcess
-
 private func isAndroid() -> Bool {
     (try? Basics.localFileSystem.isFile(AbsolutePath(validating: "/system/bin/toolchain"))) ?? false ||
         (try? Basics.localFileSystem.isFile(AbsolutePath(validating: "/system/bin/toybox"))) ?? false
@@ -39,20 +37,14 @@ extension Platform {
     public static let current: Platform? = {
         #if os(Windows)
         return .windows
+        #elseif os(macOS)
+        return .darwin
+        #elseif os(FreeBSD)
+        return .freebsd
+        #elseif os(Linux) || os(Android)
+        return Platform.findCurrentPlatformLinux(Basics.localFileSystem)
         #else
-        switch try? AsyncProcess.checkNonZeroExit(args: "uname")
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .lowercased()
-        {
-        case "darwin"?:
-            return .darwin
-        case "freebsd"?:
-            return .freebsd
-        case "linux"?:
-            return Platform.findCurrentPlatformLinux(Basics.localFileSystem)
-        default:
-            return nil
-        }
+        return nil
         #endif
     }()
 

@@ -127,21 +127,15 @@ struct DumpSymbolGraph: AsyncSwiftCommand {
                 }
 
                 print("-- Emitting symbol graph for", description.module.name)
-                let result = try symbolGraphExtractor.extractSymbolGraph(
+                let result = try await symbolGraphExtractor.extractSymbolGraph(
                     for: description,
-                    outputRedirection: .collect(redirectStderr: true),
                     outputDirectory: symbolGraphDirectory,
                     verboseOutput: swiftCommandState.logLevel <= .info
                 )
 
-                if result.exitStatus != .terminated(code: 0) {
+                if !result.exitedSuccessfully {
                     let commandline = "\nUsing commandline: \(result.arguments)"
-                    switch result.output {
-                    case .success(let value):
-                        swiftCommandState.observabilityScope.emit(error: "Failed to emit symbol graph for '\(description.module.c99name)': \(String(decoding: value, as: UTF8.self))\(commandline)")
-                    case .failure(let error):
-                        swiftCommandState.observabilityScope.emit(error: "Internal error while emitting symbol graph for '\(description.module.c99name)': \(error)\(commandline)")
-                    }
+                    swiftCommandState.observabilityScope.emit(error: "Failed to emit symbol graph for '\(description.module.c99name)': \(result.output)\(commandline)")
                 }
             }
         } else {

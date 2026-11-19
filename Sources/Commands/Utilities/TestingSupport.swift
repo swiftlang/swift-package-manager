@@ -16,6 +16,13 @@ import CoreCommands
 import Foundation
 import PackageModel
 import SPMBuildCore
+import Subprocess
+
+#if canImport(System)
+import System
+#else
+import SystemPackage
+#endif
 import TSCUtility
 import Workspace
 
@@ -30,7 +37,7 @@ import Android
 #endif
 
 import struct TSCBasic.FileSystemError
-import class Basics.AsyncProcess
+import struct TSCBasic.StringError
 import var TSCBasic.stderrStream
 import var TSCBasic.stdoutStream
 import func TSCBasic.withTemporaryFile
@@ -93,7 +100,7 @@ enum TestingSupport {
     /// Note: It is a fatalError if we are not able to locate the tool.
     ///
     /// - Returns: Path to XCTestHelper tool.
-    static func xctestHelperPath(swiftCommandState: SwiftCommandState) throws -> AbsolutePath {
+    static func xctestHelperPath(swiftCommandState: SwiftCommandState) async throws -> AbsolutePath {
         var triedPaths = [AbsolutePath]()
 
         func findXCTestHelper(swiftBuildPath: AbsolutePath) -> AbsolutePath? {
@@ -117,9 +124,11 @@ enum TestingSupport {
         }
 
         // This will be true during swiftpm development or when using swift.org toolchains.
-        let xcodePath = try AsyncProcess.checkNonZeroExit(args: "/usr/bin/xcode-select", "--print-path").spm_chomp()
-        let installedSwiftBuildPath = try AsyncProcess.checkNonZeroExit(
-            args: "/usr/bin/xcrun", "--find", "swift-build",
+        let xcodePath = try await Self.runCheckingExitStatus(
+            arguments: ["/usr/bin/xcode-select", "--print-path"]
+        ).spm_chomp()
+        let installedSwiftBuildPath = try await Self.runCheckingExitStatus(
+            arguments: ["/usr/bin/xcrun", "--find", "swift-build"],
             environment: ["DEVELOPER_DIR": xcodePath]
         ).spm_chomp()
         if let xctestHelperPath = findXCTestHelper(swiftBuildPath: try AbsolutePath(validating: installedSwiftBuildPath)) {
@@ -189,10 +198,10 @@ enum TestingSupport {
             interopMode: nil, // Interop not required when listing tests
             buildSystem: buildSystem
         )
-        let helperPath = try Self.xctestHelperPath(swiftCommandState: swiftCommandState).pathString
-        let data: String = try withTemporaryFile { tempFile in
+        let helperPath = try await Self.xctestHelperPath(swiftCommandState: swiftCommandState).pathString
+        let data: String = try await withTemporaryFile { tempFile, _ in
             args = [helperPath, path.pathString, tempFile.path.pathString]
-            try Self.runProcessWithExistenceCheck(
+            try await Self.runProcessWithExistenceCheck(
                 path: path,
                 fileSystem: swiftCommandState.fileSystem,
                 args: args,
@@ -216,7 +225,7 @@ enum TestingSupport {
             buildSystem: buildSystem
         )
         args = [path.description, "--dump-tests-json"]
-        let data = try Self.runProcessWithExistenceCheck(
+        let data = try await Self.runProcessWithExistenceCheck(
             path: path,
             fileSystem: swiftCommandState.fileSystem,
             args: args,
@@ -233,10 +242,10 @@ enum TestingSupport {
         path: AbsolutePath,
         fileSystem: FileSystem,
         args: [String],
-        env: Environment
-    ) throws -> String {
+        env: Basics.Environment
+    ) async throws -> String {
         do {
-            return try AsyncProcess.checkNonZeroExit(arguments: args, environment: env)
+            return try await Self.runCheckingExitStatus(arguments: args, environment: env)
         } catch {
             // If the file doesn't exist, throw a more specific error.
             if !fileSystem.exists(path) {
@@ -244,6 +253,40 @@ enum TestingSupport {
             }
             throw error
         }
+    }
+
+    /// Runs a process to completion and returns its standard output.
+    ///
+    /// Throws a `StringError` containing the standard error output if the process exits unsuccessfully.
+    /// The process inherits the current environment unless `environment` is given, in which case it is used as is.
+    fileprivate static func runCheckingExitStatus(
+        arguments: [String],
+        environment: Basics.Environment? = nil
+    ) async throws -> String {
+        let result = try await Subprocess.run(
+            .path(FilePath(arguments[0])),
+            arguments: Subprocess.Arguments(Array(arguments.dropFirst())),
+            environment: environment.map { environment in
+                // Leave out variables swift-subprocess would reject (and so fail the spawn), such as those with
+                // names starting with a digit.
+                Subprocess.Environment.custom(
+                    Dictionary(
+                        environment.removingKeysInvalidForSubprocess.compactMap { entry in
+                            Subprocess.Environment.Key(rawValue: entry.key.rawValue).map { ($0, entry.value) }
+                        },
+                        uniquingKeysWith: { _, last in last }
+                    )
+                )
+            } ?? .inherit,
+            output: .bytes(limit: .max),
+            error: .string(limit: .max)
+        )
+        guard result.terminationStatus.isSuccess else {
+            throw StringError(
+                "'\(arguments.joined(separator: " "))' failed with \(result.terminationStatus): \(result.standardError)"
+            )
+        }
+        return String(decoding: result.standardOutput, as: UTF8.self)
     }
 
     /// Creates the environment needed to test related tools.
@@ -268,8 +311,8 @@ enum TestingSupport {
         testProductPaths: [AbsolutePath],
         interopMode: String?,
         buildSystem: any BuildSystem
-    ) async throws -> Environment {
-        var env = Environment.current
+    ) async throws -> Basics.Environment {
+        var env = Basics.Environment.current
 
         // If the standard output or error stream is NOT a TTY, set the NO_COLOR
         // environment variable. This environment variable is a de facto
@@ -465,7 +508,7 @@ struct DebugTestRunner {
     private let target: DebuggableTestSession
     private let buildParameters: BuildParameters
     private let toolchain: UserToolchain
-    private let testEnv: Environment
+    private let testEnv: Basics.Environment
     private let fileSystem: FileSystem
     private let observabilityScope: ObservabilityScope
     private let verbose: Bool
@@ -505,25 +548,21 @@ struct DebugTestRunner {
     /// (`-l`) is supported. Cached per lldb path so we only spawn the probe
     /// process once per swift-test invocation even though `setupTargets` may
     /// be called for several testing libraries.
-    static func lldbSupportsTargetLabels(toolchain: UserToolchain) -> Bool {
+    static func lldbSupportsTargetLabels(toolchain: UserToolchain) async -> Bool {
         let lldbPath: String
         do {
             lldbPath = try toolchain.getLLDB().pathString
         } catch {
             return false
         }
-        var supported = false
-        Self.lldbTargetLabelSupportCache.mutate { (cache: inout [String: Bool]) in
-            if let cached = cache[lldbPath] {
-                supported = cached
-                return
-            }
-            let output = (try? AsyncProcess.checkNonZeroExit(
-                arguments: [lldbPath, "-b", "-o", "help target create"]
-            )) ?? ""
-            supported = output.contains("--label")
-            cache[lldbPath] = supported
+        if let cached = Self.lldbTargetLabelSupportCache.get()[lldbPath] {
+            return cached
         }
+        let output = (try? await TestingSupport.runCheckingExitStatus(
+            arguments: [lldbPath, "-b", "-o", "help target create"]
+        )) ?? ""
+        let supported = output.contains("--label")
+        Self.lldbTargetLabelSupportCache.mutate { $0[lldbPath] = supported }
         return supported
     }
 
@@ -534,7 +573,7 @@ struct DebugTestRunner {
         target: DebuggableTestSession,
         buildParameters: BuildParameters,
         toolchain: UserToolchain,
-        testEnv: Environment,
+        testEnv: Basics.Environment,
         fileSystem: FileSystem,
         observabilityScope: ObservabilityScope,
         verbose: Bool = false
@@ -551,7 +590,7 @@ struct DebugTestRunner {
     /// Launches the test binary under LLDB for interactive debugging.
     ///
     /// Uses `exec()` so LLDB inherits the controlling terminal directly.
-    func run() throws {
+    func run() async throws {
         let lldbPath: AbsolutePath
         do {
             lldbPath = try toolchain.getLLDB()
@@ -560,12 +599,12 @@ struct DebugTestRunner {
             throw error
         }
 
-        let lldbArgs = try prepareLLDBArguments(for: target)
+        let lldbArgs = try await prepareLLDBArguments(for: target)
         observabilityScope.emit(info: "LLDB will run: \(lldbPath.pathString) \(lldbArgs.joined(separator: " "))")
 
         // Set on the current process so the exec'd LLDB inherits them.
         for (key, value) in testEnv {
-            try Environment.set(key: key, value: value)
+            try Basics.Environment.set(key: key, value: value)
         }
 
         try safeExec(path: lldbPath.pathString, args: [lldbPath.pathString] + lldbArgs, observabilityScope: observabilityScope)
@@ -579,7 +618,7 @@ struct DebugTestRunner {
     /// - Parameter target: The testing target being used (XCTest or Swift Testing)
     /// - Returns: Array of LLDB command line arguments
     /// - Throws: Various errors if required tools are not found or file operations fail
-    private func prepareLLDBArguments(for target: DebuggableTestSession) throws -> [String] {
+    private func prepareLLDBArguments(for target: DebuggableTestSession) async throws -> [String] {
         // One unique scratch directory per invocation so concurrent runs don't collide on fixed filenames
         let scratchDir = try withTemporaryDirectory(
             dir: try fileSystem.tempDirectory,
@@ -592,7 +631,7 @@ struct DebugTestRunner {
         // runs, so we must clean up ourselves or leak /tmp/swiftpm-lldb-*.
         do {
             var lldbCommands: [String] = []
-            try setupTargets(&lldbCommands, scratchDir: scratchDir)
+            try await setupTargets(&lldbCommands, scratchDir: scratchDir)
 
             lldbCommands.append(Self.atexitCleanupCommand(tempDirectory: scratchDir))
 
@@ -602,8 +641,8 @@ struct DebugTestRunner {
                 lldbCommands.append("script print(\"\\033[H\\033[J\", end=\"\")")
             }
 
-            if Environment.current["SWIFTPM_TESTS_MODULECACHE"] != nil {
-                if Environment.current["SWIFTPM_TESTS_LLDB_RUN"] != nil {
+            if Basics.Environment.current["SWIFTPM_TESTS_MODULECACHE"] != nil {
+                if Basics.Environment.current["SWIFTPM_TESTS_LLDB_RUN"] != nil {
                     lldbCommands.append("run")
                 }
                 lldbCommands.append("quit")
@@ -621,7 +660,7 @@ struct DebugTestRunner {
         }
     }
 
-    private func setupTargets(_ lldbCommands: inout [String], scratchDir: AbsolutePath) throws {
+    private func setupTargets(_ lldbCommands: inout [String], scratchDir: AbsolutePath) async throws {
         var hasSwiftTesting = false
         var hasXCTest = false
 
@@ -631,7 +670,7 @@ struct DebugTestRunner {
         // would fail to parse the command file. Gating on the actual lldb's
         // capability is more reliable than inferring from environment vars,
         // since the same env can be paired with either old or new lldb.
-        let supportsTargetLabels = Self.lldbSupportsTargetLabels(toolchain: toolchain)
+        let supportsTargetLabels = await Self.lldbSupportsTargetLabels(toolchain: toolchain)
 
         for testingLibrary in target.targets {
             let (executable, args) = try getExecutableAndArgs(for: testingLibrary)

@@ -143,12 +143,9 @@ final class PluginInvocationTests: XCTestCase {
                 workers: UInt32,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
-                delegate: PluginScriptCompilerDelegate,
-                completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
-            ) {
-                callbackQueue.sync {
-                    completion(.failure(StringError("unimplemented")))
-                }
+                delegate: PluginScriptCompilerDelegate
+            ) async throws -> PluginCompilationResult {
+                throw StringError("unimplemented")
             }
 
             func buildCommandLine(
@@ -333,10 +330,9 @@ final class PluginInvocationTests: XCTestCase {
                 workers: UInt32,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
-                delegate: PluginScriptCompilerDelegate,
-                completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
-            ) {
-                callbackQueue.sync { completion(.failure(StringError("unimplemented"))) }
+                delegate: PluginScriptCompilerDelegate
+            ) async throws -> PluginCompilationResult {
+                throw StringError("unimplemented")
             }
 
             func buildCommandLine(
@@ -421,10 +417,9 @@ final class PluginInvocationTests: XCTestCase {
                 workers: UInt32,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
-                delegate: PluginScriptCompilerDelegate,
-                completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
-            ) {
-                callbackQueue.sync { completion(.failure(StringError("unimplemented"))) }
+                delegate: PluginScriptCompilerDelegate
+            ) async throws -> PluginCompilationResult {
+                throw StringError("unimplemented")
             }
 
             func buildCommandLine(
@@ -588,12 +583,9 @@ final class PluginInvocationTests: XCTestCase {
                 workers: UInt32,
                 observabilityScope: ObservabilityScope,
                 callbackQueue: DispatchQueue,
-                delegate: PluginScriptCompilerDelegate,
-                completion: @escaping (Result<PluginCompilationResult, Error>) -> Void
-            ) {
-                callbackQueue.async {
-                    completion(.failure(StringError("plugin script should never be compiled for a cyclic package graph")))
-                }
+                delegate: PluginScriptCompilerDelegate
+            ) async throws -> PluginCompilationResult {
+                throw StringError("plugin script should never be compiled for a cyclic package graph")
             }
 
             func buildCommandLine(

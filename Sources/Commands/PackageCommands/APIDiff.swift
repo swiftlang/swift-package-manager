@@ -158,7 +158,7 @@ struct APIDiff: AsyncSwiftCommand {
                 }
                 taskGroup.addTask {
                     do {
-                        if let comparisonResult = try apiDigesterTool.compareAPIToBaseline(
+                        if let comparisonResult = try await apiDigesterTool.compareAPIToBaseline(
                             at: moduleBaselinePath,
                             for: module,
                             buildPlan: buildPlan,
