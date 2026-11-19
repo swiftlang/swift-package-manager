@@ -476,7 +476,7 @@ SwiftPM uses [Tools Support Core](https://github.com/apple/swift-tools-support-c
 
 If you want to connect with the Swift community you can:
 * Use Swift Forums: [https://forums.swift.org/c/development/SwiftPM](https://forums.swift.org/c/development/SwiftPM)
-* Contact the CODEOWNERS: https://github.com/swiftlang/swift-package-manager/blob/main/CODEOWNERS
+* Contact the CODEOWNERS: https://github.com/swiftlang/swift-package-manager/blob/main/.github/CODEOWNERS
 
 ## Additional resources
 
