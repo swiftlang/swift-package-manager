@@ -735,7 +735,7 @@ extension PackagePIFProjectBuilder {
         }
 
         // A mixed-language target's Objective-C sources may import its own Swift-generated header, which is emitted into `$(GENERATED_MODULEMAP_DIR)`.
-        if sourceModule.usesSwift && sourceModule.isMixedLanguageModule {
+        if sourceModule.usesSwift && (sourceModule.isMixedLanguageModule || !generatedFiles.moduleMaps.isEmpty) {
             settings[.HEADER_SEARCH_PATHS].lazilyInitializeAndMutate(initialValue: ["$(inherited)"]) {
                 $0.append("$(GENERATED_MODULEMAP_DIR)")
             }
@@ -822,7 +822,7 @@ extension PackagePIFProjectBuilder {
             indexableFileURLs.append(SourceControlURL(fileURLWithPath: resource.path))
         }
 
-        let headerFiles = OrderedSet(sourceModule.headerFileAbsolutePaths)
+        let headerFiles = OrderedSet(sourceModule.headerFileAbsolutePaths + generatedFiles.headers)
 
         // Add the header files with project visibility for the purpose of exposing them
         // for symbol graph generation. For non-swift API that will be done using TAPI and

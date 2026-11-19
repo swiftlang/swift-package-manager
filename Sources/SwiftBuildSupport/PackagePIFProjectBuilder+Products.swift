@@ -233,7 +233,9 @@ extension PackagePIFProjectBuilder {
         // A mixed-source main module product (executable/test target) needs its own C sources exposed
         // for import by its Swift sources. Test targets must also impart settings on the corresponding
         // test runner.
-        if mainModule.usesSwift && mainModule.isMixedLanguageModule && mainModule.type != .macro {
+        if mainModule.usesSwift
+            && (mainModule.isMixedLanguageModule || !generatedFiles.moduleMaps.isEmpty)
+            && mainModule.type != .macro {
             let (moduleMapFileContents, moduleMapPath) = try self.configureSwiftTargetModuleMap(
                 for: mainModule,
                 targetSuffix: nil,
@@ -286,7 +288,7 @@ extension PackagePIFProjectBuilder {
             )
         }
 
-        let headerFiles = Set(mainModule.headerFileAbsolutePaths)
+        let headerFiles = Set(mainModule.headerFileAbsolutePaths + generatedFiles.headers)
 
         let doccCatalogs = mainModule.underlying.doccCatalogPaths
 
