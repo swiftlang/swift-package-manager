@@ -4511,6 +4511,215 @@ final class WorkspaceTests: XCTestCase {
         }
     }
 
+    func testResolvedFileDropsPinRemovedFromLocalPackage() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "Root", dependencies: [.product(name: "Local", package: "local")]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .fileSystem(path: "./Local"),
+                    ],
+                    toolsVersion: .v5_10
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "Local",
+                    targets: [
+                        MockTarget(name: "Local", dependencies: [.product(name: "Foo", package: "foo")]),
+                    ],
+                    products: [
+                        MockProduct(name: "Local", modules: ["Local"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://localhost/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: [nil]
+                ),
+                MockPackage(
+                    name: "Foo",
+                    url: "https://localhost/org/foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(packages: "Foo", "Local", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+
+        try await workspace.closeWorkspace(resetResolvedFile: false)
+        let localPath = try workspace.pathToPackage(withName: "Local")
+        let localManifestPath = localPath.appending(component: Manifest.filename)
+        let localManifestContent: String = try fs.readFileContents(localManifestPath)
+        try fs.writeFileContents(localManifestPath, string: localManifestContent.appending("\n"))
+        workspace.manifestLoader.manifests[.init(url: localPath.pathString)] = Manifest.createManifest(
+            displayName: "Local",
+            path: localPath,
+            packageKind: .fileSystem(localPath),
+            packageIdentity: .plain("local"),
+            packageLocation: localPath.pathString,
+            toolsVersion: .current,
+            products: [
+                try ProductDescription(name: "Local", type: .library(.automatic), targets: ["Local"]),
+            ],
+            targets: [
+                try TargetDescription(name: "Local"),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(packages: "Local", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+            testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                result.checkUnordered(
+                    diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash does do not match manifest dependencies. resolving and updating accordingly",
+                    severity: .debug
+                )
+            }
+        }
+        workspace.checkResolved { result in
+            result.check(notPresent: "foo")
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(notPresent: "foo")
+        }
+    }
+
+    func testResolvedFileDropsPinRemovedFromNestedLocalPackage() async throws {
+        let sandbox = AbsolutePath("/tmp/ws/")
+        let fs = InMemoryFileSystem()
+
+        let workspace = try await MockWorkspace(
+            sandbox: sandbox,
+            fileSystem: fs,
+            roots: [
+                MockPackage(
+                    name: "Root",
+                    targets: [
+                        MockTarget(name: "Root", dependencies: [.product(name: "LocalA", package: "locala")]),
+                    ],
+                    products: [],
+                    dependencies: [
+                        .fileSystem(path: "./LocalA"),
+                    ],
+                    toolsVersion: .v5_10
+                ),
+            ],
+            packages: [
+                MockPackage(
+                    name: "LocalA",
+                    targets: [
+                        MockTarget(name: "LocalA", dependencies: [.product(name: "LocalB", package: "localb")]),
+                    ],
+                    products: [
+                        MockProduct(name: "LocalA", modules: ["LocalA"]),
+                    ],
+                    dependencies: [
+                        .fileSystem(path: "./LocalB"),
+                    ],
+                    versions: [nil]
+                ),
+                MockPackage(
+                    name: "LocalB",
+                    targets: [
+                        MockTarget(name: "LocalB", dependencies: [.product(name: "Foo", package: "foo")]),
+                    ],
+                    products: [
+                        MockProduct(name: "LocalB", modules: ["LocalB"]),
+                    ],
+                    dependencies: [
+                        .sourceControl(url: "https://localhost/org/foo", requirement: .upToNextMajor(from: "1.0.0")),
+                    ],
+                    versions: [nil]
+                ),
+                MockPackage(
+                    name: "Foo",
+                    url: "https://localhost/org/foo",
+                    targets: [
+                        MockTarget(name: "Foo"),
+                    ],
+                    products: [
+                        MockProduct(name: "Foo", modules: ["Foo"]),
+                    ],
+                    versions: ["1.0.0"]
+                ),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(packages: "Foo", "LocalA", "LocalB", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+        }
+        workspace.checkResolved { result in
+            result.check(dependency: "foo", at: .checkout(.version("1.0.0")))
+        }
+
+        try await workspace.closeWorkspace(resetResolvedFile: false)
+        let localBPath = try workspace.pathToPackage(withName: "LocalB")
+        let localBManifestPath = localBPath.appending(component: Manifest.filename)
+        let localBManifestContent: String = try fs.readFileContents(localBManifestPath)
+        try fs.writeFileContents(localBManifestPath, string: localBManifestContent.appending("\n"))
+        workspace.manifestLoader.manifests[.init(url: localBPath.pathString)] = Manifest.createManifest(
+            displayName: "LocalB",
+            path: localBPath,
+            packageKind: .fileSystem(localBPath),
+            packageIdentity: .plain("localb"),
+            packageLocation: localBPath.pathString,
+            toolsVersion: .current,
+            products: [
+                try ProductDescription(name: "LocalB", type: .library(.automatic), targets: ["LocalB"]),
+            ],
+            targets: [
+                try TargetDescription(name: "LocalB"),
+            ]
+        )
+
+        try await workspace.checkPackageGraph(roots: ["Root"]) { graph, diagnostics in
+            PackageGraphTesterXCTest(graph) { result in
+                result.check(packages: "LocalA", "LocalB", "Root")
+            }
+            XCTAssertNoDiagnostics(diagnostics)
+            testPartialDiagnostics(diagnostics, minSeverity: .debug) { result in
+                result.checkUnordered(
+                    diagnostic: "'\(Workspace.DefaultLocations.resolvedFileName)' origin hash does do not match manifest dependencies. resolving and updating accordingly",
+                    severity: .debug
+                )
+            }
+        }
+        workspace.checkResolved { result in
+            result.check(notPresent: "foo")
+        }
+        await workspace.checkManagedDependencies { result in
+            result.check(notPresent: "foo")
+        }
+    }
+
     // util
     func checkPinnedVersion(pin: ResolvedPackagesStore.ResolvedPackage, version: Version) {
         switch pin.state {
