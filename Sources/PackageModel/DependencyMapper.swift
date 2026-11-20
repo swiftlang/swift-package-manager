@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
-import enum TSCBasic.PathValidationError
-import struct TSCUtility.Version
+public import enum TSCBasic.PathValidationError
+public import struct TSCUtility.Version
 
 public protocol DependencyMapper {
     func mappedDependency(_ dependency: MappablePackageDependency, fileSystem: FileSystem) throws -> PackageDependency

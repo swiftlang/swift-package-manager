@@ -10,16 +10,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
-import LLBuildManifest
-import SPMBuildCore
+public import LLBuildManifest
+public import SPMBuildCore
 import PackageGraph
-import PackageModel
+package import PackageModel
 
-import enum PackageModel.TraitConfiguration
+package import enum PackageModel.TraitConfiguration
 
-import struct TSCBasic.ByteString
+public import struct TSCBasic.ByteString
 
 /// Contains the description of the build that is needed during the execution.
 public struct BuildDescription: Codable {

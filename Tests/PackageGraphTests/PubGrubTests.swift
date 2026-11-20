@@ -3427,16 +3427,16 @@ private func AssertError(
 }
 
 // FIXME: this is not thread-safe
-public class MockContainer: PackageContainer {
-    public typealias Dependency = (container: PackageReference, requirement: PackageRequirement, productFilter: ProductFilter)
+class MockContainer: PackageContainer {
+    typealias Dependency = (container: PackageReference, requirement: PackageRequirement, productFilter: ProductFilter)
 
-    public var package: PackageReference
+    var package: PackageReference
     var manifestName: PackageReference?
     var traits: Set<TraitDescription> = []
 
     var dependencies: [String: [String: [Dependency]]]
 
-    public var unversionedDeps: [PackageContainerConstraint] = []
+    var unversionedDeps: [PackageContainerConstraint] = []
 
     /// The list of versions that have incompatible tools version.
     var toolsVersion: ToolsVersion = ToolsVersion.current
@@ -3445,7 +3445,7 @@ public class MockContainer: PackageContainer {
     private var _versions: [BoundVersion]
 
     // TODO: this does not actually do anything with the tools-version
-    public func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
+    func toolsVersionsAppropriateVersionsDescending() throws -> [Version] {
         var versions: [Version] = []
         for version in self._versions.reversed() {
             guard case .version(let v) = version else { continue }
@@ -3454,7 +3454,7 @@ public class MockContainer: PackageContainer {
         return versions
     }
 
-    public func versionsAscending() throws ->  [Version] {
+    func versionsAscending() throws ->  [Version] {
         var versions: [Version] = []
         for version in self._versions {
             guard case .version(let v) = version else { continue }
@@ -3463,7 +3463,7 @@ public class MockContainer: PackageContainer {
         return versions
     }
 
-    public func isToolsVersionCompatible(at version: Version) -> Bool {
+    func isToolsVersionCompatible(at version: Version) -> Bool {
         // this checks for *exact* version match which is good enough for our current tests
         if let toolsVersion = try? self.toolsVersion(for: version) {
             return self.toolsVersion == toolsVersion
@@ -3472,7 +3472,7 @@ public class MockContainer: PackageContainer {
         return (try? self.toolsVersionsAppropriateVersionsDescending().contains(version)) ?? false
     }
 
-    public func toolsVersion(for version: Version) throws -> ToolsVersion {
+    func toolsVersion(for version: Version) throws -> ToolsVersion {
         struct NotFound: Error {}
 
         guard let version = versionsToolsVersions[version] else {
@@ -3481,11 +3481,11 @@ public class MockContainer: PackageContainer {
         return version
     }
 
-    public func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) throws -> [PackageContainerConstraint] {
+    func getDependencies(at version: Version, productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) throws -> [PackageContainerConstraint] {
         return try getDependencies(at: version.description, productFilter: productFilter, enabledTraits)
     }
 
-    public func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) throws -> [PackageContainerConstraint] {
+    func getDependencies(at revision: String, productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) throws -> [PackageContainerConstraint] {
         guard let revisionDependencies = dependencies[revision] else {
             throw _MockLoadingError.unknownRevision
         }
@@ -3499,7 +3499,7 @@ public class MockContainer: PackageContainer {
         })
     }
 
-    public func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) throws -> [PackageContainerConstraint] {
+    func getUnversionedDependencies(productFilter: ProductFilter, _ enabledTraits: EnabledTraits = ["default"]) throws -> [PackageContainerConstraint] {
         // FIXME: This is messy, remove unversionedDeps property.
         if !unversionedDeps.isEmpty {
             return unversionedDeps
@@ -3507,14 +3507,14 @@ public class MockContainer: PackageContainer {
         return try getDependencies(at: PackageRequirement.unversioned.description, productFilter: productFilter, enabledTraits)
     }
 
-    public func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
+    func loadPackageReference(at boundVersion: BoundVersion) throws -> PackageReference {
         if let manifestName {
             self.package = self.package.withName(manifestName.identity.description)
         }
         return self.package
     }
 
-    public func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<TraitDescription> {
+    func loadPackageTraits(at boundVersion: BoundVersion) async throws -> Set<TraitDescription> {
         return self.traits
     }
 
@@ -3529,7 +3529,7 @@ public class MockContainer: PackageContainer {
             })
     }
 
-    public convenience init(
+    convenience init(
         package: PackageReference,
         unversionedDependencies: [(package: PackageReference, requirement: PackageRequirement, productFilter: ProductFilter)]
     ) {
@@ -3538,7 +3538,7 @@ public class MockContainer: PackageContainer {
             .map { PackageContainerConstraint(package: $0.package, requirement: $0.requirement, products: $0.productFilter) }
     }
 
-    public convenience init(
+    convenience init(
         package: PackageReference,
         dependenciesByVersion: [Version: [String: [(
             package: PackageReference,
@@ -3559,7 +3559,7 @@ public class MockContainer: PackageContainer {
         self.init(package: package, dependencies: dependencies)
     }
 
-    public init(
+    init(
         package: PackageReference,
         dependencies: [String: [String: [Dependency]]] = [:]
     ) {
@@ -3572,22 +3572,22 @@ public class MockContainer: PackageContainer {
     }
 }
 
-public enum _MockLoadingError: Error {
+enum _MockLoadingError: Error {
     case unknownModule
     case unknownRevision
 }
 
-public struct MockProvider: PackageContainerProvider {
+struct MockProvider: PackageContainerProvider {
 
-    public let containers: [MockContainer]
-    public let containersByIdentifier: [PackageReference: MockContainer]
+    let containers: [MockContainer]
+    let containersByIdentifier: [PackageReference: MockContainer]
 
-    public init(containers: [MockContainer]) {
+    init(containers: [MockContainer]) {
         self.containers = containers
         self.containersByIdentifier = Dictionary(uniqueKeysWithValues: containers.map({ ($0.package, $0) }))
     }
 
-    public func getContainer(
+    func getContainer(
         for package: PackageReference,
         updateStrategy: ContainerUpdateStrategy,
         observabilityScope: ObservabilityScope
@@ -3759,7 +3759,7 @@ extension Term {
         self.init(stringLiteral: value)
     }
 
-    public init(stringLiteral value: String) {
+    init(stringLiteral value: String) {
         var value = value
 
         var isPositive = true
@@ -3800,7 +3800,7 @@ extension Term {
 
 
 extension PackageReference {
-    public init(stringLiteral value: String) {
+    init(stringLiteral value: String) {
         let ref = PackageReference.localSourceControl(identity: .plain(value), path: .root)
         self = ref
     }

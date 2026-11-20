@@ -11,8 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Foundation
-import struct Dispatch.DispatchTime
-import struct TSCBasic.FileSystemError
+public import struct Dispatch.DispatchTime
+public import struct TSCBasic.FileSystemError
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import Subprocess
 #if canImport(System)

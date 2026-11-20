@@ -11,11 +11,11 @@
 //===----------------------------------------------------------------------===//
 
 import ArgumentParser
-import Basics
+package import Basics
 import Foundation
 import PackageGraph
 import PackageModel
-import SPMBuildCore
+package import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import DriverSupport
@@ -23,8 +23,8 @@ import SPMBuildCore
 import DriverSupport
 #endif
 
-import class Basics.AsyncProcess
-import struct Basics.AsyncProcessResult
+package import class Basics.AsyncProcess
+package import struct Basics.AsyncProcessResult
 
 /// A wrapper for swift-symbolgraph-extract tool.
 package struct SymbolGraphExtract {

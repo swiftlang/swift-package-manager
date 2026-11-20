@@ -10,16 +10,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Dispatch
 import OrderedCollections
-import PackageModel
+public import PackageModel
 import Foundation
 import TSCUtility
 
-import func TSCBasic.findCycle
-import struct TSCBasic.KeyedPair
-import func TSCBasic.topologicalSort
+public import func TSCBasic.findCycle
+public import struct TSCBasic.KeyedPair
+public import func TSCBasic.topologicalSort
 
 /// An error in the structure or layout of a package.
 public enum ModuleError: Swift.Error {

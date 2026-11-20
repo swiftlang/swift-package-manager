@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 /// An abstract definition for a set of versions.
 public enum VersionSetSpecifier: Hashable {

@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Basics.AbsolutePath
-import protocol Basics.FileSystem
+package import struct Basics.AbsolutePath
+package import protocol Basics.FileSystem
 
 import struct SwiftDiagnostics.Diagnostic
 import struct SwiftDiagnostics.DiagnosticCategory

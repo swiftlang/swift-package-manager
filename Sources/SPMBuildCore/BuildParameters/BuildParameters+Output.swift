@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 
 extension BuildParameters {
     /// Build parameters related to output and logging grouped in a single type to aggregate those in one place.

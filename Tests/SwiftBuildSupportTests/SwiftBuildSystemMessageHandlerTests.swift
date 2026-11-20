@@ -28,7 +28,7 @@ struct SwiftBuildSystemMessageHandlerTests {
         private let errorMessageHandler: SwiftBuildSystemMessageHandler
         private let debugMessageHandler: SwiftBuildSystemMessageHandler
 
-        public init(
+        init(
             outputStream: BufferedOutputByteStream,
             observabilityScope: ObservabilityScope,
         ) {
@@ -49,15 +49,15 @@ struct SwiftBuildSystemMessageHandlerTests {
             )
         }
 
-        public var warning: SwiftBuildSystemMessageHandler {
+        var warning: SwiftBuildSystemMessageHandler {
             return warningMessageHandler
         }
 
-        public var error: SwiftBuildSystemMessageHandler {
+        var error: SwiftBuildSystemMessageHandler {
             return errorMessageHandler
         }
 
-        public var debug: SwiftBuildSystemMessageHandler {
+        var debug: SwiftBuildSystemMessageHandler {
             return debugMessageHandler
         }
     }
@@ -657,7 +657,7 @@ private func data(_ message: String) -> Data {
 /// Convenience inits for testing
 extension SwiftBuildMessage {
     /// SwiftBuildMessage.TaskStartedInfo
-    package static func taskStartedInfo(
+    static func taskStartedInfo(
         taskID: Int = 1,
         targetID: Int? = nil,
         taskSignature: String = "mock-task-signature",
@@ -684,7 +684,7 @@ extension SwiftBuildMessage {
     }
 
     /// SwiftBuildMessage.TaskCompletedInfo
-    package static func taskCompleteInfo(
+    static func taskCompleteInfo(
         taskID: Int = 1,
         taskSignature: String = "mock-task-signature",
         result: TaskCompleteInfo.Result = .success,
@@ -703,7 +703,7 @@ extension SwiftBuildMessage {
     }
 
     /// SwiftBuildMessage.DiagnosticInfo
-    package static func diagnostic(
+    static func diagnostic(
         kind: DiagnosticInfo.Kind = .error,
         location: DiagnosticInfo.Location = .unknown,
         locationContext: LocationContext = .task(taskID: 1, targetID: 1),
@@ -734,7 +734,7 @@ extension SwiftBuildMessage {
     }
 
     /// SwiftBuildMessage.BuildStartedInfo
-    package static func buildStartedInfo(
+    static func buildStartedInfo(
         baseDirectory: SwiftBuild.AbsolutePath,
         derivedDataPath: SwiftBuild.AbsolutePath? = nil
     ) -> SwiftBuildMessage.BuildStartedInfo {
@@ -745,7 +745,7 @@ extension SwiftBuildMessage {
     }
 
     /// SwiftBuildMessage.BuildCompleteInfo
-    package static func buildCompletedInfo(
+    static func buildCompletedInfo(
         result: BuildCompletedInfo.Result = .ok,
         metrics: BuildOperationMetrics? = nil
     ) -> SwiftBuildMessage {
@@ -758,7 +758,7 @@ extension SwiftBuildMessage {
     }
 
     /// SwiftBuildMessage.OutputInfo
-    package static func outputInfo(
+    static func outputInfo(
         data: Data,
         locationContext: LocationContext = .task(taskID: 1, targetID: 1),
         locationContext2: LocationContext2 = .init(targetID: 1, taskSignature: "mock-task-signature")
@@ -773,7 +773,7 @@ extension SwiftBuildMessage {
     }
 
     /// SwiftBuildMessage.PlanningOperationStartedInfo
-    package static func planningOperationStartedInfo(
+    static func planningOperationStartedInfo(
         planningOperationID: String = "mock-planning-operation-id"
     ) -> SwiftBuildMessage {
         .planningOperationStarted(
@@ -782,7 +782,7 @@ extension SwiftBuildMessage {
     }
 
     /// SwiftBuildMessage.PlanningOperationCompletedInfo
-    package static func planningOperationCompletedInfo(
+    static func planningOperationCompletedInfo(
         planningOperationID: String = "mock-planning-operation-id"
     ) -> SwiftBuildMessage {
         .planningOperationCompleted(
@@ -791,7 +791,7 @@ extension SwiftBuildMessage {
     }
 
     /// SwiftBuildMessage.TargetUpToDateInfo
-    package static func targetUpToDateInfo(
+    static func targetUpToDateInfo(
         guid: String = "mock-target-guid"
     ) -> SwiftBuildMessage {
         .targetUpToDate(
@@ -800,7 +800,7 @@ extension SwiftBuildMessage {
     }
 
     /// SwiftBuildMessage.DidUpdateProgressInfo
-    package static func progress(
+    static func progress(
         message: String,
         percentComplete: Double,
         showInLog: Bool = false,

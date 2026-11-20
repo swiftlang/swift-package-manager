@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import Foundation
+public import Basics
+public import Foundation
 
 public struct PackageIndexConfiguration: Equatable {
     public var url: URL?

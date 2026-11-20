@@ -13,7 +13,7 @@
 import class TSCBasic.TerminalController
 import class TSCBasic.LocalFileOutputByteStream
 import protocol TSCBasic.WritableByteStream
-import protocol TSCUtility.ProgressAnimationProtocol
+public import protocol TSCUtility.ProgressAnimationProtocol
 
 @_spi(SwiftPMInternal)
 public typealias ProgressAnimationProtocol = TSCUtility.ProgressAnimationProtocol

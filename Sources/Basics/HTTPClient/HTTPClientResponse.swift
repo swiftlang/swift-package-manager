@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+public import Foundation
 
 public struct HTTPClientResponse: Sendable {
     public let statusCode: Int

@@ -11,17 +11,17 @@
 //===----------------------------------------------------------------------===//
 
 @_spi(SwiftPMInternal)
-import Basics
+public import Basics
 import _Concurrency
 
-import Foundation
-import PackageModel
-import PackageLoading
-import PackageGraph
+public import Foundation
+public import PackageModel
+public import PackageLoading
+public import PackageGraph
 
 import struct OrderedCollections.OrderedDictionary
 
-import protocol TSCBasic.DiagnosticLocation
+public import protocol TSCBasic.DiagnosticLocation
 
 public enum PluginAction {
     case createBuildToolCommands(

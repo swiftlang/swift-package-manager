@@ -10,14 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import _Concurrency
 import Dispatch
 import class Foundation.NSLock
-import PackageModel
-import PackageSigning
+public import PackageModel
+public import PackageSigning
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 public class MockPackageSigningEntityStorage: PackageSigningEntityStorage {
     private var packageSigners: [PackageIdentity: PackageSigners]

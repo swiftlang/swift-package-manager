@@ -14,8 +14,8 @@ import XCTest
 
 import struct Basics.IdentifiableSet
 
-import PackageModel
-import PackageGraph
+public import PackageModel
+public import PackageGraph
 
 @available(*, deprecated, message: "Migrate to Swift Testing and use 'PackageGraphTester'")
 public func PackageGraphTesterXCTest(_ graph: ModulesGraph, _ result: (PackageGraphResultXCTest) throws -> Void) rethrows {

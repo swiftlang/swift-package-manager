@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct TSCBasic.ByteString
-import struct TSCBasic.SHA256
+public import struct TSCBasic.ByteString
+public import struct TSCBasic.SHA256
 
 extension ByteString {
     /// A lowercase, hexadecimal representation of the SHA256 hash

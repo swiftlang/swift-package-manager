@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import class Foundation.ProcessInfo
 
 public protocol ToolProtocol: Codable {

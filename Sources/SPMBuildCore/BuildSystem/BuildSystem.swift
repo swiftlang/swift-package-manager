@@ -10,12 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import PackageGraph
+public import Basics
+public import PackageGraph
 
 import enum PackageModel.TraitConfiguration
 
-import protocol TSCBasic.OutputByteStream
+public import protocol TSCBasic.OutputByteStream
 
 /// An enum representing what subset of the package to build.
 public enum BuildSubset {

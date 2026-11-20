@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.URL
-import PackageModel
+public import struct Foundation.URL
+public import PackageModel
 import SourceControl
 import Basics
 

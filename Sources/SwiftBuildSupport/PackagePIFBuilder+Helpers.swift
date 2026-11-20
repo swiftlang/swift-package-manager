@@ -15,14 +15,14 @@ import Foundation
 import protocol TSCBasic.FileSystem
 import struct TSCUtility.Version
 
-import struct Basics.AbsolutePath
-import struct Basics.Diagnostic
-import struct Basics.ObservabilityMetadata
-import struct Basics.RelativePath
-import struct Basics.SourceControlURL
-import class Basics.ObservabilityScope
-import class Basics.ObservabilitySystem
-import class Basics.ThreadSafeArrayStore
+public import struct Basics.AbsolutePath
+public import struct Basics.Diagnostic
+public import struct Basics.ObservabilityMetadata
+public import struct Basics.RelativePath
+public import struct Basics.SourceControlURL
+public import class Basics.ObservabilityScope
+public import class Basics.ObservabilitySystem
+public import class Basics.ThreadSafeArrayStore
 
 import enum PackageModel.BuildConfiguration
 import enum PackageModel.BuildSettings
@@ -52,15 +52,15 @@ import class PackageModel.SystemLibraryModule
 import struct PackageModel.ToolsVersion
 import struct PackageModel.TraitCondition
 
-import struct PackageGraph.ResolvedModule
-import struct PackageGraph.ResolvedPackage
-import struct PackageGraph.ResolvedProduct
+public import struct PackageGraph.ResolvedModule
+public import struct PackageGraph.ResolvedPackage
+public import struct PackageGraph.ResolvedProduct
 
 import func PackageLoading.pkgConfigArgs
 
 import SPMBuildCore
 
-import enum SwiftBuild.ProjectModel
+public import enum SwiftBuild.ProjectModel
 
 // MARK: - PIF GUID Helpers
 

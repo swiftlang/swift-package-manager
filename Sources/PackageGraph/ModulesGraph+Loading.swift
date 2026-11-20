@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import OrderedCollections
-import PackageLoading
-import PackageModel
+package import Basics
+package import OrderedCollections
+package import PackageLoading
+package import PackageModel
 import Foundation
 
 import func TSCBasic.bestMatch

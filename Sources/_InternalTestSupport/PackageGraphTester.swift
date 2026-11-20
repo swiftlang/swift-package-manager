@@ -10,12 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Testing
+public import Testing
 
 import struct Basics.IdentifiableSet
 
-import PackageModel
-import PackageGraph
+public import PackageModel
+public import PackageGraph
 
 public func PackageGraphTester(_ graph: ModulesGraph, _ result: (PackageGraphResult) throws -> Void) rethrows {
     try result(PackageGraphResult(graph))

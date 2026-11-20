@@ -13,7 +13,7 @@
 import Basics
 import Foundation
 import OrderedCollections
-import PackageModel
+public import PackageModel
 
 import struct TSCBasic.StringError
 

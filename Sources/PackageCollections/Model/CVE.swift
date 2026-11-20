@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.URL
+public import struct Foundation.URL
 
 extension PackageCollectionsModel {
     /// A representation of Common Vulnerabilities and Exposures (CVE)

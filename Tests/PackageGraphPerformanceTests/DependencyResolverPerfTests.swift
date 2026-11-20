@@ -20,9 +20,9 @@ import _InternalTestSupport
 import XCTest
 import Testing
 
-import enum TSCBasic.JSON
-import protocol TSCBasic.JSONMappable
-import protocol TSCBasic.JSONSerializable
+public import enum TSCBasic.JSON
+public import protocol TSCBasic.JSONMappable
+public import protocol TSCBasic.JSONSerializable
 
 import func TSCUtility.measure
 import struct TSCUtility.Version
@@ -99,7 +99,7 @@ class DependencyResolverRealWorldPerfTests: XCTestCasePerf {
 
 // MARK: - JSON
 
-public extension MockDependencyGraph {
+extension MockDependencyGraph {
     init(_ json: JSON) {
         guard case .dictionary(let dict) = json else { fatalError() }
         guard case .string(let name)? = dict["name"] else { fatalError() }
@@ -187,7 +187,7 @@ private extension VersionSetSpecifier {
 }
 
 extension ProductFilter {
-    public func toJSON() -> JSON {
+    func toJSON() -> JSON {
         switch self {
         case .everything:
             return "all".toJSON()
@@ -196,7 +196,7 @@ extension ProductFilter {
         }
     }
 
-    public init(json: JSON) throws {
+    init(json: JSON) throws {
         if let products = try? [String](json: json) {
             self = .specific(Set(products))
         } else {

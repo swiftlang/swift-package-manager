@@ -10,12 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
 
 import func TSCBasic.transitiveClosure
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 /// This contains the declarative specification loaded from package manifest
 /// files, and the tools for working with the manifest.

@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import LLBuildManifest
-import PackageGraph
+public import Basics
+public import LLBuildManifest
+public import PackageGraph
 import PackageModel
-import SPMBuildCore
+public import SPMBuildCore
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly import SwiftDriver
@@ -22,8 +22,8 @@ import SPMBuildCore
 import SwiftDriver
 #endif
 
-import struct TSCBasic.ByteString
-import func TSCBasic.topologicalSort
+public import struct TSCBasic.ByteString
+public import func TSCBasic.topologicalSort
 
 /// High-level interface to ``LLBuildManifest`` and ``LLBuildManifestWriter``.
 public class LLBuildManifestBuilder {

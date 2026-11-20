@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Testing
+public import Testing
 
 extension Tag {
     /// Test size classifications based on the Test Pyramid strategy.

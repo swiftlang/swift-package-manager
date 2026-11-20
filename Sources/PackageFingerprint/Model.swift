@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.URL
+public import struct Foundation.URL
 
-import Basics
-import PackageModel
-import struct TSCUtility.Version
+public import Basics
+public import PackageModel
+public import struct TSCUtility.Version
 
 public struct Fingerprint: Equatable {
     public let origin: Origin

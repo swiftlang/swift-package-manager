@@ -11,8 +11,8 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import OrderedCollections
-import PackageModel
+public import OrderedCollections
+public import PackageModel
 
 /// A set of terms that are incompatible with each other and can therefore not
 /// all be true at the same time. In dependency resolution, these are derived

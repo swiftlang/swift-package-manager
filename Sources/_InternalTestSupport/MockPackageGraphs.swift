@@ -10,21 +10,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Basics.AbsolutePath
-import class Basics.InMemoryFileSystem
-import class Basics.ObservabilitySystem
-import class Basics.ObservabilityScope
+package import struct Basics.AbsolutePath
+package import class Basics.InMemoryFileSystem
+package import class Basics.ObservabilitySystem
+package import class Basics.ObservabilityScope
 
-import struct PackageGraph.ModulesGraph
+package import struct PackageGraph.ModulesGraph
 
 @_spi(DontAdoptOutsideOfSwiftPMExposedForBenchmarksAndTestsOnly)
-import func PackageGraph.loadModulesGraph
+package import func PackageGraph.loadModulesGraph
 
-import class PackageModel.Manifest
-import struct PackageModel.ProductDescription
-import enum PackageModel.ProductType
-import struct PackageModel.TargetDescription
-import protocol TSCBasic.FileSystem
+package import class PackageModel.Manifest
+package import struct PackageModel.ProductDescription
+package import enum PackageModel.ProductType
+package import struct PackageModel.TargetDescription
+package import protocol TSCBasic.FileSystem
 
 package typealias MockPackageGraph = (
     graph: ModulesGraph,

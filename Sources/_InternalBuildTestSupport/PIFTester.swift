@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import XCBuildSupport
+public import Basics
+public import XCBuildSupport
 import XCTest
-import Testing
+public import Testing
 
 public func PIFTester(_ pif: PIF.TopLevelObject, _ body: (PIFWorkspaceTester) throws -> Void) throws {
     try body(PIFWorkspaceTester(workspace: pif.workspace))

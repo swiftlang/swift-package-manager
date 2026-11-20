@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import ArgumentParser
+package import ArgumentParser
 import Basics
     
 package struct SwiftSDKCommand: AsyncParsableCommand {

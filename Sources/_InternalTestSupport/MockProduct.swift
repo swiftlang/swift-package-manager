@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import PackageModel
+public import PackageModel
 
 public struct MockProduct {
     public let name: String

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 
 package final class MockArchiver: Archiver {
     package typealias ExtractionHandler = @Sendable (
