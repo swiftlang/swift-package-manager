@@ -11,12 +11,12 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import Dispatch
-import struct Foundation.Data
-import struct Foundation.Date
-import class Foundation.OperationQueue
-import struct Foundation.URL
-import struct Foundation.UUID
+public import Dispatch
+public import struct Foundation.Data
+public import struct Foundation.Date
+public import class Foundation.OperationQueue
+public import struct Foundation.URL
+public import struct Foundation.UUID
 import Synchronization
 
 // MARK: - LegacyHTTPClient

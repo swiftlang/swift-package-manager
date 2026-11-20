@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.URL
+public import struct Foundation.URL
 
 extension URL {
     /// Returns the path of the file URL.

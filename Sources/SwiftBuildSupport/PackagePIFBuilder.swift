@@ -12,32 +12,32 @@
 
 import Foundation
 
-import protocol TSCBasic.FileSystem
+public import protocol TSCBasic.FileSystem
 
-import struct Basics.AbsolutePath
-import struct Basics.SourceControlURL
-import struct Basics.Diagnostic
-import struct Basics.ObservabilityMetadata
-import class Basics.ObservabilityScope
+public import struct Basics.AbsolutePath
+public import struct Basics.SourceControlURL
+public import struct Basics.Diagnostic
+public import struct Basics.ObservabilityMetadata
+public import class Basics.ObservabilityScope
 
-import class PackageModel.Manifest
-import class PackageModel.Package
-import class PackageModel.Product
-import struct PackageModel.Platform
-import struct PackageModel.PlatformVersion
-import enum PackageModel.PrebuiltsPlatform
-import struct PackageModel.Resource
-import struct PackageModel.PackageIdentity
-import enum PackageModel.ProductType
-import struct PackageModel.ToolsVersion
+public import class PackageModel.Manifest
+public import class PackageModel.Package
+public import class PackageModel.Product
+public import struct PackageModel.Platform
+public import struct PackageModel.PlatformVersion
+public import enum PackageModel.PrebuiltsPlatform
+public import struct PackageModel.Resource
+public import struct PackageModel.PackageIdentity
+public import enum PackageModel.ProductType
+public import struct PackageModel.ToolsVersion
 
-import struct PackageGraph.ModulesGraph
-import struct PackageGraph.ResolvedModule
-import struct PackageGraph.ResolvedPackage
+public import struct PackageGraph.ModulesGraph
+public import struct PackageGraph.ResolvedModule
+public import struct PackageGraph.ResolvedPackage
 
 import struct SPMBuildCore.BuildParameters
 
-import enum SwiftBuild.ProjectModel
+public import enum SwiftBuild.ProjectModel
 
 public typealias GUID = SwiftBuild.ProjectModel.GUID
 typealias BuildFile = SwiftBuild.ProjectModel.BuildFile

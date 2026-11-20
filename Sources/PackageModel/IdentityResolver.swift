@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
 
 // TODO: refactor this when adding registry support

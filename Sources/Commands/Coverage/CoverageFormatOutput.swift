@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import struct TSCBasic.StringError
-import struct Basics.AbsolutePath
+package import struct Basics.AbsolutePath
 
 package struct CoverageFormatOutput: Encodable {
     private let paths: [CoverageFormat: AbsolutePath]

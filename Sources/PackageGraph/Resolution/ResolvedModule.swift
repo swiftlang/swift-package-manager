@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import PackageModel
+public import PackageModel
 
 import struct Basics.IdentifiableSet
 

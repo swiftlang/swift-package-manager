@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import PackageGraph
-import PackageModel
+public import PackageModel
 
 public struct MockTarget {
     public enum `Type` {

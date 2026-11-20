@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+package import Basics
 @_spi(FixItApplier) import SwiftIDEUtils
 @_spi(PackageRefactor) import SwiftRefactor
-import SwiftSyntax
+package import SwiftSyntax
 
 package extension [SourceEdit] {
     /// Apply the edits for the given manifest to the specified file system,

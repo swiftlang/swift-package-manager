@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import PackageModel
+public import PackageModel
 import Basics
 
 public protocol PackageCollectionsStorage {

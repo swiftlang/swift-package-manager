@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import PackageModel
 
 extension Basics.Diagnostic {

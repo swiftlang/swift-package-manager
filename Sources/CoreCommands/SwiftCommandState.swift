@@ -11,22 +11,22 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import ArgumentParser
-import Basics
-import Dispatch
-import class Foundation.ProcessInfo
-import struct Foundation.URL
-import struct Foundation.URLResourceValues
+public import ArgumentParser
+public import Basics
+package import Dispatch
+public import class Foundation.ProcessInfo
+public import struct Foundation.URL
+public import struct Foundation.URLResourceValues
 import PackageFingerprint
-import PackageGraph
+public import PackageGraph
 import PackageLoading
 @_spi(SwiftPMInternal)
-import PackageModel
+public import PackageModel
 import PackageRegistry
 import PackageSigning
 import SourceControl
-import SPMBuildCore
-import Workspace
+public import SPMBuildCore
+public import Workspace
 
 #if USE_IMPL_ONLY_IMPORTS
 @_implementationOnly
@@ -49,18 +49,18 @@ import Musl
 import Bionic
 #endif
 
-import class Basics.AsyncProcess
-import func TSCBasic.exec
-import class TSCBasic.FileLock
-import enum TSCBasic.JSON
-import protocol TSCBasic.OutputByteStream
-import enum TSCBasic.ProcessEnv
-import struct TSCBasic.SHA256
-import enum TSCBasic.ProcessLockError
-import var TSCBasic.stderrStream
-import class TSCBasic.TerminalController
-import class TSCBasic.ThreadSafeOutputByteStream
-import enum TSCBasic.SystemError
+public import class Basics.AsyncProcess
+public import func TSCBasic.exec
+public import class TSCBasic.FileLock
+public import enum TSCBasic.JSON
+public import protocol TSCBasic.OutputByteStream
+public import enum TSCBasic.ProcessEnv
+public import struct TSCBasic.SHA256
+public import enum TSCBasic.ProcessLockError
+public import var TSCBasic.stderrStream
+public import class TSCBasic.TerminalController
+public import class TSCBasic.ThreadSafeOutputByteStream
+public import enum TSCBasic.SystemError
 
 import var TSCUtility.verbosity
 

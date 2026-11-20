@@ -11,10 +11,10 @@
 //===----------------------------------------------------------------------===//
 
 import Basics
-import OrderedCollections
+public import OrderedCollections
 
-import struct TSCUtility.Version
-import struct PackageModel.PackageIdentity
+public import struct TSCUtility.Version
+public import struct PackageModel.PackageIdentity
 
 /// The partial solution is a constantly updated solution used throughout the
 /// dependency resolution process, tracking known assignments.

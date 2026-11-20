@@ -10,13 +10,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
 import PackageGraph
 import PackageLoading
 import PackageModel
 
-import struct TSCBasic.FileSystemError
+public import struct TSCBasic.FileSystemError
 
 public struct ManifestParseDiagnostic: CustomStringConvertible {
     public let errors: [String]

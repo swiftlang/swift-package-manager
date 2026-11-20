@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import Foundation
-import PackageModel
+public import Basics
+public import Foundation
+public import PackageModel
 
 public struct MockPackage {
     public let name: String

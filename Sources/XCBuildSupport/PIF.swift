@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
-import OrderedCollections
-import PackageModel
+public import OrderedCollections
+public import PackageModel
 
 import struct TSCBasic.ByteString
 

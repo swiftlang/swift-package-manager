@@ -10,14 +10,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import _Concurrency
 import Dispatch
-import PackageGraph
-import PackageLoading
-import PackageModel
+public import PackageGraph
+public import PackageLoading
+public import PackageModel
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 /// Local file system package container.
 ///

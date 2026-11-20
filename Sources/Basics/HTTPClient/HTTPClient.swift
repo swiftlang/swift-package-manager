@@ -11,7 +11,7 @@
 //===----------------------------------------------------------------------===//
 
 import _Concurrency
-import Foundation
+public import Foundation
 
 /// `async`-friendly wrapper for HTTP clients. It allows a specific client implementation (either Foundation or
 /// NIO-based) to be hidden from users of the wrapper.

@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import protocol Foundation.LocalizedError
-import class Foundation.NSError
-import var Foundation.NSLocalizedDescriptionKey
-import struct TSCBasic.StringError
+public import protocol Foundation.LocalizedError
+public import class Foundation.NSError
+public import var Foundation.NSLocalizedDescriptionKey
+public import struct TSCBasic.StringError
 
 public typealias StringError = TSCBasic.StringError
 

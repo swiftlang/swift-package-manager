@@ -10,16 +10,16 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import PackageGraph
+public import Basics
+public import PackageGraph
 import PackageLoading
-import PackageModel
-import struct PackageGraph.ModulesGraph
-import struct PackageGraph.ResolvedModule
-import struct SPMBuildCore.BuildParameters
-import struct SPMBuildCore.BuildToolPluginInvocationResult
-import struct SPMBuildCore.CommandPluginResult
-import enum SPMBuildCore.WarningControlFlags
+public import PackageModel
+public import struct PackageGraph.ModulesGraph
+public import struct PackageGraph.ResolvedModule
+public import struct SPMBuildCore.BuildParameters
+public import struct SPMBuildCore.BuildToolPluginInvocationResult
+public import struct SPMBuildCore.CommandPluginResult
+public import enum SPMBuildCore.WarningControlFlags
 
 @available(*, deprecated, renamed: "ClangModuleBuildDescription")
 public typealias ClangTargetBuildDescription = ClangModuleBuildDescription

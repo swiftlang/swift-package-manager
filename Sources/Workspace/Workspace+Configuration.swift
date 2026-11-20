@@ -10,15 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import Foundation
+public import Basics
+public import Foundation
 import PackageFingerprint
-import PackageGraph
-import PackageLoading
-import PackageModel
-import PackageRegistry
+public import PackageGraph
+public import PackageLoading
+public import PackageModel
+public import PackageRegistry
 
-import struct TSCBasic.ByteString
+public import struct TSCBasic.ByteString
 
 // MARK: - Location
 

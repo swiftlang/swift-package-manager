@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Testing
+public import Testing
 
 public struct TestBuildData {
     public let buildData: [BuildData]

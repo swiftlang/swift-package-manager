@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+package import Basics
 
 /// A BuildSystemDelegate implementation which captures serialized diagnostics paths for all completed tasks.
 package class DiagnosticsCapturingBuildSystemDelegate: BuildSystemDelegate {

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 
 // TODO: how do we read default config values? ENV variables? user settings?
 extension PackageCollections {

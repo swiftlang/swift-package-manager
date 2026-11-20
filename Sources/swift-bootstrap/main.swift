@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import ArgumentParser
-import Basics
+public import ArgumentParser
+public import Basics
 import _Concurrency
 import Build
 import Dispatch
@@ -23,7 +23,7 @@ import Foundation
 import OrderedCollections
 import PackageGraph
 import PackageLoading
-import PackageModel
+public import PackageModel
 import SPMBuildCore
 import XCBuildSupport
 import SwiftBuildSupport

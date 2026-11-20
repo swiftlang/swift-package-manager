@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
 
 /// Extensions on Manifest for generating source code expressing its contents

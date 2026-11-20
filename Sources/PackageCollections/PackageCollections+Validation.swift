@@ -12,7 +12,7 @@
 
 import Basics
 import Foundation
-import PackageCollectionsModel
+public import PackageCollectionsModel
 import PackageModel
 
 import struct TSCUtility.Version

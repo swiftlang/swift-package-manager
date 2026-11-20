@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+package import Basics
 import Foundation
-import PackageModel
+public import PackageModel
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 package extension PackageDependency {
     static func fileSystem(

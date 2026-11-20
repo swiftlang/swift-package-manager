@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.URL
-import struct TSCBasic.AbsolutePath
+public import struct Foundation.URL
+public import struct TSCBasic.AbsolutePath
 
 // public for transition
 public typealias TSCAbsolutePath = TSCBasic.AbsolutePath

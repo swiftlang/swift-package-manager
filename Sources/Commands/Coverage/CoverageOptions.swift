@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import ArgumentParser
-import struct Basics.Diagnostic
+public import ArgumentParser
+package import struct Basics.Diagnostic
 
 package enum CoverageFormat: String, ExpressibleByArgument, CaseIterable {
     case html

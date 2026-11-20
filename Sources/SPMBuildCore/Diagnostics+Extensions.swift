@@ -9,8 +9,7 @@
 // See http://swift.org/CONTRIBUTORS.txt for the list of Swift project authors
 //
 //===----------------------------------------------------------------------===//
-import struct Basics.Diagnostic
-import struct SPMBuildCore.BuildSystemProvider
+package import struct Basics.Diagnostic
 import enum PackageModel.BuildConfiguration
 
 extension Basics.Diagnostic {

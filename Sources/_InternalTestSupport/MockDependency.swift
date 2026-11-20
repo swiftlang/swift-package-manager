@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
 import PackageLoading
-import PackageModel
+public import PackageModel
 
 public typealias SourceControlRequirement = PackageDependency.SourceControl.Requirement
 public typealias RegistryRequirement = PackageDependency.Registry.Requirement

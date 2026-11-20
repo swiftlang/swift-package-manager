@@ -8,6 +8,10 @@
 
 add_compile_definitions(USE_IMPL_ONLY_IMPORTS)
 
+# Match Package.swift: imports are `internal` by default, and a wider access level has to be spelled out on the import.
+add_compile_options("$<$<COMPILE_LANGUAGE:Swift>:SHELL:-enable-experimental-feature AccessLevelOnImport>")
+add_compile_options("$<$<COMPILE_LANGUAGE:Swift>:SHELL:-enable-experimental-feature InternalImportsByDefault>")
+
 add_subdirectory(_AsyncFileSystem)
 add_subdirectory(Basics)
 add_subdirectory(BinarySymbols)

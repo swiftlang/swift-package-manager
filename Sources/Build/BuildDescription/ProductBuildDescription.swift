@@ -10,17 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import PackageGraph
+public import Basics
+public import PackageGraph
 
 @_spi(SwiftPMInternal)
-import PackageModel
+public import PackageModel
 
 import OrderedCollections
-import SPMBuildCore
+public import SPMBuildCore
 import TSCUtility
 
-import struct TSCBasic.SortedArray
+public import struct TSCBasic.SortedArray
 
 /// The build description for a product.
 public final class ProductBuildDescription: SPMBuildCore.ProductBuildDescription {

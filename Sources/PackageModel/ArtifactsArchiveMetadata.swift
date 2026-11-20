@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
-import struct TSCBasic.StringError
+public import struct TSCBasic.StringError
 import struct TSCUtility.Version
 
 public let artifactBundleExtension = "artifactbundle"

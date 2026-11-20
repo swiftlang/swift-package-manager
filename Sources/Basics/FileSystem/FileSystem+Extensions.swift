@@ -10,18 +10,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.Data
-import class Foundation.FileManager
-import struct Foundation.UUID
+public import struct Foundation.Data
+public import class Foundation.FileManager
+public import struct Foundation.UUID
 
-import struct TSCBasic.ByteString
-import struct TSCBasic.FileInfo
-import class TSCBasic.FileLock
-import enum TSCBasic.FileMode
-import protocol TSCBasic.FileSystem
-import enum TSCBasic.FileSystemAttribute
-import var TSCBasic.localFileSystem
-import protocol TSCBasic.WritableByteStream
+public import struct TSCBasic.ByteString
+public import struct TSCBasic.FileInfo
+public import class TSCBasic.FileLock
+public import enum TSCBasic.FileMode
+public import protocol TSCBasic.FileSystem
+public import enum TSCBasic.FileSystemAttribute
+public import var TSCBasic.localFileSystem
+public import protocol TSCBasic.WritableByteStream
 
 public typealias FileSystem = TSCBasic.FileSystem
 public let localFileSystem = TSCBasic.localFileSystem

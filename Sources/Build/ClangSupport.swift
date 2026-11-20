@@ -12,7 +12,7 @@
 
 import Basics
 import Foundation
-import PackageModel
+public import PackageModel
 
 public enum ClangSupport {
     private struct Feature: Decodable {

@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import CoreCommands
+public import Basics
+public import CoreCommands
 import Foundation
-import TSCBasic
+public import TSCBasic
 
 #if canImport(FoundationXML)
 import FoundationXML

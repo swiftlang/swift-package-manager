@@ -10,10 +10,10 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 
-import struct TSCBasic.ByteString
-import protocol TSCBasic.HashAlgorithm
+public import struct TSCBasic.ByteString
+public import protocol TSCBasic.HashAlgorithm
 
 public final class MockHashAlgorithm {
     public typealias Handler = @Sendable (ByteString) -> ByteString
