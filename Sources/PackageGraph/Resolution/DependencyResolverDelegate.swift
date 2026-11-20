@@ -10,11 +10,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import Dispatch
+public import Basics
+public import Dispatch
 import PackageModel
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 public protocol DependencyResolverDelegate {
     func willResolve(term: Term)

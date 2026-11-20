@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import struct TSCUtility.Version
 
 // MARK: - EnabledTraitsMap

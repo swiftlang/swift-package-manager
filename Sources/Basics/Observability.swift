@@ -13,12 +13,12 @@
 import Dispatch
 import Foundation
 
-import protocol TSCBasic.WritableByteStream
-import struct TSCBasic.Diagnostic
-import protocol TSCBasic.DiagnosticData
-import protocol TSCBasic.DiagnosticLocation
-import class TSCBasic.TerminalController
-import class TSCBasic.UnknownLocation
+public import protocol TSCBasic.WritableByteStream
+public import struct TSCBasic.Diagnostic
+public import protocol TSCBasic.DiagnosticData
+public import protocol TSCBasic.DiagnosticLocation
+public import class TSCBasic.TerminalController
+public import class TSCBasic.UnknownLocation
 import protocol TSCUtility.DiagnosticDataConvertible
 import enum TSCUtility.Diagnostics
 

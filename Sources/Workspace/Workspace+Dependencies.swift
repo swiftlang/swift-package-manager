@@ -12,46 +12,46 @@
 
 import _Concurrency
 
-import struct Basics.AbsolutePath
-import struct Basics.InternalError
-import class Basics.ObservabilityScope
-import func Basics.os_signpost
-import struct Basics.RelativePath
-import enum Basics.SignpostName
-import struct Basics.SourceControlURL
-import class Basics.ThreadSafeKeyValueStore
+public import struct Basics.AbsolutePath
+public import struct Basics.InternalError
+public import class Basics.ObservabilityScope
+public import func Basics.os_signpost
+public import struct Basics.RelativePath
+public import enum Basics.SignpostName
+public import struct Basics.SourceControlURL
+public import class Basics.ThreadSafeKeyValueStore
 import class Dispatch.DispatchGroup
 import struct Dispatch.DispatchTime
 import enum Dispatch.DispatchTimeInterval
-import struct PackageGraph.Assignment
-import enum PackageGraph.BoundVersion
-import enum PackageGraph.ContainerUpdateStrategy
-import protocol PackageGraph.CustomPackageContainer
-import protocol PackageGraph.PackageContainer
-import struct PackageGraph.DependencyResolverBinding
-import protocol PackageGraph.DependencyResolverDelegate
-import struct PackageGraph.Incompatibility
-import struct PackageGraph.MultiplexResolverDelegate
-import struct PackageGraph.ObservabilityDependencyResolverDelegate
-import struct PackageGraph.PackageContainerConstraint
-import protocol PackageGraph.PackageContainerProvider
-import struct PackageGraph.PackageGraphRoot
-import struct PackageGraph.PackageGraphRootInput
-import class PackageGraph.ResolvedPackagesStore
-import struct PackageGraph.PubGrubDependencyResolver
-import struct PackageGraph.Term
+public import struct PackageGraph.Assignment
+public import enum PackageGraph.BoundVersion
+public import enum PackageGraph.ContainerUpdateStrategy
+public import protocol PackageGraph.CustomPackageContainer
+public import protocol PackageGraph.PackageContainer
+public import struct PackageGraph.DependencyResolverBinding
+public import protocol PackageGraph.DependencyResolverDelegate
+public import struct PackageGraph.Incompatibility
+public import struct PackageGraph.MultiplexResolverDelegate
+public import struct PackageGraph.ObservabilityDependencyResolverDelegate
+public import struct PackageGraph.PackageContainerConstraint
+public import protocol PackageGraph.PackageContainerProvider
+public import struct PackageGraph.PackageGraphRoot
+public import struct PackageGraph.PackageGraphRootInput
+public import class PackageGraph.ResolvedPackagesStore
+public import struct PackageGraph.PubGrubDependencyResolver
+public import struct PackageGraph.Term
 import class PackageLoading.ManifestLoader
-import enum PackageModel.PackageDependency
-import struct PackageModel.PackageIdentity
-import struct PackageModel.PackageReference
-import enum PackageModel.ProductFilter
-import struct PackageModel.ToolsVersion
-import struct SourceControl.Revision
-import struct TSCUtility.Version
-import struct PackageModel.TargetDescription
-import struct PackageModel.TraitDescription
-import enum PackageModel.TraitConfiguration
-import class PackageModel.Manifest
+public import enum PackageModel.PackageDependency
+public import struct PackageModel.PackageIdentity
+public import struct PackageModel.PackageReference
+public import enum PackageModel.ProductFilter
+public import struct PackageModel.ToolsVersion
+public import struct SourceControl.Revision
+public import struct TSCUtility.Version
+public import struct PackageModel.TargetDescription
+public import struct PackageModel.TraitDescription
+public import enum PackageModel.TraitConfiguration
+public import class PackageModel.Manifest
 
 extension Workspace {
     enum ResolvedFileStrategy {

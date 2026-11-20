@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Testing
+public import Testing
 
 #if os(Windows)
     extension Trait where Self == ParallelizationTrait {

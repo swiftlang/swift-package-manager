@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 extension Version {
     /// Try a version from a git tag.

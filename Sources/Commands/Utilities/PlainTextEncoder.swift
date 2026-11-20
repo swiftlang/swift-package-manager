@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.Data
+package import struct Foundation.Data
 import class TSCBasic.BufferedOutputByteStream
 import protocol TSCBasic.OutputByteStream
 

@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Basics.Triple
+public import struct Basics.Triple
 import enum PackageModel.BuildConfiguration
 
 extension BuildParameters {

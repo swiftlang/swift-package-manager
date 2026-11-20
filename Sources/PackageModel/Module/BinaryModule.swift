@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Basics.AbsolutePath
+public import struct Basics.AbsolutePath
 
 @available(*, deprecated, renamed: "BinaryModule")
 public typealias BinaryTarget = BinaryModule

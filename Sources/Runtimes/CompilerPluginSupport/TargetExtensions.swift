@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-@_spi(PackageDescriptionInternal) import PackageDescription
+@_spi(PackageDescriptionInternal) public import PackageDescription
 
 public extension Target {
     @available(_PackageDescription, introduced: 5.9, obsoleted: 6.5)

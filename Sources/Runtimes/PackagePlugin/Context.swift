@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+public import Foundation
 
 /// A collection of information about the package on which the package manager invokes the  plugin,
 /// as well as contextual information based on the plugin's intent and requirements.

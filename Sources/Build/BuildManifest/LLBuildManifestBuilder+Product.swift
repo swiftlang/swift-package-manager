@@ -15,9 +15,9 @@ import PackageModel
 import struct Basics.AbsolutePath
 import struct Basics.InternalError
 import struct LLBuildManifest.Node
-import struct SPMBuildCore.BuildParameters
-import struct PackageGraph.ResolvedModule
-import struct PackageGraph.ResolvedProduct
+public import struct SPMBuildCore.BuildParameters
+public import struct PackageGraph.ResolvedModule
+public import struct PackageGraph.ResolvedProduct
 
 extension LLBuildManifestBuilder {
     func createProductCommand(_ buildProduct: ProductBuildDescription) throws {

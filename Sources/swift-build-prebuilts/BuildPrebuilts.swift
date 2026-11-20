@@ -16,10 +16,10 @@
 // for scripts, this will need to be a part of the package. But this is why it's
 // reading like a script
 
-import ArgumentParser
-import Basics
+public import ArgumentParser
+public import Basics
 import Foundation
-import PackageModel
+public import PackageModel
 import struct TSCBasic.ByteString
 import let TSCBasic.stdoutStream
 import struct TSCBasic.SHA256

@@ -10,17 +10,17 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
-import TSCBasic
+public import Foundation
+public import TSCBasic
 
 // Ideally wouldn't expose these (it defeats the purpose of this module), but we should replace this entire API with
 // a BSP server, so this is good enough for now (and LSP is using all these types internally anyway).
-import Basics
-import Build
-import PackageGraph
+public import Basics
+public import Build
+public import PackageGraph
 internal import PackageLoading
-import PackageModel
-import SPMBuildCore
+public import PackageModel
+public import SPMBuildCore
 
 public enum BuildDestination {
     case host

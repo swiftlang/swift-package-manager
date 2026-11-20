@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import enum PackageModel.ProductFilter
-import struct PackageModel.PackageReference
+public import enum PackageModel.ProductFilter
+public import struct PackageModel.PackageReference
 
 public struct DependencyResolverBinding {
     public let package: PackageReference

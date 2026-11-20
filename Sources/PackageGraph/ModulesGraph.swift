@@ -11,14 +11,14 @@
 //===----------------------------------------------------------------------===//
 
 import OrderedCollections
-import PackageLoading
-import PackageModel
-import TSCBasic
+public import PackageLoading
+public import PackageModel
+public import TSCBasic
 
-import protocol Basics.FileSystem
-import class Basics.ObservabilityScope
-import struct Basics.IdentifiableSet
-import class Basics.ThreadSafeKeyValueStore
+public import protocol Basics.FileSystem
+public import class Basics.ObservabilityScope
+public import struct Basics.IdentifiableSet
+public import class Basics.ThreadSafeKeyValueStore
 
 enum PackageGraphError: Swift.Error {
     /// Indicates a non-root package with no modules.

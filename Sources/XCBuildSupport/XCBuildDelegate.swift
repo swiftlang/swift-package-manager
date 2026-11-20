@@ -10,15 +10,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import Foundation
-import SPMBuildCore
+public import SPMBuildCore
 
-import class TSCBasic.ThreadSafeOutputByteStream
-import protocol TSCBasic.OutputByteStream
+public import class TSCBasic.ThreadSafeOutputByteStream
+public import protocol TSCBasic.OutputByteStream
 
-import enum TSCUtility.Diagnostics
-import protocol TSCUtility.ProgressAnimationProtocol
+public import enum TSCUtility.Diagnostics
+public import protocol TSCUtility.ProgressAnimationProtocol
 
 public class XCBuildDelegate {
     private let buildSystem: SPMBuildCore.BuildSystem

@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import struct Foundation.Data
-import struct Foundation.Date
+public import struct Foundation.Data
+public import struct Foundation.Date
 
 #if USE_IMPL_ONLY_IMPORTS
 #if canImport(Security)
@@ -29,7 +29,7 @@ import SwiftASN1
 @_spi(CMS) import X509
 #endif
 
-import Basics
+public import Basics
 
 // MARK: - Public signature API
 

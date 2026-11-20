@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+package import Basics
 
 extension Basics.Diagnostic {
     package static var swiftBackDeployWarning: Self {

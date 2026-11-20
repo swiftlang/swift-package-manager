@@ -10,12 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import PackageModel
+public import Basics
+public import PackageModel
 import Foundation
 
-import class Basics.AsyncProcess
-import struct TSCBasic.RegEx
+public import class Basics.AsyncProcess
+public import struct TSCBasic.RegEx
 
 import enum TSCUtility.Platform
 

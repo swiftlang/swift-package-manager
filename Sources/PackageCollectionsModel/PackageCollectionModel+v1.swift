@@ -10,7 +10,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Foundation
+public import Foundation
 
 extension PackageCollectionModel {
     /// Version 1 of the package collection format.

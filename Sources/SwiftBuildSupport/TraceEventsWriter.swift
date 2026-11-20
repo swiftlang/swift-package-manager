@@ -10,9 +10,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+package import Basics
 import Foundation
-import SwiftBuild
+package import SwiftBuild
 
 /// Streams build task events to a file in Trace Event JSON Array Format. The format is documented at:
 /// https://docs.google.com/document/d/1CvAClvFfyA5R-PhYUmn5OOQtYMH4h6I0nSsKchNAySU

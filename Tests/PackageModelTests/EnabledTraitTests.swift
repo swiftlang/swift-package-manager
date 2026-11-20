@@ -998,7 +998,7 @@ extension EnabledTraits {
     /// Helper method that removes a trait from the set and unwraps the returned optional.
     /// This method asserts that the trait exists in the set before removal, making tests
     /// more concise by combining removal and nil-checking in a single operation.
-    package mutating func unwrapRemove(_ trait: Element) throws -> Element {
+    mutating func unwrapRemove(_ trait: Element) throws -> Element {
         let optionalTrait = self.remove(trait)
         let trait = try #require(optionalTrait)
         return trait

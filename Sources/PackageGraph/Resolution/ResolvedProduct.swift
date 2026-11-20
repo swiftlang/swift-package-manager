@@ -10,8 +10,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
-import PackageModel
+public import Basics
+public import PackageModel
 
 public struct ResolvedProduct {
     /// The name of this product.

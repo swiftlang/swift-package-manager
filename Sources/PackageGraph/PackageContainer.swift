@@ -10,12 +10,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-import Basics
+public import Basics
 import _Concurrency
-import Dispatch
-import PackageModel
+public import Dispatch
+public import PackageModel
 
-import struct TSCUtility.Version
+public import struct TSCUtility.Version
 
 /// A container of packages.
 ///
