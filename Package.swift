@@ -85,13 +85,8 @@ let swiftPMProduct = (
 
 #if os(Windows)
 let includeDynamicLibrary: Bool = false
-let systemSQLitePkgConfig: String? = nil
 #else
 let includeDynamicLibrary: Bool = true
-var systemSQLitePkgConfig: String? = "sqlite3"
-if ProcessInfo.processInfo.environment["SWIFTCI_INSTALL_RPATH_OS"] == "android" {
-    systemSQLitePkgConfig = nil
-}
 #endif
 
 /** An array of products which have two versions listed: one dynamically linked, the other with the
@@ -153,8 +148,10 @@ if useSystemSDKDeps {
     swiftSystemDeps = [
         .product(name: "SystemPackage", package: "swift-system"),
     ]
+    // Apple platforms use the `SQLite3` module provided by the SDK. Everywhere else, SQLite is
+    // provided by swift-toolchain-sqlite, in the same manner as llbuild.
     swiftToolchainSQLiteDeps = [
-        .product(name: "SwiftToolchainCSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.windows, .android])),
+        .product(name: "SwiftToolchainCSQLite", package: "swift-toolchain-sqlite", condition: .when(platforms: [.linux, .windows, .android, .openbsd, .custom("freebsd")])),
     ]
 }
 
@@ -250,8 +247,6 @@ let package = Package(
 
         // MARK: SwiftPM specific support libraries
 
-        .systemLibrary(name: "SPMSQLite3", pkgConfig: systemSQLitePkgConfig),
-
         .target(
             name: "_AsyncFileSystem",
             dependencies: swiftSystemDeps,
@@ -267,7 +262,6 @@ let package = Package(
             name: "Basics",
             dependencies: [
                 "_AsyncFileSystem",
-                .target(name: "SPMSQLite3", condition: .when(platforms: [.macOS, .iOS, .tvOS, .watchOS, .visionOS, .macCatalyst, .linux, .openbsd, .custom("freebsd")])),
                 .product(name: "DequeModule", package: "swift-collections"),
                 .product(name: "OrderedCollections", package: "swift-collections"),
                 .product(name: "Subprocess", package: "swift-subprocess"),

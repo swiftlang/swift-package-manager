@@ -249,6 +249,7 @@ def parse_global_args(args):
     args.source_dirs["swift-asn1"]            = os.path.join(args.project_root, "..", "swift-asn1")
     args.source_dirs["swift-syntax"]          = os.path.join(args.project_root, "..", "swift-syntax")
     args.source_dirs["swift-build"]           = os.path.join(args.project_root, "..", "swift-build")
+    args.source_dirs["swift-toolchain-sqlite"] = os.path.join(args.project_root, "..", "swift-toolchain-sqlite")
     args.source_root                          = os.path.join(args.project_root, "Sources")
 
     if platform.system() == 'Darwin':
@@ -700,6 +701,10 @@ def build_swiftpm_with_cmake(args):
     if platform.system() == 'Darwin':
         cmake_flags.append("-DCMAKE_C_FLAGS=-target %s%s" % (get_build_target(args), g_macos_deployment_target))
         cmake_flags.append("-DCMAKE_OSX_DEPLOYMENT_TARGET=%s" % g_macos_deployment_target)
+    elif os.path.isdir(args.source_dirs["swift-toolchain-sqlite"]):
+        # Darwin uses the SQLite3 module from the SDK. Everywhere else, use the
+        # swift-toolchain-sqlite checkout if there is one, rather than fetching it.
+        cmake_flags.append("-DFETCHCONTENT_SOURCE_DIR_SQLITE=%s" % args.source_dirs["swift-toolchain-sqlite"])
 
     build_with_cmake(args, cmake_flags, ["swift-bootstrap", "PackageDescription", "PackagePlugin", "CompilerPluginSupport"], args.project_root, args.bootstrap_dir)
 
