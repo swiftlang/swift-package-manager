@@ -438,6 +438,24 @@ public final class BuildOperation: PackageStructureDelegate, SPMBuildCore.BuildS
             return result
         }
 
+        let generatedSourceFileProtection = self.pluginConfiguration.map {
+            GeneratedSourceFileProtection(
+                fileSystem: self.fileSystem,
+                pluginWorkDirectory: $0.workDirectory
+            )
+        }
+        try generatedSourceFileProtection?.prepareForBuild()
+        defer {
+            do {
+                try generatedSourceFileProtection?.protectGeneratedSources()
+            } catch {
+                self.observabilityScope.emit(
+                    warning: "unable to make generated source files read-only",
+                    underlyingError: error
+                )
+            }
+        }
+
         if let stripProduct = self.config.destinationBuildParameters.stripProducts {
             self.observabilityScope.emit(
                 Basics.Diagnostic.unsupportedStripProductsConfigurationFlag(
